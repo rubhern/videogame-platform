@@ -1,5 +1,6 @@
 package com.videogameplatform.ratings.adapter.persistence;
 
+import com.videogameplatform.catalogue.application.releases.RecordCommunityScoresUseCase;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics.Action;
 import com.videogameplatform.ratings.application.PersonalRating;
@@ -28,7 +29,11 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
-/** PostgreSQL current-state store with conditional single-row writes and atomic aggregate reads. */
+/**
+ * PostgreSQL current-state store with conditional single-row writes and atomic aggregate reads.
+ * Every write also replaces the game's community score in Catalogue's projection (ADR-0029) in the
+ * same transaction, serialized per game so concurrent writes never project a stale aggregate.
+ */
 public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private static final String RATING_VALUE = "value";
     private static final String RETURNING =
@@ -53,14 +58,17 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
     private final RatingActivityMetrics activity;
+    private final RecordCommunityScoresUseCase scores;
 
     public JdbcPersonalRatingStore(
             NamedParameterJdbcOperations jdbc,
             TransactionOperations transaction,
-            RatingActivityMetrics activity) {
+            RatingActivityMetrics activity,
+            RecordCommunityScoresUseCase scores) {
         this.jdbc = jdbc;
         this.transaction = transaction;
         this.activity = activity;
+        this.scores = scores;
     }
 
     @Override
@@ -82,6 +90,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
             String userId, String gameId, RatingValue value, Instant now, String versionToken) {
         return write(
                 Action.CREATED,
+                gameId,
                 () -> {
                     MapSqlParameterSource parameters =
                             parameters(userId, gameId)
@@ -107,6 +116,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
             String nextVersion) {
         return write(
                 Action.UPDATED,
+                gameId,
                 () -> {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
@@ -130,6 +140,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     public RatingStatistics.Available delete(String userId, String gameId, String expectedVersion) {
         return write(
                 Action.DELETED,
+                gameId,
                 () -> {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
@@ -147,12 +158,22 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     if (deleted == 0) {
                         throw new RatingWriteConflictException();
                     }
-                    return RatingStatisticsQuery.read(jdbc, gameId);
+                    return project(gameId);
                 });
     }
 
     private RatingCommandResult result(PersonalRating rating, String gameId) {
-        return new RatingCommandResult(rating, RatingStatisticsQuery.read(jdbc, gameId));
+        return new RatingCommandResult(rating, project(gameId));
+    }
+
+    /** Reads the game's aggregate after the write and projects it for the release order. */
+    private RatingStatistics.Available project(String gameId) {
+        RatingStatistics.Available statistics = RatingStatisticsQuery.read(jdbc, gameId);
+        scores.replace(
+                gameId,
+                new RecordCommunityScoresUseCase.CommunityScore(
+                        statistics.mean(), statistics.count()));
+        return statistics;
     }
 
     private void requireCurrentVersion(UUID userId, UUID gameId, String expectedVersion) {
@@ -202,11 +223,12 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
         }
     }
 
-    private <T> T write(Action action, Command<T> command) {
+    private <T> T write(Action action, String gameId, Command<T> command) {
         try {
             return Objects.requireNonNull(
                     transaction.execute(
                             status -> {
+                                CommunityScoreLock.acquire(jdbc, gameId);
                                 T result = command.execute();
                                 activity.afterCommit(action);
                                 return result;

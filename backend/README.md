@@ -66,8 +66,8 @@ For deterministic examples add
 development-only, excluded from the production image, and holds a small intentional
 matrix (several pages, an incomplete last page, filters with many/few/no results,
 every date precision, both cover-fallback reasons). It uses absolute dates, so add
-`PLATFORM_CLOCK_FIXED_INSTANT=2026-08-13T10:00:00Z` to evaluate the same `recent`
-and `upcoming` windows the browser gate asserts.
+`PLATFORM_CLOCK_FIXED_INSTANT=2026-08-13T10:00:00Z` to evaluate the same current week
+and release ranges the browser gate asserts.
 
 Configuration names, defaults, and secret classification are maintained in
 [`backend/.env.example`](.env.example) and

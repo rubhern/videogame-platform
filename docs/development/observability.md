@@ -35,8 +35,9 @@ with a dedicated short statement timeout; health details remain hidden.
 - Use route templates and bounded outcome/code vocabularies in metric labels.
 - Use standard `http.server.requests` for request rate, status, and latency; its
   percentile histogram supports latency analysis without defining an SLO.
-- `catalogue.releases.result.count{view}` is the one release-specific meter and
-  records successful page yield for the closed `recent`/`upcoming` vocabulary.
+- `catalogue.releases.result.count{sort}` is the one release-specific meter and
+  records successful page yield for the closed
+  `releaseDate`/`hype`/`rating`/`externalPlayerScore` vocabulary (#285, replacing the retired `view` label).
 - `catalogue.featured.selection{status,freshness,granularity,period,lead_image}` counts
   successful featured reads (#151, #329): `status` is `ranked`, `popularity_unavailable` or
   `no_qualifying_releases`; `freshness` is `fresh`, `stale` or `none`; `granularity` is

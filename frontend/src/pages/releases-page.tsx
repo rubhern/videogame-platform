@@ -1,4 +1,6 @@
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+
+import { readDayFrame } from "../features/releases/day-bar";
 
 import type { ReleasesApiError } from "../features/releases/releases-api";
 import { readReleasesSearch } from "../features/releases/releases-search";
@@ -33,6 +35,7 @@ function toFailureState(error: ReleasesApiError): ReleasesShellState {
 
 export function ReleasesPage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const search = readReleasesSearch(searchParams);
   const query = useReleasesQuery(search);
 
@@ -52,6 +55,7 @@ export function ReleasesPage() {
 
   return (
     <ReleasesShell
+      keptFrame={readDayFrame(location.state)}
       onRetry={() => {
         void query.refetch();
       }}

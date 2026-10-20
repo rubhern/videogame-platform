@@ -39,7 +39,6 @@ function page(
   overrides: Partial<components["schemas"]["ReleasePage"]> = {},
 ): components["schemas"]["ReleasePage"] {
   return {
-    view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
     activeFilters: { platformIds: [], regionIds: [] },
@@ -168,7 +167,6 @@ const upcomingPage = page(
     }),
   ],
   {
-    view: "upcoming",
     window: { from: "2026-08-13", to: "2027-02-13" },
     activeFilters: { platformIds: ["windows-pc"], regionIds: [] },
     availableFilters: {
@@ -203,10 +201,20 @@ describe("releases view model", () => {
   it("describes the evaluated window without inventing dates", () => {
     const model = toReleasesViewModel(upcomingPage);
 
-    expect(model.title).toBe("Próximos lanzamientos");
     expect(model.windowDescription).toBe("Del 13 de agosto de 2026 al 13 de febrero de 2027");
+    expect(model.windowRange).toBe("13 ago 2026 – 13 feb 2027");
     expect(model.items[0]?.releaseGroups[0]?.date).toBe("Fecha por confirmar");
     expect(model.items[0]?.releaseGroups[0]?.region).toBe("Sin región confirmada");
+  });
+
+  it("names a single explored day once", () => {
+    const model = toReleasesViewModel({
+      ...upcomingPage,
+      window: { from: "2026-10-20", to: "2026-10-20" },
+    });
+
+    expect(model.windowRange).toBe("20 oct 2026");
+    expect(model.windowDescription).toBe("El 20 de octubre de 2026");
   });
 
   it("exposes the available filters and the active values the API confirmed", () => {

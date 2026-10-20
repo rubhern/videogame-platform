@@ -5,6 +5,7 @@ import { PlatformMarks } from "../../shared/catalogue/platform-marks";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { hiddenPlatformsLabel, type GameSearchResult } from "./game-search-view-model";
+import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
 type GameSearchCardProps = {
   result: GameSearchResult;
@@ -19,18 +20,19 @@ type GameSearchCardProps = {
  */
 export function GameSearchCard({ result }: GameSearchCardProps) {
   const gamePath = `/games/${result.gameId}/${result.slug}`;
+  const linkState = useGameLinkState();
   const { platforms, hiddenPlatformCount } = result;
 
   return (
     <article className="catalogue-card search-card">
-      <CatalogueCover caption={false} cover={result.cover} to={gamePath} />
+      <CatalogueCover caption={false} cover={result.cover} linkState={linkState} to={gamePath} />
       <div className="search-card-record">
         <p className="search-card-year">
           <span className="sr-only">Lanzamiento: </span>
           {result.year}
         </p>
         <h3 className="card-title">
-          <Link to={gamePath}>{result.title}</Link>
+          <Link state={linkState} to={gamePath}>{result.title}</Link>
         </h3>
         {result.matchedAlias === null ? null : (
           <p className="search-card-alias">

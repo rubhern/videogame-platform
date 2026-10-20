@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 import { assignLocation } from "../../shared/browser/navigate";
 import { GameMeter } from "../../shared/score/game-meter";
@@ -85,6 +85,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   const statusId = useId();
   const feedbackId = useId();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const session = useSession();
   const csrfToken =
     session.data?.authenticated === true ? session.data.csrfToken : null;
@@ -129,7 +130,8 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
     if (marker === null) return;
     const next = new URLSearchParams(searchParams);
     next.delete("rating-intent");
-    setSearchParams(next, { replace: true, preventScrollReset: true });
+    // Consuming the marker keeps the entry's origin, so the way back still names it (#285).
+    setSearchParams(next, { replace: true, preventScrollReset: true, state: location.state });
   }
 
   function close(returnFocus: boolean) {

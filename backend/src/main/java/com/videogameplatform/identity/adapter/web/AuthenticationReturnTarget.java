@@ -11,8 +11,28 @@ public final class AuthenticationReturnTarget {
     private static final int MAX_LENGTH = 2048;
     private static final Pattern GAME_PATH =
             Pattern.compile("/games/[a-z0-9-]{1,100}(?:/[a-z0-9-]{1,200})?");
-    private static final Set<String> BROWSE_QUERY =
-            Set.of("view", "month", "weeks", "platformIds", "regionIds", "page", "pageSize");
+    // TOPómetro's periods, plus the former release-list parameters the SPA still redirects.
+    private static final Set<String> LANDING_QUERY =
+            Set.of(
+                    "granularity",
+                    "week",
+                    "month",
+                    "view",
+                    "weeks",
+                    "platformIds",
+                    "regionIds",
+                    "page",
+                    "pageSize");
+    private static final Set<String> RELEASES_QUERY =
+            Set.of(
+                    "from",
+                    "to",
+                    "sort",
+                    "includeApproximateDates",
+                    "platformIds",
+                    "regionIds",
+                    "page",
+                    "pageSize");
     private static final Set<String> SEARCH_QUERY = Set.of("q", "page", "pageSize");
     private static final Set<String> GAME_QUERY = Set.of("platformId", "regionId");
     private static final Set<String> ADMINISTRATION_QUERY = Set.of("tab", "year", "month");
@@ -31,7 +51,9 @@ public final class AuthenticationReturnTarget {
             }
             Set<String> allowed;
             if ("/".equals(path)) {
-                allowed = BROWSE_QUERY;
+                allowed = LANDING_QUERY;
+            } else if ("/lanzamientos".equals(path)) {
+                allowed = RELEASES_QUERY;
             } else if ("/search".equals(path)) {
                 allowed = SEARCH_QUERY;
             } else if ("/mis-puntuaciones".equals(path)) {

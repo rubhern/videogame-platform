@@ -11,7 +11,7 @@ import {
 import type { FeaturedGranularity, FeaturedSearch } from "./featured-search";
 import { DialSilhouette } from "./month-dial";
 import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
-import { readReleasesSearch, releasesSearchPath } from "./releases-search";
+import { releasesRangePath } from "./releases-search";
 
 export type FeaturedShellState =
   | { status: "loading" }
@@ -29,11 +29,6 @@ type FeaturedReleasesShellProps = {
   state: FeaturedShellState;
   onRetry: () => void;
 };
-
-/** The row's link and an unranked or empty period's notice open the release lists, on recent. */
-const releasesPath = releasesSearchPath(readReleasesSearch(new URLSearchParams()), {
-  view: "recent",
-});
 
 /** The period's featured release and up to five more; the row never fills artificial slots. */
 const OTHER_PLACEHOLDERS = 5;
@@ -129,8 +124,11 @@ function UnrankedNotice({ model }: { model: FeaturedReleasesViewModel }) {
             ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
             : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
       </p>
-      <Link className="button button-primary" to={releasesPath}>
-        Ver lanzamientos recientes
+      <Link
+        className="button button-primary"
+        to={releasesRangePath(model.window.from, model.window.to)}
+      >
+        Explorar lanzamientos
       </Link>
     </div>
   );
@@ -204,7 +202,11 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
                   <h2 className="featured-others-title" id="featured-others-title">
                     Más lanzamientos del TOPómetro
                   </h2>
-                  <Link className="featured-all-link view-action" to={releasesPath}>
+                  {/* The explorer opens on exactly the represented week or month (#285). */}
+                  <Link
+                    className="featured-all-link view-action"
+                    to={releasesRangePath(model.window.from, model.window.to)}
+                  >
                     Ver todos los lanzamientos <span aria-hidden="true">→</span>
                   </Link>
                 </div>

@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SIZE,
   hasActiveFilters,
-  readDiscoveryView,
+  legacyReleasesPath,
+  rangeDays,
+  rangeProblem,
   readReleasesSearch,
+  releasesRangePath,
   releasesSearchPath,
   toggleFilterValue,
   toReleasesQuery,
@@ -15,39 +18,31 @@ function read(query: string) {
   return readReleasesSearch(new URLSearchParams(query));
 }
 
-describe("releases navigable state", () => {
-  it("defaults to the recent first page with no filters", () => {
+describe("release explorer navigable state", () => {
+  it("defaults to the current week, ordered by date, on the first page with no filters", () => {
     expect(read("")).toEqual({
-      view: "recent",
-      weeks: 1,
+      from: null,
+      to: null,
+      sort: "releaseDate",
       includeApproximateDates: false,
       platformIds: [],
       regionIds: [],
       page: 1,
       pageSize: DEFAULT_PAGE_SIZE,
     });
+    expect(releasesSearchPath(read(""), { page: 1 })).toBe("/lanzamientos");
   });
 
-  it("uses twelve releases for both windows and preserves explicit page sizes", () => {
-    expect(read("view=upcoming").pageSize).toBe(DEFAULT_PAGE_SIZE);
-    expect(releasesSearchPath(read(""), { view: "upcoming", page: 1 })).toBe("/?view=upcoming&weeks=1");
-    expect(releasesSearchPath(read("view=upcoming"), { view: "recent", page: 1 })).toBe(
-      "/?view=recent&weeks=1",
-    );
-    expect(releasesSearchPath(read("?pageSize=24"), { view: "upcoming", page: 1 })).toBe(
-      "/?view=upcoming&weeks=1&pageSize=24",
-    );
-  });
-
-  it("restores a shared multi-select filtered page", () => {
+  it("restores a shared range, order, approximate dates, filters and page", () => {
     expect(
       read(
-        "view=upcoming&platformIds=platform-ps5&platformIds=platform-switch&regionIds=region-eu&page=3&pageSize=24",
+        "from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&platformIds=platform-ps5&platformIds=platform-switch&regionIds=region-eu&page=3&pageSize=24",
       ),
     ).toEqual({
-      view: "upcoming",
-      weeks: 1,
-      includeApproximateDates: false,
+      from: "2026-08-01",
+      to: "2026-08-31",
+      sort: "hype",
+      includeApproximateDates: true,
       platformIds: ["platform-ps5", "platform-switch"],
       regionIds: ["region-eu"],
       page: 3,
@@ -55,118 +50,99 @@ describe("releases navigable state", () => {
     });
   });
 
+  it.each([
+    ["only one bound", "from=2026-08-01"],
+    ["only the other bound", "to=2026-08-31"],
+    ["an end before the start", "from=2026-08-31&to=2026-08-01"],
+    ["a day that does not exist", "from=2026-02-28&to=2026-02-30"],
+    ["a malformed day", "from=1-8-2026&to=2026-08-31"],
+    ["more than 92 days", "from=2026-08-01&to=2026-11-01"],
+  ])("reads %s as the current week instead of reaching the API", (_, query) => {
+    const search = read(query);
+    expect(search.from).toBeNull();
+    expect(search.to).toBeNull();
+  });
+
+  it("accepts single days, leap days, month ends, year ends and the widest range", () => {
+    expect(read("from=2026-08-13&to=2026-08-13").from).toBe("2026-08-13");
+    expect(read("from=2028-02-29&to=2028-02-29").to).toBe("2028-02-29");
+    expect(read("from=2026-12-28&to=2027-01-03").to).toBe("2027-01-03");
+    expect(read("from=2026-08-01&to=2026-10-31").to).toBe("2026-10-31");
+    expect(rangeDays("2026-08-01", "2026-10-31")).toBe(92);
+    expect(rangeDays("2026-12-28", "2027-01-03")).toBe(7);
+  });
+
+  it("explains why a typed range cannot be explored", () => {
+    expect(rangeProblem("", "2026-08-31")).toBe("incomplete");
+    expect(rangeProblem("2026-08-31", "2026-08-01")).toBe("reversed");
+    expect(rangeProblem("2026-08-01", "2026-11-01")).toBe("too-long");
+    expect(rangeProblem("2026-08-01", "2026-08-01")).toBeNull();
+  });
+
+  it("falls back to the date order for an unknown sort", () => {
+    expect(read("sort=popularity").sort).toBe("releaseDate");
+    expect(read("sort=rating").sort).toBe("rating");
+    expect(read("sort=externalPlayerScore").sort).toBe("externalPlayerScore");
+  });
+
   it("trims, drops over-long and de-duplicates repeated filter values", () => {
     expect(read("platformIds=%20%20").platformIds).toEqual([]);
     expect(read(`platformIds=${"x".repeat(101)}`).platformIds).toEqual([]);
-    expect(read("platformIds=a&platformIds=a&platformIds=b").platformIds).toEqual(["a", "b"]);
+    expect(read("platformIds=a&platformIds=%20a%20&platformIds=b").platformIds).toEqual(["a", "b"]);
   });
 
-  it("replaces values the contract cannot accept instead of forwarding them", () => {
-    expect(read("view=sideways&weeks=3&page=0&pageSize=500")).toMatchObject({
-      view: "recent",
-      weeks: 1,
-      page: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-    });
-    expect(read("page=-2&pageSize=abc")).toMatchObject({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
-    expect(read("weeks=2").weeks).toBe(2);
-    expect(read("weeks=4").weeks).toBe(4);
+  it("serializes only what differs from the defaults", () => {
+    const search = read("from=2026-08-01&to=2026-08-31&sort=rating&page=2&pageSize=24");
+    expect(writeReleasesSearch(search).toString()).toBe(
+      "from=2026-08-01&to=2026-08-31&sort=rating&page=2&pageSize=24",
+    );
+    expect(releasesSearchPath(search, { from: null, to: null, page: 1 })).toBe(
+      "/lanzamientos?sort=rating&pageSize=24",
+    );
   });
 
-  it("omits defaults and repeats each selected value so a shared URL stays readable", () => {
-    // The view is always named: without it the landing route shows the featured releases.
-    expect(writeReleasesSearch(read("")).toString()).toBe("view=recent&weeks=1");
+  it("opens the explorer on exactly one range from elsewhere", () => {
+    expect(releasesRangePath("2026-08-01", "2026-08-31")).toBe(
+      "/lanzamientos?from=2026-08-01&to=2026-08-31",
+    );
+  });
+
+  it("lands former recent and upcoming links on the explorer with their filters", () => {
     expect(
-      writeReleasesSearch(
-        read("view=upcoming&platformIds=platform-ps5&platformIds=platform-switch&page=2"),
-      ).toString(),
-    ).toBe("view=upcoming&weeks=1&platformIds=platform-ps5&platformIds=platform-switch&page=2");
+      legacyReleasesPath(
+        new URLSearchParams("view=upcoming&weeks=4&platformIds=platform-ps5&page=3&pageSize=24"),
+      ),
+    ).toBe("/lanzamientos?platformIds=platform-ps5&pageSize=24");
+    expect(legacyReleasesPath(new URLSearchParams("view=recent"))).toBe("/lanzamientos");
+    expect(legacyReleasesPath(new URLSearchParams("week=2026-W42"))).toBeNull();
+    expect(legacyReleasesPath(new URLSearchParams(""))).toBeNull();
   });
 
-  it("returns to the first page when a filter or window changes", () => {
-    const current = read("view=upcoming&platformIds=platform-ps5&page=4");
-
-    expect(releasesSearchPath(current, { regionIds: ["region-eu"], page: 1 })).toBe(
-      "/?view=upcoming&weeks=1&platformIds=platform-ps5&regionIds=region-eu",
-    );
-    expect(releasesSearchPath(current, { platformIds: [], regionIds: [], page: 1 })).toBe(
-      "/?view=upcoming&weeks=1",
-    );
-    expect(releasesSearchPath(current, { weeks: 4, page: 1 })).toBe(
-      "/?view=upcoming&weeks=4&platformIds=platform-ps5",
-    );
-  });
-
-  it("restores approximate upcoming dates only from an explicit opt-in", () => {
-    expect(read("view=upcoming&includeApproximateDates=true").includeApproximateDates).toBe(true);
-    expect(read("view=upcoming").includeApproximateDates).toBe(false);
-    expect(read("view=upcoming&includeApproximateDates=1").includeApproximateDates).toBe(false);
-    expect(read("view=upcoming&includeApproximateDates=TRUE").includeApproximateDates).toBe(false);
-    // Recent has no exact-only default to widen, so it never carries the choice.
-    expect(read("includeApproximateDates=true").includeApproximateDates).toBe(false);
-  });
-
-  it("keeps the opt-in shareable on upcoming, resets the page and drops it for recent", () => {
-    const current = read("view=upcoming&platformIds=platform-ps5&page=4");
-
-    expect(releasesSearchPath(current, { includeApproximateDates: true, page: 1 })).toBe(
-      "/?view=upcoming&weeks=1&includeApproximateDates=true&platformIds=platform-ps5",
-    );
-    const optedIn = read("view=upcoming&includeApproximateDates=true&platformIds=platform-ps5&page=2");
-    expect(writeReleasesSearch(optedIn).toString()).toBe(
-      "view=upcoming&weeks=1&includeApproximateDates=true&platformIds=platform-ps5&page=2",
-    );
-    // Clearing the facets keeps the precision choice; leaving the upcoming window drops it.
-    expect(releasesSearchPath(optedIn, { platformIds: [], regionIds: [], page: 1 })).toBe(
-      "/?view=upcoming&weeks=1&includeApproximateDates=true",
-    );
-    expect(releasesSearchPath(optedIn, { view: "recent", page: 1 })).toBe(
-      "/?view=recent&weeks=1&platformIds=platform-ps5",
-    );
-    expect(hasActiveFilters(read("view=upcoming&includeApproximateDates=true"))).toBe(false);
-  });
-
-  it("toggles a value within a dimension, preserving the other values", () => {
-    expect(toggleFilterValue(["a"], "b")).toEqual(["a", "b"]);
-    expect(toggleFilterValue(["a", "b"], "a")).toEqual(["b"]);
-  });
-
-  it("sends only contract parameters to the API and omits empty dimensions", () => {
-    expect(toReleasesQuery(read("view=upcoming&page=2"))).toEqual({
-      view: "upcoming",
-      weeks: 1,
-      page: 2,
-      pageSize: DEFAULT_PAGE_SIZE,
-    });
-    expect(toReleasesQuery(read("view=upcoming&includeApproximateDates=true"))).toEqual({
-      view: "upcoming",
-      weeks: 1,
+  it("maps navigable state to the contract query, omitting what the API defaults", () => {
+    expect(toReleasesQuery(read(""))).toEqual({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+    expect(
+      toReleasesQuery(
+        read(
+          "from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&regionIds=region-eu",
+        ),
+      ),
+    ).toEqual({
+      from: "2026-08-01",
+      to: "2026-08-31",
+      sort: "hype",
       includeApproximateDates: true,
-      page: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-    });
-    // A stale opt-in never reaches a recent request, which the contract would reject.
-    expect(
-      toReleasesQuery({ ...read(""), includeApproximateDates: true }),
-    ).not.toHaveProperty("includeApproximateDates");
-    expect(toReleasesQuery(read("platformIds=platform-ps5&platformIds=platform-switch"))).toEqual({
-      view: "recent",
-      weeks: 1,
-      platformIds: ["platform-ps5", "platform-switch"],
+      regionIds: ["region-eu"],
       page: 1,
       pageSize: DEFAULT_PAGE_SIZE,
     });
   });
 
-  it("opens the featured releases unless the URL names a release list", () => {
-    expect(readDiscoveryView(new URLSearchParams(""))).toBe("featured");
-    expect(readDiscoveryView(new URLSearchParams("month=2026-10"))).toBe("featured");
-    expect(readDiscoveryView(new URLSearchParams("view=sideways"))).toBe("featured");
-    expect(readDiscoveryView(new URLSearchParams("view=recent&weeks=1"))).toBe("recent");
-    expect(readDiscoveryView(new URLSearchParams("view=upcoming"))).toBe("upcoming");
+  it("toggles one value of a multi-select dimension, preserving order", () => {
+    expect(toggleFilterValue(["a", "b"], "c")).toEqual(["a", "b", "c"]);
+    expect(toggleFilterValue(["a", "b", "c"], "b")).toEqual(["a", "c"]);
   });
 
-  it("reports whether any filter is active", () => {
+  it("reports active filters only when a dimension has a value", () => {
     expect(hasActiveFilters(read(""))).toBe(false);
     expect(hasActiveFilters(read("regionIds=region-eu"))).toBe(true);
   });

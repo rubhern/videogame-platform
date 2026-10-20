@@ -827,8 +827,8 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "(sum by (view) (catalogue_releases_result_count_sum{job=\"application-otlp\"})) / ((sum by (view) (catalogue_releases_result_count_count{job=\"application-otlp\"})) > 0)",
-          "legendFormat": "{{view}}",
+          "expr": "(sum by (sort) (catalogue_releases_result_count_sum{job=\"application-otlp\"})) / ((sum by (sort) (catalogue_releases_result_count_count{job=\"application-otlp\"})) > 0)",
+          "legendFormat": "{{sort}}",
           "editorMode": "code",
           "range": false,
           "instant": true

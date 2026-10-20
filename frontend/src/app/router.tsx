@@ -5,6 +5,7 @@ import { CatalogueAdministrationPage } from "../pages/catalogue-administration-p
 import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { legalPublicationApproved } from "../shared/legal/publication";
@@ -20,6 +21,7 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { index: true, element: <DiscoveryPage /> },
+      { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },

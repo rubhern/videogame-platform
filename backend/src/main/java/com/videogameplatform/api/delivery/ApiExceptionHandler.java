@@ -1,11 +1,12 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.CatalogueSynchronizationWindow;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.FeaturedGranularity;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
-import com.videogameplatform.api.generated.model.ReleaseView;
+import com.videogameplatform.api.generated.model.ReleaseSort;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
@@ -24,6 +25,7 @@ import com.videogameplatform.ratings.application.RatingWriteConflictException;
 import com.videogameplatform.ratings.application.RatingWriteException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -90,10 +92,10 @@ public class ApiExceptionHandler {
                             HttpStatus.UNPROCESSABLE_CONTENT,
                             exception.code(),
                             "Release filter is invalid",
-                            "Correct the release view or filter combination.",
+                            "Correct the release range or filter combination.",
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
-                            "Use exactly one supported release view or filter value.");
+                            "Use exactly one supported release range or filter value.");
             case PAGINATION_INVALID ->
                     problem(
                             response,
@@ -369,6 +371,14 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             "/query/regionIds",
                             "Use a supported region identifier.");
+            case RANGE_START_MISSING ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/from"),
+                            response);
+            case RANGE_END_MISSING, RANGE_INVALID ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/to"),
+                            response);
         };
     }
 
@@ -530,17 +540,25 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<Problem> requestValueInvalid(
             MethodArgumentTypeMismatchException exception, HttpServletResponse response) {
-        if (ReleaseView.class.equals(exception.getRequiredType())
-                || FeaturedGranularity.class.equals(exception.getRequiredType())) {
+        if (ReleaseSort.class.equals(exception.getRequiredType())) {
+            return requestInvalid(
+                    new ApiRequestException(ProblemCode.SORT_INVALID, "/query/sort"), response);
+        }
+        // A malformed release range bound is a filter value the contract does not accept.
+        boolean releaseRangeBound =
+                LocalDate.class.equals(exception.getRequiredType())
+                        && ReleasesApi.class.isAssignableFrom(
+                                exception.getParameter().getContainingClass());
+        if (releaseRangeBound || FeaturedGranularity.class.equals(exception.getRequiredType())) {
             return problem(
                     response,
                     HttpStatus.UNPROCESSABLE_CONTENT,
                     ProblemCode.FILTER_INVALID,
                     "Release filter is invalid",
-                    "Correct the release view or filter combination.",
+                    "Correct the release range or filter combination.",
                     ErrorCategory.VALIDATION,
                     "/query/" + exception.getName(),
-                    "Use exactly one supported release view or filter value.");
+                    "Use exactly one supported release range or filter value.");
         }
         return requestMalformed(response);
     }
@@ -594,7 +612,7 @@ public class ApiExceptionHandler {
                 pagination ? "Pagination is invalid" : "Release filter is invalid",
                 pagination
                         ? "Use page at least 1 and pageSize from 1 through 100."
-                        : "Correct the release view or filter combination.",
+                        : "Correct the release range or filter combination.",
                 ErrorCategory.VALIDATION,
                 "/query/" + parameter,
                 pagination

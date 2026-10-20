@@ -172,7 +172,7 @@ def synthetic_metrics(count):
     counter('catalogue.search.result.outcome', {'outcome': 'results'})
     for eligibility in ('ELIGIBLE_RELEASE_FOUND', 'RELEASE_NOT_OCCURRED'):
         counter('catalogue.game.details', {'eligibility': eligibility, 'aggregate': 'available'})
-    histogram('catalogue.releases.result.count', {'view': 'recent'})
+    histogram('catalogue.releases.result.count', {'sort': 'releaseDate'})
     counter('process.cpu.time', {}, 'nanoseconds', 1_000_000_000)
     for name, unit, labels, value in [
         ('jvm.memory.used', 'bytes', {'area': 'heap', 'id': 'G1 Eden Space'}, 1024),
@@ -384,8 +384,9 @@ for path in sorted((root / 'deploy/private-dev/grafana/dashboards').glob('*.json
 assert seen == expected_uids
 assert {item["uid"] for item in request("http://grafana:3000/api/search?type=dash-db", authenticated=True)} == expected_uids, "Obsolete or duplicate dashboards remain"
 series = query('{job="application-otlp"}')
+# 'view' is the release meter's label before #285; its last series may outlive a rollout briefly.
 allowed = {'__name__', 'job', 'instance', 'uri', 'method', 'status', 'outcome', 'le', 'area', 'id',
-           'exception', 'error', 'action', 'cause', 'state', 'pool', 'name', 'view', 'eligibility', 'aggregate', 'kind', 'operation', 'reason', 'code', 'freshness', 'month', 'lead_image'}
+           'exception', 'error', 'action', 'cause', 'state', 'pool', 'name', 'view', 'sort', 'eligibility', 'aggregate', 'kind', 'operation', 'reason', 'code', 'freshness', 'month', 'lead_image'}
 for sample in series:
     assert set(sample['metric']) <= allowed, 'Unexpected stored metric dimension'
     assert sample['metric'].get('instance') == 'telemetry:9464', 'Unbounded resource instance stored'

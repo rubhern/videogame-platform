@@ -14,6 +14,10 @@ class AuthenticationReturnTargetTest {
                 "/?view=upcoming&weeks=4&platformIds=pc",
                 "/?month=2026-10",
                 "/?view=recent&weeks=1",
+                "/?week=2026-W42",
+                "/?granularity=month",
+                "/lanzamientos",
+                "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&platformIds=pc&regionIds=europe&page=2&pageSize=12",
                 "/search?q=Final+Fantasy&page=2",
                 "/mis-puntuaciones",
                 "/administracion/catalogo?tab=cobertura&year=1997&month=12",
@@ -45,6 +49,9 @@ class AuthenticationReturnTargetTest {
                 "/search#//evil",
                 "/search?q=%5cevil",
                 "/administracion/catalogo?from=1997-01-01",
+                "/lanzamientos?redirect=https://attacker.example",
+                "/lanzamientos?q=zelda",
+                "/lanzamientos/../auth/start",
                 "/administracion/catalogo/../../auth/start",
                 "javascript:alert(1)"
             })

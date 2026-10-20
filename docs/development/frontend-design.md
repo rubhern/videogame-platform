@@ -115,17 +115,29 @@ Avoid generic patterns: purple or pink decorative gradients, aurora washes, glas
 their own sake, neon or tube-like glows, permanent particles, dashboard chrome, orange buttons,
 and gauges, needles or G shapes without a value to show.
 
-**Compact window scale.** The release windows unroll their API window the same way, one division
-per day under the title: the days gone by the API's `evaluatedOn` in the same ice, `hoy` under
-today, and one fire needle, with its pivot, on each day a release on the page falls on. An
-upcoming window starts tomorrow, so today leads the scale as one lit division. Pointing at or
-focusing a release lifts its needle and quiets the others. Releases known only to a month,
-quarter or year take no needle; the scale never invents a day. It is decorative: the period
-beside the title and each card state the same dates in words.
+**Day bar.** Post-MVP (#285, implemented; awaiting owner review), the release explorer unrolls a
+frame of days the same way, one division per day under the title: the days gone by the API's
+`evaluatedOn` in the same ice, `hoy` beside today's numeral, the explored range raised in a band
+of ice over the rail, and one fire needle, with its pivot, on each day a release on the page falls
+on. The frame is the explored range when it spans a week or more, and a shorter range's
+Monday-to-Sunday weeks otherwise; a frame the visitor was exploring stays while it still holds the
+range, so picking one day of a month keeps the month's scale, through filters, pages and a return
+from a game page. Every day is a native button below its division that explores that day alone; the one selected day
+is ringed in ice and announced as pressed, and days of the frame outside the range quiet down. The
+days form one toolbar with a single tab stop (the selected day, else today inside the range, else
+its first day) whose arrow keys, Home and End move between days without exploring; Enter or Space
+explores the focused day. Each day reads in full to assistive technology (`viernes, 14 de agosto
+de 2026`), with `hoy` and `en el periodo` where they apply; a week or two adds the weekday's
+initial under each numeral. Day columns keep at least 30px, so a frame wider than the screen
+scrolls sideways inside the bar, centred on the explored day, and never scrolls the page. When the
+range is narrower than its frame, **Ver todo el periodo** follows the bar and explores the whole
+frame again. Pointing at or focusing a release lifts its needle and quiets the others. Releases
+known only to a month, quarter or year take no needle; the bar never invents a day. The rail is
+decorative: the readout beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
 where they carry meaning, and each keeps its own composition: TOPómetro is the period's stage,
-the release windows a cover wall under their day scale, search a catalogue index, the game page
+the release explorer a cover wall under its day bar, search a catalogue index, the game page
 its own cover's stage and `Mis puntuaciones` a thermal ledger. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React screen uses them, and new work never brings
@@ -140,7 +152,7 @@ them back.
   and account sit on night with ice edges. Post-MVP (#341, superseding #151's three sections), the primary
   navigation holds two entries, **Lanzamientos** and **TOPómetro**, named in the
   [product glossary](../product/glossary.md#user-facing-terms); TOPómetro is the landing route
-  and Lanzamientos is current on either release window. The account
+  and Lanzamientos is current on the release explorer, `/lanzamientos` (#285). The account
   control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
   that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
@@ -159,33 +171,32 @@ them back.
   entry links tighten, so the account control never wraps onto a row of its own. The
   single desktop row keeps the compact mark until 1180px for the same reason.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
-  desktop, 24px tablet and 16px phone gutters. Both release windows share one opening — the
-  context line, the title with the API window as its readout, the
-  [compact window scale](#brand-identity) and one row of filter controls — then the cover grid
-  and a closing row. The closing row places the result total on the left and the pager on the
-  right, with both pager links on one row on phones; it omits a repeated page position and is
-  absent without results. Switching between TOPómetro and Lanzamientos belongs to the main
-  navigation; inside Lanzamientos, a **Recientes | Próximos** switch opens the row of controls
-  in TOPómetro's Semana/Mes voice, keeps the platform, region and period selection and returns
-  to the first page.
-- Keep the current release view as the only `h1`: **Lanzamientos recientes**, **Próximos
-  lanzamientos**, or **TOPómetro de la semana** / **TOPómetro del mes** on TOPómetro. **Ya disponibles** or **En
-  calendario** introduces the title, and the API-derived window follows it as the instrument's
-  readout in ice, at the precision the API states (`11–17 oct 2026`, `28 sep – 25 oct 2026`),
-  while assistive technology reads it in full (`Del 11 de octubre de 2026 al 17 de octubre de
-  2026`); omit the redundant evaluation-date label. Never replace API dates with a hard-coded
-  relative period. The readout and its scale wait as quiet placeholders only while a read is
-  under way; a failed read shows neither.
+  desktop, 24px tablet and 16px phone gutters. The release explorer opens with the title and
+  the API's evaluated range as its readout, the [day bar](#brand-identity), then its controls in
+  two rows — the range (**Desde**, **Hasta**, **Aplicar** and, for a named range, **Esta
+  semana**) with **Incluir fechas aproximadas**, then **Ordenar por** and the facets — then the
+  cover grid and a closing row. The closing row places the result total on the left and the
+  pager on the right, with both pager links on one row on phones; it omits a repeated page
+  position and is absent without results. Switching between TOPómetro and Lanzamientos belongs
+  to the main navigation; there is no recent/upcoming switch (#285).
+- Keep the current screen's title as the only `h1`: **Explorar lanzamientos**, or
+  **TOPómetro de la semana** / **TOPómetro del mes** on TOPómetro. The explorer has no context
+  line. The API-evaluated range follows the title as the instrument's readout in ice, at the
+  precision the API states (`10–16 ago 2026`, `28 sep – 25 oct 2026`, `14 ago 2026` for one
+  day), while assistive technology reads it in full (`Del 10 de agosto de 2026 al 16 de agosto
+  de 2026`, `El 14 de agosto de 2026`); omit the evaluation-date label. Never replace API dates
+  with a hard-coded relative period. The readout and its bar wait as quiet placeholders only
+  while a read is under way; a failed read shows neither.
 - Treat 1320px, 834px and 390px as the representative review widths, while supporting reflow
-  from 320px. The release windows' cover grid uses six compact columns at desktop, about four at
+  from 320px. The release explorer's cover grid uses six compact columns at desktop, about four at
   tablet and two at phone widths; search's index uses three, two and one. Do not allow page-level horizontal overflow; the filter and navigation
   rails may scroll horizontally on narrow screens.
 - Beyond the approved featured releases ([below](#featured-releases)), do not add a ranking,
   editorial description, publisher, studio, new release window or destination solely
   because it appears in a reference.
-- Both release windows use the plain night canvas, without decorative artwork behind the
-  header or filters, on phones and wider screens. They open with the platform and region
-  selectors and twelve results per default page so six columns form two rows on wide desktop.
+- The release explorer uses the plain night canvas, without decorative artwork behind the
+  header or filters, on phones and wider screens. It opens with the range, order and facet
+  controls and twelve results per default page so six columns form two rows on wide desktop.
   Keep the opening short enough that the first row of covers is fully visible at 1320×900. Its
   covers fill the column in the standard frame so the artwork leads the card. Under the cover,
   the first relevant release's date follows the fire needle in its compact form at the same
@@ -321,8 +332,8 @@ the executable values; these constraints hold wherever they are used:
 - Featured, search, personal ratings and game details open on a stage lit by art they already
   show, anchored to the top of the document so it runs behind the header: TOPómetro by its
   featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
-  three of the covers the page presents; a game's page by its own cover. The release windows
-  keep the plain night canvas under their opening and cover wall. Each image's hue, not
+  three of the covers the page presents; a game's page by its own cover. The release explorer
+  keeps the plain night canvas under its opening and cover wall. Each image's hue, not
   its luminance, is blown up, blurred and capped in brightness, the copy's side stays in shade,
   and the light falls away into night before the content. It adds no request, stores and
   transforms no image, is hidden from assistive technology and takes no input. A product
@@ -334,7 +345,7 @@ the executable values; these constraints hold wherever they are used:
   per-component shadow scale, a backdrop blur or a halo.
 - Motion is purposeful and limited to transform, opacity and clip: TOPómetro's orchestrated
   entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
-  the window scale's light running to today and its needles landing; a needle lifting for the
+  the day bar's light running to today and its needles landing; a needle lifting for the
   release a visitor points at; a cover easing a little closer on hover; feedback on press and
   selection; a G-meter needle sweeping to its reading and the brand needle's twitch on hover and
   focus. Declare it inside `@media (prefers-reduced-motion: no-preference)` instead of disabling
@@ -382,7 +393,7 @@ the executable values; these constraints hold wherever they are used:
   entry without scores keeps no reserved space. It never renders release rows or status chips,
   so its height never follows the release count, and entries in one row share one height.
   Platform names stay available to assistive technology and as tooltips. Summary, developer,
-  publisher and game modes stay absent. Recent/upcoming cards likewise add only up to two
+  publisher and game modes stay absent. Release explorer cards likewise add only up to two
   genres, preserving date, platform and region as primary context. Their titles clamp at two
   lines; genres and the region keep one line with presentation-only ellipsis. Full labels remain
   in the DOM; release overflow preserves further dates.
@@ -398,12 +409,15 @@ the executable values; these constraints hold wherever they are used:
   game page keeps it. Feature cards keep their own metadata;
   do not introduce a universal card API until further reuse exists.
 - Placeholders take the shape of the screen they replace, so arriving content lands in the same
-  frame: the cover grid for the release windows, the index for search, the detail composition
+  frame: the cover grid for the release explorer, the index for search, the detail composition
   for a game page and ledger lines for the personal collection. Placeholders themselves stay silent; the
   screen keeps exactly one live status.
 - Render platform and region choices from `availableFilters` in labelled select-only
-  comboboxes, in one row of night controls with the period in both release windows; on phones
-  the period spans the row and both facets share the next one. The entire control opens its
+  comboboxes, in one row of night controls after **Ordenar por** (**Fecha de lanzamiento**,
+  **Hype**, **Puntuación Gameómetro**, **Jugadores IGDB**); the two score orders carry their
+  sources' own marks — the Gameómetro G and IGDB's white attribution mark, proportional and
+  never tinted — instead of a generic icon. On phones the order spans its row and both facets
+  share the next one. The entire control opens its
   list, and every option has a decorative icon. Recognized platforms use the owner-provided
   PlayStation, Nintendo Switch, Windows and Xbox marks tinted with the product accent;
   unknown platforms retain a generic gamepad. Mundial is a globe; Europa, Norteamérica, Japón,
@@ -416,13 +430,24 @@ the executable values; these constraints hold wherever they are used:
   one row; selected values may truncate visually, but the full value remains
   accessible in the control and list. Controls keep a visible focus indicator.
   Never hard-code the available choices from the mockup.
-- The upcoming window alone adds **Incluir fechas aproximadas** after the filters: a native
-  labelled checkbox in its own control as tall as the selectors, unchecked by default, whose
-  focus ring outlines the control. It shares the filters' row while it fits, wraps below them
-  rather than stretching them over two rows, and spans the column on phones. Toggling
-  it keeps the other selections, resets pagination and lives in the URL; leaving for the
-  recent window drops it. Empty selections use the approved shared release message; this opt-in
-  remains available without changing its meaning.
+- Below 620px the range, order, facets and approximate dates fold under one **Filtros y orden**
+  night control, closed by default and announced as expanded or collapsed, whose line states
+  what they hold (`Hype · 2 filtros · Fechas aproximadas`), so the first covers stay near the
+  top; the day bar stays open above it. Wider screens never draw the toggle and always show
+  the controls.
+- The range is two native, labelled date fields in the night controls' voice; both bounds are
+  inclusive, they fill with the API's evaluated range, and a range applies on **Aplicar** or
+  Enter, never while a date is half typed. A range the API would reject is explained in place
+  (`El día de fin no puede ser anterior al de inicio`, `Elige como máximo 92 días`) instead of
+  being sent; on phones both dates share a row. A malformed or rejected range in a shared URL
+  reads as the current week.
+- **Incluir fechas aproximadas** follows the range only while the explored range reaches beyond
+  the API's evaluation date: a native labelled checkbox in its own control as tall as the
+  selectors, unchecked by default, whose focus ring outlines the control. It shares the range's
+  row while it fits and wraps below it on phones. Toggling it keeps the other selections,
+  resets pagination and lives in the URL; choosing a range that ends by today drops it, and a
+  failed read keeps an active choice removable. Empty selections use the approved shared release
+  message; this opt-in remains available without changing its meaning.
 - Release results show the game total followed by the current page position (for example,
   `99 juegos · Página 1 de 9`). Use spacing between the opening and the results, and between
   results and the closing row, without separator rules.
@@ -442,9 +467,22 @@ the executable values; these constraints hold wherever they are used:
 
 New page and result-page navigation starts at the top; an explicit fragment targets its
 named element. Browser Back/Forward restores each history entry's reading position,
-including query-driven pages. Release filters and Featured week/month changes preserve
-context; switching discovery sections or submitting another catalogue search starts at
-the top. Shorter results may naturally clamp the viewport to the available height.
+including query-driven pages. Release range, day, order and filter changes and Featured
+week/month changes preserve context; switching discovery sections or submitting another
+catalogue search starts at the top. Shorter results may naturally clamp the viewport to the
+available height.
+
+Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
+was opened from — **Volver al TOPómetro**, **Volver a lanzamientos**, **Volver a resultados** or
+**Volver a mis puntuaciones** — and returns to it with the same period, range, order, filters,
+search and page, restoring that screen's reading position while the document keeps it. Every
+link into a game page from those screens, including a header suggestion opened on them, carries
+the origin in the history entry's React Router state, never in the URL, so a shared game link
+stays clean; the origin survives a reload and browser history and is validated on every read, so
+only a same-origin path to one of those four screens is ever followed
+([`return-context.ts`](../../frontend/src/shared/navigation/return-context.ts)). A direct link or
+any other state returns to TOPómetro. The way back is a new history entry that restores the
+origin entry's offset; Back and Forward keep their own behaviour.
 
 React Router owns restoration after the destination's bounded TanStack Query read is
 ready. Saved offsets live only in the document's memory: never persist them in
@@ -465,9 +503,11 @@ marker, keeps the existing game read; it must not overwrite a rating command's r
 statistics with an unnecessary reload. Explicit query refresh and mutation reconciliation
 remain owned by TanStack Query.
 
-Personal filters remain transient under [personal ratings](#personal-ratings-collection):
-returning to that route reads its default collection rather than persisting personal
-filter state in history or browser storage.
+Personal filters never enter the URL, history state or browser storage under
+[personal ratings](#personal-ratings-collection). Post-MVP (#285, owner request), a return to a
+`Mis puntuaciones` history entry, by its way back or by Back, recalls that entry's search,
+order and page from document memory only, as saved offsets are; a new visit, a reload or any
+other entry reads the default collection.
 The initial default collection read is fresh while mounted and still refreshes on
 mutation invalidation; leaving the page immediately discards its query cache.
 
@@ -544,7 +584,8 @@ reuses the G-meter, thermal bands and labels, while IGDB keeps neutral ink. Both
 /10 value and their own vote count, including one vote. IGDB attribution links to that Game's
 source work and is named **Jugadores IGDB**. An external score has no Gameómetro temperature.
 
-**Más lanzamientos del TOPómetro** follows, with **Ver todos los lanzamientos** (recent window) and up
+**Más lanzamientos del TOPómetro** follows, with **Ver todos los lanzamientos** (the release
+explorer on exactly the represented week or month, #285) and up
 to five wide artwork cards straight on the stage. Each card's landscape frame carries the
 context-selected media under `FEAT-003` in the
 [domain model](../architecture/domain/mvp-domain-model.md); a screenshot may carry the game's
@@ -555,7 +596,7 @@ platform marks, the exact `+N` and the region, then up to two localized genres a
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
 period replaces the hero and the row with an informational or empty notice that names the
-period and links to the recent window; an unranked notice names the missing Hype data without a value, and a week's empty notice says that no release with a confirmed day
+period and offers **Explorar lanzamientos** on the represented period; an unranked notice names the missing Hype data without a value, and a week's empty notice says that no release with a confirmed day
 starts inside it. Nothing fills an empty period with unrelated releases.
 
 From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and

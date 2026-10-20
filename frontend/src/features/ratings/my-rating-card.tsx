@@ -10,6 +10,7 @@ import type { MyRatingItem } from "./my-ratings-api";
 import { useRatingCommand } from "./use-personal-rating";
 import type { RatingCommandError } from "./personal-rating-api";
 import { RatingKeypad } from "./rating-keypad";
+import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
 const failures: Record<RatingCommandError["kind"], string> = {
   authentication: "Tu sesión ha caducado. Puedes iniciar sesión al puntuar desde la ficha del juego.",
@@ -71,6 +72,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   const mustRead = failure !== null && failure.readAt === readAt
     && (failure.error.kind === "ambiguous" || failure.error.kind === "conflict");
   const path = `/games/${game.gameId}/${game.slug}`;
+  const linkState = useGameLinkState();
   const cover = "attribution" in game.primaryCover
     ? { ...game.primaryCover, kind: "provider" as const }
     : { ...game.primaryCover, kind: "fallback" as const };
@@ -149,9 +151,9 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
 
   // The row's edge takes the temperature of the visitor's own rating, so the ledger reads at a glance.
   return <article className="my-rating-card" aria-labelledby={id} aria-busy={busy} data-thermal={band ?? undefined}>
-    <CatalogueCover cover={cover} to={path} />
+    <CatalogueCover cover={cover} linkState={linkState} to={path} />
     <div className="my-rating-body">
-      <h2 className="card-title" id={id}><Link to={path}>{game.canonicalTitle}</Link></h2>
+      <h2 className="card-title" id={id}><Link state={linkState} to={path}>{game.canonicalTitle}</Link></h2>
       <GameGenres genres={game.genres} />
       <DiscoveryScores scores={scores} title={game.canonicalTitle} />
     </div>

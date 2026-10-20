@@ -44,6 +44,7 @@ historical decision.
 ## Proposed
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.
+- [ADR-0029: Project community scores into Catalogue for the release order](0029-project-community-scores-for-the-release-order.md) — #285; a Catalogue-owned projection of each rated game's community mean, replaced by Ratings through a Catalogue contract inside every rating write, so the release explorer orders by community score in PostgreSQL before pagination; awaiting owner review.
 
 
 - [ADR-0021: Collect private-dev logs with Alloy and Loki](0021-collect-private-dev-logs-with-alloy-and-loki.md) — #159 implementation awaiting owner review and host acceptance.

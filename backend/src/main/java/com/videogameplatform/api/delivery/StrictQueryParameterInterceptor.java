@@ -60,12 +60,13 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                     && com.videogameplatform.api.generated.RatingsApi.class.isAssignableFrom(
                             method.getBeanType())) {
                 throw new ApiRequestException(
-                        repeatedParameterCode(parameter), "/query/" + parameter.name());
+                        repeatedParameterCode(parameter, method), "/query/" + parameter.name());
             }
             if (values != null && values.length > 1 && !parameter.multiValued()) {
                 ApiRequestException exception =
                         new ApiRequestException(
-                                repeatedParameterCode(parameter), "/query/" + parameter.name());
+                                repeatedParameterCode(parameter, method),
+                                "/query/" + parameter.name());
                 throw exception;
             }
             if (values != null
@@ -73,7 +74,10 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                     && !parameter.acceptedValues().contains(values[0])) {
                 ApiRequestException exception =
                         new ApiRequestException(
-                                ProblemCode.FILTER_INVALID, "/query/" + parameter.name());
+                                "sort".equals(parameter.name())
+                                        ? ProblemCode.SORT_INVALID
+                                        : ProblemCode.FILTER_INVALID,
+                                "/query/" + parameter.name());
                 throw exception;
             }
         }
@@ -101,13 +105,17 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
     }
 
     /** A repeated value is reported against the parameter it actually belongs to. */
-    private static ProblemCode repeatedParameterCode(QueryParameter parameter) {
+    private static ProblemCode repeatedParameterCode(
+            QueryParameter parameter, HandlerMethod method) {
         if (parameter.pagination()) {
             return ProblemCode.PAGINATION_INVALID;
         }
         if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
         if (Set.of("from", "to").contains(parameter.name())) {
-            return ProblemCode.COVERAGE_RANGE_INVALID;
+            // The release range is a filter; only the coverage read names its own range code.
+            return ReleasesApi.class.isAssignableFrom(method.getBeanType())
+                    ? ProblemCode.FILTER_INVALID
+                    : ProblemCode.COVERAGE_RANGE_INVALID;
         }
         return SEARCH_PARAMETER.equals(parameter.name())
                 ? ProblemCode.SEARCH_QUERY_INVALID
@@ -129,9 +137,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 name,
                 parameter.hasParameterAnnotation(Min.class),
                 multiValued,
-                "weeks".equals(name)
-                        ? Set.of("1", "2", "4")
-                        : acceptedValues(parameter.getParameterType()));
+                acceptedValues(parameter.getParameterType()));
     }
 
     private static Set<String> acceptedValues(Class<?> parameterType) {

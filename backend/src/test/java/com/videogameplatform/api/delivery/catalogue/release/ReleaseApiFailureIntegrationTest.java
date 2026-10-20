@@ -89,7 +89,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 mockMvc.perform(
                                 get("/api/v1/releases")
-                                        .queryParam("view", "recent")
+                                        .queryParam("sort", "releaseDate")
                                         .header(HttpHeaders.ACCEPT, "application/json")
                                         .header(CORRELATION_HEADER, correlationId))
                         .andExpect(status().isInternalServerError())
@@ -132,7 +132,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 mockMvc.perform(
                                 get("/api/v1/releases")
-                                        .queryParam("view", "recent")
+                                        .queryParam("sort", "releaseDate")
                                         .header(HttpHeaders.ACCEPT, "application/json")
                                         .header(CORRELATION_HEADER, "unsafe correlation/value"))
                         .andExpect(status().isServiceUnavailable())
@@ -169,7 +169,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 mockMvc.perform(
                                 get("/api/v1/releases")
-                                        .queryParam("view", "recent")
+                                        .queryParam("sort", "releaseDate")
                                         .header(HttpHeaders.ACCEPT, "application/json"))
                         .andExpect(status().isServiceUnavailable())
                         .andExpect(header().exists(CORRELATION_HEADER))
@@ -205,7 +205,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 mockMvc.perform(
                                 get("/api/v1/releases")
-                                        .queryParam("view", "recent")
+                                        .queryParam("sort", "releaseDate")
                                         .header(HttpHeaders.ACCEPT, "application/xml"))
                         .andExpect(status().isNotAcceptable())
                         .andExpect(header().exists(CORRELATION_HEADER))
@@ -222,14 +222,14 @@ class ReleaseApiFailureIntegrationTest {
     void validationFailureDoesNotEmitTechnicalErrorLog() throws Exception {
         mockMvc.perform(
                         get("/api/v1/releases")
-                                .queryParam("view", "invalid")
+                                .queryParam("sort", "invalid")
                                 .header(HttpHeaders.ACCEPT, "application/json"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(header().exists(CORRELATION_HEADER));
 
         mockMvc.perform(
                         get("/api/v1/releases")
-                                .queryParam("view", "recent")
+                                .queryParam("sort", "releaseDate")
                                 .queryParam("page", "1", "2")
                                 .header(HttpHeaders.ACCEPT, "application/json"))
                 .andExpect(status().isUnprocessableContent())
@@ -250,7 +250,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 mockMvc.perform(
                                 get("/api/v1/releases")
-                                        .queryParam("view", "recent")
+                                        .queryParam("sort", "releaseDate")
                                         .queryParam("regionIds", "not-supported")
                                         .header(HttpHeaders.ACCEPT, "application/json"))
                         .andExpect(status().isUnprocessableContent())
@@ -269,7 +269,7 @@ class ReleaseApiFailureIntegrationTest {
     void unsupportedRequestProblemCodeFallsBackWithoutBreakingProblemConstruction() {
         var response = new MockHttpServletResponse();
         response.setHeader(CORRELATION_HEADER, "safe-fallback-correlation");
-        var exception = new ApiRequestException(ProblemCode.GAME_NOT_FOUND, "/query/view");
+        var exception = new ApiRequestException(ProblemCode.GAME_NOT_FOUND, "/query/from");
 
         var result = new ApiExceptionHandler().requestInvalid(exception, response);
 
@@ -291,7 +291,7 @@ class ReleaseApiFailureIntegrationTest {
                     new ApiExceptionHandler()
                             .requestInvalid(
                                     new ApiRequestException(
-                                            ProblemCode.FILTER_INVALID, "/query/view"),
+                                            ProblemCode.FILTER_INVALID, "/query/from"),
                                     response);
 
             assertThat(result.getBody()).isNotNull();
@@ -309,7 +309,7 @@ class ReleaseApiFailureIntegrationTest {
         var result =
                 new ApiExceptionHandler()
                         .requestInvalid(
-                                new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/view"),
+                                new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/from"),
                                 response);
 
         assertThat(result.getBody()).isNotNull();

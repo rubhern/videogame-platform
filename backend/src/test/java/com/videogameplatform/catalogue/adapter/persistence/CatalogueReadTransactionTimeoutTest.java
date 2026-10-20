@@ -131,9 +131,10 @@ class CatalogueReadTransactionTimeoutTest {
 
     private static ReleaseBrowseReadPort.Criteria releaseCriteria() {
         return new ReleaseBrowseReadPort.Criteria(
-                BrowseReleasesUseCase.View.RECENT,
                 new ReleaseBrowseReadPort.Window(
                         LocalDate.of(2026, 2, 23), LocalDate.of(2026, 8, 23)),
+                LocalDate.of(2026, 8, 23),
+                BrowseReleasesUseCase.Sort.RELEASE_DATE,
                 null,
                 null,
                 new ReleaseBrowseReadPort.Pagination(1, 20, 0),

@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { Link, useLoaderData } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLoaderData, useLocation } from "react-router-dom";
 import { initialMyRatingsQuery, myRatingsQueryOptions, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
+import { recallMyRatingsQuery, rememberMyRatingsQuery } from "../features/ratings/my-ratings-memory";
 import { useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { AppSelect, type AppSelectOption } from "../shared/ui/app-select";
 import { StageLight } from "../shared/ui/stage-light";
 import { HeroTitle } from "../shared/ui/hero-title";
+import { historyEntry } from "../shared/navigation/return-context";
 
 /**
  * Row-shaped placeholders for the personal collection.
@@ -43,9 +45,13 @@ export function MyRatingsPage() {
   const initialData = useLoaderData<MyRatingsPage | null>();
   const session = useSession();
   const csrfToken = session.data?.authenticated === true ? session.data.csrfToken : null;
-  // Personal search and sort are transient; they never enter browser storage or navigation history.
-  const [params, setParams] = useState<MyRatingsQuery>(initialMyRatingsQuery);
-  const [search, setSearch] = useState("");
+  // Personal search and sort never enter the URL, history state or browser storage. A return to
+  // this history entry recalls them from document memory only (#285).
+  const entry = historyEntry(useLocation());
+  const [params, setParams] = useState<MyRatingsQuery>(
+    () => recallMyRatingsQuery(entry) ?? initialMyRatingsQuery,
+  );
+  const [search, setSearch] = useState(params.q ?? "");
   const [inputError, setInputError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
@@ -60,6 +66,9 @@ export function MyRatingsPage() {
     staleTime: params === initialMyRatingsQuery && initialData ? Infinity : 0,
     enabled: csrfToken !== null, retry: false, gcTime: 0,
   });
+  useEffect(() => {
+    rememberMyRatingsQuery(entry, params);
+  }, [entry, params]);
   function change(next: MyRatingsQuery) {
     setMessage(""); setParams(next); heading.current?.focus();
   }

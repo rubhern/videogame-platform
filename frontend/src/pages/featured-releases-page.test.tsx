@@ -253,9 +253,10 @@ describe("featured releases page", () => {
         .getAllByRole("heading", { level: 3 })
         .map((heading) => heading.textContent),
     ).toEqual(["Segundo juego", "Tercer juego"]);
+    // The explorer opens on exactly the represented month (#285).
     expect(within(others).getByRole("link", { name: "Ver todos los lanzamientos" })).toHaveAttribute(
       "href",
-      "/?view=recent&weeks=1",
+      "/lanzamientos?from=2026-10-01&to=2026-10-31",
     );
     expect(screen.getByRole("status")).toHaveTextContent("TOPómetro de octubre de 2026");
     // The heading is the title and the month alone: no selection caption or selection note.
@@ -737,6 +738,23 @@ describe("featured releases page", () => {
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
+  it("opens the explorer on a past week's Monday-to-Sunday range", async () => {
+    stubFeatured(
+      featuredWeek({
+        week: "2026-W36",
+        window: { from: "2026-08-31", to: "2026-09-06" },
+        navigation: { previous: "2026-W35", next: "2026-W37" },
+      }),
+    );
+    renderApp("/?week=2026-W36");
+
+    const others = await screen.findByRole("region", { name: "Más lanzamientos del TOPómetro" });
+    expect(within(others).getByRole("link", { name: "Ver todos los lanzamientos" })).toHaveAttribute(
+      "href",
+      "/lanzamientos?from=2026-08-31&to=2026-09-06",
+    );
+  });
+
   it("explains an unranked month and an empty month differently, with a way to the lists", async () => {
     stubFeatured(
       featured({ selection: { status: "popularity_unavailable" }, items: [] }),
@@ -760,9 +778,9 @@ describe("featured releases page", () => {
     expect(
       screen.getByText("De momento, Gameómetro no tiene Hype para lanzamientos de este mes"),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Ver lanzamientos recientes" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
       "href",
-      "/?view=recent&weeks=1",
+      "/lanzamientos?from=2026-10-01&to=2026-10-31",
     );
     first.unmount();
 
@@ -770,6 +788,11 @@ describe("featured releases page", () => {
     expect(
       await screen.findByRole("heading", { name: "No hay lanzamientos en febrero de 2031" }),
     ).toBeVisible();
+    // A future period opens the explorer on its own days too.
+    expect(screen.getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
+      "href",
+      "/lanzamientos?from=2031-02-01&to=2031-02-28",
+    );
     expect(screen.queryByRole("region", { name: "Más lanzamientos del TOPómetro" })).toBeNull();
   });
 

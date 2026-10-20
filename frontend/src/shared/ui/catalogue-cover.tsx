@@ -11,6 +11,8 @@ type CatalogueCoverProps = {
     | { kind: "fallback" }
   );
   to?: string;
+  /** History state the cover link carries, such as a game page's origin. */
+  linkState?: unknown;
   /**
    * Catalogue cards omit the caption so the cover keeps the space; the game detail
    * page owns the visible attribution and source link required by ADR-0001.
@@ -18,7 +20,7 @@ type CatalogueCoverProps = {
   caption?: boolean;
 };
 
-export function CatalogueCover({ cover, to, caption = true }: CatalogueCoverProps) {
+export function CatalogueCover({ cover, to, linkState, caption = true }: CatalogueCoverProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const hasImageAttribution = cover.kind !== "fallback";
   const failed = hasImageAttribution && failedUrl === cover.url;
@@ -45,7 +47,7 @@ export function CatalogueCover({ cover, to, caption = true }: CatalogueCoverProp
       {to === undefined ? (
         <div className="cover-link cover-static">{image}</div>
       ) : (
-        <Link className="cover-link" to={to} tabIndex={-1}>
+        <Link className="cover-link" state={linkState} to={to} tabIndex={-1}>
           {image}
         </Link>
       )}

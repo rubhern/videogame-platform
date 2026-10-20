@@ -1,37 +1,39 @@
 package com.videogameplatform.catalogue.application.releases;
 
+import java.time.LocalDate;
+
 /** Public application contract for UC-001. */
 public interface BrowseReleasesUseCase {
+
+    /** The longest inclusive range one request may explore, in days. */
+    int MAX_RANGE_DAYS = 92;
 
     BrowseReleasesResult browse(Query query);
 
     /**
-     * One bounded release page request. Upcoming discovery shows only exact-day releases unless
-     * {@code includeApproximateDates} also admits month, quarter, year and unknown (TBA) dates;
-     * recent discovery has no such choice because it always classifies ended partial periods.
+     * One bounded release page request over an inclusive date range. Both bounds are absent for
+     * the current calendar week, which only the application's trusted clock knows, or both are
+     * present. {@code includeApproximateDates} admits month, quarter and year periods that have
+     * not ended in the part of the range from the evaluation date on; it changes nothing before
+     * that date. The range itself is validated by the use case, which reports {@link
+     * ReleaseQueryValidationException}.
      */
     record Query(
-            View view,
-            int weeks,
+            LocalDate from,
+            LocalDate to,
+            Sort sort,
             boolean includeApproximateDates,
             java.util.List<String> platformIds,
             java.util.List<String> regionIds,
             int pageNumber,
             int pageSize) {
         public Query {
-            if (view == null) {
-                throw new IllegalArgumentException("Release view is required");
+            if (sort == null) {
+                throw new IllegalArgumentException("Release sort is required");
             }
             platformIds =
                     platformIds == null ? java.util.List.of() : java.util.List.copyOf(platformIds);
             regionIds = regionIds == null ? java.util.List.of() : java.util.List.copyOf(regionIds);
-            if (weeks != 1 && weeks != 2 && weeks != 4) {
-                throw new IllegalArgumentException("Release window must be 1, 2, or 4 weeks");
-            }
-            if (includeApproximateDates && view != View.UPCOMING) {
-                throw new IllegalArgumentException(
-                        "Approximate release dates can only be included in upcoming discovery");
-            }
             if (pageNumber < 1) {
                 throw new IllegalArgumentException("Page number must be one-based");
             }
@@ -41,8 +43,15 @@ public interface BrowseReleasesUseCase {
         }
     }
 
-    enum View {
-        RECENT,
-        UPCOMING
+    /**
+     * The order of the games before pagination. Every order continues with the release-date order
+     * and ends in the unique game id; a missing signal sorts after every present one.
+     */
+    enum Sort {
+        RELEASE_DATE,
+        HYPE,
+        RATING,
+        /** The locally stored external player score, currently IGDB players. */
+        EXTERNAL_PLAYER_SCORE
     }
 }

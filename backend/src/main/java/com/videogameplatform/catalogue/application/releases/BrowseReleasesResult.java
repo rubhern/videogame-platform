@@ -12,7 +12,6 @@ import java.util.List;
 /** Provider-independent result of browsing the current local release snapshot. */
 public record BrowseReleasesResult(
         String publicationVersion,
-        BrowseReleasesUseCase.View view,
         LocalDate evaluatedOn,
         Window window,
         ActiveFilters activeFilters,

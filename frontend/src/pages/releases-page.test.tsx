@@ -39,11 +39,11 @@ const pragmata: ReleasePage["items"][number] = {
   ],
 };
 
+/** The current week of 13 August 2026, a Thursday, unless a case names another range. */
 function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
   return {
-    view: "recent",
     evaluatedOn: "2026-08-13",
-    window: { from: "2026-02-13", to: "2026-08-13" },
+    window: { from: "2026-08-10", to: "2026-08-16" },
     activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
@@ -129,16 +129,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("releases page", () => {
-  it.each(["recent", "upcoming"] as const)("adds only localized genres to %s release cards", async view => {
+describe("release explorer page", () => {
+  it("adds only localized genres to release cards", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
       const request = input instanceof Request ? input : new Request(input);
       if (new URL(request.url).pathname === "/api/v1/session") return Response.json({ authenticated: false });
       const item = { ...pragmata, genres: [{ genreId: "adventure", name: "Aventura" }], summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }] };
-      return Response.json(releasePage({ view, items: [item] }));
+      return Response.json(releasePage({ items: [item] }));
     });
     vi.stubGlobal("fetch", fetchMock);
-    renderApp(`/?view=${view}`);
+    renderApp("/lanzamientos");
     const title = await screen.findByRole("link", { name: "Pragmata" });
     const card = title.closest("article");
     if (!card) throw new Error("Expected a release card");
@@ -148,54 +148,76 @@ describe("releases page", () => {
     expect(within(card).queryByText(/Hidden/)).not.toBeInTheDocument();
   });
 
-  it("requests twelve recent releases and renders the window above the title", async () => {
+  it("requests twelve releases of the current week and renders its range under the title", async () => {
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
-    renderApp("/?view=recent");
+    renderApp("/lanzamientos");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
+      await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
+      await screen.findByText("Del 10 de agosto de 2026 al 16 de agosto de 2026"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
 
     const query = requestedQueries(fetchMock)[0];
-    expect(query?.get("view")).toBe("recent");
+    // Only the API knows today, so the current week is requested without a range.
+    expect(query?.has("from")).toBe(false);
+    expect(query?.has("to")).toBe(false);
+    expect(query?.has("sort")).toBe(false);
     expect(query?.get("page")).toBe("1");
     expect(query?.get("pageSize")).toBe("12");
     expect(query?.has("platformIds")).toBe(false);
   });
 
-  it("restores a shared multi-select filtered and paginated URL", async () => {
+  it("restores a shared range, order, filters and page", async () => {
     const fetchMock = stubReleases(() =>
       Response.json(
         releasePage({
+          window: { from: "2026-08-01", to: "2026-08-31" },
           activeFilters: { platformIds: ["playstation-5"], regionIds: [] },
           items: [],
-          page: { number: 2, size: 6, totalItems: 0, totalPages: 0 },
+          page: { number: 2, size: 12, totalItems: 0, totalPages: 0 },
         }),
         { status: 200 },
       ),
     );
 
-    renderApp("/?view=recent&platformIds=playstation-5&page=2");
+    renderApp("/lanzamientos?from=2026-08-01&to=2026-08-31&sort=rating&platformIds=playstation-5&page=2");
 
-    // The closed Platform selector summarises the restored selection without opening.
     expect(await screen.findByRole("combobox", { name: /Plataforma/ })).toHaveTextContent(
       "PlayStation 5",
     );
+    expect(screen.getByRole("combobox", { name: /Ordenar por/ })).toHaveTextContent("Puntuación Gameómetro");
     const query = requestedQueries(fetchMock)[0];
+    expect(query?.get("from")).toBe("2026-08-01");
+    expect(query?.get("to")).toBe("2026-08-31");
+    expect(query?.get("sort")).toBe("rating");
     expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("2");
+  });
+
+  it("lands a former recent or upcoming link on the explorer with its filters", async () => {
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    const { router } = renderApp("/?view=upcoming&weeks=4&platformIds=playstation-5&page=3");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/lanzamientos");
+    expect(router.state.location.search).toBe("?platformIds=playstation-5");
+    const query = requestedQueries(fetchMock).at(-1);
+    expect(query?.has("view")).toBe(false);
+    expect(query?.has("weeks")).toBe(false);
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
   });
 
   it("returns to the first page when a filter is applied", async () => {
     const user = userEvent.setup();
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
-    const { router } = renderApp("/?view=recent&page=3");
+    const { router } = renderApp("/lanzamientos?page=3");
     await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
     await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
 
@@ -203,21 +225,21 @@ describe("releases page", () => {
     const query = requestedQueries(fetchMock).at(-1);
     expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?view=recent&weeks=1&platformIds=playstation-5");
+    expect(router.state.location.search).toBe("?platformIds=playstation-5");
   });
 
   it("combines several platforms with OR and adds a region with AND from one open popover", async () => {
     const user = userEvent.setup();
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
-    const { router } = renderApp("/?view=recent");
+    const { router } = renderApp("/lanzamientos");
     await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
     await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
 
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
     let query = requestedQueries(fetchMock).at(-1);
     expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
-    expect(router.state.location.search).toBe("?view=recent&weeks=1&platformIds=playstation-5");
+    expect(router.state.location.search).toBe("?platformIds=playstation-5");
 
     // The popover stays open, so a second value is added with OR without reopening.
     expect(screen.getByRole("listbox", { name: "Plataforma" })).toBeInTheDocument();
@@ -225,16 +247,13 @@ describe("releases page", () => {
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(2));
     query = requestedQueries(fetchMock).at(-1);
     expect(query?.getAll("platformIds")).toEqual(["playstation-5", "windows-pc"]);
-    expect(router.state.location.search).toBe(
-      "?view=recent&weeks=1&platformIds=playstation-5&platformIds=windows-pc",
-    );
 
     // A second dimension combines with AND.
     await user.click(await screen.findByRole("combobox", { name: /Región/ }));
     await user.click(screen.getByRole("option", { name: "Mundial" }));
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(3));
     expect(router.state.location.search).toBe(
-      "?view=recent&weeks=1&platformIds=playstation-5&platformIds=windows-pc&regionIds=worldwide",
+      "?platformIds=playstation-5&platformIds=windows-pc&regionIds=worldwide",
     );
   });
 
@@ -257,7 +276,7 @@ describe("releases page", () => {
       ),
     );
 
-    renderApp("/?view=recent");
+    renderApp("/lanzamientos");
     await user.click(await screen.findByRole("combobox", { name: /Región/ }));
     const mark = (name: string) =>
       screen.getByRole("option", { name }).querySelector("[class*='app-select-icon-']")?.className;
@@ -268,202 +287,204 @@ describe("releases page", () => {
     expect(mark("China")).toBeUndefined();
   });
 
-  it("switches to the upcoming window through navigation", async () => {
+  it("explores a typed past, future or mixed range from the first page", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubReleases(async (request) =>
-      Response.json(
-        new URL(request.url).searchParams.get("view") === "upcoming"
-          ? releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2027-02-13" } })
-          : releasePage(),
+    const fetchMock = stubReleases((request) => {
+      const params = new URL(request.url).searchParams;
+      return Response.json(
+        releasePage(
+          params.has("from")
+            ? { window: { from: params.get("from") ?? "", to: params.get("to") ?? "" } }
+            : {},
+        ),
         { status: 200 },
-      ),
-    );
+      );
+    });
 
-    renderApp("/?view=recent");
-    await screen.findByRole("combobox", { name: /Plataforma/ });
+    const { router } = renderApp("/lanzamientos?platformIds=playstation-5&page=3");
+    // The hydration fallback draws empty fields first; type into the ready page's own.
+    await screen.findByText("Del 10 de agosto de 2026 al 16 de agosto de 2026");
+    const from = screen.getByLabelText("Desde");
+    await user.clear(from);
+    await user.type(from, "2026-07-20");
+    const to = screen.getByLabelText("Hasta");
+    await user.clear(to);
+    await user.type(to, "2026-09-05");
+    await user.keyboard("{Enter}");
 
-    await user.click(screen.getByRole("link", { name: "Próximos" }));
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
-    ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("upcoming"),
-    );
-    expect(requestedQueries(fetchMock).at(-1)?.get("pageSize")).toBe("12");
-  });
-
-  it("requests exact upcoming days by default and returns to the first page when opting in", async () => {
-    const user = userEvent.setup();
-    const fetchMock = stubReleases(() =>
-      Response.json(releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } }), {
-        status: 200,
-      }),
-    );
-
-    const { router } = renderApp("/?view=upcoming&platformIds=playstation-5&page=3");
-    const optIn = await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" });
-    expect(optIn).not.toBeChecked();
-    expect(requestedQueries(fetchMock)[0]?.has("includeApproximateDates")).toBe(false);
-
-    await user.click(optIn);
-
-    await waitFor(() =>
-      expect(requestedQueries(fetchMock).at(-1)?.get("includeApproximateDates")).toBe("true"),
-    );
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("from")).toBe("2026-07-20"));
     const query = requestedQueries(fetchMock).at(-1);
+    expect(query?.get("to")).toBe("2026-09-05");
     expect(query?.get("page")).toBe("1");
     expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(router.state.location.search).toBe(
-      "?view=upcoming&weeks=1&includeApproximateDates=true&platformIds=playstation-5",
+      "?from=2026-07-20&to=2026-09-05&platformIds=playstation-5",
     );
-    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeChecked();
+    expect(
+      await screen.findByText("Del 20 de julio de 2026 al 5 de septiembre de 2026"),
+    ).toBeInTheDocument();
   });
 
-  it("toggles approximate dates with the keyboard and keeps focus on the control", async () => {
+  it("selects one day from the bar and keeps the month's scale around it", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubReleases(() =>
-      Response.json(releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } }), {
-        status: 200,
-      }),
-    );
+    const fetchMock = stubReleases((request) => {
+      const params = new URL(request.url).searchParams;
+      return Response.json(
+        releasePage({ window: { from: params.get("from") ?? "", to: params.get("to") ?? "" } }),
+        { status: 200 },
+      );
+    });
 
-    const { router } = renderApp("/?view=upcoming");
-    const optIn = await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    const { router } = renderApp("/lanzamientos?from=2026-08-01&to=2026-08-31");
+    const days = within(await screen.findByRole("toolbar", { name: "Elegir un día del periodo" }));
+    expect(days.getAllByRole("button")).toHaveLength(31);
+
+    await user.click(days.getByRole("button", { name: /miércoles, 19 de agosto/ }));
+
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("from")).toBe("2026-08-19"));
+    expect(requestedQueries(fetchMock).at(-1)?.get("to")).toBe("2026-08-19");
+    expect(router.state.location.search).toBe("?from=2026-08-19&to=2026-08-19");
+    const bar = within(await screen.findByRole("toolbar", { name: "Elegir un día del periodo" }));
+    await waitFor(() =>
+      expect(bar.getByRole("button", { name: /miércoles, 19 de agosto/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+    expect(bar.getAllByRole("button")).toHaveLength(31);
+
+    // Refreshing keeps the entry's state, and Back returns to the whole month.
+    await router.navigate(-1);
+    await waitFor(() => expect(router.state.location.search).toBe("?from=2026-08-01&to=2026-08-31"));
+  });
+
+  it("orders by Hype from the keyboard and returns to the first page", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    const { router } = renderApp("/lanzamientos?page=2");
+    const order = await screen.findByRole("combobox", { name: /Ordenar por/ });
+    order.focus();
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("sort")).toBe("hype"));
+    expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
+    expect(router.state.location.search).toBe("?sort=hype");
+  });
+
+  it("orders by the IGDB players' score and keeps the choice in the URL", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    const { router } = renderApp("/lanzamientos?from=2026-08-01&to=2026-08-31");
+    await user.click(await screen.findByRole("combobox", { name: /Ordenar por/ }));
+    await user.click(screen.getByRole("option", { name: "Jugadores IGDB" }));
+
+    await waitFor(() =>
+      expect(requestedQueries(fetchMock).at(-1)?.get("sort")).toBe("externalPlayerScore"),
+    );
+    expect(router.state.location.search).toBe(
+      "?from=2026-08-01&to=2026-08-31&sort=externalPlayerScore",
+    );
+    expect(screen.getByRole("combobox", { name: /Ordenar por/ })).toHaveTextContent("Jugadores IGDB");
+  });
+
+  it("toggles approximate dates with the keyboard while the range reaches beyond today", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    // From the first page, so moving focus to the results for a new page never applies.
+    const { router } = renderApp("/lanzamientos?platformIds=playstation-5");
+    await screen.findByText("Del 10 de agosto de 2026 al 16 de agosto de 2026");
+    const optIn = screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    expect(optIn).not.toBeChecked();
+    expect(requestedQueries(fetchMock)[0]?.has("includeApproximateDates")).toBe(false);
     optIn.focus();
     await user.keyboard(" ");
 
     await waitFor(() =>
-      expect(router.state.location.search).toBe("?view=upcoming&weeks=1&includeApproximateDates=true"),
+      expect(router.state.location.search).toBe(
+        "?includeApproximateDates=true&platformIds=playstation-5",
+      ),
     );
+    expect(requestedQueries(fetchMock).at(-1)?.get("includeApproximateDates")).toBe("true");
+    expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
     expect(optIn).toBeChecked();
     expect(optIn).toHaveFocus();
 
     await user.keyboard(" ");
-    await waitFor(() => expect(router.state.location.search).toBe("?view=upcoming&weeks=1"));
+    await waitFor(() => expect(router.state.location.search).toBe("?platformIds=playstation-5"));
     expect(optIn).not.toBeChecked();
-    expect(requestedQueries(fetchMock).at(-1)?.has("includeApproximateDates")).toBe(false);
+  });
+
+  it("hides the approximate-date choice for a range that ends by today", async () => {
+    stubReleases(() =>
+      Response.json(releasePage({ window: { from: "2026-07-01", to: "2026-08-13" } }), { status: 200 }),
+    );
+
+    renderApp("/lanzamientos?from=2026-07-01&to=2026-08-13");
+
+    expect(await screen.findByText("Del 1 de julio de 2026 al 13 de agosto de 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeInTheDocument();
   });
 
   it("shows opted-in approximate dates at their real precision without inventing a day", async () => {
     stubReleases(() =>
       Response.json(
         releasePage({
-          view: "upcoming",
-          window: { from: "2026-08-13", to: "2026-08-20" },
+          window: { from: "2026-10-01", to: "2026-12-31" },
           items: [
             upcomingGame(21, "Juego mensual", { precision: "month", value: "2026-10" }),
             upcomingGame(22, "Juego trimestral", { precision: "quarter", value: "2026-Q4" }),
             upcomingGame(23, "Juego anual", { precision: "year", value: "2027" }),
-            upcomingGame(24, "Juego sin fecha", { precision: "unknown", value: null }),
           ],
-          page: { number: 1, size: 12, totalItems: 4, totalPages: 1 },
+          page: { number: 1, size: 12, totalItems: 3, totalPages: 1 },
         }),
         { status: 200 },
       ),
     );
 
-    renderApp("/?view=upcoming&includeApproximateDates=true");
+    renderApp("/lanzamientos?from=2026-10-01&to=2026-12-31&includeApproximateDates=true");
 
-    const results = within(await screen.findByRole("list", { name: "Próximos lanzamientos" }));
-    // Each card keeps the contract precision in its full wording and in its cover chip.
+    const results = within(await screen.findByRole("list", { name: "Explorar lanzamientos" }));
+    // Each card keeps the contract precision in its full wording and in its compact date.
     expect(results.getByText("octubre de 2026")).toBeInTheDocument();
     expect(results.getByText("oct 2026")).toBeInTheDocument();
     expect(results.getByText("4.º trimestre de 2026")).toBeInTheDocument();
     expect(results.getByText("T4 2026")).toBeInTheDocument();
     expect(results.getAllByText("2027")).toHaveLength(2);
-    expect(results.getByText("Fecha por confirmar")).toBeInTheDocument();
-    expect(results.getByText("Por confirmar")).toBeInTheDocument();
     expect(results.queryByText(/\d{1,2} de octubre de 2026/)).not.toBeInTheDocument();
   });
 
-  it("leaves the approximate-date opt-in behind when navigating to recent", async () => {
+  it("keeps the controls visible without presenting previous results as the new range", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubReleases((request) =>
-      Response.json(
-        new URL(request.url).searchParams.get("view") === "upcoming"
-          ? releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } })
-          : releasePage(),
-        { status: 200 },
-      ),
-    );
-
-    const { router } = renderApp("/?view=upcoming&includeApproximateDates=true");
-    expect(
-      await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" }),
-    ).toBeChecked();
-    expect(requestedQueries(fetchMock)[0]?.get("includeApproximateDates")).toBe("true");
-
-    await user.click(screen.getByRole("link", { name: "Recientes" }));
-
-    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("recent"));
-    expect(requestedQueries(fetchMock).at(-1)?.has("includeApproximateDates")).toBe(false);
-    expect(router.state.location.search).toBe("?view=recent&weeks=1");
-    expect(
-      screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("changes the week horizon by keyboard, preserves filters, and resets pagination", async () => {
-    const user = userEvent.setup();
-    const fetchMock = stubReleases((request) =>
-      Response.json(
-        releasePage({
-          window: new URL(request.url).searchParams.get("weeks") === "4"
-            ? { from: "2026-08-13", to: "2026-09-10" }
-            : { from: "2026-08-13", to: "2026-08-20" },
-        }),
-        { status: 200 },
-      ),
-    );
-    const { router } = renderApp("/?view=upcoming&platformIds=playstation-5&page=3");
-    const selector = await screen.findByRole("combobox", { name: /^Periodo:/ });
-    selector.focus();
-    await user.keyboard("{ArrowDown}{End}{Enter}");
-
-    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("weeks")).toBe("4"));
-    expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?view=upcoming&weeks=4&platformIds=playstation-5");
-    expect(await screen.findByText(/13 de agosto de 2026 al 10 de septiembre de 2026/)).toBeInTheDocument();
-  });
-
-  it("keeps filters visible without presenting previous results as the new window", async () => {
-    const user = userEvent.setup();
-    let resolveUpcoming: ((response: Response) => void) | undefined;
-    const upcomingResponse = new Promise<Response>((resolve) => {
-      resolveUpcoming = resolve;
+    let resolveRange: ((response: Response) => void) | undefined;
+    const rangeResponse = new Promise<Response>((resolve) => {
+      resolveRange = resolve;
     });
     stubReleases((request) =>
-      new URL(request.url).searchParams.get("view") === "upcoming"
-        ? upcomingResponse
+      new URL(request.url).searchParams.has("from")
+        ? rangeResponse
         : Response.json(releasePage(), { status: 200 }),
     );
 
-    renderApp("/?view=recent");
+    renderApp("/lanzamientos");
     await screen.findByRole("link", { name: "Pragmata" });
 
-    await user.click(screen.getByRole("link", { name: "Próximos" }));
+    await user.click(screen.getByRole("button", { name: /viernes, 14 de agosto/ }));
 
-    expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeVisible();
     expect(screen.getByRole("combobox", { name: /Plataforma/ })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Cargando lanzamientos para la nueva selección",
     );
     expect(screen.queryByRole("link", { name: "Pragmata" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
-    ).not.toBeInTheDocument();
 
-    resolveUpcoming?.(
-      Response.json(
-        releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2027-02-13" } }),
-        { status: 200 },
-      ),
+    resolveRange?.(
+      Response.json(releasePage({ window: { from: "2026-08-14", to: "2026-08-14" } }), { status: 200 }),
     );
 
-    expect(
-      await screen.findByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("El 14 de agosto de 2026")).toBeInTheDocument();
   });
 
   it("explains a not-ready catalogue instead of a generic failure", async () => {
@@ -474,7 +495,7 @@ describe("releases page", () => {
       }),
     );
 
-    renderApp("/?view=recent");
+    renderApp("/lanzamientos");
 
     expect(
       await screen.findByRole("heading", { name: "Los juegos todavía no están disponibles" }),
@@ -493,11 +514,14 @@ describe("releases page", () => {
       }),
     );
 
-    renderApp("/?view=recent&platformIds=platform-removed");
+    renderApp("/lanzamientos?sort=hype&platformIds=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
     expect(screen.getByText(message)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?view=recent&weeks=1");
+    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute(
+      "href",
+      "/lanzamientos?sort=hype",
+    );
   });
 
   it("retries a technical failure on request", async () => {
@@ -513,7 +537,7 @@ describe("releases page", () => {
         : Response.json(releasePage(), { status: 200 });
     });
 
-    renderApp("/?view=recent");
+    renderApp("/lanzamientos");
 
     expect(
       await screen.findByRole("heading", { name: "No se pudieron cargar los lanzamientos" }),

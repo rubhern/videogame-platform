@@ -176,6 +176,26 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.releases.port.CommunityScoreStore
+                communityScoreStore() {
+            return new com.videogameplatform.catalogue.application.releases.port
+                    .CommunityScoreStore() {
+                @Override
+                public void replace(
+                        java.util.UUID gameId,
+                        com.videogameplatform.catalogue.application.releases
+                                        .RecordCommunityScoresUseCase.CommunityScore
+                                score) {}
+
+                @Override
+                public java.util.List<java.util.UUID> unprojected(
+                        java.util.List<java.util.UUID> gameIds) {
+                    return java.util.List.of();
+                }
+            };
+        }
+
+        @Bean
         GameSearchReadPort gameSearchReadPort() {
             return criteria -> Optional.empty();
         }

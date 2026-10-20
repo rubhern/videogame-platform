@@ -4,7 +4,7 @@ import {
   type ProductApiClient,
 } from "../../shared/api/product-api-client";
 
-export type ReleasesQuery = operations["listReleases"]["parameters"]["query"];
+export type ReleasesQuery = NonNullable<operations["listReleases"]["parameters"]["query"]>;
 type Problem = components["schemas"]["Problem"];
 
 export class ReleasesApiError extends Error {

@@ -97,6 +97,8 @@ class PersonalRatingApiIntegrationTest {
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword()));
         admin.update("DELETE FROM ratings.rating");
+        // The projection follows the ratings it summarizes, removed here behind the store's back.
+        admin.update("DELETE FROM catalogue.game_community_score");
         game = UUID.randomUUID();
         admin.update("INSERT INTO catalogue.game(game_id, created_at) VALUES (?, now())", game);
         admin.update(
@@ -506,6 +508,84 @@ class PersonalRatingApiIntegrationTest {
                 "https://www.igdb.com/games/rated-" + target);
     }
 
+    @Autowired com.videogameplatform.ratings.adapter.persistence.CommunityScoreBackfill backfill;
+
+    @Test
+    void projectsEveryRatingWriteIntoTheCatalogueScoreTheReleaseOrderReads() throws Exception {
+        String aliceTag = create(ALICE, 6).getResponse().getHeader(HttpHeaders.ETAG);
+        assertThat(projectedScore()).containsExactly("6.0", "1");
+        String bobTag = create(BOB, 9).getResponse().getHeader(HttpHeaders.ETAG);
+        assertThat(projectedScore()).containsExactly("7.5", "2");
+        update(ALICE, 7, aliceTag);
+        assertThat(projectedScore()).containsExactly("8.0", "2");
+
+        // The rated game leads the rating order of its day; an unrated game never counts as zero.
+        var page =
+                JSON.readTree(
+                        mockMvc.perform(
+                                        get(
+                                                "/api/v1/releases?from=2026-08-13&to=2026-08-13&sort=rating"))
+                                .andExpect(status().isOk())
+                                .andReturn()
+                                .getResponse()
+                                .getContentAsString());
+        assertThat(page.path("items").get(0).path("gameId").stringValue())
+                .isEqualTo(game.toString());
+
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(BOB))
+                                .with(csrf().asHeader())
+                                .header(HttpHeaders.IF_MATCH, bobTag))
+                .andExpect(status().isOk());
+        assertThat(projectedScore()).containsExactly("7.0", "1");
+        String currentAlice =
+                admin.queryForObject(
+                        "SELECT version_token::text FROM ratings.rating WHERE game_id = ?",
+                        String.class,
+                        game);
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .header(HttpHeaders.IF_MATCH, "\"" + currentAlice + "\""))
+                .andExpect(status().isOk());
+        // Without ratings the game has no score, never a zero one.
+        assertThat(projectedScore()).isEmpty();
+    }
+
+    @Test
+    void backfillsOnlyGamesRatedBeforeTheProjectionExisted() throws Exception {
+        create(ALICE, 8);
+        // A rating stored before the projection existed: no write ever projected it.
+        admin.update(
+                "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 4)",
+                UUID.randomUUID(),
+                game);
+        admin.update("DELETE FROM catalogue.game_community_score WHERE game_id = ?", game);
+
+        backfill.run(null);
+        assertThat(projectedScore()).containsExactly("6.0", "2");
+
+        // A projected game is left as its writes keep it, so a later startup only reads batches.
+        admin.update(
+                "UPDATE catalogue.game_community_score SET rating_count = 99 WHERE game_id = ?",
+                game);
+        backfill.run(null);
+        assertThat(projectedScore()).containsExactly("6.0", "99");
+    }
+
+    private java.util.List<String> projectedScore() {
+        return admin
+                .query(
+                        "SELECT mean::text, rating_count::text FROM catalogue.game_community_score WHERE game_id = ?",
+                        (row, index) -> java.util.List.of(row.getString(1), row.getString(2)),
+                        game)
+                .stream()
+                .flatMap(java.util.List::stream)
+                .toList();
+    }
+
     @Autowired RatingApiMapper mapper;
 
     @Test
@@ -557,8 +637,8 @@ class PersonalRatingApiIntegrationTest {
                 game);
         for (String url :
                 List.of(
-                        "/api/v1/releases?view=recent",
-                        "/api/v1/releases?view=upcoming",
+                        "/api/v1/releases?from=2026-08-13&to=2026-08-13",
+                        "/api/v1/releases?from=2026-08-14&to=2026-08-14",
                         "/api/v1/games?q=Rated")) {
             var publicResponse =
                     mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();

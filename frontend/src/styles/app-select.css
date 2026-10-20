@@ -88,6 +88,25 @@
     color: var(--color-accent-hover);
   }
 
+  .app-select-icon-logo {
+    display: block;
+    width: 19px;
+    height: 19px;
+    flex: none;
+  }
+
+  .app-select-icon-logo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .app-select-icon-logo-wide {
+    width: 30px;
+    height: 15px;
+    object-fit: contain;
+  }
+
   span.app-select-icon {
     background: currentColor;
     mask-position: center;
@@ -361,6 +380,11 @@
     width: 220px;
     max-width: 100%;
     flex: none;
+  }
+
+  /* The order names its choice in full: «Puntuación Gameómetro» is the longest. */
+  .release-sort-select {
+    width: 340px;
   }
 
   .my-ratings-select {

@@ -8,6 +8,7 @@ import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
@@ -19,6 +20,7 @@ import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.Year;
 import java.time.ZoneId;
 import java.util.List;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 class ReleaseCatalogueServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-08-13T10:00:00Z");
+    private static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
     private static final ReleaseBrowseReadPort.Taxonomy PLATFORM =
             new ReleaseBrowseReadPort.Taxonomy("platform-1", "Platform One");
     private static final ReleaseBrowseReadPort.Taxonomy REGION =
@@ -63,15 +66,20 @@ class ReleaseCatalogueServiceTest {
                     }
                 };
 
-        var page =
-                service(port, countingClock)
-                        .browse(query(BrowseReleasesUseCase.View.UPCOMING, 3, 20));
+        var page = service(port, countingClock).browse(query(3, 20));
 
-        assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
-        assertThat(captured.get().window().to()).isEqualTo("2026-08-20");
+        // 13 August 2026 is a Thursday: the default range is its Monday-to-Sunday week.
+        assertThat(captured.get().window().from()).isEqualTo("2026-08-10");
+        assertThat(captured.get().window().to()).isEqualTo("2026-08-16");
+        assertThat(captured.get().evaluatedOn()).isEqualTo("2026-08-13");
+        assertThat(captured.get().sort()).isEqualTo(BrowseReleasesUseCase.Sort.RELEASE_DATE);
         assertThat(captured.get().pagination().offset()).isEqualTo(40);
         assertThat(captured.get().pagination().pageSize()).isEqualTo(20);
-        assertThat(captured.get().includeApproximateUpcomingDates()).isFalse();
+        assertThat(captured.get().includeApproximateDates()).isFalse();
+        assertThat(page.window())
+                .isEqualTo(
+                        new BrowseReleasesResult.Window(
+                                LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 16)));
         assertThat(captured.get().releaseGroupLimit()).isEqualTo(25);
         assertThat(page.items()).hasSize(1);
         assertThat(page.page().totalItems()).isEqualTo(10_000);
@@ -80,30 +88,29 @@ class ReleaseCatalogueServiceTest {
     }
 
     @Test
-    void derivesBothFourWeekRangesFromOneTrustedMadridDate() {
+    void derivesTheCurrentWeekInMadridAcrossMidnightAndYearEnds() {
         AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
         ReleaseBrowseReadPort port =
                 criteria -> {
                     captured.set(criteria);
                     return Optional.of(result(List.of(), 0));
                 };
-        var service = service(port);
 
-        service.browse(
-                new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.RECENT, 4, false, null, null, 1, 20));
-        assertThat(captured.get().window().from()).isEqualTo("2026-07-17");
-        assertThat(captured.get().window().to()).isEqualTo("2026-08-13");
+        // Sunday 23:30 UTC is already Monday in Madrid, which starts a new week.
+        service(port, Clock.fixed(Instant.parse("2026-08-16T22:30:00Z"), MADRID))
+                .browse(query(1, 20));
+        assertThat(captured.get().window().from()).isEqualTo("2026-08-17");
+        assertThat(captured.get().window().to()).isEqualTo("2026-08-23");
 
-        service.browse(
-                new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.UPCOMING, 4, false, null, null, 1, 20));
-        assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
-        assertThat(captured.get().window().to()).isEqualTo("2026-09-10");
+        // A week that starts in one year and ends in the next stays one Monday-to-Sunday range.
+        service(port, Clock.fixed(Instant.parse("2026-12-31T10:00:00Z"), MADRID))
+                .browse(query(1, 20));
+        assertThat(captured.get().window().from()).isEqualTo("2026-12-28");
+        assertThat(captured.get().window().to()).isEqualTo("2027-01-03");
     }
 
     @Test
-    void forwardsTheApproximateDateOptInWithTheSameWindowFiltersAndPage() {
+    void forwardsARequestedRangeWithItsFiltersOrderAndPage() {
         AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
         var service =
                 service(
@@ -112,23 +119,104 @@ class ReleaseCatalogueServiceTest {
                             return Optional.of(result(List.of(), 0));
                         });
 
-        service.browse(
-                new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.UPCOMING,
-                        2,
-                        true,
-                        List.of("platform-1"),
-                        List.of("region-1"),
-                        3,
-                        20));
+        var page =
+                service.browse(
+                        new BrowseReleasesUseCase.Query(
+                                LocalDate.of(2026, 7, 1),
+                                LocalDate.of(2026, 9, 30),
+                                BrowseReleasesUseCase.Sort.RATING,
+                                true,
+                                List.of("platform-1"),
+                                List.of("region-1"),
+                                3,
+                                20));
 
-        // The precision choice only widens the predicate; window, filters and page are unchanged.
-        assertThat(captured.get().includeApproximateUpcomingDates()).isTrue();
-        assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
-        assertThat(captured.get().window().to()).isEqualTo("2026-08-27");
+        // The opt-in only widens the predicate; range, filters, order and page are unchanged.
+        assertThat(captured.get().includeApproximateDates()).isTrue();
+        assertThat(captured.get().window().from()).isEqualTo("2026-07-01");
+        assertThat(captured.get().window().to()).isEqualTo("2026-09-30");
+        assertThat(captured.get().sort()).isEqualTo(BrowseReleasesUseCase.Sort.RATING);
         assertThat(captured.get().platformIds()).containsExactly("platform-1");
         assertThat(captured.get().regionIds()).containsExactly("region-1");
         assertThat(captured.get().pagination().offset()).isEqualTo(40);
+        assertThat(page.window().from()).isEqualTo("2026-07-01");
+    }
+
+    @Test
+    void acceptsSingleDayPastFutureAndMaximumRanges() {
+        AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
+        var service =
+                service(
+                        criteria -> {
+                            captured.set(criteria);
+                            return Optional.of(result(List.of(), 0));
+                        });
+
+        for (LocalDate[] range :
+                new LocalDate[][] {
+                    {LocalDate.of(2026, 8, 13), LocalDate.of(2026, 8, 13)},
+                    {LocalDate.of(2024, 2, 29), LocalDate.of(2024, 2, 29)},
+                    {LocalDate.of(2030, 1, 1), LocalDate.of(2030, 1, 31)},
+                    {LocalDate.of(2026, 10, 1), LocalDate.of(2026, 12, 31)}
+                }) {
+            service.browse(range(range[0], range[1], false));
+            assertThat(captured.get().window().from()).isEqualTo(range[0]);
+            assertThat(captured.get().window().to()).isEqualTo(range[1]);
+        }
+    }
+
+    @Test
+    void dropsTheApproximateDateChoiceForARangeThatEndsBeforeToday() {
+        AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
+        var service =
+                service(
+                        criteria -> {
+                            captured.set(criteria);
+                            return Optional.of(result(List.of(), 0));
+                        });
+
+        service.browse(range(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 12), true));
+        assertThat(captured.get().includeApproximateDates()).isFalse();
+
+        // A range that reaches today still has a part from today on for the opt-in to widen.
+        service.browse(range(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 13), true));
+        assertThat(captured.get().includeApproximateDates()).isTrue();
+    }
+
+    @Test
+    void rejectsIncompleteReversedAndOversizedRangesBeforeReading() {
+        var service =
+                service(
+                        criteria -> {
+                            throw new AssertionError("An invalid range must never be read");
+                        });
+
+        assertRangeRejected(
+                service,
+                null,
+                LocalDate.of(2026, 8, 31),
+                ReleaseQueryValidationException.Code.RANGE_START_MISSING);
+        assertRangeRejected(
+                service,
+                LocalDate.of(2026, 8, 1),
+                null,
+                ReleaseQueryValidationException.Code.RANGE_END_MISSING);
+        assertRangeRejected(
+                service,
+                LocalDate.of(2026, 8, 31),
+                LocalDate.of(2026, 8, 1),
+                ReleaseQueryValidationException.Code.RANGE_INVALID);
+        // 93 days, one more than the bound, even across a year end.
+        assertRangeRejected(
+                service,
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2027, 2, 1),
+                ReleaseQueryValidationException.Code.RANGE_INVALID);
+        assertRangeRejected(
+                service,
+                LocalDate.of(9999, 12, 1),
+                LocalDate.of(9999, 12, 31).plusDays(1),
+                ReleaseQueryValidationException.Code.RANGE_INVALID);
     }
 
     @Test
@@ -138,9 +226,7 @@ class ReleaseCatalogueServiceTest {
                         "IGDB", "co-safe_1", "Cover", "https://www.igdb.com/games/example");
         ReleaseBrowseReadPort.Item item = release("release-provider", cover);
 
-        var page =
-                service(criteria -> Optional.of(result(List.of(item), 1)))
-                        .browse(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20));
+        var page = service(criteria -> Optional.of(result(List.of(item), 1))).browse(query(1, 20));
 
         assertThat(page.items().getFirst().primaryCover())
                 .isEqualTo(
@@ -159,9 +245,7 @@ class ReleaseCatalogueServiceTest {
         ReleaseBrowseReadPort.Item item =
                 release("release-unavailable", new CatalogueCoverReference.Unavailable());
 
-        var page =
-                service(criteria -> Optional.of(result(List.of(item), 1)))
-                        .browse(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20));
+        var page = service(criteria -> Optional.of(result(List.of(item), 1))).browse(query(1, 20));
 
         assertThat(page.items().getFirst().primaryCover())
                 .isEqualTo(new CatalogueCover.Unavailable());
@@ -178,8 +262,9 @@ class ReleaseCatalogueServiceTest {
                                 service(criteria -> Optional.of(result))
                                         .browse(
                                                 new BrowseReleasesUseCase.Query(
-                                                        BrowseReleasesUseCase.View.RECENT,
-                                                        1,
+                                                        null,
+                                                        null,
+                                                        BrowseReleasesUseCase.Sort.RELEASE_DATE,
                                                         false,
                                                         List.of("unsupported"),
                                                         List.of(),
@@ -191,7 +276,7 @@ class ReleaseCatalogueServiceTest {
     }
 
     private static ReleaseCatalogueService service(ReleaseBrowseReadPort port) {
-        return service(port, Clock.fixed(NOW, ZoneId.of("Europe/Madrid")));
+        return service(port, Clock.fixed(NOW, MADRID));
     }
 
     private static ReleaseCatalogueService service(ReleaseBrowseReadPort port, Clock clock) {
@@ -210,9 +295,40 @@ class ReleaseCatalogueServiceTest {
                         URI.create(sourceUrl));
     }
 
-    private static BrowseReleasesUseCase.Query query(
-            BrowseReleasesUseCase.View view, int page, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, 1, false, null, null, page, pageSize);
+    private static BrowseReleasesUseCase.Query query(int page, int pageSize) {
+        return new BrowseReleasesUseCase.Query(
+                null,
+                null,
+                BrowseReleasesUseCase.Sort.RELEASE_DATE,
+                false,
+                null,
+                null,
+                page,
+                pageSize);
+    }
+
+    private static BrowseReleasesUseCase.Query range(
+            LocalDate from, LocalDate to, boolean includeApproximateDates) {
+        return new BrowseReleasesUseCase.Query(
+                from,
+                to,
+                BrowseReleasesUseCase.Sort.RELEASE_DATE,
+                includeApproximateDates,
+                null,
+                null,
+                1,
+                20);
+    }
+
+    private static void assertRangeRejected(
+            ReleaseCatalogueService service,
+            LocalDate from,
+            LocalDate to,
+            ReleaseQueryValidationException.Code code) {
+        assertThatThrownBy(() -> service.browse(range(from, to, false)))
+                .isInstanceOf(ReleaseQueryValidationException.class)
+                .extracting(exception -> ((ReleaseQueryValidationException) exception).code())
+                .isEqualTo(code);
     }
 
     private static ReleaseBrowseReadPort.Result result(

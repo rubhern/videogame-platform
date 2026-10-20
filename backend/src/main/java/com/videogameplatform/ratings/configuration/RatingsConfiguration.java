@@ -1,7 +1,9 @@
 package com.videogameplatform.ratings.configuration;
 
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
+import com.videogameplatform.catalogue.application.releases.RecordCommunityScoresUseCase;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
+import com.videogameplatform.ratings.adapter.persistence.CommunityScoreBackfill;
 import com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingStore;
 import com.videogameplatform.ratings.adapter.persistence.JdbcRatingStatisticsReadAdapter;
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
@@ -74,9 +76,22 @@ class RatingsConfiguration {
     }
 
     @Bean
-    PersonalRatingStore personalRatingStore(RatingJdbcExecution execution, MeterRegistry registry) {
+    PersonalRatingStore personalRatingStore(
+            RatingJdbcExecution execution,
+            MeterRegistry registry,
+            RecordCommunityScoresUseCase communityScores) {
         return new JdbcPersonalRatingStore(
-                execution.jdbc(), execution.transaction(), new RatingActivityMetrics(registry));
+                execution.jdbc(),
+                execution.transaction(),
+                new RatingActivityMetrics(registry),
+                communityScores);
+    }
+
+    @Bean
+    CommunityScoreBackfill communityScoreBackfill(
+            RatingJdbcExecution execution, RecordCommunityScoresUseCase communityScores) {
+        return new CommunityScoreBackfill(
+                execution.jdbc(), execution.transaction(), communityScores);
     }
 
     @Bean

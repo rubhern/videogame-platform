@@ -20,19 +20,25 @@ public interface ReleaseBrowseReadPort {
     Optional<Result> findPublishedReleases(Criteria criteria);
 
     /**
-     * {@code includeApproximateUpcomingDates} applies to the upcoming view only: false keeps
-     * exact-day releases, true also admits month, quarter, year and unknown (TBA) dates.
+     * One page over an inclusive range. {@code evaluatedOn} splits the range: up to and including
+     * it, a release must have happened; after it, a release is expected. {@code
+     * includeApproximateDates} admits month, quarter and year periods that have not ended and
+     * reach the range from {@code evaluatedOn} on; unknown (TBA) dates never join a range.
      */
     record Criteria(
-            BrowseReleasesUseCase.View view,
             Window window,
+            LocalDate evaluatedOn,
+            BrowseReleasesUseCase.Sort sort,
             List<String> platformIds,
             List<String> regionIds,
             Pagination pagination,
-            boolean includeApproximateUpcomingDates,
+            boolean includeApproximateDates,
             int releaseGroupLimit) {
 
         public Criteria {
+            if (window == null || evaluatedOn == null || sort == null) {
+                throw new IllegalArgumentException("Range, evaluation date and sort are required");
+            }
             platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
             regionIds = regionIds == null ? List.of() : List.copyOf(regionIds);
             if (releaseGroupLimit < 1) {
@@ -56,9 +62,9 @@ public interface ReleaseBrowseReadPort {
     record Taxonomy(String id, String name) {}
 
     /**
-     * One game with its bounded presented releases: of the releases matching the view and active
+     * One game with its bounded presented releases: of the releases matching the range and active
      * filters, at most one per platform, chosen by the presented-release precedence with the
-     * view's own date order. Other matching releases of a platform stay stored and unchanged.
+     * earliest date first. Other matching releases of a platform stay stored and unchanged.
      */
     record Item(
             String gameId,

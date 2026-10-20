@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { cdn, featuredWeekReleases, pragmata, releasePage } from "./fixtures/releases";
+import { cdn, featuredWeekReleases, openReleaseControls, pragmata, releasePage } from "./fixtures/releases";
 import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 function scrollCover(index: number) {
@@ -94,7 +94,7 @@ async function paintedTextPixels(page: Page, locator: Locator) {
 for (const width of [390, 412, 1320]) {
   test.describe(`${width}px`, () => {
     test.use({ viewport: { width, height: width === 412 ? 915 : 740 }, hasTouch: width < 620, isMobile: width < 620, deviceScaleFactor: width === 412 ? 3.5 : 1 });
-    for (const path of ["/?view=recent&pageSize=12", "/?view=upcoming&pageSize=12", "/search?q=juego&pageSize=12"]) {
+    for (const path of ["/lanzamientos?pageSize=12", "/lanzamientos?from=2026-08-14&to=2026-11-13&pageSize=12", "/search?q=juego&pageSize=12"]) {
       test(`PUSH and history preserve reading position from ${path}`, async ({ page }) => {
         await fixtures(page);
         await page.goto(path);
@@ -112,9 +112,28 @@ for (const width of [390, 412, 1320]) {
         await at(page, 300);
       });
     }
+    for (const [path, back] of [
+      ["/lanzamientos?sort=hype&pageSize=12&page=2", "Volver a lanzamientos"],
+      ["/search?q=juego&pageSize=12&page=2", "Volver a resultados"],
+    ] as const) {
+      test(`the game page's way back returns to the same reading position on ${path}`, async ({ page }) => {
+        await fixtures(page);
+        await page.goto(path);
+        const link = page.getByRole("link", { name: "Juego 11", exact: true });
+        const before = await openFromReadingPosition(page, link);
+        expect(before).toBeGreaterThan(100);
+        await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
+        await at(page, 0);
+        // The way back is a new navigation that restores the origin entry's position (#285).
+        await page.getByRole("link", { name: back }).click();
+        await expect(page).toHaveURL(path);
+        await expect(link).toBeVisible();
+        await at(page, before);
+      });
+    }
     test("pagination starts a result page and POP restores its entry", async ({ page }) => {
       await fixtures(page);
-      await page.goto("/?view=recent&pageSize=12");
+      await page.goto("/lanzamientos?pageSize=12");
       const next = page.getByRole("link", { name: "Página siguiente" });
       const before = await openFromReadingPosition(page, next);
       await expect(page).toHaveURL(/page=2/);
@@ -150,8 +169,9 @@ for (const width of [390, 412, 1320]) {
     });
     test("release filters preserve context and a new section starts at the top", async ({ page }) => {
       await fixtures(page);
-      await page.goto("/?view=recent&pageSize=12");
+      await page.goto("/lanzamientos?pageSize=12");
       await expect(page.getByRole("link", { name: "Juego 0", exact: true })).toBeVisible();
+      await openReleaseControls(page);
       const filter = page.getByRole("combobox", { name: /^Plataforma:/ });
       await filter.focus();
       await page.keyboard.press("ArrowDown");
@@ -162,8 +182,8 @@ for (const width of [390, 412, 1320]) {
       await expect(page).toHaveURL(/platformIds=windows-pc/);
       await at(page, before);
       await page.keyboard.press("Escape");
-      await page.getByRole("link", { name: "Próximos", exact: true }).click();
-      await expect(page).toHaveURL(/view=upcoming/);
+      await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "TOPómetro" }).click();
+      await expect(page).toHaveURL(/\/$/);
       await at(page, 0);
       await expect(page.getByRole("main")).toBeFocused();
     });
@@ -315,7 +335,7 @@ test("a pending search keeps one result status and announces navigation separate
 
 test.describe("shared shell on a high-density touch screen", () => {
   test.use({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3.5 });
-  for (const path of ["/", "/?view=recent&pageSize=12", "/?view=upcoming&pageSize=12", "/search?q=juego&pageSize=12"]) {
+  for (const path of ["/", "/lanzamientos?pageSize=12", "/lanzamientos?from=2026-08-14&to=2026-11-13&pageSize=12", "/search?q=juego&pageSize=12"]) {
     test(`header and page opening repaint after deep scroll and toolbar resize: ${path}`, async ({ page }) => {
       await fixtures(page);
       await page.goto(path);
@@ -323,9 +343,10 @@ test.describe("shared shell on a high-density touch screen", () => {
       const title = page.getByRole("heading", { level: 1 });
       const controls = path === "/"
         ? page.getByRole("navigation", { name: "Periodo del TOPómetro" })
-        : path.startsWith("/?view=") ? page.locator(".releases-controls") : null;
+        // Phones fold the explorer's controls, so their toggle is what must paint there.
+        : path.startsWith("/lanzamientos") ? page.locator(".releases-controls-toggle") : null;
       await expect(title).toBeVisible();
-      if (path.startsWith("/?view=")) {
+      if (path.startsWith("/lanzamientos")) {
         // Owner-selected plain canvas: provider covers must not create a backdrop.
         await expect(page.locator(".stage-light")).toHaveCount(0);
         await expect(page.locator(".catalogue-cover").first()).toBeVisible();

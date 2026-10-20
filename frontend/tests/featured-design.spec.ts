@@ -719,9 +719,10 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
           name: "No hay lanzamientos en la semana del 10 al 16 de agosto de 2026",
         }),
       ).toBeVisible();
-      await expect(page.getByRole("link", { name: "Ver lanzamientos recientes" })).toHaveAttribute(
+      // The explorer opens on exactly the represented week (#285).
+      await expect(page.getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
         "href",
-        "/?view=recent&weeks=1",
+        "/lanzamientos?from=2026-08-10&to=2026-08-16",
       );
     } else {
       await expect(page.getByRole("alert")).toContainText("visual-check-reference");

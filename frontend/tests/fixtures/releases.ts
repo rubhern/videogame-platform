@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import type { components } from "../../src/shared/api/generated/schema";
 
 type ReleasePage = components["schemas"]["ReleasePage"];
@@ -32,11 +34,11 @@ export const pragmata: ReleasePage["items"][number] = {
   releases: [pragmataRelease],
 };
 
+/** A page of the current week of 13 August 2026, a Thursday, unless a case names another range. */
 export function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
   return {
-    view: "recent",
     evaluatedOn: "2026-08-13",
-    window: { from: "2026-02-13", to: "2026-08-13" },
+    window: { from: "2026-08-10", to: "2026-08-16" },
     activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
@@ -221,4 +223,15 @@ export function featuredWeekReleases(overrides: Partial<FeaturedReleases> = {}):
     })),
     ...overrides,
   };
+}
+
+/** Phones fold the explorer's range, order and facets under one toggle; open it when drawn. */
+export async function openReleaseControls(page: Page) {
+  const toggle = page.getByRole("button", { name: /^Filtros y orden/ });
+  await toggle.or(page.getByLabel("Desde")).first().waitFor();
+  if ((await toggle.isVisible()) && (await toggle.getAttribute("aria-expanded")) === "false") {
+    // From the keyboard, as a phone reader with a keyboard would, so focus stays visible.
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+  }
 }

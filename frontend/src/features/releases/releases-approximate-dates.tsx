@@ -1,27 +1,22 @@
-import { useNavigate } from "react-router-dom";
-
-import { releasesSearchPath, type ReleasesSearch } from "./releases-search";
-
 /**
- * Upcoming discovery lists exact release days by default. This native checkbox opts into
- * month, quarter, year and to-be-confirmed dates, which keep their own precision on every
- * card. The choice lives in the URL and returns to the first page, like the other filters.
+ * **Incluir fechas aproximadas**, offered only while the explored range reaches beyond today
+ * (#285). Unchecked by default, the days still to come list exact days; checked, month, quarter
+ * and year periods that overlap them join, each at its own precision on every card. A date that is
+ * only to be confirmed never joins a range. The choice lives in the URL and returns to the first
+ * page, like the other filters.
  */
-export function ReleasesApproximateDates({ search }: { search: ReleasesSearch }) {
-  const navigate = useNavigate();
+export function ReleasesApproximateDates({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
     <label className="release-approximate-option">
       <input
-        checked={search.includeApproximateDates}
-        onChange={(event) => {
-          void navigate(
-            releasesSearchPath(search, {
-              includeApproximateDates: event.currentTarget.checked,
-              page: 1,
-            }),
-            { preventScrollReset: true },
-          );
-        }}
+        checked={checked}
+        onChange={(event) => onChange(event.currentTarget.checked)}
         type="checkbox"
       />
       <span>Incluir fechas aproximadas</span>

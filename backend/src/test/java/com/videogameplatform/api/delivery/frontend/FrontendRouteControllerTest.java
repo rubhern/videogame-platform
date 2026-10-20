@@ -28,6 +28,14 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/search").param("q", "resident evil"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        // The release explorer reloads with its whole range, order and filter state.
+        mockMvc.perform(
+                        get("/lanzamientos")
+                                .param("from", "2026-08-01")
+                                .param("to", "2026-08-31")
+                                .param("sort", "hype"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));

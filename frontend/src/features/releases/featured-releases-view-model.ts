@@ -88,6 +88,8 @@ export type FeaturedReleasesViewModel = {
   periodPhrase: string;
   /** Whether the API's evaluated date falls inside the represented period. */
   isCurrent: boolean;
+  /** The represented period's first and last day, which Explorar lanzamientos opens on (#285). */
+  window: { from: string; to: string };
   /** The adjacent periods inside the API's navigation bounds; null at a bound. */
   previous: FeaturedPeriodStep | null;
   next: FeaturedPeriodStep | null;
@@ -392,6 +394,7 @@ export function toFeaturedReleasesViewModel(
         ? formatWeekPhrase(window.from, window.to)
         : formatMonthPhrase(period),
     isCurrent: window.from <= evaluatedOn && evaluatedOn <= window.to,
+    window: { from: window.from, to: window.to },
     previous: step(response.navigation.previous, -1),
     next: step(response.navigation.next, 1),
     timeline,

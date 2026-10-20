@@ -43,7 +43,8 @@ export function formatCalendarDay(value: string): string {
 
 /**
  * A window between two API-provided calendar days, as compact as the shared parts allow:
- * `11–17 oct 2026`, `28 sep – 25 oct 2026` or `29 dic 2026 – 4 ene 2027`.
+ * `11–17 oct 2026`, `28 sep – 25 oct 2026`, `29 dic 2026 – 4 ene 2027`, or `20 oct 2026` for
+ * a single day.
  */
 export function formatDayRange(from: string, to: string): string {
   const start = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
@@ -56,6 +57,7 @@ export function formatDayRange(from: string, to: string): string {
   const [, startYear, , startDay] = start;
   const [, endYear, , endDay] = end;
   const last = `${Number(endDay)} ${endMonth} ${endYear}`;
+  if (from === to) return last;
   if (startYear !== endYear) return `${Number(startDay)} ${startMonth} ${startYear} – ${last}`;
   if (startMonth !== endMonth) return `${Number(startDay)} ${startMonth} – ${last}`;
   return `${Number(startDay)}–${last}`;

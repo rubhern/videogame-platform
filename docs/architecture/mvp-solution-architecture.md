@@ -96,6 +96,16 @@ same `GameListingChanged` notification in its transaction.
 [ADR-0018](../decisions/0018-project-personal-ratings-listing-in-ratings.md) owns
 the design, its backfill, locking, and read bounds.
 
+Post-MVP (#285, implemented; awaiting owner review), the release explorer orders games by
+community score in PostgreSQL before pagination over a Catalogue-owned projection of each
+rated game's mean and rating count. Ratings, which already depends on Catalogue, replaces a
+game's row through a Catalogue application contract inside every rating write, under a
+per-game lock, and backfills missing rows at startup; Catalogue still never reads Ratings
+tables and does not depend on Ratings. Any future rating writer must replace the projection
+in its transaction.
+[ADR-0029](../decisions/0029-project-community-scores-for-the-release-order.md) owns the
+design, its consistency and its reconsideration triggers.
+
 ## Hexagonal dependency rules
 
 ```text

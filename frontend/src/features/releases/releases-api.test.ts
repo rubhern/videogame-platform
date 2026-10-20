@@ -5,9 +5,8 @@ import { createProductApiClient } from "../../shared/api/product-api-client";
 import { ReleasesApiError, getReleases } from "./releases-api";
 
 const releasePageResponse = {
-  view: "recent",
   evaluatedOn: "2026-08-13",
-  window: { from: "2026-02-13", to: "2026-08-13" },
+  window: { from: "2026-08-01", to: "2026-08-31" },
   activeFilters: { platformIds: [], regionIds: [] },
   availableFilters: { platforms: [], regions: [] },
   items: [],
@@ -25,7 +24,7 @@ describe("releases product API", () => {
     });
 
     const result = await getReleases(
-      { view: "recent", page: 1, pageSize: 6 },
+      { from: "2026-08-01", to: "2026-08-31", sort: "hype", page: 1, pageSize: 6 },
       client,
     );
 
@@ -34,7 +33,7 @@ describe("releases product API", () => {
     const request = fetchMock.mock.calls[0]?.[0];
     expect(request).toBeInstanceOf(Request);
     expect((request as Request).url).toBe(
-      "http://localhost/api/v1/releases?view=recent&page=1&pageSize=6",
+      "http://localhost/api/v1/releases?from=2026-08-01&to=2026-08-31&sort=hype&page=1&pageSize=6",
     );
     expect((request as Request).credentials).toBe("same-origin");
   });
@@ -61,7 +60,7 @@ describe("releases product API", () => {
     });
 
     await expect(
-      getReleases({ view: "recent", page: 1, pageSize: 6 }, client),
+      getReleases({ page: 1, pageSize: 6 }, client),
     ).rejects.toEqual(
       expect.objectContaining<Partial<ReleasesApiError>>({
         code: "CATALOGUE_NOT_READY",

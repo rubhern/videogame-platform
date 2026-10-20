@@ -29,6 +29,7 @@ class ReleaseBrowseScalabilityIT {
 
     private static final String PUBLICATION_ID = "90000000-0000-4000-8000-000000000001";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final LocalDate TODAY = LocalDate.of(2026, 8, 13);
 
     @Test
     void reportsThePlanWithoutMaterializingTheDatasetInJava() throws Exception {
@@ -66,100 +67,91 @@ class ReleaseBrowseScalabilityIT {
                         new NamedParameterJdbcTemplate(runtimeDataSource),
                         readTransaction(runtimeDataSource));
 
+        // The widest range a request may name, wholly before today, in the default order.
+        assertScenario(
+                admin,
+                adapter,
+                rows,
+                "past-max-range-release-date",
+                LocalDate.of(2026, 5, 14),
+                LocalDate.of(2026, 8, 13),
+                false,
+                BrowseReleasesUseCase.Sort.RELEASE_DATE);
+        // The widest range after today with approximate periods, ordered by Hype.
+        assertScenario(
+                admin,
+                adapter,
+                rows,
+                "future-max-range-approximate-hype",
+                LocalDate.of(2026, 8, 14),
+                LocalDate.of(2026, 11, 13),
+                true,
+                BrowseReleasesUseCase.Sort.HYPE);
+        // A past range ordered by the stored external player score.
+        assertScenario(
+                admin,
+                adapter,
+                rows,
+                "past-max-range-external-player-score",
+                LocalDate.of(2026, 5, 14),
+                LocalDate.of(2026, 8, 13),
+                false,
+                BrowseReleasesUseCase.Sort.EXTERNAL_PLAYER_SCORE);
+        // The default week around today, ordered by the community score projection.
+        assertScenario(
+                admin,
+                adapter,
+                rows,
+                "current-week-rating",
+                LocalDate.of(2026, 8, 10),
+                LocalDate.of(2026, 8, 16),
+                false,
+                BrowseReleasesUseCase.Sort.RATING);
+    }
+
+    private static void assertScenario(
+            JdbcTemplate admin,
+            JdbcReleaseBrowseReadAdapter adapter,
+            int rows,
+            String name,
+            LocalDate from,
+            LocalDate to,
+            boolean approximate,
+            BrowseReleasesUseCase.Sort sort)
+            throws Exception {
         ReleaseBrowseReadPort.Result result =
-                adapter.findPublishedReleases(criteria()).orElseThrow();
+                adapter.findPublishedReleases(
+                                new ReleaseBrowseReadPort.Criteria(
+                                        new ReleaseBrowseReadPort.Window(from, to),
+                                        TODAY,
+                                        sort,
+                                        null,
+                                        null,
+                                        new ReleaseBrowseReadPort.Pagination(1, 20, 0),
+                                        approximate,
+                                        25))
+                        .orElseThrow();
+        String where = rangeWhere(from, to, approximate);
+        JsonNode countPlan = explain(admin, countSql(where));
+        JsonNode pagePlan = explain(admin, pageSql(where, sort));
+        long expectedMatches = admin.queryForObject(countSql(where), Long.class);
+        recordPlan(rows, name + "-count", countPlan);
+        recordPlan(rows, name + "-page", pagePlan);
 
-        JsonNode countPlan = explain(admin, countSql());
-        JsonNode pagePlan = explain(admin, pageSql());
-        long expectedMatches = admin.queryForObject(countSql(), Long.class);
-        recordPlan(rows, "recent-count", countPlan);
-        recordPlan(rows, "recent-page", pagePlan);
-
-        assertThat(result.totalItems()).isEqualTo(expectedMatches);
         assertThat(expectedMatches).isBetween(1L, rows - 1L);
-        assertThat(result.items()).hasSize(20);
+        assertThat(result.totalItems()).isEqualTo(expectedMatches);
+        assertThat(result.items()).hasSize((int) Math.min(20, expectedMatches));
         // Every generated release shares one platform, so each game presents exactly one.
         assertThat(result.items()).allSatisfy(item -> assertThat(item.releases()).hasSize(1));
+        assertThat(result.items())
+                .flatExtracting(ReleaseBrowseReadPort.Item::releases)
+                .noneSatisfy(
+                        release ->
+                                assertThat(release.releaseDate())
+                                        .isInstanceOf(ReleaseDate.Unknown.class));
         assertUsesIndex(countPlan, "ix_release_browse_period");
         assertUsesIndex(pagePlan, "ix_release_browse_period");
         assertDoesNotSequentiallyScan(pagePlan, "release_snapshot", "game_snapshot");
-
-        ReleaseBrowseReadPort.Result upcoming =
-                adapter.findPublishedReleases(upcomingCriteria()).orElseThrow();
-        JsonNode upcomingCountPlan = explain(admin, upcomingCountSql());
-        JsonNode upcomingPagePlan = explain(admin, upcomingPageSql());
-        long expectedUpcomingMatches = admin.queryForObject(upcomingCountSql(), Long.class);
-        recordPlan(rows, "upcoming-approximate-count", upcomingCountPlan);
-        recordPlan(rows, "upcoming-approximate-page", upcomingPagePlan);
-
-        assertThat(upcoming.items()).hasSize(20);
-        assertThat(upcoming.items()).allSatisfy(item -> assertThat(item.releases()).hasSize(1));
-        assertThat(upcoming.totalItems()).isEqualTo(expectedUpcomingMatches);
-        assertUsesIndex(upcomingCountPlan, "ix_release_browse_period");
-        assertUsesIndex(upcomingCountPlan, "ix_release_browse_unknown");
-        assertUsesIndex(upcomingPagePlan, "ix_release_browse_period");
-        assertDoesNotSequentiallyScan(upcomingPagePlan, "release_snapshot", "game_snapshot");
-
-        // The default exact-day upcoming week keeps the same period index; partial precision is a
-        // residual filter bounded by the rows overlapping the window, never the whole publication.
-        ReleaseBrowseReadPort.Result exactUpcoming =
-                adapter.findPublishedReleases(exactUpcomingCriteria()).orElseThrow();
-        JsonNode exactCountPlan = explain(admin, exactUpcomingCountSql());
-        JsonNode exactPagePlan = explain(admin, exactUpcomingPageSql());
-        long expectedExactMatches = admin.queryForObject(exactUpcomingCountSql(), Long.class);
-        recordPlan(rows, "upcoming-exact-count", exactCountPlan);
-        recordPlan(rows, "upcoming-exact-page", exactPagePlan);
-
-        assertThat(expectedExactMatches).isPositive();
-        assertThat(exactUpcoming.totalItems()).isEqualTo(expectedExactMatches);
-        assertThat(exactUpcoming.items()).hasSize((int) Math.min(20, expectedExactMatches));
-        assertThat(exactUpcoming.items())
-                .flatExtracting(ReleaseBrowseReadPort.Item::releases)
-                .allSatisfy(
-                        release ->
-                                assertThat(release.releaseDate())
-                                        .isInstanceOf(ReleaseDate.Day.class));
-        assertUsesIndex(exactCountPlan, "ix_release_browse_period");
-        assertUsesIndex(exactPagePlan, "ix_release_browse_period");
-        assertDoesNotSequentiallyScan(exactCountPlan, "release_snapshot", "game_snapshot");
-        assertDoesNotSequentiallyScan(exactPagePlan, "release_snapshot", "game_snapshot");
-    }
-
-    private static ReleaseBrowseReadPort.Criteria criteria() {
-        return new ReleaseBrowseReadPort.Criteria(
-                BrowseReleasesUseCase.View.RECENT,
-                new ReleaseBrowseReadPort.Window(
-                        LocalDate.of(2026, 2, 13), LocalDate.of(2026, 8, 13)),
-                null,
-                null,
-                new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                true,
-                25);
-    }
-
-    private static ReleaseBrowseReadPort.Criteria upcomingCriteria() {
-        return new ReleaseBrowseReadPort.Criteria(
-                BrowseReleasesUseCase.View.UPCOMING,
-                new ReleaseBrowseReadPort.Window(
-                        LocalDate.of(2026, 8, 13), LocalDate.of(2027, 2, 13)),
-                null,
-                null,
-                new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                true,
-                25);
-    }
-
-    // The product default: one upcoming week with exact days only.
-    private static ReleaseBrowseReadPort.Criteria exactUpcomingCriteria() {
-        return new ReleaseBrowseReadPort.Criteria(
-                BrowseReleasesUseCase.View.UPCOMING,
-                new ReleaseBrowseReadPort.Window(
-                        LocalDate.of(2026, 8, 13), LocalDate.of(2026, 8, 20)),
-                null,
-                null,
-                new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                false,
-                25);
     }
 
     private static TransactionTemplate readTransaction(DataSource dataSource) {
@@ -206,6 +198,22 @@ class ReleaseBrowseScalabilityIT {
         jdbc.update(
                 "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) SELECT ?::uuid, md5('extra-release-' || n)::uuid, md5('game-' || n)::uuid, '91000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000002', 'day', DATE '2010-01-01' + (n % 7305) + 3, 'announced', 'product_curated', 'scale fixture', 'release', now(), 'verified', 'not_required' FROM generate_series(10, ?, 10) n",
                 PUBLICATION_ID, rows);
+        // Every third game has Hypes and every fifth a community score, so both orders mix games
+        // with and without their signal.
+        jdbc.update(
+                "INSERT INTO catalogue.game_featured_evidence (game_id, hypes, first_release_date, eligible_product, source_name, observed_at) SELECT md5('game-' || n)::uuid, 1 + n % 997, NULL, true, 'IGDB', now() FROM generate_series(3, ?, 3) n",
+                rows);
+        jdbc.update(
+                "INSERT INTO catalogue.game_community_score (game_id, mean, rating_count) SELECT md5('game-' || n)::uuid, 1 + (n % 91) / 10.0, 1 + n % 50 FROM generate_series(5, ?, 5) n",
+                rows);
+        // Every seventh game has an external player score, and every fourteenth was checked
+        // without one.
+        jdbc.update(
+                "INSERT INTO catalogue.game_external_score (game_id, source_name, score_kind, score, score_count, source_url, observed_at, changed_at) SELECT md5('game-' || n)::uuid, 'IGDB', 'player', CASE WHEN n % 14 = 0 THEN NULL ELSE (n % 1000) / 10.0 END, CASE WHEN n % 14 = 0 THEN NULL ELSE 1 + n % 300 END, CASE WHEN n % 14 = 0 THEN NULL ELSE 'https://www.igdb.com/games/scale-' || n END, now(), now() FROM generate_series(7, ?, 7) n",
+                rows);
+        jdbc.execute("ANALYZE catalogue.game_external_score");
+        jdbc.execute("ANALYZE catalogue.game_featured_evidence");
+        jdbc.execute("ANALYZE catalogue.game_community_score");
         jdbc.execute("ANALYZE catalogue.game_snapshot");
         jdbc.execute("ANALYZE catalogue.release_snapshot");
     }
@@ -263,66 +271,82 @@ class ReleaseBrowseScalabilityIT {
         plan.path("Plans").forEach(child -> collectPlanNodes(child, result));
     }
 
-    // Mirrors JdbcReleaseBrowseReadAdapter's RECENT predicate: a known date that has occurred by
-    // the
-    // window's upper bound, excluding cancelled and delayed, overlapping the recent window.
-    private static String recentPredicate() {
-        return "rs.release_status NOT IN ('cancelled', 'delayed')"
-                + " AND ((rs.date_precision = 'day' AND rs.exact_date <= DATE '2026-08-13')"
-                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
-                + " AND rs.period_end < DATE '2026-08-13'))"
+    // Mirrors JdbcReleaseBrowseReadAdapter's range predicate: a known period overlapping the
+    // range and not cancelled; an exact day not delayed once it is today or earlier, or any exact
+    // day after today; an ended partial period not delayed; and, opted in, a partial period that
+    // has not ended. TBA never belongs to a range.
+    private static String rangeWhere(LocalDate from, LocalDate to, boolean approximate) {
+        return "rs.publication_id = '"
+                + PUBLICATION_ID
+                + "'::uuid AND rs.release_status <> 'cancelled'"
                 + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                 + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                + " && daterange(DATE '2026-02-13', DATE '2026-08-13', '[]')";
+                + " && daterange(DATE '"
+                + from
+                + "', DATE '"
+                + to
+                + "', '[]')"
+                + " AND ((rs.date_precision = 'day' AND (rs.exact_date > DATE '"
+                + TODAY
+                + "' OR rs.release_status <> 'delayed'))"
+                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                + " AND rs.period_end < DATE '"
+                + TODAY
+                + "' AND rs.release_status <> 'delayed')"
+                + (approximate
+                        ? " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                                + " AND rs.period_end >= DATE '"
+                                + TODAY
+                                + "')"
+                        : "")
+                + ")";
     }
 
-    // Count and paging are over games, mirroring the grouped adapter query.
-    private static final String RECENT_DATE_ORDER = "period_end DESC NULLS LAST";
-    private static final String UPCOMING_DATE_ORDER = "period_start ASC NULLS LAST";
-    private static final String RECENT_RELEASE_ORDER = "period_end DESC NULLS LAST, release_id";
-    private static final String RECENT_GAME_ORDER =
-            "period_end DESC NULLS LAST, lower(canonical_title), game_id";
-    private static final String UPCOMING_PRECISION =
-            "CASE date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2 WHEN 'quarter' THEN 3"
-                    + " WHEN 'year' THEN 4 ELSE 5 END";
-    private static final String UPCOMING_RELEASE_ORDER =
-            UPCOMING_PRECISION + ", period_start ASC NULLS LAST, release_id";
-    private static final String UPCOMING_GAME_ORDER =
-            UPCOMING_PRECISION + ", period_start ASC NULLS LAST, lower(canonical_title), game_id";
+    private static final String DATE_ORDER =
+            "period_end ASC, CASE date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2"
+                    + " WHEN 'quarter' THEN 3 WHEN 'year' THEN 4 ELSE 5 END";
+    private static final String RELEASE_ORDER = DATE_ORDER + ", release_id";
+    private static final String DATE_GAME_ORDER = DATE_ORDER + ", lower(canonical_title), game_id";
 
-    private static String countSql() {
-        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs"
-                + " WHERE rs.publication_id = '"
-                + PUBLICATION_ID
-                + "'::uuid AND "
-                + recentPredicate();
-    }
-
-    private static String pageSql() {
-        return groupedPageSql(
-                "rs.publication_id = '" + PUBLICATION_ID + "'::uuid AND " + recentPredicate(),
-                RECENT_DATE_ORDER,
-                RECENT_RELEASE_ORDER,
-                RECENT_GAME_ORDER);
-    }
-
-    private static String upcomingCountSql() {
-        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs"
-                + upcomingWhere();
-    }
-
-    private static String upcomingPageSql() {
-        return groupedPageSql(
-                upcomingWhere().replaceFirst("^ WHERE ", ""),
-                UPCOMING_DATE_ORDER,
-                UPCOMING_RELEASE_ORDER,
-                UPCOMING_GAME_ORDER);
+    private static String countSql(String where) {
+        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs WHERE "
+                + where;
     }
 
     // Mirrors the adapter: the presented release of each game and platform, under the shared
-    // presentation precedence ending in the view's date order, positions and fills the page.
-    private static String groupedPageSql(
-            String where, String dateOrder, String releaseOrder, String gameOrder) {
+    // presentation precedence ending in the earliest date, positions the game; the chosen order's
+    // one signal joins before the page is cut.
+    private static String pageSql(String where, BrowseReleasesUseCase.Sort sort) {
+        String signal =
+                switch (sort) {
+                    case RELEASE_DATE -> "SELECT gt.* FROM game_top gt";
+                    case HYPE ->
+                            "SELECT gt.*, fe.hypes FROM game_top gt LEFT JOIN"
+                                    + " catalogue.game_featured_evidence fe ON fe.game_id = gt.game_id";
+                    case RATING ->
+                            "SELECT gt.*, cs.mean AS community_mean, cs.rating_count AS"
+                                    + " community_rating_count FROM game_top gt LEFT JOIN"
+                                    + " catalogue.game_community_score cs ON cs.game_id = gt.game_id";
+                    case EXTERNAL_PLAYER_SCORE ->
+                            "SELECT gt.*, round(es.score / 10, 1) AS player_score, es.score_count"
+                                    + " AS player_score_count FROM game_top gt LEFT JOIN"
+                                    + " catalogue.game_external_score es ON es.game_id = gt.game_id"
+                                    + " AND es.source_name = 'IGDB' AND es.score_kind = 'player'"
+                                    + " AND es.score IS NOT NULL";
+                };
+        String gameOrder =
+                switch (sort) {
+                    case RELEASE_DATE -> prefix("gp", DATE_GAME_ORDER);
+                    case HYPE -> "gp.hypes DESC NULLS LAST, " + prefix("gp", DATE_GAME_ORDER);
+                    case RATING ->
+                            "gp.community_mean DESC NULLS LAST, gp.community_rating_count DESC NULLS"
+                                    + " LAST, "
+                                    + prefix("gp", DATE_GAME_ORDER);
+                    case EXTERNAL_PLAYER_SCORE ->
+                            "gp.player_score DESC NULLS LAST, gp.player_score_count DESC NULLS"
+                                    + " LAST, "
+                                    + prefix("gp", DATE_GAME_ORDER);
+                };
         return "WITH filtered_release AS MATERIALIZED ("
                 + "SELECT * FROM catalogue.release_snapshot rs WHERE "
                 + where
@@ -330,25 +354,27 @@ class ReleaseBrowseScalabilityIT {
                 + " fr.platform_id) fr.* FROM filtered_release fr JOIN catalogue.region"
                 + " release_region ON release_region.region_id = fr.region_id ORDER BY fr.game_id,"
                 + " fr.platform_id, "
-                + ReleasePresentationOrder.of("fr", "release_region", prefix("fr", dateOrder))
+                + ReleasePresentationOrder.of("fr", "release_region", prefix("fr", DATE_ORDER))
                 + "), game_top AS (SELECT DISTINCT ON (fr.game_id) fr.game_id, fr.period_end,"
                 + " fr.period_start, fr.date_precision, gs.canonical_title FROM presented_release fr"
                 + " JOIN LATERAL (SELECT snapshot.canonical_title FROM catalogue.game_snapshot snapshot"
                 + " WHERE snapshot.publication_id = fr.publication_id AND snapshot.game_id = fr.game_id"
                 + " LIMIT 1) gs ON true ORDER BY fr.game_id, "
-                + prefix("fr", releaseOrder)
-                + "), game_page AS (SELECT * FROM game_top gt ORDER BY "
-                + prefix("gt", gameOrder)
+                + prefix("fr", RELEASE_ORDER)
+                + "), game_signal AS ("
+                + signal
+                + "), game_page AS (SELECT * FROM game_signal gp ORDER BY "
+                + gameOrder
                 + " LIMIT 20 OFFSET 0)"
                 + " SELECT gp.game_id, rel.release_id FROM game_page gp JOIN LATERAL ("
                 + "SELECT fr.release_id, fr.period_end, fr.period_start, fr.date_precision"
                 + " FROM presented_release fr WHERE fr.game_id = gp.game_id ORDER BY "
-                + prefix("fr", releaseOrder)
+                + prefix("fr", RELEASE_ORDER)
                 + " LIMIT 25) rel ON true"
                 + " ORDER BY "
-                + prefix("gp", gameOrder)
+                + gameOrder
                 + ", "
-                + prefix("rel", releaseOrder);
+                + prefix("rel", RELEASE_ORDER);
     }
 
     /** Qualifies the bare column references of an order fragment with a table alias. */
@@ -356,47 +382,5 @@ class ReleaseBrowseScalabilityIT {
         return order.replaceAll(
                 "(?<![\\w.])(period_end|period_start|release_id|game_id|canonical_title|date_precision)",
                 alias + ".$1");
-    }
-
-    private static String exactUpcomingCountSql() {
-        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs"
-                + exactUpcomingWhere();
-    }
-
-    private static String exactUpcomingPageSql() {
-        return groupedPageSql(
-                exactUpcomingWhere().replaceFirst("^ WHERE ", ""),
-                UPCOMING_DATE_ORDER,
-                UPCOMING_RELEASE_ORDER,
-                UPCOMING_GAME_ORDER);
-    }
-
-    // Mirrors JdbcReleaseBrowseReadAdapter's default exact-day UPCOMING predicate for one week.
-    private static String exactUpcomingWhere() {
-        return " WHERE rs.publication_id = '"
-                + PUBLICATION_ID
-                + "'::uuid AND rs.release_status <> 'cancelled' AND rs.date_precision = 'day'"
-                + " AND (NOT ((rs.date_precision = 'day' AND rs.exact_date <= DATE '2026-08-13')"
-                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
-                + " AND rs.period_end < DATE '2026-08-13'))"
-                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                + " && daterange(DATE '2026-08-13', DATE '2026-08-20', '[]'))";
-    }
-
-    // Mirrors JdbcReleaseBrowseReadAdapter's UPCOMING approximate-date predicate: a known date
-    // that has not yet occurred, excluding cancelled; or a TBA unknown date that is not explicitly
-    // released. Delayed releases with a valid future period stay relevant.
-    private static String upcomingWhere() {
-        return " WHERE rs.publication_id = '"
-                + PUBLICATION_ID
-                + "'::uuid AND rs.release_status <> 'cancelled'"
-                + " AND ((NOT ((rs.date_precision = 'day' AND rs.exact_date <= DATE '2026-08-13')"
-                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
-                + " AND rs.period_end < DATE '2026-08-13'))"
-                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                + " && daterange(DATE '2026-08-13', DATE '2027-02-13', '[]'))"
-                + " OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
     }
 }

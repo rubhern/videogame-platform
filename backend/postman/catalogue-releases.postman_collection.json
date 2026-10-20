@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 3.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 4.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game over an inclusive date range. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,7 +14,7 @@
   ],
   "item": [
     {
-      "name": "Recent releases",
+      "name": "Current week of releases",
       "event": [
         {
           "listen": "test",
@@ -26,36 +26,36 @@
               "",
               "pm.test(\"Response follows the reviewed release-page contract\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body.view).to.eql(\"recent\");",
-              "    pm.expect(body).to.have.all.keys(\"view\", \"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
-              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(6);",
-              "    pm.expect(body.page.number).to.eql(1);",
-              "    pm.expect(body.page.size).to.eql(20);",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
               "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
               "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
               "    body.items.forEach(function (item) {",
               "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
               "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
               "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
               "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
               "            pm.expect(release.gameId).to.eql(item.gameId);",
-              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
               "        });",
               "    });",
+              "});",
+              "",
+              "pm.test(\"Without a range the API reads the current Monday-to-Sunday week\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(new Date(body.window.from + \"T00:00:00Z\").getUTCDay()).to.eql(1);",
+              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(6);",
+              "    pm.expect(body.evaluatedOn >= body.window.from && body.evaluatedOn <= body.window.to).to.be.true;",
+              "    pm.expect(body.page.number).to.eql(1);",
+              "    pm.expect(body.page.size).to.eql(20);",
               "});",
               "",
               "pm.test(\"Public cache and correlation headers are present\", function () {",
               "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
-              "});",
-              "",
-              "pm.test(\"Each game presents at most one release per platform\", function () {",
-              "    pm.response.json().items.forEach(function (item) {",
-              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
-              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
-              "    });",
               "});",
               "",
               "pm.collectionVariables.set(\"releaseEtag\", pm.response.headers.get(\"ETag\"));",
@@ -77,7 +77,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "raw": "{{baseUrl}}/api/v1/releases?page=1&pageSize=20",
           "host": [
             "{{baseUrl}}"
           ],
@@ -88,10 +88,6 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "recent"
-            },
-            {
               "key": "page",
               "value": "1"
             },
@@ -101,12 +97,12 @@
             }
           ]
         },
-        "description": "Returns one bounded page from the current local publication. PostgreSQL filters, counts, orders and pages; ordering ends with unique releaseId."
+        "description": "Returns one bounded page of the current calendar week in Europe/Madrid from the local publication. PostgreSQL filters, counts, orders and pages over games; every order ends with the unique gameId."
       },
       "response": []
     },
     {
-      "name": "Conditional recent releases with a weak validator",
+      "name": "Conditional current week with a weak validator",
       "event": [
         {
           "listen": "test",
@@ -144,7 +140,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "raw": "{{baseUrl}}/api/v1/releases?page=1&pageSize=20",
           "host": [
             "{{baseUrl}}"
           ],
@@ -154,10 +150,6 @@
             "releases"
           ],
           "query": [
-            {
-              "key": "view",
-              "value": "recent"
-            },
             {
               "key": "page",
               "value": "1"
@@ -173,7 +165,7 @@
       "response": []
     },
     {
-      "name": "Upcoming releases filtered by platform and region",
+      "name": "Mixed range filtered by platform and region",
       "event": [
         {
           "listen": "test",
@@ -183,14 +175,38 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.window).to.eql({ from: \"2026-08-01\", to: \"2026-10-31\" });",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
+              "        });",
+              "    });",
+              "});",
+              "",
               "pm.test(\"Multi-select filters combine OR within a dimension and AND across dimensions\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body.view).to.eql(\"upcoming\");",
-              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(14);",
               "    pm.expect(body.activeFilters.platformIds).to.include.members([\"10000000-0000-4000-8000-000000000004\", \"10000000-0000-4000-8000-000000000001\"]);",
               "    pm.expect(body.activeFilters.regionIds).to.include.members([\"20000000-0000-4000-8000-000000000001\"]);",
-              "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
-              "    pm.expect(body.availableFilters.regions).to.be.an(\"array\").and.not.empty;",
+              "    body.items.forEach(item => item.releases.forEach(release => {",
+              "        pm.expect([\"10000000-0000-4000-8000-000000000004\", \"10000000-0000-4000-8000-000000000001\"]).to.include(release.platform.platformId);",
+              "        pm.expect(release.region.regionId).to.eql(\"20000000-0000-4000-8000-000000000001\");",
+              "    }));",
               "});",
               "",
               "pm.test(\"Region options carry catalogue-owned labels for their stable IDs\", function () {",
@@ -216,7 +232,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformIds=10000000-0000-4000-8000-000000000004&platformIds=10000000-0000-4000-8000-000000000001&regionIds=20000000-0000-4000-8000-000000000001&weeks=2",
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-08-01&to=2026-10-31&platformIds=10000000-0000-4000-8000-000000000004&platformIds=10000000-0000-4000-8000-000000000001&regionIds=20000000-0000-4000-8000-000000000001",
           "host": [
             "{{baseUrl}}"
           ],
@@ -227,8 +243,12 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "upcoming"
+              "key": "from",
+              "value": "2026-08-01"
+            },
+            {
+              "key": "to",
+              "value": "2026-10-31"
             },
             {
               "key": "platformIds",
@@ -241,19 +261,15 @@
             {
               "key": "regionIds",
               "value": "20000000-0000-4000-8000-000000000001"
-            },
-            {
-              "key": "weeks",
-              "value": "2"
             }
           ]
         },
-        "description": "Multi-select faceted filter: two platforms (OR) intersected (AND) with the concrete Worldwide region. Uses stable product-owned IDs from the deterministic local seed, never provider IDs. Worldwide is a real region, distinct from omitting the dimension (Todas)."
+        "description": "A range may hold days that have happened and days to come. Platform values combine with OR, then AND with the region."
       },
       "response": []
     },
     {
-      "name": "Upcoming releases default to exact days",
+      "name": "Future range shows exact days by default",
       "event": [
         {
           "listen": "test",
@@ -263,12 +279,106 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test(\"Only releases with an exact day are returned by default\", function () {",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body.view).to.eql(\"upcoming\");",
+              "    pm.expect(body.window).to.eql({ from: \"2027-01-01\", to: \"2027-03-31\" });",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
               "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
-              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
+              "        });",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Days after the evaluation date show only exact days without the opt-in\", function () {",
+              "    const body = pm.response.json();",
+              "    body.items.forEach(item => item.releases.forEach(release => pm.expect(release.releaseDate.precision).to.eql(\"day\")));",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?from=2027-01-01&to=2027-03-31",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2027-01-01"
+            },
+            {
+              "key": "to",
+              "value": "2027-03-31"
+            }
+          ]
+        },
+        "description": "A future range without includeApproximateDates lists only releases with an exact day."
+      },
+      "response": []
+    },
+    {
+      "name": "Future range including approximate dates",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.window).to.eql({ from: \"2027-01-01\", to: \"2027-03-31\" });",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
               "        });",
               "    });",
               "});",
@@ -289,7 +399,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&weeks=4",
+          "raw": "{{baseUrl}}/api/v1/releases?from=2027-01-01&to=2027-03-31&includeApproximateDates=true",
           "host": [
             "{{baseUrl}}"
           ],
@@ -300,21 +410,25 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "upcoming"
+              "key": "from",
+              "value": "2027-01-01"
             },
             {
-              "key": "weeks",
-              "value": "4"
+              "key": "to",
+              "value": "2027-03-31"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "true"
             }
           ]
         },
-        "description": "Upcoming discovery lists only exact-day releases unless the visitor opts into approximate dates. Month, quarter, year and TBA releases stay stored and appear only with includeApproximateDates=true."
+        "description": "Opted in, month, quarter and year periods overlapping the range join with their real precision; TBA dates never do."
       },
       "response": []
     },
     {
-      "name": "Upcoming releases including approximate dates",
+      "name": "Range ordered by Hype",
       "event": [
         {
           "listen": "test",
@@ -324,30 +438,27 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test(\"Approximate dates keep their real precision and follow exact days\", function () {",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
               "    const body = pm.response.json();",
-              "    const releases = body.items.flatMap(function (item) { return item.releases; });",
-              "    const approximate = releases.filter(function (release) { return release.releaseDate.precision !== \"day\"; });",
-              "    // The deterministic seed always holds one TBA upcoming release, whatever the date.",
-              "    pm.expect(approximate.map(function (release) { return release.releaseDate.precision; })).to.include(\"unknown\");",
-              "    approximate.forEach(function (release) {",
-              "        if (release.releaseDate.precision === \"unknown\") {",
-              "            pm.expect(release.releaseDate.value).to.eql(null);",
-              "        } else {",
-              "            pm.expect(release.releaseDate.value).to.match(/^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$/);",
-              "        }",
-              "    });",
-              "    const firstGamePrecisions = body.items.map(function (item) { return item.releases[0].releaseDate.precision; });",
-              "    const firstApproximate = firstGamePrecisions.findIndex(function (precision) { return precision !== \"day\"; });",
-              "    if (firstApproximate >= 0) {",
-              "        pm.expect(firstGamePrecisions.slice(firstApproximate)).to.not.include(\"day\");",
-              "    }",
+              "    pm.expect(body.window).to.eql({ from: \"2026-10-01\", to: \"2026-12-31\" });",
               "});",
               "",
-              "pm.test(\"Each game presents at most one release per platform\", function () {",
-              "    pm.response.json().items.forEach(function (item) {",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
-              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
+              "        });",
               "    });",
               "});",
               "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
@@ -367,7 +478,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true",
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-10-01&to=2026-12-31&includeApproximateDates=true&sort=hype",
           "host": [
             "{{baseUrl}}"
           ],
@@ -378,20 +489,206 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "upcoming"
+              "key": "from",
+              "value": "2026-10-01"
             },
             {
-              "key": "weeks",
-              "value": "4"
+              "key": "to",
+              "value": "2026-12-31"
             },
             {
               "key": "includeApproximateDates",
               "value": "true"
+            },
+            {
+              "key": "sort",
+              "value": "hype"
             }
           ]
         },
-        "description": "Explicit opt-in: month, quarter, year and unknown (TBA) precision releases join the exact days of the same week horizon, ordered after them and never narrowed to an invented day."
+        "description": "Highest locally stored IGDB Hypes first; games without Hypes follow in release-date order. The Hypes value is never exposed."
+      },
+      "response": []
+    },
+    {
+      "name": "Range ordered by community rating",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.window).to.eql({ from: \"2026-10-01\", to: \"2026-12-31\" });",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
+              "        });",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Rated games precede unrated ones, highest mean first\", function () {",
+              "    const means = pm.response.json().items.map(item => item.scores && item.scores.community && item.scores.community.count > 0 ? item.scores.community.mean : null);",
+              "    const firstUnrated = means.indexOf(null);",
+              "    const rated = firstUnrated === -1 ? means : means.slice(0, firstUnrated);",
+              "    pm.expect(means.slice(rated.length).every(mean => mean === null)).to.be.true;",
+              "    for (let index = 1; index < rated.length; index += 1) pm.expect(rated[index]).to.be.at.most(rated[index - 1]);",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-10-01&to=2026-12-31&includeApproximateDates=true&sort=rating",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2026-10-01"
+            },
+            {
+              "key": "to",
+              "value": "2026-12-31"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "true"
+            },
+            {
+              "key": "sort",
+              "value": "rating"
+            }
+          ]
+        },
+        "description": "Highest Gameómetro community mean first, then more ratings; unrated games follow in release-date order and never count as zero."
+      },
+      "response": []
+    },
+    {
+      "name": "Range ordered by IGDB players' score",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"The evaluated range is the requested one\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.window).to.eql({ from: \"2026-10-01\", to: \"2026-12-31\" });",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size, \"one presented release per platform\").to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"verificationLevel\", \"reviewStatus\");",
+              "            pm.expect(release).to.not.have.any.keys(\"lastSyncedAt\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"], \"a TBA date never belongs to a range\").to.include(release.releaseDate.precision);",
+              "        });",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Scored games precede unscored ones, highest shown value first\", function () {",
+              "    const values = pm.response.json().items.map(item => item.scores && item.scores.external ? item.scores.external.value : null);",
+              "    const firstUnscored = values.indexOf(null);",
+              "    const scored = firstUnscored === -1 ? values : values.slice(0, firstUnscored);",
+              "    pm.expect(values.slice(scored.length).every(value => value === null)).to.be.true;",
+              "    for (let index = 1; index < scored.length; index += 1) pm.expect(scored[index]).to.be.at.most(scored[index - 1]);",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-10-01&to=2026-12-31&includeApproximateDates=true&sort=externalPlayerScore",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2026-10-01"
+            },
+            {
+              "key": "to",
+              "value": "2026-12-31"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "true"
+            },
+            {
+              "key": "sort",
+              "value": "externalPlayerScore"
+            }
+          ]
+        },
+        "description": "Highest stored external player score (currently IGDB players) at the one decimal shown first, then more of that source's ratings; unscored games follow in release-date order and never count as zero."
       },
       "response": []
     },
@@ -406,7 +703,7 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Stable Problem Details code is returned\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
@@ -430,7 +727,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformIds=unsupported-platform",
+          "raw": "{{baseUrl}}/api/v1/releases?platformIds=unsupported-platform",
           "host": [
             "{{baseUrl}}"
           ],
@@ -440,10 +737,6 @@
             "releases"
           ],
           "query": [
-            {
-              "key": "view",
-              "value": "recent"
-            },
             {
               "key": "platformIds",
               "value": "unsupported-platform"
@@ -465,8 +758,10 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Stable pagination code and violation are returned\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
@@ -488,7 +783,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&pageSize=101",
+          "raw": "{{baseUrl}}/api/v1/releases?pageSize=101",
           "host": [
             "{{baseUrl}}"
           ],
@@ -498,10 +793,6 @@
             "releases"
           ],
           "query": [
-            {
-              "key": "view",
-              "value": "recent"
-            },
             {
               "key": "pageSize",
               "value": "101"
@@ -513,7 +804,7 @@
       "response": []
     },
     {
-      "name": "Unsupported week horizon",
+      "name": "Range end before its start",
       "event": [
         {
           "listen": "test",
@@ -523,11 +814,13 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
-              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/weeks\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/to\");",
               "});",
               "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
@@ -546,7 +839,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&weeks=3",
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-08-31&to=2026-08-01",
           "host": [
             "{{baseUrl}}"
           ],
@@ -557,21 +850,21 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "recent"
+              "key": "from",
+              "value": "2026-08-31"
             },
             {
-              "key": "weeks",
-              "value": "3"
+              "key": "to",
+              "value": "2026-08-01"
             }
           ]
         },
-        "description": "Demonstrates one-based bounded pagination validation."
+        "description": "Both bounds are inclusive and the end may not precede the start."
       },
       "response": []
     },
     {
-      "name": "Approximate dates are upcoming-only",
+      "name": "Range longer than 92 days",
       "event": [
         {
           "listen": "test",
@@ -581,11 +874,13 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
-              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/to\");",
               "});",
               "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
@@ -604,7 +899,179 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&includeApproximateDates=true",
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-08-01&to=2026-11-01",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2026-08-01"
+            },
+            {
+              "key": "to",
+              "value": "2026-11-01"
+            }
+          ]
+        },
+        "description": "A request explores at most 92 days, which keeps the read bounded."
+      },
+      "response": []
+    },
+    {
+      "name": "Range bound without the other",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/from\");",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?to=2026-08-31",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "to",
+              "value": "2026-08-31"
+            }
+          ]
+        },
+        "description": "Send both bounds, or neither for the current week."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"SORT_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/sort\");",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?sort=popularity",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "sort",
+              "value": "popularity"
+            }
+          ]
+        },
+        "description": "Only releaseDate, hype, rating and externalPlayerScore are supported."
+      },
+      "response": []
+    },
+    {
+      "name": "Retired release view parameter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/view\");",
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent",
           "host": [
             "{{baseUrl}}"
           ],
@@ -617,14 +1084,10 @@
             {
               "key": "view",
               "value": "recent"
-            },
-            {
-              "key": "includeApproximateDates",
-              "value": "true"
             }
           ]
         },
-        "description": "Recent discovery already classifies partial periods that have ended, so the opt-in is rejected there instead of being silently ignored."
+        "description": "Since OpenAPI 4.0.0 the range replaces view and weeks, which are unknown parameters under the closed query convention."
       },
       "response": []
     },
@@ -639,9 +1102,12 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Only true and false are accepted\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
               "});",
               "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
@@ -661,7 +1127,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&includeApproximateDates=yes",
+          "raw": "{{baseUrl}}/api/v1/releases?includeApproximateDates=yes",
           "host": [
             "{{baseUrl}}"
           ],
@@ -671,10 +1137,6 @@
             "releases"
           ],
           "query": [
-            {
-              "key": "view",
-              "value": "upcoming"
-            },
             {
               "key": "includeApproximateDates",
               "value": "yes"
@@ -696,8 +1158,10 @@
               "    pm.response.to.have.status(422);",
               "});",
               "",
-              "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
               "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
@@ -719,7 +1183,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&unbounded=true",
+          "raw": "{{baseUrl}}/api/v1/releases?unbounded=true",
           "host": [
             "{{baseUrl}}"
           ],
@@ -729,10 +1193,6 @@
             "releases"
           ],
           "query": [
-            {
-              "key": "view",
-              "value": "recent"
-            },
             {
               "key": "unbounded",
               "value": "true"
@@ -752,7 +1212,7 @@
             "exec": [
               "pm.test(\"Malformed If-None-Match does not produce a false 304\", function () {",
               "    pm.response.to.have.status(200);",
-              "    pm.expect(pm.response.json().view).to.eql(\"recent\");",
+              "    pm.expect(pm.response.json()).to.not.have.property(\"view\");",
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"releaseEtag\"));",
               "});",
               "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
@@ -777,7 +1237,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "raw": "{{baseUrl}}/api/v1/releases?page=1&pageSize=20",
           "host": [
             "{{baseUrl}}"
           ],
@@ -788,10 +1248,6 @@
           ],
           "query": [
             {
-              "key": "view",
-              "value": "recent"
-            },
-            {
               "key": "page",
               "value": "1"
             },
@@ -801,52 +1257,7 @@
             }
           ]
         },
-        "description": "A syntactically invalid multi-value validator is ignored instead of being split into a false matching tag. Run after Recent releases."
-      },
-      "response": []
-    },
-    {
-      "name": "Missing required release view",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test(\"Missing view returns contracted 400 Problem Details\", function () {",
-              "    pm.response.to.have.status(400);",
-              "    const body = pm.response.json();",
-              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
-              "    pm.expect(body.code).to.eql(\"REQUEST_MALFORMED\");",
-              "    pm.expect(body.status).to.eql(400);",
-              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
-              "});"
-            ],
-            "type": "text/javascript",
-            "packages": {}
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Accept",
-            "value": "application/json",
-            "type": "text"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/releases",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "releases"
-          ]
-        },
-        "description": "Proves that the required OpenAPI view parameter is enforced at the real HTTP boundary."
+        "description": "A syntactically invalid multi-value validator is ignored instead of being split into a false matching tag. Run after Current week of releases."
       },
       "response": []
     },
@@ -882,7 +1293,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent",
+          "raw": "{{baseUrl}}/api/v1/releases",
           "host": [
             "{{baseUrl}}"
           ],
@@ -890,12 +1301,6 @@
             "api",
             "v1",
             "releases"
-          ],
-          "query": [
-            {
-              "key": "view",
-              "value": "recent"
-            }
           ]
         },
         "description": "Proves representation negotiation returns stable RFC 9457 Problem Details."

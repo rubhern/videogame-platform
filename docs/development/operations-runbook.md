@@ -301,8 +301,8 @@ host timezone nor the UTC provider date-query boundary changes this evaluation.
 Configuration changes take effect on application recreation. Invalid cron/windows
 are configuration errors detected at startup.
 
-Initial policy rationale: daily off-peak near-term refresh covers the supported
-four-week recent and upcoming discovery horizons. Weekly upcoming refresh covers
+Initial policy rationale: daily off-peak near-term refresh covers the weeks around today
+that release exploration opens on. Weekly upcoming refresh covers
 roughly six months ahead, keeping wider acquisition less frequent. The default start
 times are staggered to reduce contention; the precise crons/offsets stay in
 `application.yaml` and can be tuned after observing run duration and provider volume.
@@ -423,7 +423,7 @@ proven manual procedure below. After owner review and explicit deployment/host
 authorization, enable scheduling in protected `runtime.env`, retaining secrets in
 files; exercise both policies (temporarily shorten crons/windows if needed), observe
 moving Madrid windows, successful/repeated idempotent results and a busy-run skip,
-then verify readiness and recent/upcoming/search/game reads during a bounded provider
+then verify readiness and release-exploration/search/game reads during a bounded provider
 failure. Record evidence in #155 and restore the selected operational settings. To
 recover, disable scheduling and recreate the same approved application digest; use
 the exceptional manual command only as needed. Local/CI tests use fixtures/fakes and require no live credentials.
@@ -453,8 +453,8 @@ Private dev (proven on `vgpdev`; this is the source of the current `dev` catalog
    The call holds the session until the whole interval is reconciled; prefer a short
    interval per run. The same `exec` form with a plain `wget -q -O -` on the same URL
    reads the last run.
-4. Verify the product afterwards through the private HTTPS origin (recent, upcoming,
-   search, one game page), as done for #45.
+4. Verify the product afterwards through the private HTTPS origin (release exploration
+   around today, search, one game page), as done for #45.
 5. For exceptional manual-only operation, keep scheduling disabled. To disable all
    provider acquisition, empty both credential files and recreate the application.
 

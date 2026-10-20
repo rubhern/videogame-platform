@@ -30,9 +30,10 @@ usefully expressed once in the contract.
   identifier (`releaseId` for release rows; `gameId` for one-row-per-game results).
 - Page/offset remains approved until measured deep-offset/count cost justifies a
   compatibility decision for keyset/cursor semantics.
-- Release windows/evaluation date use application time in `Europe/Madrid`; clients
-  select only the bounded week horizon and, for upcoming, whether approximate dates are
-  included, never the evaluation date or raw dates. Featured releases default to the
+- The evaluation date uses application time in `Europe/Madrid` and is never a client
+  input. Release exploration (#285) takes an explicit inclusive range of calendar days,
+  bounded to 92 days, or no range for the current Monday-to-Sunday week, and whether
+  approximate dates join its days from the evaluation date on. Featured releases default to the
   current calendar month; a client may select the current ISO week (`granularity=week`),
   another ISO week (`YYYY-Www`) or another calendar month (`YYYY-MM`) inside the navigation
   bounds the API states, never a day or the evaluation date. Day/month/quarter/year/unknown

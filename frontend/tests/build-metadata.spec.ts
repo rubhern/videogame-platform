@@ -26,12 +26,12 @@ test("browser startup identifies the artifact once and client navigation does no
     }
   });
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
-  await page.goto("/?view=recent");
+  await page.goto("/lanzamientos");
   await expect(page.locator("h1")).toBeVisible();
   expect(messages).toEqual([expectedMessage]);
 
-  await page.getByRole("link", { name: "Próximos", exact: true }).first().click();
-  await expect(page).toHaveURL(/view=upcoming/);
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "TOPómetro" }).click();
+  await expect(page).toHaveURL(/\/$/);
   expect(messages).toEqual([expectedMessage]);
   await page.reload();
   await expect(page.locator("h1")).toBeVisible();

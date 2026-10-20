@@ -11,7 +11,10 @@ import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseRe
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Result;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -37,7 +40,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
     @Override
     public BrowseReleasesResult browse(Query query) {
         LocalDate evaluatedOn = LocalDate.ofInstant(clock.instant(), clock.getZone());
-        BrowseReleasesResult.Window window = window(query.view(), query.weeks(), evaluatedOn);
+        BrowseReleasesResult.Window window = window(query, evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
 
         // Deterministic normalization for multi-select filters: trim, drop blanks, de-duplicate and
@@ -48,14 +51,18 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         Result result =
                 readPort.findPublishedReleases(
                                 new ReleaseBrowseReadPort.Criteria(
-                                        query.view(),
                                         new ReleaseBrowseReadPort.Window(
                                                 window.from(), window.to()),
+                                        evaluatedOn,
+                                        query.sort(),
                                         platformIds,
                                         regionIds,
                                         new ReleaseBrowseReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        query.includeApproximateDates(),
+                                        // Approximate dates only ever join from today on, so a
+                                        // range that ends earlier has nothing for them to admit.
+                                        query.includeApproximateDates()
+                                                && !window.to().isBefore(evaluatedOn),
                                         browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
@@ -66,7 +73,6 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
 
         return new BrowseReleasesResult(
                 result.publicationVersion(),
-                query.view(),
                 evaluatedOn,
                 window,
                 new BrowseReleasesResult.ActiveFilters(platformIds, regionIds),
@@ -86,14 +92,32 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 .toList();
     }
 
-    private BrowseReleasesResult.Window window(View view, int weeks, LocalDate evaluatedOn) {
-        return switch (view) {
-            case RECENT ->
-                    new BrowseReleasesResult.Window(
-                            evaluatedOn.minusDays(weeks * 7L - 1), evaluatedOn);
-            case UPCOMING ->
-                    new BrowseReleasesResult.Window(evaluatedOn, evaluatedOn.plusWeeks(weeks));
-        };
+    /**
+     * The requested inclusive range, or the current calendar week (Monday to Sunday) of the trusted
+     * evaluation date when the request names none. Calendar arithmetic alone validates a range; no
+     * range depends on the browser's notion of today.
+     */
+    private static BrowseReleasesResult.Window window(Query query, LocalDate evaluatedOn) {
+        if (query.from() == null && query.to() == null) {
+            LocalDate monday = evaluatedOn.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            return new BrowseReleasesResult.Window(monday, monday.plusDays(6));
+        }
+        if (query.from() == null) {
+            throw new ReleaseQueryValidationException(
+                    ReleaseQueryValidationException.Code.RANGE_START_MISSING);
+        }
+        if (query.to() == null) {
+            throw new ReleaseQueryValidationException(
+                    ReleaseQueryValidationException.Code.RANGE_END_MISSING);
+        }
+        if (query.to().isBefore(query.from())
+                || query.from().getYear() < 1
+                || query.to().getYear() > 9999
+                || ChronoUnit.DAYS.between(query.from(), query.to()) + 1 > MAX_RANGE_DAYS) {
+            throw new ReleaseQueryValidationException(
+                    ReleaseQueryValidationException.Code.RANGE_INVALID);
+        }
+        return new BrowseReleasesResult.Window(query.from(), query.to());
     }
 
     private static void validateTaxonomy(

@@ -1,34 +1,39 @@
 import type { ReleasesQuery } from "./releases-api";
 
-export type ReleaseView = ReleasesQuery["view"];
-export type ReleaseWeeks = NonNullable<ReleasesQuery["weeks"]>;
+export type ReleaseSort = NonNullable<ReleasesQuery["sort"]>;
+
+/** How each order reads in **Ordenar por** and in the folded phone controls. */
+export const releaseSortLabels: Record<ReleaseSort, string> = {
+  releaseDate: "Fecha de lanzamiento",
+  hype: "Hype",
+  rating: "Puntuación Gameómetro",
+  externalPlayerScore: "Jugadores IGDB",
+};
+
+/** The release explorer's own route (#285); TOPómetro keeps the landing route. */
+export const RELEASES_PATH = "/lanzamientos";
+
+/** The longest inclusive range the API explores in one request. */
+export const MAX_RANGE_DAYS = 92;
 
 /**
- * The release-discovery section the landing route shows. TOPómetro is the landing view (#151, #341),
- * so an absent or unknown `view` means featured; the release lists always name their view.
- */
-export type DiscoveryView = "featured" | ReleaseView;
-
-export function readDiscoveryView(params: URLSearchParams): DiscoveryView {
-  const view = params.get("view");
-  return view === "recent" || view === "upcoming" ? view : "featured";
-}
-
-/**
- * Navigable release-discovery state.
+ * Navigable state of Explorar lanzamientos.
  *
- * It lives in the URL so a filtered page stays shareable and survives browser
- * navigation. Platform and region are multi-select: several values inside one dimension
- * combine with OR and the two dimensions combine with AND. An empty array means no filter
- * for that dimension (`Todas`), which is distinct from selecting a concrete region such as
- * `Worldwide`. Upcoming shows exact release days unless the visitor opts into approximate
- * dates; the choice exists only for the upcoming window, so recent never reads or writes it.
- * Values outside the contract shape fall back to the default instead of reaching the API;
- * well-formed unknown filter identifiers remain server-validated.
+ * It lives in the URL so a range, its order and its filters stay shareable and survive refreshes
+ * and browser navigation. `from` and `to` are inclusive calendar days and travel together; without
+ * them the API reads the current Monday-to-Sunday week in `Europe/Madrid`, because the browser
+ * never decides "today". Platform and region are multi-select: several values inside one
+ * dimension combine with OR and the two dimensions combine with AND. An empty array means no
+ * filter for that dimension (`Todas`), which is distinct from selecting a concrete region such as
+ * `Worldwide`. Values outside the contract shape fall back to the default instead of reaching the
+ * API, and a range the API would reject reads as the current week; well-formed unknown filter
+ * identifiers remain server-validated.
  */
 export type ReleasesSearch = {
-  view: ReleaseView;
-  weeks: ReleaseWeeks;
+  from: string | null;
+  to: string | null;
+  sort: ReleaseSort;
+  /** Admits month, quarter and year periods still to come; meaningless for a range in the past. */
   includeApproximateDates: boolean;
   platformIds: string[];
   regionIds: string[];
@@ -36,14 +41,18 @@ export type ReleasesSearch = {
   pageSize: number;
 };
 
-/** Both release windows show two rows of six on wide desktop. */
+/** Six columns of two rows on wide desktop. */
 export const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 100;
 const MAX_FILTER_CODE_POINTS = 100;
+const SORTS: readonly ReleaseSort[] = ["releaseDate", "hype", "rating", "externalPlayerScore"];
+const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAY_MS = 86_400_000;
 
-const defaultSearch: ReleasesSearch = {
-  view: "recent",
-  weeks: 1,
+export const defaultReleasesSearch: ReleasesSearch = {
+  from: null,
+  to: null,
+  sort: "releaseDate",
   includeApproximateDates: false,
   platformIds: [],
   regionIds: [],
@@ -51,12 +60,39 @@ const defaultSearch: ReleasesSearch = {
   pageSize: DEFAULT_PAGE_SIZE,
 };
 
-function readView(value: string | null): ReleaseView {
-  return value === "upcoming" || value === "recent" ? value : defaultSearch.view;
+/** Milliseconds of a real `YYYY-MM-DD` calendar day at UTC midnight, or null. */
+export function calendarDay(value: string | null): number | null {
+  if (value === null) return null;
+  const match = DAY.exec(value);
+  if (match === null) return null;
+  const [, year, month, day] = match.map(Number) as [number, number, number, number];
+  if (year < 1) return null;
+  const time = Date.UTC(year, month - 1, day);
+  const date = new Date(time);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    ? time
+    : null;
 }
 
-function readWeeks(value: string | null): ReleaseWeeks {
-  return value === "2" ? 2 : value === "4" ? 4 : 1;
+/** The inclusive number of days from `from` to `to`, or null when either is not a calendar day. */
+export function rangeDays(from: string, to: string): number | null {
+  const start = calendarDay(from);
+  const end = calendarDay(to);
+  return start === null || end === null ? null : Math.round((end - start) / DAY_MS) + 1;
+}
+
+/** Why a candidate range cannot be explored, or null when the API accepts it. */
+export type RangeProblem = "incomplete" | "reversed" | "too-long";
+
+export function rangeProblem(from: string, to: string): RangeProblem | null {
+  const days = rangeDays(from, to);
+  if (days === null) return "incomplete";
+  if (days < 1) return "reversed";
+  return days > MAX_RANGE_DAYS ? "too-long" : null;
+}
+
+function readSort(value: string | null): ReleaseSort {
+  return SORTS.find((sort) => sort === value) ?? defaultReleasesSearch.sort;
 }
 
 /** Trims, drops blank and over-long values and de-duplicates while keeping first-seen order. */
@@ -83,33 +119,32 @@ function readBoundedInteger(value: string | null, fallback: number, maximum: num
 }
 
 export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
-  const view = readView(params.get("view"));
+  const from = params.get("from");
+  const to = params.get("to");
+  const validRange = from !== null && to !== null && rangeProblem(from, to) === null;
   return {
-    view,
-    weeks: readWeeks(params.get("weeks")),
-    includeApproximateDates:
-      view === "upcoming" && params.get("includeApproximateDates") === "true",
+    from: validRange ? from : null,
+    to: validRange ? to : null,
+    sort: readSort(params.get("sort")),
+    includeApproximateDates: params.get("includeApproximateDates") === "true",
     platformIds: readFilters(params.getAll("platformIds")),
     regionIds: readFilters(params.getAll("regionIds")),
-    page: readBoundedInteger(params.get("page"), defaultSearch.page, Number.MAX_SAFE_INTEGER),
+    page: readBoundedInteger(params.get("page"), defaultReleasesSearch.page, Number.MAX_SAFE_INTEGER),
     pageSize: readBoundedInteger(params.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
   };
 }
 
-/** The opt-in only ever applies to upcoming, so a stale value never leaks into recent. */
-function includesApproximateDates(search: ReleasesSearch): boolean {
-  return search.view === "upcoming" && search.includeApproximateDates;
-}
-
-/**
- * Serializes navigable state, omitting defaults so shared URLs stay readable. The view is always
- * written: without it the landing route shows the featured releases instead of a list.
- */
+/** Serializes navigable state, omitting defaults so shared URLs stay readable. */
 export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   const params = new URLSearchParams();
-  params.set("view", search.view);
-  params.set("weeks", String(search.weeks));
-  if (includesApproximateDates(search)) {
+  if (search.from !== null && search.to !== null) {
+    params.set("from", search.from);
+    params.set("to", search.to);
+  }
+  if (search.sort !== defaultReleasesSearch.sort) {
+    params.set("sort", search.sort);
+  }
+  if (search.includeApproximateDates) {
     params.set("includeApproximateDates", "true");
   }
   for (const platformId of search.platformIds) {
@@ -118,7 +153,7 @@ export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   for (const regionId of search.regionIds) {
     params.append("regionIds", regionId);
   }
-  if (search.page !== defaultSearch.page) {
+  if (search.page !== defaultReleasesSearch.page) {
     params.set("page", String(search.page));
   }
   if (search.pageSize !== DEFAULT_PAGE_SIZE) {
@@ -129,9 +164,28 @@ export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
 
 /** Builds the link target for a change that keeps the rest of the state intact. */
 export function releasesSearchPath(search: ReleasesSearch, change: Partial<ReleasesSearch>): string {
-  const params = writeReleasesSearch({ ...search, ...change });
-  const query = params.toString();
-  return query === "" ? "/" : `/?${query}`;
+  const query = writeReleasesSearch({ ...search, ...change }).toString();
+  return query === "" ? RELEASES_PATH : `${RELEASES_PATH}?${query}`;
+}
+
+/** Explorar lanzamientos for one inclusive range, with every other choice at its default. */
+export function releasesRangePath(from: string, to: string): string {
+  return releasesSearchPath(defaultReleasesSearch, { from, to });
+}
+
+/**
+ * Where a link from before #285 lands: the release explorer for the current week, keeping only
+ * the filters it named. Its moving recent/upcoming horizon has no fixed range to carry.
+ */
+export function legacyReleasesPath(params: URLSearchParams): string | null {
+  const view = params.get("view");
+  if (view !== "recent" && view !== "upcoming") return null;
+  const legacy = readReleasesSearch(params);
+  return releasesSearchPath(defaultReleasesSearch, {
+    platformIds: legacy.platformIds,
+    regionIds: legacy.regionIds,
+    pageSize: legacy.pageSize,
+  });
 }
 
 /** Adds or removes one value from a dimension, preserving order, for a multi-select toggle. */
@@ -143,9 +197,9 @@ export function toggleFilterValue(current: readonly string[], value: string): st
 
 export function toReleasesQuery(search: ReleasesSearch): ReleasesQuery {
   return {
-    view: search.view,
-    weeks: search.weeks,
-    ...(includesApproximateDates(search) ? { includeApproximateDates: true } : {}),
+    ...(search.from === null || search.to === null ? {} : { from: search.from, to: search.to }),
+    ...(search.sort === defaultReleasesSearch.sort ? {} : { sort: search.sort }),
+    ...(search.includeApproximateDates ? { includeApproximateDates: true } : {}),
     ...(search.platformIds.length === 0 ? {} : { platformIds: search.platformIds }),
     ...(search.regionIds.length === 0 ? {} : { regionIds: search.regionIds }),
     page: search.page,

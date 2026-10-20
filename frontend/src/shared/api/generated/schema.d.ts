@@ -12,24 +12,40 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Browse recent or upcoming releases grouped by game
-         * @description Reads a bounded page of games from the last valid local catalogue publication. Each
-         *     game appears once with only the releases that match the requested view and active
-         *     filters, presenting at most one of them per platform (see `ReleaseItem`);
-         *     `page.totalItems` counts games, not releases. Platform and region filters are
-         *     multi-select: values within one dimension combine with OR and the two dimensions combine
-         *     with AND. `availableFilters` is contextual and faceted: platform options reflect the
-         *     current view/window and the active region selection (never restricted by the active
-         *     platform set), region options reflect the current view/window and the active platform
-         *     selection (never restricted by the active region set), and a currently selected valid
-         *     value always stays representable. The application derives the evaluation date and the
-         *     selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
-         *     with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
-         *     and unknown (TBA) precision; the precision choice composes with the window and both filter
-         *     dimensions, and the facets reflect it. Empty, review-required, imprecise-date, TBA,
-         *     and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
-         *     distinct facet discovery, presented-release selection, total ordering, count, limit, and
-         *     offset before any release page reaches the application.
+         * Explore the releases of an inclusive date range grouped by game
+         * @description Reads a bounded page of games from the last valid local catalogue publication whose
+         *     releases fall in an inclusive date range. Without `from` and `to`, the range is the
+         *     current calendar week, Monday to Sunday, derived by the application in `Europe/Madrid`;
+         *     the response states the evaluation date and the evaluated range. Each game appears
+         *     once with only the releases that match the range and active filters, presenting at most
+         *     one of them per platform (see `ReleaseItem`); `page.totalItems` counts games, not
+         *     releases.
+         *
+         *     Days up to and including the evaluation date hold what has happened: a release with an
+         *     exact day inside the range, or with a month, quarter or year period that has ended and
+         *     overlaps the range, neither cancelled nor delayed. Later days hold what is expected: a
+         *     release with an exact day inside the range that is not cancelled. A month, quarter or year
+         *     period that has not ended joins, not cancelled, only with `includeApproximateDates=true`
+         *     and only when it overlaps the range from the evaluation date on. A release with an unknown
+         *     (TBA) date never belongs to a range. No release receives an invented day, and each keeps
+         *     its real precision.
+         *
+         *     Platform and region filters are multi-select: values within one dimension combine with
+         *     OR and the two dimensions combine with AND. `availableFilters` is contextual and
+         *     faceted: platform options reflect the current range and the active region selection
+         *     (never restricted by the active platform set), region options reflect the current range
+         *     and the active platform selection (never restricted by the active region set), and a
+         *     currently selected valid value always stays representable. `sort` orders the games
+         *     before pagination, by date, Hype, community score or external player score; every
+         *     order reads local state only and never calls a provider. Empty, review-required, imprecise-date and fallback-cover results are
+         *     valid states. PostgreSQL groups by game, applies the range and filters, distinct facet
+         *     discovery, presented-release selection, total ordering, count, limit, and offset before
+         *     any release page reaches the application.
+         *
+         *     Since 4.0.0, `from`, `to` and `sort` replace the `view` and `weeks` parameters, which are
+         *     now unknown parameters, and the response no longer carries `view`. Migration: a former
+         *     recent window is `to` = today with `from` 7 × weeks − 1 days earlier, a former upcoming
+         *     window runs from today; the order is now one ascending date order whatever the range.
          */
         get: operations["listReleases"];
         put?: never;
@@ -407,8 +423,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @enum {string} */
-        ReleaseView: "recent" | "upcoming";
+        /**
+         * @description The order of the games, applied before pagination; every order ends in the unique
+         *     `gameId`. `releaseDate` is ascending by each game's first presented release: the last
+         *     day of its known period (the day itself for an exact date), an exact day before a month,
+         *     quarter or year period ending the same day, then the case-insensitive canonical title.
+         *     `hype` puts the highest locally stored IGDB Hypes first, the popularity signal
+         *     TOPómetro ranks with, whose value is never exposed. `rating` puts the highest
+         *     Gameómetro community mean, at the one decimal shown, first, then the larger number of
+         *     ratings. `externalPlayerScore` puts the highest locally stored external player score
+         *     (currently IGDB players), at the one decimal of its /10 `ExternalPlayerScore` value,
+         *     first, then the larger number of that source's ratings. A game without the chosen
+         *     signal follows every game with one and is never treated as zero; ties continue with the
+         *     `releaseDate` order.
+         * @default releaseDate
+         * @enum {string}
+         */
+        ReleaseSort: "releaseDate" | "hype" | "rating" | "externalPlayerScore";
         /**
          * @description Opaque, provider-independent product identifier.
          * @example game_example
@@ -628,17 +659,17 @@ export interface components {
         };
         /**
          * @description One game and its presented releases: among the releases of that game that match the
-         *     requested view and active filters, at most one per platform. When several matching
+         *     requested range and active filters, at most one per platform. When several matching
          *     releases share a platform, the presentation precedence chooses one: a release that is
          *     neither cancelled nor delayed, then a Full Release, then one not pending review, then verified evidence,
          *     then the most precise date, then Worldwide before a specific region before an
-         *     unconfirmed region, then the view's own date order (latest first for recent, soonest
-         *     first for upcoming), and finally a stable region order and `releaseId`. The other
+         *     unconfirmed region, then the earliest date, and finally a stable region order and
+         *     `releaseId`. The other
          *     matching releases of that platform are neither merged nor deleted: they stay stored and
          *     listed in the game details, and a region filter presents that region's own release.
          *     Presented releases keep their own platform, region, date, and date precision. Releases
-         *     are ordered by the UC-001 release ordering, and the first release drives the game's
-         *     position.
+         *     follow the `releaseDate` order of `ReleaseSort`, ending in `releaseId`, and the first
+         *     release positions the game under that order.
          */
         ReleaseItem: {
             gameId: components["schemas"]["GameId"];
@@ -867,9 +898,12 @@ export interface components {
             attribution: components["schemas"]["Attribution"];
         };
         ReleasePage: {
-            view: components["schemas"]["ReleaseView"];
-            /** Format: date */
+            /**
+             * Format: date
+             * @description Today in `Europe/Madrid`, which splits the range into days that have happened and days to come.
+             */
             evaluatedOn: string;
+            /** @description The evaluated inclusive range, the requested one or the current week. */
             window: components["schemas"]["ReleaseWindow"];
             activeFilters: components["schemas"]["ActiveFilters"];
             availableFilters: components["schemas"]["AvailableFilters"];
@@ -1455,7 +1489,11 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Release filters, pagination, or request parameters are invalid. */
+        /**
+         * @description The date range, order, filters, pagination or request parameters are invalid: one range
+         *     bound without the other, an end before the start, a range longer than 92 days, an
+         *     unsupported sort, an unknown platform or region, or an unknown parameter.
+         */
         ReleaseValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -1615,19 +1653,28 @@ export interface components {
          * @example game_example
          */
         GameIdPath: components["schemas"]["GameId"];
-        /** @example upcoming */
-        ReleaseView: components["schemas"]["ReleaseView"];
         /**
-         * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
-         * @example 2
+         * @description First day of the inclusive release-date range, an ISO calendar date. Send it together
+         *     with `to`; omit both for the current calendar week, Monday to Sunday in `Europe/Madrid`.
+         *     Sending only one of them yields 422 `FILTER_INVALID` for the missing one.
+         * @example 2026-08-01
          */
-        ReleaseWeeks: 1 | 2 | 4;
+        ReleaseFrom: string;
         /**
-         * @description Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
-         *     exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
-         *     precision releases; each keeps its real precision and follows exact days in the upcoming
-         *     order. Recent discovery is unchanged and always includes known partial periods that have
-         *     ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+         * @description Last day of the inclusive range. It must not precede `from`, and the range spans at most
+         *     92 days; otherwise the request yields 422 `FILTER_INVALID` for `/query/to`. A range may
+         *     lie in the past, in the future or around the evaluation date, and may be a single day.
+         * @example 2026-08-31
+         */
+        ReleaseTo: string;
+        /** @example hype */
+        ReleaseSort: components["schemas"]["ReleaseSort"];
+        /**
+         * @description Opt-in for the part of the range from the evaluation date on. Omitted or `false`, a
+         *     release there appears only with an exact day. `true` also admits a month, quarter or year
+         *     period that has not ended and overlaps that part; each keeps its real precision. Unknown
+         *     (TBA) dates never join. Days before the evaluation date are unaffected, so the value
+         *     changes nothing for a range that ends before it.
          * @example true
          */
         ReleaseIncludeApproximateDates: boolean;
@@ -1791,20 +1838,29 @@ export type $defs = Record<string, never>;
 export interface operations {
     listReleases: {
         parameters: {
-            query: {
-                /** @example upcoming */
-                view: components["parameters"]["ReleaseView"];
+            query?: {
                 /**
-                 * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
-                 * @example 2
+                 * @description First day of the inclusive release-date range, an ISO calendar date. Send it together
+                 *     with `to`; omit both for the current calendar week, Monday to Sunday in `Europe/Madrid`.
+                 *     Sending only one of them yields 422 `FILTER_INVALID` for the missing one.
+                 * @example 2026-08-01
                  */
-                weeks?: components["parameters"]["ReleaseWeeks"];
+                from?: components["parameters"]["ReleaseFrom"];
                 /**
-                 * @description Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
-                 *     exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
-                 *     precision releases; each keeps its real precision and follows exact days in the upcoming
-                 *     order. Recent discovery is unchanged and always includes known partial periods that have
-                 *     ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+                 * @description Last day of the inclusive range. It must not precede `from`, and the range spans at most
+                 *     92 days; otherwise the request yields 422 `FILTER_INVALID` for `/query/to`. A range may
+                 *     lie in the past, in the future or around the evaluation date, and may be a single day.
+                 * @example 2026-08-31
+                 */
+                to?: components["parameters"]["ReleaseTo"];
+                /** @example hype */
+                sort?: components["parameters"]["ReleaseSort"];
+                /**
+                 * @description Opt-in for the part of the range from the evaluation date on. Omitted or `false`, a
+                 *     release there appears only with an exact day. `true` also admits a month, quarter or year
+                 *     period that has not ended and overlaps that part; each keeps its real precision. Unknown
+                 *     (TBA) dates never join. Days before the evaluation date are unaffected, so the value
+                 *     changes nothing for a range that ends before it.
                  * @example true
                  */
                 includeApproximateDates?: components["parameters"]["ReleaseIncludeApproximateDates"];

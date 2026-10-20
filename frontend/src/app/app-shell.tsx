@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
 import {
-  readDiscoveryView,
   readReleasesSearch,
+  RELEASES_PATH,
   releasesSearchPath,
 } from "../features/releases/releases-search";
 import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
@@ -15,11 +15,13 @@ export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigation = useNavigation();
-  const discoveryView =
-    location.pathname === "/" ? readDiscoveryView(new URLSearchParams(location.search)) : null;
-  const pageIdentity = `${location.pathname}|${discoveryView ?? ""}`;
+  const onReleases = location.pathname === RELEASES_PATH;
+  const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
-  const releaseSearch = readReleasesSearch(new URLSearchParams(location.search));
+  // On the explorer itself the entry returns to its first page and keeps the rest of the choice.
+  const releasesPath = onReleases
+    ? releasesSearchPath(readReleasesSearch(new URLSearchParams(location.search)), { page: 1 })
+    : RELEASES_PATH;
 
   useEffect(() => {
     if (previousPage.current === pageIdentity) {
@@ -55,18 +57,18 @@ export function AppShell() {
             <BrandWordmark className="brand-wordmark" />
           </Link>
 
-          {/* Two release entries (#341): Lanzamientos holds the recent and upcoming windows and
+          {/* Two release entries (#341): Lanzamientos opens the release explorer (#285) and
               TOPómetro is the landing selection. */}
           <nav aria-label="Principal" className="primary-nav">
             <Link
-              aria-current={discoveryView === "recent" || discoveryView === "upcoming" ? "page" : undefined}
+              aria-current={onReleases ? "page" : undefined}
               className="nav-link"
-              to={releasesSearchPath(releaseSearch, { page: 1 })}
+              to={releasesPath}
             >
               Lanzamientos
             </Link>
             <Link
-              aria-current={discoveryView === "featured" ? "page" : undefined}
+              aria-current={location.pathname === "/" ? "page" : undefined}
               className="nav-link"
               to="/"
             >
