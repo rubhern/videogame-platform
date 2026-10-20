@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Disposable production-runtime exercise; never a deployment or capacity acceptance."""
 import argparse
+import contextlib
 import hashlib
 import io
 import importlib.util
+import importlib.machinery
 import json
 import os
 from pathlib import Path
@@ -220,6 +222,15 @@ class Exercise:
         require(not violations, 'Production configuration contract failed: ' + '; '.join(violations))
         config = isolated_config(base, self.project, d)
         self.file.write_text(json.dumps(config))
+        loader = importlib.machinery.SourceFileLoader('production_integration_recovery', str(ROOT / 'deploy/public-production/bin/recovery'))
+        recovery_spec = importlib.util.spec_from_loader(loader.name, loader)
+        recovery = importlib.util.module_from_spec(recovery_spec)
+        loader.exec_module(recovery)
+        state = d / 'recovery-journal'
+        state.mkdir(mode=0o700)
+        runtime = recovery.Runtime(self.file, self.project, state)
+        runtime.initialize()
+        self.recovery_runtime, self.recovery_core = runtime, recovery
         self.receipt['sourceFiles'] = {
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [COMPOSE, ROOT / 'deploy/public-production/caddy/Caddyfile',
@@ -239,6 +250,15 @@ class Exercise:
                 if subnet and ':' not in subnet:
                     for reserved in ['10.203.1.0/28', '10.203.2.0/28']:
                         require(not ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(reserved)), 'Production trust subnet already in use; refusing to touch existing networks.')
+
+    @contextlib.contextmanager
+    def deployment_lease(self):
+        try:
+            with self.recovery_runtime.lock():
+                require(self.recovery_runtime.gate('check') == b'open', 'Recovery authorization is closed; deployment refused.')
+                yield
+        except self.recovery_core.Refused:
+            raise trust.Refused('Recovery lease or authorization unavailable; deployment refused.') from None
 
     def inspect_image(self, image):
         return command(['docker', 'image', 'inspect', image])

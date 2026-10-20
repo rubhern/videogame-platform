@@ -1,0 +1,653 @@
+#!/usr/bin/env python3
+"""Owner-triggered paired production backup/recovery. No automatic reopening on failure."""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import datetime as dt
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import select
+import shutil
+import shlex
+import signal
+import subprocess
+import sys
+import tempfile
+import tarfile
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parents[3]
+COMMON = ROOT / 'deploy/private-dev/lib/backup-common.sh'
+ISSUER = 'https://auth.gameometro.com/realms/gameometro'
+DATABASES = ('videogame_platform', 'videogame_keycloak')
+ROLES = ('videogame_app', 'videogame_app_migrator', 'videogame_keycloak')
+FILES = (*[d + '.dump.gpg' for d in DATABASES], 'manifest.json', 'SHA256SUMS')
+MAX_LEDGER = 128 * 1024 * 1024
+sys.dont_write_bytecode = True
+
+
+class Refused(RuntimeError):
+    pass
+
+
+def require(condition, message):
+    if not condition:
+        raise Refused(message)
+
+
+def run(args, *, data=None, output=None, timeout=1800):
+    result = subprocess.run([str(a) for a in args], input=data, stdout=output or subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=timeout)
+    require(result.returncode == 0, 'Operation failed; raw diagnostics withheld to protect data.')
+    return result.stdout or b''
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def write(path, value):
+    """Durable atomic replacement; state survives interruption and is never logged."""
+    temporary = path.with_name(path.name + '.tmp')
+    with temporary.open('wb') as stream:
+        stream.write(json.dumps(value, sort_keys=True, indent=2).encode() + b'\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(path)
+    fd = os.open(path.parent, os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def publish(staging, destination):
+    # A success receipt must follow durable ciphertext and directory publication.
+    for path in staging.iterdir():
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    fd = os.open(staging, os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    staging.rename(destination)
+    fd = os.open(destination.parent, os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def private(path, directory=False):
+    require(path.absolute() == path.resolve() and not path.is_symlink(), 'Protected path uses a symlink.')
+    st = path.stat()
+    require((path.is_dir() if directory else path.is_file()) and st.st_uid == os.getuid()
+            and not st.st_mode & 0o077 and (directory or st.st_nlink == 1), 'Protected input must be owner-only.')
+
+
+def utc():
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def timestamp(value):
+    return dt.datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(dt.timezone.utc)
+
+
+def verify(backup):
+    require(backup.is_dir() and not backup.is_symlink(), 'Missing backup directory.')
+    require({p.name for p in backup.iterdir()} == set(FILES), 'Incomplete pair or unexpected backup files.')
+    require(all(p.is_file() and not p.is_symlink() and p.stat().st_nlink == 1 for p in backup.iterdir()), 'Unsafe backup files.')
+    require((backup / 'manifest.json').stat().st_size < 65536, 'Oversized manifest.')
+    m = json.loads((backup / 'manifest.json').read_text())
+    require(m['format'] == 1 and m['environment'] == 'production' and m['issuer'] == ISSUER
+            and m['databases'] == list(DATABASES) and m['fence'] == 'roles-nologin-drained'
+            and set(m['artifacts']) == {d + '.dump.gpg' for d in DATABASES}, 'Wrong backup identity or common-point evidence.')
+    require(re.fullmatch(r'[0-9a-f]{32}', m['backupId']), 'Invalid backup identifier.')
+    expected = ''.join(f'{digest(backup / n)}  {n}\n' for n in FILES[:-1])
+    require((backup / 'SHA256SUMS').read_text() == expected, 'Backup checksum mismatch.')
+    for name, a in m['artifacts'].items():
+        require(a['ciphertextSha256'] == digest(backup / name) and a['bytes'] == (backup / name).stat().st_size
+                and re.fullmatch('[0-9a-f]{64}', a['plaintextSha256']), 'Artifact checksum mismatch.')
+    return m
+
+
+def crypto(function, source, destination, keyring, recipient=''):
+    # Reuse the existing security primitive, without its private-dev manifest/retention assumptions.
+    run(['bash', '-c', 'source "$1"; "$2" "$3" "$4" "$5" "$6"',
+         'recovery', COMMON, function, source, destination, keyring, recipient])
+
+
+def public_key(keyring, recipient):
+    private(keyring, directory=True)
+    require(re.fullmatch('[A-F0-9]{40}', recipient), 'An exact owner fingerprint is required.')
+    secret = run(['gpg', '--homedir', keyring, '--batch', '--with-colons', '--list-secret-keys'])
+    require(b'sec:' not in secret and b'ssb:' not in secret, 'Private decryption keys are forbidden on the runtime.')
+    keys = run(['gpg', '--homedir', keyring, '--batch', '--with-colons', '--list-keys', recipient])
+    require(b'fpr:::::::::' + recipient.encode() + b':' in keys, 'Owner encryption key is unavailable.')
+
+
+@contextlib.contextmanager
+def scratch():
+    # Plaintext only in volatile owner-only storage; no durable /tmp dump survives host loss.
+    with tempfile.TemporaryDirectory(prefix='gameometro-recovery-', dir='/dev/shm') as name:
+        yield Path(name)
+
+
+@contextlib.contextmanager
+def defer_signals():
+    # Keep ownership registration atomic with resource creation. Pending SIGTERM is
+    # delivered immediately after the enclosing cleanup handler can see the resource.
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+
+
+@contextlib.contextmanager
+def staged(destination):
+    directory = destination.with_name(destination.name + '.partial')
+    created = False
+    try:
+        with defer_signals():
+            directory.mkdir(mode=0o700)
+            created = True
+        yield directory
+    finally:
+        if created and directory.exists():
+            shutil.rmtree(directory)
+
+
+class Runtime:
+    def __init__(self, config, project, state):
+        require(project == 'gameometro-production' or re.fullmatch(r'vgp-production-test-[a-z0-9-]+', project), 'Unsafe Compose project.')
+        private(state, directory=True)
+        self.state, self.project = state, project
+        self.base = ['docker', 'compose', '-p', project, '-f', str(config), '--profile', '*']
+        rendered = json.loads(run([*self.base, 'config', '--format', 'json']))
+        services = rendered['services']
+        require(services['application']['environment']['OIDC_ISSUER_URI'] == ISSUER, 'Unexpected issuer.')
+        for service in ('application', 'migration'):
+            wrapper = 'run-application' if service == 'application' else 'run-migrations'
+            require(services[service].get('entrypoint') == ['/opt/gameometro/bin/' + wrapper] and not services[service].get('command'), 'Recovery startup guard was bypassed.')
+            mounts = services[service].get('volumes', [])
+            require(any(v['target'] == '/run/recovery' and v['type'] == 'volume' and v['source'] == 'recovery-state' and v['read_only'] for v in mounts), 'Missing recovery startup guard.')
+        self.volumes = rendered.get('volumes', {})
+        require(all(not v.get('external') and re.fullmatch(re.escape(project) + r'[_-][a-z0-9_-]+', v.get('name', '')) for v in self.volumes.values()), 'Non-isolated durable volumes.')
+        require(not any(v.get('type') == 'bind' and v['target'].startswith('/var/lib/postgresql') for v in services['postgres'].get('volumes', [])), 'Database host bind restoration is forbidden.')
+        require(not any(s.get('container_name') for s in services.values()), 'Explicit container names are forbidden.')
+        self.gate_volume = self.volumes['recovery-state']['name']
+        self.images = {s: services[s]['image'] for s in ('postgres', 'application', 'keycloak')}
+        repositories = {'application': 'ghcr.io/rubhern/videogame-platform', 'keycloak': 'ghcr.io/rubhern/videogame-platform-keycloak', 'postgres': re.search(r'^    image: (postgres:[^@\s]+)@sha256:', (ROOT / 'deploy/public-production/compose.yaml').read_text(), re.M)[1]}
+        require(all(re.fullmatch(re.escape(repositories[name]) + r'@sha256:[0-9a-f]{64}', image) for name, image in self.images.items()), 'Known immutable image repositories and digests required.')
+        if project != 'gameometro-production':
+            require(not any(s.get('ports') for s in services.values()) and all(n['internal'] for n in rendered['networks'].values()), 'Rehearsal requires unpublished internal networks.')
+        self.config_hash = hashlib.sha256(json.dumps(rendered, sort_keys=True).encode()).hexdigest()
+
+    def check_lease(self):
+        actor = getattr(self, '_lease_actor', None)
+        require(actor is None or actor.poll() is None, 'Runtime recovery lease was lost; reopening is refused.')
+
+    def compose(self, *args, **kw):
+        self.check_lease()
+        return run([*self.base, *args], **kw)
+
+    def sql(self, database, query, output=None):
+        return self.compose('exec', '-T', 'postgres', 'gosu', 'postgres', 'psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-d', database,
+                            data=("SET statement_timeout='120s'; SET lock_timeout='5s';\n" + query).encode(), output=output)
+
+    @contextlib.contextmanager
+    def engine_lock(self):
+        # The lease lives with the runtime volume, so different owner machines/journals
+        # cannot capture/thaw/restore concurrently. Losing stdin releases the flock.
+        script = """import fcntl,sys
+with open('/gate/ACTOR.lock','a') as lock:
+ fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ print('locked',flush=True)
+ sys.stdin.buffer.read(1)
+"""
+        actor = None
+        try:
+            with defer_signals():
+                actor = subprocess.Popen(['env', '--default-signal=INT,TERM', 'docker', 'run', '--rm', '-i',
+                    '--label', f'vgp.production-test={self.project}' if self.project != 'gameometro-production' else 'gameometro.recovery-helper=true',
+                    '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+                    '--memory', '96m', '--pids-limit', '32', '-v', self.gate_volume+':/gate',
+                    'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258',
+                    'python3', '-c', script], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL, start_new_session=True)
+            require(select.select([actor.stdout],[],[],60)[0] and actor.stdout.readline(32)==b'locked\n',
+                    'Another runtime actor holds the recovery lease, or the engine lease is unavailable.')
+            self._lease_actor = actor
+            yield
+            require(actor.poll() is None, 'Runtime recovery lease was lost; inspect the closed state.')
+        finally:
+            self._lease_actor = None
+            if actor is not None:
+                actor.stdin.close()
+                try:
+                    actor.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    os.killpg(actor.pid,signal.SIGKILL)
+                    actor.wait()
+                actor.stdout.close()
+
+    @contextlib.contextmanager
+    def lock(self):
+        with (self.state / 'LOCK').open('a') as stream:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise Refused('Another recovery/backup actor is active.') from None
+            with self.engine_lock():
+                yield
+
+    def gate(self, action):
+        # Engine-side marker: works through an SSH Docker context without the owner's
+        # keyring, decrypted dumps or local journal ever being mounted on that host.
+        require(action in ('close', 'open', 'check'), 'Invalid recovery gate action.')
+        if action != 'close':
+            self.check_lease()
+        script = """import pathlib,sys,os
+p=pathlib.Path('/gate')
+a=sys.argv[1]
+if a=='close':
+ (p/'READY').unlink(missing_ok=True)
+ (p/'PENDING.json').touch(mode=0o644)
+elif a=='open':
+ (p/'READY').touch(mode=0o644)
+ (p/'PENDING.json').unlink(missing_ok=True)
+else:
+ print('open' if (p/'READY').is_file() and not (p/'PENDING.json').exists() else 'closed')
+fd=os.open(p,os.O_DIRECTORY)
+os.fsync(fd)
+os.close(fd)
+"""
+        return run(['docker', 'run', '--rm', '--label', f'vgp.production-test={self.project}' if self.project != 'gameometro-production' else 'gameometro.recovery-helper=true', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+                    '--security-opt', 'no-new-privileges:true', '--memory', '96m', '--pids-limit', '32',
+                    '-v', self.gate_volume + ':/gate',
+                    'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258',
+                    'python3', '-c', script, action], timeout=60).strip()
+
+    def initialize(self):
+        self.fresh()
+        require(not (self.state / 'PENDING.json').exists(), 'Interrupted operation requires reconciliation.')
+        self.gate('open')
+        write(self.state / 'READY', {'kind': 'fresh-empty-runtime'})
+        return {'kind': 'fresh-empty-runtime', 'servicesStarted': False}
+
+    def closed(self, phase, backup_id=None):
+        # READY is deliberately absent on new hosts. Never remove the pending journal on failure.
+        (self.state / 'READY').unlink(missing_ok=True)
+        self.gate('close')
+        write(self.state / 'PENDING.json', {'phase': phase, 'backupId': backup_id})
+
+    def stop_writers(self):
+        self.compose('stop', '--timeout', '60', 'caddy', 'application', 'migration', 'keycloak')
+
+    def fence(self):
+        self.closed('quiescing')
+        # NOLOGIN is durable across PostgreSQL/container/host restarts. All sessions are then
+        # terminated, rolling back in-flight transactions. COMMIT that won the race is included.
+        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' NOLOGIN' for r in ROLES) + ';')
+        self.stop_writers()
+        self.sql('postgres', "SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity WHERE datname IN ('videogame_platform','videogame_keycloak') AND pid <> pg_backend_pid();")
+        self.assert_fenced()
+
+    def assert_fenced(self):
+        query = """SELECT
+          NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('videogame_app','videogame_app_migrator','videogame_keycloak') AND rolcanlogin)
+          AND NOT EXISTS(SELECT FROM pg_stat_activity WHERE datname IN ('videogame_platform','videogame_keycloak'))
+          AND NOT EXISTS(SELECT FROM pg_prepared_xacts)
+          AND NOT EXISTS(SELECT FROM pg_subscription)
+          AND NOT EXISTS(SELECT FROM pg_roles WHERE rolcanlogin AND rolname <> 'postgres');"""
+        require(self.sql('postgres', query).strip() == b't', 'Writers, unknown login roles, prepared transactions or subscriptions remain.')
+
+    def metadata(self):
+        return {
+            'postgresMajor': self.sql('postgres', "SELECT current_setting('server_version_num')::int / 10000;").decode().strip(),
+            'applicationSchema': self.sql(DATABASES[0], 'SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1;').decode().strip(),
+            'keycloakSchema': self.sql(DATABASES[1], 'SELECT md5(string_agg(id || author || md5sum, chr(10) ORDER BY orderexecuted)) FROM databasechangelog;').decode().strip(),
+        }
+
+    def identity(self):
+        # Offline full scans are necessary, but application memory stays bounded. PostgreSQL
+        # sorts DISTINCT principals; external sort spills identities to private tmpfs as needed.
+        with scratch() as d:
+            require(self.sql(DATABASES[1], "SELECT count(*) FROM realm WHERE name='gameometro';").strip() == b'1', 'Production realm missing.')
+            with (d / 'subjects').open('wb') as out:
+                self.sql(DATABASES[1], "SELECT id FROM user_entity WHERE realm_id=(SELECT id FROM realm WHERE name='gameometro');", out)
+            with (d / 'subjects').open() as source, (d / 'derived').open('w') as out:
+                for line in source:
+                    subject = line.strip()
+                    value = uuid.UUID(bytes=hashlib.md5((ISSUER + '\n' + subject).encode()).digest(), version=3)
+                    out.write(str(value) + '\n')
+            with (d / 'identities').open('wb') as out:
+                run(['sort', '-u', '-T', d, '-S', '8M', d / 'derived'], output=out)
+            with (d / 'principals').open('wb') as out:
+                self.sql(DATABASES[0], 'SELECT DISTINCT user_id FROM ratings.rating ORDER BY user_id;', out)
+            with (d / 'identities').open() as identities, (d / 'principals').open() as principals:
+                current = next(identities, None)
+                for principal in principals:
+                    while current is not None and current < principal:
+                        current = next(identities, None)
+                    require(current == principal, 'Application principal has no matching canonical Keycloak identity.')
+
+    def backup(self, destination, keyring, recipient):
+        public_key(keyring, recipient)
+        require(not destination.exists(), 'Backup destination already exists.')
+        started = time.monotonic()
+        self.fence()
+        recovery_point = utc().isoformat()
+        m = {'format': 1, 'environment': 'production', 'backupId': uuid.uuid4().hex,
+             'issuer': ISSUER, 'databases': list(DATABASES), 'fence': 'roles-nologin-drained',
+             'recoveryPoint': recovery_point, 'recipient': recipient, 'artifacts': {},
+             'images': self.images, 'configurationSha256': self.config_hash, **self.metadata()}
+        self.identity()
+        with staged(destination) as staging:
+            with scratch() as d:
+                for database in DATABASES:
+                    plain = d / 'database.dump'
+                    with plain.open('wb') as out:
+                        self.compose('exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_dump', '-Fc', '--no-password', '--lock-wait-timeout=30s', '-d', database, output=out)
+                    name = database + '.dump.gpg'
+                    crypto('bc_encrypt_file', plain, staging / name, keyring, recipient)
+                    m['artifacts'][name] = {'plaintextSha256': digest(plain), 'ciphertextSha256': digest(staging / name), 'bytes': (staging / name).stat().st_size, 'plaintextBytes': plain.stat().st_size}
+                    plain.unlink()
+            self.assert_fenced()
+            m['durationSeconds'] = round(time.monotonic() - started, 3)
+            write(staging / 'manifest.json', m)
+            (staging / 'SHA256SUMS').write_text(''.join(f'{digest(staging / n)}  {n}\n' for n in FILES[:-1]))
+            verify(staging)
+            publish(staging, destination)
+        self.closed('backup-complete-writers-still-fenced', m['backupId'])
+        return {'kind': 'paired-backup', 'backupId': m['backupId'], 'durationSeconds': m['durationSeconds'],
+                'encryptedBytes': sum(a['bytes'] for a in m['artifacts'].values()), 'independentRecoveryVerified': False}
+
+    def thaw(self):
+        pending = json.loads((self.state / 'PENDING.json').read_text())
+        require(pending['phase'] == 'backup-complete-writers-still-fenced', 'Interrupted backup needs investigation; automatic thaw refused.')
+        self.assert_fenced()
+        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' LOGIN' for r in ROLES) + ';')
+        self.gate('open')
+        write(self.state / 'READY', {'kind': 'backup-thawed'})
+        (self.state / 'PENDING.json').unlink()
+        # Explicit owner action starts services after the fence is removed.
+        return {'kind': 'backup-thawed', 'servicesStarted': False}
+
+    def fresh(self):
+        for name, volume in self.volumes.items():
+            if name == 'recovery-state':
+                continue
+            result = subprocess.run(['docker', 'volume', 'inspect', volume['name']], capture_output=True, timeout=30)
+            require(result.returncode != 0, 'A referenced volume already exists; overwrite refused.')
+        for kind, cmd in [('containers', ['docker', 'ps', '-aq'])]:
+            require(not run([*cmd, '--filter', f'label=com.docker.compose.project={self.project}']).strip(), 'Restore target already has ' + kind + '; overwrite refused.')
+
+    def restore(self, backup, keyring):
+        if self.project == 'gameometro-production':
+            endpoint = os.environ.get('DOCKER_HOST')
+            if not endpoint:
+                context = json.loads(run(['docker', 'context', 'inspect']))
+                endpoint = context[0]['Endpoints']['docker']['Host']
+            require(endpoint.startswith('ssh://'), 'Production decryption runs only on the owner machine through an SSH Docker context.')
+        m = verify(backup)
+        self.fresh()
+        require(self.images == m['images'], 'Restore requires the captured immutable image set; assess upgrades separately.')
+        started = time.monotonic()
+        self.closed('restoring', m['backupId'])
+        # Check every decryption before creating even one database.
+        with scratch() as d:
+            for database in DATABASES:
+                name = database + '.dump.gpg'
+                crypto('bc_decrypt_file', backup / name, d / database, keyring)
+                require(digest(d / database) == m['artifacts'][name]['plaintextSha256'], 'Decrypted backup checksum mismatch.')
+            self.compose('up', '-d', '--no-deps', '--wait', '--wait-timeout', '180', 'postgres')
+            self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' NOLOGIN' for r in ROLES) + ';')
+            require(self.sql('postgres', "SELECT current_setting('server_version_num')::int / 10000;").decode().strip() == m['postgresMajor'], 'PostgreSQL major differs.')
+            for database in DATABASES:
+                # Fresh bootstrap reconstructs roles/passwords. No --clean, no roles/global dump.
+                with (d / database).open('rb') as stream:
+                    result = subprocess.run([*self.base, 'exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_restore',
+                                             '--exit-on-error', '-d', database], stdin=stream, stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.PIPE, timeout=1800)
+                require(result.returncode == 0, 'Restore failed; target remains closed and requires deliberate disposal.')
+            require(self.metadata() == {k: m[k] for k in ('postgresMajor', 'applicationSchema', 'keycloakSchema')}, 'Restored schema identities differ.')
+            self.identity()
+        self.closed('deletion-replay-required', m['backupId'])
+        write(self.state / 'SOURCE.json', {'recoveryPoint': m['recoveryPoint'], 'backupId': m['backupId'], 'manifestSha256': digest(backup / 'manifest.json')})
+        return {'kind': 'isolated-restore', 'backupId': m['backupId'], 'durationSeconds': round(time.monotonic() - started, 3), 'ready': False}
+
+    def replay(self, ledger, ledger_copy, checkpoint, host_command):
+        pending = json.loads((self.state / 'PENDING.json').read_text())
+        require(pending['phase'] == 'deletion-replay-required', 'Restore is incomplete; replay refused.')
+        require(not self.compose('ps', '-q', '--status', 'running', 'application', 'migration', 'caddy').strip(), 'Application, migration and edge must stay stopped.')
+        (self.state / 'REPLAY.json').unlink(missing_ok=True)
+        evidence = ledger_evidence(ledger, ledger_copy, checkpoint)
+        require(timestamp(json.loads(checkpoint.read_text())['asOf']) >= timestamp(json.loads((self.state / 'SOURCE.json').read_text())['recoveryPoint']), 'Deletion checkpoint predates the backup.')
+        # Identity alone; no public edge and no application DB login. The existing ledger
+        # driver uses the existing personal-data commands, including revocation and verification.
+        self.compose('up', '--no-start', '--no-deps', 'application')  # Named, stopped container required by the existing privacy safety guard.
+        self.sql('postgres', 'ALTER ROLE videogame_keycloak LOGIN;')
+        self.compose('up', '-d', '--no-deps', '--wait', '--wait-timeout', '300', 'keycloak')
+        with scratch() as d:
+            run(['python3', '-I', ROOT / 'deploy/private-dev/bin/personal-data-ledger', '--ledger', ledger,
+                 '--ledger-copy', ledger_copy, '--host-command', host_command, 'replay', '--receipt', d / 'replay.json'])
+            receipt = json.loads((d / 'replay.json').read_text())
+            require(receipt['outcome'] == 'verified' and receipt['ledgerSha256'] == evidence
+                    and receipt['entries'] == receipt['verified'] and receipt['runtime'] in (None, self.project), 'Deletion replay did not verify.')
+        require(ledger_evidence(ledger, ledger_copy, checkpoint) == evidence, 'Deletion evidence changed during replay.')
+        # Invalidate every restored SSO/offline session, including users absent from the ledger.
+        # Keycloak Admin API logout-all is part of the required host-command adapter below.
+        run([*shlex.split(host_command), 'recovery-logout-all'])
+        self.identity()
+        write(self.state / 'REPLAY.json', {'ledgerSha256': evidence, 'backupId': pending['backupId'], 'verifiedAt': utc().isoformat(timespec='seconds')})
+        return {'kind': 'deletion-replay', 'verified': True, 'ready': False}
+
+    def reopen(self, ledger, ledger_copy, checkpoint):
+        evidence = ledger_evidence(ledger, ledger_copy, checkpoint)
+        replay = json.loads((self.state / 'REPLAY.json').read_text())
+        pending = json.loads((self.state / 'PENDING.json').read_text())
+        require(pending['phase'] == 'deletion-replay-required' and replay['backupId'] == pending['backupId']
+                and replay['ledgerSha256'] == evidence and dt.timedelta(0) <= utc() - timestamp(replay['verifiedAt']) <= dt.timedelta(hours=1), 'Missing or stale replay evidence.')
+        self.identity()
+        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' LOGIN' for r in ROLES) + ';')
+        self.gate('open')
+        write(self.state / 'READY', {'kind': 'deletion-replay-verified', 'backupId': pending['backupId']})
+        (self.state / 'PENDING.json').unlink()
+        return {'kind': 'recovery-authorized', 'servicesStarted': False, 'productionReady': False}
+
+    def record_recovery(self, backup, ledger, ledger_copy, checkpoint):
+        m = verify(backup)
+        source = json.loads((self.state / 'SOURCE.json').read_text())
+        replay = json.loads((self.state / 'REPLAY.json').read_text())
+        ready = json.loads((self.state / 'READY').read_text())
+        evidence = ledger_evidence(ledger, ledger_copy, checkpoint)
+        require(not (self.state / 'PENDING.json').exists() and source['backupId'] == replay['backupId'] == ready['backupId'] == m['backupId']
+                and source['manifestSha256'] == digest(backup / 'manifest.json') and replay['ledgerSha256'] == evidence
+                and self.images == m['images'] and self.gate('check') == b'open', 'Recovery evidence does not match this backup and runtime.')
+        self.compose('exec', '-T', 'application', 'wget', '-q', '--spider', '-T', '3', 'http://127.0.0.1:8081/actuator/health/readiness')
+        return {'kind': 'recovery-rehearsal', 'backupId': m['backupId'], 'manifestSha256': source['manifestSha256'],
+                'deletionReplay': True, 'readiness': True, 'productionReady': False,
+                'scope': 'isolated-local' if self.project != 'gameometro-production' else 'owner-reconstructed-target'}
+
+
+def ledger_evidence(ledger, ledger_copy, checkpoint):
+    require(ledger.resolve() != ledger_copy.resolve() and ledger.parent.resolve() != ledger_copy.parent.resolve(), 'Two distinct protected ledger copies are required.')
+    for path in (ledger, ledger_copy, checkpoint):
+        private(path.parent, directory=True)
+        private(path)
+        require(path.stat().st_size <= MAX_LEDGER, 'Deletion evidence exceeds bounded input size.')
+    evidence = json.loads(checkpoint.read_text())
+    age = utc() - timestamp(evidence['asOf'])
+    require(dt.timedelta(0) <= age <= dt.timedelta(hours=1) and evidence['environment'] == 'production'
+            and evidence['ledgerSha256'] == digest(ledger) == digest(ledger_copy), 'Missing, divergent or stale owner deletion evidence.')
+    return evidence['ledgerSha256']
+
+
+def copy_pair(source, destination):
+    m = verify(source)
+    require(not destination.exists() and source.resolve() != destination.resolve(), 'Copy target exists or equals source.')
+    with staged(destination) as staging:
+        for name in FILES:
+            shutil.copyfile(source / name, staging / name)
+        verify(staging)
+        publish(staging, destination)
+    return {'kind': 'encrypted-copy', 'backupId': m['backupId'], 'scope': 'local-filesystem-only', 'independentRecoveryVerified': False}
+
+
+def pull_pair(ssh_config, host, remote_backup, destination, max_bytes):
+    """Run on the independent destination, with a read-only source identity.
+
+    Never extract arbitrary tar paths; accept only the fixed regular-file pair inventory.
+    Host key pinning is mandatory even if the SSH config tries to weaken it.
+    """
+    private(ssh_config)
+    require(re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,62}', host), 'Invalid SSH alias.')
+    require(re.fullmatch('/[A-Za-z0-9/_.-]+', remote_backup), 'Invalid remote backup path.')
+    require(max_bytes > 0 and not destination.exists(), 'A positive transfer bound and fresh destination are required.')
+    with staged(destination) as staging:
+        actor = None
+        try:
+            remote = shlex.join(['tar', '-C', remote_backup, '-cf', '-', *FILES])
+            with defer_signals():
+                actor = subprocess.Popen(['env', '--default-signal=INT,TERM', 'timeout', '--kill-after=5', '1800', 'ssh', '-F', str(ssh_config), '-oBatchMode=yes',
+                                          '-oStrictHostKeyChecking=yes', '-oConnectTimeout=15',
+                                          '-oClearAllForwardings=yes', '-oForwardAgent=no', host, remote],
+                                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
+            names, size = set(), 0
+            with tarfile.open(fileobj=actor.stdout, mode='r|') as archive:
+                for entry in archive:
+                    require(entry.name in FILES and entry.name not in names and entry.isfile(), 'Unsafe copy archive.')
+                    size += entry.size
+                    require(size <= max_bytes, 'Transfer exceeds owner storage bound.')
+                    names.add(entry.name)
+                    with archive.extractfile(entry) as source, (staging / entry.name).open('xb') as output:
+                        shutil.copyfileobj(source, output, length=1024 * 1024)
+            require(actor.wait(timeout=30) == 0 and names == set(FILES), 'Interrupted or incomplete off-host transfer.')
+            m = verify(staging)
+            publish(staging, destination)
+            return {'kind': 'encrypted-pull', 'backupId': m['backupId'], 'ciphertextIntegrity': True,
+                    'storageIsolationVerified': False, 'independentRecoveryVerified': False}
+        finally:
+            if actor is not None:
+                if actor.poll() is None:
+                    os.killpg(actor.pid, signal.SIGKILL)
+                actor.wait()
+                actor.stdout.close()
+
+
+def retain(root, verified_receipt):
+    """35-day hard ceiling; retain seven newest days plus four weekly representatives.
+
+    A protected owner restore receipt pins the last proven recoverable pair. If it is too
+    old, refuse expiry and require a new rehearsal/owner privacy incident decision.
+    """
+    private(root, directory=True)
+    private(verified_receipt)
+    proof = json.loads(verified_receipt.read_text())
+    require(proof['kind'] == 'recovery-rehearsal' and proof['outcome'] == 'success'
+            and proof['deletionReplay'] and proof['readiness'], 'A complete recovery rehearsal receipt is required.')
+    candidates = []
+    for index, entry in enumerate(root.iterdir()):
+        require(index < 512, 'Retention directory exceeds 512 entries; reconcile storage before pruning.')
+        if entry.is_dir() and not entry.is_symlink() and (entry / 'manifest.json').exists():
+            m = verify(entry)  # Corruption refuses retention; never masks the last good copy.
+            candidates.append((timestamp(m['recoveryPoint']), entry, m))
+    pinned = [x for x in candidates if x[2]['backupId'] == proof['backupId'] and digest(x[1] / 'manifest.json') == proof['manifestSha256']]
+    require(len(pinned) == 1 and utc() - pinned[0][0] < dt.timedelta(days=35), 'Last verified recoverable pair missing or at expiry; make and rehearse a replacement before pruning.')
+    keep = {pinned[0][1]}
+    daily, weekly = set(), set()
+    now = utc()
+    for point, path, _ in sorted(candidates, reverse=True):
+        age = (now - point).total_seconds() / 86400
+        require(age >= 0, 'Future backup time.')
+        day = point.date()
+        week = int(age // 7)
+        if age < 7 and day not in daily and len(daily) < 7:
+            keep.add(path); daily.add(day)
+        elif 7 <= age < 35 and week not in weekly:
+            keep.add(path); weekly.add(week)
+    for _, path, _ in candidates:
+        if path not in keep:
+            shutil.rmtree(path)
+    return {'kind': 'retention', 'kept': len(keep), 'removed': len(candidates) - len(keep)}
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery'])
+    parser.add_argument('--config', type=Path, help='Protected, fully rendered Compose JSON; never source shell env')
+    parser.add_argument('--project')
+    parser.add_argument('--state', type=Path)
+    parser.add_argument('--backup', type=Path)
+    parser.add_argument('--destination', type=Path)
+    parser.add_argument('--keyring', type=Path)
+    parser.add_argument('--recipient')
+    parser.add_argument('--ledger', type=Path)
+    parser.add_argument('--ledger-copy', type=Path)
+    parser.add_argument('--checkpoint', type=Path)
+    parser.add_argument('--host-command')
+    parser.add_argument('--ssh-config', type=Path)
+    parser.add_argument('--ssh-host')
+    parser.add_argument('--remote-backup')
+    parser.add_argument('--max-copy-bytes', type=int)
+    parser.add_argument('--verified-receipt', type=Path)
+    parser.add_argument('--receipt', type=Path, required=True, help='New sanitized receipt path')
+    a = parser.parse_args()
+    require(not a.receipt.exists(), 'Receipt already exists.')
+    result = {'outcome': 'failure', 'kind': a.command, 'productionReady': False}
+    def interrupted(*_):
+        raise Refused('Interrupted; writers remain closed. Inspect the pending journal.')
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    try:
+        if a.command == 'verify':
+            m = verify(a.backup)
+            result = {'kind': 'ciphertext-integrity', 'backupId': m['backupId'], 'recoverabilityVerified': False}
+        elif a.command == 'copy':
+            result = copy_pair(a.backup, a.destination)
+        elif a.command == 'pull':
+            result = pull_pair(a.ssh_config, a.ssh_host, a.remote_backup, a.destination, a.max_copy_bytes)
+        elif a.command == 'retain':
+            result = retain(a.backup, a.verified_receipt)
+        else:
+            runtime = Runtime(a.config, a.project, a.state)
+            with runtime.lock():
+                if a.command == 'initialize': result = runtime.initialize()
+                elif a.command == 'backup': result = runtime.backup(a.destination, a.keyring, a.recipient)
+                elif a.command == 'restore': result = runtime.restore(a.backup, a.keyring)
+                elif a.command == 'thaw': result = runtime.thaw()
+                elif a.command == 'replay': result = runtime.replay(a.ledger, a.ledger_copy, a.checkpoint, a.host_command)
+                elif a.command == 'reopen': result = runtime.reopen(a.ledger, a.ledger_copy, a.checkpoint)
+                elif a.command == 'record-recovery': result = runtime.record_recovery(a.backup, a.ledger, a.ledger_copy, a.checkpoint)
+        result['outcome'] = 'success'
+    except Refused as error:
+        # Refused messages in this module are fixed operator-facing strings; raw driver
+        # exception values and subprocess output never enter logs or receipts.
+        result['reason'] = str(error)
+        print(str(error), file=sys.stderr)
+        return 1
+    except (Exception, KeyboardInterrupt):
+        print('Recovery operation failed; raw diagnostics withheld. Inspect the pending journal privately.', file=sys.stderr)
+        return 1
+    finally:
+        write(a.receipt, result)
+    print('Recovery operation completed; sanitized receipt written.')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

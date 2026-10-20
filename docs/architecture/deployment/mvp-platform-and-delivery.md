@@ -624,7 +624,12 @@ driver records each step in both before running it on the host. A restore starts
 restored Keycloak without the application and the replay refuses while the application
 runs; host-loss recovery is the only restore into the live project, only on a host
 without that project's state, and deployments stay refused until its replay is
-verified. #275's restore path must offer the same Keycloak-only start and block. The
+verified. **Prepared production candidate (#275 increment 5), not operated on a host:**
+[production recovery commands](../../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+add durable role fences and a startup authorization volume, paired encrypted dumps,
+owner-side SSH-context restoration, destination-side bounded pull/retention and the
+same Keycloak-only deletion replay gate. Local rehearsal is synthetic evidence only;
+Lenovo isolation, physical independence, transfer cadence and VPS recovery remain #276 gates. The
 [data-protection record](../../development/data-protection.md#phase-1-design-for-approval)
 owns the future cleanup/archive design; the existing ledger design evidence remains
 in [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion), and the

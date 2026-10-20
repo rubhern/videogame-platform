@@ -10,11 +10,23 @@ import {
   readFeaturedSearch,
 } from "../features/releases/featured-search";
 import { useFeaturedReleasesQuery } from "../features/releases/use-featured-releases-query";
+import { resolvePlatformFilter } from "../features/platform-preferences/interests";
+import { useInterests } from "../features/platform-preferences/use-platform-preferences";
+import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
 
 export function FeaturedReleasesPage() {
   const [searchParams] = useSearchParams();
   const search = readFeaturedSearch(searchParams);
-  const query = useFeaturedReleasesQuery(search);
+  // TOPómetro has no manual platform choice: preferences are on or off in Mi cuenta (#295). The
+  // restriction reaches the API, which ranks the restricted candidates; nothing filters the six.
+  const interests = useInterests();
+  const { enabled } = useInterestsSwitch();
+  const platformFilter = resolvePlatformFilter([], enabled, interests);
+  const query = useFeaturedReleasesQuery(
+    search,
+    platformFilter.platformIds,
+    interests.status !== "pending",
+  );
 
   // A URL the contract does not accept, malformed or contradictory, takes the canonical form of
   // what it reads as, so the address always names the period shown.
@@ -52,6 +64,7 @@ export function FeaturedReleasesPage() {
 
   return (
     <FeaturedReleasesShell
+      interestsMode={platformFilter.mode}
       onRetry={() => {
         void query.refetch();
       }}

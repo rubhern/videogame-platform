@@ -210,7 +210,7 @@ services:
     <<: *hardened
     profiles: ["application"]
     image: ${APPLICATION_IMAGE:?Set APPLICATION_IMAGE to an immutable GHCR digest}
-    # The environment-neutral secret-file wrapper shared with private-dev, read-only.
+    # Recovery authorization guards the shared secret-file wrapper.
     entrypoint: ["/opt/gameometro/bin/run-application"]
     environment:
       SPRING_PROFILES_ACTIVE: oidc,structured
@@ -257,7 +257,12 @@ services:
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
-      - ../private-dev/bin/run-application:/opt/gameometro/bin/run-application:ro
+      - ./bin/run-application:/opt/gameometro/bin/run-application:ro
+      - ../private-dev/bin/run-application:/opt/gameometro/bin/shared-run-application:ro
+      - type: volume
+        source: recovery-state
+        target: /run/recovery
+        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     networks:
@@ -295,7 +300,12 @@ services:
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
-      - ../private-dev/bin/run-migrations:/opt/gameometro/bin/run-migrations:ro
+      - ./bin/run-migrations:/opt/gameometro/bin/run-migrations:ro
+      - ../private-dev/bin/run-migrations:/opt/gameometro/bin/shared-run-migrations:ro
+      - type: volume
+        source: recovery-state
+        target: /run/recovery
+        read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     networks:
@@ -333,6 +343,7 @@ secrets:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-secret
 
 volumes:
+  recovery-state:
   caddy-data:
   caddy-config:
   postgres-data:

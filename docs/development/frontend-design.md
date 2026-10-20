@@ -153,7 +153,8 @@ work never brings them back.
   navigation holds two entries, **Lanzamientos** and **TOPómetro**, named in the
   [product glossary](../product/glossary.md#user-facing-terms); TOPómetro is the landing route
   and Lanzamientos is current on the release explorer, `/lanzamientos` (#285). The account
-  control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
+  control provides `Mi cuenta`, `Mis puntuaciones`, **Mis plataformas**
+  ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
   that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
   `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
@@ -841,6 +842,51 @@ command. A concurrent or ambiguous command keeps further commands disabled until
 succeeds; a failed read keeps the existing **Reintentar carga** recovery. Announce outcomes
 and move focus to the results after maintenance or pagination. Empty ratings, no search
 matches, an exhausted page and load failure remain distinct.
+
+## Preferred platforms
+
+Post-MVP (#295, implemented; awaiting owner review). A signed-in player's preferred platforms
+narrow release discovery. Both operations live in **Mi cuenta**: the **Mis plataformas** link
+manages the saved choice, and the checkbox beside it applies or sets it aside.
+
+**The choice.** The first-run welcome (`/bienvenida`) and **Mis plataformas** share one
+composition on the plain night canvas, without a stage, G or score instrument: the page
+opening (**Te damos la bienvenida a Gameómetro** over **¿A qué juegas?**, or **Mi cuenta** over
+**Mis plataformas**), one short lead (the welcome's: *Elige tus plataformas y te mostraremos
+primero los juegos que responden a tus intereses. Elige varias, o ninguna si prefieres verlo
+todo.*; Mis plataformas': *Elige las plataformas que saldrán por defecto. Puedes modificarlo desde
+el menú de Mi cuenta*), then the platform tiles. Only the catalogue platforms with an owner-provided mark are
+offered (owner decision); the rest of the taxonomy is never selectable. Every tile is a native
+checkbox covering a night control with a hairline: the platform's mark at tile height, the
+wordmarks keeping their ratio, and its catalogue name. A chosen tile takes an ice top edge,
+ice-light mark and name and a filled ring with a tick, so selection is a shape as well as a
+light; hover lights the edge, keyboard focus outlines the tile, and the tick's press is the only
+motion. Tiles run in auto-filling columns on desktop, two on phones and one below 360px. One live
+line counts the choice (`2 plataformas elegidas`). The welcome closes with **Guardar y
+continuar**, enabled once something is chosen, and a quiet **Ahora no**, then a footnote naming
+where the choice lives; **Mis plataformas** closes with **Guardar cambios**, enabled only for an
+unsaved change, **Quitar todas** and its outcome in the same line (**Selección guardada**), and
+one **Volver a Gameómetro** link to the landing page at its foot. Actions take the full width on phones. Loading, empty, failed reads and failed saves use
+the [server-backed states](#server-backed-states); a failed save keeps the selection.
+
+**The offer.** The welcome is product UI after Keycloak, never a registration step. A signed-in
+player who has never chosen is sent to it once per document on the way into TOPómetro or the
+explorer, carrying the destination, which it restores after saving or skipping; a rating return
+or any other page never redirects. Skipping records an empty choice and never blocks discovery.
+
+**Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
+checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
+the link that opens the management page. Without preferences the row is the link alone. The
+checkbox is one document-wide switch, on in every new document and kept only in its memory,
+never in the URL, history or browser storage, so TOPómetro and the explorer always agree and a
+shared link resolves with the reader's own preferences. Discovery screens carry no control or
+shortcut of their own, and no screen prints the list of applied platforms: only the explorer's
+**Plataforma** summarizes them as `Mis plataformas` (and the folded phone controls name it). Choosing platforms by hand in **Plataforma** starts from what it
+shows and turns the switch off; **Quitar filtros** shows every platform; checking the switch
+again replaces a manual choice. None of these changes the saved choice. An empty view of the
+preferred platforms says so (**Sin lanzamientos para tus plataformas**, **Tus plataformas no
+tienen lanzamientos en …**) and offers **Ver todas las plataformas**, which turns the switch off.
+Search, game pages and `Mis puntuaciones` never apply preferences.
 
 ## Catalogue administration
 

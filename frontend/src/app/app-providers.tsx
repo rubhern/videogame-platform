@@ -1,6 +1,19 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 
-export function AppProviders({ children, queryClient }: PropsWithChildren<{ queryClient: QueryClient }>) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+import {
+  InterestsSwitchContext,
+  type InterestsSwitch,
+} from "../features/platform-preferences/interests-switch";
+
+export function AppProviders({
+  children,
+  queryClient,
+  interests,
+}: PropsWithChildren<{ queryClient: QueryClient; interests: InterestsSwitch }>) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <InterestsSwitchContext.Provider value={interests}>{children}</InterestsSwitchContext.Provider>
+    </QueryClientProvider>
+  );
 }

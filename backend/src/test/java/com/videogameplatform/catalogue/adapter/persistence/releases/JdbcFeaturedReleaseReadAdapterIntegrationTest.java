@@ -12,6 +12,7 @@ import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,6 +36,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
 
     private static final String PUBLICATION = "00000000-0000-4000-8000-000000000151";
     private static final String PS5 = "10000000-0000-4000-8000-000000000001";
+    private static final String SWITCH_2 = "10000000-0000-4000-8000-000000000002";
     private static final String WINDOWS = "10000000-0000-4000-8000-000000000003";
     private static final String XBOX = "10000000-0000-4000-8000-000000000004";
     private static final String WORLDWIDE = "20000000-0000-4000-8000-000000000001";
@@ -89,6 +91,67 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                 .allSatisfy(item -> assertThat(item.genres()).hasSizeLessThanOrEqualTo(2));
         assertThat(result.items())
                 .allSatisfy(item -> assertThat(item.popularityObservedAt()).isEqualTo(OBSERVED));
+    }
+
+    @Test
+    void restrictsCandidatesToThePlatformsBeforeRankingAndLimiting() {
+        // Unrestricted, the top two are Alpha and Delta. Restricted to Windows, Mike (sixth
+        // overall)
+        // takes the second slot: the ranking is that of the restricted candidates, never a filtered
+        // copy of the unrestricted top.
+        assertThat(adapter.findFeaturedReleases(criteria(OCTOBER, 2, 25)).orElseThrow().items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Alpha", "Delta");
+        var windows =
+                adapter.findFeaturedReleases(restricted(OCTOBER, 2, List.of(WINDOWS)))
+                        .orElseThrow();
+
+        assertThat(windows.platformsSupported()).isTrue();
+        assertThat(windows.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Alpha", "Mike");
+        // A game presents only its releases on the restricted platforms.
+        assertThat(windows.items().getFirst().releases())
+                .extracting(release -> release.platform().id())
+                .containsOnly(WINDOWS);
+    }
+
+    @Test
+    void combinesRestrictedPlatformsWithOrAndKeepsTheRankingOrder() {
+        var result =
+                adapter.findFeaturedReleases(restricted(OCTOBER, 6, List.of(XBOX, WINDOWS)))
+                        .orElseThrow();
+
+        assertThat(result.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Alpha", "Bravo", "Lima", "Mike");
+        assertThat(result.items())
+                .flatExtracting(Item::releases)
+                .extracting(release -> release.platform().id())
+                .containsOnly(XBOX, WINDOWS);
+    }
+
+    @Test
+    void aPlatformWithoutQualifyingReleasesYieldsNoQualifyingReleases() {
+        var result =
+                adapter.findFeaturedReleases(restricted(OCTOBER, 6, List.of(SWITCH_2)))
+                        .orElseThrow();
+
+        assertThat(result.platformsSupported()).isTrue();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.qualifyingReleases()).isFalse();
+    }
+
+    @Test
+    void anUnknownPlatformRanksNothingAndIsReported() {
+        for (String unknown : List.of("10000000-0000-4000-8000-0000000000ff", "platform_ps5")) {
+            var result =
+                    adapter.findFeaturedReleases(restricted(OCTOBER, 6, List.of(PS5, unknown)))
+                            .orElseThrow();
+
+            assertThat(result.platformsSupported()).isFalse();
+            assertThat(result.items()).isEmpty();
+        }
     }
 
     @Test
@@ -355,6 +418,12 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
             YearMonth month, int limit, int releaseGroupLimit) {
         return new FeaturedReleaseReadPort.Criteria(
                 month.atDay(1), month.atEndOfMonth(), limit, releaseGroupLimit);
+    }
+
+    private static FeaturedReleaseReadPort.Criteria restricted(
+            YearMonth month, int limit, List<String> platformIds) {
+        return new FeaturedReleaseReadPort.Criteria(
+                month.atDay(1), month.atEndOfMonth(), limit, 25, platformIds);
     }
 
     private static FeaturedReleaseReadPort.Criteria week(

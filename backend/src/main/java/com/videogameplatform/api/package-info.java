@@ -9,6 +9,7 @@
             "catalogue::releases",
             "catalogue::search",
             "catalogue::details",
+            "catalogue::preferences",
             "identity::application",
             "ratings::application"
         })

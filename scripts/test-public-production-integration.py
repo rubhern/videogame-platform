@@ -149,6 +149,26 @@ class FailureLifecycle(unittest.TestCase):
             self.assertNotIn('never-export-this-token', text)
             self.assertFalse(any('compose' in call for call in calls))
 
+    def test_deployment_lease_reuses_recovery_gate_without_reopening_it(self):
+        from unittest.mock import Mock
+        from types import SimpleNamespace
+        exercise = integration.Exercise(Path('/unused'), Path('/unused-evidence'), {}, None)
+        exercise.recovery_core = SimpleNamespace(Refused=type('RecoveryRefused', (RuntimeError,), {}))
+        exercise.recovery_runtime = Mock()
+        exercise.recovery_runtime.lock.side_effect = lambda: contextlib.nullcontext()
+        exercise.recovery_runtime.gate.return_value = b'closed'
+        with self.assertRaises(integration.trust.Refused):
+            with exercise.deployment_lease():
+                self.fail('Closed recovery gate allowed deployment')
+        exercise.recovery_runtime.gate.return_value = b'open'
+        with exercise.deployment_lease():
+            pass
+        self.assertTrue(all(call.args == ('check',) for call in exercise.recovery_runtime.gate.call_args_list))
+        exercise.recovery_runtime.lock.side_effect = exercise.recovery_core.Refused('private diagnostic')
+        with self.assertRaisesRegex(integration.trust.Refused, 'unavailable'):
+            with exercise.deployment_lease():
+                self.fail('Busy recovery lease allowed deployment')
+
     def test_cleanup_includes_every_profile(self):
         exercise = integration.Exercise(Path('/unused'), Path('/unused-evidence'), {}, None)
         with patch.object(integration, 'command') as command:

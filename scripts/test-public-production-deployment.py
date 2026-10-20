@@ -57,6 +57,9 @@ class Runtime:
     def cid(self, service):
         return '' if service == 'application' and self.app_image is None else service
 
+    def deployment_lease(self):
+        return contextlib.nullcontext()
+
     def inspect_image(self, image):
         return subprocess.CompletedProcess([], 0, json.dumps([{'Os': 'linux', 'Architecture': 'amd64',
                   'Config': {'Labels': {'org.opencontainers.image.revision': self.selected['source_revision'],
@@ -218,6 +221,14 @@ class Deployments(unittest.TestCase):
         self.assertFalse(self.runtime.calls)
         self.runtime.history = HISTORY
         self.assertEqual(self.deployer.run(rollback=True)['outcome'], 'success')
+
+    def test_closed_recovery_gate_or_busy_recovery_lease_prevents_mutation(self):
+        for reason in ('Recovery authorization is closed', 'Another recovery actor is active'):
+            with patch.object(self.runtime, 'deployment_lease', side_effect=deploy.trust.Refused(reason)):
+                with self.assertRaises(deploy.trust.Refused):
+                    self.deployer.run()
+            self.assertFalse(self.runtime.calls)
+            self.assertFalse(self.deployer.state.exists())
 
     def test_applied_migrations_are_never_reverted(self):
         self.older_release()

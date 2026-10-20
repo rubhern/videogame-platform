@@ -211,67 +211,69 @@ assert get('/actuator/health')[0]==404
                 locked = True
             except BlockingIOError:
                 raise trust.Refused('Concurrent deployment refused.') from None
-            receipt['phase'] = 'preflight'
-            self.check = 'state'
-            previous = json.loads(self.state.read_text()) if self.state.exists() else None
-            if previous:
-                require(previous.get('outcome') in ('success', 'failure')
-                        and re.fullmatch(re.escape(trust.IMAGE_REPOSITORY) + r'@sha256:[0-9a-f]{64}', previous.get('image', ''))
-                        and re.fullmatch(r'[0-9a-f]{40}', previous.get('sourceRevision', ''))
-                        and re.fullmatch(r'[0-9A-Za-z.-]{1,100}', previous.get('applicationVersion', '')),
-                        'Incomplete or interrupted deployment state; assess recovery before retry.')
-                receipt['previousVersion'], receipt['previousImage'] = previous.get('installedVersion', previous['applicationVersion']), previous.get('installedImage', previous['image'])
-            receipt['installedImage'] = previous.get('installedImage', previous['image']) if previous else None
-            receipt['installedVersion'] = previous.get('installedVersion', previous['applicationVersion']) if previous else None
-            self.preflight(previous)
-            self.check = 'release-order-and-rollback'
-            if previous and previous['sourceRevision'] != receipt['sourceRevision']:
-                comparison = self.api.request(f"/compare/{previous['sourceRevision']}...{receipt['sourceRevision']}")
-                require(comparison.get('status') in ('ahead', 'behind'), 'Unrelated release history refused.')
-                backwards = comparison['status'] == 'behind'
-                require(not backwards or rollback, 'Older release requires explicit schema-compatible rollback.')
-                require(not rollback or backwards, 'Rollback must select an older trusted release.')
-            elif rollback:
-                raise trust.Refused('Rollback must select an older trusted release.')
-            if rollback:
-                require(previous['outcome'] == 'success' and previous['schemaInventory'] == self.schema
-                        and previous['historyFingerprint'] == self.history(),
-                        'Rollback compatibility is not demonstrated; forward fix or separately approved recovery required.')
-            # A first release may have no Flyway history table yet. The actor owns
-            # its creation; only inspect a previously recorded migration baseline.
-            if previous and previous.get('migrationVersion'):
+            with r.deployment_lease():
+                receipt['phase'] = 'preflight'
+                self.check = 'state'
+                previous = json.loads(self.state.read_text()) if self.state.exists() else None
+                if previous:
+                    require(previous.get('outcome') in ('success', 'failure')
+                            and re.fullmatch(re.escape(trust.IMAGE_REPOSITORY) + r'@sha256:[0-9a-f]{64}', previous.get('image', ''))
+                            and re.fullmatch(r'[0-9a-f]{40}', previous.get('sourceRevision', ''))
+                            and re.fullmatch(r'[0-9A-Za-z.-]{1,100}', previous.get('applicationVersion', '')),
+                            'Incomplete or interrupted deployment state; assess recovery before retry.')
+                    receipt['previousVersion'], receipt['previousImage'] = previous.get('installedVersion', previous['applicationVersion']), previous.get('installedImage', previous['image'])
+                receipt['installedImage'] = previous.get('installedImage', previous['image']) if previous else None
+                receipt['installedVersion'] = previous.get('installedVersion', previous['applicationVersion']) if previous else None
+                self.preflight(previous)
+                self.check = 'release-order-and-rollback'
+                if previous and previous['sourceRevision'] != receipt['sourceRevision']:
+                    comparison = self.api.request(f"/compare/{previous['sourceRevision']}...{receipt['sourceRevision']}")
+                    require(comparison.get('status') in ('ahead', 'behind'), 'Unrelated release history refused.')
+                    backwards = comparison['status'] == 'behind'
+                    require(not backwards or rollback, 'Older release requires explicit schema-compatible rollback.')
+                    require(not rollback or backwards, 'Rollback must select an older trusted release.')
+                elif rollback:
+                    raise trust.Refused('Rollback must select an older trusted release.')
+                if rollback:
+                    require(previous['outcome'] == 'success' and previous['schemaInventory'] == self.schema
+                            and previous['historyFingerprint'] == self.history(),
+                            'Rollback compatibility is not demonstrated; forward fix or separately approved recovery required.')
+                # A first release may have no Flyway history table yet. The actor owns
+                # its creation; only inspect a previously recorded migration baseline.
+                if previous and previous.get('migrationVersion'):
+                    receipt['migrationVersion'] = self.migration_version()
+                    receipt['historyFingerprint'] = self.history()
+                receipt['phase'] = 'migration'
+                atomic_json(self.state, {**receipt, 'outcome': 'running'})
+                mutated = True
+                # Stop old code before DDL; even a partially failed migration cannot leave
+                # it serving against an unassessed schema. No volume/database reset occurs.
+                r.stop_application()
+                args = ['run', '--rm', '--no-deps']
+                if fault == 'migration':
+                    args += ['-e', 'APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/rehearsal_missing_database']
+                result = r.compose(*args, 'migration', check=False)
+                require(result.returncode == 0, 'Migration failed; activation prevented. Forward fix or assessed recovery required.')
                 receipt['migrationVersion'] = self.migration_version()
                 receipt['historyFingerprint'] = self.history()
-            receipt['phase'] = 'migration'
-            atomic_json(self.state, {**receipt, 'outcome': 'running'})
-            mutated = True
-            # Stop old code before DDL; even a partially failed migration cannot leave
-            # it serving against an unassessed schema. No volume/database reset occurs.
-            r.stop_application()
-            args = ['run', '--rm', '--no-deps']
-            if fault == 'migration':
-                args += ['-e', 'APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/rehearsal_missing_database']
-            result = r.compose(*args, 'migration', check=False)
-            require(result.returncode == 0, 'Migration failed; activation prevented. Forward fix or assessed recovery required.')
-            receipt['migrationVersion'] = self.migration_version()
-            receipt['historyFingerprint'] = self.history()
-            require(re.fullmatch(r'[0-9a-f]{32}', receipt['historyFingerprint'] or ''), 'Invalid Flyway history.')
-            if rollback:
-                require(receipt['historyFingerprint'] == previous['historyFingerprint'], 'Rollback changed schema history; activation prevented.')
-            receipt['phase'] = 'readiness'
-            receipt['installedImage'], receipt['installedVersion'] = receipt['image'], receipt['applicationVersion']
-            r.up('application', no_deps=True)
-            if fault == 'readiness':
-                # A real stopped candidate, followed by its actual Docker health observation.
-                r.stop_application()
-            info = json.loads(r.inspect(r.cid('application')).stdout)[0]
-            require(info['State']['Running'] and info['State'].get('Health', {}).get('Status') == 'healthy', 'Candidate readiness failed.')
-            receipt['phase'] = 'smoke'
-            if fault == 'smoke':
-                raise trust.Refused('Injected synthetic smoke failure.')
-            self.smoke()
-            receipt.update(outcome='success', phase='complete')
+                require(re.fullmatch(r'[0-9a-f]{32}', receipt['historyFingerprint'] or ''), 'Invalid Flyway history.')
+                if rollback:
+                    require(receipt['historyFingerprint'] == previous['historyFingerprint'], 'Rollback changed schema history; activation prevented.')
+                receipt['phase'] = 'readiness'
+                receipt['installedImage'], receipt['installedVersion'] = receipt['image'], receipt['applicationVersion']
+                r.up('application', no_deps=True)
+                if fault == 'readiness':
+                    # A real stopped candidate, followed by its actual Docker health observation.
+                    r.stop_application()
+                info = json.loads(r.inspect(r.cid('application')).stdout)[0]
+                require(info['State']['Running'] and info['State'].get('Health', {}).get('Status') == 'healthy', 'Candidate readiness failed.')
+                receipt['phase'] = 'smoke'
+                if fault == 'smoke':
+                    raise trust.Refused('Injected synthetic smoke failure.')
+                self.smoke()
+                receipt.update(outcome='success', phase='complete')
         except BaseException:
+            receipt['outcome'] = 'failure'
             # Never export exception strings, command output, credentials or server bodies.
             receipt['failureReason'] = {
                 'lock': 'concurrent-or-lock-unavailable', 'preflight': 'preflight-refused',

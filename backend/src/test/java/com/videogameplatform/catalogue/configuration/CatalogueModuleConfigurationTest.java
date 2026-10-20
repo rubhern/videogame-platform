@@ -75,6 +75,19 @@ class CatalogueModuleConfigurationTest {
                             .isInstanceOf(IgdbCoverReferenceResolver.class);
                     assertThat(context).hasSingleBean(CatalogueCoverPolicy.class);
                     assertThat(context).hasSingleBean(SearchCatalogueUseCase.class);
+                    assertThat(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application.preferences
+                                                    .ListPlatformsUseCase.class))
+                            .isNotNull();
+                    assertThat(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application.preferences
+                                                    .ReplacePlatformPreferencesUseCase.class))
+                            .isSameAs(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application.preferences
+                                                    .GetPlatformPreferencesUseCase.class));
                     assertThat(context.getBean(SearchCatalogueUseCase.class))
                             .isInstanceOf(CatalogueSearchService.class);
                     assertThat(context.getBean(CatalogueSearchPolicy.class))
@@ -208,6 +221,37 @@ class CatalogueModuleConfigurationTest {
         @Bean
         GameListingReadPort gameListingReadPort() {
             return id -> Optional.empty();
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.preferences.port.SelectablePlatformsReadPort
+                selectablePlatformsReadPort() {
+            return limit -> Optional.empty();
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.preferences.port.PlatformPreferenceStore
+                platformPreferenceStore() {
+            return new com.videogameplatform.catalogue.application.preferences.port
+                    .PlatformPreferenceStore() {
+                @Override
+                public com.videogameplatform.catalogue.application.preferences.PlatformPreferences
+                        find(String userId) {
+                    return com.videogameplatform.catalogue.application.preferences
+                            .PlatformPreferences.notConfigured();
+                }
+
+                @Override
+                public Optional<
+                                com.videogameplatform.catalogue.application.preferences
+                                        .PlatformPreferences>
+                        replace(
+                                String userId,
+                                java.util.Set<String> platformIds,
+                                java.time.Instant savedAt) {
+                    return Optional.empty();
+                }
+            };
         }
 
         @Bean

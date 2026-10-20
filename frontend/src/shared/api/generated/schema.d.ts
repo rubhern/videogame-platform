@@ -95,6 +95,15 @@ export interface paths {
          *     references (ADR-0001). Up to two product-owned localized genres accompany each item;
          *     only the first item carries the existing localized summary representation. All content
          *     is served from PostgreSQL; no provider or translator is called.
+         *
+         *     Since 4.1.0, `platformIds` restricts the candidates before they are ranked: only a
+         *     qualifying release on one of the named platforms makes its game a candidate, and each
+         *     item presents only those releases. The ranking, its limit and its tie-breaker are
+         *     unchanged, so a restricted selection is the ranking of the restricted candidates, never
+         *     a filtered copy of the unrestricted six. The selection states `no_qualifying_releases`
+         *     when none of the named platforms has a qualifying release in the period. Without
+         *     `platformIds` the selection is unchanged. The representation depends only on the
+         *     request's explicit parameters, never on a session.
          */
         get: operations["getFeaturedReleases"];
         put?: never;
@@ -152,6 +161,31 @@ export interface paths {
          *     a degraded state. The validator covers it, so every reuse reflects its refresh or removal.
          */
         get: operations["getGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the catalogue platforms a visitor may choose
+         * @description Reads the platforms of the local, provider-independent taxonomy that at least one current
+         *     release of the last valid catalogue publication uses, ordered by name, case-insensitively,
+         *     then by `platformId`. These are the choices offered as preferred platforms; a platform no
+         *     current release uses could never narrow release discovery, so it is not offered. The
+         *     taxonomy is bounded and every platform is returned in one response; the read fails rather
+         *     than truncating it. All content is served from PostgreSQL; no provider is called.
+         */
+        get: operations["listPlatforms"];
         put?: never;
         post?: never;
         delete?: never;
@@ -251,6 +285,37 @@ export interface paths {
          * @description Current eligibility never blocks owner deletion; success returns updated aggregate state.
          */
         delete: operations["deleteMyRating"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/platform-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the current user's preferred platforms
+         * @description Scoped to the authenticated current user, whose identity the server derives from the
+         *     session. `configured` is false until the user first saves a choice, including an empty
+         *     one, so a client can offer its first-run choice once and never again. The platforms are
+         *     ordered like `/platforms`.
+         */
+        get: operations["getMyPlatformPreferences"];
+        /**
+         * Replace the current user's preferred platforms
+         * @description Replaces the complete set atomically and marks the choice as made; an empty set clears
+         *     every preference, which is also how a first-run choice is skipped. Values are
+         *     de-duplicated. Every value must name a platform of the local taxonomy, otherwise nothing
+         *     changes and the request yields 422. The last successful replacement wins; no
+         *     precondition is required for this personal, idempotent replacement.
+         */
+        put: operations["putMyPlatformPreferences"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -479,6 +544,17 @@ export interface components {
         Platform: {
             platformId: components["schemas"]["PlatformId"];
             name: string;
+        };
+        PlatformList: {
+            items: components["schemas"]["Platform"][];
+        };
+        PlatformPreferences: {
+            /** @description Whether the user has ever saved a choice, including an empty one. */
+            configured: boolean;
+            platforms: components["schemas"]["Platform"][];
+        };
+        PlatformPreferencesWrite: {
+            platformIds: components["schemas"]["PlatformId"][];
         };
         Company: {
             companyId: components["schemas"]["CompanyId"];
@@ -1506,9 +1582,34 @@ export interface components {
         };
         /**
          * @description The requested week or month is malformed, outside the navigation bounds or combined with
-         *     the other granularity, or a request parameter is invalid.
+         *     the other granularity, a platform is unknown, or a request parameter is invalid.
          */
         FeaturedReleaseValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request names a query parameter this read does not accept. */
+        PlatformListValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description A platform is not part of the local taxonomy, the command carries an unknown property,
+         *     or the request names an unknown query parameter. Nothing changes.
+         */
+        PlatformPreferencesValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -1715,6 +1816,16 @@ export interface components {
          *     ]
          */
         PlatformIdsQuery: components["schemas"]["PlatformId"][];
+        /**
+         * @description Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
+         *     values combine with OR. Omit it for every platform. Values are trimmed and
+         *     de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+         * @example [
+         *       "platform_ps5",
+         *       "platform_switch2"
+         *     ]
+         */
+        FeaturedPlatformIdsQuery: components["schemas"]["PlatformId"][];
         /**
          * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
          *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
@@ -1956,6 +2067,16 @@ export interface operations {
                  * @example 2026-10
                  */
                 month?: components["parameters"]["FeaturedMonth"];
+                /**
+                 * @description Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
+                 *     values combine with OR. Omit it for every platform. Values are trimmed and
+                 *     de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["FeaturedPlatformIdsQuery"];
             };
             header?: {
                 /**
@@ -2077,6 +2198,41 @@ export interface operations {
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseReviewBlocked"];
             500: components["responses"]["GameReadFailed"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    listPlatforms: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The selectable platforms, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformList"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PlatformListValidationFailed"];
+            500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
     };
@@ -2333,6 +2489,74 @@ export interface operations {
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
             500: components["responses"]["RatingWriteFailed"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getMyPlatformPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current user's preferred platforms, possibly none. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPreferences"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PlatformPreferencesValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    putMyPlatformPreferences: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPreferencesWrite"];
+            };
+        };
+        responses: {
+            /** @description The replaced preferences as now stored. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPreferences"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            406: components["responses"]["NotAcceptable"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["PlatformPreferencesValidationFailed"];
+            500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
     };

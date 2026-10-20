@@ -95,6 +95,8 @@ SHARED_MOUNTS = {
 ENTRYPOINT_WRAPPERS = (
     RUNTIME / "bin/run-postgres",
     RUNTIME / "bin/run-keycloak",
+    RUNTIME / "bin/run-application",
+    RUNTIME / "bin/run-migrations",
     ROOT / "deploy/private-dev/bin/run-application",
     ROOT / "deploy/private-dev/bin/run-migrations",
 )
@@ -295,7 +297,7 @@ def service_violations(name, service, config, secrets_dir):
             if pathlib.Path(secrets_dir) in (path, *path.parents):
                 found.append(f"{name} must receive secrets as Compose secrets, not a directory mount")
         elif volume.get("type") == "volume":
-            expected = {"caddy": {"caddy-data", "caddy-config"}, "postgres": {"postgres-data"}}.get(name, set())
+            expected = {"caddy": {"caddy-data", "caddy-config"}, "postgres": {"postgres-data"}, "application": {"recovery-state"}, "migration": {"recovery-state"}}.get(name, set())
             if source not in expected:
                 found.append(f"{name} must not use named volume {source}")
         else:
@@ -314,6 +316,16 @@ def service_violations(name, service, config, secrets_dir):
             found.append("edge must mount only the reviewed Caddyfile, read-only")
         if targets.get("/data", {}).get("type") != "volume":
             found.append("edge TLS state must persist in a named volume")
+    if name in ("application", "migration"):
+        wrapper = "run-application" if name == "application" else "run-migrations"
+        targets = {v.get("target"): v for v in service.get("volumes", [])}
+        gate = targets.get("/run/recovery", {})
+        guard = targets.get("/opt/gameometro/bin/" + wrapper, {})
+        if service.get("entrypoint") != ["/opt/gameometro/bin/" + wrapper] or service.get("command") \
+                or pathlib.Path(guard.get("source", "")) != RUNTIME / "bin" / wrapper \
+                or not guard.get("read_only") or gate.get("source") != "recovery-state" \
+                or gate.get("type") != "volume" or not gate.get("read_only"):
+            found.append(f"{name} must retain the production recovery startup guard and read-only authorization volume")
     if name == "application":
         found += environment_violations(name, environment, APPLICATION_ENVIRONMENT)
     if name == "keycloak":

@@ -8,15 +8,17 @@ import { barFrame, toDayBar, type DayFrameState, type DayRange } from "./day-bar
 import { ReleaseCard } from "./release-card";
 import { ReleaseDayBar } from "./release-day-bar";
 import { ReleasesApproximateDates } from "./releases-approximate-dates";
+import {
+  clearedPlatforms,
+  type Interests,
+  type PlatformFilter,
+} from "../platform-preferences/interests";
+import { useInterestsSwitch } from "../platform-preferences/interests-switch";
+import { hasEffectiveFilters } from "./release-filter-paths";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
 import { ReleasesRange } from "./releases-range";
-import {
-  hasActiveFilters,
-  releaseSortLabels,
-  releasesSearchPath,
-  type ReleasesSearch,
-} from "./releases-search";
+import { releaseSortLabels, releasesSearchPath, type ReleasesSearch } from "./releases-search";
 import { ReleasesSort } from "./releases-sort";
 import { RELEASES_TITLE, type ReleasesViewModel } from "./releases-view-model";
 
@@ -38,6 +40,9 @@ type ReleasesShellProps = {
   onRetry: () => void;
   /** The day bar's frame the history entry keeps, when the visitor chose a day inside it. */
   keptFrame?: DayRange | null;
+  /** The visitor's preferred platforms and the platform filter they resolve to (#295). */
+  interests?: Interests;
+  platformFilter?: PlatformFilter;
 };
 
 function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
@@ -57,11 +62,20 @@ function emptyExplanation(): string {
   return "No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos";
 }
 
-/** What the folded phone controls hold: the order, the active filters and approximate dates. */
-function controlsSummary(search: ReleasesSearch, approximate: boolean): string {
-  const filters = search.platformIds.length + search.regionIds.length;
+/**
+ * What the folded phone controls hold: the order, preferences, the active filters and approximate
+ * dates. Preferred platforms read as **Mis plataformas**, never as a count of hidden filters.
+ */
+function controlsSummary(
+  search: ReleasesSearch,
+  approximate: boolean,
+  platformFilter: PlatformFilter,
+): string {
+  const interestsOn = platformFilter.mode === "on";
+  const filters = (interestsOn ? 0 : platformFilter.platformIds.length) + search.regionIds.length;
   return [
     releaseSortLabels[search.sort],
+    ...(interestsOn ? ["Mis plataformas"] : []),
     ...(filters === 0 ? [] : [filters === 1 ? "1 filtro" : `${filters} filtros`]),
     ...(approximate ? ["Fechas aproximadas"] : []),
   ].join(" · ");
@@ -84,8 +98,18 @@ function LoadingFilters() {
  * any range, and the order, filters and approximate dates refine it; every choice lives in the URL
  * and returns to the first page.
  */
-export function ReleasesShell({ search, state, onRetry, keptFrame = null }: ReleasesShellProps) {
+const NO_INTERESTS: Interests = { status: "unavailable" };
+
+export function ReleasesShell({
+  search,
+  state,
+  onRetry,
+  keptFrame = null,
+  interests = NO_INTERESTS,
+  platformFilter = { mode: "inactive", platformIds: search.platformIds },
+}: ReleasesShellProps) {
   const navigate = useNavigate();
+  const interestsSwitch = useInterestsSwitch();
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef(search.page);
   // The release a visitor points at or focuses lifts its needle on the day bar.
@@ -127,11 +151,23 @@ export function ReleasesShell({ search, state, onRetry, keptFrame = null }: Rele
   // Filters, order and pages keep the bar's frame; a typed range draws its own.
   const frameState: DayFrameState | undefined = frame === null ? undefined : { dayFrame: frame };
 
-  function explore(change: Partial<ReleasesSearch>, navigationState?: DayFrameState) {
+  function explore(
+    change: Partial<ReleasesSearch>,
+    navigationState?: DayFrameState,
+    interestsEnabled: boolean | null = null,
+  ) {
+    if (interestsEnabled !== null) interestsSwitch.set(interestsEnabled);
     void navigate(releasesSearchPath(search, { ...change, page: 1 }), {
       preventScrollReset: true,
       state: navigationState,
     });
+  }
+
+  /** Every platform and region, with preferences kept but set aside. */
+  const clearedPath = releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 });
+  function setAsideInterests() {
+    const cleared = clearedPlatforms(interests);
+    if (cleared.interestsEnabled !== null) interestsSwitch.set(cleared.interestsEnabled);
   }
 
   function exploreRange(from: string, to: string, navigationState?: DayFrameState) {
@@ -186,14 +222,14 @@ export function ReleasesShell({ search, state, onRetry, keptFrame = null }: Rele
         <button
           aria-controls={controlsId}
           aria-expanded={controlsOpen}
-          aria-label={`Filtros y orden: ${controlsSummary(search, includesApproximate)}`}
+          aria-label={`Filtros y orden: ${controlsSummary(search, includesApproximate, platformFilter)}`}
           className="releases-controls-toggle"
           onClick={() => setControlsOpen((open) => !open)}
           type="button"
         >
           <span className="releases-controls-toggle-label">Filtros y orden</span>
           <span className="releases-controls-toggle-summary">
-            {controlsSummary(search, includesApproximate)}
+            {controlsSummary(search, includesApproximate, platformFilter)}
           </span>
           <span aria-hidden="true" className="releases-controls-toggle-chevron" />
         </button>
@@ -224,6 +260,8 @@ export function ReleasesShell({ search, state, onRetry, keptFrame = null }: Rele
             {state.status === "loading" ? <LoadingFilters /> : null}
             {model === null ? null : (
               <ReleasesFilters
+                interests={interests}
+                platformFilter={platformFilter}
                 platforms={model.platforms}
                 regions={model.regions}
                 search={search}
@@ -258,10 +296,7 @@ export function ReleasesShell({ search, state, onRetry, keptFrame = null }: Rele
             <p className="notice-kicker">Revisa la selección</p>
             <h3>Filtro no admitido</h3>
             <p>{state.message}</p>
-            <Link
-              className="button button-primary"
-              to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
-            >
+            <Link className="button button-primary" onClick={setAsideInterests} to={clearedPath}>
               Quitar filtros
             </Link>
           </div>
@@ -293,18 +328,30 @@ export function ReleasesShell({ search, state, onRetry, keptFrame = null }: Rele
                 <h3>
                   {isBeyondLastPage
                     ? "Esta página ya no está disponible"
-                    : "Sin lanzamientos para esta selección"}
+                    : platformFilter.mode === "on"
+                      ? "Sin lanzamientos para tus plataformas"
+                      : "Sin lanzamientos para esta selección"}
                 </h3>
                 <p>
                   {isBeyondLastPage
                     ? "Ay, esta página ya no está disponible"
                     : emptyExplanation()}
                 </p>
-                {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
+                {platformFilter.mode === "on" && state.model.page.totalItems === 0 ? (
+                  <button
+                    className="button button-primary"
+                    onClick={() => explore({}, frameState, false)}
+                    type="button"
+                  >
+                    Ver todas las plataformas
+                  </button>
+                ) : hasEffectiveFilters(search, platformFilter) &&
+                  state.model.page.totalItems === 0 ? (
                   <Link
                     className="button button-primary"
+                    onClick={setAsideInterests}
                     state={frameState}
-                    to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
+                    to={clearedPath}
                   >
                     Quitar filtros
                   </Link>

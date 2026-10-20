@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import { AppProviders } from "./app/app-providers";
 import { createAppQueryClient } from "./app/query-client";
 import { createAppRouter } from "./app/router";
+import { createInterestsSwitch } from "./features/platform-preferences/interests-switch";
 import "./styles/index.css";
 
 // Once per document startup, outside React's development StrictMode lifecycle.
@@ -20,11 +21,12 @@ if (rootElement === null) {
 }
 
 const queryClient = createAppQueryClient();
-const router = createAppRouter(queryClient);
+const interests = createInterestsSwitch();
+const router = createAppRouter(queryClient, interests);
 
 createRoot(rootElement).render(
   <StrictMode>
-    <AppProviders queryClient={queryClient}>
+    <AppProviders interests={interests} queryClient={queryClient}>
       <RouterProvider router={router} />
     </AppProviders>
   </StrictMode>,

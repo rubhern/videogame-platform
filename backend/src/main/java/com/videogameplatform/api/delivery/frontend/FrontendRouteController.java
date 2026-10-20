@@ -16,7 +16,14 @@ class FrontendRouteController {
         return "forward:/index.html";
     }
 
-    @GetMapping({"/lanzamientos", "/search", "/mis-puntuaciones", "/administracion/catalogo"})
+    @GetMapping({
+        "/lanzamientos",
+        "/search",
+        "/mis-puntuaciones",
+        "/mis-plataformas",
+        "/bienvenida",
+        "/administracion/catalogo"
+    })
     String searchFrontendEntryPoint() {
         return frontendEntryPoint();
     }

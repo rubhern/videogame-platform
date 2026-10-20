@@ -207,6 +207,8 @@ describe("release explorer page", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/lanzamientos");
     expect(router.state.location.search).toBe("?platformIds=playstation-5");
+    // The read waits for the session, which decides whether preferred platforms apply.
+    await waitFor(() => expect(requestedQueries(fetchMock)).not.toHaveLength(0));
     const query = requestedQueries(fetchMock).at(-1);
     expect(query?.has("view")).toBe(false);
     expect(query?.has("weeks")).toBe(false);

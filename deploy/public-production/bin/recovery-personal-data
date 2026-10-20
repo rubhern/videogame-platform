@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Private recovery-only transport adapter for the existing privacy commands.
+
+Uses a disposable HTTP client on the identity-data network, without publishing a port.
+No legal archive is created here. Administrative credentials travel only over stdin.
+"""
+import argparse
+import base64
+import importlib.machinery
+import importlib.util
+import io
+import json
+from pathlib import Path
+import sys
+import time
+import urllib.parse
+import urllib.error
+
+sys.dont_write_bytecode = True
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+recovery = load('production_recovery_adapter_core', Path(__file__).with_name('recovery'))
+pd = load('production_recovery_personal_data', ROOT / 'deploy/private-dev/bin/personal-data')
+CLIENT = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258'
+HTTP_CLIENT = '''import sys,json,urllib.request,urllib.error,base64
+q=json.load(sys.stdin)
+r=urllib.request.Request(q['url'],data=None if q['data'] is None else base64.b64decode(q['data']),headers=q['headers'],method=q['method'])
+try:
+ response=urllib.request.build_opener(urllib.request.ProxyHandler({})).open(r,timeout=20)
+except urllib.error.HTTPError as e:
+ response=e
+with response:
+ body=response.read(1048577)
+ if len(body)>1048576: raise SystemExit(1)
+ print(json.dumps({'code':response.code,'headers':dict(response.headers),'body':base64.b64encode(body).decode()}))
+'''
+
+
+class DockerOpener:
+    def __init__(self, network, project):
+        self.network, self.project = network, project
+
+    def open(self, request, timeout=20):
+        q = {'url': request.full_url, 'method': request.get_method(), 'headers': dict(request.header_items()),
+             'data': None if request.data is None else base64.b64encode(request.data).decode()}
+        answer = json.loads(recovery.run(['docker', 'run', '--rm', '-i', '--label', f'vgp.production-test={self.project}' if self.project != 'gameometro-production' else 'gameometro.recovery-helper=true', '--network', self.network,
+                            '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+                            '--memory', '96m', '--pids-limit', '32', '--user', '65534:65534',
+                            CLIENT, 'python3', '-c', HTTP_CLIENT], data=json.dumps(q).encode(), timeout=60))
+        response = io.BytesIO(base64.b64decode(answer['body']))
+        response.status = answer['code']
+        response.headers = answer['headers']
+        if answer['code'] >= 400:
+            raise urllib.error.HTTPError(request.full_url, answer['code'], 'Private identity request refused', answer['headers'], response)
+        return response
+
+
+def runtime(config, project, state, username, password_file):
+    core = recovery.Runtime(config, project, state)
+    recovery.require(not core.compose('ps', '-q', '--status', 'running', 'application', 'migration', 'caddy').strip(), 'Recovery privacy requires closed consumers.')
+    recovery.require(not (state / 'READY').exists(), 'Recovery is already authorized.')
+    rendered = json.loads(core.compose('config', '--format', 'json'))
+    network = rendered['networks']['identity-data']['name']
+    admin = pd.provisioning.KeycloakAdmin('http://keycloak:8080')
+    admin.opener = DockerOpener(network, project)
+    admin.authenticate(username, password_file.read_text().strip())
+    target = pd.Runtime.__new__(pd.Runtime)
+    target.realm, target.issuer, target.label = 'gameometro', recovery.ISSUER, project
+    target.admin = admin
+    target.postgres_container = core.compose('ps', '-q', '--status', 'running', 'postgres').decode().strip()
+    target.application_container = core.compose('ps', '-aq', 'application').decode().strip() or None
+    return target
+
+
+def logout_all(target, core):
+    target.keycloak('POST', '/logout-all')
+    # Keycloak's consent endpoint explicitly revokes offline tokens too:
+    # https://www.keycloak.org/docs-api/26.6.4/rest-api/#_delete_adminrealmsrealmusersuser_idconsentsclient
+    # Discover only bounded batches from the pinned restored schema; each successful
+    # revocation removes its sessions, so interruption resumes from remaining rows.
+    deadline = time.monotonic()+120
+    while True:
+        rows = core.sql('videogame_keycloak', """SELECT DISTINCT jsonb_build_array(u.user_id,c.client_id)::text
+          FROM offline_user_session u
+          JOIN offline_client_session s ON s.user_session_id=u.user_session_id AND s.offline_flag=u.offline_flag
+          JOIN client c ON c.id=s.client_id
+          WHERE u.realm_id=(SELECT id FROM realm WHERE name='gameometro') AND u.offline_flag='1'
+          ORDER BY 1 LIMIT 100;""").decode().splitlines()
+        if not rows:
+            break
+        for row in rows:
+            recovery.require(time.monotonic()<deadline, 'Offline revocation deadline reached; keep closed and resume replay.')
+            subject, client = json.loads(row)
+            pd.canonical_uuid(subject, 'offline session subject')
+            recovery.require(isinstance(client, str) and 0<len(client)<=255, 'Unexpected restored client identity.')
+            target.keycloak('DELETE', '/users/'+subject+'/consents/'+urllib.parse.quote(client,safe=''), missing_ok=True)
+    count = core.sql('videogame_keycloak', """SELECT
+        (SELECT count(*) FROM offline_user_session WHERE realm_id=(SELECT id FROM realm WHERE name='gameometro')) +
+        (SELECT count(*) FROM offline_client_session WHERE realm_id=(SELECT id FROM realm WHERE name='gameometro'));""").strip()
+    recovery.require(count == b'0', 'Restored sessions remain; reconcile before reopening.')
+    return {'revoked': True}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config', type=Path, required=True)
+    parser.add_argument('--project', required=True)
+    parser.add_argument('--state', type=Path, required=True)
+    parser.add_argument('--admin-username', required=True)
+    parser.add_argument('--admin-password-file', type=Path, required=True)
+    parser.add_argument('command', choices=['identify', 'archive-snapshot', 'recovery-logout-all', *pd.STEPS])
+    parser.add_argument('--keycloak-user-id')
+    parser.add_argument('--user-id')
+    parser.add_argument('--application-must-be-stopped', action='store_true')
+    a = parser.parse_args()
+    target = runtime(a.config, a.project, a.state, a.admin_username, a.admin_password_file)
+    if a.command == 'recovery-logout-all':
+        result = logout_all(target, recovery.Runtime(a.config, a.project, a.state))
+    else:
+        subject = pd.canonical_uuid(a.keycloak_user_id or '', '--keycloak-user-id')
+        user = pd.require_identity(target, subject, a.user_id)
+        if a.command == 'identify': result = pd.identify(target, subject)
+        elif a.command == 'archive-snapshot': result = pd.archive_snapshot(target, subject)
+        else: result = pd.STEPS[a.command](target, subject, user, True)
+    print(json.dumps(result))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        print('Recovery privacy operation failed; diagnostics withheld.', file=sys.stderr)
+        sys.exit(1)

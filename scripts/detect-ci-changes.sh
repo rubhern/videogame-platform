@@ -158,7 +158,7 @@ for path in "${changed_paths[@]}"; do
       enable identity production_runtime
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh)
+    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/rehearse-production-recovery.py)
       enable production_runtime
       matched=true
       ;;
@@ -189,6 +189,10 @@ for path in "${changed_paths[@]}"; do
     deploy/private-dev/keycloak/*)
       # One Keycloak recipe for local, private-dev and the published production image.
       enable documentation build backend migrations identity container dependency_images
+      matched=true
+      ;;
+    deploy/private-dev/lib/backup-common.sh | deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger)
+      enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
     scripts/validate-private-dev-runtime.sh | scripts/provision-grafana-reader.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)

@@ -1,14 +1,15 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 4.0.0
+  version: 4.1.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, weekly and monthly
-    featured releases, bounded-catalogue search, public game details, BFF session discovery, the
-    authenticated user's ratings, and the catalogue operator's synchronization status,
-    coverage, bounded synchronization request and the stop or abandonment of one run. It
-    contains only the fifteen approved method/path operations.
+    featured releases, bounded-catalogue search, public game details, the selectable platform
+    taxonomy, BFF session discovery, the authenticated user's ratings and preferred platforms,
+    and the catalogue operator's synchronization status, coverage, bounded synchronization
+    request and the stop or abandonment of one run. It contains only the eighteen approved
+    method/path operations.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -27,6 +28,10 @@ tags:
     description: Public reads from the bounded local catalogue.
   - name: Ratings
     description: Current-user personal-rating reads and commands.
+  - name: Platform preferences
+    description: |
+      The current user's preferred platforms, which the client applies to release discovery as
+      an explicit platform filter. Public reads never vary on them.
   - name: Session
     description: Minimal BFF session state without identity or provider tokens.
   - name: Catalogue administration
@@ -307,11 +312,21 @@ paths:
         references (ADR-0001). Up to two product-owned localized genres accompany each item;
         only the first item carries the existing localized summary representation. All content
         is served from PostgreSQL; no provider or translator is called.
+
+        Since 4.1.0, `platformIds` restricts the candidates before they are ranked: only a
+        qualifying release on one of the named platforms makes its game a candidate, and each
+        item presents only those releases. The ranking, its limit and its tie-breaker are
+        unchanged, so a restricted selection is the ranking of the restricted candidates, never
+        a filtered copy of the unrestricted six. The selection states `no_qualifying_releases`
+        when none of the named platforms has a qualifying release in the period. Without
+        `platformIds` the selection is unchanged. The representation depends only on the
+        request's explicit parameters, never on a session.
       security: []
       parameters:
         - $ref: '#/components/parameters/FeaturedGranularity'
         - $ref: '#/components/parameters/FeaturedWeek'
         - $ref: '#/components/parameters/FeaturedMonth'
+        - $ref: '#/components/parameters/FeaturedPlatformIdsQuery'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
       responses:
         '200':
@@ -919,6 +934,47 @@ paths:
         '500': { $ref: '#/components/responses/GameReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
+  /platforms:
+    get:
+      tags: [Catalogue]
+      operationId: listPlatforms
+      summary: List the catalogue platforms a visitor may choose
+      description: |
+        Reads the platforms of the local, provider-independent taxonomy that at least one current
+        release of the last valid catalogue publication uses, ordered by name, case-insensitively,
+        then by `platformId`. These are the choices offered as preferred platforms; a platform no
+        current release uses could never narrow release discovery, so it is not offered. The
+        taxonomy is bounded and every platform is returned in one response; the read fails rather
+        than truncating it. All content is served from PostgreSQL; no provider is called.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: The selectable platforms, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformList' }
+              examples:
+                platforms:
+                  value:
+                    items:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                      - { platformId: platform_win, name: Windows PC }
+                empty:
+                  value: { items: [] }
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/PlatformListValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
   /session:
     get:
       tags: [Session]
@@ -1207,6 +1263,89 @@ paths:
         '412': { $ref: '#/components/responses/RatingWriteConflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/platform-preferences:
+    get:
+      tags: [Platform preferences]
+      operationId: getMyPlatformPreferences
+      summary: Read the current user's preferred platforms
+      description: |
+        Scoped to the authenticated current user, whose identity the server derives from the
+        session. `configured` is false until the user first saves a choice, including an empty
+        one, so a client can offer its first-run choice once and never again. The platforms are
+        ordered like `/platforms`.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The current user's preferred platforms, possibly none.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformPreferences' }
+              examples:
+                neverChosen: { value: { configured: false, platforms: [] } }
+                chosen:
+                  value:
+                    configured: true
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                skipped: { value: { configured: true, platforms: [] } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    put:
+      tags: [Platform preferences]
+      operationId: putMyPlatformPreferences
+      summary: Replace the current user's preferred platforms
+      description: |
+        Replaces the complete set atomically and marks the choice as made; an empty set clears
+        every preference, which is also how a first-run choice is skipped. Values are
+        de-duplicated. Every value must name a platform of the local taxonomy, otherwise nothing
+        changes and the request yields 422. The last successful replacement wins; no
+        precondition is required for this personal, idempotent replacement.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlatformPreferencesWrite' }
+            examples:
+              twoPlatforms: { value: { platformIds: [platform_ps5, platform_switch2] } }
+              clear: { value: { platformIds: [] } }
+      responses:
+        '200':
+          description: The replaced preferences as now stored.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformPreferences' }
+              examples:
+                replaced:
+                  value:
+                    configured: true
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                cleared: { value: { configured: true, platforms: [] } }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization:
     get:
@@ -1617,6 +1756,22 @@ components:
         uniqueItems: true
         items: { $ref: '#/components/schemas/PlatformId' }
       example: [platform_ps5, platform_switch]
+    FeaturedPlatformIdsQuery:
+      name: platformIds
+      in: query
+      required: false
+      description: |
+        Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
+        values combine with OR. Omit it for every platform. Values are trimmed and
+        de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        maxItems: 50
+        items: { $ref: '#/components/schemas/PlatformId' }
+      example: [platform_ps5, platform_switch2]
     RegionIdsQuery:
       name: regionIds
       in: query
@@ -1861,6 +2016,33 @@ components:
       properties:
         platformId: { $ref: '#/components/schemas/PlatformId' }
         name: { type: string, minLength: 1 }
+    PlatformList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Platform' }
+    PlatformPreferences:
+      type: object
+      required: [configured, platforms]
+      properties:
+        configured:
+          type: boolean
+          description: Whether the user has ever saved a choice, including an empty one.
+        platforms:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/Platform' }
+    PlatformPreferencesWrite:
+      type: object
+      additionalProperties: false
+      required: [platformIds]
+      properties:
+        platformIds:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/PlatformId' }
     Company:
       type: object
       required: [companyId, name]
@@ -3143,7 +3325,7 @@ components:
     FeaturedReleaseValidationFailed:
       description: |
         The requested week or month is malformed, outside the navigation bounds or combined with
-        the other granularity, or a request parameter is invalid.
+        the other granularity, a platform is unknown, or a request parameter is invalid.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -3152,6 +3334,31 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    PlatformListValidationFailed:
+      description: The request names a query parameter this read does not accept.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    PlatformPreferencesValidationFailed:
+      description: |
+        A platform is not part of the local taxonomy, the command carries an unknown property,
+        or the request names an unknown query parameter. Nothing changes.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            platformNotSupported: { $ref: '#/components/examples/PreferredPlatformNotSupported' }
+            propertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     SearchValidationFailed:
       description: Search, pagination, or request parameters are invalid.
@@ -3532,6 +3739,20 @@ components:
         code: PLATFORM_NOT_SUPPORTED
         category: validation
         correlationId: correlation-opaque
+    PreferredPlatformNotSupported:
+      value:
+        type: urn:videogame-platform:problem:platform-not-supported
+        title: Platform is not supported
+        status: 422
+        detail: Choose platforms from the selectable platform list.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PLATFORM_NOT_SUPPORTED
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /platformIds
+            code: PLATFORM_NOT_SUPPORTED
+            message: Every value must name a selectable platform.
     RegionNotSupported:
       value:
         type: urn:videogame-platform:problem:region-not-supported

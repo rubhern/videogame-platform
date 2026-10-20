@@ -126,6 +126,28 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.preferences.ListPlatformsUseCase
+            listPlatformsUseCase(
+                    com.videogameplatform.catalogue.application.preferences.port
+                                    .SelectablePlatformsReadPort
+                            read) {
+        return new com.videogameplatform.catalogue.application.preferences.internal
+                .PlatformListService(read);
+    }
+
+    /** One service answers both preferred-platform contracts for the session's own user. */
+    @Bean
+    com.videogameplatform.catalogue.application.preferences.internal.PlatformPreferencesService
+            platformPreferencesService(
+                    com.videogameplatform.catalogue.application.preferences.port
+                                    .PlatformPreferenceStore
+                            store,
+                    Clock clock) {
+        return new com.videogameplatform.catalogue.application.preferences.internal
+                .PlatformPreferencesService(store, clock);
+    }
+
+    @Bean
     GetGameDetailsUseCase getGameDetailsUseCase(
             GameDetailsReadPort readPort, CatalogueCoverPolicy coverPolicy, Clock clock) {
         return new GameDetailsService(readPort, coverPolicy, clock);

@@ -78,7 +78,7 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 
 | Module/boundary | Owns |
 |---|---|
-| Catalogue and Releases | Bounded catalogue, games, aliases, covers, commercial releases, taxonomies, provenance/freshness, local reads, and provider synchronization |
+| Catalogue and Releases | Bounded catalogue, games, aliases, covers, commercial releases, taxonomies, provenance/freshness, local reads, provider synchronization, and each user's preferred platforms over its taxonomy (#295) |
 | Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, and `Mis puntuaciones` |
 | Identity | BFF session and external OIDC integration; not product credentials or authorization |
 | API | Same-origin HTTP delivery and mapping; no business policy |
@@ -105,6 +105,14 @@ tables and does not depend on Ratings. Any future rating writer must replace the
 in its transaction.
 [ADR-0029](../decisions/0029-project-community-scores-for-the-release-order.md) owns the
 design, its consistency and its reconsideration triggers.
+
+Post-MVP (#295, implemented; awaiting owner review), Catalogue also stores each user's
+preferred platforms, keyed by the BFF-derived `UserId` and constrained to its own platform
+taxonomy, behind a `preferences` application contract that API delivery calls with the
+session's user. No new module or store exists for them: the preferences are a discovery
+input over Catalogue's own taxonomy, not a profile. Public release reads never read them;
+the browser resolves them into explicit public filters, so shared caches never vary by
+session.
 
 ## Hexagonal dependency rules
 

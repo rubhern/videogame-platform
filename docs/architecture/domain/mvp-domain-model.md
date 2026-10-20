@@ -8,7 +8,8 @@
 
 `Catalogue and Releases` owns the bounded catalogue, games, aliases, covers,
 commercial releases, platform/region taxonomy, external references, external player
-scores, provenance, verification, review, and freshness. `Ratings` owns personal rating
+scores, provenance, verification, review, and freshness, and, post-MVP (#295), each
+user's preferred platforms over that taxonomy. `Ratings` owns personal rating
 lifecycle, eligibility, and aggregate calculation. Identity supplies only authenticated
 `UserId`; provider credentials, sessions, and accounts are outside the domain.
 
@@ -30,6 +31,7 @@ lifecycle, eligibility, and aggregate calculation. Identity supplies only authen
 | `Company` | A product entity credited with developing or publishing games; one company may hold both roles for one game |
 | `Genre` / `GameMode` | Product taxonomy classifying a game's style and ways to play, acquired like platform taxonomy |
 | Verification / review / freshness | Independent evidence, ambiguity, and time-policy states; freshness is internal operational evidence of the last committed provider check, never a player-facing state |
+| Preferred platforms | One `UserId`'s chosen set of taxonomy platforms that release discovery may apply as an explicit filter, plus whether that user has ever made the choice; never a recommendation, an ownership claim or an inference |
 | `Rating` | One active integer 1–10 identified by `UserId + GameId` |
 | `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
 
@@ -148,6 +150,9 @@ Downstream documents may reference these IDs but must not redefine them.
 | `FEAT-002` | Featured ranking orders candidates by Hypes descending, then unique `GameId` ascending; it shows up to six games and never fills a slot artificially. |
 | `FEAT-003` | The hero sets the title itself, so hero media prefer high-quality artwork without a provider-declared title, then high-quality screenshot, then high-quality title artwork, then the same three among the other accepted landscape media. Accepted media are opaque, still, at least 640×360 and between 3:2 and 16:5, and never artwork the provider labels as a cover, a game logo or an icon; high quality for the hero means covering a 1280×480 frame. Within each hero step prefer less crop to the 8:3 hero frame, then larger pixel area, then stable image reference ASC. Secondary cards select across both media types: the same accepted gate plus at least 80% retained area at 16:9.4; order by least crop, largest usable pixel area capped at 1280×720, provider-declared title key art before screenshot before ordinary artwork on equal suitability, then stable reference ASC. The provider adapter normalizes the optional image-type label: title key art into a boolean, covers, logos and icons out of the candidates; missing/unknown labels receive no preference. Without a suitable image the hero uses the designed product fallback, which its cover may only light; a card uses an intentional cover treatment, then product fallback. A portrait cover is never distorted to landscape. |
 | `FEAT-004` | The hero always renders the canonical title as product-owned text. The first transparent, still logo of at least 160×40 may decorate a secondary screenshot card only. Synchronization stores separate hero and card selections and optional card logo; newer valid evidence replaces each slot independently, while missing, invalid or unavailable media preserve last valid evidence. Reads reject unsuitable legacy selections and use the designed fallback until synchronization replaces them. |
+| `PREF-001` | Preferred platforms belong to exactly one server-derived `UserId`; only that user reads or replaces them, and no other user's request, Keycloak attribute or public read ever carries them. |
+| `PREF-002` | A preferred platform is a platform of the local taxonomy; a set is replaced as a whole, holds at most 50 platforms, and an invalid set changes nothing. |
+| `PREF-003` | A saved choice, including an empty one, records that the user has chosen; a user who never chose is distinct from one who chose none. Turning preferences off for a view never changes the saved set. |
 | `RAT-001` | Rating value is an integer 1–10. |
 | `RAT-002` | At most one active rating exists per user/game. |
 | `RAT-003` | Create requires authentication. |
