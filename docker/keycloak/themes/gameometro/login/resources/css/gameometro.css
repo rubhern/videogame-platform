@@ -10,226 +10,186 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'Instrument Serif';
-  src: url('../fonts/instrument-serif-italic-latin.woff2') format('woff2');
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'IBM Plex Mono';
-  src: url('../fonts/ibm-plex-mono-400-latin.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-
 :root {
   color-scheme: dark;
-  --gm-canvas: #06080d;
+  /* Brand families and semantic roles (frontend/src/styles/index.css). */
+  --gm-night: #06080d;
+  --gm-ice: #9db3ff;
+  --gm-ice-light: #dbe7ff;
+  --gm-fire: #ff6a3d;
   --gm-surface: #0c1018;
-  --gm-raised: #141a25;
   --gm-ink: #f1f4fa;
   --gm-muted: #a6b1c4;
-  --gm-accent: #9db3ff;
-  --gm-accent-hover: #c8d5ff;
-  --gm-aurora-tone: #b99cff;
+  --gm-subtle: #808c9f;
+  --gm-line: #232c3a;
+  --gm-warning: #f0c48a;
   --gm-danger: #f3a79c;
   --gm-danger-surface: #1c1316;
-  --gm-line: #232c3a;
-  /* Field edges keep 3:1 against the card and the field, so a field reads without its label. */
-  --gm-field-line: #5b677e;
-  --gm-glass-border: color-mix(in srgb, var(--gm-ink) 12%, transparent);
-  --gm-glass-highlight: inset 0 1px 0 color-mix(in srgb, var(--gm-ink) 8%, transparent);
-  --gm-aurora: linear-gradient(100deg, #dfe7ff 0%, var(--gm-accent) 34%, var(--gm-aurora-tone) 70%, #f2b8ff 100%);
+  --gm-freeze: #dff4ff;
+  --gm-cold: #63c3ff;
+  --gm-warm: #ffcf63;
+  --gm-hot: #ff9446;
+  --gm-burn: #ff5b3d;
+  /* Controls and overlays on night (frontend/src/styles/foundation.css). */
+  --gm-control: #090d14;
+  --gm-control-hover: #0e131c;
+  --gm-overlay: #0b1019;
+  --gm-line-ice: color-mix(in srgb, var(--gm-ice) 16%, transparent);
+  --gm-line-ice-strong: color-mix(in srgb, var(--gm-ice) 58%, transparent);
+  --gm-shadow-overlay: 0 30px 60px -26px #000, 0 12px 24px -16px #000;
   --gm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  --gm-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 8h11M9 3.5 13.5 8 9 12.5' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --gm-ease: cubic-bezier(0.22, 0.68, 0.36, 1);
-  --gm-card-width: 440px;
-  --gm-gutter: 20px;
+  /* Form fields keep a 3:1 edge against the panel, so a field reads without its label. */
+  --gm-field-line: #5b677e;
+  --gm-panel-width: 440px;
   --pf-v5-global--FontFamily--text: 'Mona Sans', system-ui, sans-serif;
   --pf-v5-global--FontFamily--heading: 'Mona Sans', system-ui, sans-serif;
   --pf-v5-global--Color--100: var(--gm-ink);
   --pf-v5-global--Color--200: var(--gm-muted);
-  --pf-v5-global--link--Color: var(--gm-accent);
-  --pf-v5-global--link--Color--hover: var(--gm-accent-hover);
+  --pf-v5-global--link--Color: var(--gm-muted);
+  --pf-v5-global--link--Color--hover: var(--gm-ink);
 }
 
-/* ------------------------------------------------------------------ Canvas */
+/* ------------------------------------------------------------------ Stage */
 
+/* The night stage is painted into the document's own background, as the product canvas is: ice
+   light gathers behind the brand, quieter light sits behind the panel and along the foot, and
+   faint grain keeps the gradients from banding. No image, no fixed layer and nothing moves. */
 html.login-pf {
-  background: var(--gm-canvas);
+  background: var(--gm-night);
 }
 
 html.login-pf body#keycloak-bg {
-  position: relative;
-  isolation: isolate;
   min-width: 320px;
+  height: auto;
   min-height: 100vh;
   min-height: 100svh;
   margin: 0;
   color: var(--gm-ink);
-  background: var(--gm-canvas);
+  background-color: var(--gm-night);
+  background-image:
+    radial-gradient(ellipse 64% 56% at 6% -4%, color-mix(in srgb, var(--gm-ice) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 34% 26% at 18% 4%, color-mix(in srgb, var(--gm-ice-light) 9%, transparent), transparent 72%),
+    radial-gradient(ellipse 46% 40% at 82% 46%, color-mix(in srgb, #4a6ee0 9%, transparent), transparent 70%),
+    radial-gradient(ellipse 90% 34% at 50% 108%, color-mix(in srgb, #2c4aa8 14%, transparent), transparent 72%),
+    linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--gm-night) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--gm-night) 95%, transparent) 0 100%),
+    var(--gm-grain);
+  background-attachment: scroll;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, auto;
   font-family: 'Mona Sans', system-ui, sans-serif;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
 
-/* The product's ambient field: low aurora washes and a grain pass. Nothing readable depends on it. */
-body#keycloak-bg::before {
-  position: fixed;
-  z-index: -2;
-  inset: -18vmax;
-  pointer-events: none;
-  background:
-    radial-gradient(42vmax 30vmax at 18% 14%, color-mix(in srgb, var(--gm-accent) 13%, transparent), transparent 62%),
-    radial-gradient(36vmax 28vmax at 86% 22%, color-mix(in srgb, var(--gm-aurora-tone) 10%, transparent), transparent 60%),
-    radial-gradient(46vmax 30vmax at 62% 104%, color-mix(in srgb, #49c6d8 6%, transparent), transparent 64%);
-  content: '';
-}
-
-body#keycloak-bg::after {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  opacity: 0.05;
-  pointer-events: none;
-  background-image: var(--gm-grain);
-  content: '';
-}
-
 ::selection {
-  color: var(--gm-canvas);
-  background: var(--gm-accent);
+  color: var(--gm-night);
+  background: var(--gm-ice);
 }
 
 /* ------------------------------------------------------------------ Frame */
 
 .pf-v5-c-login {
-  position: relative;
   display: block;
   min-height: 100vh;
   min-height: 100svh;
-  padding: 20px 16px 28px;
+  padding: 16px 16px 32px;
   background: transparent;
-}
-
-/* Stacked screens open on the night stage, as the product's phone pages do. */
-.pf-v5-c-login::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0 0 auto;
-  height: 420px;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--gm-canvas) 40%, transparent), transparent 34%, color-mix(in srgb, var(--gm-canvas) 46%, transparent) 72%, var(--gm-canvas)),
-    radial-gradient(26rem 20rem at 70% 8%, color-mix(in srgb, var(--gm-accent) 20%, transparent), transparent 62%),
-    url('../img/night-hero-980.webp') 72% 16% / cover no-repeat;
-  filter: brightness(1.12) saturate(1.06);
-  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent);
-  mask-image: linear-gradient(180deg, #000 70%, transparent);
-  content: '';
 }
 
 .pf-v5-c-login__container {
   display: block;
   width: 100%;
-  max-width: var(--gm-card-width);
+  max-width: var(--gm-panel-width);
   margin: 0 auto;
   padding: 0;
 }
 
+/* The lockup is the canonical brand file, at the product header's scale; the realm name stays as
+   text for assistive technology. */
 #kc-header {
-  margin: 30px 0 64px;
+  margin: 0 0 28px;
   padding: 0;
-  text-align: center;
 }
 
-/* The lockup is the canonical brand file; the realm name stays as text for assistive technology. */
 #kc-header-wrapper {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
   margin: 0;
+  color: var(--gm-ink) !important;
   font-size: 0;
   line-height: 0;
   letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
 }
 
 #kc-header-wrapper::before {
-  display: inline-block;
-  width: 196px;
-  height: 36px;
-  background: url('../img/gameometro-logo.svg') center / contain no-repeat;
+  display: block;
+  width: 152px;
+  height: 28px;
+  background: url('../img/gameometro-logo.svg') left center / contain no-repeat;
   content: '';
 }
 
-/* ------------------------------------------------------------------ Card */
+/* ------------------------------------------------------------------ Panel */
 
-/* The glass card is painted behind the title and form only, so the story can stand outside it. */
+/* The form is an opaque night panel with a hairline and an ice top edge, like every product
+   overlay that carries controls. Its header and body share one surface. */
 .pf-v5-c-login__main {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
+  display: block;
   margin: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.pf-v5-c-login__main::before {
-  grid-row: 1 / 3;
-  grid-column: 1;
-  border: 1px solid var(--gm-glass-border);
-  border-radius: 26px;
-  background:
-    radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--gm-accent) 7%, transparent), transparent 60%),
-    linear-gradient(180deg, color-mix(in srgb, var(--gm-raised) 78%, transparent), color-mix(in srgb, var(--gm-surface) 88%, transparent));
-  box-shadow:
-    var(--gm-glass-highlight),
-    0 34px 60px -30px color-mix(in srgb, #000 92%, transparent),
-    0 10px 22px -12px color-mix(in srgb, #000 70%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-  content: '';
-}
-
-/* One hairline of aurora light along the top edge of the card, as along the product header. */
-.pf-v5-c-login__main::after {
-  z-index: 1;
-  grid-row: 1;
-  grid-column: 1;
-  align-self: start;
-  height: 1px;
-  margin-inline: 36px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gm-accent) 70%, transparent) 30%, color-mix(in srgb, var(--gm-aurora-tone) 50%, transparent) 70%, transparent);
-  content: '';
+.pf-v5-c-login__main-header,
+.pf-v5-c-login__main-body {
+  min-width: 0;
+  border: 1px solid var(--gm-line);
+  background: var(--gm-overlay);
 }
 
 .pf-v5-c-login__main-header {
-  z-index: 1;
-  grid-row: 1;
-  grid-column: 1;
-  min-width: 0;
-  border-top: 0;
-  padding: 34px 32px 6px;
+  position: relative;
+  display: block;
+  border-top: 2px solid var(--gm-ice);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  padding: 30px 24px 4px;
 }
 
 .pf-v5-c-login__main-body {
-  z-index: 1;
-  grid-row: 2;
-  grid-column: 1;
-  min-width: 0;
-  padding: 18px 32px 30px;
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+  padding: 18px 24px 28px;
+  box-shadow: var(--gm-shadow-overlay);
 }
 
+/* The current screen carries a short fire rule, as the current section does in the product's
+   navigation: the screen's one warm accent. */
 #kc-page-title {
   margin: 0;
   color: var(--gm-ink);
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 2.375rem;
-  font-style: italic;
-  font-weight: 400;
-  line-height: 1.1;
+  font-family: 'Mona Sans', system-ui, sans-serif;
+  font-size: 1.625rem;
+  font-stretch: 112%;
+  font-weight: 800;
+  line-height: 1.12;
   letter-spacing: -0.02em;
   text-wrap: balance;
+}
+
+#kc-page-title::before {
+  display: block;
+  width: 22px;
+  height: 3px;
+  margin-bottom: 16px;
+  border-radius: 2px;
+  background: var(--gm-fire);
+  content: '';
 }
 
 /* ------------------------------------------------------------------ Form */
@@ -244,23 +204,25 @@ body#keycloak-bg::after {
 
 .pf-v5-c-form__label,
 .pf-v5-c-form__label-text {
-  color: var(--gm-muted);
-  font-size: 0.8125rem;
+  color: var(--gm-ink);
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 
 .pf-v5-c-form__label-required {
+  margin-left: 2px;
   color: var(--gm-muted);
 }
 
 .pf-v5-c-form-control {
-  --pf-v5-c-form-control--BackgroundColor: var(--gm-raised);
+  --pf-v5-c-form-control--BackgroundColor: var(--gm-control);
   min-height: 48px;
   border: 1px solid var(--gm-field-line);
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--gm-ink);
-  background: color-mix(in srgb, var(--gm-raised) 92%, transparent);
+  background: var(--gm-control);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, #000 60%, transparent);
 }
 
 .pf-v5-c-form-control::before,
@@ -273,15 +235,17 @@ body#keycloak-bg::after {
   color: var(--gm-ink);
   background: transparent;
   font: inherit;
+  font-size: 1rem;
 }
 
 .pf-v5-c-form-control:hover {
-  border-color: color-mix(in srgb, var(--gm-accent) 55%, var(--gm-field-line));
+  border-color: var(--gm-line-ice-strong);
+  background: var(--gm-control-hover);
 }
 
 .pf-v5-c-form-control:focus-within {
-  border-color: var(--gm-accent);
-  outline: 2px solid var(--gm-accent);
+  border-color: var(--gm-ice);
+  outline: 2px solid var(--gm-ice);
   outline-offset: 2px;
 }
 
@@ -289,10 +253,16 @@ body#keycloak-bg::after {
   outline: none;
 }
 
-/* Profile fields mark only the input as invalid, so every invalid field is found by that. */
+/* Profile fields mark only the input as invalid, so every invalid field is found by that. The
+   message beneath states the error in words; the edge only repeats it. */
 .pf-v5-c-form-control.pf-m-error,
 .pf-v5-c-form-control:has(> [aria-invalid='true']) {
   border-color: var(--gm-danger);
+}
+
+.pf-v5-c-form-control.pf-m-error:focus-within,
+.pf-v5-c-form-control:has(> [aria-invalid='true']):focus-within {
+  outline-color: var(--gm-danger);
 }
 
 .pf-v5-c-form-control__icon.pf-m-status,
@@ -303,6 +273,7 @@ body#keycloak-bg::after {
 .pf-v5-c-form-control.pf-m-readonly {
   border-style: dashed;
   background: transparent;
+  box-shadow: none;
 }
 
 .pf-v5-c-input-group {
@@ -313,43 +284,132 @@ body#keycloak-bg::after {
   min-width: 0;
 }
 
-.pf-v5-c-helper-text__item-text {
-  font-size: 0.875rem;
-}
-
 .pf-v5-c-form__helper-text {
   margin-top: 8px;
 }
 
+.pf-v5-c-helper-text__item-text {
+  color: var(--gm-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.pf-v5-c-helper-text__item-text.pf-m-error,
+.kc-feedback-text.pf-m-error {
+  color: var(--gm-danger);
+  font-weight: 500;
+}
+
 .pf-v5-c-check__input {
-  accent-color: var(--gm-accent);
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gm-ice-light);
 }
 
 .pf-v5-c-check__label {
   color: var(--gm-muted);
 }
 
+/* The terms that registration requires: a quiet plate whose first line names it, then the
+   declaration as one checkbox row the label can toggle. */
+.form-group:has(#kc-registration-terms-text) > div {
+  border: 1px solid var(--gm-line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  color: var(--gm-ink);
+  background: var(--gm-control);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+#kc-registration-terms-text {
+  margin-top: 6px;
+  color: var(--gm-muted);
+  font-weight: 400;
+}
+
+#kc-registration-terms-text p {
+  margin: 0;
+}
+
+.form-group:has(> div > #termsAccepted) > div:first-child {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#termsAccepted {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--gm-ice-light);
+}
+
+#termsAccepted + label {
+  color: var(--gm-ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+#termsAccepted[aria-invalid='true'] {
+  outline: 2px solid var(--gm-danger);
+  outline-offset: 2px;
+}
+
+#input-error-terms-accepted {
+  display: block;
+  margin-top: 8px;
+}
+
+/* Required fields: one quiet line above the form. */
+.subtitle {
+  margin-bottom: 4px;
+}
+
+.subtitle .pf-v5-c-helper-text__item-text {
+  color: var(--gm-muted);
+  font-size: 0.8125rem;
+}
+
+/* Text links read as the product's quiet text links: underlined, never a fill of ice. */
 a,
 .pf-v5-c-button.pf-m-link {
-  color: var(--gm-accent);
+  color: var(--gm-muted);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--gm-muted) 55%, transparent);
+  text-decoration-thickness: 1px;
   text-underline-offset: 4px;
 }
 
-a:hover {
-  color: var(--gm-accent-hover);
+a:hover,
+.pf-v5-c-button.pf-m-link:hover {
+  color: var(--gm-ink);
+  text-decoration-color: currentColor;
+}
+
+/* A link drawn as a button reads as one: its frame, not an underline, marks it. */
+a.pf-v5-c-button:not(.pf-m-link),
+a.pf-v5-c-button:not(.pf-m-link):hover {
+  text-decoration: none;
 }
 
 :focus-visible {
-  border-radius: 8px;
-  outline: 2px solid var(--gm-accent);
+  border-radius: 6px;
+  outline: 2px solid var(--gm-ice);
   outline-offset: 3px;
 }
 
 /* ------------------------------------------------------------------ Actions */
 
+/* Controls sit on night with a hairline edge; ice-light fills the primary action and fire never
+   colours one. */
 .pf-v5-c-button {
   min-height: 44px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--gm-ink);
   font-family: inherit;
   font-weight: 650;
@@ -359,69 +419,68 @@ a:hover {
   display: none;
 }
 
-/* The primary action carries the aurora, exactly as the product's primary buttons do. */
 .pf-v5-c-button.pf-m-primary {
-  min-height: 50px;
-  border: 1px solid transparent;
-  color: #0b0f1a;
-  background: var(--gm-aurora);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-    0 14px 34px -16px var(--gm-accent);
+  min-height: 48px;
+  border: 1px solid var(--gm-ice-light);
+  color: var(--gm-night);
+  background: var(--gm-ice-light);
   font-size: 0.9375rem;
 }
 
 .pf-v5-c-button.pf-m-primary:hover {
-  color: #0b0f1a;
-  background: var(--gm-aurora);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--gm-accent) 20%, transparent),
-    0 18px 40px -14px var(--gm-aurora-tone);
+  border-color: #fff;
+  color: var(--gm-night);
+  background: #fff;
 }
 
-.pf-v5-c-button.pf-m-secondary {
-  border: 1px solid var(--gm-glass-border);
+.pf-v5-c-button.pf-m-secondary,
+#kc-registration a {
+  border: 1px solid var(--gm-line);
   color: var(--gm-ink);
-  background: color-mix(in srgb, var(--gm-ink) 6%, transparent);
-  box-shadow: var(--gm-glass-highlight);
+  background: var(--gm-control);
 }
 
-.pf-v5-c-button.pf-m-secondary:hover {
-  border-color: color-mix(in srgb, var(--gm-accent) 60%, transparent);
-  background: color-mix(in srgb, var(--gm-accent) 14%, transparent);
+.pf-v5-c-button.pf-m-secondary:hover,
+#kc-registration a:hover {
+  border-color: var(--gm-line-ice-strong);
+  color: var(--gm-ice-light);
+  background: var(--gm-control-hover);
 }
 
+/* The password visibility and restart controls stand beside their field, at its height. */
 .pf-v5-c-button.pf-m-control {
   min-width: 48px;
   min-height: 48px;
   border: 1px solid var(--gm-field-line);
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--gm-muted);
-  background: color-mix(in srgb, var(--gm-raised) 92%, transparent);
+  background: var(--gm-control);
 }
 
 .pf-v5-c-button.pf-m-control:hover {
-  color: var(--gm-ink);
-  border-color: color-mix(in srgb, var(--gm-accent) 55%, var(--gm-field-line));
+  border-color: var(--gm-line-ice-strong);
+  color: var(--gm-ice-light);
+  background: var(--gm-control-hover);
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .pf-v5-c-button,
-  .pf-v5-c-form-control {
+  .pf-v5-c-form-control,
+  #kc-registration a {
     transition:
       border-color 160ms var(--gm-ease),
       background-color 160ms var(--gm-ease),
-      box-shadow 280ms var(--gm-ease),
+      color 160ms var(--gm-ease),
       transform 160ms var(--gm-ease);
   }
 
-  .pf-v5-c-button:active {
-    transform: scale(0.98);
+  .pf-v5-c-button:active,
+  #kc-registration a:active {
+    transform: translateY(1px);
   }
 }
 
-/* ------------------------------------------------------------------ Card footer */
+/* ------------------------------------------------------------------ Panel footer */
 
 .pf-v5-c-login__main-body .pf-v5-c-login__main-footer {
   padding: 0;
@@ -429,7 +488,7 @@ a:hover {
 
 .pf-v5-c-login__main-footer-band {
   margin-top: 26px;
-  padding: 22px 0 0;
+  padding: 20px 0 0;
   border-top: 1px solid var(--gm-line);
   color: var(--gm-muted);
   background: transparent;
@@ -440,6 +499,10 @@ a:hover {
   padding: 0;
 }
 
+#kc-info-wrapper {
+  line-height: 1.6;
+}
+
 /* Registration stays prominent: the question and its action share one row. */
 #kc-registration > span {
   display: flex;
@@ -447,209 +510,193 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: 10px 16px;
+  text-align: left;
 }
 
 #kc-registration a {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  gap: 8px;
-  border: 1px solid var(--gm-glass-border);
-  border-radius: 999px;
-  padding: 10px 20px;
-  color: var(--gm-ink);
-  background: color-mix(in srgb, var(--gm-ink) 6%, transparent);
-  box-shadow: var(--gm-glass-highlight);
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 0.875rem;
   font-weight: 650;
   text-decoration: none;
 }
 
-#kc-registration a:hover {
-  border-color: color-mix(in srgb, var(--gm-accent) 60%, transparent);
-  background: color-mix(in srgb, var(--gm-accent) 14%, transparent);
-}
-
-/* A drawn arrow, not generated text, so the link's accessible name stays exactly "Crear cuenta". */
-#kc-registration a::after {
-  width: 14px;
-  height: 14px;
-  background: var(--gm-accent);
-  -webkit-mask: var(--gm-arrow) center / contain no-repeat;
-  mask: var(--gm-arrow) center / contain no-repeat;
-  content: '';
-}
-
 #kc-form-options {
-  text-align: center;
+  text-align: left;
 }
 
-#kc-form-options a {
+#kc-form-options a,
+#kc-info-wrapper a,
+#kc-form-options .pf-v5-c-button.pf-m-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------------------ Messages */
+
+/* A state is a message, not a region: the product's notice plate, whose edge names its tone. */
+.pf-v5-c-alert {
+  --gm-tone: var(--gm-ice);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--gm-line);
+  border-left: 3px solid var(--gm-tone);
+  border-radius: 4px;
+  padding: 12px 14px;
+  color: var(--gm-ink);
+  background: var(--gm-control);
+  box-shadow: none;
+}
+
+.pf-v5-c-alert.pf-m-danger {
+  --gm-tone: var(--gm-danger);
+  background: var(--gm-danger-surface);
+}
+
+.pf-v5-c-alert.pf-m-warning {
+  --gm-tone: var(--gm-warning);
+}
+
+.pf-v5-c-alert__icon {
+  margin: 0;
+  color: var(--gm-tone);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.pf-v5-c-alert__title,
+.pf-v5-c-alert .kc-feedback-text {
+  margin: 0;
+  color: var(--gm-ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Informative screens (email sent, verification, expired links) read as a short paragraph. */
+#kc-error-message p,
+#kc-info-message p,
+.instruction {
+  margin: 0;
+  color: var(--gm-muted);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+#kc-info-message p + p,
+#kc-error-message p + p {
+  margin-top: 16px;
+}
+
+#kc-error-message a,
+#kc-info-message a {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
 }
 
-/* ------------------------------------------------------------------ Messages */
-
-.pf-v5-c-alert {
-  border: 1px solid #69433f;
-  border-radius: 14px;
-  padding: 14px 16px;
-  color: var(--gm-danger);
-  background: var(--gm-danger-surface);
-}
-
-.pf-v5-c-alert__title,
-.kc-feedback-text,
-.pf-v5-c-helper-text__item-text.pf-m-error {
-  color: var(--gm-danger);
-}
-
-.pf-v5-c-alert:is(.pf-m-success, .pf-m-info) {
-  border-color: var(--gm-glass-border);
-  color: var(--gm-ink);
-  background: color-mix(in srgb, var(--gm-raised) 90%, transparent);
-}
-
-.pf-v5-c-alert:is(.pf-m-success, .pf-m-info) .pf-v5-c-alert__title {
-  color: var(--gm-ink);
-}
-
-.pf-v5-c-alert.pf-m-success .pf-v5-c-alert__icon {
-  color: #8fe0b0;
-}
-
-.pf-v5-c-alert.pf-m-info .pf-v5-c-alert__icon {
-  color: var(--gm-accent);
-}
-
-#kc-error-message p,
-#kc-info-message p {
-  color: var(--gm-muted);
-  line-height: 1.7;
-}
-
-.subtitle .pf-v5-c-helper-text__item-text {
-  color: var(--gm-muted);
-  font-size: 0.8125rem;
-}
-
 /* ------------------------------------------------------------------ Story */
 
-/* The story: the product's claim in its title voice, what an account is for, and the scale's key. */
+/* The story: the product's claim in its title voice, what an account is for, and the scale's key.
+   It follows the form on narrow screens and stands beside it on wide ones. */
 .pf-v5-c-login__main > .pf-v5-c-login__main-footer {
   display: block;
   padding: 0;
 }
 
-.gm-stage {
-  position: relative;
-  margin-top: 44px;
-}
-
 .gm-story {
-  position: relative;
-  z-index: 1;
+  margin-top: 48px;
 }
 
 .gm-claim {
   margin: 0;
   color: var(--gm-ink);
-  font-size: clamp(2.25rem, 10vw, 2.75rem);
-  font-stretch: 115%;
+  font-size: 2.125rem;
+  font-stretch: 118%;
   font-weight: 850;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  text-shadow: 0 2px 36px color-mix(in srgb, var(--gm-canvas) 80%, transparent);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
 .gm-claim > span {
   display: block;
 }
 
-/* The editorial accent: the lit serif, as in every product title. */
-.gm-claim-accent {
-  width: fit-content;
-  padding: 0.04em 0.1em 0.06em 0;
-  color: transparent;
-  background: var(--gm-aurora);
-  -webkit-background-clip: text;
-  background-clip: text;
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 1.12em;
-  font-stretch: normal;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  text-shadow: none;
-  filter: drop-shadow(0 0 26px color-mix(in srgb, var(--gm-aurora-tone) 40%, transparent));
+.gm-claim-echo {
+  color: var(--gm-muted);
 }
 
 .gm-lede {
   max-width: 30rem;
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   color: var(--gm-muted);
   font-size: 1rem;
   line-height: 1.6;
+  text-wrap: pretty;
 }
 
 /* The scale's key: the same ice-to-fire key the rating keypad carries, as ten steps. */
 .gm-scale {
-  max-width: 24rem;
-  margin-top: 28px;
+  max-width: 22rem;
+  margin-top: 26px;
+}
+
+.gm-scale-title,
+.gm-scale-ends {
+  font-size: 0.8125rem;
+  font-stretch: 75%;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .gm-scale-title {
   margin: 0 0 12px;
-  color: var(--gm-accent-hover);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 0.6875rem;
-  line-height: 1.6;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
+  color: var(--gm-muted);
 }
 
 .gm-scale-bar {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 5px;
+  gap: 4px;
 }
 
 .gm-scale-bar i {
   height: 6px;
-  border-radius: 999px;
+  border-radius: 1px;
   background: var(--gm-band);
-  box-shadow: 0 0 14px -3px var(--gm-band);
 }
 
-.gm-scale-bar i:nth-child(-n + 2) { --gm-band: #dff4ff; }
-.gm-scale-bar i:nth-child(n + 3):nth-child(-n + 4) { --gm-band: #63c3ff; }
-.gm-scale-bar i:nth-child(n + 5):nth-child(-n + 6) { --gm-band: #ffcf63; }
-.gm-scale-bar i:nth-child(n + 7):nth-child(-n + 8) { --gm-band: #ff9446; }
-.gm-scale-bar i:nth-child(n + 9) { --gm-band: #ff5b3d; }
+.gm-scale-bar i:nth-child(-n + 2) { --gm-band: var(--gm-freeze); }
+.gm-scale-bar i:nth-child(n + 3):nth-child(-n + 4) { --gm-band: var(--gm-cold); }
+.gm-scale-bar i:nth-child(n + 5):nth-child(-n + 6) { --gm-band: var(--gm-warm); }
+.gm-scale-bar i:nth-child(n + 7):nth-child(-n + 8) { --gm-band: var(--gm-hot); }
+.gm-scale-bar i:nth-child(n + 9) { --gm-band: var(--gm-burn); }
 
 .gm-scale-ends {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin: 12px 0 0;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: 10px 0 0;
 }
 
 .gm-scale-ends span:first-child {
-  color: #dff4ff;
+  color: var(--gm-freeze);
 }
 
 .gm-scale-ends span:last-child {
-  color: #ff5b3d;
+  color: var(--gm-burn);
 }
 
 .gm-exit {
-  margin: 28px 0 0;
-  text-align: center;
+  margin: 20px 0 0;
 }
 
 .gm-exit a {
@@ -657,7 +704,6 @@ a:hover {
   min-height: 44px;
   align-items: center;
   gap: 10px;
-  padding-inline: 6px;
   color: var(--gm-muted);
   font-size: 0.875rem;
   font-weight: 600;
@@ -666,90 +712,95 @@ a:hover {
 
 .gm-exit a:hover {
   color: var(--gm-ink);
+  text-decoration: underline;
 }
 
-/* ------------------------------------------------------------------ Phones */
+/* ------------------------------------------------------------------ Tablets and wider */
 
-@media (max-width: 619px) {
+@media (min-width: 620px) {
+  .pf-v5-c-login {
+    padding: 24px 24px 48px;
+  }
+
+  .pf-v5-c-login__container {
+    max-width: 480px;
+  }
+
+  #kc-header {
+    margin-bottom: 40px;
+  }
+
+  #kc-header-wrapper::before {
+    width: 174px;
+    height: 32px;
+  }
+
   .pf-v5-c-login__main-header {
-    padding: 28px 22px 4px;
+    padding: 38px 40px 6px;
   }
 
   .pf-v5-c-login__main-body {
-    padding: 16px 22px 26px;
-  }
-
-  .pf-v5-c-login__main::after {
-    margin-inline: 24px;
+    padding: 20px 40px 36px;
   }
 
   #kc-page-title {
-    font-size: 2.125rem;
+    font-size: 1.875rem;
+  }
+
+  .gm-story {
+    margin-top: 64px;
+  }
+
+  .gm-claim {
+    font-size: 2.75rem;
   }
 }
 
 /* ------------------------------------------------------------------ Wide screens */
 
-/* Side by side: the story on its own night stage, the card in a quiet column beside it. The stage
-   stays in view while a long form scrolls. */
+/* Side by side on one stage: the brand and its story on the left under the ice light, the panel
+   and its way back in a column on the right. The lockup keeps the top-left corner, where the
+   product header holds it. */
 @media (min-width: 1024px) and (min-height: 600px) {
   .pf-v5-c-login {
-    padding: var(--gm-gutter);
-  }
-
-  .pf-v5-c-login::before {
-    display: none;
+    padding: 0 clamp(28px, 4vw, 64px);
   }
 
   .pf-v5-c-login__container {
-    max-width: none;
+    position: relative;
+    max-width: 1180px;
   }
 
   #kc-header {
-    position: sticky;
-    z-index: 3;
-    top: calc(var(--gm-gutter) + 40px);
-    width: max-content;
-    height: 40px;
-    margin: 40px 0 -80px clamp(36px, 3.6vw, 60px);
-    text-align: left;
+    position: absolute;
+    z-index: 1;
+    top: 32px;
+    left: 0;
+    margin: 0;
   }
 
   #kc-header-wrapper::before {
-    width: 218px;
-    height: 40px;
+    width: 196px;
+    height: 36px;
   }
 
   .pf-v5-c-login__main {
-    grid-template-columns: minmax(0, 1.18fr) minmax(400px, 1fr);
-    grid-template-rows: 1fr auto auto auto 1fr;
-    column-gap: clamp(28px, 4vw, 72px);
-    min-height: calc(100vh - 2 * var(--gm-gutter));
-    min-height: calc(100svh - 2 * var(--gm-gutter));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(400px, var(--gm-panel-width));
+    grid-template-rows: minmax(112px, 1fr) auto auto auto minmax(48px, 1fr);
+    column-gap: clamp(56px, 7vw, 120px);
+    min-height: 100vh;
+    min-height: 100svh;
   }
 
   .pf-v5-c-login__main > .pf-v5-c-login__main-footer {
     display: contents;
   }
 
-  .pf-v5-c-login__main::before,
   .pf-v5-c-login__main-header,
-  .pf-v5-c-login__main-body {
+  .pf-v5-c-login__main-body,
+  .gm-exit {
     grid-column: 2;
-    justify-self: center;
-    width: min(100%, var(--gm-card-width));
-  }
-
-  .pf-v5-c-login__main::before {
-    grid-row: 2 / 4;
-  }
-
-  .pf-v5-c-login__main::after {
-    grid-row: 2;
-    grid-column: 2;
-    justify-self: center;
-    width: calc(min(100%, var(--gm-card-width)) - 72px);
-    margin-inline: 0;
   }
 
   .pf-v5-c-login__main-header {
@@ -762,122 +813,49 @@ a:hover {
 
   .gm-exit {
     grid-row: 4;
-    grid-column: 2;
-    justify-self: center;
-    margin-top: 18px;
+    margin-top: 16px;
   }
 
-  .gm-stage {
+  /* The story stays in view, about the middle of the screen, while a long form scrolls. It holds
+     no control, so it never covers focus. */
+  .gm-story {
     position: sticky;
-    top: var(--gm-gutter);
-    display: flex;
+    top: max(112px, calc(50vh - 170px));
     grid-row: 1 / -1;
     grid-column: 1;
     align-self: start;
-    flex-direction: column;
-    justify-content: flex-end;
-    height: calc(100vh - 2 * var(--gm-gutter));
-    height: calc(100svh - 2 * var(--gm-gutter));
+    max-width: 38rem;
     margin: 0;
-    overflow: hidden;
-    border: 1px solid var(--gm-glass-border);
-    border-radius: 28px;
-    padding: clamp(36px, 3.6vw, 60px);
-    background: var(--gm-canvas);
-  }
-
-  /* The product's night art, graded so the moonlit castle leads and the copy reads over the
-     darker foreground. */
-  .gm-stage::before {
-    position: absolute;
-    z-index: 0;
-    inset: -3%;
-    background:
-      linear-gradient(0deg, var(--gm-canvas) 0%, color-mix(in srgb, var(--gm-canvas) 94%, transparent) 26%, color-mix(in srgb, var(--gm-canvas) 62%, transparent) 46%, transparent 68%),
-      linear-gradient(180deg, color-mix(in srgb, var(--gm-canvas) 72%, transparent) 0%, transparent 20%),
-      radial-gradient(40rem 26rem at 66% 6%, color-mix(in srgb, var(--gm-accent) 16%, transparent), transparent 64%),
-      radial-gradient(24rem 16rem at 46% 44%, color-mix(in srgb, #ff9a4d 9%, transparent), transparent 70%),
-      url('../img/night-hero.webp') 86% 30% / cover no-repeat;
-    filter: brightness(1.1) contrast(1.06) saturate(1.08);
-    content: '';
-  }
-
-  /* Mist drifting across the valley, and the stage's own grain. */
-  .gm-stage::after {
-    position: absolute;
-    z-index: 0;
-    inset: 34% -24% 0;
-    opacity: 0.5;
-    background:
-      radial-gradient(40% 34% at 30% 56%, color-mix(in srgb, #b9c6e8 16%, transparent), transparent 70%),
-      radial-gradient(36% 30% at 74% 70%, color-mix(in srgb, #9fb0d8 14%, transparent), transparent 70%);
-    filter: blur(28px);
-    mix-blend-mode: screen;
-    content: '';
-  }
-
-  .gm-story {
-    max-width: min(100%, 46rem);
+    padding-block: 24px;
   }
 
   .gm-claim {
-    font-size: clamp(2.75rem, 4.4vw, 6rem);
+    font-size: clamp(3rem, 4.6vw, 4.75rem);
   }
 
   .gm-lede {
-    max-width: 34rem;
-    margin-top: 22px;
-    font-size: clamp(1rem, 1.15vw, 1.3125rem);
+    max-width: 32rem;
+    margin-top: 24px;
+    font-size: clamp(1rem, 1.2vw, 1.25rem);
   }
 
   .gm-scale {
-    max-width: clamp(24rem, 24vw, 30rem);
-    margin-top: clamp(26px, 4vh, 40px);
+    max-width: 24rem;
+    margin-top: 40px;
   }
 }
 
 /* ------------------------------------------------------------------ Motion */
 
+/* One quiet entrance, opacity only; nothing decorative moves afterwards. */
 @media (prefers-reduced-motion: no-preference) {
-  body#keycloak-bg::before {
-    animation: gm-aurora 46s ease-in-out infinite alternate;
-  }
-
-  .pf-v5-c-login__main::before,
-  .pf-v5-c-login__main::after,
   .pf-v5-c-login__main-header,
   .pf-v5-c-login__main-body {
-    animation: gm-fade 560ms var(--gm-ease) both;
-  }
-
-  .gm-story {
-    animation: gm-fade 900ms var(--gm-ease) 140ms both;
-  }
-
-  /* The key lights up once from ice to fire. */
-  .gm-scale-bar i {
     animation: gm-fade 420ms var(--gm-ease) both;
   }
 
-  .gm-scale-bar i:nth-child(1) { animation-delay: 520ms; }
-  .gm-scale-bar i:nth-child(2) { animation-delay: 580ms; }
-  .gm-scale-bar i:nth-child(3) { animation-delay: 640ms; }
-  .gm-scale-bar i:nth-child(4) { animation-delay: 700ms; }
-  .gm-scale-bar i:nth-child(5) { animation-delay: 760ms; }
-  .gm-scale-bar i:nth-child(6) { animation-delay: 820ms; }
-  .gm-scale-bar i:nth-child(7) { animation-delay: 880ms; }
-  .gm-scale-bar i:nth-child(8) { animation-delay: 940ms; }
-  .gm-scale-bar i:nth-child(9) { animation-delay: 1000ms; }
-  .gm-scale-bar i:nth-child(10) { animation-delay: 1060ms; }
-
-  @media (min-width: 1024px) and (min-height: 600px) {
-    .gm-stage::before {
-      animation: gm-push 38s ease-in-out infinite alternate;
-    }
-
-    .gm-stage::after {
-      animation: gm-drift 34s ease-in-out infinite alternate;
-    }
+  .gm-story {
+    animation: gm-fade 640ms var(--gm-ease) 120ms both;
   }
 }
 
@@ -886,33 +864,16 @@ a:hover {
   to { opacity: 1; }
 }
 
-@keyframes gm-push {
-  from { transform: scale(1); }
-  to { transform: scale(1.06) translate3d(-1%, 1%, 0); }
-}
-
-@keyframes gm-drift {
-  from { transform: translate3d(-6%, 0, 0); }
-  to { transform: translate3d(6%, -3%, 0); }
-}
-
-@keyframes gm-aurora {
-  from { transform: translate3d(-2%, -1%, 0) rotate(-2deg); }
-  to { transform: translate3d(2%, 2%, 0) rotate(4deg); }
-}
-
 /* ------------------------------------------------------------------ Forced colours */
 
 /* Decorative light carries no meaning: drop it so system colours stay authoritative. */
 @media (forced-colors: active) {
-  body#keycloak-bg::before,
-  body#keycloak-bg::after,
-  .pf-v5-c-login::before,
-  .pf-v5-c-login__main::after,
-  .gm-stage::before,
-  .gm-stage::after,
-  .gm-scale-bar,
-  #kc-registration a::after {
+  html.login-pf body#keycloak-bg {
+    background: Canvas;
+  }
+
+  #kc-page-title::before,
+  .gm-scale-bar {
     display: none;
   }
 
@@ -923,8 +884,6 @@ a:hover {
   #kc-header-wrapper {
     font-size: 1.5rem;
     line-height: 1.2;
-    letter-spacing: 0;
-    text-transform: none;
     color: CanvasText !important;
   }
 
@@ -932,8 +891,8 @@ a:hover {
     display: none;
   }
 
-  .pf-v5-c-login__main::before,
-  .gm-stage,
+  .pf-v5-c-login__main-header,
+  .pf-v5-c-login__main-body,
   .pf-v5-c-form-control,
   .pf-v5-c-button,
   .pf-v5-c-alert,
@@ -942,18 +901,19 @@ a:hover {
     color: CanvasText;
     background: Canvas;
     box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 
-  .gm-claim-accent {
-    color: CanvasText;
-    background: none;
-    filter: none;
+  .pf-v5-c-login__main-header {
+    border-bottom: 0;
+  }
+
+  .pf-v5-c-login__main-body {
+    border-top: 0;
   }
 
   #kc-page-title,
   .gm-claim,
+  .gm-claim-echo,
   .gm-lede,
   .gm-scale-title,
   .gm-scale-ends span:nth-child(n),

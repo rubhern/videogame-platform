@@ -149,7 +149,7 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend dependency_images
       matched=true
       ;;
-    scripts/validate-identity.sh | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
+    scripts/validate-identity.sh | scripts/test-keycloak-theme.py | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
       enable identity browser backend
       matched=true
       ;;
@@ -240,7 +240,7 @@ for path in "${changed_paths[@]}"; do
       enable frontend browser identity codeql_javascript
       matched=true
       ;;
-    frontend/src/shared/brand/gameometro-logo.svg | frontend/src/shared/brand/gameometro-mark.svg | frontend/public/assets/night-hero* | frontend/public/assets/fonts/*)
+    frontend/src/shared/brand/gameometro-logo.svg | frontend/src/shared/brand/gameometro-mark.svg | frontend/public/assets/fonts/*)
       # Brand assets copied into the Keycloak theme image.
       enable frontend browser codeql_javascript dependency_images
       matched=true

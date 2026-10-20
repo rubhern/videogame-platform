@@ -58,6 +58,7 @@ test_user_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_username="local-user"
 smoke_user_username="integration-deployment-smoke"
 
+python3 -I scripts/test-keycloak-theme.py
 bash scripts/package-application.sh
 docker build --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_image" .
 application_jar="$(resolve_backend_jar)"

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
 
 const applicationOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin;
@@ -134,6 +134,23 @@ test("account entry returns to the game without inventing a rating and logout si
   await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
 });
 
+/** The #290 theme keeps the brand identity: no glass, serif or mono voice and nothing perpetual. */
+async function legacyIdentityLanguage(page: Page) {
+  return page.evaluate(() => {
+    const found = [...document.querySelectorAll("body, body *")].flatMap((element) => {
+      const style = getComputedStyle(element);
+      const kinds: string[] = [];
+      if (style.backdropFilter !== "none" && style.backdropFilter !== "") kinds.push("glass");
+      if (/Instrument Serif|IBM Plex Mono/.test(style.fontFamily)) kinds.push("retired face");
+      return kinds.map((kind) => `${kind}: ${element.tagName.toLowerCase()}.${element.className}`);
+    });
+    const perpetual = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations === Infinity);
+    return perpetual.length ? [...found, `perpetual motion: ${perpetual.length}`] : found;
+  });
+}
+
 for (const width of [1320, 390, 320]) {
   test(`Gameómetro sign-in, registration, recovery and errors render accessibly at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 950 });
@@ -143,6 +160,7 @@ for (const width of [1320, 390, 320]) {
     await expect(page.getByText(/VideoGame Platform/i)).toHaveCount(0);
     await expect(page.getByText("Tu criterio.", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Volver a Gameómetro", exact: true })).toHaveAttribute("href", `${applicationOrigin}/`);
+    expect(await legacyIdentityLanguage(page)).toEqual([]);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`keycloak-login-${width}.png`), fullPage: true });
