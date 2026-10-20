@@ -354,7 +354,9 @@ not deployed (#275):** [`deploy/public-production`](../../../deploy/public-produ
 holds the Compose topology and stock-Caddy edge; its README owns the secret inventory
 and what remains unvalidated. No host, DNS, deployment workflow, backup or telemetry
 exists. The following specifies the target; configuration and its local tests are not
-proof of a running system.
+proof of a public host. The [disposable integration exercise](../../../deploy/public-production/README.md#disposable-integration-exercise)
+runs the trusted-main runtime locally with synthetic state and canonical names; its
+receipts keep the remaining validation boundary explicit.
 
 | Component / boundary | Target responsibility and exposure |
 |---|---|
@@ -493,8 +495,9 @@ in its own directory, independent of the shared local/private-dev realm; #274 ow
 content and [`validate-production-identity.sh`](../../../scripts/validate-production-identity.sh)
 proves it with disposable Keycloak and Mailpit. The
 [#274 research](../../research/public-release-rights-and-privacy.md#71-increment-1-production-realm-2026-10-15)
-records the reviewed policy and its limits. #275 owns its runtime integration, prepared
-in the production Compose and its Keycloak entrypoint but not yet started there:
+records the reviewed policy and its limits. #275 owns its runtime integration in
+the production Compose and its Keycloak entrypoint, exercised only in the isolated
+local harness:
 
 - Mount only `deploy/public-production/keycloak/import/`, read-only, as Keycloak's
   import directory; never add the shared realm or the local user import to it.
@@ -509,10 +512,11 @@ in the production Compose and its Keycloak entrypoint but not yet started there:
 
 #### Canonical issuer contract
 
-**Implemented and proven with synthetic origins (#274 phase 2); the production values
+**Implemented and proven with synthetic origins (#274 phase 2), and exercised locally
+with canonical names and a disposable trusted CA (#275 increment 3); the production values
 are `https://auth.gameometro.com/realms/gameometro` and the application origin
 `https://gameometro.com` ([public names](#public-domain-and-names)), not yet
-configured.** The approved realm name fixes the issuer path `/realms/gameometro`. The
+configured on a public host.** The approved realm name fixes the issuer path `/realms/gameometro`. The
 full issuer, `https://` plus the identity host plus that path, must be fixed before the
 first real account is created and must then stay stable: every rating is keyed by a
 `UserId` derived from it, so a changed issuer detaches all ratings from their accounts.
@@ -522,7 +526,7 @@ One spelling exists for it: lower-case DNS name, implicit port 443, no trailing 
 |---|---|---|
 | Keycloak | `KC_HOSTNAME` is the full identity origin (`https://` plus host), so discovery, token `iss`, form actions and email links never follow a request's `Host` or forwarded headers, even with proxy headers trusted; the realm import receives the application host for the exact callback and post-logout address | Identity gate and the contract check |
 | BFF | `OIDC_ISSUER_URI`; the authorization, token, JWKS, userinfo and end-session URIs are exactly the issuer plus Keycloak's `/protocol/openid-connect/` paths, reached with verified TLS; `APPLICATION_OIDC_REDIRECT_URI` and `APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI` explicit on a separate application origin (`/login/oauth2/code/keycloak` and `/`); session cookie `__Host-` prefixed and `Secure` | `PublicIdentityContract` stops the application at startup whenever the issuer names the production realm and any value deviates; local and private-dev realms are unaffected |
-| Running pair | Discovery publishes exactly the BFF's issuer and endpoints, also under spoofed `Host`/forwarded headers; the realm accepts only the exact callback and post-logout address; the BFF's sign-in redirect keeps them under spoofed headers | [`check-oidc-issuer-contract.py`](../../../scripts/check-oidc-issuer-contract.py): read-only, account-free; the identity gate runs it, and #275 runs it on the real host with the production values before the first account |
+| Running pair | Discovery publishes exactly the BFF's issuer and endpoints, also under spoofed `Host`/forwarded headers; the realm accepts only the exact callback and post-logout address; the BFF's sign-in redirect keeps them under spoofed headers | [`check-oidc-issuer-contract.py`](../../../scripts/check-oidc-issuer-contract.py): read-only, account-free; the identity gate and disposable runtime exercise run it; the real host repeats it with the public certificate before the first account |
 
 The BFF and Keycloak sit on distinct hosts of one registrable domain, so they are the
 same site: `SameSite=Lax` does not separate them, and the BFF's CSRF token, `Origin` and

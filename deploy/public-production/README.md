@@ -1,6 +1,6 @@
 # Public-production runtime configuration
 
-- **Status:** Prepared runtime candidate (#275 increments 1 and 2), pending real-host validation; never deployed
+- **Status:** Prepared runtime candidate (#275 increments 1–3), pending real-host validation; never deployed
 
 This directory holds the versioned runtime configuration for the future public
 production host. No host, DNS record, certificate, deployment command, backup or
@@ -17,6 +17,7 @@ what the repository checks and what only a real host can prove.
 |---|---|
 | [`compose.yaml`](compose.yaml) | Services, networks, published ports, images, secrets, limits |
 | [`caddy/Caddyfile`](caddy/Caddyfile) | Stock-Caddy HTTPS edge: hosts, routes, forwarding headers, bounds |
+| [`bin/run-postgres`](bin/run-postgres) | Reads role secret files before the stock entrypoint drops supplemental groups |
 | [`bin/run-keycloak`](bin/run-keycloak) | Keycloak entrypoint that reads secret files and refuses empty inputs |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
@@ -36,16 +37,16 @@ placeholder, or a migration digest that differs from the application's.
 
 ## Before the first production start
 
-These hold for the first start on any host and are not yet automated:
+These hold for the first production start; the disposable exercise below verifies the local sequence:
 
 - **Migrations before the application.** The application never migrates at startup and
   sits behind the `application` profile; the one-shot `migration` actor sits behind
   `deployment` and runs the same digest. A deployment starts PostgreSQL, runs
   `migration` to successful completion, and only then starts the application; a failed
   migration leaves the previous application running or stopped, never activated.
-- **Keycloak memory.** The 768 MiB ceiling is the envelope hypothesis, half of
-  private-dev's; Keycloak has never run within it. Prove it under the realm import and
-  representative sign-in load before accepting it.
+- **Keycloak memory.** The 768 MiB ceiling remains an envelope hypothesis. The local
+  exercise measures realm import and synthetic identity journeys within that ceiling;
+  real-host load and capacity qualification remain necessary.
 - **Registry access.** Newly published GHCR packages are private until the owner
   changes their visibility, so the host can pull the dependency images only after that
   step or with a read-only registry credential, which would be a new secret.
@@ -115,8 +116,60 @@ unpublished networks, and proves that each deliberate violation is detected.
 real host's inputs, refusing any remaining placeholder, without reading secret files
 or starting containers.
 
-This is configuration evidence. It does not start the application, Keycloak,
-PostgreSQL or the localizer from this topology, and it proves nothing about a real host.
+That check is configuration evidence. The separate exercise below runs the published
+runtime; neither proves real-host behaviour.
+
+## Disposable integration exercise
+
+```bash
+python3 scripts/test-public-production-integration.py
+python3 scripts/public_production_integration.py \
+  --revision <full-trusted-main-source-sha> \
+  --evidence <new-local-evidence-directory> \
+  --model-dir <existing-approved-tcbig-directory>
+```
+
+Install repository npm dependencies first (`npm ci --ignore-scripts`). The exercise
+requires Docker Compose, OpenSSL, authenticated `gh` evidence access and Docker pull
+access to the packages. It reuses the private-dev promotion trust verifier, publication
+records, issuer checker, production realm and production identity browser journey.
+The browser tooling obtains NSS utilities in a disposable container before isolation;
+no host package, certificate store or name-resolution file is changed.
+
+`--stage A`, `B` or `C` stops after that stage; the default `D` runs all stages. Every
+invocation creates fresh project-scoped volumes and networks, verifies migrations
+before application startup, and tears down all profiles, including on failure or
+interruption. An occupied production trust subnet is a refusal, never permission to
+alter an existing network. Run this exercise and the edge contract test sequentially:
+they deliberately use the same fixed proxy trust addresses.
+
+Only a temporary rendering of the production Compose configuration is changed:
+all host ports are removed, all networks have external egress disabled, and a private
+test-client network reaches Caddy under the canonical production names. A disposable
+CA is trusted by the browser, BFF and identity JVM; certificate verification stays
+enabled. Authenticated STARTTLS Mailpit replaces the relay. The existing bounded
+prototype fixture is inserted only after production-only Flyway completes. No
+production image is built, no mutable tag substitutes for a missing publication, and
+no real provider or mail service is reachable. The production secret permissions and
+service ceilings remain in force. PostgreSQL's wrapper reads role files before
+`gosu` discards supplemental groups; the shared bootstrap consumes their environment
+form without changing private-dev.
+
+Omit `--model-dir` only when the approved artifact is unavailable: the receipt then
+explicitly records the localizer as **not exercised**. The harness never downloads,
+converts or substitutes a model. A supplied wrong, incomplete or corrupt model is a
+failure. A passing partial-stage receipt is not a complete integration result.
+
+The evidence directory contains a sanitized JSON receipt: source/run/attempt/security
+provenance, all immutable image references, stages, migration version, configuration
+fingerprint, sampled peak/final idle working-set memory, restart/OOM observations and
+teardown result. Raw browser reports, account data, tokens, mail, secrets and service
+logs are not exported. Short-lived actors can finish between samples; an unobserved
+peak is `null`, never zero. Samples can miss short peaks; neither missing observations nor
+a successful local workload establishes VPS headroom. The focused refusal/isolation
+tests run in selective runtime CI. The full exercise stays local because it needs
+retained trusted-main publications, registry access and an explicitly supplied model;
+it must not build substitute production images to make a pull-request gate pass.
 
 ## Not yet validated
 
@@ -125,13 +178,12 @@ These need later increments or the real host (#276):
 - Public ACME issuance and renewal, DNS, IPv4 and IPv6 exposure, host firewall and
   Docker NAT. Docker's userland proxy presents IPv6 clients with an internal source
   address, which matters before any per-source limit or diagnostic relies on it.
-- Starting the full topology: realm import through `bin/run-keycloak`, the BFF
-  reaching the issuer through the edge with the public certificate, PostgreSQL
-  secret-group access and every resource ceiling.
-- Pulling and running the published Keycloak and localizer digests on the host.
+- Real-host startup with the public certificate and protected host secret files,
+  published digest pulls, calibrated representative load and every resource ceiling;
+  local receipts cover only the disposable machine and supplied model.
 - Deployment and migration commands, smoke and receipts, backups and restore,
   telemetry, the owner's Keycloak administration path, and the
   [canonical issuer check](../../docs/architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract)
-  with the production names.
+  with the publicly served production certificate.
 - Per-source and aggregate request-rate limits, which stock Caddy does not provide;
   the edge's body, header and timeout bounds are uncalibrated.

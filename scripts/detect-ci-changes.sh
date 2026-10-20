@@ -158,7 +158,7 @@ for path in "${changed_paths[@]}"; do
       enable identity production_runtime
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py)
+    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/run-production-runtime-browser.sh)
       enable production_runtime
       matched=true
       ;;
