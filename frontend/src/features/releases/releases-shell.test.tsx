@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DayRange } from "./day-bar";
+import { createInterestsSwitch, InterestsSwitchContext } from "../platform-preferences/interests-switch";
 import { ReleasesShell, type ReleasesShellState } from "./releases-shell";
 import { defaultReleasesSearch, type ReleasesSearch } from "./releases-search";
 import type { ReleaseListItem, ReleasesViewModel } from "./releases-view-model";
@@ -77,24 +78,26 @@ function renderShell(
 ) {
   const onRetry = options.onRetry ?? vi.fn();
   const result = render(
-    <MemoryRouter initialEntries={["/lanzamientos"]}>
-      <Routes>
-        <Route
-          element={
-            <>
-              <ReleasesShell
-                keptFrame={options.keptFrame ?? null}
-                onRetry={onRetry}
-                search={options.search ?? search}
-                state={state}
-              />
-              <LocationProbe />
-            </>
-          }
-          path="*"
-        />
-      </Routes>
-    </MemoryRouter>,
+    <InterestsSwitchContext.Provider value={createInterestsSwitch()}>
+      <MemoryRouter initialEntries={["/lanzamientos"]}>
+        <Routes>
+          <Route
+            element={
+              <>
+                <ReleasesShell
+                  keptFrame={options.keptFrame ?? null}
+                  onRetry={onRetry}
+                  search={options.search ?? search}
+                  state={state}
+                />
+                <LocationProbe />
+              </>
+            }
+            path="*"
+          />
+        </Routes>
+      </MemoryRouter>
+    </InterestsSwitchContext.Provider>,
   );
   return { ...result, onRetry };
 }
