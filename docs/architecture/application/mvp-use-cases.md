@@ -132,6 +132,9 @@ parent, its own known first release in the period, and positive Hypes. A game wh
 first-release evidence falls in another week than its catalogued day therefore features in
 its month but in no week; nothing assigns it to an invented week. These gates affect
 only featured discovery; the normal catalogue and the release explorer remain unchanged.
+Post-MVP (#295), a request may name explicit platforms: only a qualifying release on one of them makes
+its game a candidate and is presented, before ranking and limiting, so a restricted selection is
+the ranking of the restricted candidates and never a filtered copy of the unrestricted six.
 Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
 with the unique `gameId` as the only tie-breaker. A candidate without a signal is not
 ranked and nothing is invented for it; it remains a normal catalogue and discovery
@@ -300,6 +303,33 @@ and retains a failed batch's cursor for safe replay. Successful PostgreSQL state
 durable progress. It uses no IGDB request or distributed job framework. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
 owns the runtime and concurrency decision.
 
+## Preferred platforms
+
+| ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
+|----------|-------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `UC-014` | Choose and manage preferred platforms | Authenticated user / visitor | Post-MVP (#295): any visitor reads the selectable platforms, the local taxonomy entries that a current release uses; the authenticated user reads and atomically replaces their own set of at most 50, keyed by the server-derived `UserId`, where every value names a taxonomy platform and an empty set clears it; the first saved choice, empty included, records that a choice was made; never a provider call, a Keycloak attribute or a public read that varies on the session |
+
+Post-MVP (#295, implemented; awaiting owner review): preferred platforms are an explicit,
+user-chosen discovery filter, never a recommendation, an inference from ratings or an
+ownership inventory. Catalogue owns them beside the taxonomy they reference, so a
+preference can only name a platform the catalogue holds and Catalogue still never reads
+Ratings or identity tables. A replacement takes the user's choice row first, so concurrent
+replacements of one user's set serialize and the last one wins whole; an invalid set
+changes nothing. The selectable list probes each taxonomy platform once against the
+current publication's releases, so its work follows the bounded taxonomy, and it fails
+rather than truncating beyond 500 platforms.
+
+The browser resolves the preferences into the explicit platform filter of the public
+`UC-001` and `UC-010` reads, so those reads stay publicly cacheable and identical for every
+session. They apply by default on TOPómetro and Explorar lanzamientos; one document-wide
+switch in **Mi cuenta** turns them off for both screens without changing the saved set, and a
+manual platform selection in the explorer sets them aside rather than intersecting with them.
+The frontend offers only the platforms it presents with an owner-provided mark (owner
+decision); the API keeps the whole selectable taxonomy. `UC-002`, `UC-003` and `UC-008` never apply preferences. A signed-in user who has
+not chosen yet is offered the choice once per document on the way into release discovery,
+after authentication; saving or skipping records the choice, and rating and personal
+returns are never interrupted.
+
 ## Identity and ratings
 
 | ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
@@ -338,7 +368,7 @@ rating intent, and starting a rating intent replaces general return context. Fai
 general authentication consumes the context and returns to its safe product destination
 without automatically restarting authentication; a rating failure keeps its game
 outcome and never executes a command. Authenticated account navigation exposes only
-existing personal ratings and session logout. Post-MVP (#274,
+existing personal ratings, preferred platforms (`UC-014`, #295) and session logout. Post-MVP (#274,
 [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)):
 logout ends the application session and then that browser's Keycloak session through
 standard OIDC, so the next sign-in on the device asks for credentials again; other
@@ -361,7 +391,7 @@ would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 
 | Category               | Principal codes / guarantees                                                                                                                                                                                                          |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Validation             | `COVERAGE_RANGE_INVALID`, `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
+| Validation             | `COVERAGE_RANGE_INVALID`, `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED` (also an unknown preferred platform), `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
 | Authentication/replay  | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command                                                                                                                   |
 | Authorization          | `ACCESS_DENIED` for a signed-in session without the operation's authority; decided before validation or any read                                                                                                                       |
 | Domain/conflict        | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state                                                                   |

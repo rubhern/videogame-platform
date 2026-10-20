@@ -74,6 +74,44 @@ class FeaturedReleaseServiceTest {
     }
 
     @Test
+    void passesANormalizedPlatformRestrictionToTheRankingRead() {
+        service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())))
+                .browse(
+                        new Query(
+                                Granularity.WEEK,
+                                java.util.Optional.empty(),
+                                List.of(" platform-b ", "platform-a", "platform-b", " ")));
+
+        assertThat(captured.get().platformIds()).containsExactly("platform-a", "platform-b");
+        service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())))
+                .browse(Query.current(Granularity.WEEK));
+        assertThat(captured.get().platformIds()).isEmpty();
+    }
+
+    @Test
+    void anUnknownRestrictedPlatformIsRejectedAsUnsupported() {
+        var service =
+                service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of(), false)));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                service.browse(
+                                        new Query(
+                                                Granularity.MONTH,
+                                                java.util.Optional.empty(),
+                                                List.of("platform-unknown"))))
+                .isInstanceOfSatisfying(
+                        com.videogameplatform.catalogue.application.releases
+                                .ReleaseQueryValidationException.class,
+                        exception ->
+                                assertThat(exception.code())
+                                        .isEqualTo(
+                                                com.videogameplatform.catalogue.application.releases
+                                                        .ReleaseQueryValidationException.Code
+                                                        .PLATFORM_NOT_SUPPORTED));
+    }
+
+    @Test
     void featuresTheCurrentMadridIsoWeekFromMondayToSundayAcrossMonths() {
         // Thursday 1 October 2026 in Madrid belongs to the week of Monday 28 September.
         var result =

@@ -1,0 +1,359 @@
+{
+  "info": {
+    "_postman_id": "2950c4f1-0e1a-4b5c-9a7d-295295295295",
+    "name": "VideoGame Platform Backend - Platform Preferences",
+    "description": "Executable UC-014 examples: the public selectable platforms and the authenticated user's preferred platforms. The first request needs no session. The personal requests need a local OIDC session: sign in through Keycloak in a browser and sync the localhost cookie into Postman, as for Personal Ratings. The run replaces the account's preferences and ends by clearing them, which leaves the account configured with no platform.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "platformId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Selectable platforms",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const items = pm.response.json().items;",
+              "pm.test(\"Platforms come from the local taxonomy, ordered by name\", () => {",
+              "    pm.expect(items).to.be.an(\"array\").and.not.empty;",
+              "    const names = items.map(item => item.name.toLowerCase());",
+              "    pm.expect(names).to.eql([...names].sort());",
+              "    items.forEach(item => pm.expect(item).to.have.all.keys(\"platformId\", \"name\"));",
+              "});",
+              "pm.test(\"The list is public and validator-backed\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.be.a(\"string\").and.not.empty;",
+              "});",
+              "pm.collectionVariables.set(\"platformId\", items.length > 0 ? items[0].platformId : \"\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platforms",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platforms"
+          ]
+        },
+        "description": "The choices a first-run welcome and Mis plataformas offer; never a provider call."
+      },
+      "response": []
+    },
+    {
+      "name": "Bootstrap authenticated session and CSRF",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/session",
+        "description": "Requires the browser-created vgp_session cookie in Postman's localhost cookie jar. Stores the session-bound CSRF token for the remaining requests."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const authenticated = body.authenticated === true && typeof body.csrfToken === \"string\" && body.csrfToken.length > 0;",
+              "pm.test(\"Authenticated OIDC session is available\", () => pm.expect(authenticated, \"Open /auth/login/keycloak in a browser and sync the localhost cookie with Postman Interceptor\").to.eql(true));",
+              "if (authenticated) {",
+              "    pm.collectionVariables.set(\"csrfToken\", body.csrfToken);",
+              "} else {",
+              "    pm.collectionVariables.unset(\"csrfToken\");",
+              "    pm.execution.setNextRequest(null);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read own preferred platforms",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "The server derives the user from the session; the request names no user."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Personal state is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Shape names whether a choice was ever made\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"configured\", \"platforms\");",
+              "    pm.expect(body.configured).to.be.a(\"boolean\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replace preferred platforms",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "Values are de-duplicated, so the repeated identifier is stored once.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"platformIds\": [\"{{platformId}}\", \"{{platformId}}\"]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"The whole set is replaced and the choice is recorded\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.configured).to.eql(true);",
+              "    pm.expect(body.platforms.map(platform => platform.platformId)).to.eql([pm.collectionVariables.get(\"platformId\")]);",
+              "});",
+              "pm.test(\"Personal state is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a platform outside the taxonomy",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "Nothing changes: the previous set is kept.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"platformIds\": [\"{{platformId}}\", \"platform_unknown\"]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Stable code and pointer\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/platformIds\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a client-supplied owner",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "The owner always comes from the session, never from the body.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"platformIds\": [], \"userId\": \"another-user\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Unknown command properties are rejected\", () => pm.expect(pm.response.json().code).to.eql(\"REQUEST_PROPERTY_UNKNOWN\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a change without CSRF",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "A cookie-authenticated change needs the session-bound token.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"platformIds\": []}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Stable CSRF code\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read back the kept set",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "Each rejection above changed nothing."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Rejected changes kept the replaced set\", () => pm.expect(pm.response.json().platforms.map(platform => platform.platformId)).to.eql([pm.collectionVariables.get(\"platformId\")]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clear preferred platforms",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/platform-preferences",
+        "description": "The same empty choice a first-run skip records.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"platformIds\": []}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"An empty set clears every platform and stays configured\", () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.configured).to.eql(true);",
+              "    pm.expect(body.platforms).to.be.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

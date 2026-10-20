@@ -90,6 +90,31 @@ class CataloguePersistenceConfiguration {
                 execution.jdbcOperations(), execution.readTransaction());
     }
 
+    @Bean
+    com.videogameplatform.catalogue.application.preferences.port.SelectablePlatformsReadPort
+            selectablePlatformsReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.preferences
+                .JdbcSelectablePlatformsReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    /**
+     * Personal preferred platforms read in the shared read-only policy and replace their whole set
+     * in one bounded read-write transaction of their own.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.preferences.port.PlatformPreferenceStore
+            platformPreferenceStore(
+                    CatalogueReadExecution execution,
+                    PlatformTransactionManager transactionManager,
+                    CatalogueJdbcProperties properties) {
+        TransactionTemplate write = new TransactionTemplate(transactionManager);
+        write.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.preferences
+                .JdbcPlatformPreferenceStore(
+                execution.jdbcOperations(), execution.readTransaction(), write);
+    }
+
     /** Shared read-only, bounded-timeout execution policy for every catalogue query. */
     record CatalogueReadExecution(
             NamedParameterJdbcTemplate jdbcOperations, TransactionTemplate readTransaction) {}

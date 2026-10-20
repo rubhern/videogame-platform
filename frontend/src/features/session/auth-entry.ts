@@ -4,9 +4,12 @@ export function safeReturnTo(candidate: string | null): string {
   const queryStart = candidate.indexOf("?");
   const path = queryStart < 0 ? candidate : candidate.slice(0, queryStart);
   const query = queryStart < 0 ? "" : candidate.slice(queryStart + 1);
-  const keys = path === "/" ? ["view", "weeks", "platformIds", "regionIds", "page", "pageSize"]
+  // Mirrors the BFF allowlist: TOPómetro's periods (plus the pre-#285 list keys it still
+  // redirects), the release explorer's choices, search and the personal pages.
+  const keys = path === "/" ? ["granularity", "week", "month", "view", "weeks", "platformIds", "regionIds", "page", "pageSize"]
+    : path === "/lanzamientos" ? ["from", "to", "sort", "includeApproximateDates", "platformIds", "regionIds", "page", "pageSize"]
     : path === "/search" ? ["q", "page", "pageSize"]
-      : path === "/mis-puntuaciones" ? []
+      : path === "/mis-puntuaciones" || path === "/mis-plataformas" ? []
         : path === "/administracion/catalogo" ? ["tab", "year", "month"]
         : /^\/games\/[a-z0-9-]{1,100}(?:\/[a-z0-9-]{1,200})?$/.test(path ?? "") ? ["platformId", "regionId"]
           : null;

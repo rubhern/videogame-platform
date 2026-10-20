@@ -814,7 +814,8 @@ personal-data-ledger --ledger <ledger> --host-command "<host command>" \
 
 The JSON holds the Keycloak profile (with any names stored before they stopped being
 collected), the account's current Keycloak sessions with their start, last access and
-IP address, and every rating with its game, title, value and times. It is written once
+IP address, every rating with its game, title, value and times, and the preferred
+platforms (#295) with whether a choice was ever made. It is written once
 as `0600` and never overwritten; nothing is stored on the host. Send it only to the
 account's verified address, then delete the file. An export creates no ledger entry.
 
@@ -827,9 +828,10 @@ personal-data-ledger --ledger <ledger> --host-command "<host command>" \
 
 The request is recorded before the first change, then each step in order, every one
 recorded and safe to repeat: **revoke** (disable the Keycloak account, end its
-Keycloak sessions, revoke its BFF sessions, repeat expecting zero), **delete-ratings**,
-**delete-identity** and **verify** (no account, Keycloak session, rating or BFF
-session left). Public aggregates read ratings at request time, so nothing is
+Keycloak sessions, revoke its BFF sessions, repeat expecting zero), **delete-ratings**
+(which also deletes the preferred platforms, #295, under its existing recorded name),
+**delete-identity** and **verify** (no account, Keycloak session, rating, preferred
+platform or BFF session left). Public aggregates read ratings at request time, so nothing is
 recomputed. A step refuses to run out of order.
 
 On any failure the entry stays incomplete and the account stays disabled once

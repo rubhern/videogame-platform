@@ -201,6 +201,49 @@ class Runtime:
             user_id,
         ))
 
+    # Preferred platforms (#295) live in Catalogue beside the taxonomy they name. A database
+    # restored from before they existed has no such table, which simply holds nothing to erase.
+    def has_preferences(self, user_id: str) -> bool:
+        return self.sql("SELECT to_regclass('catalogue.platform_preference_choice') IS NOT NULL;\n", user_id) == "t"
+
+    def preference_count(self, user_id: str) -> int:
+        if not self.has_preferences(user_id):
+            return 0
+        return int(self.sql(
+            "SELECT count(*) FROM catalogue.platform_preference_choice WHERE user_id = :'user_id';\n",
+            user_id,
+        ))
+
+    def preferred_platforms(self, user_id: str) -> dict[str, object]:
+        if not self.has_preferences(user_id):
+            return {"configured": False, "platforms": []}
+        rows = self.sql(
+            """
+            SELECT json_build_object(
+                     'configured', EXISTS (SELECT 1 FROM catalogue.platform_preference_choice c
+                                           WHERE c.user_id = :'user_id'),
+                     'platforms', coalesce((SELECT json_agg(json_build_object(
+                                              'platformId', p.platform_id, 'name', p.display_name)
+                                            ORDER BY lower(p.display_name), p.platform_id)
+                                          FROM catalogue.platform_preference pref
+                                          JOIN catalogue.platform p ON p.platform_id = pref.platform_id
+                                          WHERE pref.user_id = :'user_id'), '[]'::json));
+            """,
+            user_id,
+        )
+        return json.loads(rows)
+
+    def delete_preferences(self, user_id: str) -> int:
+        # The choice row owns the account's preference rows, which cascade with it.
+        if not self.has_preferences(user_id):
+            return 0
+        return int(self.sql(
+            "WITH deleted AS (DELETE FROM catalogue.platform_preference_choice\n"
+            "                 WHERE user_id = :'user_id' RETURNING 1)\n"
+            "SELECT count(*) FROM deleted;\n",
+            user_id,
+        ))
+
     # BFF sessions ----------------------------------------------------------------------------
 
     def application_running(self) -> bool:
@@ -351,6 +394,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "account": profile,
         "identitySessions": sessions,
         "ratings": runtime.ratings(user_id),
+        "preferredPlatforms": runtime.preferred_platforms(user_id),
     }
 
 
@@ -388,12 +432,15 @@ def delete_ratings(runtime: Runtime, keycloak_user_id: str, user_id: str, must_b
     account = runtime.account(keycloak_user_id)
     if account is not None and account.get("enabled"):
         raise ProvisioningError("The account is enabled; revoke it before deleting its ratings")
-    return {"step": "delete-ratings", "deletedRatings": runtime.delete_ratings(user_id)}
+    # The step keeps its recorded name; it removes every product-owned personal row, the
+    # preferred platforms (#295) included, so existing ledger entries replay unchanged.
+    return {"step": "delete-ratings", "deletedRatings": runtime.delete_ratings(user_id),
+            "deletedPreferredPlatformChoices": runtime.delete_preferences(user_id)}
 
 
 def delete_identity(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
     require_application_state(runtime, must_be_stopped)
-    if runtime.rating_count(user_id):
+    if runtime.rating_count(user_id) or runtime.preference_count(user_id):
         raise ProvisioningError("The account still has ratings; delete them before the identity")
     if runtime.account(keycloak_user_id) is None:
         return {"step": "delete-identity", "identity": "already-absent"}
@@ -410,6 +457,8 @@ def verify(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stoppe
         failures.append("Keycloak still lists sessions")
     if runtime.rating_count(user_id):
         failures.append("ratings remain")
+    if runtime.preference_count(user_id):
+        failures.append("preferred platforms remain")
     if running and runtime.revoke_bff_sessions(user_id):
         failures.append("BFF sessions remained")
     if failures:

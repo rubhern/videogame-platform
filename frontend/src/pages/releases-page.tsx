@@ -9,6 +9,10 @@ import {
   type ReleasesShellState,
 } from "../features/releases/releases-shell";
 import { useReleasesQuery } from "../features/releases/use-releases-query";
+import { resolvePlatformFilter } from "../features/platform-preferences/interests";
+import { useInterests } from "../features/platform-preferences/use-platform-preferences";
+import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
+import { explorerRequestSearch } from "../features/platform-preferences/discovery-requests";
 
 const unsupportedFilterMessages: Partial<Record<ReleasesApiError["code"], string>> = {
   PLATFORM_NOT_SUPPORTED: "¿Qué plataforma es esa? A Gameómetro no le suena de nada",
@@ -37,7 +41,15 @@ export function ReleasesPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const search = readReleasesSearch(searchParams);
-  const query = useReleasesQuery(search);
+  // Preferred platforms resolve in the browser into the explicit filter the public read carries,
+  // and the read waits for them, so a first view never shows every platform and then narrows.
+  const interests = useInterests();
+  const { enabled } = useInterestsSwitch();
+  const platformFilter = resolvePlatformFilter(search.platformIds, enabled, interests);
+  const query = useReleasesQuery(
+    explorerRequestSearch(search, enabled, interests),
+    interests.status !== "pending",
+  );
 
   let state: ReleasesShellState;
   if (query.isPending) {
@@ -55,7 +67,9 @@ export function ReleasesPage() {
 
   return (
     <ReleasesShell
+      interests={interests}
       keptFrame={readDayFrame(location.state)}
+      platformFilter={platformFilter}
       onRetry={() => {
         void query.refetch();
       }}

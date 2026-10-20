@@ -17,6 +17,7 @@ import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResu
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedImage;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedLogo;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.Selection;
+import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.Item;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
@@ -78,8 +79,13 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                         window.from(),
                                         window.to(),
                                         FEATURED_LIMIT,
-                                        browsePolicy.releaseGroupLimit()))
+                                        browsePolicy.releaseGroupLimit(),
+                                        normalize(query.platformIds())))
                         .orElseThrow(CatalogueNotReadyException::new);
+        if (!result.platformsSupported()) {
+            throw new ReleaseQueryValidationException(
+                    ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
+        }
 
         List<FeaturedReleasesResult.Item> items =
                 java.util.stream.IntStream.range(0, result.items().size())
@@ -95,6 +101,17 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                         adjacent(granularity, start, 1, evaluatedOn)),
                 selection(result, evaluatedAt),
                 items);
+    }
+
+    /** The same deterministic normalization as release exploration: trimmed, distinct, sorted. */
+    private static List<String> normalize(List<String> values) {
+        return values.stream()
+                .filter(value -> value != null)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     private Optional<LocalDate> adjacent(

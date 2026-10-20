@@ -2,8 +2,8 @@
 
 The backend is a Java 25 / Spring Boot modular monolith. It implements every
 operation of the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
-(release discovery, catalogue search, game details, the BFF session, and the
-current user's personal ratings), the Keycloak login and rating-intent navigation
+(release discovery, catalogue search, game details, the selectable platforms, the BFF
+session, and the current user's personal ratings and preferred platforms), the Keycloak login and rating-intent navigation
 routes under `/auth`, the packaged frontend routes, Actuator health/info/metrics, and
 IGDB catalogue synchronization through scheduled and exceptional operator triggers.
 Behaviour is specified by the [use cases](../docs/architecture/application/mvp-use-cases.md) and
@@ -78,7 +78,7 @@ Configuration names, defaults, and secret classification are maintained in
 
 | Module      | Responsibility                                                                   |
 |-------------|----------------------------------------------------------------------------------|
-| `catalogue` | Games, releases, aliases, covers, local publication reads, and provider synchronization |
+| `catalogue` | Games, releases, aliases, covers, local publication reads, provider synchronization, and each user's preferred platforms |
 | `ratings`   | Release eligibility, aggregates, personal rating commands, and the `Mis puntuaciones` projection |
 | `identity`  | BFF session, external identity integration, and the rating-intent return context |
 | `api`       | HTTP delivery and mapping only                                                   |

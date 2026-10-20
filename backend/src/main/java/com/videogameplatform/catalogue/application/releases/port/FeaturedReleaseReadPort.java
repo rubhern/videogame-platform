@@ -25,10 +25,17 @@ public interface FeaturedReleaseReadPort {
     /**
      * The period as its inclusive first and last day, the ranking bound and the release bound. A
      * release qualifies only when its whole known date period lies inside these days, so a week
-     * admits exact days alone.
+     * admits exact days alone. A non-empty {@code platformIds} admits only releases on one of
+     * those platforms, before any game is ranked.
      */
-    record Criteria(LocalDate periodStart, LocalDate periodEnd, int limit, int releaseGroupLimit) {
+    record Criteria(
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            int limit,
+            int releaseGroupLimit,
+            List<String> platformIds) {
         public Criteria {
+            platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
             if (periodStart == null || periodEnd == null || periodEnd.isBefore(periodStart)) {
                 throw new IllegalArgumentException("A featured period needs ordered bounds");
             }
@@ -36,15 +43,31 @@ public interface FeaturedReleaseReadPort {
                 throw new IllegalArgumentException("A featured ranking must be bounded");
             }
         }
+
+        /** Every platform. */
+        public Criteria(
+                LocalDate periodStart, LocalDate periodEnd, int limit, int releaseGroupLimit) {
+            this(periodStart, periodEnd, limit, releaseGroupLimit, List.of());
+        }
     }
 
     /**
      * {@code items} is the bounded ranking. {@code qualifyingReleases} states whether the period
      * holds any qualifying release at all, which tells an unranked period apart from an empty one.
+     * {@code platformsSupported} is false when a requested platform is not part of the taxonomy,
+     * in which case nothing was ranked.
      */
-    record Result(String publicationVersion, boolean qualifyingReleases, List<Item> items) {
+    record Result(
+            String publicationVersion,
+            boolean qualifyingReleases,
+            List<Item> items,
+            boolean platformsSupported) {
         public Result {
             items = List.copyOf(items);
+        }
+
+        public Result(String publicationVersion, boolean qualifyingReleases, List<Item> items) {
+            this(publicationVersion, qualifyingReleases, items, true);
         }
     }
 

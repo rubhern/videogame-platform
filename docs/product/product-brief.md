@@ -143,6 +143,16 @@ copying/storage, acquisition beyond the bounded synchronization
 approves, or material provider-term changes reopen the provider and release-mode
 decisions before deployment.
 
+## Personal discovery preferences
+
+**Approved; implemented, awaiting owner review (#295):** a signed-in player may choose the
+platforms they play on and have TOPómetro and Explorar lanzamientos show those first; the
+**Mis plataformas** checkbox in **Mi cuenta** sets them aside for both screens at once. The choice is explicit, optional,
+skippable and editable in **Mis plataformas**; it narrows release discovery only, never search,
+game pages or `Mis puntuaciones`. It is not a recommendation engine, an inference from ratings,
+an ownership inventory or a general profile; genre preferences and follows remain outside this
+direction. Whether players use it is a hypothesis to observe, not yet evidence.
+
 ## Trustworthy quality and community direction
 
 The long-term first-party quality signal is the **Gameómetro community rating**.

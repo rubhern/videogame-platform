@@ -18,7 +18,8 @@ usefully expressed once in the contract.
 - Product IDs are opaque strings. Slugs are navigation, not identity. The browser
   never supplies rating owner identity.
 - Public catalogue/game and personal/session resources remain separate so shared
-  caches never vary by personal state.
+  caches never vary by personal state. Post-MVP (#295), a client applies the user's
+  preferred platforms only as an explicit public filter it sends itself.
 - Unknown query parameters and command properties are rejected, not ignored.
 
 ## HTTP semantics

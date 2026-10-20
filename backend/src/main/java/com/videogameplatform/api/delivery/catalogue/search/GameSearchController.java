@@ -3,10 +3,12 @@ package com.videogameplatform.api.delivery.catalogue.search;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.delivery.catalogue.details.GameDetailsEndpoint;
+import com.videogameplatform.api.delivery.catalogue.preferences.PlatformListEndpoint;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.model.GameDetails;
 import com.videogameplatform.api.generated.model.GameSearchPage;
 import com.videogameplatform.api.generated.model.GameSummary;
+import com.videogameplatform.api.generated.model.PlatformList;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import java.util.stream.Collectors;
@@ -15,12 +17,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Generated Catalogue HTTP adapter for UC-002 and UC-003. */
+/** Generated Catalogue HTTP adapter for UC-002, UC-003 and the selectable platforms (UC-014). */
 @RestController
 @RequestMapping("/api/v1")
 public class GameSearchController implements CatalogueApi {
 
     private final GameDetailsEndpoint details;
+    private final PlatformListEndpoint platforms;
     private final SearchCatalogueUseCase useCase;
     private final GameSearchApiMapper mapper;
     private final ConditionalRequestSupport conditionalRequests;
@@ -35,8 +38,10 @@ public class GameSearchController implements CatalogueApi {
             GameSearchApiMetrics metrics,
             GameSearchHttpProperties properties,
             GameDetailsEndpoint details,
+            PlatformListEndpoint platforms,
             DiscoveryScoresReader scores) {
         this.details = details;
+        this.platforms = platforms;
         this.useCase = useCase;
         this.mapper = mapper;
         this.conditionalRequests = conditionalRequests;
@@ -74,5 +79,10 @@ public class GameSearchController implements CatalogueApi {
     @Override
     public ResponseEntity<GameDetails> getGame(String gameId, String ifNoneMatch) {
         return details.get(gameId, ifNoneMatch);
+    }
+
+    @Override
+    public ResponseEntity<PlatformList> listPlatforms(String ifNoneMatch) {
+        return platforms.list(ifNoneMatch);
     }
 }

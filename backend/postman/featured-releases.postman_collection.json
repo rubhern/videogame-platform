@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "5a1f2b9c-1510-4e1a-9f0d-151151151151",
     "name": "VideoGame Platform Backend - Featured Releases",
-    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking of one ISO week or calendar month. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking of one ISO week or calendar month. An explicit platformIds restriction ranks only the candidates with a qualifying release on those platforms. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -505,6 +505,124 @@
           ]
         },
         "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+      },
+      "response": []
+    },
+    {
+      "name": "Featured releases restricted to explicit platforms",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Only releases on the named platforms make a game a candidate and are presented\", function () {",
+              "    const body = pm.response.json();",
+              "    const named = [\"10000000-0000-4000-8000-000000000001\", \"10000000-0000-4000-8000-000000000002\"];",
+              "    pm.expect(body.items.length).to.be.at.most(6);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item.releases).to.not.be.empty;",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(named).to.include(release.platform.platformId);",
+              "        });",
+              "    });",
+              "});",
+              "pm.test(\"The restricted selection stays a public, revalidating read\", function () {",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.be.a(\"string\").and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?granularity=month&platformIds=10000000-0000-4000-8000-000000000001&platformIds=10000000-0000-4000-8000-000000000002",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "granularity",
+              "value": "month"
+            },
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000002"
+            }
+          ]
+        },
+        "description": "Preferred platforms (#295) reach the public read only as explicit platformIds: the API ranks the restricted candidates before limiting them, and the representation never depends on a session."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown featured platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"An unknown platform is a stable validation error\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/platformIds\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?platformIds=platform_unknown",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "platform_unknown"
+            }
+          ]
+        },
+        "description": "A platform outside the local taxonomy is rejected before anything is ranked."
       },
       "response": []
     },

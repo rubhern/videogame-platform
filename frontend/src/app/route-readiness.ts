@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { LoaderFunctionArgs } from "react-router-dom";
+import { redirect, type LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
 import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
@@ -15,20 +15,59 @@ import { hasSearchableQuery, readGameSearchParams } from "../features/search/gam
 import { gameSearchQueryOptions } from "../features/search/use-game-search-query";
 import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
+import {
+  explorerRequestSearch,
+  featuredRequestPlatforms,
+} from "../features/platform-preferences/discovery-requests";
+import {
+  loadInterests,
+  PLATFORM_PREFERENCES_QUERY_KEY,
+} from "../features/platform-preferences/use-platform-preferences";
+import type { PlatformPreferences } from "../features/platform-preferences/platform-preferences-api";
+import { welcomePath } from "../features/platform-preferences/welcome-return";
+import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
 
 /** Complete the destination's read before the router restores its entry's scroll offset.
  * TanStack Query still owns data/errors; scroll offsets stay in memory; browser storage stays empty.
+ *
+ * Release discovery first resolves the visitor's preferred platforms (#295), so its read is already
+ * the personal one. A signed-in visitor who has never chosen is offered the first-run choice once
+ * per document, on the way into discovery only: rating returns land on a game page and personal or
+ * search pages never redirect. The destination travels with the offer and is restored after it.
  */
-export function routeReadiness(queryClient: QueryClient) {
+export function routeReadiness(queryClient: QueryClient, interestsSwitch: InterestsSwitch) {
+  let welcomeOffered = false;
   return async ({ request, params }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
-    if (url.pathname === "/") {
-      // A legacy release-list link only redirects; its destination reads on arrival.
-      if (legacyReleasesPath(url.searchParams) === null) {
-        await queryClient.prefetchQuery(featuredReleasesQueryOptions(readFeaturedSearch(url.searchParams)));
+    if (url.pathname === "/" || url.pathname === RELEASES_PATH) {
+      const interests = await loadInterests(queryClient);
+      const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
+      if (!welcomeOffered && preferences?.configured === false) {
+        welcomeOffered = true;
+        return redirect(welcomePath(url.pathname + url.search));
       }
-    } else if (url.pathname === RELEASES_PATH) {
-      await queryClient.prefetchQuery(releasesQueryOptions(readReleasesSearch(url.searchParams)));
+      if (url.pathname === "/") {
+        // A legacy release-list link only redirects; its destination reads on arrival.
+        if (legacyReleasesPath(url.searchParams) === null) {
+          const search = readFeaturedSearch(url.searchParams);
+          await queryClient.prefetchQuery(
+            featuredReleasesQueryOptions(
+              search,
+              featuredRequestPlatforms(interestsSwitch.enabled(), interests),
+            ),
+          );
+        }
+      } else {
+        await queryClient.prefetchQuery(
+          releasesQueryOptions(
+            explorerRequestSearch(
+              readReleasesSearch(url.searchParams),
+              interestsSwitch.enabled(),
+              interests,
+            ),
+          ),
+        );
+      }
     } else if (url.pathname === "/search") {
       const search = readGameSearchParams(url.searchParams);
       if (hasSearchableQuery(search)) await queryClient.prefetchQuery(gameSearchQueryOptions(search));
