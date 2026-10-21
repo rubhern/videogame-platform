@@ -5,9 +5,10 @@ export function safeReturnTo(candidate: string | null): string {
   const path = queryStart < 0 ? candidate : candidate.slice(0, queryStart);
   const query = queryStart < 0 ? "" : candidate.slice(queryStart + 1);
   // Mirrors the BFF allowlist: TOPómetro's periods (plus the pre-#285 list keys it still
-  // redirects), the release explorer's choices, search and the personal pages.
+  // redirects), the release explorer's and the calendar's choices, search and the personal pages.
   const keys = path === "/" ? ["granularity", "week", "month", "view", "weeks", "platformIds", "regionIds", "page", "pageSize"]
     : path === "/lanzamientos" ? ["from", "to", "sort", "includeApproximateDates", "platformIds", "regionIds", "page", "pageSize"]
+    : path === "/lanzamientos/calendario" ? ["month", "day", "platformIds", "regionIds"]
     : path === "/search" ? ["q", "page", "pageSize"]
       : path === "/mis-puntuaciones" || path === "/mis-plataformas" || path === "/mis-puntuaciones/estadisticas" ? []
         : path === "/administracion/catalogo" ? ["tab", "year", "month"]

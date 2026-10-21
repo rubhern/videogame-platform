@@ -6,6 +6,7 @@ import {
   RELEASES_PATH,
   releasesSearchPath,
 } from "../features/releases/releases-search";
+import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
 import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
 import { LegalLinks } from "../shared/legal/legal-links";
 import { AccountControl } from "./account-control";
@@ -16,6 +17,8 @@ export function AppShell() {
   const location = useLocation();
   const navigation = useNavigation();
   const onReleases = location.pathname === RELEASES_PATH;
+  // The calendar is a view of Lanzamientos (#250), so the entry stays current there too.
+  const inReleases = onReleases || location.pathname === CALENDAR_PATH;
   const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
   // On the explorer itself the entry returns to its first page and keeps the rest of the choice.
@@ -61,7 +64,7 @@ export function AppShell() {
               TOPómetro is the landing selection. */}
           <nav aria-label="Principal" className="primary-nav">
             <Link
-              aria-current={onReleases ? "page" : undefined}
+              aria-current={inReleases ? "page" : undefined}
               className="nav-link"
               to={releasesPath}
             >

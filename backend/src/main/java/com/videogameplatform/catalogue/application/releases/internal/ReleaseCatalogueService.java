@@ -15,9 +15,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 /** Framework-independent implementation of UC-001. */
 public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
@@ -43,10 +41,8 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         BrowseReleasesResult.Window window = window(query, evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
 
-        // Deterministic normalization for multi-select filters: trim, drop blanks, de-duplicate and
-        // sort, so repeated values collapse and the applied filter is stable and reproducible.
-        List<String> platformIds = normalize(query.platformIds());
-        List<String> regionIds = normalize(query.regionIds());
+        List<String> platformIds = ReleaseFilters.normalize(query.platformIds());
+        List<String> regionIds = ReleaseFilters.normalize(query.regionIds());
 
         Result result =
                 readPort.findPublishedReleases(
@@ -66,7 +62,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
-        validateTaxonomy(platformIds, regionIds, result);
+        ReleaseFilters.validate(platformIds, regionIds, result.platforms(), result.regions());
         long totalPages =
                 result.totalItems() / query.pageSize()
                         + (result.totalItems() % query.pageSize() == 0 ? 0 : 1);
@@ -76,20 +72,10 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 evaluatedOn,
                 window,
                 new BrowseReleasesResult.ActiveFilters(platformIds, regionIds),
-                availableFilters(result),
+                ReleaseFilters.available(result.platforms(), result.regions()),
                 result.items().stream().map(item -> toItem(item, evaluatedOn)).toList(),
                 new BrowseReleasesResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
-    }
-
-    private static List<String> normalize(List<String> values) {
-        return values.stream()
-                .filter(value -> value != null)
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .distinct()
-                .sorted()
-                .toList();
     }
 
     /**
@@ -118,47 +104,6 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                     ReleaseQueryValidationException.Code.RANGE_INVALID);
         }
         return new BrowseReleasesResult.Window(query.from(), query.to());
-    }
-
-    private static void validateTaxonomy(
-            List<String> platformIds, List<String> regionIds, Result result) {
-        // A selected value is valid only if it is a real taxonomy id, which the read port keeps
-        // representable in the returned facets. Any unknown id fails the whole request.
-        if (!platformIds.stream()
-                .allMatch(
-                        requested ->
-                                result.platforms().stream()
-                                        .anyMatch(platform -> platform.id().equals(requested)))) {
-            throw new ReleaseQueryValidationException(
-                    ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
-        }
-        if (!regionIds.stream()
-                .allMatch(
-                        requested ->
-                                result.regions().stream()
-                                        .anyMatch(region -> region.id().equals(requested)))) {
-            throw new ReleaseQueryValidationException(
-                    ReleaseQueryValidationException.Code.REGION_NOT_SUPPORTED);
-        }
-    }
-
-    private static BrowseReleasesResult.AvailableFilters availableFilters(Result result) {
-        Comparator<ReleaseBrowseReadPort.Taxonomy> order =
-                Comparator.comparing(
-                                (ReleaseBrowseReadPort.Taxonomy value) ->
-                                        value.name().toLowerCase(Locale.ROOT))
-                        .thenComparing(ReleaseBrowseReadPort.Taxonomy::id);
-        List<BrowseReleasesResult.Taxonomy> platforms =
-                result.platforms().stream()
-                        .sorted(order)
-                        .map(value -> new BrowseReleasesResult.Taxonomy(value.id(), value.name()))
-                        .toList();
-        List<BrowseReleasesResult.Taxonomy> regions =
-                result.regions().stream()
-                        .sorted(order)
-                        .map(value -> new BrowseReleasesResult.Taxonomy(value.id(), value.name()))
-                        .toList();
-        return new BrowseReleasesResult.AvailableFilters(platforms, regions);
     }
 
     private BrowseReleasesResult.Item toItem(Item item, LocalDate evaluatedOn) {
