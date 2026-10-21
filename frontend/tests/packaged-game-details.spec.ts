@@ -222,6 +222,7 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
         "9": 1,
         "10": 0,
       },
+      platforms: [],
     };
     await page.route("**/api/v1/games/*", (route) =>
       route.fulfill({ json: game }),
@@ -415,6 +416,7 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
       count: 1,
       mean: 7,
       distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 1, "8": 0, "9": 0, "10": 0 },
+      platforms: [],
     };
     game.externalScore = {
       source: "igdb",

@@ -11,6 +11,7 @@ import { CatalogueCover } from "../shared/ui/catalogue-cover";
 import { HeroTitle } from "../shared/ui/hero-title";
 import { StageLight } from "../shared/ui/stage-light";
 import { useGameLinkState } from "../shared/navigation/use-game-link-state";
+import { formatPersonalScore } from "../features/ratings/personal-score";
 
 function ExtremeGame({ extreme, label }: { extreme: RatingExtreme; label: string }) {
   const linkState = useGameLinkState();
@@ -23,7 +24,7 @@ function ExtremeGame({ extreme, label }: { extreme: RatingExtreme; label: string
     <CatalogueCover cover={cover} caption={false} />
     <div className="insights-extreme-copy">
       <p className="insights-caption">{label}</p>
-      <p className="insights-extreme-value" data-thermal={band ?? undefined}><strong>{extreme.value}</strong><span>/10 <span>{band ? thermalLabels[band] : ""}</span></span></p>
+      <p className="insights-extreme-value" data-thermal={band ?? undefined}><strong>{formatPersonalScore(extreme.value)}</strong><span>/10 <span>{band ? thermalLabels[band] : ""}</span></span></p>
       <h3><Link to={`/games/${game.gameId}/${game.slug}`} state={linkState}>{game.canonicalTitle}</Link></h3>
       {extreme.tiedGames > 1 ? <p className="insights-note">{number(extreme.tiedGames)} juegos comparten esta puntuación.</p> : null}
     </div>
@@ -59,7 +60,7 @@ function InsightsContent({ data }: { data: RatingInsights }) {
     </section>
     <div className="insights-exploration"><GenreInsights {...data} /><RatingActivity activity={data.activity} olderRatings={data.olderRatings} /></div>
     <details className="insights-method insights-calculation"><summary>Cómo se leen tus estadísticas</summary>
-      <p>Solo cuentan tus puntuaciones actuales. Cada juego pesa lo mismo en la media, redondeada a un decimal. Las temperaturas leen la puntuación que ves: Congelado (1–2), Frío (más de 2–4), Templado (más de 4–6), Caliente (más de 6–8) y Ardiendo (más de 8–10).</p>
+      <p>Solo cuentan tus puntuaciones actuales. Cada juego pesa lo mismo en la media, redondeada a un decimal. Si puntúas un juego por plataformas, cuenta una vez con la media de esas notas; en la distribución se redondea al entero más cercano (8,5 cuenta como 9). Las temperaturas leen la puntuación que ves: Congelado (1–2), Frío (más de 2–4), Templado (más de 4–6), Caliente (más de 6–8) y Ardiendo (más de 8–10).</p>
       <p>En géneros, los empates por cantidad se resuelven por el identificador del género. Por media, se compara primero la media sin redondear, después la muestra y por último el identificador. Un grupo pequeño no demuestra una preferencia.</p>
       <p>Las cifras cambian al editar o eliminar tus puntuaciones. No mezclan puntuaciones de la comunidad ni de fuentes externas.</p>
     </details>

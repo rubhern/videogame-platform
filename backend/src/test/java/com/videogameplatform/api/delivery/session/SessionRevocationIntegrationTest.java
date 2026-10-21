@@ -213,7 +213,7 @@ class SessionRevocationIntegrationTest {
                             return invocation.callRealMethod();
                         })
                 .when(ratingStore)
-                .create(eq(userId(alice)), any(), any(), any(), any());
+                .create(eq(userId(alice)), any(), any(), any(), any(), any());
 
         CompletableFuture<Integer> inFlight =
                 CompletableFuture.supplyAsync(() -> rateInBrowser(aliceLaptop, 8), browsers);

@@ -272,7 +272,7 @@ class GameDetailsApiIntegrationTest {
                 .allSatisfy(e -> assertThat(e.getValue().asInt()).isZero());
         var release = body.path("releases").get(0);
         assertThat(release.path("platform").path("platformId").asString())
-                .isEqualTo("playstation-5");
+                .isEqualTo("10000000-0000-4000-8000-000000000001");
         assertThat(release.path("region").path("regionId").asString()).isEqualTo("europe");
         // The same product label the release filters serve, never a provider or seed name.
         assertThat(release.path("region").path("name").asString()).isEqualTo("Europa");

@@ -108,7 +108,7 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                         """
             SELECT rs.*, gs.slug, gs.canonical_title, gs.cover_reference, gs.cover_source,
                    gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url,
-                   p.code AS platform_code, p.display_name AS platform_name,
+                   p.platform_id::text AS platform_id_text, p.display_name AS platform_name,
                    r.code AS region_code, r.display_name AS region_name
             FROM catalogue.release_snapshot rs
             JOIN catalogue.game_snapshot gs USING (publication_id, game_id)
@@ -208,8 +208,10 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
         return new ReleaseBrowseReadPort.ReleaseRow(
                 rs.getString("release_id"),
                 rs.getString("game_id"),
+                // The taxonomy's product identity, as every other catalogue read and the platforms
+                // a rating or a preference names (#359).
                 new ReleaseBrowseReadPort.Taxonomy(
-                        rs.getString("platform_code"), rs.getString("platform_name")),
+                        rs.getString("platform_id_text"), rs.getString("platform_name")),
                 new ReleaseBrowseReadPort.Taxonomy(
                         rs.getString("region_code"), rs.getString("region_name")),
                 ReleaseDateRowMapper.map(rs),

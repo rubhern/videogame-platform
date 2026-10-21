@@ -12,48 +12,69 @@ import com.videogameplatform.ratings.application.RatingStatistics;
 import com.videogameplatform.ratings.application.RatingWriteConflictException;
 import com.videogameplatform.ratings.application.RatingWriteException;
 import com.videogameplatform.ratings.application.port.PersonalRatingStore;
-import com.videogameplatform.ratings.domain.RatingValue;
+import com.videogameplatform.ratings.domain.PlatformScore;
+import com.videogameplatform.ratings.domain.RatingScore;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * PostgreSQL current-state store with conditional single-row writes and atomic aggregate reads.
- * Every write also replaces the game's community score in Catalogue's projection (ADR-0029) in the
- * same transaction, serialized per game so concurrent writes never project a stale aggregate.
+ * PostgreSQL current-state store with conditional single-row writes and atomic aggregate reads. A
+ * write stores the rating row, its whole platform set and the platforms' labels together, so the
+ * row's platform score summary, from which PostgreSQL derives the rating's one contribution,
+ * always describes the platform rows committed with it. Every write also replaces the game's
+ * community score in Catalogue's projection (ADR-0029) in the same transaction, serialized per
+ * game so concurrent writes never project a stale aggregate.
  */
 public final class JdbcPersonalRatingStore implements PersonalRatingStore {
-    private static final String RATING_VALUE = "value";
-    private static final String RETURNING =
-            " RETURNING game_id, value, created_at, updated_at, version_token";
     private static final String INSERT_RATING =
             """
             INSERT INTO ratings.rating(
-                user_id, game_id, value, created_at, updated_at, version_token)
-            VALUES (:user, :game, :value, :now, :now, :version)
+                user_id, game_id, value, platform_score_count, platform_score_sum,
+                created_at, updated_at, version_token)
+            VALUES (:user, :game, :value, :scored, :sum, :now, :now, :version)
             ON CONFLICT (user_id, game_id) DO NOTHING
-            """
-                    + RETURNING;
+            """;
     private static final String UPDATE_RATING =
             """
             UPDATE ratings.rating
-            SET value = :value, updated_at = :now, version_token = :next
+            SET value = :value, platform_score_count = :scored, platform_score_sum = :sum,
+                updated_at = :now, version_token = :next
             WHERE user_id = :user AND game_id = :game
               AND version_token = :expected
+            """;
+    private static final String FIND_RATING =
+            "SELECT r.game_id, r.value, r.created_at, r.updated_at, r.version_token,"
+                    + " platforms.* FROM ratings.rating r CROSS JOIN LATERAL ("
+                    + RatingPlatformRows.AGGREGATED
+                    + ") platforms WHERE r.user_id = :user AND r.game_id = :game";
+    // Labels are taken in platform order, so concurrent writers never wait on each other's
+    // label rows in opposite orders.
+    private static final String UPSERT_LABEL =
             """
-                    + RETURNING;
+            INSERT INTO ratings.platform_label(platform_id, display_name)
+            VALUES (:platform, :name)
+            ON CONFLICT (platform_id) DO UPDATE SET display_name = EXCLUDED.display_name
+            WHERE ratings.platform_label.display_name <> EXCLUDED.display_name
+            """;
+    private static final String INSERT_PLATFORM =
+            """
+            INSERT INTO ratings.rating_platform(user_id, game_id, platform_id, value)
+            VALUES (:user, :game, :platform, :value)
+            """;
 
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
@@ -80,29 +101,35 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
         }
         try {
             return find(user.get(), game.get());
-        } catch (DataAccessException | ArithmeticException exception) {
+        } catch (DataAccessException | ArithmeticException | IllegalArgumentException exception) {
             throw new PersonalRatingReadException(exception);
         }
     }
 
     @Override
     public RatingCommandResult create(
-            String userId, String gameId, RatingValue value, Instant now, String versionToken) {
+            String userId,
+            String gameId,
+            RatingScore score,
+            Map<String, String> labels,
+            Instant now,
+            String versionToken) {
         return write(
                 Action.CREATED,
                 gameId,
                 () -> {
-                    MapSqlParameterSource parameters =
-                            parameters(userId, gameId)
-                                    .addValue(RATING_VALUE, value.value())
-                                    .addValue("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
-                                    .addValue("version", UUID.fromString(versionToken));
-                    List<PersonalRating> inserted =
-                            jdbc.query(INSERT_RATING, parameters, JdbcPersonalRatingStore::rating);
-                    if (inserted.isEmpty()) {
+                    recordLabels(labels);
+                    int inserted =
+                            jdbc.update(
+                                    INSERT_RATING,
+                                    score(parameters(userId, gameId), score)
+                                            .addValue("now", timestamp(now))
+                                            .addValue("version", UUID.fromString(versionToken)));
+                    if (inserted == 0) {
                         throw new RatingAlreadyExistsException();
                     }
-                    return result(inserted.getFirst(), gameId);
+                    recordPlatforms(userId, gameId, score);
+                    return result(userId, gameId);
                 });
     }
 
@@ -110,7 +137,8 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     public RatingCommandResult update(
             String userId,
             String gameId,
-            RatingValue value,
+            RatingScore score,
+            Map<String, String> labels,
             Instant now,
             String expectedVersion,
             String nextVersion) {
@@ -121,18 +149,23 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
                     requireCurrentVersion(user, game, expectedVersion);
-                    MapSqlParameterSource parameters =
-                            parameters(userId, gameId)
-                                    .addValue(RATING_VALUE, value.value())
-                                    .addValue("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
-                                    .addValue("expected", UUID.fromString(expectedVersion))
-                                    .addValue("next", UUID.fromString(nextVersion));
-                    List<PersonalRating> updated =
-                            jdbc.query(UPDATE_RATING, parameters, JdbcPersonalRatingStore::rating);
-                    if (updated.isEmpty()) {
+                    recordLabels(labels);
+                    int updated =
+                            jdbc.update(
+                                    UPDATE_RATING,
+                                    score(parameters(userId, gameId), score)
+                                            .addValue("now", timestamp(now))
+                                            .addValue("expected", UUID.fromString(expectedVersion))
+                                            .addValue("next", UUID.fromString(nextVersion)));
+                    if (updated == 0) {
                         throw new RatingWriteConflictException();
                     }
-                    return result(updated.getFirst(), gameId);
+                    jdbc.update(
+                            "DELETE FROM ratings.rating_platform"
+                                    + " WHERE user_id = :user AND game_id = :game",
+                            parameters(userId, gameId));
+                    recordPlatforms(userId, gameId, score);
+                    return result(userId, gameId);
                 });
     }
 
@@ -145,6 +178,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
                     requireCurrentVersion(user, game, expectedVersion);
+                    // The rating's platforms cascade with it.
                     int deleted =
                             jdbc.update(
                                     """
@@ -162,7 +196,51 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                 });
     }
 
-    private RatingCommandResult result(PersonalRating rating, String gameId) {
+    private void recordLabels(Map<String, String> labels) {
+        for (var label : new TreeMap<>(labels).entrySet()) {
+            jdbc.update(
+                    UPSERT_LABEL,
+                    Map.of("platform", UUID.fromString(label.getKey()), "name", label.getValue()));
+        }
+    }
+
+    private void recordPlatforms(String userId, String gameId, RatingScore score) {
+        if (score.platforms().isEmpty()) {
+            return;
+        }
+        jdbc.batchUpdate(
+                INSERT_PLATFORM,
+                score.platforms().stream()
+                        .map(platform -> platform(userId, gameId, platform))
+                        .toArray(SqlParameterSource[]::new));
+    }
+
+    private static SqlParameterSource platform(
+            String userId, String gameId, PlatformScore platform) {
+        return parameters(userId, gameId)
+                .addValue("platform", UUID.fromString(platform.platformId()))
+                .addValue(
+                        "value",
+                        platform.value() == null ? null : platform.value().value(),
+                        java.sql.Types.SMALLINT);
+    }
+
+    private static MapSqlParameterSource score(
+            MapSqlParameterSource parameters, RatingScore score) {
+        return parameters
+                .addValue(
+                        "value",
+                        score.direct() == null ? null : score.direct().value(),
+                        java.sql.Types.SMALLINT)
+                .addValue("scored", score.scoredPlatforms())
+                .addValue("sum", score.platformScoreSum());
+    }
+
+    private RatingCommandResult result(String userId, String gameId) {
+        PersonalRating rating =
+                find(UUID.fromString(userId), UUID.fromString(gameId))
+                        .orElseThrow(
+                                () -> new IllegalStateException("A written rating was not found"));
         return new RatingCommandResult(rating, project(gameId));
     }
 
@@ -189,11 +267,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private Optional<PersonalRating> find(UUID userId, UUID gameId) {
         return jdbc
                 .query(
-                        """
-                        SELECT game_id, value, created_at, updated_at, version_token
-                        FROM ratings.rating
-                        WHERE user_id = :user AND game_id = :game
-                        """,
+                        FIND_RATING,
                         Map.of("user", userId, "game", gameId),
                         JdbcPersonalRatingStore::rating)
                 .stream()
@@ -203,10 +277,15 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private static PersonalRating rating(ResultSet result, int row) throws SQLException {
         return new PersonalRating(
                 result.getString("game_id"),
-                result.getInt(RATING_VALUE),
+                result.getObject("value") == null ? null : result.getInt("value"),
+                RatingPlatformRows.aggregated(result),
                 result.getTimestamp("created_at").toInstant(),
                 result.getTimestamp("updated_at").toInstant(),
                 result.getString("version_token"));
+    }
+
+    private static OffsetDateTime timestamp(Instant now) {
+        return OffsetDateTime.ofInstant(now, ZoneOffset.UTC);
     }
 
     private static MapSqlParameterSource parameters(String userId, String gameId) {
@@ -241,6 +320,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
         } catch (DataAccessException
                 | TransactionException
                 | IllegalArgumentException
+                | IllegalStateException
                 | ArithmeticException exception) {
             throw new RatingWriteException(exception);
         }

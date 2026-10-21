@@ -205,7 +205,11 @@ not affect readiness. The datasource is replaceable with the rest of telemetry.
 - Users with active ratings are distinct current rating owners, not registered users,
   visitors or sessions. Ratings per user uses that same denominator. Rankings use
   current active votes; the five-vote floor is an exploratory sample choice, not
-  statistical confidence or an approved product ranking policy.
+  statistical confidence or an approved product ranking policy. Post-MVP (#359,
+  [migration](../../backend/src/main/resources/db/migration/V20261021_120000__rate_games_by_platform.sql)),
+  a vote is a rating's one contribution: the score distribution places it in its half-up
+  integer bucket and rankings average the unrounded contributions, so scoring several
+  platforms never adds votes.
 - Unique visitors, sessions, registered users, conversion, retention, most visited
   Games and navigation cannot be derived from this instrumentation. No view-event
   ledger or identity analytics is added. The newly integrated localization pipeline

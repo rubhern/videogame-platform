@@ -73,6 +73,7 @@ function oneCommunityVote(): GameDetails["ratingStatistics"] {
     mean: 7,
     count: 1,
     distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 1, "8": 0, "9": 0, "10": 0 },
+    platforms: [],
   };
 }
 
@@ -168,6 +169,7 @@ describe("public game details", () => {
         "9": 1,
         "10": 0,
       },
+      platforms: [],
     };
     serve(game);
     renderApp(path);
@@ -176,6 +178,50 @@ describe("public game details", () => {
     expect(screen.getByText("Ardiendo")).toHaveTextContent("Temperatura: Ardiendo");
     expect(screen.getByText(/^Basada en/)).toHaveTextContent("Basada en 2 puntuaciones");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+  it("keeps per-platform community readings behind a quiet control, with plain numbers and counts", async () => {
+    const user = userEvent.setup();
+    const game = gameDetailsFixture();
+    game.ratingStatistics = {
+      ...oneCommunityVote(),
+      mean: 8.8,
+      count: 2,
+      platforms: [
+        { platform: { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" }, mean: 8, count: 1 },
+        { platform: { platformId: "playstation-5", name: "PlayStation 5" }, mean: 9, count: 1 },
+      ],
+    };
+    serve(game);
+    renderApp(path);
+    const community = await screen.findByRole("region", { name: "Puntuación de la comunidad" });
+    const toggle = within(community).getByRole("button", { name: "Por plataforma" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(community).queryByRole("list")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    const panel = within(community).getByRole("dialog", {
+      name: "Puntuación de la comunidad por plataforma en Resident Evil Requiem",
+    });
+    expect(panel).toHaveFocus();
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Nintendo Switch 28,01 puntuación");
+    expect(within(rows[1] as HTMLElement).getByLabelText("Media: 9,0 de 10")).toBeVisible();
+    // Platform counts are never read as voters: one vote per player stays the community's.
+    expect(panel).toHaveTextContent("cuenta una sola vez en la puntuación de la comunidad");
+    expect(within(community).getByText(/^Basada en/)).toHaveTextContent("Basada en 2 puntuaciones");
+
+    await user.keyboard("{Escape}");
+    expect(within(community).queryByRole("dialog")).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+  });
+  it("offers no per-platform control until a platform has a score", async () => {
+    const game = gameDetailsFixture();
+    game.ratingStatistics = oneCommunityVote();
+    serve(game);
+    renderApp(path);
+    const community = await screen.findByRole("region", { name: "Puntuación de la comunidad" });
+    await within(community).findByText(/^Basada en/);
+    expect(within(community).queryByRole("button", { name: "Por plataforma" })).not.toBeInTheDocument();
   });
   it("reads IGDB players between the community and the visitor's own reading, each with its one vote", async () => {
     const game = gameDetailsFixture();

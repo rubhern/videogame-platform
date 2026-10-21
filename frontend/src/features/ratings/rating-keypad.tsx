@@ -16,11 +16,20 @@ const FOCUS_STEPS: Record<string, number> = {
  * picks a value by accident; Enter, Space or a press calls `onPick`. What a pick means — saving
  * at once or choosing a pending value — belongs to the caller.
  */
-export function RatingKeypad({ value, onPick, disabled = false, describedBy, ref }: {
+export function RatingKeypad({
+  value,
+  onPick,
+  disabled = false,
+  describedBy,
+  label = "Puntuación del 1 al 10",
+  ref,
+}: {
   value: number | null;
   onPick: (value: number) => void;
   disabled?: boolean;
   describedBy?: string | undefined;
+  /** The group's accessible name, naming what is being scored when it is not the game itself. */
+  label?: string;
   ref?: Ref<HTMLDivElement>;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
@@ -41,7 +50,7 @@ export function RatingKeypad({ value, onPick, disabled = false, describedBy, ref
         ref={ref}
         className="rating-scale"
         role="group"
-        aria-label="Puntuación del 1 al 10"
+        aria-label={label}
         aria-describedby={describedBy}
         onKeyDown={moveFocus}
       >

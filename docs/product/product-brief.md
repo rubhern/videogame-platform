@@ -171,6 +171,16 @@ scale remains a direction, without evidence of a real community or demand yet.
 
 - A Gameómetro score represents only ratings from Gameómetro users. Never fabricate,
   estimate, or derive it from press or external scores.
+- **Owner-approved; implemented, awaiting owner review (#359):** a player may rate a game
+  directly or per platform played (PlayStation 5, PC, Switch…), optionally declaring
+  platforms without a score. Each player still casts one vote: the direct score or the mean
+  of their scored platforms, so rating several platforms never adds weight. The game page
+  keeps the community score as its primary reading and offers each platform's own mean and
+  number of scorers as secondary context, a basis for later platform statistics or
+  rankings, which remain unapproved. The
+  [domain model](../architecture/domain/mvp-domain-model.md#rating-policies) owns the rules
+  and [ADR-0031](../decisions/0031-count-one-community-vote-per-rating-across-platforms.md)
+  the rejected alternatives.
 - **Approved; acquisition and discovery presentation implemented, awaiting review:** adopt IGDB player scores
   (`rating` and `rating_count`) as a complement. #255 acquires and stores them locally, then presents them alongside the
   Ratings-owned community signal on release-discovery cards. #279 phase 3 adds them to the

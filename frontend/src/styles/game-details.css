@@ -403,6 +403,148 @@
     font-weight: 700;
   }
 
+  /* The count area also holds the per-platform readings' control, which wraps beneath the count
+     when the column is narrow. */
+  div.game-reading-description {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+  }
+
+  div.game-reading-description p {
+    margin: 0;
+  }
+
+  /* Per-platform community readings (#359): a quiet text control and an anchored panel of plain
+     numbers, secondary to the community reading and without meters or temperatures. */
+  .community-platforms {
+    position: relative;
+  }
+
+  .game-community-score:has(.community-platforms-panel) {
+    position: relative;
+    z-index: 16;
+  }
+
+  .community-platforms-toggle {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 4px;
+    padding: 2px 0;
+    color: var(--color-ice-light);
+    background: none;
+    font-size: inherit;
+    font-weight: 650;
+  }
+
+  .community-platforms-toggle .game-rating-caret {
+    width: 20px;
+    height: 20px;
+  }
+
+  .community-platforms-toggle .game-rating-caret::before {
+    border-color: currentColor;
+  }
+
+  .community-platforms-toggle[aria-expanded="true"] .game-rating-caret::before {
+    margin-top: 3px;
+    transform: rotate(225deg);
+  }
+
+  .community-platforms-toggle:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .community-platforms-toggle:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 2px;
+  }
+
+  .community-platforms-panel {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 6px);
+    left: 0;
+    display: grid;
+    width: min(20rem, calc(100vw - 32px));
+    gap: 12px;
+    border: 1px solid var(--color-line);
+    border-top: 2px solid var(--color-ice);
+    border-radius: 4px;
+    padding: 14px 16px;
+    color: var(--color-ink);
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .community-platforms-panel:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .community-platforms-panel {
+      animation: pop-in 180ms var(--ease-out) both;
+    }
+  }
+
+  .community-platforms-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .community-platforms-list li {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "mark name mean"
+      "mark count mean";
+    align-items: center;
+    column-gap: 10px;
+  }
+
+  .community-platforms-list .app-select-icon {
+    grid-area: mark;
+    justify-self: center;
+  }
+
+  .community-platforms-name {
+    grid-area: name;
+    font-size: 0.875rem;
+    font-weight: 650;
+  }
+
+  .community-platforms-count {
+    grid-area: count;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+  }
+
+  .community-platforms-list strong {
+    grid-area: mean;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .community-platforms-note {
+    margin: 0;
+    border-top: 1px solid var(--color-line);
+    padding-top: 10px;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
   /* IGDB's reading supports the community's: the same parts at a smaller size and in quieter
      ink, so it never reads as Gameómetro's own. Its white mark stands in the meter's place and
      is the reading's only link; the value wraps beneath it rather than shrinking. */

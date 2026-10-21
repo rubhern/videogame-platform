@@ -13,6 +13,7 @@ import com.videogameplatform.catalogue.application.releases.GetExternalPlayerSco
 import com.videogameplatform.identity.application.CurrentUser;
 import com.videogameplatform.ratings.application.DeletePersonalRatingUseCase;
 import com.videogameplatform.ratings.application.GetPersonalRatingUseCase;
+import com.videogameplatform.ratings.application.PersonalRatingCommand;
 import com.videogameplatform.ratings.application.PutPersonalRatingUseCase;
 import java.net.URI;
 import java.util.stream.Collectors;
@@ -79,16 +80,13 @@ public class PersonalRatingController implements RatingsApi {
         }
 
         String expectedVersion = create ? null : versionToken(ifMatch);
+        PersonalRatingCommand command = command(ratingWrite);
         var result =
                 currentUser.changeAsCurrentUser(
                         userId ->
                                 create
-                                        ? writes.create(userId, gameId, ratingWrite.getValue())
-                                        : writes.update(
-                                                userId,
-                                                gameId,
-                                                ratingWrite.getValue(),
-                                                expectedVersion));
+                                        ? writes.create(userId, gameId, command)
+                                        : writes.update(userId, gameId, command, expectedVersion));
         PersonalRating personal = mapper.toResponse(result.personalRating());
         RatingWriteResult body =
                 new RatingWriteResult(personal, mapper.toResponse(result.statistics()));
@@ -151,6 +149,21 @@ public class PersonalRatingController implements RatingsApi {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(mapper.toResponse(insights.get(userId())));
+    }
+
+    /** Absent or null platforms keep the saved set; an empty array clears it. */
+    private static PersonalRatingCommand command(RatingWrite write) {
+        return new PersonalRatingCommand(
+                write.getValue(),
+                write.getPlatforms() == null
+                        ? null
+                        : write.getPlatforms().stream()
+                                .map(
+                                        platform ->
+                                                new PersonalRatingCommand.PlatformChoice(
+                                                        platform.getPlatformId(),
+                                                        platform.getValue()))
+                                .toList());
     }
 
     private String userId() {

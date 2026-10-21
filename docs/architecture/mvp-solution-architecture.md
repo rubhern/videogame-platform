@@ -109,6 +109,14 @@ in its transaction.
 [ADR-0029](../decisions/0029-project-community-scores-for-the-release-order.md) owns the
 design, its consistency and its reconsideration triggers.
 
+Post-MVP (#359, implemented; awaiting owner review), a rating may name the platforms its user
+played on. Ratings validates a newly named platform against the game's release platforms
+from the same Catalogue game-details contract it reads for eligibility, and keeps its own
+platform rows and labels, so reads, the platform readings and owner deletion never call
+Catalogue. Each rating row stores its one contribution for every aggregate.
+[ADR-0031](../decisions/0031-count-one-community-vote-per-rating-across-platforms.md) owns the
+one-vote rule, the storage and the rejected alternatives.
+
 Post-MVP (#295, implemented; awaiting owner review), Catalogue also stores each user's
 preferred platforms, keyed by the BFF-derived `UserId` and constrained to its own platform
 taxonomy, behind a `preferences` application contract that API delivery calls with the

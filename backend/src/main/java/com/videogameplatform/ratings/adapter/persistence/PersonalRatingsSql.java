@@ -25,10 +25,11 @@ final class PersonalRatingsSql {
         SELECT page.game_id::text AS game_id, aggregate.mean, aggregate.count
         FROM unnest(CAST(:gameIds AS uuid[])) page(game_id)
         CROSS JOIN LATERAL (
-            SELECT round(avg(value),1) AS mean,count(*) AS count FROM ratings.rating
+            SELECT %s AS mean,count(*) AS count FROM ratings.rating
             WHERE game_id=page.game_id
         ) aggregate
-        """;
+        """
+                    .formatted(ContributionMean.exposed("contribution"));
 
     static String count(Criteria criteria) {
         return "SELECT count(*) " + scope(criteria);
@@ -39,7 +40,8 @@ final class PersonalRatingsSql {
                 switch (criteria.sort()) {
                     case UPDATED -> "r.updated_at";
                     case TITLE -> "g.normalized_title COLLATE \"C\"";
-                    case VALUE -> "r.value";
+                    // A rating's value for ordering is its one unrounded contribution.
+                    case VALUE -> "r.contribution";
                 };
         return "SELECT r.*, g.slug, g.canonical_title, g.cover_kind, g.cover_reference, "
                 + "g.cover_alternative_text, g.cover_attribution, g.cover_source_url "

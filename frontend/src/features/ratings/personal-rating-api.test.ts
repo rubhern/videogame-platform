@@ -13,7 +13,10 @@ const context = { gameId, csrfToken: "opaque-token" };
 
 const rating = {
   gameId,
+  mode: "direct" as const,
   value: 8,
+  contribution: 8,
+  platforms: [],
   createdAt: "2026-08-13T10:00:00Z",
   updatedAt: "2026-08-13T10:00:00Z",
   entityTag: '"rating-version-1"',
@@ -25,6 +28,7 @@ const statistics = {
   distribution: {
     "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 1, "9": 0, "10": 0,
   },
+  platforms: [],
 };
 
 function client(fetchMock: typeof fetch) {
@@ -78,7 +82,7 @@ describe("personal rating API", () => {
 
     const result = await putMyRating(
       context,
-      8,
+      { value: 8 },
       { create: true },
       client(fetchMock),
     );
@@ -99,7 +103,7 @@ describe("personal rating API", () => {
 
     await putMyRating(
       context,
-      9,
+      { value: 9 },
       { create: false, entityTag: '"rating-version-1"' },
       client(fetchMock),
     );
@@ -131,6 +135,9 @@ describe("personal rating API", () => {
     [412, "RATING_ALREADY_EXISTS", "conflict"],
     [404, "RATING_NOT_FOUND", "conflict"],
     [422, "RATING_VALUE_INVALID", "validation"],
+    [422, "RATING_SCORE_SOURCE_INVALID", "validation"],
+    [422, "RATING_PLATFORMS_INVALID", "validation"],
+    [422, "PLATFORM_NOT_SUPPORTED", "platform"],
     [422, "RATING_NOT_ELIGIBLE", "ineligible"],
     [429, "RATE_LIMIT_EXCEEDED", "rate-limited"],
     [500, "RATING_WRITE_FAILED", "unavailable"],
@@ -143,7 +150,7 @@ describe("personal rating API", () => {
         .mockResolvedValue(problem(status, code));
 
       const error = await failureOf(
-        putMyRating(context, 8, { create: true }, client(fetchMock)),
+        putMyRating(context, { value: 8 }, { create: true }, client(fetchMock)),
       );
 
       expect(error.kind).toBe(kind);

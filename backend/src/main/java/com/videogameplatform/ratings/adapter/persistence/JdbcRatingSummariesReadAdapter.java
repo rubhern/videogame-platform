@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
-/** SQL aggregates only selected Games; ratings and vote histories never cross into Java. */
+/** SQL aggregates one contribution per rating of only the selected Games; no vote crosses into Java. */
 public final class JdbcRatingSummariesReadAdapter implements RatingSummariesReadPort {
     private final NamedParameterJdbcOperations jdbc;
 
@@ -26,9 +26,10 @@ public final class JdbcRatingSummariesReadAdapter implements RatingSummariesRead
                     id -> result.put(id, Optional.of(new RatingStatistics.Summary(null, 0))));
             jdbc.query(
                     """
-                    SELECT game_id, round(avg(value)::numeric, 1) AS mean, count(*) AS count
+                    SELECT game_id, %s AS mean, count(*) AS count
                     FROM ratings.rating WHERE game_id IN (:games) GROUP BY game_id
-                    """,
+                    """
+                            .formatted(ContributionMean.exposed("contribution")),
                     Map.of("games", gameIds.stream().map(UUID::fromString).toList()),
                     rs -> {
                         while (rs.next())

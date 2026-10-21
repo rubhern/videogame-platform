@@ -130,12 +130,12 @@ class JdbcGameDetailsReadAdapterIntegrationTest {
             // The first release of a platform and region is presented for that combination.
             assertThat(presentedByPlatformAndRegion(releases))
                     .containsExactly(
-                            Map.entry("playstation-5/europe", SEED_EUROPE),
-                            Map.entry("playstation-5/worldwide", worldwideDay),
-                            Map.entry("playstation-5/japan", japanDay),
-                            Map.entry("nintendo-switch-2/worldwide", switchDay),
-                            Map.entry("windows-pc/worldwide", windowsDay),
-                            Map.entry("xbox-series/worldwide", xboxUnknown));
+                            Map.entry(PLAYSTATION_5 + "/europe", SEED_EUROPE),
+                            Map.entry(PLAYSTATION_5 + "/worldwide", worldwideDay),
+                            Map.entry(PLAYSTATION_5 + "/japan", japanDay),
+                            Map.entry(SWITCH_2 + "/worldwide", switchDay),
+                            Map.entry(WINDOWS_PC + "/worldwide", windowsDay),
+                            Map.entry(XBOX_SERIES + "/worldwide", xboxUnknown));
         } finally {
             for (String releaseId :
                     List.of(
@@ -174,8 +174,8 @@ class JdbcGameDetailsReadAdapterIntegrationTest {
         try {
             var releases = adapter.find(GAME_DEATH_STRANDING).orElseThrow().releases();
             assertThat(presentedByPlatformAndRegion(releases))
-                    .containsEntry("playstation-5/worldwide", full)
-                    .containsEntry("playstation-5/europe", SEED_EUROPE);
+                    .containsEntry(PLAYSTATION_5 + "/worldwide", full)
+                    .containsEntry(PLAYSTATION_5 + "/europe", SEED_EUROPE);
             assertThat(releases).extracting(ReleaseRow::releaseId).contains(early, full, negative);
             assertThat(
                             releases.stream()
@@ -194,6 +194,7 @@ class JdbcGameDetailsReadAdapterIntegrationTest {
         }
     }
 
+    /** Keyed by the platform's product identity and the region's code, as the read returns them. */
     private static Map<String, String> presentedByPlatformAndRegion(List<ReleaseRow> releases) {
         Map<String, String> presented = new LinkedHashMap<>();
         for (ReleaseRow release : releases) {

@@ -22,6 +22,9 @@ import com.videogameplatform.ratings.application.PersonalRatingsReadException;
 import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
 import com.videogameplatform.ratings.application.RatingNotEligibleException;
 import com.videogameplatform.ratings.application.RatingNotFoundException;
+import com.videogameplatform.ratings.application.RatingPlatformNotSupportedException;
+import com.videogameplatform.ratings.application.RatingPlatformsInvalidException;
+import com.videogameplatform.ratings.application.RatingScoreSourceInvalidException;
 import com.videogameplatform.ratings.application.RatingValueInvalidException;
 import com.videogameplatform.ratings.application.RatingWriteConflictException;
 import com.videogameplatform.ratings.application.RatingWriteException;
@@ -70,6 +73,8 @@ public class ApiExceptionHandler {
     private static final String ERROR_CODE_ATTRIBUTE =
             "com.videogameplatform.observability.error-code";
     private static final Pattern SQL_STATE = Pattern.compile("[0-9A-Z]{5}");
+    private static final Pattern PLATFORM_VALUE_FIELD =
+            Pattern.compile("platforms\\[(\\d+)]\\.value");
     private static final int MAX_CAUSE_DEPTH = 16;
     private static final String GAME_ID_PATH_POINTER = "/path/gameId";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
@@ -309,7 +314,44 @@ public class ApiExceptionHandler {
     @ExceptionHandler(RatingValueInvalidException.class)
     ResponseEntity<Problem> ratingValueInvalid(
             RatingValueInvalidException exception, HttpServletResponse response) {
-        return ratingValueInvalid(response);
+        return exception.platformIndex() == null
+                ? ratingValueInvalid(response)
+                : ratingValueInvalid(
+                        response, "/platforms/" + exception.platformIndex() + "/value");
+    }
+
+    @ExceptionHandler(RatingPlatformsInvalidException.class)
+    ResponseEntity<Problem> ratingPlatformsInvalid(
+            RatingPlatformsInvalidException exception, HttpServletResponse response) {
+        return ratingPlatformsInvalid(response);
+    }
+
+    @ExceptionHandler(RatingScoreSourceInvalidException.class)
+    ResponseEntity<Problem> ratingScoreSourceInvalid(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.RATING_SCORE_SOURCE_INVALID,
+                "Rating score source is invalid",
+                "A rating has exactly one score source.",
+                ErrorCategory.VALIDATION,
+                "/value",
+                "Send a direct value exactly when no platform carries a score.");
+    }
+
+    @ExceptionHandler(RatingPlatformNotSupportedException.class)
+    ResponseEntity<Problem> ratingPlatformUnsupported(
+            RatingPlatformNotSupportedException exception, HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.PLATFORM_NOT_SUPPORTED,
+                "Platform is not supported",
+                "Choose platforms from the game's releases.",
+                ErrorCategory.VALIDATION,
+                "/platforms/" + exception.platformIndex() + "/platformId",
+                "Must name one of the game's release platforms or a platform already saved on"
+                        + " this rating.");
     }
 
     @ExceptionHandler(RatingWriteException.class)
@@ -521,9 +563,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<Problem> requestBodyInvalid(
             MethodArgumentNotValidException exception, HttpServletResponse response) {
-        if (exception.getBindingResult().getFieldErrors().stream()
-                .anyMatch(error -> "value".equals(error.getField()))) {
-            return ratingValueInvalid(response);
+        var fields = exception.getBindingResult().getFieldErrors();
+        if (fields.stream()
+                .anyMatch(
+                        error ->
+                                "value".equals(error.getField())
+                                        || error.getField().startsWith("platforms"))) {
+            return ratingWriteInvalid(fields, response);
         }
         return requestMalformed(response);
     }
@@ -603,7 +649,13 @@ public class ApiExceptionHandler {
             return preconditionHeaderMalformed(response, "/headers/If-None-Match");
         }
         if ("ratingWrite".equals(parameter)) {
-            return ratingValueInvalid(response);
+            return ratingWriteInvalid(
+                    exception.getParameterValidationResults().stream()
+                            .filter(ParameterErrors.class::isInstance)
+                            .map(ParameterErrors.class::cast)
+                            .flatMap(errors -> errors.getFieldErrors().stream())
+                            .toList(),
+                    response);
         }
         // A preferred-platform command outside its schema (too many or blank values) is malformed.
         if (exception.getParameterValidationResults().stream()
@@ -674,6 +726,32 @@ public class ApiExceptionHandler {
     }
 
     private static ResponseEntity<Problem> ratingValueInvalid(HttpServletResponse response) {
+        return ratingValueInvalid(response, "/value");
+    }
+
+    /**
+     * A rating command outside its schema: a score outside 1–10 names its position, too many
+     * platforms is the set's own failure and anything else, such as a blank platform, is malformed.
+     */
+    private ResponseEntity<Problem> ratingWriteInvalid(
+            List<FieldError> fields, HttpServletResponse response) {
+        if (fields.stream().anyMatch(error -> "value".equals(error.getField()))) {
+            return ratingValueInvalid(response);
+        }
+        for (var error : fields) {
+            var match = PLATFORM_VALUE_FIELD.matcher(error.getField());
+            if (match.matches()) {
+                return ratingValueInvalid(response, "/platforms/" + match.group(1) + "/value");
+            }
+        }
+        if (fields.stream().anyMatch(error -> "platforms".equals(error.getField()))) {
+            return ratingPlatformsInvalid(response);
+        }
+        return requestMalformed(response);
+    }
+
+    private static ResponseEntity<Problem> ratingValueInvalid(
+            HttpServletResponse response, String pointer) {
         return problem(
                 response,
                 HttpStatus.UNPROCESSABLE_CONTENT,
@@ -681,8 +759,20 @@ public class ApiExceptionHandler {
                 "Rating value is invalid",
                 "Correct the rating value before retrying.",
                 ErrorCategory.VALIDATION,
-                "/value",
+                pointer,
                 "Must be an integer from 1 through 10.");
+    }
+
+    private static ResponseEntity<Problem> ratingPlatformsInvalid(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.RATING_PLATFORMS_INVALID,
+                "Rating platforms are invalid",
+                "Name each platform at most once and at most 50 platforms.",
+                ErrorCategory.VALIDATION,
+                "/platforms",
+                "Platform identifiers must be unique.");
     }
 
     /** A precondition header is present but is not the quoted strong tag the contract requires. */

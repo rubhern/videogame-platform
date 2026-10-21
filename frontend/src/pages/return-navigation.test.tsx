@@ -93,7 +93,10 @@ const ratingsPage = {
       game: { gameId: GAME_ID, slug: SLUG, canonicalTitle: TITLE, primaryCover: cover },
       personalRating: {
         gameId: GAME_ID,
+        mode: "direct",
         value: 7,
+        contribution: 7,
+        platforms: [],
         createdAt: "2026-08-13T10:00:00Z",
         updatedAt: "2026-08-13T10:00:00Z",
         entityTag: '"version-1"',

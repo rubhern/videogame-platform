@@ -14,6 +14,7 @@ import {
   putMyRating,
   type RatingCommandError,
   type RatingStatistics,
+  type RatingWrite,
 } from "./personal-rating-api";
 
 function personalRatingQueryKey(gameId: string) {
@@ -37,7 +38,7 @@ export function usePersonalRating(gameId: string, enabled: boolean) {
 }
 
 export type RatingCommand = (
-  | { type: "save"; csrfToken: string; value: number }
+  | { type: "save"; csrfToken: string; write: RatingWrite }
   | { type: "delete"; csrfToken: string }) & { currentRating?: PersonalRating };
 
 type CommandOutcome =
@@ -80,7 +81,7 @@ export function useRatingCommand(gameId: string) {
       }
       const result = await putMyRating(
         context,
-        command.value,
+        command.write,
         current === null
           ? { create: true }
           : { create: false, entityTag: current.entityTag },
@@ -113,7 +114,8 @@ export function useRatingCommand(gameId: string) {
       if (error.kind === "authentication" || error.kind === "csrf") {
         void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       }
-      if (error.kind === "ineligible") {
+      // A platform the game no longer releases on: re-read the game, whose releases list them.
+      if (error.kind === "ineligible" || error.kind === "platform") {
         void queryClient.invalidateQueries({
           queryKey: gameDetailsQueryKey(gameId),
         });

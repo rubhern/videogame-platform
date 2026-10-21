@@ -17,7 +17,10 @@ const ratingPath = `/api/v1/me/ratings/${gameId}`;
 
 type Rating = {
   gameId: string;
-  value: number;
+  mode: "direct" | "platforms";
+  value: number | null;
+  contribution: number;
+  platforms: { platform: { platformId: string; name: string }; value: number | null }[];
   createdAt: string;
   updatedAt: string;
   entityTag: string;
@@ -31,6 +34,7 @@ function statistics(mean: number | null, count: number) {
     distribution: {
       "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0,
     },
+    platforms: [],
   };
 }
 
@@ -53,11 +57,15 @@ class ScriptedBackend {
 
   constructor(private readonly page: Page) {}
 
+  /** A general score; like the API, it keeps the platforms the rating was played on. */
   private persist(value: number): Rating {
     this.version += 1;
     return {
       gameId,
+      mode: "direct",
       value,
+      contribution: value,
+      platforms: this.rating?.platforms ?? [],
       createdAt: this.rating?.createdAt ?? "2026-08-13T10:00:00Z",
       updatedAt: "2026-08-13T10:00:00Z",
       entityTag: `"rating-version-${this.version}"`,
@@ -233,7 +241,10 @@ test("a stale ETag conflict shows the winning state and never retries the comman
   backend.version = 1;
   backend.rating = {
     gameId,
+    mode: "direct",
     value: 7,
+    contribution: 7,
+    platforms: [],
     createdAt: "2026-08-13T10:00:00Z",
     updatedAt: "2026-08-13T10:00:00Z",
     entityTag: '"rating-version-1"',
@@ -243,7 +254,7 @@ test("a stale ETag conflict shows the winning state and never retries the comman
   await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
   // Another session wins before this one submits.
-  backend.rating = { ...backend.rating, value: 5, entityTag: '"rating-version-2"' };
+  backend.rating = { ...backend.rating, value: 5, contribution: 5, entityTag: '"rating-version-2"' };
   await openScale(page);
   await note(page, 9).click();
 
@@ -264,7 +275,10 @@ test("rejected and ambiguous commands preserve the previous valid state", async 
   backend.version = 1;
   backend.rating = {
     gameId,
+    mode: "direct",
     value: 7,
+    contribution: 7,
+    platforms: [],
     createdAt: "2026-08-13T10:00:00Z",
     updatedAt: "2026-08-13T10:00:00Z",
     entityTag: '"rating-version-1"',

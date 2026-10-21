@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { GameGenres } from "../../shared/catalogue/game-genres";
+import { PlatformMarks } from "../../shared/catalogue/platform-marks";
+import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { toDiscoveryScores } from "../../shared/score/discovery-scores-model";
 import { GameMeter } from "../../shared/score/game-meter";
@@ -9,6 +12,9 @@ import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import type { MyRatingItem } from "./my-ratings-api";
 import { useRatingCommand } from "./use-personal-rating";
 import type { RatingCommandError } from "./personal-rating-api";
+import { contributionSource, formatPersonalScore, scoredPlatforms } from "./personal-score";
+import { gameDetailsQueryOptions } from "../game-details/game-details-api";
+import { PlatformRatingDialog } from "./platform-rating-dialog";
 import { RatingKeypad } from "./rating-keypad";
 import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
@@ -17,6 +23,7 @@ const failures: Record<RatingCommandError["kind"], string> = {
   csrf: "No se pudo verificar la solicitud. Recarga la página antes de volver a intentarlo.",
   conflict: "Tu puntuación cambió en otra sesión. Te mostramos la puntuación actual: revísala antes de volver a intentarlo.",
   validation: "Elige una puntuación entera del 1 al 10.",
+  platform: "Una de tus plataformas ya no figura en este juego. Revísalas en la ficha del juego.",
   ineligible: "Este juego ya no admite cambios de puntuación. Puedes eliminar tu puntuación.",
   "rate-limited": "Espera un momento antes de volver a intentarlo.",
   unavailable: "No se pudo aplicar el cambio. Tu puntuación anterior se conserva.",
@@ -40,6 +47,12 @@ const formatDate = (value: string) => new Intl.DateTimeFormat("es-ES", {
  * outside press or moving focus away closes the panel without a command. A concurrent or
  * ambiguous outcome blocks further commands until the collection has been read again
  * (`readAt` is the time of the last successful read).
+ *
+ * <p>Post-MVP (#359) the reading is the rating's one contribution, with the platforms it was
+ * played on as quiet marks beneath. A rating scored by platform opens the same panel with its
+ * breakdown instead of the keypad, so a general score saved here never replaces platform scores,
+ * and a general one keeps its platforms. **Puntuar por plataforma** opens the game page's own
+ * platform sheet; it reads the game's public details only then, for their release platforms.
  */
 export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   item: MyRatingItem; csrfToken: string; readAt: number; onChanged: (message: string) => void;
@@ -58,16 +71,23 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   const deleteButton = useRef<HTMLButtonElement>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
   const command = useRatingCommand(item.game.gameId);
+  const [editingPlatforms, setEditingPlatforms] = useState(false);
+  // The game's release platforms, read once the sheet is asked for; the public read is cached.
+  const details = useQuery({ ...gameDetailsQueryOptions(item.game.gameId), enabled: editingPlatforms });
   const { game, personalRating, ratingSummary, externalScore } = item;
   // The same readings as discovery and search cards: only valid sources, never an invented one.
   const scores = toDiscoveryScores(ratingSummary === undefined ? undefined
     : { community: ratingSummary, ...(externalScore === undefined ? {} : { external: externalScore }) });
   const createdDate = formatDate(personalRating.createdAt);
   const updatedDate = formatDate(personalRating.updatedAt);
-  const current = personalRating.value;
+  const current = personalRating.contribution;
+  const byPlatform = personalRating.mode === "platforms";
+  const source = contributionSource(personalRating);
   const band = thermalBand(current);
-  const pendingBand = thermalBand(selected);
-  const changed = selected !== current;
+  const pendingBand = selected === null ? null : thermalBand(selected);
+  const changed = !byPlatform && selected !== personalRating.value;
+  const reading = byPlatform || selected === null ? current : selected;
+  const readingBand = byPlatform ? band : pendingBand;
   const busy = command.isPending;
   const mustRead = failure !== null && failure.readAt === readAt
     && (failure.error.kind === "ambiguous" || failure.error.kind === "conflict");
@@ -79,7 +99,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
 
   function openEditor() {
     if (!mustRead) setFailure(null);
-    setSelected(current);
+    setSelected(personalRating.value);
     setConfirmingDelete(false);
     setOpen(true);
   }
@@ -100,7 +120,8 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
 
   // Opening lands on the pressed value, so arrows browse the scale from the current rating.
   useEffect(() => {
-    if (open) keypad.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
+    // A rating scored by platform has no keypad here: the panel itself takes focus.
+    if (open) (keypad.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]') ?? editor.current)?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -131,10 +152,11 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   }, [open, busy]);
 
   function save() {
-    if (busy || mustRead || !changed) return;
+    if (busy || mustRead || !changed || selected === null) return;
     setFailure(null);
     setConfirmingDelete(false);
-    command.mutate({ type: "save", value: selected, csrfToken, currentRating: personalRating }, {
+    // Only the general score: the platforms it was played on stay as they are.
+    command.mutate({ type: "save", write: { value: selected }, csrfToken, currentRating: personalRating }, {
       onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} guardada: ${selected}/10.`); },
       onError: fail,
     });
@@ -147,6 +169,22 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
       onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} eliminada.`); },
       onError: fail,
     });
+  }
+
+  function editPlatforms() {
+    if (busy || mustRead) return;
+    setFailure(null);
+    setConfirmingDelete(false);
+    setOpen(false);
+    setEditingPlatforms(true);
+  }
+
+  function platformsClosed(saved: typeof personalRating | null) {
+    setEditingPlatforms(false);
+    trigger.current?.focus();
+    if (saved !== null) {
+      onChanged(`Puntuación de ${game.canonicalTitle} guardada: ${formatPersonalScore(saved.contribution)}/10.`);
+    }
   }
 
   // The row's edge takes the temperature of the visitor's own rating, so the ledger reads at a glance.
@@ -163,35 +201,61 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
     }}>
       {/* The name follows the visible reading, without its decorative separator, then the action. */}
       <button ref={trigger} type="button" className="my-rating-value" data-thermal={band ?? undefined}
-        aria-label={`Tu puntuación ${band ? `${thermalLabels[band]} ` : ""}${current}/10. Cambiar o eliminar`}
+        aria-label={`Tu puntuación ${band ? `${thermalLabels[band]} ` : ""}${formatPersonalScore(current)}/10${source ? `, ${source.toLocaleLowerCase("es-ES")}` : ""}. Cambiar o eliminar`}
         aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? editorId : undefined}
         onClick={() => { if (open) close(false); else openEditor(); }}>
         <GameMeter className="my-rating-meter" value={current} />
         <span className="my-rating-label">Tu puntuación</span>
         <span className="my-rating-reading">
-          <strong>{current}/10</strong>{band ? <b>{thermalLabels[band]}</b> : null}
+          <strong>{formatPersonalScore(current)}/10</strong>{band ? <b>{thermalLabels[band]}</b> : null}
         </span>
         <span className="my-rating-hint" aria-hidden="true" />
       </button>
+      {/* Where it was played, as quiet marks: never a breakdown on the line itself. */}
+      {personalRating.platforms.length > 0 ? <div className="my-rating-platforms">
+        <PlatformMarks label={`Plataformas en las que has jugado a ${game.canonicalTitle}`} visible={3}
+          marks={personalRating.platforms.map((entry) => ({ key: entry.platform.platformId, name: entry.platform.name,
+            icon: platformIcon(entry.platform.platformId, entry.platform.name) }))} />
+        {source ? <span>{source}</span> : null}
+      </div> : null}
+      {editingPlatforms && details.isPending ? <p className="my-rating-pending" role="status">Cargando plataformas…</p> : null}
+      {editingPlatforms && details.isError ? <div className="game-rating-feedback game-rating-feedback-error" role="alert">
+        <p>No se pudieron cargar las plataformas del juego. Inténtalo de nuevo más tarde.</p>
+        <button className="button" type="button" onClick={() => setEditingPlatforms(false)}>Cerrar</button>
+      </div> : null}
+      {editingPlatforms && details.data ? <PlatformRatingDialog csrfToken={csrfToken} game={details.data}
+        onClose={platformsClosed} rating={personalRating} /> : null}
       {open ? <div ref={editor} id={editorId} className="my-rating-editor" role="dialog"
         aria-label={`Tu puntuación de ${game.canonicalTitle}`} tabIndex={-1}
-        data-thermal={pendingBand ?? undefined}>
+        data-thermal={readingBand ?? undefined}>
         <div className="my-rating-editor-reading">
           {/* The panel's meter swings to the pending value; the persisted one stays named beside it. */}
-          <GameMeter className="my-rating-editor-meter" value={selected} />
+          <GameMeter className="my-rating-editor-meter" value={reading} />
           <p>
             <span>{changed ? "Nueva puntuación" : "Puntuación actual"}</span>
-            <strong>{selected}/10</strong>
-            {pendingBand ? <b>{thermalLabels[pendingBand]}</b> : null}
+            <strong>{formatPersonalScore(reading)}/10</strong>
+            {readingBand ? <b>{thermalLabels[readingBand]}</b> : null}
           </p>
           {changed ? <p className="my-rating-editor-was" data-thermal={band ?? undefined}>
             <span>Puntuación actual</span>
-            <strong>{current}/10</strong>
+            <strong>{formatPersonalScore(current)}/10</strong>
             {band ? <b>{thermalLabels[band]}</b> : null}
           </p> : null}
         </div>
-        <RatingKeypad ref={keypad} value={selected} onPick={setSelected} disabled={busy}
-          describedBy={failure ? feedbackId : undefined} />
+        {byPlatform ? <div className="my-rating-editor-platforms">
+          <p>{source}.</p>
+          <ul aria-label="Tus notas por plataforma">
+            {scoredPlatforms(personalRating).map((entry) => <li key={entry.platform.platformId}>
+              <span>{entry.platform.name}</span>
+              <strong data-thermal={thermalBand(entry.value) ?? undefined}>{entry.value}</strong>
+            </li>)}
+          </ul>
+        </div> : <RatingKeypad ref={keypad} value={selected} onPick={setSelected} disabled={busy}
+          describedBy={failure ? feedbackId : undefined} />}
+        <button className="button my-rating-editor-platforms-edit" type="button" disabled={busy || mustRead}
+          onClick={editPlatforms}>
+          {personalRating.platforms.length > 0 ? "Editar plataformas" : "Puntuar por plataforma"}
+        </button>
         {busy ? <p className="my-rating-pending" role="status">
           {command.variables?.type === "delete" ? "Eliminando puntuación…" : "Guardando cambio…"}
         </p> : null}
@@ -199,11 +263,11 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
           <p>{failures[failure.error.kind]}</p>
           {failure.error.correlationId ? <p className="game-rating-footnote">Referencia: {failure.error.correlationId}</p> : null}
         </div> : null}
-        <div className="my-rating-editor-actions">
+        {byPlatform ? null : <div className="my-rating-editor-actions">
           <button className="button" type="button" disabled={busy} onClick={() => close(true)}>Cancelar</button>
           <button className="button button-primary" type="button" disabled={busy || mustRead || !changed}
             onClick={save}>Guardar puntuación</button>
-        </div>
+        </div>}
         <div className="my-rating-editor-danger">
           <button ref={deleteButton} className="button rating-remove" type="button" disabled={busy || mustRead}
             aria-expanded={confirmingDelete} onClick={() => setConfirmingDelete(value => !value)}>

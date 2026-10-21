@@ -10,7 +10,8 @@
 commercial releases, platform/region taxonomy, external references, external player
 scores, provenance, verification, review, and freshness, and, post-MVP (#295), each
 user's preferred platforms over that taxonomy. `Ratings` owns personal rating
-lifecycle, eligibility, and aggregate calculation. Identity supplies only authenticated
+lifecycle, including the platforms a rating names (#359), eligibility, and aggregate
+calculation. Identity supplies only authenticated
 `UserId`; provider credentials, sessions, and accounts are outside the domain.
 
 | Concept | Meaning |
@@ -32,8 +33,10 @@ lifecycle, eligibility, and aggregate calculation. Identity supplies only authen
 | `Genre` / `GameMode` | Product taxonomy classifying a game's style and ways to play, acquired like platform taxonomy |
 | Verification / review / freshness | Independent evidence, ambiguity, and time-policy states; freshness is internal operational evidence of the last committed provider check, never a player-facing state |
 | Preferred platforms | One `UserId`'s chosen set of taxonomy platforms that release discovery may apply as an explicit filter, plus whether that user has ever made the choice; never a recommendation, an ownership claim or an inference |
-| `Rating` | One active integer 1–10 identified by `UserId + GameId` |
-| `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
+| `Rating` | One active rating identified by `UserId + GameId`: a direct integer 1–10, or, post-MVP (#359), the integer scores its user gave the platforms they played on; either way one contribution to the community |
+| Played platform | Post-MVP (#359): a taxonomy platform a user declares having played a rated game on, optionally with that user's own integer 1–10 score there; personal experience of the rating, never an ownership claim or an inference |
+| Contribution | A rating's one community vote: its direct value, or the arithmetic mean of its scored platforms, kept unrounded |
+| `RatingStatistics` | Unweighted mean of one contribution per rating, the count of ratings, a 1–10 distribution of contributions and, post-MVP (#359), each platform's own reading |
 
 A provider result becomes a `Game` only when it satisfies the explicit import policy;
 anything else stays outside the domain. Every visible game resolves to an approved
@@ -86,6 +89,23 @@ commercial release. This makes the reason independent of tuple ordering.
 Statistics use only active ratings. Count equals the distribution sum; count zero has
 no numeric mean; exposed mean is half-up to one decimal. Spanish presentation changes
 the decimal separator, not the numeric contract.
+
+Post-MVP (#359, [ADR-0031](../../decisions/0031-count-one-community-vote-per-rating-across-platforms.md)):
+a rating has exactly one score source. With a direct value, that value is its
+contribution and any played platforms only describe the experience; once a platform
+carries a score, the contribution is the arithmetic mean of the scored platforms and there
+is no direct value. Each user therefore casts one vote however many platforms they score.
+The community mean averages unrounded contributions; each rating sits in exactly one
+distribution bucket, its contribution rounded half up to the nearest integer, so a
+platform-derived 8.5 counts as 9 while the mean keeps 8.5. A platform's own reading is the
+mean of the explicit scores users gave that platform and how many users gave one; a user
+counts at most once per platform and may count on several, so platform counts never add
+up to voters. Transitions are explicit: a command names the direct value whenever no
+platform is left scored, a direct value never silently replaces platform scores, and no
+previous direct value is kept to be restored later. A newly named platform must be one of
+the game's current release platforms; one already on the rating stays valid whatever
+later evidence holds. Existing ratings are direct ratings without platforms; none is
+inferred from preferences, devices or releases.
 
 ## Canonical invariant register
 
@@ -153,7 +173,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `PREF-001` | Preferred platforms belong to exactly one server-derived `UserId`; only that user reads or replaces them, and no other user's request, Keycloak attribute or public read ever carries them. |
 | `PREF-002` | A preferred platform is a platform of the local taxonomy; a set is replaced as a whole, holds at most 50 platforms, and an invalid set changes nothing. |
 | `PREF-003` | A saved choice, including an empty one, records that the user has chosen; a user who never chose is distinct from one who chose none. Turning preferences off for a view never changes the saved set. |
-| `RAT-001` | Rating value is an integer 1–10. |
+| `RAT-001` | Every score of a rating, a direct value or a platform's, is an integer 1–10. |
 | `RAT-002` | At most one active rating exists per user/game. |
 | `RAT-003` | Create requires authentication. |
 | `RAT-004` | Only the owner updates/deletes. |
@@ -163,11 +183,15 @@ Downstream documents may reference these IDs but must not redefine them.
 | `RAT-008` | Invalid/failed operations preserve prior valid state. |
 | `RAT-009` | Personal and aggregate ratings are distinct. |
 | `RAT-010` | Rating identity is `UserId + GameId`, not a surrogate. |
+| `RAT-011` | A rating names each played platform at most once, at most 50 of them, each a taxonomy platform; played platforms and their scores belong to the rating and are removed with it. |
+| `RAT-012` | A rating has exactly one score source, a direct value or at least one scored platform, and contributes exactly one vote: the direct value or the mean of its scored platforms. |
+| `RAT-013` | A newly named platform is one of the game's current release platforms; a platform already on the rating stays valid when catalogue evidence changes, and no platform is inferred. |
 | `AGG-001` | Statistics use only active valid personal ratings. |
-| `AGG-002` | Count equals the distribution-bucket sum. |
+| `AGG-002` | Count equals the distribution-bucket sum; each rating sits in the bucket of its contribution rounded half up. |
 | `AGG-003` | Count zero has no numeric mean. |
-| `AGG-004` | Mean is unweighted arithmetic mean. |
+| `AGG-004` | Mean is the unweighted arithmetic mean of one unrounded contribution per rating. |
 | `AGG-005` | Exposed mean is half-up to one decimal. |
+| `AGG-006` | A platform's reading averages only explicit scores for that platform and counts users who gave one; platform counts are never voters. |
 | `USR-001` | `Mis puntuaciones` exposes only the authenticated user's ratings. |
 | `USR-002` | User scoping precedes personal search/sort/pagination. |
 

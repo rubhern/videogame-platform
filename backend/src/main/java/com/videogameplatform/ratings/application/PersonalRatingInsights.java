@@ -6,7 +6,11 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
-/** Fixed-size description of one user's current ratings; never a historical score series. */
+/**
+ * Fixed-size description of one user's current ratings; never a historical score series. Every
+ * figure counts each rating's one contribution (its direct value or the mean of its scored
+ * platforms); the distribution places it in its half-up integer bucket.
+ */
 public record PersonalRatingInsights(
         LocalDate evaluatedOn,
         long total,
@@ -33,7 +37,7 @@ public record PersonalRatingInsights(
             String slug,
             String canonicalTitle,
             CatalogueCover cover,
-            int value,
+            BigDecimal value,
             long tiedGames) {}
 
     public record Month(YearMonth month, long count) {}
