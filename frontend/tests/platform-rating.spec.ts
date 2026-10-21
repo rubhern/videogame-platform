@@ -81,7 +81,9 @@ const overflow = (page: Page) =>
 
 for (const { name, width, height } of [
   { name: "desktop", width: 1320, height: 900 },
+  { name: "tablet", width: 834, height: 900 },
   { name: "phone", width: 390, height: 844 },
+  { name: "small phone", width: 320, height: 740 },
 ]) {
   test(`${name}: rates by platform from the keyboard in a modal sheet and returns focus`, async ({
     page,
@@ -160,6 +162,14 @@ for (const { name, width, height } of [
     await expect(panel).toBeFocused();
     await expect(panel.getByRole("listitem")).toHaveCount(2);
     await expect(panel).toContainText("cuenta una sola vez");
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+    );
+    const panelBox = await panel.boundingBox();
+    expect(panelBox).not.toBeNull();
+    if (panelBox === null) throw new Error("The community panel must have a visible box");
+    expect(panelBox.x).toBeGreaterThanOrEqual(16);
+    expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(width - 16);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     const scan = await analyzeAccessibility(page);
     expect(scan.violations).toEqual([]);

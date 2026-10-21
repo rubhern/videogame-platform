@@ -406,6 +406,7 @@
   /* The count area also holds the per-platform readings' control, which wraps beneath the count
      when the column is narrow. */
   div.game-reading-description {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -419,7 +420,7 @@
   /* Per-platform community readings (#359): a quiet text control and an anchored panel of plain
      numbers, secondary to the community reading and without meters or temperatures. */
   .community-platforms {
-    position: relative;
+    position: static;
   }
 
   .game-community-score:has(.community-platforms-panel) {
