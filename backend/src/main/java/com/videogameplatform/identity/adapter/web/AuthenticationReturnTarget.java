@@ -33,6 +33,8 @@ public final class AuthenticationReturnTarget {
                     "regionIds",
                     "page",
                     "pageSize");
+    private static final Set<String> CALENDAR_QUERY =
+            Set.of("month", "day", "platformIds", "regionIds");
     private static final Set<String> SEARCH_QUERY = Set.of("q", "page", "pageSize");
     private static final Set<String> GAME_QUERY = Set.of("platformId", "regionId");
     private static final Set<String> ADMINISTRATION_QUERY = Set.of("tab", "year", "month");
@@ -54,9 +56,13 @@ public final class AuthenticationReturnTarget {
                 allowed = LANDING_QUERY;
             } else if ("/lanzamientos".equals(path)) {
                 allowed = RELEASES_QUERY;
+            } else if ("/lanzamientos/calendario".equals(path)) {
+                allowed = CALENDAR_QUERY;
             } else if ("/search".equals(path)) {
                 allowed = SEARCH_QUERY;
-            } else if ("/mis-puntuaciones".equals(path) || "/mis-plataformas".equals(path)) {
+            } else if ("/mis-puntuaciones".equals(path)
+                    || "/mis-plataformas".equals(path)
+                    || "/mis-puntuaciones/estadisticas".equals(path)) {
                 allowed = Set.of();
             } else if ("/administracion/catalogo".equals(path)) {
                 allowed = ADMINISTRATION_QUERY;

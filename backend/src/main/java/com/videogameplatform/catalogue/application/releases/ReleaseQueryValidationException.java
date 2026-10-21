@@ -24,6 +24,8 @@ public final class ReleaseQueryValidationException extends RuntimeException {
         /** {@code from} without {@code to}. */
         RANGE_END_MISSING,
         /** An end before the start, or a range longer than the maximum. */
-        RANGE_INVALID
+        RANGE_INVALID,
+        /** A calendar month before the current one or beyond the forward bound. */
+        MONTH_OUT_OF_RANGE
     }
 }

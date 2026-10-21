@@ -61,6 +61,14 @@ public record FeaturedPeriodPolicy(int forwardAcquisitionDays) {
         };
     }
 
+    /**
+     * The last month the forward bound presents at {@code today}, never before the current one.
+     * The release calendar (UC-016) shares it, so both monthly views reach the same future.
+     */
+    YearMonth lastMonth(LocalDate today) {
+        return YearMonth.from(latest(Granularity.MONTH, today));
+    }
+
     private LocalDate earliest(Granularity granularity, LocalDate today) {
         LocalDate current = current(granularity, today);
         return switch (granularity) {

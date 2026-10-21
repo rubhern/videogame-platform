@@ -9,9 +9,11 @@ anonymous account entry,
 an authenticated header account control and CSRF-protected logout that continues through
 Keycloak), the
 `UC-005`–`UC-007` inline personal rating on the game page, `UC-008`
-`/mis-puntuaciones`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
+`/mis-puntuaciones`, the post-MVP `UC-015` personal statistics at
+`/mis-puntuaciones/estadisticas`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
-TOPómetro and the release explorer), and
+TOPómetro, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
+`/lanzamientos/calendario`, and
 the operator-only `UC-011`–`UC-013` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
 [frontend design guidelines](../docs/development/frontend-design.md); this README

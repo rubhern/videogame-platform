@@ -33,6 +33,7 @@ describe("header account control", () => {
     const player = renderControl();
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
     expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Tus estadísticas" })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
     // Managing preferred platforms is a persistent account action, apart from the discovery toggle.
     expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
     expect(screen.queryByRole("link", { name: "Panel de administrador" })).not.toBeInTheDocument();

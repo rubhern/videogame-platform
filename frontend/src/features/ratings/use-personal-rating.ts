@@ -5,6 +5,7 @@ import {
   gameDetailsQueryKey,
 } from "../game-details/game-details-api";
 import { SESSION_QUERY_KEY } from "../session/use-session";
+import { RATING_INSIGHTS_KEY } from "./rating-insights-api";
 import { MY_RATINGS_KEY } from "./my-ratings-api";
 import {
   deleteMyRating,
@@ -90,6 +91,7 @@ export function useRatingCommand(gameId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
+      void queryClient.invalidateQueries({ queryKey: RATING_INSIGHTS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["releases"] });
       void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
       void queryClient.invalidateQueries({ queryKey: ["game-search"] });
@@ -103,6 +105,7 @@ export function useRatingCommand(gameId: string) {
       // The personal collection has no manual refresh: re-read it whenever the outcome is unknown.
       if (error.kind === "conflict" || error.kind === "ambiguous") {
         void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
+        void queryClient.invalidateQueries({ queryKey: RATING_INSIGHTS_KEY });
         void queryClient.invalidateQueries({ queryKey: ["releases"] });
         void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
         void queryClient.invalidateQueries({ queryKey: ["game-search"] });

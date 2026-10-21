@@ -51,6 +51,24 @@ class RatingsConfiguration {
     }
 
     @Bean
+    com.videogameplatform.ratings.application.GetPersonalRatingInsightsUseCase
+            personalRatingInsights(
+                    RatingJdbcExecution execution,
+                    PlatformTransactionManager manager,
+                    RatingJdbcProperties properties,
+                    Clock clock) {
+        var read = new TransactionTemplate(manager);
+        read.setReadOnly(true);
+        read.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        read.setTimeout(properties.operationTimeoutSeconds());
+        return new com.videogameplatform.ratings.application.internal.PersonalRatingInsightsService(
+                new com.videogameplatform.ratings.adapter.persistence
+                        .JdbcPersonalRatingInsightsReadAdapter(execution.jdbc(), read),
+                clock);
+    }
+
+    @Bean
     RatingJdbcExecution ratingJdbcExecution(
             DataSource dataSource,
             PlatformTransactionManager transactionManager,

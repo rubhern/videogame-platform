@@ -153,7 +153,7 @@ work never brings them back.
   navigation holds two entries, **Lanzamientos** and **TOPómetro**, named in the
   [product glossary](../product/glossary.md#user-facing-terms); TOPómetro is the landing route
   and Lanzamientos is current on the release explorer, `/lanzamientos` (#285). The account
-  control provides `Mi cuenta`, `Mis puntuaciones`, **Mis plataformas**
+  control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
   ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
   that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
@@ -179,7 +179,10 @@ work never brings them back.
   cover grid and a closing row. The closing row places the result total on the left and the
   pager on the right, with both pager links on one row on phones; it omits a repeated page
   position and is absent without results. Switching between TOPómetro and Lanzamientos belongs
-  to the main navigation; there is no recent/upcoming switch (#285).
+  to the main navigation; there is no recent/upcoming switch (#285). Inside **Lanzamientos**, a
+  **Lista | Calendario** switch in TOPómetro's **Semana | Mes** voice closes the title's row and
+  moves between the explorer and the [release calendar](#release-calendar) (#250), carrying the
+  filters and the month; **Lanzamientos** stays current in the navigation on both.
 - Keep the current screen's title as the only `h1`: **Explorar lanzamientos**, or
   **TOPómetro de la semana** / **TOPómetro del mes** on TOPómetro. The explorer has no context
   line. The API-evaluated range follows the title as the instrument's readout in ice, at the
@@ -325,6 +328,9 @@ work never brings them back.
 - Thermal colours belong to score readings, the keypad and its key (the hosted sign-in repeats
   that key) and the edge of a `Mis puntuaciones` line, which takes its own personal score's
   temperature; never to navigation, controls or states, and each reading shows one temperature.
+  The [release calendar](#release-calendar)'s blue, yellow, orange and red day densities are
+  their own roles (`density-1` to `density-4`, owner decision #250), never the thermal ones: a
+  count of games is no score and no temperature.
   The community meter carries its temperature as a close, faint light of its own; no reading
   adds a climate, a particle or a perpetual motion. The thermal semantic roles live in global
   styles and their paint in [thermal styles](../../frontend/src/styles/thermal.css).
@@ -482,13 +488,14 @@ catalogue search starts at the top. Shorter results may naturally clamp the view
 available height.
 
 Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
-was opened from — **Volver al TOPómetro**, **Volver a lanzamientos**, **Volver a resultados** or
-**Volver a mis puntuaciones** — and returns to it with the same period, range, order, filters,
+was opened from — **Volver al TOPómetro**, **Volver a lanzamientos**, **Volver al calendario**
+(#250), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
+and returns to it with the same period, range, order, filters,
 search and page, restoring that screen's reading position while the document keeps it. Every
 link into a game page from those screens, including a header suggestion opened on them, carries
 the origin in the history entry's React Router state, never in the URL, so a shared game link
 stays clean; the origin survives a reload and browser history and is validated on every read, so
-only a same-origin path to one of those four screens is ever followed
+only a same-origin path to one of those screens is ever followed
 ([`return-context.ts`](../../frontend/src/shared/navigation/return-context.ts)). A direct link or
 any other state returns to TOPómetro. The way back is a new history entry that restores the
 origin entry's offset; Back and Forward keep their own behaviour.
@@ -519,6 +526,70 @@ order and page from document memory only, as saved offsets are; a new visit, a r
 other entry reads the default collection.
 The initial default collection read is fresh while mounted and still refreshes on
 mutation invalidation; leaving the page immediately discards its query cache.
+
+## Release calendar
+
+Post-MVP (#250, implemented; awaiting owner review), **Calendario de destacados**
+(`/lanzamientos/calendario`) is the second view of **Lanzamientos**, built by the owner's request
+from a reference mockup. It reads one month at a time on the plain night canvas, from the current
+month on, and is active only from today; [`UC-016`](../architecture/application/mvp-use-cases.md) owns its counting and bounds.
+The title is the only `h1`, with the **Lista | Calendario** switch closing its row and the month
+as the instrument's readout beneath (`Noviembre 2026`). Then one row: the explorer's
+**Plataforma** and **Región** facets on the left, and on the right the month steps around up to
+four month chips (`NOV 2026`), the served month edged in ice. The previous step at the current
+month and the next one at the forward bound stay in place, disabled. Month, chosen day and
+filters live in the URL (`month`, `day`, `platformIds`, `regionIds`); choosing a day replaces the
+history entry, a month adds one, and a month the API rejects returns to the current month with
+the filters kept.
+
+The month is a traditional Monday-to-Sunday table whose weekday names head the columns; days of
+neighbouring months stay as faint empty cells, so no weekday holds another month and no date
+repeats. Every day of the month is a native button announced in full with its count
+(`viernes, 13 de noviembre de 2026: 6 lanzamientos`, `sin lanzamientos`, `hoy`); a count is of
+highlighted games; the full explorer can list more games for that day. A day with releases states its count beside a dot and takes its
+total-Hype colour as a quiet atmosphere, its light rising from a lower corner over a faint ridge
+of night, in four fixed bands of the summed Hype of all highlighted games that day: blue from 10,
+yellow from 30, orange from 100 and red from 150 (owner request, 2026-10-21). A game contributes
+once per day across its matching platforms and regions; `UC-016` owns aggregation and eligibility. [`release-calendar-model.ts`](../../frontend/src/features/releases/release-calendar-model.ts)
+is the only mapping. The bands are an owner-requested exception to *fire never colours an
+action* and to the thermal rule: they represent total Hype rather than release count, have no
+legend and are not quality scores. The count stays visible; each coloured day's tooltip and
+accessible description also name its interest level (`Interés bajo`, `Interés moderado`,
+`Interés alto`, `Interés muy alto`) so colour is not the sole indication. Empty days stay plain night with a hairline. Days of the current month before today
+keep only their quiet number, with no count, colour or action, and are announced as gone by;
+today carries `hoy` and a fine ice notch. The chosen day is ringed in
+ice, a shape as well as a light. One tab stop enters the month (the chosen day, else today, else
+the first active day); arrow keys move over the active days by day and week, Home and End to the
+week's ends, and Enter or Space chooses. Without an active day in the URL the first day with
+releases is chosen, else none. Releases known only to a month, quarter or year never sit on a
+day, and the calendar adds no line for them (owner decision); the explorer's **Incluir fechas
+aproximadas** remains where they are listed.
+
+The chosen day follows beneath under the section's short fire rule: its heading
+(`Viernes, 13 de noviembre`), the count with `Mostrando 3` when more exist, **Ver todos los
+lanzamientos del día** (the full explorer on that day in the same order and platform/region
+context, including games outside the calendar's highlights) and up to three compact highlighted
+rows. The explorer has no highlights filter. The preview reads the first games in Hype order,
+with its page size capped by both three and the highlighted count.
+Each row holds the cover in the standard frame, the title as its only keyboard stop with the
+pointer target stretched over the row, the platform marks and region, up to two genres, the
+review notice when the API requires it, the [discovery score](#featured-releases) readings and a
+quiet way in. The calendar shows only the highlights defined by `UC-016`; Hype orders those games and is never shown or named in the interface.
+The reference's wide landscape art and descriptions are not reproduced: the release read carries
+portrait covers and no summary, and the explorer's cards omit summaries too.
+
+Below 1024px the weekday names shorten and a day shows its count as a number beside its dot.
+Below 620px the composition adapts rather than shrinks: the switch takes its own line, the
+facets share one row, the month's name sits between its steps in place of the chips and the
+readout, the weekdays become letters (`L M X J V S D`) while the full names stay the headers'
+text, and each day is a compact square at least 44px tall holding its number and density dot,
+its count kept in its name and in the chosen day's heading. The chosen day reads down one column
+with **Ver todos** closing it at full width. Loading keeps the calendar's frame as placeholders
+with one live status; an empty month is the shared empty notice with its filter recovery; a
+catalogue still preparing, an unsupported filter and a technical failure use the
+[server-backed states](#server-backed-states), and a failed day read is its own danger notice
+with a retry. Forced colours drop the densities and keep the counts, the dots and the outlined
+chosen day in system colours.
 
 ## Featured releases
 
@@ -870,19 +941,20 @@ one **Volver a Gameómetro** link to the landing page at its foot. Actions take 
 the [server-backed states](#server-backed-states); a failed save keeps the selection.
 
 **The offer.** The welcome is product UI after Keycloak, never a registration step. A signed-in
-player who has never chosen is sent to it once per document on the way into TOPómetro or the
-explorer, carrying the destination, which it restores after saving or skipping; a rating return
+player who has never chosen is sent to it once per document on the way into TOPómetro, the
+explorer or the calendar, carrying the destination, which it restores after saving or skipping; a rating return
 or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
 **Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
-never in the URL, history or browser storage, so TOPómetro and the explorer always agree and a
-shared link resolves with the reader's own preferences. Discovery screens carry no control or
-shortcut of their own, and no screen prints the list of applied platforms: only the explorer's
-**Plataforma** summarizes them as `Mis plataformas` (and the folded phone controls name it). Choosing platforms by hand in **Plataforma** starts from what it
-shows and turns the switch off; **Quitar filtros** shows every platform; checking the switch
+never in the URL, history or browser storage, so TOPómetro, the explorer and the calendar always
+agree and a shared link resolves with the reader's own preferences. Discovery screens carry no
+control or shortcut of their own, and no screen prints the list of applied platforms: only the
+explorer's and the calendar's **Plataforma** summarize them as `Mis plataformas` (and the
+explorer's folded phone controls name it). Choosing platforms by hand in **Plataforma** starts
+from what it shows and turns the switch off; **Quitar filtros** shows every platform; checking the switch
 again replaces a manual choice. None of these changes the saved choice. An empty view of the
 preferred platforms says so (**Sin lanzamientos para tus plataformas**, **Tus plataformas no
 tienen lanzamientos en …**) and offers **Ver todas las plataformas**, which turns the switch off.
@@ -965,6 +1037,35 @@ a square for a failed or abandoned run), so no state depends on colour, and forc
 keep the shapes. Tables sit in a labelled, focusable region that may scroll sideways on
 phones while the page never does; their cells keep words whole. Choosing a year or month is
 a native link, marks it with `aria-current`, and moves focus to the level that changed.
+
+## Personal statistics
+
+Post-MVP (#254, implemented; awaiting owner review), **Tus estadísticas** opens from
+`Mis puntuaciones` and `Mi cuenta` at `/mis-puntuaciones/estadisticas`. It is a personal
+score atlas on night: an asymmetric opening pairs the collection total with a large
+existing score G-meter and its separate mean/temperature readout. Light comes only
+from the two games presented as extremes. It never repeats the temporal G.
+
+A full-width ten-column thermal histogram follows; every column is a native button
+that names its score, exact count and share, and selection announces those facts below.
+The five temperature summaries keep their names, numerical ranges and counts alongside
+colour. Two game covers anchor the extremes, with full title links and personal scores;
+coincident extremes present one game with the shared reading.
+The lower composition gives overlapping genre groups a count bar or a score bar,
+selected with **Más puntuados** / **Mejor puntuados**, beside a quieter twelve-month
+count chart in ice. Every genre mean carries its sample. The month table is available
+through a native disclosure, as are the calculation notes. The
+[use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
+owns meaning, thresholds and tie rules.
+
+Phones stack the instrument, extremes and lower sections, keep all ten score targets
+inside the viewport and place the five thermal summaries on two rows. Text and native
+controls carry every reading without SVG or colour. Only the opening enters once and
+bar changes transition; reduced motion removes both. Forced colours use system text
+for bars and their counts and an outlined selection. Empty collections show a quiet
+invitation to find a game, with no simulated charts or meaningless instrument. A small
+sample keeps real results with an explicit caveat; missing genre metadata stays visible.
+Loading and failures use the shared server-backed state language below.
 
 ## Server-backed states
 

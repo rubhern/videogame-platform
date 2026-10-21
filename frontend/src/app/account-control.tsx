@@ -4,6 +4,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { useInterests } from "../features/platform-preferences/use-platform-preferences";
 import { readReleasesSearch, RELEASES_PATH, releasesSearchPath } from "../features/releases/releases-search";
+import {
+  CALENDAR_PATH,
+  calendarSearchPath,
+  readCalendarSearch,
+} from "../features/releases/release-calendar-search";
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 
@@ -91,6 +96,10 @@ export function AccountControl() {
             </svg>
             Mis puntuaciones
           </Link>
+          <Link className="account-option" onClick={() => setOpen(false)} to="/mis-puntuaciones/estadisticas">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20"><path d="M3 16V10m7 6V4m7 12V7" stroke="currentColor" strokeWidth="2" /></svg>
+            Tus estadísticas
+          </Link>
           {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
           <PlatformsMenuRow onNavigate={() => setOpen(false)} />
           {/* Navigation only: the server authorizes every administration read itself. */}
@@ -125,7 +134,7 @@ export function AccountControl() {
 
 /**
  * **Mis plataformas** in Mi cuenta (#295): a native checkbox that applies or sets aside the
- * preferred platforms on TOPómetro and Explorar lanzamientos for the whole document, never in the
+ * preferred platforms on TOPómetro, Explorar lanzamientos and the release calendar for the whole document, never in the
  * saved choice, beside the link that manages them. It mounts only with the open panel, so the
  * preferences are read when they are needed. Without preferences only the link remains.
  */
@@ -136,15 +145,20 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
   const interests = useInterests();
   const interestsSwitch = useInterestsSwitch();
   const onExplorer = location.pathname === RELEASES_PATH;
+  const onCalendar = location.pathname === CALENDAR_PATH;
   const explorerSearch = readReleasesSearch(new URLSearchParams(location.search));
-  // A manual platform choice in the explorer already sets the preferences aside.
-  const platformsApplied =
-    interestsSwitch.enabled && !(onExplorer && explorerSearch.platformIds.length > 0);
+  const calendarSearch = readCalendarSearch(new URLSearchParams(location.search));
+  // A manual platform choice in the explorer or the calendar already sets the preferences aside.
+  const manualPlatforms =
+    (onExplorer && explorerSearch.platformIds.length > 0) ||
+    (onCalendar && calendarSearch.platformIds.length > 0);
+  const platformsApplied = interestsSwitch.enabled && !manualPlatforms;
 
   /**
-   * Applies or sets aside the preferred platforms on TOPómetro and Explorar lanzamientos, for the
+   * Applies or sets aside the preferred platforms on TOPómetro, the explorer and the calendar, for the
    * whole document and never in the saved choice. On the explorer, applying them replaces a manual
-   * platform choice and either change returns to its first page.
+   * platform choice and either change returns to its first page; on the calendar, applying them
+   * replaces a manual platform choice too.
    */
   function applyPlatforms(checked: boolean) {
     interestsSwitch.set(checked);
@@ -153,6 +167,12 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
         releasesSearchPath(explorerSearch, { page: 1, ...(checked ? { platformIds: [] } : {}) }),
         { preventScrollReset: true, state: location.state },
       );
+    }
+    if (onCalendar && checked) {
+      void navigate(calendarSearchPath(calendarSearch, { platformIds: [] }), {
+        preventScrollReset: true,
+        replace: true,
+      });
     }
   }
 
@@ -178,7 +198,7 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
       </Link>
       {interests.status === "ready" ? (
         <span className="sr-only" id={platformsHintId}>
-          En TOPómetro y Explorar lanzamientos: {interests.platforms.map((platform) => platform.name).join(", ")}
+          En TOPómetro, Explorar lanzamientos y el calendario: {interests.platforms.map((platform) => platform.name).join(", ")}
         </span>
       ) : null}
     </div>

@@ -381,6 +381,12 @@ public class ApiExceptionHandler {
                     requestInvalid(
                             new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/to"),
                             response);
+            // A calendar month outside the bounds fails like a malformed one, as featured months
+            // do.
+            case MONTH_OUT_OF_RANGE ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/month"),
+                            response);
         };
     }
 

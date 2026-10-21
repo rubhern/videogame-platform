@@ -6,6 +6,7 @@ import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { HeroTitle } from "../../shared/ui/hero-title";
 import { barFrame, toDayBar, type DayFrameState, type DayRange } from "./day-bar";
 import { ReleaseCard } from "./release-card";
+import type { ReleasesFailureState } from "./releases-failure";
 import { ReleaseDayBar } from "./release-day-bar";
 import { ReleasesApproximateDates } from "./releases-approximate-dates";
 import {
@@ -20,6 +21,8 @@ import { ReleasesPagination } from "./releases-pagination";
 import { ReleasesRange } from "./releases-range";
 import { releaseSortLabels, releasesSearchPath, type ReleasesSearch } from "./releases-search";
 import { ReleasesSort } from "./releases-sort";
+import { calendarFromExplorerPath } from "./release-calendar-search";
+import { ReleaseViewSwitch } from "./release-view-switch";
 import { RELEASES_TITLE, type ReleasesViewModel } from "./releases-view-model";
 
 export type ReleasesShellState =
@@ -30,9 +33,7 @@ export type ReleasesShellState =
       isRefreshing: boolean;
       isPlaceholderData: boolean;
     }
-  | { status: "catalogue-not-ready" }
-  | { status: "unsupported-filters"; message: string }
-  | { status: "error"; message: string; correlationId: string | null };
+  | ReleasesFailureState;
 
 type ReleasesShellProps = {
   search: ReleasesSearch;
@@ -191,6 +192,15 @@ export function ReleasesShell({
                 <span className="sr-only">{shown.windowDescription}</span>
               </p>
             )}
+            <ReleaseViewSwitch
+              calendarPath={calendarFromExplorerPath(
+                search,
+                search.from ?? model?.window.from ?? null,
+                evaluatedOn,
+              )}
+              current="list"
+              listPath={releasesSearchPath(search, {})}
+            />
           </div>
           {bar === null ? (
             waiting ? <div aria-hidden="true" className="window-scale window-scale-pending" /> : null
@@ -261,10 +271,11 @@ export function ReleasesShell({
             {model === null ? null : (
               <ReleasesFilters
                 interests={interests}
+                pathFor={(change) => releasesSearchPath(search, { ...change, page: 1 })}
                 platformFilter={platformFilter}
                 platforms={model.platforms}
+                regionIds={search.regionIds}
                 regions={model.regions}
-                search={search}
                 state={frameState}
               />
             )}

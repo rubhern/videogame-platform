@@ -36,7 +36,17 @@ class FrontendRouteControllerTest {
                                 .param("sort", "hype"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        // The release calendar reloads with its month, chosen day and filters.
+        mockMvc.perform(
+                        get("/lanzamientos/calendario")
+                                .param("month", "2026-11")
+                                .param("day", "2026-11-13"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/mis-puntuaciones"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/mis-puntuaciones/estadisticas"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
         // The first-run platform choice and its later management are React routes too.

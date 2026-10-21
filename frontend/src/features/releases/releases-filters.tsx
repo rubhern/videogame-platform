@@ -12,11 +12,17 @@ import {
 } from "../platform-preferences/interests";
 import { useInterestsSwitch } from "../platform-preferences/interests-switch";
 import { hasEffectiveFilters } from "./release-filter-paths";
-import { releasesSearchPath, toggleFilterValue, type ReleasesSearch } from "./releases-search";
+import { toggleFilterValue, type ReleasesSearch } from "./releases-search";
 import type { ReleaseFilterOption } from "./releases-view-model";
 
+/** A change of the facets; every other choice of the screen stays as it is. */
+export type FacetChange = Partial<Pick<ReleasesSearch, "platformIds" | "regionIds">>;
+
 type ReleasesFiltersProps = {
-  search: ReleasesSearch;
+  /** The regions the URL selects; platforms come resolved in `platformFilter`. */
+  regionIds: readonly string[];
+  /** The screen's own path for a facet change, which also returns it to its first page. */
+  pathFor: (change: FacetChange) => string;
   /** History state every change keeps, such as the day bar's frame. */
   state?: unknown;
   platforms: readonly ReleaseFilterOption[];
@@ -37,7 +43,8 @@ function toOptions(
  * Two compact multi-select dropdowns share one accessible control. Several values inside one
  * dimension combine with OR and the two dimensions combine with AND; no selection means the
  * dimension is unfiltered (`Todas`), which is distinct from selecting the concrete `Worldwide`
- * region. Toggling navigates so the selection stays shareable in the URL.
+ * region. Toggling navigates so the selection stays shareable in the URL; the release explorer and
+ * the release calendar (#250) each name their own path.
  *
  * Post-MVP (#295), **Plataforma** always shows the platforms that actually apply: with the
  * preferred platforms on it shows them, summarized as `Mis plataformas`, and choosing a platform
@@ -45,7 +52,8 @@ function toOptions(
  * **Mi cuenta** replaces the manual selection, so the two never intersect.
  */
 export function ReleasesFilters({
-  search,
+  regionIds,
+  pathFor,
   platforms,
   regions,
   state,
@@ -54,8 +62,8 @@ export function ReleasesFilters({
 }: ReleasesFiltersProps) {
   const navigate = useNavigate();
   const interestsSwitch = useInterestsSwitch();
-  const go = (change: Partial<ReleasesSearch>) => {
-    void navigate(releasesSearchPath(search, { ...change, page: 1 }), {
+  const go = (change: FacetChange) => {
+    void navigate(pathFor(change), {
       preventScrollReset: true,
       state,
     });
@@ -95,17 +103,17 @@ export function ReleasesFilters({
           className="release-filter-select"
           icon="region"
           label="Región"
-          onToggle={(regionId) => go({ regionIds: toggleFilterValue(search.regionIds, regionId) })}
+          onToggle={(regionId) => go({ regionIds: toggleFilterValue(regionIds, regionId) })}
           options={toOptions(regions, (region) => regionIcon(region.id, region.name))}
-          selected={search.regionIds}
+          selected={regionIds}
         />
-        {hasEffectiveFilters(search, platformFilter) ? (
+        {hasEffectiveFilters({ regionIds }, platformFilter) ? (
           <Link
             preventScrollReset
             className="filter-reset"
             onClick={() => setAside(clearedPlatforms(interests))}
             state={state}
-            to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
+            to={pathFor({ platformIds: [], regionIds: [] })}
           >
             Quitar filtros
           </Link>

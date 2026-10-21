@@ -19,6 +19,12 @@ function read(query: string) {
 }
 
 describe("release explorer navigable state", () => {
+  it("ignores the removed highlights filter in old URLs", () => {
+    const search = read("from=2026-11-13&to=2026-11-13&sort=hype&featuredOnly=true");
+    expect(toReleasesQuery(search)).not.toHaveProperty("featuredOnly");
+    expect(writeReleasesSearch(search).has("featuredOnly")).toBe(false);
+  });
+
   it("defaults to the current week, ordered by date, on the first page with no filters", () => {
     expect(read("")).toEqual({
       from: null,

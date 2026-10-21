@@ -37,28 +37,38 @@ public final class ReleaseApiMapper {
     }
 
     ReleasePage toResponse(BrowseReleasesResult result) {
-        List<Platform> platforms =
-                result.availableFilters().platforms().stream()
-                        .map(value -> new Platform(value.id(), value.name()))
-                        .toList();
-        List<Region> regions =
-                result.availableFilters().regions().stream()
-                        .map(value -> new Region(value.id(), value.name()))
-                        .toList();
         List<ReleaseItem> items = result.items().stream().map(this::toItem).toList();
         return new ReleasePage(
                 result.evaluatedOn(),
                 new ReleaseWindow(result.window().from(), result.window().to()),
-                new ActiveFilters(
-                        new java.util.LinkedHashSet<>(result.activeFilters().platformIds()),
-                        new java.util.LinkedHashSet<>(result.activeFilters().regionIds())),
-                new AvailableFilters(platforms, regions),
+                toActiveFilters(result.activeFilters()),
+                toAvailableFilters(result.availableFilters()),
                 items,
                 new PageMetadata(
                         result.page().number(),
                         result.page().size(),
                         result.page().totalItems(),
                         result.page().totalPages()));
+    }
+
+    /** The applied filters; shared by the release explorer and the release calendar. */
+    static ActiveFilters toActiveFilters(BrowseReleasesResult.ActiveFilters source) {
+        return new ActiveFilters(
+                new java.util.LinkedHashSet<>(source.platformIds()),
+                new java.util.LinkedHashSet<>(source.regionIds()));
+    }
+
+    /** The contextual facets; shared by the release explorer and the release calendar. */
+    static AvailableFilters toAvailableFilters(BrowseReleasesResult.AvailableFilters source) {
+        List<Platform> platforms =
+                source.platforms().stream()
+                        .map(value -> new Platform(value.id(), value.name()))
+                        .toList();
+        List<Region> regions =
+                source.regions().stream()
+                        .map(value -> new Region(value.id(), value.name()))
+                        .toList();
+        return new AvailableFilters(platforms, regions);
     }
 
     /** One game with its presented releases; shared by discovery and the featured selection. */

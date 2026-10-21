@@ -1,15 +1,15 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 4.2.0
+  version: 4.4.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
-    Provider-independent, same-origin contract for release discovery, weekly and monthly
-    featured releases, bounded-catalogue search, public game details, the selectable platform
-    taxonomy, BFF session discovery, the authenticated user's ratings and preferred platforms,
-    and the catalogue operator's synchronization status, coverage, bounded synchronization
-    request and the stop or abandonment of one run. It contains only the eighteen approved
-    method/path operations.
+    Provider-independent, same-origin contract for release discovery, a month's release
+    calendar, weekly and monthly featured releases, bounded-catalogue search, public game
+    details, the selectable platform taxonomy, BFF session discovery, the authenticated user's
+    ratings, rating statistics and preferred platforms, and the catalogue operator's
+    synchronization status, coverage, bounded synchronization request and the stop or
+    abandonment of one run. It contains only the twenty approved method/path operations.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -22,6 +22,8 @@ servers:
 tags:
   - name: Releases
     description: Public release exploration over an inclusive date range.
+  - name: Release calendar
+    description: Public per-day release counts of one calendar month, from the current month on.
   - name: Featured releases
     description: Public automatic selection of a calendar week's or month's featured releases.
   - name: Catalogue
@@ -273,6 +275,123 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /release-calendar:
+    get:
+      tags: [Release calendar]
+      operationId: getReleaseCalendar
+      summary: Count highlighted games releasing on each day of one calendar month
+      description: |
+        Reads, from the last valid local catalogue publication, how many games release on each
+        day of one calendar month, for a monthly calendar. Without `month` the current month in
+        `Europe/Madrid` is served. Navigation never goes back: a month must lie between the
+        current month and the last calendar month lying entirely inside the configured forward
+        acquisition horizon, the same forward bound featured months use; the current month is
+        always accepted. The bound states what acquisition is configured to cover, never that the
+        local catalogue is complete.
+
+        This is the highlights calendar: only games with locally stored IGDB Hypes >= 10
+        qualify; missing or lower Hype is excluded. The threshold is fixed, not a percentile
+        recomputed per request. It filters contextual facets as well as day counts.
+
+        The calendar is active from the evaluation date on: days of the month before it are
+        never counted. A day holds only releases with that exact day, under the release
+        explorer's own rules (`GET /releases`): never cancelled, and on the evaluation date not
+        delayed either. `days` lists each day from the evaluation date (or the month's first day,
+        for a later month) to the month's last day holding at least one such release that matches
+        the active filters, in ascending order; a day without one is absent.
+        `totalHype` is the sum of local Hypes of the qualifying games on that day, counting each
+        game once regardless of how many matching platforms or regions it has. The sum uses the
+        same active filters as `gameCount` and excludes games below the highlights threshold.
+        `gameCount` counts games, not releases: a game releasing on several platforms or regions that day
+        counts once. The full explorer lists every qualifying release of that day without a
+        highlights restriction, so its `page.totalItems` may exceed the calendar's `gameCount`.
+        The calendar preview reads the leading games from `GET /releases` with `sort=hype` and
+        a page size capped by both three and the day's highlighted-game count.
+
+        A release known only to its month, quarter or year, or with an unknown (TBA) date, never
+        belongs to a day and is not counted; nothing is attributed to an invented day or month.
+
+        Platform and region filters, `activeFilters` and the contextual, faceted
+        `availableFilters` follow `GET /releases`, evaluated over every release the calendar
+        counts. PostgreSQL applies the filters, groups and counts; the response holds at most 31
+        days, and no game page is read. No provider is called, and the
+        representation never varies on a session.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ReleaseCalendarMonth'
+        - $ref: '#/components/parameters/PlatformIdsQuery'
+        - $ref: '#/components/parameters/RegionIdsQuery'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: The month's per-day game counts, possibly without any day.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReleaseCalendar' }
+              examples:
+                currentMonth:
+                  summary: The current month, counted from today
+                  description: |
+                    No `month` was requested, so the current month in `Europe/Madrid` is served.
+                    It is the first month, so `previous` is absent, and days before 21 October
+                    are not counted.
+                  value:
+                    month: 2026-10
+                    evaluatedOn: '2026-10-21'
+                    window: { from: '2026-10-01', to: '2026-10-31' }
+                    navigation: { first: 2026-10, last: 2027-03, next: 2026-11 }
+                    activeFilters: { platformIds: [], regionIds: [] }
+                    availableFilters:
+                      platforms:
+                        - { platformId: platform_ps5, name: PlayStation 5 }
+                        - { platformId: platform_win, name: Windows PC }
+                      regions:
+                        - { regionId: region_europe, name: Europa }
+                        - { regionId: region_worldwide, name: Mundial }
+                    days:
+                      - { date: '2026-10-21', gameCount: 1, totalHype: 20 }
+                      - { date: '2026-10-23', gameCount: 3, totalHype: 60 }
+                      - { date: '2026-10-30', gameCount: 12, totalHype: 240 }
+                filteredFutureMonth:
+                  summary: A later month filtered by platform
+                  description: Requested with `month=2027-02&platformIds=platform_ps5`.
+                  value:
+                    month: 2027-02
+                    evaluatedOn: '2026-10-21'
+                    window: { from: '2027-02-01', to: '2027-02-28' }
+                    navigation: { first: 2026-10, last: 2027-03, previous: 2027-01, next: 2027-03 }
+                    activeFilters: { platformIds: [platform_ps5], regionIds: [] }
+                    availableFilters:
+                      platforms:
+                        - { platformId: platform_ps5, name: PlayStation 5 }
+                        - { platformId: platform_switch, name: Nintendo Switch }
+                      regions:
+                        - { regionId: region_worldwide, name: Mundial }
+                    days:
+                      - { date: '2027-02-26', gameCount: 2, totalHype: 40 }
+                empty:
+                  summary: The last month inside the horizon holds nothing yet
+                  value:
+                    month: 2027-03
+                    evaluatedOn: '2026-10-21'
+                    window: { from: '2027-03-01', to: '2027-03-31' }
+                    navigation: { first: 2026-10, last: 2027-03, previous: 2027-02 }
+                    activeFilters: { platformIds: [], regionIds: [] }
+                    availableFilters: { platforms: [], regions: [] }
+                    days: []
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ReleaseCalendarValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
@@ -1046,6 +1165,51 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/rating-insights:
+    get:
+      tags: [Ratings]
+      operationId: getMyRatingInsights
+      summary: Read personal rating statistics
+      description: |
+        UC-015. One repeatable-read snapshot of only the authenticated principal's current
+        active ratings and Ratings-owned projected local genre/game context. No query inputs,
+        external/community scores or provider access. Fixed-size aggregates, never a full history.
+        All means round half up to one decimal. A genre receives one full contribution for
+        every rated game assigned to it, so genre counts overlap; games without genres are
+        counted separately. Genre lists hold at most six entries: most rated by count descending
+        then genreId ascending; best rated (at least three games) by unrounded mean descending,
+        count descending then genreId ascending. Extreme ties select gameId ascending and count
+        every tied game. Activity is twelve calendar months ending in evaluatedOn's month in
+        Europe/Madrid, counting surviving ratings by original creation time; edits do not move
+        a contribution and deletion removes it. It is not a historical score or playing log.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Private personal statistics, including an honest empty result.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PersonalRatingInsights' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422':
+          description: This read does not accept query parameters.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+
   /me/ratings:
     get:
       tags: [Ratings]
@@ -1759,6 +1923,18 @@ components:
         `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
       schema: { $ref: '#/components/schemas/CalendarMonth' }
       example: 2026-10
+    ReleaseCalendarMonth:
+      name: month
+      in: query
+      required: false
+      description: |
+        Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
+        It must lie between the current month and the last calendar month lying entirely inside
+        the configured forward acquisition horizon; the current month is always accepted. A
+        malformed month or a month outside the bounds, including any earlier month, yields 422
+        `FILTER_INVALID` for `/query/month`.
+      schema: { $ref: '#/components/schemas/CalendarMonth' }
+      example: 2026-11
     PlatformIdsQuery:
       name: platformIds
       in: query
@@ -2620,6 +2796,54 @@ components:
           type: array
           items: { $ref: '#/components/schemas/ReleaseItem' }
         page: { $ref: '#/components/schemas/PageMetadata' }
+    ReleaseCalendar:
+      type: object
+      required: [month, evaluatedOn, window, navigation, activeFilters, availableFilters, days]
+      properties:
+        month: { $ref: '#/components/schemas/CalendarMonth' }
+        evaluatedOn:
+          type: string
+          format: date
+          description: Today in `Europe/Madrid`, which decides the current month, the first counted day and the delayed rule.
+        window:
+          $ref: '#/components/schemas/ReleaseWindow'
+          description: The month's first and last day, inclusive; days before `evaluatedOn` are not counted.
+        navigation: { $ref: '#/components/schemas/ReleaseCalendarNavigation' }
+        activeFilters: { $ref: '#/components/schemas/ActiveFilters' }
+        availableFilters: { $ref: '#/components/schemas/AvailableFilters' }
+        days:
+          type: array
+          maxItems: 31
+          description: Days from the evaluation date on with at least one qualifying exact-day release, ascending.
+          items: { $ref: '#/components/schemas/ReleaseCalendarDay' }
+    ReleaseCalendarNavigation:
+      type: object
+      required: [first, last]
+      description: |
+        The months that may be requested, evaluated in `Europe/Madrid`: `first` is always the
+        current month and `last` the last month inside the forward bound. `previous` and `next`
+        are the adjacent months, each absent at its bound.
+      properties:
+        first: { $ref: '#/components/schemas/CalendarMonth' }
+        last: { $ref: '#/components/schemas/CalendarMonth' }
+        previous: { $ref: '#/components/schemas/CalendarMonth' }
+        next: { $ref: '#/components/schemas/CalendarMonth' }
+    ReleaseCalendarDay:
+      type: object
+      required: [date, gameCount, totalHype]
+      properties:
+        date: { type: string, format: date }
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Games with at least one qualifying release on exactly this day.
+        totalHype:
+          type: integer
+          format: int64
+          minimum: 10
+          description: Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
+      unevaluatedProperties: false
     GameSearchPage:
       type: object
       required: [items, page]
@@ -2836,6 +3060,73 @@ components:
             Catalogue's current player score for this Game, with the discovery semantics: absent
             without a valid pair, never zero-filled, and never blended with `ratingSummary` or
             the personal rating.
+    PersonalRatingInsights:
+      type: object
+      required: [evaluatedOn, total, mean, distribution, mostRatedGenres, bestRatedGenres, gamesWithoutGenres, highest, lowest, activity, olderRatings]
+      properties:
+        evaluatedOn: { type: string, format: date }
+        total: { type: integer, format: int64, minimum: 0 }
+        mean:
+          oneOf:
+            - { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+          description: Equally weighted personal mean; null exactly when total is zero.
+        distribution:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: integer, format: int64, minimum: 0 }
+          description: Counts for scores 1 through 10 in ascending order, zero-filled.
+        mostRatedGenres:
+          type: array
+          maxItems: 6
+          items: { $ref: '#/components/schemas/PersonalGenreInsight' }
+        bestRatedGenres:
+          type: array
+          maxItems: 6
+          items: { $ref: '#/components/schemas/PersonalGenreInsight' }
+        gamesWithoutGenres: { type: integer, format: int64, minimum: 0 }
+        highest:
+          oneOf:
+            - { $ref: '#/components/schemas/PersonalRatingExtreme' }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+        lowest:
+          oneOf:
+            - { $ref: '#/components/schemas/PersonalRatingExtreme' }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+        activity:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: { $ref: '#/components/schemas/PersonalRatingMonth' }
+        olderRatings: { type: integer, format: int64, minimum: 0 }
+      unevaluatedProperties: false
+    PersonalGenreInsight:
+      type: object
+      required: [genre, count, mean]
+      properties:
+        genre: { $ref: '#/components/schemas/Genre' }
+        count: { type: integer, format: int64, minimum: 1 }
+        mean: { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+      unevaluatedProperties: false
+    PersonalRatingExtreme:
+      type: object
+      required: [game, value, tiedGames]
+      properties:
+        game: { $ref: '#/components/schemas/RatedGame' }
+        value: { type: integer, minimum: 1, maximum: 10 }
+        tiedGames: { type: integer, format: int64, minimum: 1 }
+      unevaluatedProperties: false
+    PersonalRatingMonth:
+      type: object
+      required: [month, count]
+      properties:
+        month: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', example: '2026-10' }
+        count: { type: integer, format: int64, minimum: 0 }
+      unevaluatedProperties: false
     PersonalRatingPage:
       type: object
       required: [items, page]
@@ -3341,6 +3632,21 @@ components:
             regionNotSupported: { $ref: '#/components/examples/RegionNotSupported' }
             sortInvalid: { $ref: '#/components/examples/SortInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    ReleaseCalendarValidationFailed:
+      description: |
+        The requested month is malformed or outside the navigation bounds, a platform or region
+        is unknown, or a request parameter is invalid.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
+            regionNotSupported: { $ref: '#/components/examples/RegionNotSupported' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     FeaturedReleaseValidationFailed:
       description: |

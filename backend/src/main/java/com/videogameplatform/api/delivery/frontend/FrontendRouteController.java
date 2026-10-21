@@ -18,8 +18,10 @@ class FrontendRouteController {
 
     @GetMapping({
         "/lanzamientos",
+        "/lanzamientos/calendario",
         "/search",
         "/mis-puntuaciones",
+        "/mis-puntuaciones/estadisticas",
         "/mis-plataformas",
         "/bienvenida",
         "/administracion/catalogo"

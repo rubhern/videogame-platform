@@ -18,8 +18,10 @@ class AuthenticationReturnTargetTest {
                 "/?granularity=month",
                 "/lanzamientos",
                 "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&platformIds=pc&regionIds=europe&page=2&pageSize=12",
+                "/lanzamientos/calendario?month=2026-11&day=2026-11-13&platformIds=pc&regionIds=europe",
                 "/search?q=Final+Fantasy&page=2",
                 "/mis-puntuaciones",
+                "/mis-puntuaciones/estadisticas",
                 "/mis-plataformas",
                 "/administracion/catalogo?tab=cobertura&year=1997&month=12",
                 "/games/game-1/a-game?platformId=pc&regionId=europe"
@@ -52,8 +54,10 @@ class AuthenticationReturnTargetTest {
                 "/administracion/catalogo?from=1997-01-01",
                 "/lanzamientos?redirect=https://attacker.example",
                 "/lanzamientos?q=zelda",
+                "/lanzamientos/calendario?from=2026-11-01",
                 "/mis-plataformas?platformIds=pc",
                 "/bienvenida",
+                "/mis-puntuaciones/estadisticas?userId=bob",
                 "/lanzamientos/../auth/start",
                 "/administracion/catalogo/../../auth/start",
                 "javascript:alert(1)"

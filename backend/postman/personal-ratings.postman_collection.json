@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Personal Ratings",
-    "description": "Executable UC-005 through UC-008 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
+    "description": "Executable UC-005 through UC-008 and UC-015 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -50,6 +50,66 @@
               "    pm.collectionVariables.unset(\"csrfToken\");",
               "    pm.execution.setNextRequest(null);",
               "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read personal rating statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/rating-insights",
+        "description": "UC-015. Only the signed-in principal’s current ratings; fixed-size on-demand statistics, never an external score or play log."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private statistics\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"Correlation\", () => pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty);",
+              "const body = pm.response.json();",
+              "pm.test(\"Ten zero-filled buckets account for every game\", () => { pm.expect(body.distribution).to.have.lengthOf(10); pm.expect(body.distribution.reduce((sum,n) => sum+n,0)).to.eql(body.total); });",
+              "pm.test(\"Personal arithmetic mean\", () => { const weighted = body.distribution.reduce((sum,n,i) => sum+n*(i+1),0); pm.expect(body.mean).to.eql(body.total ? Math.round(weighted/body.total*10)/10 : null); });",
+              "pm.test(\"Bounded honest genre samples\", () => { pm.expect(body.mostRatedGenres.length).to.be.at.most(6); pm.expect(body.bestRatedGenres.length).to.be.at.most(6); body.bestRatedGenres.forEach(g => pm.expect(g.count).to.be.at.least(3)); pm.expect(body.gamesWithoutGenres).to.be.within(0,body.total); });",
+              "pm.test(\"Twelve months plus older ratings account for the total\", () => { pm.expect(body.activity).to.have.lengthOf(12); pm.expect(body.activity.reduce((sum,m) => sum+m.count,body.olderRatings)).to.eql(body.total); });",
+              "pm.test(\"Empty extremes are null\", () => { if (body.total === 0) { pm.expect(body.highest).to.eql(null); pm.expect(body.lowest).to.eql(null); } else { pm.expect(body.highest.value).to.be.at.least(body.lowest.value); pm.expect(body.highest.tiedGames).to.eql(body.distribution[body.highest.value-1]); pm.expect(body.lowest.tiedGames).to.eql(body.distribution[body.lowest.value-1]); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject client-supplied statistics owner",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/rating-insights?userId=another-user",
+        "description": "Identity is derived exclusively from the validated BFF principal; this read accepts no query parameters."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Unknown input rejected\", () => pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"));",
+              "pm.test(\"Private error\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
             ]
           }
         }

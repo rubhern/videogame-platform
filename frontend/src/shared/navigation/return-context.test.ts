@@ -12,8 +12,10 @@ describe("game page return context", () => {
     ["/", "Volver al TOPómetro"],
     ["/?month=2026-12", "Volver al TOPómetro"],
     ["/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&page=2", "Volver a lanzamientos"],
+    ["/lanzamientos/calendario?month=2026-11&day=2026-11-13", "Volver al calendario"],
     ["/search?q=zelda&page=3", "Volver a resultados"],
     ["/mis-puntuaciones", "Volver a mis puntuaciones"],
+    ["/mis-puntuaciones/estadisticas", "Volver a tus estadísticas"],
   ])("names and keeps the whole origin %s", (path, label) => {
     const context = readReturnContext(gameLinkState(at(path)));
 

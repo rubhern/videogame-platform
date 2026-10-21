@@ -7,10 +7,12 @@
 @import "./stage.css";
 @import "./catalogue.css";
 @import "./featured.css";
+@import "./calendar.css";
 @import "./discovery-scores.css";
 @import "./ratings.css";
 @import "./game-details.css";
 @import "./my-ratings.css";
+@import "./rating-insights.css";
 @import "./preferences.css";
 @import "./app-select.css";
 @import "./search-suggestions.css";
@@ -49,6 +51,13 @@
   --color-warm: #ffcf63;
   --color-hot: #ff9446;
   --color-burn: #ff5b3d;
+  /* Release density on the calendar (#250, owner decision): how many games a day holds, from the
+     quietest blue through yellow and orange to the busiest red. Calendar days only; never a
+     score, a state or an action. */
+  --color-density-1: #4f8dff;
+  --color-density-2: #ffc94d;
+  --color-density-3: #ff8a3d;
+  --color-density-4: #ff4b5c;
 }
 
 /* Legal review uses the shared shell and reading tokens; no provider artwork. */

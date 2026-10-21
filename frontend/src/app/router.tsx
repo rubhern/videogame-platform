@@ -5,9 +5,11 @@ import { CatalogueAdministrationPage } from "../pages/catalogue-administration-p
 import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { ReleaseCalendarPage } from "../pages/release-calendar-page";
 import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
 import { MyPlatformsPage } from "../pages/my-platforms-page";
+import { RatingInsightsPage } from "../pages/rating-insights-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { WelcomePage } from "../pages/welcome-page";
 import { legalPublicationApproved } from "../shared/legal/publication";
@@ -25,8 +27,10 @@ export const appRoutes: RouteObject[] = [
     children: [
       { index: true, element: <DiscoveryPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
+      { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
+      { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
       { path: "mis-plataformas", element: <MyPlatformsPage /> },
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
