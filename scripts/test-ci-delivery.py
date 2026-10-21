@@ -66,7 +66,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertIn(f'{job} "${variable}_EXPECTED" "${variable}"', gate)
             self.assertIn(f'{category}: ${{{{ steps.changes.outputs.{category} }}}}', jobs['detect-changes'])
         build, publish = jobs['dependency-images'], jobs['publish-dependency-images']
-        matrix = 'image: [keycloak, catalogue-localizer]'
+        matrix = 'image: [keycloak, catalogue-localizer, caddy]'
         self.assertIn(matrix, build)
         self.assertIn(matrix, publish)
         self.assertIn('bash scripts/validate-dependency-image.sh "$DEPENDENCY_IMAGE"', build)

@@ -351,7 +351,7 @@ records the accepted durable topology, and the
 **Accepted technical design (ADR-0025):** one Linux VPS, Docker Engine/Compose,
 one application replica and one PostgreSQL server. **Runtime configuration prepared,
 not deployed (#275):** [`deploy/public-production`](../../../deploy/public-production/README.md)
-holds the Compose topology and stock-Caddy edge; its README owns the secret inventory
+holds the Compose topology and the Caddy edge with its [request limits](#public-edge-request-limits); its README owns the secret inventory
 and what remains unvalidated. No host, DNS, deployment workflow, backup or telemetry
 exists. The following specifies the target; configuration and its local tests are not
 proof of a public host. The [disposable integration exercise](../../../deploy/public-production/README.md#disposable-integration-exercise)
@@ -648,15 +648,16 @@ also need reproducible pinned identities; never build on the VPS, deploy `latest
 or infer a digest from a movable tag. Record configuration fingerprint, source,
 image/model identities, migration version and sanitized deployment/acceptance receipt.
 
-**Implemented dependency-image publication (#275 increment 2):**
-trusted `main` publishes the themed Keycloak and the localizer through the same
-retained-archive path as the application:
+**Implemented dependency-image publication (#275 increments 2 and 6):**
+trusted `main` publishes the themed Keycloak, the localizer and the edge through the
+same retained-archive path as the application:
 
 | Image | GHCR repository | Built from |
 |---|---|---|
 | Application and migration actor | `ghcr.io/rubhern/videogame-platform` | Root `Dockerfile` |
 | Production Keycloak | `ghcr.io/rubhern/videogame-platform-keycloak` | The shared Keycloak recipe, with event metrics compiled in |
 | Catalogue localizer | `ghcr.io/rubhern/videogame-platform-catalogue-localizer` | The localizer Dockerfile, without a model |
+| HTTPS edge | `ghcr.io/rubhern/videogame-platform-caddy` | The edge recipe: stock Caddy plus the [ADR-0030](../../decisions/0030-limit-public-edge-requests-with-a-caddy-module.md) module, whose Go module graph must equal stock Caddy's plus that module and its reviewed security overrides; Trivy and govulncheck scan it, and any Go advisory with an available fix fails the build |
 
 Each is built once per trusted-main commit for `linux/amd64`, labelled with source,
 revision and upstream version, inspected, scanned and given a CycloneDX SBOM; the
@@ -728,34 +729,11 @@ requires revisiting permit lifetime before enabling it. Replicas multiply admiss
 capacity and require a renewed DB/host budget; they never change authorization or
 uniqueness semantics.
 
-**Proposed edge controls for #275, to prove in #276:** terminate and bound connections,
-headers/body sizes, read/write/idle timeouts and aggregate request frequency at the
-approved HTTPS proxy. Initial qualification candidates are: public reads 10/s per
-source with burst 40; identity login submissions 20/min with burst 20; registration
-and recovery each 3/min with burst 6; writes 120/min with burst 60. Use conservative
-aggregate budgets as well, measured against actual host headroom. These are tuning
-hypotheses, not deployed limits or a guarantee against distributed abuse. Count
-anonymous attempts whether or not an address exists; never key on submitted emails,
-user-supplied owner IDs, or an unverified session cookie. Test shared-IP households,
-mobile NAT and IPv6 before accepting those settings. Return 429 with Retry-After for
-rate quotas and 503 for capacity; avoid blocking sleeps or unlimited queues.
-
-#275 increment 1 applies only stock Caddy's connection, header, body and timeout
-bounds; stock Caddy has no request-rate limiter, and the external plugin or another
-mechanism needs a separate review before any of the candidates above is enforced.
-
-Only the proxy's actual transport peer may determine a source limit. Strip incoming
-forwarding headers and trust forwarded metadata only from explicitly configured
-proxy peers. Direct application/identity ports and management must be unreachable
-from the public network. Spoofed headers must neither bypass a limit nor change OIDC
-origins. Tailnet-only private-dev has different ingress; do not present its network
-policy as proof of a public proxy configuration.
-
 Mailjet Free's daily quota is a shared availability constraint, not an abuse control:
 one adversary can consume it slowly despite minute-level limits, and verification
 resends/recovery have multiple mail-triggering paths. Native Keycloak has no daily
 SMTP budget. Do not claim that request counts equal messages or add an SMTP relay
-service to approximate that guarantee. #275/#276 must prove the chosen edge limits,
+service to approximate that guarantee. #276 must prove the edge limits on the real host,
 observe all verification/reset sends and provider queue/failure behaviour, reserve
 recovery headroom, and exercise an owner-operated incident response before accounts
 open. A hard application-controlled send budget needs a separate design decision if
@@ -776,3 +754,74 @@ Settings bind at startup; change the three variables in protected private-dev
 `runtime.env` and recreate the reviewed application image through the existing
 approved procedure, without recompilation. Compose forwards all three settings.
 This is prepared configuration, not a claim that a running host has been changed.
+
+#### Public-edge request limits
+
+**Implemented and locally exercised (#275 increment 6); real-host evidence belongs to
+#276.** [ADR-0030](../../decisions/0030-limit-public-edge-requests-with-a-caddy-module.md)
+adds one commit-pinned limiter module to the accepted Caddy edge. The
+[Caddyfile](../../../deploy/public-production/caddy/Caddyfile) owns every zone, threshold
+and window; the [image recipe](../../../deploy/public-production/caddy/Dockerfile) owns
+the pinned inputs. The edge still terminates and bounds connections, headers, bodies
+and read/write/idle time.
+
+| Class | Per source | Aggregate |
+|---|---|---|
+| Product host | All requests; BFF identity navigation (`/auth/*`, `/login*`); catalogue reads; search and release exploration; writes | All requests; API; API writes |
+| Identity host | All requests except the BFF's issuer calls; login submissions and non-BFF token requests; registration; recovery; the verification step; emailed action links and required actions | All requests except BFF calls; login; every mail-triggering path; BFF issuer calls |
+
+The thresholds started from the #274 candidates (reads 10/s with burst 40, login
+20/min, registration and recovery 3/min with burst 6, writes 120/min with burst 60) and
+were checked against browser journeys. Long windows keep their rates with smaller bursts,
+because every per-source limiter holds its events until its window passes. They remain
+**calibration hypotheses**:
+aggregate budgets are not measured against VPS headroom, and no limit protects against
+distributed abuse. Sliding windows count attempts whether or not an address exists;
+no submitted email, owner ID or session cookie is ever a key.
+
+- **Source identity.** Only the TCP peer keys a limit: one IPv4 address, or one IPv6
+  /64 so a client cannot rotate addresses inside its prefix. No proxy is trusted, so no
+  forwarding header can move or escape a quota; upstreams still trust only the edge.
+  Clients behind one shared address share its quota; a household of four loading,
+  browsing, signing in, registering and recovering at browser pace stays within it.
+- **Refusals.** A per-source quota answers 429 with Retry-After; an exhausted aggregate
+  budget answers 503 `SERVICE_OVERLOADED` with Retry-After, and is checked only after
+  every per-source zone, so one source's refused requests never consume it. API paths
+  get the [OpenAPI](../api/openapi.yaml) Problem Details, other paths a short Spanish
+  page; both are `no-store` and carry a correlation ID. Neither queues nor sleeps.
+- **BFF issuer calls.** The BFF has a fixed edge-network address. Its token, userinfo,
+  JWKS and discovery calls to the canonical HTTPS issuer have their own aggregate
+  budget instead of a per-source quota; any other request from that address, and any
+  other client's token request, is limited normally.
+- **Unattributed sources.** Docker's userland proxy presents a client as the edge
+  network's fixed gateway. The edge aborts such requests rather than let every such
+  client share, or escape, one quota.
+- **Canonical identity paths.** Keycloak also routes a `;parameter` or a trailing slash
+  to the endpoint it names, so the edge refuses those identity paths; repeated slashes
+  are counted because every matcher sees the cleaned path.
+- **Privacy and state.** Limiter state is in memory and resets when the edge restarts;
+  it is not shared, logged by key or exported as metrics, which would label clients by
+  address. Refusals therefore produce no security signal yet; see
+  [observability](../../development/observability.md#identity-and-overload-security-signals).
+- **Memory.** Edge memory follows the number of recent sources, not total traffic. Under
+  bounded synthetic churn of thousands of distinct IPv4 addresses and IPv6 /64s at the
+  production memory and CPU ceilings, the edge stayed below its memory ceiling, reclaimed
+  expired limiters, kept serving new sources and never restarted; its CPU ceiling limited
+  how fast new sources arrived. The [runtime guide](../../../deploy/public-production/README.md#limiter-memory)
+  owns the measurement; a faster or larger distributed actor can still exhaust the edge.
+
+Direct application/identity ports and management stay unreachable from the public
+network. Tailnet-only private-dev has different ingress; do not present its network
+policy as proof of a public proxy configuration.
+
+#### Maintenance at the edge
+
+The edge mounts the recovery actor's `recovery-state` gate read-only and checks it on
+every request, so maintenance reuses the existing startup gate, lease and fail-closed
+journal rather than a second mechanism. A gate without `READY`, or with `PENDING.json`,
+answers 503 `SERVICE_MAINTENANCE` on both hosts, so an empty or missing gate fails
+closed and an edge started during recovery routes nothing. The identity fence closes
+the whole identity host, BFF calls included, while catalogue reads, product writes and
+existing BFF sessions continue. Refused maintenance requests consume no quota. The
+[production runtime guide](../../../deploy/public-production/README.md#identity-maintenance)
+owns the adapter, its drain evidence and its refusals.

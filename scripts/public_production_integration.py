@@ -29,6 +29,7 @@ REPOSITORIES = {
     'application': trust.IMAGE_REPOSITORY,
     'keycloak': trust.IMAGE_REPOSITORY + '-keycloak',
     'catalogue-localizer': trust.IMAGE_REPOSITORY + '-catalogue-localizer',
+    'caddy': trust.IMAGE_REPOSITORY + '-caddy',
 }
 require = trust.require
 
@@ -78,9 +79,10 @@ def resolve(api, revision):
         'Required quality gate', 'Publish immutable application image',
         'Publish immutable production dependency image (keycloak)',
         'Publish immutable production dependency image (catalogue-localizer)',
+        'Publish immutable production dependency image (caddy)',
     ), attempt)
     images = {'application': REPOSITORIES['application'] + '@' + selected['image_digest']}
-    for name in ('keycloak', 'catalogue-localizer'):
+    for name in ('keycloak', 'catalogue-localizer', 'caddy'):
         images[name] = dependency_publication(api, run, revision, name)
     trust.verify_run(api, run_id, revision, 'build-and-verify.yml', (), attempt)
     return {**selected, 'images': images}

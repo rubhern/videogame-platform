@@ -7,6 +7,8 @@
 #
 #   keycloak             deploy/private-dev/keycloak/Dockerfile with event metrics compiled in
 #   catalogue-localizer  tools/catalogue-localization/Dockerfile, without any model
+#   caddy                deploy/public-production/caddy/Dockerfile: stock Caddy plus the approved
+#                        rate-limit module, checked against the stock binary's module graph
 
 set -Eeuo pipefail
 
@@ -42,8 +44,18 @@ case "$image" in
     expected_user="10001:10001"
     base_image="$(sed -n 's/^FROM //p' "$repository_root/$dockerfile")"
     ;;
+  caddy)
+    dockerfile="deploy/public-production/caddy/Dockerfile"
+    context="deploy/public-production/caddy"
+    build_arguments=()
+    image_version="$(sed -n 's/^ARG CADDY_VERSION=v\([0-9.]*\)$/\1/p' "$repository_root/$dockerfile")"
+    # The stock image runs Caddy as root inside the container; Compose drops every capability
+    # except NET_BIND_SERVICE.
+    expected_user=""
+    base_image="$(sed -n 's/^ARG CADDY_IMAGE=//p' "$repository_root/$dockerfile")"
+    ;;
   *)
-    fail "Usage: bash scripts/validate-dependency-image.sh keycloak|catalogue-localizer"
+    fail "Usage: bash scripts/validate-dependency-image.sh keycloak|catalogue-localizer|caddy"
     ;;
 esac
 [[ "$image_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Cannot derive the $image image version from its owner."
@@ -151,6 +163,34 @@ if [[ "$image" == "keycloak" ]]; then
   [[ "$(docker run "${hardened[@]}" --entrypoint /bin/sh "$local_tag" -c \
       'ls /opt/keycloak/themes/gameometro/login/theme.properties /opt/keycloak/themes/gameometro/email/theme.properties | wc -l')" == "2" ]] || \
     fail "The keycloak image lacks the gameometro login or email theme."
+elif [[ "$image" == "caddy" ]]; then
+  # Both binaries carry the stock file capability; Compose grants the edge exactly this one.
+  hardened+=(--cap-add NET_BIND_SERVICE)
+  docker run "${hardened[@]}" "$local_tag" caddy build-info >"$evidence_directory/build-info.txt"
+  docker run "${hardened[@]}" "$base_image" caddy build-info >"$evidence_directory/base-build-info.txt"
+  python3 -I scripts/check-dependency-image-content.py --compare-modules \
+    "$evidence_directory/build-info.txt" "$evidence_directory/base-build-info.txt" | tee "$evidence_directory/module-policy.txt"
+  # Symbol-level Go advisories, which Trivy's image scan does not cover for the standard
+  # library. govulncheck runs in the pinned builder image against the exact binary.
+  builder_image="$(sed -n 's/^ARG CADDY_BUILDER_IMAGE=//p' "$repository_root/$dockerfile")"
+  inspection_container="$(docker create "$local_tag")"
+  docker cp --quiet "$inspection_container:/usr/bin/caddy" "$evidence_directory/caddy" 2>/dev/null
+  docker rm "$inspection_container" >/dev/null
+  inspection_container=""
+  docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,exec,nosuid,size=512m \
+    --env GOBIN=/tmp/bin --env GOPATH=/tmp/go --env GOCACHE=/tmp/cache --env GOPROXY=https://proxy.golang.org \
+    --env GOSUMDB=sum.golang.org --volume "$evidence_directory/caddy:/scan/caddy:ro" "$builder_image" \
+    sh -c 'go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 >/dev/null && /tmp/bin/govulncheck -mode=binary -format json /scan/caddy' \
+    >"$evidence_directory/govulncheck.json"
+  rm -f -- "$evidence_directory/caddy"
+  python3 -I scripts/check-dependency-image-content.py --compare-govulncheck "$evidence_directory/govulncheck.json" \
+    | tee "$evidence_directory/go-advisory-policy.txt"
+  docker run "${hardened[@]}" "$local_tag" caddy list-modules >"$evidence_directory/modules.txt"
+  grep -qx 'http.handlers.rate_limit' "$evidence_directory/modules.txt" || fail "The caddy image lacks the rate-limit module."
+  # The reviewed production Caddyfile must load with this exact binary.
+  docker run "${hardened[@]}" --tmpfs /config:rw,noexec,nosuid,size=4m --tmpfs /data:rw,noexec,nosuid,size=4m \
+    --volume "$repository_root/deploy/public-production/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+    "$local_tag" caddy adapt --config /etc/caddy/Caddyfile >/dev/null || fail "The caddy image cannot adapt the production Caddyfile."
 else
   docker run "${hardened[@]}" --entrypoint python "$local_tag" -I -c \
     'import ctranslate2, sentencepiece, sacremoses' || fail "The localizer runtime dependencies do not import."

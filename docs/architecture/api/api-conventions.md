@@ -72,10 +72,14 @@ conflict/precondition `409/412/428`; semantic validation/business rejection `422
 unexpected internal failure `500`; unavailable/not-ready local catalogue `503`.
 OpenAPI owns the exact code-to-status mapping.
 
-No browser-facing operation declares `429`: the private MVP currently has no
-application or edge rate limiter responsible for that response. The bounded,
+Every operation declares `429`, owned by the public-production edge's per-source
+request limits; the application never produces it, and runtimes without that edge,
+such as local and private-dev, never return it. The edge also answers `503` for an
+exhausted aggregate budget or maintenance, with the same Problem Details and
+`Retry-After`; the [platform design](../deployment/mvp-platform-and-delivery.md#public-edge-request-limits)
+owns the limits. The bounded,
 process-local IGDB synchronization limiter is provider-facing and never becomes a
-browser response. Adding an abuse limit later must identify its owner and update the
+browser response. Any further abuse limit must identify its owner and update the
 operation contract and executable HTTP evidence together.
 
 ## Session, CSRF, and privacy

@@ -244,30 +244,67 @@ with open('/gate/ACTOR.lock','a') as lock:
                 actor.stdout.close()
 
     @contextlib.contextmanager
-    def lock(self):
+    def lock(self, maintenance=False):
         with (self.state / 'LOCK').open('a') as stream:
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise Refused('Another recovery/backup actor is active.') from None
             with self.engine_lock():
+                # An identity-maintenance run keeps its fence between separate invocations;
+                # every other actor on this runtime waits until that run releases it.
+                if not maintenance:
+                    require(self.gate('maintenance-check') == b'none', 'Identity maintenance is active; release it before this operation.')
                 yield
 
-    def gate(self, action):
+    def gate(self, action, run_id=None):
         # Engine-side marker: works through an SSH Docker context without the owner's
         # keyring, decrypted dumps or local journal ever being mounted on that host.
-        require(action in ('close', 'open', 'check'), 'Invalid recovery gate action.')
+        require(action in ('close', 'open', 'check', 'maintenance-check')
+                or (action in ('maintenance-enter', 'maintenance-exit') and re.fullmatch(r'[0-9a-f-]{36}', run_id or '')),
+                'Invalid recovery gate action.')
         if action != 'close':
             self.check_lease()
-        script = """import pathlib,sys,os
+        # IDENTITY-MAINTENANCE.json is the identity-maintenance fence the edge reads; it names
+        # the one run allowed to release it and is replaced atomically.
+        script = """import json,pathlib,sys,os
 p=pathlib.Path('/gate')
 a=sys.argv[1]
+m=p/'IDENTITY-MAINTENANCE.json'
+def owner():
+ try:
+  return json.loads(m.read_text())['runId']
+ except FileNotFoundError:
+  return None
 if a=='close':
  (p/'READY').unlink(missing_ok=True)
  (p/'PENDING.json').touch(mode=0o644)
 elif a=='open':
  (p/'READY').touch(mode=0o644)
  (p/'PENDING.json').unlink(missing_ok=True)
+elif a=='maintenance-check':
+ print(owner() or 'none')
+elif a=='maintenance-enter':
+ if owner() not in (None,sys.argv[2]):
+  print('conflict')
+ else:
+  t=p/'IDENTITY-MAINTENANCE.json.tmp'
+  with open(t,'w') as f:
+   f.write(json.dumps({'runId':sys.argv[2]}))
+   f.flush()
+   os.fsync(f.fileno())
+  os.chmod(t,0o644)
+  t.replace(m)
+  print('entered')
+elif a=='maintenance-exit':
+ current=owner()
+ if current is None:
+  print('absent')
+ elif current!=sys.argv[2]:
+  print('conflict')
+ else:
+  m.unlink()
+  print('released')
 else:
  print('open' if (p/'READY').is_file() and not (p/'PENDING.json').exists() else 'closed')
 fd=os.open(p,os.O_DIRECTORY)
@@ -278,7 +315,7 @@ os.close(fd)
                     '--security-opt', 'no-new-privileges:true', '--memory', '96m', '--pids-limit', '32',
                     '-v', self.gate_volume + ':/gate',
                     'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258',
-                    'python3', '-c', script, action], timeout=60).strip()
+                    'python3', '-c', script, action, *([run_id] if run_id else [])], timeout=60).strip()
 
     def initialize(self):
         self.fresh()

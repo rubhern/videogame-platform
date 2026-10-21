@@ -297,7 +297,7 @@ jobs:
     if: ${{ needs.detect-changes.outputs.production_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
     steps:
@@ -317,7 +317,10 @@ jobs:
           python3 scripts/test-production-recovery.py
           python3 scripts/test-production-recovery-lock.py
 
-      - name: Check topology, exposure, secrets and edge routes with synthetic inputs
+      - name: Prove the identity-maintenance fence and its Keycloak drain evidence
+        run: python3 scripts/test-production-identity-maintenance.py
+
+      - name: Check topology, exposure, secrets, edge routes, limits and maintenance with synthetic inputs
         run: python3 -I scripts/test-public-production-runtime.py
 
   runtime-alerts:
@@ -477,7 +480,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [keycloak, catalogue-localizer]
+        image: [keycloak, catalogue-localizer, caddy]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -852,7 +855,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [keycloak, catalogue-localizer]
+        image: [keycloak, catalogue-localizer, caddy]
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository }}-${{ matrix.image }}
       DEPENDENCY_IMAGE: ${{ matrix.image }}

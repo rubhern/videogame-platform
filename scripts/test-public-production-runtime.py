@@ -1,10 +1,12 @@
-"""Contract tests for the public-production runtime candidate (#275 increment 1).
+"""Contract tests for the public-production runtime candidate (#275 increments 1 and 6).
 
 Default: render deploy/public-production with synthetic inputs and check topology, exposure,
-images, secrets and forbidden options; adapt the Caddyfile and check its global options;
-exercise the real Caddy routes on disposable internal networks with upstream stand-ins;
-then prove that each deliberate violation is detected. Nothing is published to the host and
-no DNS, ACME, credential, private-dev configuration or data is used.
+images, secrets and forbidden options; build a disposable edge image from caddy/Dockerfile,
+adapt the Caddyfile and check its global options and limiter settings; exercise the real
+Caddy routes, per-source and aggregate request limits, spoofing, IPv4/IPv6 sources and the
+maintenance gate on disposable internal networks with upstream stand-ins; then prove that
+each deliberate violation is detected. Nothing is published to the host and no DNS, ACME,
+credential, private-dev configuration or data is used. The test image is never published.
 
 --env-file PATH  render a protected runtime.env instead and run only the static Compose
                  checks (no containers). Secret files are never read.
@@ -30,7 +32,8 @@ CADDYFILE = RUNTIME / "caddy/Caddyfile"
 ENV_EXAMPLE = RUNTIME / "runtime.env.example"
 PROBE = ROOT / "scripts/probe-public-production-edge.py"
 PRIVATE_DEV_SECRETS = "/etc/videogame-platform/dev/secrets"
-CADDY_IMAGE = "caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f"
+EDGE_DOCKERFILE = RUNTIME / "caddy/Dockerfile"
+EDGE_TEST_IMAGE = f"videogame-platform-edge-test:{secrets.token_hex(6)}"
 # The localizer's pinned base image doubles as the stub and probe runtime.
 PYTHON_IMAGE = "python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"
 
@@ -38,6 +41,10 @@ APPLICATION_ORIGIN = "https://gameometro.com"
 IDENTITY_ORIGIN = "https://auth.gameometro.com"
 ISSUER = f"{IDENTITY_ORIGIN}/realms/gameometro"
 EDGE_ADDRESSES = {"application-edge": "10.203.1.2", "identity-edge": "10.203.2.2"}
+# The BFF's fixed address, whose issuer calls the edge budgets separately, and the gateways
+# behind which Docker's userland proxy hides a client; the Caddyfile names both.
+BFF_ADDRESS = "10.203.1.3"
+GATEWAYS = {"application-edge": "10.203.1.1", "identity-edge": "10.203.2.1"}
 DIGEST = re.compile(r"^[a-z0-9./_:-]+@sha256:[0-9a-f]{64}$")
 # Each image comes from the GHCR repository that trusted main publishes it to.
 TRUSTED_REPOSITORIES = {
@@ -45,6 +52,7 @@ TRUSTED_REPOSITORIES = {
     "migration": "ghcr.io/rubhern/videogame-platform",
     "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak",
     "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer",
+    "caddy": "ghcr.io/rubhern/videogame-platform-caddy",
 }
 PLACEHOLDER = re.compile(r"=(.*@sha256:0{64}|.*REPLACE_WITH)")
 INLINE_SECRET_NAME = re.compile(r"(PASSWORD|SECRET|TOKEN|CLIENT_ID|SMTP_USER)$")
@@ -176,6 +184,8 @@ def compose_violations(config, secrets_dir):
         prefix = address.rsplit(".", 1)[0]
         if len(ipam) != 1 or not str(ipam[0].get("subnet", "")).startswith(prefix + ".") or not ipam[0].get("ip_range"):
             found.append(f"network {edge} needs one fixed subnet with a dynamic ip_range excluding the edge address")
+        elif ipam[0].get("gateway") != GATEWAYS[edge]:
+            found.append(f"network {edge} gateway must be {GATEWAYS[edge]}, the address the edge refuses as unattributed")
 
     for name, service in services.items():
         found += service_violations(name, service, config, secrets_dir)
@@ -248,7 +258,8 @@ def service_violations(name, service, config, secrets_dir):
         found.append(f"{name} networks must be exactly {sorted(NETWORKS.get(name, set()))}, found {sorted(networks)}")
     for network, attachment in networks.items():
         attachment = attachment or {}
-        expected_address = EDGE_ADDRESSES.get(network) if name == "caddy" else None
+        expected_address = EDGE_ADDRESSES.get(network) if name == "caddy" else \
+            BFF_ADDRESS if (name, network) == ("application", "application-edge") else None
         if attachment.get("ipv4_address") != expected_address or attachment.get("ipv6_address"):
             found.append(f"{name} on {network} must use {expected_address or 'a dynamic address'}")
         aliases = set(attachment.get("aliases") or [])
@@ -297,9 +308,11 @@ def service_violations(name, service, config, secrets_dir):
             if pathlib.Path(secrets_dir) in (path, *path.parents):
                 found.append(f"{name} must receive secrets as Compose secrets, not a directory mount")
         elif volume.get("type") == "volume":
-            expected = {"caddy": {"caddy-data", "caddy-config"}, "postgres": {"postgres-data"}, "application": {"recovery-state"}, "migration": {"recovery-state"}}.get(name, set())
+            expected = {"caddy": {"caddy-data", "caddy-config", "recovery-state"}, "postgres": {"postgres-data"}, "application": {"recovery-state"}, "migration": {"recovery-state"}}.get(name, set())
             if source not in expected:
                 found.append(f"{name} must not use named volume {source}")
+            elif source == "recovery-state" and not volume.get("read_only"):
+                found.append(f"{name} must mount the recovery gate read-only")
         else:
             found.append(f"{name} uses unsupported volume type {volume.get('type')}")
 
@@ -316,6 +329,9 @@ def service_violations(name, service, config, secrets_dir):
             found.append("edge must mount only the reviewed Caddyfile, read-only")
         if targets.get("/data", {}).get("type") != "volume":
             found.append("edge TLS state must persist in a named volume")
+        gate = targets.get("/run/recovery", {})
+        if gate.get("type") != "volume" or gate.get("source") != "recovery-state" or not gate.get("read_only"):
+            found.append("edge must read the recovery and identity-maintenance gate, read-only")
     if name in ("application", "migration"):
         wrapper = "run-application" if name == "application" else "run-migrations"
         targets = {v.get("target"): v for v in service.get("volumes", [])}
@@ -390,7 +406,7 @@ def adapt(caddyfile_text, directory):
     path = pathlib.Path(directory) / "Caddyfile"
     path.write_text(caddyfile_text)
     output = run(["docker", "run", "--rm", "--network", "none", "--read-only",
-                  "--volume", f"{path}:/etc/caddy/Caddyfile:ro", CADDY_IMAGE,
+                  "--volume", f"{path}:/etc/caddy/Caddyfile:ro", EDGE_TEST_IMAGE,
                   "caddy", "adapt", "--config", "/etc/caddy/Caddyfile"]).stdout
     return json.loads(output)
 
@@ -441,6 +457,58 @@ def caddy_violations(config):
             found.append(f"Caddy must not enable the {node['handler']} handler")
         if node.get("module") == "internal" or node.get("on_demand"):
             found.append("Caddy production TLS must not use the internal CA or on-demand issuance")
+    found += limiter_violations(config, nodes)
+    return found
+
+
+PEER_KEY = "{http.request.remote.host}"
+
+
+def limiter_violations(config, nodes):
+    """Static limiter policy; the edge exercise proves the behaviour of every zone."""
+    found = []
+    if "http.handlers.rate_limit" not in config.get("logging", {}).get("logs", {}).get("default", {}).get("exclude", []):
+        found.append("Caddy must not log limiter refusals, which carry the client address")
+    zones = []
+    for node in nodes:
+        if node.get("handler") != "rate_limit":
+            continue
+        if node.get("disable_metrics") is not True:
+            found.append("Caddy limiter metrics must stay disabled: they label each client address")
+        if node.get("log_key") or "distributed" in node or "storage" in node:
+            found.append("Caddy limiter must not log keys or share state through storage")
+        kinds = set()
+        for name, zone in node.get("rate_limits", {}).items():
+            zones.append(name)
+            key = zone.get("key")
+            kinds.add("aggregate" if key == "static" else "source")
+            if name.startswith("aggregate-") != (key == "static"):
+                found.append(f"Caddy zone {name}: only aggregate-* zones may use the static key")
+            if key not in ("static", PEER_KEY):
+                found.append(f"Caddy zone {name} must key on the TCP peer, found {key!r}")
+            if key == PEER_KEY and (zone.get("ipv6_prefix") != 64 or zone.get("ipv4_prefix")):
+                found.append(f"Caddy zone {name} must group IPv6 sources by /64 and keep each IPv4 address")
+        if len(kinds) != 1:
+            found.append("Caddy per-source and aggregate zones must be separate handlers, per-source first")
+    if len(zones) != len(set(zones)):
+        found.append("Caddy limiter zone names must be unique: equal names share state")
+    # In every route that proxies, the per-source handler precedes the aggregate one.
+    for node in nodes:
+        handlers = [h for route in node.get("routes", []) for h in route.get("handle", [])] if "routes" in node else []
+        order = [("proxy" if h.get("handler") == "reverse_proxy" else
+                  "aggregate" if all(z.get("key") == "static" for z in h.get("rate_limits", {}).values()) else "source")
+                 for h in handlers if h.get("handler") in ("rate_limit", "reverse_proxy")]
+        if "proxy" in order and order != ["source", "aggregate", "proxy"]:
+            found.append(f"Caddy must limit per source, then in aggregate, before proxying; found {order}")
+    unattributed = [node for node in nodes for match in node.get("match", []) if isinstance(match, dict)
+                    and match.get("remote_ip", {}).get("ranges") == sorted(GATEWAYS.values())
+                    and '"abort": true' in json.dumps(node.get("handle", []))]
+    if len(unattributed) != 2:
+        found.append("Caddy must abort requests from the edge network gateways on both hosts")
+    gates = json.dumps(config)
+    for marker in ("/READY", "/PENDING.json", "/IDENTITY-MAINTENANCE.json"):
+        if f'"{marker}"' not in gates:
+            found.append(f"Caddy must read the {marker} gate file")
     return found
 
 
@@ -456,30 +524,67 @@ def edge_test_config(config):
 # --- Disposable edge exercise -------------------------------------------------------
 
 
+# Client addresses on the private probe network. Two IPv6 clients share one /64.
+PROBE_EDGE = {"ipv4": "10.203.9.2", "ipv6": "fd00:203:9::2"}
+SOURCES = {
+    "source-a": {"ipv4_address": "10.203.9.11"},
+    "source-b": {"ipv4_address": "10.203.9.12"},
+    "source-v6-a": {"ipv4_address": "10.203.9.21", "ipv6_address": "fd00:203:9:1::11"},
+    "source-v6-b": {"ipv4_address": "10.203.9.22", "ipv6_address": "fd00:203:9:1::12"},
+    "source-v6-c": {"ipv4_address": "10.203.9.23", "ipv6_address": "fd00:203:9:2::11"},
+}
+# Gate states the recovery actor and the identity-maintenance adapter write.
+GATE_SCRIPT = """import json,pathlib,sys
+p=pathlib.Path('/gate')
+for name in ('READY','PENDING.json','IDENTITY-MAINTENANCE.json'):
+    (p/name).unlink(missing_ok=True)
+state=sys.argv[1]
+if state in ('ready','pending','identity'):
+    (p/'READY').touch()
+if state=='pending':
+    (p/'PENDING.json').write_text('{}')
+if state=='identity':
+    (p/'IDENTITY-MAINTENANCE.json').write_text(json.dumps({'runId':'00000000-0000-4000-8000-000000000000'}))
+"""
+
+
 def overlay(directory, caddy_config):
     probe_mount = f"{PROBE}:/probe/edge.py:ro"
     hardened = {"image": PYTHON_IMAGE, "read_only": True, "user": "65534:65534", "cap_drop": ["ALL"],
                 "security_opt": ["no-new-privileges:true"], "mem_limit": "64m", "pids_limit": 64,
                 "volumes": [probe_mount]}
+    command = ["python", "-I", "/probe/edge.py"]
+    sources = {name: {**hardened, "profiles": ["probe"], "command": [*command, "limit", "household"],
+                      # Pin the address family: the probe network gives every client both.
+                      "environment": {"EDGE_ADDRESS": PROBE_EDGE["ipv6" if "ipv6_address" in address else "ipv4"]},
+                      "networks": {"probe": address}} for name, address in SOURCES.items()}
     document = {
         "services": {
             "caddy": {
+                "image": EDGE_TEST_IMAGE,
                 "ports": "!reset",
                 "command": ["caddy", "run", "--config", "/etc/caddy/caddy.json"],
-                "volumes": [f"{caddy_config}:/etc/caddy/caddy.json:ro", "caddy-data:/data", "caddy-config:/config"],
-                "networks": {"probe": {"aliases": ["gameometro.com", "auth.gameometro.com"]}},
+                "volumes": [f"{caddy_config}:/etc/caddy/caddy.json:ro", "caddy-data:/data", "caddy-config:/config",
+                            "recovery-state:/run/recovery:ro"],
+                "networks": {"probe": {"aliases": ["gameometro.com", "auth.gameometro.com"],
+                                       "ipv4_address": PROBE_EDGE["ipv4"], "ipv6_address": PROBE_EDGE["ipv6"]}},
             },
-            "application-stub": {**hardened, "command": ["python", "-I", "/probe/edge.py", "serve", "application"],
+            "application-stub": {**hardened, "command": [*command, "serve", "application"],
                                  "networks": {"application-edge": {"aliases": ["application"]}}},
-            "keycloak-stub": {**hardened, "command": ["python", "-I", "/probe/edge.py", "serve", "keycloak"],
+            "keycloak-stub": {**hardened, "command": [*command, "serve", "keycloak"],
                               "networks": {"identity-edge": {"aliases": ["keycloak"]}}},
-            "prober": {**hardened, "profiles": ["probe"], "command": ["python", "-I", "/probe/edge.py", "probe"],
-                       "networks": ["probe"]},
-            "backchannel-prober": {**hardened, "profiles": ["probe"],
-                                   "command": ["python", "-I", "/probe/edge.py", "backchannel"],
-                                   "networks": ["application-edge"]},
+            "prober": {**hardened, "profiles": ["probe"], "command": [*command, "probe"], "networks": ["probe"]},
+            # The BFF's fixed address, and another client on the same network.
+            "backchannel-prober": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
+                                   "networks": {"application-edge": {"ipv4_address": BFF_ADDRESS}}},
+            "rogue-backchannel": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
+                                  "networks": {"application-edge": {"ipv4_address": "10.203.1.4"}}},
+            **sources,
+            "gate": {**hardened, "user": "0:0", "profiles": ["probe"], "network_mode": "none",
+                     "volumes": ["recovery-state:/gate"], "entrypoint": ["python", "-I", "-c", GATE_SCRIPT]},
         },
-        "networks": {"probe": {"internal": True}},
+        "networks": {"probe": {"internal": True, "enable_ipv6": True,
+                               "ipam": {"config": [{"subnet": "10.203.9.0/24"}, {"subnet": "fd00:203:9::/56"}]}}},
     }
     # JSON is YAML; "!reset" must stay a tag, so it is written unquoted.
     text = json.dumps(document, indent=2).replace('"ports": "!reset"', '"ports": !reset []')
@@ -506,10 +611,13 @@ class Edge:
             subprocess.run(self.compose + ["--profile", "probe", "down", "--volumes", "--remove-orphans"],
                            capture_output=True, text=True)
 
-    def load(self, config):
+    def load(self, config, gate=None):
+        """(Re)start Caddy on a config, which also clears every limiter's state."""
         # Rewrite in place so the running container's bind mount sees the new content.
         with open(self.caddy_config, "w") as handle:
             json.dump(config, handle)
+        if gate:
+            self.gate(gate)
         if not self.started:
             self.started = True
             run(self.compose + ["up", "--detach", "--wait", "--wait-timeout", "60",
@@ -518,16 +626,166 @@ class Edge:
             run(self.compose + ["restart", "caddy"])
         time.sleep(1)
 
-    def probe(self, service):
+    def gate(self, state):
+        run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull", "gate", state])
+
+    def probe(self, service, *arguments):
+        command = ["python", "-I", "/probe/edge.py", *arguments] if arguments else []
         for attempt in range(20):
             result = subprocess.run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull",
-                                                    service], capture_output=True, text=True)
+                                                    service, *command], capture_output=True, text=True)
             # Wait for the internal CA certificates rather than reporting a startup race.
-            if "transport failure" not in result.stdout or attempt == 19:
+            if "transport failure" not in result.stdout or attempt == 19 or "aborted" in " ".join(arguments):
                 output = result.stdout if result.stdout.strip() else result.stderr
                 return result.returncode, output
             time.sleep(1)
         raise AssertionError("unreachable")
+
+
+# Each scenario is (label, gate state, [(client, steps...)]); Caddy restarts before each one,
+# so it starts with empty limiters. Counts are the Caddyfile's per-source zones.
+LIMIT = "limit"
+BURSTS = [
+    ("application per-source", [("source-a", "shell:120:ok", "shell:1:limited")]),
+    ("BFF navigation per-source", [("source-a", "navigation:10:ok", "navigation:1:limited", "callback:1:limited")]),
+    ("catalogue read per-source and quota recovery",
+     [("source-a", "read:40:ok", "read:1:limited", "pause:retry-after", "read:1:ok")]),
+    ("expensive search per-source", [("source-a", "search:20:ok", "releases:1:limited", "read:1:ok")]),
+    ("product write per-source", [("source-a", "write:30:ok", "write:1:limited", "read:1:ok")]),
+    ("identity per-source", [("source-a", "identity-page:30:ok", "identity-resource:1:limited")]),
+    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
+    ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
+                                 "registration-slashes:1:limited", "login:1:ok")]),
+    ("recovery per-source", [("source-a", "recovery:6:ok", "recovery:1:limited", "registration:1:ok")]),
+    ("verification mail per-source", [("source-a", "verification:6:ok", "verification:1:limited")]),
+    ("emailed action per-source", [("source-a", "action-link:8:ok", "required-action:7:ok", "action-link:1:limited")]),
+    # A client cannot escape its quota, or charge another source, with any forwarding header.
+    ("forged forwarding headers", [
+        ("source-a", "read~xff:40:ok", "read:1:limited", *[f"read~{spoof}:1:limited" for spoof in
+                                                           ("xff", "xff-chain", "real-ip", "forwarded", "client-ip",
+                                                            "true-client-ip", "cluster-client-ip")]),
+        ("source-b", "read:40:ok", "read:1:limited"),
+    ]),
+    ("IPv4 and IPv6 /64 sources", [
+        ("source-v6-a", "read:40:ok", "read:1:limited"),
+        ("source-v6-b", "read:1:limited"),
+        ("source-v6-c", "read:40:ok", "read:1:limited"),
+        ("source-a", "read:40:ok"),
+    ]),
+    ("shared household", [("source-a", "household")]),
+    # The BFF's issuer calls have their own budget; nothing else from its address does.
+    ("BFF backchannel", [
+        ("backchannel-prober", "token:50:ok", "userinfo:10:ok", "certs:10:ok", "login:10:ok", "login:1:limited"),
+        ("rogue-backchannel", "token:10:ok", "token:1:limited"),
+    ]),
+]
+# Aggregate budgets scaled down: the first source's refused requests must not consume them.
+AGGREGATE_SCALE = [("zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 10s\n\t\t\t\tevents 600",
+                    "zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 2m\n\t\t\t\tevents 50"),
+                   ("\t\t\t\t\tkey static\n\t\t\t\t\twindow 1m\n\t\t\t\t\tevents 60\n",
+                    "\t\t\t\t\tkey static\n\t\t\t\t\twindow 5m\n\t\t\t\t\tevents 8\n")]
+AGGREGATES = [
+    ("aggregate API capacity", [("source-a", "read:40:ok", "read:5:limited"),
+                                ("source-b", "read:10:ok", "read:1:overloaded", "shell:1:ok")]),
+    ("aggregate identity mail", [("source-a", "registration:6:ok", "registration:1:limited"),
+                                 ("source-b", "recovery:2:ok", "recovery:1:overloaded", "verification:1:overloaded",
+                                  "login:1:ok")]),
+]
+# Treating one probe client as the gateway shows how the edge refuses an unattributed source.
+UNATTRIBUTED = ("@unattributed remote_ip 10.203.1.1 10.203.2.1", "@unattributed remote_ip 10.203.9.11",
+                [("source-a", "shell:1:aborted", "identity-page:1:aborted"), ("source-b", "shell:1:ok", "identity-page:1:ok")])
+APPLICATION_CHECKS = "shell:1:{0} read:1:{0} write:1:{0} navigation:1:{0} callback:1:{0}"
+IDENTITY_CHECKS = ("identity-page:1:{0} login:1:{0} registration:1:{0} recovery:1:{0} verification:1:{0} "
+                   "required-action:1:{0} action-link:1:{0} identity-resource:1:{0}")
+MAINTENANCE = [
+    ("empty gate fails closed", "empty", [("source-a", *(APPLICATION_CHECKS + " " + IDENTITY_CHECKS).format("maintenance").split()),
+                                          ("backchannel-prober", LIMIT, "token:1:maintenance")]),
+    ("interrupted recovery", "pending", [("source-a", *(APPLICATION_CHECKS + " " + IDENTITY_CHECKS).format("maintenance").split())]),
+    # Identity maintenance closes the whole identity host, BFF calls included; refused
+    # requests consume no quota, so the same client is admitted in full after release.
+    ("identity maintenance", "identity", [("source-a", *APPLICATION_CHECKS.format("ok").split(),
+                                           *IDENTITY_CHECKS.format("maintenance").split(), "identity-page:40:maintenance"),
+                                          ("backchannel-prober", LIMIT, "token:1:maintenance", "certs:1:maintenance")]),
+    ("identity maintenance survives an edge restart", "identity", [("source-a", "login:1:maintenance", "read:1:ok")]),
+    ("safe reopening", "ready", [("source-a", "identity-page:30:ok", "identity-page:1:limited", "read:1:ok"),
+                                 ("backchannel-prober", LIMIT, "token:1:ok")]),
+]
+# Each mutation must make one scenario fail with a named violation.
+LIMIT_MUTATIONS = [
+    ("limit keyed on a forwarding header", lambda text: text.replace("key {remote_host}", "key {header.X-Forwarded-For}"),
+     "forged forwarding headers", "source-b"),
+    ("IPv6 sources not grouped", lambda text: text.replace("\tipv6_prefix 64\n", ""), "IPv4 and IPv6 /64 sources", "source-v6-b"),
+    ("BFF exemption by subnet", lambda text: text.replace("remote_ip 10.203.1.3", "remote_ip 10.203.1.0/28"),
+     "BFF backchannel", "rogue-backchannel"),
+    ("refusal body lost", lambda text: text.replace("\timport limit_errors\n", ""), "catalogue read per-source and quota recovery",
+     "source-a"),
+    # Merging the two handlers is refused statically ("separate handlers"): the limiter orders
+    # zones by rate, and the scaled-down test aggregate would sort after the per-source zone.
+]
+GATE_MUTATIONS = [
+    ("recovery gate ignored", lambda text: text.replace("\timport edge_admission\n", "", 1), "empty gate fails closed"),
+    ("identity fence ignored", lambda text: text.replace("try_files /IDENTITY-MAINTENANCE.json", "try_files /ABSENT.json"),
+     "identity maintenance"),
+]
+
+
+def run_scenario(edge, config, label, clients):
+    failures = []
+    for client, *steps in clients:
+        arguments = steps if steps[:1] == [LIMIT] else [LIMIT, *steps]
+        if steps and steps[0] in ("probe", "backchannel"):
+            arguments = steps
+        status, output = edge.probe(client, *arguments)
+        if status != 0:
+            failures.append(f"edge scenario '{label}' failed for {client}:\n{output}")
+    return failures
+
+
+def exercise_limits(edge, caddyfile, directory):
+    """Every limit, spoofing, source-family, aggregate and maintenance scenario, then its mutations."""
+    failures = []
+    production = edge_test_config(adapt(caddyfile, directory))
+    for label, clients in BURSTS:
+        edge.load(production, gate="ready")
+        failures += run_scenario(edge, production, label, clients)
+    scaled_text = caddyfile
+    for old, new in AGGREGATE_SCALE:
+        assert scaled_text.count(old) == 1, f"aggregate scaling no longer applies: {old[:40]}"
+        scaled_text = scaled_text.replace(old, new)
+    scaled = edge_test_config(adapt(scaled_text, directory))
+    for label, clients in AGGREGATES:
+        edge.load(scaled, gate="ready")
+        failures += run_scenario(edge, scaled, label, clients)
+    for label, gate, clients in MAINTENANCE:
+        if label.endswith("survives an edge restart"):
+            edge.load(production)  # The gate is unchanged; only the edge restarts.
+        else:
+            edge.load(production, gate=gate)
+        failures += run_scenario(edge, production, label, clients)
+    gateway, client, clients = UNATTRIBUTED
+    assert caddyfile.count(gateway) == 1, "the unattributed-source matcher no longer applies"
+    edge.load(edge_test_config(adapt(caddyfile.replace(gateway, client), directory)), gate="ready")
+    failures += run_scenario(edge, None, "unattributed source", clients)
+    print(f"Edge limits: {len(BURSTS) + len(AGGREGATES) + 1} limit and {len(MAINTENANCE)} maintenance scenarios checked.")
+    scenarios = {label: (None, clients) for label, clients in BURSTS + AGGREGATES}
+    scenarios.update({label: (gate, clients) for label, gate, clients in MAINTENANCE})
+    for label, mutate, scenario, client in LIMIT_MUTATIONS:
+        mutated = mutate(caddyfile)
+        assert mutated != caddyfile, f"mutation '{label}' no longer applies to the Caddyfile"
+        edge.load(edge_test_config(adapt(mutated, directory)), gate="ready")
+        clients = [entry for entry in scenarios[scenario][1]]
+        outcome = run_scenario(edge, None, scenario, clients)
+        if not any(f"for {client}:" in failure for failure in outcome):
+            failures.append(f"edge did not detect deliberate limit violation: {label} (expected {client} to fail)")
+    for label, mutate, scenario in GATE_MUTATIONS:
+        mutated = mutate(caddyfile)
+        assert mutated != caddyfile, f"mutation '{label}' no longer applies to the Caddyfile"
+        gate, clients = scenarios[scenario]
+        edge.load(edge_test_config(adapt(mutated, directory)), gate=gate)
+        if not run_scenario(edge, None, scenario, clients):
+            failures.append(f"edge did not detect deliberate maintenance violation: {label}")
+    print(f"Edge limits: {len(LIMIT_MUTATIONS) + len(GATE_MUTATIONS)} deliberate limit and gate violations checked.")
+    return failures
 
 
 # --- Deliberate violations ----------------------------------------------------------
@@ -589,6 +847,17 @@ def compose_mutations(secrets_dir):
         ("application joins the identity data network", attach("application", "identity-data"), "application networks"),
         ("data network gains egress", lambda c: c["networks"]["application-data"].pop("internal"),
          "network application-data internal"),
+        ("edge gate missing", lambda c: c["services"]["caddy"].__setitem__("volumes", [
+            v for v in c["services"]["caddy"]["volumes"] if v.get("target") != "/run/recovery"]), "edge must read the recovery"),
+        ("edge gate writable", lambda c: next(v for v in c["services"]["caddy"]["volumes"]
+                                              if v.get("target") == "/run/recovery").__setitem__("read_only", False),
+         "mount the recovery gate read-only"),
+        ("BFF address becomes dynamic", lambda c: c["services"]["application"]["networks"].__setitem__("application-edge", None),
+         "application on application-edge"),
+        ("edge network gateway moves", lambda c: c["networks"]["application-edge"]["ipam"]["config"][0].__setitem__(
+            "gateway", "10.203.1.14"), "network application-edge gateway"),
+        ("edge from the stock image", lambda c: c["services"]["caddy"].__setitem__(
+            "image", "caddy:2.11.7-alpine@sha256:" + "6" * 64), "caddy must run the CI-published GHCR digest"),
         ("edge address leaves the fixed subnet",
          lambda c: c["services"]["caddy"]["networks"]["application-edge"].__setitem__("ipv4_address", "10.203.1.9"),
          "caddy on application-edge"),
@@ -670,11 +939,28 @@ CADDY_STATIC_MUTATIONS = [
     ("metrics handler", lambda text: text.replace("\theader -Server\n", "\theader -Server\n\tmetrics /metrics\n", 1),
      "metrics handler"),
     ("forwarded header kept", lambda text: text.replace("\theader_up -Forwarded\n", ""), "must drop ['Forwarded']"),
+    ("limiter metrics enabled", lambda text: text.replace("\tdisable_metrics\n", ""), "metrics must stay disabled"),
+    ("limiter keyed on a header", lambda text: text.replace("key {remote_host}", "key {header.X-Forwarded-For}"),
+     "must key on the TCP peer"),
+    ("IPv6 sources not grouped", lambda text: text.replace("\tipv6_prefix 64\n", ""), "group IPv6 sources by /64"),
+    ("limiter refusals logged", lambda text: text.replace("\tlog default {\n\t\texclude http.handlers.rate_limit\n\t}\n", ""),
+     "must not log limiter refusals"),
+    ("limiter keys logged", lambda text: text.replace("\tdisable_metrics\n", "\tdisable_metrics\n\tlog_key\n"),
+     "must not log keys"),
+    ("aggregate zone merged into the per-source handler", lambda text: text.replace(
+        "\t\t\timport limiter_options\n\t\t}\n\t\trate_limit {\n\t\t\tzone aggregate-application {",
+        "\t\t\tzone aggregate-application {"), "separate handlers"),
+    ("gateway sources admitted", lambda text: text.replace("@unattributed remote_ip 10.203.1.1 10.203.2.1",
+                                                            "@unattributed remote_ip 192.0.2.1"), "edge network gateways"),
+    ("identity fence not read", lambda text: text.replace("try_files /IDENTITY-MAINTENANCE.json", "try_files /ABSENT.json"),
+     "IDENTITY-MAINTENANCE.json gate"),
 ]
 # Each mutation must make the real edge fail a named behavioural check.
 CADDY_ROUTE_MUTATIONS = [
     ("identity allowlist opened", lambda text: re.sub(r"@identity path [^\n]+", "@identity path /*", text),
      "identity path refused"),
+    ("non-canonical identity paths admitted", lambda text: text.replace("@noncanonical path_regexp (;|.+/$)",
+                                                                         "@noncanonical path_regexp ^$"), "identity path refused"),
     ("management route opened", lambda text: text.replace("\trespond @management 404\n", ""),
      "application management refused"),
     ("client proxy chain trusted", lambda text: text.replace("\t\tstrict_sni_host on\n",
@@ -725,10 +1011,10 @@ def placeholder_violations(text):
 
 
 def placeholder_self_test():
-    """The example's four placeholders are refused; resolved trusted digests are not."""
+    """The example's five placeholders are refused; resolved trusted digests are not."""
     failures = []
     example = ENV_EXAMPLE.read_text()
-    expected = {"KEYCLOAK_IMAGE", "CATALOGUE_LOCALIZER_IMAGE", "APPLICATION_IMAGE", "APPLICATION_VERSION"}
+    expected = {"KEYCLOAK_IMAGE", "CATALOGUE_LOCALIZER_IMAGE", "CADDY_IMAGE", "APPLICATION_IMAGE", "APPLICATION_VERSION"}
     found = {violation.split(" ", 1)[0] for violation in placeholder_violations(example)}
     if found != expected:
         failures.append(f"placeholder check found {sorted(found)} in the example, expected {sorted(expected)}")
@@ -754,6 +1040,28 @@ def main():
         print(f"Protected runtime configuration: {len(violations)} violation(s); no container was started.")
         return 1 if violations else 0
 
+    failures = []
+    build_edge_image()
+    try:
+        failures += contract(arguments)
+    finally:
+        subprocess.run(["docker", "image", "rm", "--force", EDGE_TEST_IMAGE], capture_output=True)
+    for failure in failures:
+        print(f"FAIL {failure}")
+    if failures:
+        return 1
+    print("Public-production runtime contract passed with synthetic inputs. This is static and local "
+          "evidence only: no DNS, ACME issuance, real host, firewall, Docker NAT or credential was exercised.")
+    return 0
+
+
+def build_edge_image():
+    """The reviewed edge recipe, built locally for this test only; production pulls a CI digest."""
+    run(["docker", "build", "--quiet", "--tag", EDGE_TEST_IMAGE, "--file", str(EDGE_DOCKERFILE),
+         str(EDGE_DOCKERFILE.parent)])
+
+
+def contract(arguments):
     failures = []
     with tempfile.TemporaryDirectory(prefix="public-production-runtime-") as directory:
         env_file, secrets_dir, markers = synthetic_inputs(directory)
@@ -784,7 +1092,7 @@ def main():
 
         if not arguments.static_only and not failures:
             with Edge(directory, env_file) as edge:
-                edge.load(edge_test_config(caddy_config))
+                edge.load(edge_test_config(caddy_config), gate="ready")
                 for service in ("prober", "backchannel-prober"):
                     status, output = edge.probe(service)
                     print(output.strip().splitlines()[-1] if output.strip() else f"{service}: no output")
@@ -799,14 +1107,8 @@ def main():
                     if status == 0 or not detected:
                         failures.append(f"edge did not detect deliberate violation: {label} (expected '{fragment}')")
                 print(f"Edge behaviour: {len(CADDY_ROUTE_MUTATIONS)} deliberate route violations checked.")
-
-    for failure in failures:
-        print(f"FAIL {failure}")
-    if failures:
-        return 1
-    print("Public-production runtime contract passed with synthetic inputs. This is static and local "
-          "evidence only: no DNS, ACME issuance, real host, firewall or credential was exercised.")
-    return 0
+                failures += exercise_limits(edge, caddyfile, directory)
+    return failures
 
 
 if __name__ == "__main__":

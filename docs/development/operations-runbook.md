@@ -783,7 +783,8 @@ validation, end-to-end reset through the owner tunnel and reboot persistence on
 [approved design and evidence boundary](data-protection.md#local-implementation-and-acceptance)
 now have administrative implementations and draft product review pages. Existing
 private-dev erasure/replay behavior remains available. Production cleanup execution
-requires the #275 deny/drain adapter and protected archive/proof/holds stores; no real
+requires the [#275 deny/drain adapter](../../deploy/public-production/README.md#identity-maintenance),
+its real-host drain acceptance (#276) and protected archive/proof/holds stores; no real
 timer is installed. Production/Lenovo qualification remains #275/#276. No host changes
 or legal publication are authorized by local success.
 
@@ -1065,7 +1066,9 @@ for enter/check, or `state: "released"` for exit. It must deny all relevant nati
 identity mutation entry points and drain in-flight requests, serialize administrative
 identity/restore/deployment operations, keep that fence until exit, and settle
 management requests before release even after client timeout. A reload/sleep or
-self-asserted JSON is insufficient. No real adapter ships in #274. The protected Admin credential must permit filtered
+self-asserted JSON is insufficient. The production adapter is
+[`identity-maintenance`](../../deploy/public-production/README.md#identity-maintenance) (#275); it is
+locally exercised only, and no production host command for cleanup exists yet. The protected Admin credential must permit filtered
 user reads, management-client discovery and effective client-role reads; inability
 to establish role exclusion stops execution. Execute performs
 key/storage preflight, locks the ledger, re-reads candidates, checks the fence and
