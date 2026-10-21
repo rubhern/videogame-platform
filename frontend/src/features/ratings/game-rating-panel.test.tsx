@@ -560,6 +560,31 @@ async function openSheet(user: User) {
 }
 
 describe("rating by platform (#359)", () => {
+  it("switches between general and platform scoring as platforms are checked", async () => {
+    const user = userEvent.setup();
+    serve({ session: authenticated, read: () => Response.json(rating(7, 1)) });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+    const dialog = await openSheet(user);
+    const general = () => within(dialog).queryByRole("group", {
+      name: "Tu puntuación general del 1 al 10",
+    });
+    const save = within(dialog).getByRole("button", { name: "Guardar" });
+    expect(general()).toBeVisible();
+    await user.click(within(dialog).getByRole("checkbox", { name: "PlayStation 5" }));
+    expect(general()).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("7/10")).not.toBeInTheDocument();
+    expect(save).toBeDisabled();
+    await user.click(within(dialog).getByRole("checkbox", { name: "Nintendo Switch 2" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "PlayStation 5" }));
+    expect(general()).not.toBeInTheDocument();
+    expect(save).toBeDisabled();
+    await user.click(within(dialog).getByRole("checkbox", { name: "Nintendo Switch 2" }));
+    expect(general()).toBeVisible();
+    expect(within(dialog).getByText("7/10")).toBeVisible();
+    expect(save).toBeDisabled();
+  });
+
   it("rates platforms in a sheet: one vote from their mean, sent without a general value", async () => {
     const user = userEvent.setup();
     let saved: PersonalRating | null = null;
@@ -676,14 +701,14 @@ describe("rating by platform (#359)", () => {
     expect(server.commands()[0]?.headers.get("If-Match")).toBe('"rating-version-1"');
   });
 
-  it("asks for a general score before the last platform score can be removed", async () => {
+  it("requires deselecting every platform before returning to a general score", async () => {
     const user = userEvent.setup();
     const server = serve({
       session: authenticated,
       read: () => Response.json(platformRating(3, [{ ...ps5, value: 9 }])),
       put: () =>
         Response.json({
-          personalRating: platformRating(4, [{ ...ps5, value: null }], 6),
+          personalRating: platformRating(4, [], 6),
           ratingStatistics: statistics(6, 1),
         }),
     });
@@ -698,6 +723,8 @@ describe("rating by platform (#359)", () => {
 
     // No score source is left: nothing can be saved until a general score is chosen.
     expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeDisabled();
+    expect(within(dialog).queryByRole("group", { name: "Tu puntuación general del 1 al 10" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("checkbox", { name: "PlayStation 5" }));
     const general = within(dialog).getByRole("group", { name: "Tu puntuación general del 1 al 10" });
     expect(within(general).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
     await user.click(within(general).getByRole("button", { name: "6" }));
@@ -706,7 +733,7 @@ describe("rating by platform (#359)", () => {
     await waitFor(() => expect(server.commands()).toHaveLength(1));
     await expect(server.commands()[0]?.clone().json()).resolves.toEqual({
       value: 6,
-      platforms: [{ platformId: "playstation-5" }],
+      platforms: [],
     });
   });
 

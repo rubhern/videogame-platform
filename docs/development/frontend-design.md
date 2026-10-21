@@ -764,7 +764,8 @@ puntuación`/`puntuaciones` beneath, and its mean in plain ink opposite, with on
 saying a player who scores several platforms counts once in the community score. It never
 repeats a G-meter, a temperature or a thermal colour, so the community reading keeps its
 authority. Escape, an outside press or moving focus away close it, returning focus to the
-control; it adds at most one line to the readings band.
+control; it adds at most one line to the readings band. The panel anchors to the count
+row so its full width stays inside the viewport, including on phones.
 
 Post-MVP (#279 phase 3, implemented; awaiting owner review): **Jugadores IGDB** follows as a
 separate, supporting reading: the community reading's parts at a smaller size and in quieter
@@ -820,8 +821,11 @@ plataforma** and a close control, its body — the only part that scrolls — a 
 the game's platforms (then any saved platform the game no longer releases on) as native
 checkboxes with their marks; a checked platform gains a score control (`Puntuar` or its score in
 its temperature, edged in ice otherwise) that opens the shared keypad beneath that row, one at a
-time, with **Quitar la nota de …** once scored. While no platform is scored, **Tu puntuación
-general** follows with the keypad. A sticky footer shows the result as the player's own reading
+time, with **Quitar la nota de …** once scored. **Tu puntuación general** and its keypad
+appear only when every platform is unchecked. Checking any platform hides the general
+score and excludes it from the preview and save command; at least one selected platform
+must have a score before saving. Unchecking every platform restores the general keypad
+and any general score held in the draft. A sticky footer shows the result as the player's own reading
 — G-meter, value, band in words and one plain source line (`Tu puntuación general`, `Media de tus
 2 plataformas puntuadas`, adding that it replaces the general score when it does) — above
 **Cancelar** and **Guardar**, enabled only for a valid change. Nothing is sent until **Guardar**;

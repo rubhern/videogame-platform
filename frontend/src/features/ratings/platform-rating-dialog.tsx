@@ -35,7 +35,8 @@ const failures: Record<RatingCommandError["kind"], string> = {
  * Rates one game platform by platform: which platforms the player played on and, optionally, a
  * score on each. A rating still casts one community vote, so the result shown is the player's
  * own Gameómetro score: the mean of the scored platforms, or the general score when none is
- * scored. Nothing is sent until **Guardar**, and the command always names the complete set.
+ * selected. Selected platforms need at least one score to save. Nothing is sent until
+ * **Guardar**, and the command always names the complete set.
  *
  * <p>A native modal dialog: a bottom sheet on phones, a centred sheet wider up. Its list is the
  * only part that scrolls, while the reading and the actions stay in reach. Escape and **Cancelar**
@@ -81,10 +82,11 @@ export function PlatformRatingDialog({
     const value = played.get(option.platformId);
     return value === null || value === undefined ? [] : [value];
   });
-  const contribution = scores.length > 0 ? platformMean(scores) : general;
+  const generalMode = chosen.length === 0;
+  const contribution = scores.length > 0 ? platformMean(scores) : generalMode ? general : null;
   const band = contribution === null ? null : thermalBand(contribution);
   const write: RatingWrite = {
-    ...(scores.length === 0 && general !== null ? { value: general } : {}),
+    ...(generalMode && general !== null ? { value: general } : {}),
     platforms: chosen.map((option) => {
       const value = played.get(option.platformId);
       return value === null || value === undefined
@@ -143,7 +145,9 @@ export function PlatformRatingDialog({
 
   const source =
     contribution === null
-      ? "Elige una puntuación general o puntúa alguna plataforma."
+      ? generalMode
+        ? "Elige una puntuación general."
+        : "Puntúa alguna de las plataformas seleccionadas."
       : scores.length === 0
         ? "Tu puntuación general"
         : scores.length === 1
@@ -177,7 +181,8 @@ export function PlatformRatingDialog({
 
         <div className="platform-rating-body">
           <p className="platform-rating-lead" id={leadId}>
-            Marca dónde has jugado a {game.canonicalTitle}. Puntuar cada plataforma es opcional.
+            Marca dónde has jugado a {game.canonicalTitle} y puntúa alguna plataforma, o desmarca
+            todas para dar una puntuación general.
           </p>
 
           <fieldset className="platform-rating-options">
@@ -249,7 +254,7 @@ export function PlatformRatingDialog({
             </ul>
           </fieldset>
 
-          {scores.length === 0 ? (
+          {generalMode ? (
             <section aria-labelledby={`${titleId}-general`} className="platform-rating-general">
               <h3 id={`${titleId}-general`}>Tu puntuación general</h3>
               <RatingKeypad
