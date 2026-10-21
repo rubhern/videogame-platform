@@ -21,6 +21,8 @@ MAX_BYTES = 20 * 1024 * 1024
 PROFILES = ("pending-signup-v1", "requested-account-v1", "case-hold-v1")
 REFERENCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,63}")
 FINGERPRINT = re.compile(r"[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64}")
+CASE_ROW = {"gameId", "value", "createdAt", "updatedAt"}
+CASE_PLATFORM = {"platformId", "name", "value"}
 
 
 class ArchiveError(RuntimeError):
@@ -124,7 +126,7 @@ def profile_payload(entry: dict, snapshot: dict, current: dt.datetime, hold: dic
             raise ArchiveError("An exceptional case can name at most 100 games")
         rows = []
         for row in ratings or []:
-            if row.get("gameId") not in selected or set(row) != {"gameId", "value", "createdAt", "updatedAt"}:
+            if row.get("gameId") not in selected or not case_row_valid(row):
                 raise ArchiveError("Exceptional source contains an unapproved field or row")
             rows.append(row)
         value["case"] = {key: hold[key] for key in ("caseReference", "reason")}
@@ -137,6 +139,14 @@ def profile_payload(entry: dict, snapshot: dict, current: dt.datetime, hold: dic
     if len(encoded(value)) > MAX_BYTES:
         raise ArchiveError("Legal source exceeds the account byte budget")
     return value
+
+
+def case_row_valid(row: dict) -> bool:
+    # A rating scored by platform (#359) carries its platforms, each with the user's own score;
+    # sources archived before then name none, and both keep a closed field set.
+    platforms = row.get("platforms", [])
+    return (set(row) - {"platforms"} == CASE_ROW and isinstance(platforms, list)
+            and all(isinstance(platform, dict) and set(platform) == CASE_PLATFORM for platform in platforms))
 
 
 def validate_source(source: dict) -> None:
@@ -155,7 +165,7 @@ def validate_source(source: dict) -> None:
         if set(source["case"]) != {"caseReference", "reason"} or len(source["ratings"]) > 100:
             raise ArchiveError("Invalid particular-case source")
         for row in source["ratings"]:
-            if set(row) != {"gameId", "value", "createdAt", "updatedAt"}:
+            if not case_row_valid(row):
                 raise ArchiveError("Unapproved exceptional source fields")
     for field in ("blockedAt", "expiresAt", "reviewAt"):
         parse_time(source[field])

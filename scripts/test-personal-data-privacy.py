@@ -187,6 +187,11 @@ row = {"gameId": game, "value": 7, "createdAt": "t1", "updatedAt": "t2"}
 hold = {"caseReference": "CASE-1", "reason": "particular synthetic claim", "gameIds": [game]}
 assert a.profile_payload(case_entry, verified, current, hold, [row])["ratings"] == [row]
 expect_failure(lambda: a.profile_payload(case_entry, verified, current, hold, [{**row, "gameId": TARGET}]))
+scored = {**row, "value": None, "platforms": [{"platformId": "p-1", "name": "PS5", "value": 8}]}
+assert a.profile_payload(case_entry, verified, current, hold, [scored])["ratings"] == [scored]
+expect_failure(lambda: a.profile_payload(case_entry, verified, current, hold,
+                                         [{**scored, "platforms": [{"platformId": "p-1", "note": "x"}]}]))
+expect_failure(lambda: a.profile_payload(case_entry, verified, current, hold, [{**row, "note": "x"}]))
 
 # Reuse legacy fake-host steps; only new read operations/maintenance are synthetic adapters.
 WRAPPER = r'''

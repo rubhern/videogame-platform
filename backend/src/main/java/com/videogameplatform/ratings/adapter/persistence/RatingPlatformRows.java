@@ -44,6 +44,9 @@ final class RatingPlatformRows {
         Object[] ids = array(rs.getArray("platform_ids"));
         Object[] names = array(rs.getArray("platform_names"));
         Object[] values = array(rs.getArray("platform_values"));
+        if (names.length != ids.length || values.length != ids.length) {
+            throw new SQLException("Rating platform columns differ in length");
+        }
         var platforms = new ArrayList<PersonalRating.PlayedPlatform>(ids.length);
         for (int index = 0; index < ids.length; index++) {
             platforms.add(

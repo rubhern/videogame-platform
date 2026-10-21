@@ -221,7 +221,7 @@ scoped = json.loads(run(shlex.split(host_command) + ["archive-ratings", "--keycl
     "--game-ids", "30000000-0000-4000-8000-000000000005"]).stdout)
 assert scoped["issuer"] == issuer
 assert len(scoped["ratings"]) == 1 and scoped["ratings"][0]["value"] == 7
-assert set(scoped["ratings"][0]) == {"gameId", "value", "createdAt", "updatedAt"}
+assert set(scoped["ratings"][0]) == {"gameId", "value", "platforms", "createdAt", "updatedAt"}
 
 # The real host command refuses out-of-order and mismatched steps before changing anything.
 def refused(*arguments: str) -> str:
