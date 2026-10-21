@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Identity deny/drain adapter for the privacy cleanup (personal-data-ledger --maintenance-command).
+
+  identity-maintenance --config C --project P --state S enter|check|exit --run-id UUID
+
+Answers one JSON object on stdout: {"issuer", "runId", "state": "drained"|"released"}.
+The fence is IDENTITY-MAINTENANCE.json in the recovery-state volume, written only under the
+recovery actor's runtime lease. While it exists the edge refuses every identity-host request
+and every recovery, backup or deployment actor refuses to start. Drain is proved by Keycloak's
+own count of in-flight public requests, never by a sleep or a configuration reload.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+from pathlib import Path
+import re
+import sys
+import time
+
+sys.dont_write_bytecode = True
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+recovery = load('production_identity_maintenance_core', Path(__file__).with_name('recovery'))
+require = recovery.require
+# The edge dials an upstream within its 2 s dial_timeout (caddy/Caddyfile), so a request it
+# admitted before the fence is visible to Keycloak once this bound has passed.
+ADMISSION_BOUND_SECONDS = 3
+DRAIN_BUDGET_SECONDS = 60
+# Keycloak's public HTTP listener; 9000 is its management interface, where this scrape runs.
+ACTIVE_REQUESTS = re.compile(r'^http_server_active_requests\{[^}]*server_port="8080"[^}]*\} ([0-9.eE+-]+)$', re.M)
+SCRAPE = ('exec 3<>/dev/tcp/127.0.0.1/9000; '
+          'printf "GET /metrics HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n" >&3; cat <&3')
+
+
+def active_requests(metrics):
+    """Return Keycloak's in-flight public request count, or refuse when it is not reported."""
+    values = ACTIVE_REQUESTS.findall(metrics)
+    require(len(values) == 1, 'Keycloak does not report its in-flight public requests; drain unproven.')
+    count = float(values[0])
+    require(count >= 0 and count == int(count), 'Keycloak reported an invalid in-flight request count.')
+    return int(count)
+
+
+class Maintenance:
+    def __init__(self, runtime, clock=time.monotonic, sleep=time.sleep):
+        self.runtime, self.clock, self.sleep = runtime, clock, sleep
+
+    def running(self, service):
+        return bool(self.runtime.compose('ps', '-q', '--status', 'running', service).strip())
+
+    def edge_sees_fence(self):
+        # The running edge's own view of the shared volume, not the actor's copy of it.
+        if self.running('caddy'):
+            self.runtime.compose('exec', '-T', 'caddy', 'test', '-f', '/run/recovery/IDENTITY-MAINTENANCE.json')
+
+    def keycloak_active(self):
+        # A stopped Keycloak has nothing in flight; a running one must report its count.
+        if not self.running('keycloak'):
+            return 0
+        return active_requests(self.runtime.compose('exec', '-T', 'keycloak', 'bash', '-c', SCRAPE, timeout=30).decode())
+
+    def drained(self, settle):
+        if settle:
+            self.sleep(ADMISSION_BOUND_SECONDS)
+        deadline = self.clock() + DRAIN_BUDGET_SECONDS
+        while self.keycloak_active():
+            require(self.clock() < deadline, 'Identity requests did not drain within budget; the fence stays closed.')
+            self.sleep(1)
+
+    def enter(self, run_id):
+        require(self.runtime.gate('check') == b'open', 'Recovery authorization is closed; identity maintenance refused.')
+        answer = self.runtime.gate('maintenance-enter', run_id)
+        require(answer == b'entered', 'Another identity-maintenance run holds the fence.')
+        self.edge_sees_fence()
+        self.drained(settle=True)
+        return 'drained'
+
+    def check(self, run_id):
+        require(self.runtime.gate('maintenance-check') == run_id.encode(), 'This run does not hold the identity fence.')
+        self.edge_sees_fence()
+        self.drained(settle=False)
+        return 'drained'
+
+    def exit(self, run_id):
+        owner = self.runtime.gate('maintenance-check')
+        if owner == b'none':
+            # Enter may have failed before writing the fence; there is nothing to release.
+            return 'released'
+        require(owner == run_id.encode(), 'Another identity-maintenance run holds the fence; release refused.')
+        # Settle every administrative identity mutation before reopening, even after a client timeout.
+        self.drained(settle=False)
+        require(self.runtime.gate('maintenance-exit', run_id) == b'released', 'Identity fence release failed; it stays closed.')
+        return 'released'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--config', type=Path, required=True, help='Protected, fully rendered Compose JSON')
+    parser.add_argument('--project', required=True)
+    parser.add_argument('--state', type=Path, required=True)
+    parser.add_argument('action', choices=['enter', 'check', 'exit'])
+    parser.add_argument('--run-id', required=True)
+    a = parser.parse_args()
+    try:
+        require(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}', a.run_id), 'Invalid run identifier.')
+        runtime = recovery.Runtime(a.config, a.project, a.state)
+        with runtime.lock(maintenance=True):
+            state = getattr(Maintenance(runtime), a.action)(a.run_id)
+        print(json.dumps({'issuer': recovery.ISSUER, 'runId': a.run_id, 'state': state}))
+        return 0
+    except recovery.Refused as error:
+        # Fixed operator-facing strings only; no raw driver output reaches the caller.
+        print(str(error), file=sys.stderr)
+    except Exception:
+        print('Identity maintenance failed; diagnostics withheld. The fence state is unchanged or closed.', file=sys.stderr)
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

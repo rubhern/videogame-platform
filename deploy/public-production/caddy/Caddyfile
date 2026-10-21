@@ -1,9 +1,14 @@
-# Public-production HTTPS edge (#275): stock Caddy, static routes, no Docker socket or
-# discovery. The platform design owns the boundary and
-# scripts/test-public-production-runtime.py proves the routes and forbidden options.
+# Public-production HTTPS edge (#275): Caddy with the owner-approved rate-limit module
+# (caddy/Dockerfile), static routes, no Docker socket or discovery. The platform design
+# owns the boundary and the calibration status of every limit below;
+# scripts/test-public-production-runtime.py proves the routes, limits and forbidden options.
 {
 	# No admin API: a reviewed file change is applied by recreating the container.
 	admin off
+	# The limiter logs every refusal with the client address; refusals stay unlogged.
+	log default {
+		exclude http.handlers.rate_limit
+	}
 	servers {
 		# HTTP/1.1 and HTTP/2 over TCP only; HTTP/3 (UDP 443) is outside the exposure contract.
 		protocols h1 h2
@@ -28,6 +33,117 @@
 	header_up -X-Forwarded-Prefix
 	header_up -X-Forwarded-Server
 	header_up -X-Real-Ip
+	# A bounded dial: once maintenance denies new requests, any request admitted earlier
+	# has reached its upstream, or failed, within this time.
+	transport http {
+		dial_timeout 2s
+	}
+}
+
+# Every limited request is keyed on the TCP peer only: no proxy is trusted, so no
+# forwarding header can choose the key. IPv6 clients share one key per /64.
+(source_zone) {
+	key {remote_host}
+	ipv6_prefix 64
+}
+
+# Metrics would label each client address, and a refusal's key is never logged. Each
+# per-source limiter holds `events` timestamps until its window passes and the next sweep,
+# so long windows keep small bursts and the sweep is frequent: edge memory follows the
+# number of recent sources (scripts/measure-edge-limiter-memory.py measures it).
+(limiter_options) {
+	jitter 0.2
+	sweep_interval 5s
+	disable_metrics
+}
+
+(edge_admission) {
+	# The recovery actor's startup gate (deploy/public-production/bin/recovery), read-only:
+	# without READY, or with PENDING.json, the whole runtime is in maintenance. An empty or
+	# missing volume therefore fails closed.
+	@recovery-closed {
+		not file {
+			root /run/recovery
+			try_files /READY
+		}
+	}
+	@recovery-pending file {
+		root /run/recovery
+		try_files /PENDING.json
+	}
+	handle @recovery-closed {
+		import refuse_maintenance
+	}
+	handle @recovery-pending {
+		import refuse_maintenance
+	}
+	# Docker's userland proxy replaces a client's address with the edge network gateway.
+	# Such a request has no attributable source: refuse it rather than let every such
+	# client share, or escape, one per-source limit.
+	@unattributed remote_ip 10.203.1.1 10.203.2.1
+	handle @unattributed {
+		abort
+	}
+}
+
+(refusal_headers) {
+	header Cache-Control no-store
+	header X-Correlation-ID {http.request.uuid}
+	header -Server
+}
+
+(refuse_maintenance) {
+	import refusal_headers
+	header Retry-After 300
+	@api path /api/*
+	handle @api {
+		header Content-Type application/problem+json
+		respond `{"type":"urn:videogame-platform:problem:service-maintenance","title":"Service is in maintenance","status":503,"detail":"Retry later; do not automatically replay commands.","instance":"urn:videogame-platform:problem-instance:opaque","code":"SERVICE_MAINTENANCE","category":"technical","correlationId":"{http.request.uuid}"}` 503
+	}
+	handle {
+		header Content-Type "text/html; charset=utf-8"
+		respond `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gameómetro en mantenimiento</title><p>Gameómetro está en mantenimiento. Vuelve a intentarlo en unos minutos.</p></html>` 503
+	}
+}
+
+(refuse_rate_limited) {
+	import refusal_headers
+	@api path /api/*
+	handle @api {
+		header Content-Type application/problem+json
+		respond `{"type":"urn:videogame-platform:problem:rate-limited","title":"Too many requests","status":429,"detail":"Wait at least Retry-After seconds; do not automatically replay commands.","instance":"urn:videogame-platform:problem-instance:opaque","code":"RATE_LIMITED","category":"technical","correlationId":"{http.request.uuid}"}` 429
+	}
+	handle {
+		header Content-Type "text/html; charset=utf-8"
+		respond `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Demasiadas solicitudes</title><p>Demasiadas solicitudes seguidas. Espera un momento y vuelve a intentarlo.</p></html>` 429
+	}
+}
+
+(refuse_overloaded) {
+	import refusal_headers
+	@api path /api/*
+	handle @api {
+		header Content-Type application/problem+json
+		respond `{"type":"urn:videogame-platform:problem:service-overloaded","title":"Service is overloaded","status":503,"detail":"Retry after capacity is available; do not automatically replay commands.","instance":"urn:videogame-platform:problem-instance:opaque","code":"SERVICE_OVERLOADED","category":"technical","correlationId":"{http.request.uuid}"}` 503
+	}
+	handle {
+		header Content-Type "text/html; charset=utf-8"
+		respond `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gameómetro no está disponible</title><p>Gameómetro está recibiendo demasiadas solicitudes. Vuelve a intentarlo en unos segundos.</p></html>` 503
+	}
+}
+
+# The limiter answers 429 with Retry-After. Aggregate zones protect shared capacity, so their
+# refusal is reported as overload (503); per-source zones are a quota (429).
+(limit_errors) {
+	handle_errors 429 {
+		@capacity vars_regexp {http.rate_limit.exceeded.name} ^aggregate-
+		handle @capacity {
+			import refuse_overloaded
+		}
+		handle {
+			import refuse_rate_limited
+		}
+	}
 }
 
 gameometro.com {
@@ -35,12 +151,87 @@ gameometro.com {
 		max_size 1MB
 	}
 	header -Server
-	# Management lives on a separate container-loopback port; refuse its paths here too.
-	@management path /actuator /actuator/*
-	respond @management 404
-	reverse_proxy application:8080 {
-		import upstream_headers
+	route {
+		import edge_admission
+		# Management lives on a separate container-loopback port; refuse its paths here too.
+		@management path /actuator /actuator/*
+		respond @management 404
+		# Initial calibration hypotheses (platform design). The limiter orders the zones of
+		# one handler by rate, so per-source and aggregate zones are separate handlers: a
+		# request refused for its source never consumes a shared aggregate budget.
+		rate_limit {
+			zone application-source {
+				import source_zone
+				window 10s
+				events 120
+			}
+			zone application-navigation-source {
+				match {
+					path /auth/* /login /login/*
+				}
+				import source_zone
+				window 30s
+				events 10
+			}
+			zone application-read-source {
+				match {
+					method GET HEAD
+					path /api/*
+				}
+				import source_zone
+				window 4s
+				events 40
+			}
+			zone application-search-source {
+				match {
+					method GET HEAD
+					path /api/v1/games /api/v1/releases
+				}
+				import source_zone
+				window 10s
+				events 20
+			}
+			zone application-write-source {
+				match {
+					not method GET HEAD
+					path /api/*
+				}
+				import source_zone
+				window 15s
+				events 30
+			}
+			import limiter_options
+		}
+		rate_limit {
+			zone aggregate-application {
+				key static
+				window 10s
+				events 2000
+			}
+			zone aggregate-application-api {
+				match {
+					path /api/*
+				}
+				key static
+				window 10s
+				events 600
+			}
+			zone aggregate-application-write {
+				match {
+					not method GET HEAD
+					path /api/*
+				}
+				key static
+				window 10s
+				events 200
+			}
+			import limiter_options
+		}
+		reverse_proxy application:8080 {
+			import upstream_headers
+		}
 	}
+	import limit_errors
 }
 
 auth.gameometro.com {
@@ -51,14 +242,153 @@ auth.gameometro.com {
 	# Allowlist of the product realm's browser and BFF paths. The admin console and API,
 	# the master realm, the account console, health and metrics are never routed.
 	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/*
-	handle @identity {
-		reverse_proxy keycloak:8080 {
-			import upstream_headers
+	route {
+		import edge_admission
+		# Identity maintenance (bin/identity-maintenance) closes the whole identity host,
+		# including the BFF's calls, until its run releases it.
+		@identity-maintenance file {
+			root /run/recovery
+			try_files /IDENTITY-MAINTENANCE.json
+		}
+		handle @identity-maintenance {
+			import refuse_maintenance
+		}
+		# Keycloak routes a ";parameter" or a trailing slash to the same endpoint, which would
+		# escape the exact per-path limits below; its own URLs never use them. Repeated slashes
+		# need no rule: every path matcher, including the limits, sees the cleaned path.
+		@noncanonical path_regexp (;|.+/$)
+		handle @noncanonical {
+			respond 404
+		}
+		handle @identity {
+			rate_limit {
+				# The BFF's server-side calls come from its fixed address, which no external client
+				# can present as a TCP peer; they have their own budget below. Any other request
+				# from that address is limited like every other source.
+				zone identity-source {
+					match {
+						not {
+							remote_ip 10.203.1.3
+							path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
+						}
+					}
+					import source_zone
+					window 5s
+					events 30
+				}
+				zone identity-login-source {
+					match {
+						method POST
+						path /realms/gameometro/login-actions/authenticate
+					}
+					match {
+						method POST
+						path /realms/gameometro/protocol/openid-connect/token
+						not remote_ip 10.203.1.3
+					}
+					import source_zone
+					window 30s
+					events 10
+				}
+				zone identity-registration-source {
+					match {
+						method POST
+						path /realms/gameometro/login-actions/registration
+					}
+					import source_zone
+					window 2m
+					events 6
+				}
+				zone identity-recovery-source {
+					match {
+						method POST
+						path /realms/gameometro/login-actions/reset-credentials
+					}
+					import source_zone
+					window 2m
+					events 6
+				}
+				# Showing or resending the verification step sends mail.
+				zone identity-verification-source {
+					match {
+						path /realms/gameometro/login-actions/required-action
+						query execution=VERIFY_EMAIL
+					}
+					import source_zone
+					window 2m
+					events 6
+				}
+				# Emailed links and the other required actions (password, terms) verify or
+				# change an account; a journey needs a few of these per account.
+				zone identity-action-source {
+					match {
+						path /realms/gameometro/login-actions/required-action /realms/gameometro/login-actions/action-token
+					}
+					import source_zone
+					window 1m
+					events 15
+				}
+				import limiter_options
+			}
+			rate_limit {
+				zone aggregate-identity {
+					match {
+						not {
+							remote_ip 10.203.1.3
+							path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
+						}
+					}
+					key static
+					window 10s
+					events 500
+				}
+				zone aggregate-identity-login {
+					match {
+						method POST
+						path /realms/gameometro/login-actions/authenticate
+					}
+					match {
+						method POST
+						path /realms/gameometro/protocol/openid-connect/token
+						not remote_ip 10.203.1.3
+					}
+					key static
+					window 1m
+					events 300
+				}
+				# Every mail-triggering path together. A minute budget is not a daily mail reserve.
+				zone aggregate-identity-mail {
+					match {
+						method POST
+						path /realms/gameometro/login-actions/registration /realms/gameometro/login-actions/reset-credentials
+					}
+					match {
+						path /realms/gameometro/login-actions/required-action
+					}
+					key static
+					window 1m
+					events 60
+				}
+				zone aggregate-identity-backchannel {
+					match {
+						remote_ip 10.203.1.3
+						path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
+					}
+					key static
+					window 1m
+					events 600
+				}
+				import limiter_options
+			}
+			reverse_proxy keycloak:8080 {
+				import upstream_headers
+			}
+		}
+		handle {
+			respond 404
 		}
 	}
-	handle {
-		respond 404
-	}
+	import limit_errors
 }
 
 # Any other plain-HTTP host name or bare address gets its connection closed. Unknown TLS

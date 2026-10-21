@@ -180,8 +180,11 @@ registration**, with actual proxy/VPS evidence supplied by #275/#276 where relev
   navigation. Test aggregate/source controls, shared-IP legitimate users, IPv6,
   safe quota/overload responses and recovery. Derive source identity only from the
   transport peer or explicitly trusted proxy peers; spoofed headers must not bypass
-  limits. Deny direct upstream and management exposure. These controls are pending;
-  neither Keycloak's worker budget nor the optional API interceptor substitutes for them.
+  limits. Deny direct upstream and management exposure. The
+  [edge limits](../architecture/deployment/mvp-platform-and-delivery.md#public-edge-request-limits)
+  are implemented and locally exercised (#275); their thresholds remain calibration
+  hypotheses and actual proxy/VPS evidence is pending in #276. Neither Keycloak's worker
+  budget nor the optional API interceptor substitutes for them.
 - Verify the actual SMTP delivery/failure/queue paths and an exercised quota/abuse
   response that protects recovery availability. Observe all mail-triggering paths
   against the shared provider allowance; minute-level request limits do not prove a

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 4.3.0
+  version: 4.4.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -275,6 +275,7 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -391,6 +392,7 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseCalendarValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -668,6 +670,7 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/FeaturedReleaseValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -774,6 +777,7 @@ paths:
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/SearchValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -1049,6 +1053,7 @@ paths:
         '404': { $ref: '#/components/responses/GameNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseReviewBlocked' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/GameReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -1090,6 +1095,7 @@ paths:
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PlatformListValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -1125,6 +1131,7 @@ paths:
                     csrfToken: opaque-csrf-token
                     capabilities: [catalogue_administration]
         '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
     post:
@@ -1155,6 +1162,7 @@ paths:
             Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/rating-insights:
@@ -1198,6 +1206,7 @@ paths:
               schema: { $ref: '#/components/schemas/Problem' }
               examples:
                 parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
 
@@ -1272,6 +1281,7 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PersonalRatingsValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -1306,6 +1316,7 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '404': { $ref: '#/components/responses/RatingNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
     put:
@@ -1387,6 +1398,7 @@ paths:
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/RatingValidationFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
     delete:
@@ -1424,6 +1436,7 @@ paths:
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '412': { $ref: '#/components/responses/RatingWriteConflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/platform-preferences:
@@ -1459,6 +1472,7 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
     put:
@@ -1507,6 +1521,7 @@ paths:
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization:
@@ -1579,6 +1594,7 @@ paths:
         '403': { $ref: '#/components/responses/AccessDenied' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/AdministrationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
     post:
@@ -1639,6 +1655,7 @@ paths:
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/SynchronizationRequestRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization-runs/{runId}/stop:
@@ -1692,6 +1709,7 @@ paths:
         '404': { $ref: '#/components/responses/SynchronizationRunNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '409': { $ref: '#/components/responses/SynchronizationRunFinished' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization-runs/{runId}/abandon:
@@ -1752,6 +1770,7 @@ paths:
         '404': { $ref: '#/components/responses/SynchronizationRunNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '409': { $ref: '#/components/responses/SynchronizationRunNotAbandonable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization-coverage:
@@ -1805,6 +1824,7 @@ paths:
         '403': { $ref: '#/components/responses/AccessDenied' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/CoverageValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
 components:
@@ -3296,6 +3316,8 @@ components:
         - PRECONDITION_REQUIRED
         - CSRF_VALIDATION_FAILED
         - SERVICE_OVERLOADED
+        - SERVICE_MAINTENANCE
+        - RATE_LIMITED
         - REQUEST_TOO_LARGE
         - MEDIA_TYPE_UNSUPPORTED
         - REPRESENTATION_NOT_ACCEPTABLE
@@ -3724,10 +3746,13 @@ components:
             preconditionRequired: { $ref: '#/components/examples/PreconditionRequired' }
     ServiceOverloaded:
       description: |
-        This instance has no API admission capacity. No controller or product write was
-        invoked. Wait at least Retry-After seconds and retry reads with backoff and jitter;
-        never automatically replay a personal command. Authentication and CSRF checks
-        precede admission. This is capacity rejection (503), not an identity/IP quota (429).
+        This instance has no API admission capacity, the public edge's aggregate request
+        budget is exhausted (`SERVICE_OVERLOADED`), or the deployment is in recovery
+        maintenance (`SERVICE_MAINTENANCE`). No controller or product write was invoked.
+        Wait at least Retry-After seconds and retry reads with backoff and jitter; never
+        automatically replay a personal command. Authentication and CSRF checks precede
+        application admission; the edge answers before them. This is capacity or
+        maintenance rejection (503), not a per-source quota (429).
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -3737,8 +3762,29 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
+            serviceMaintenance: { $ref: '#/components/examples/ServiceMaintenance' }
+    RateLimited:
+      description: |
+        The public edge refused the request because its source, the TCP peer address (one
+        IPv4 address or one IPv6 /64), exceeded a per-source request quota for this class of
+        request. Neither the application nor any product write was invoked. Wait at least
+        Retry-After seconds before retrying; never automatically replay a personal command.
+        Clients behind one shared address share its quota.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        Retry-After:
+          description: Seconds until the quota admits another request.
+          required: true
+          schema: { type: integer, minimum: 1 }
+          example: 3
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            rateLimited: { $ref: '#/components/examples/RateLimited' }
     CatalogueUnavailable:
-      description: No local snapshot is ready, local catalogue data cannot be read, or this instance has no admission capacity; no provider fallback call is made.
+      description: No local snapshot is ready, local catalogue data cannot be read, this instance has no admission capacity, the public edge's aggregate budget is exhausted, or the deployment is in recovery maintenance; no provider fallback call is made.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -3748,6 +3794,7 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
+            serviceMaintenance: { $ref: '#/components/examples/ServiceMaintenance' }
             catalogueNotReady: { $ref: '#/components/examples/CatalogueNotReady' }
             catalogueReadFailed: { $ref: '#/components/examples/CatalogueReadFailed' }
     GameReadFailed:
@@ -3803,6 +3850,26 @@ components:
         detail: Retry after capacity is available; do not automatically replay commands.
         instance: urn:videogame-platform:problem-instance:opaque
         code: SERVICE_OVERLOADED
+        category: technical
+        correlationId: correlation-opaque
+    ServiceMaintenance:
+      value:
+        type: urn:videogame-platform:problem:service-maintenance
+        title: Service is in maintenance
+        status: 503
+        detail: Retry later; do not automatically replay commands.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: SERVICE_MAINTENANCE
+        category: technical
+        correlationId: correlation-opaque
+    RateLimited:
+      value:
+        type: urn:videogame-platform:problem:rate-limited
+        title: Too many requests
+        status: 429
+        detail: Wait at least Retry-After seconds; do not automatically replay commands.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: RATE_LIMITED
         category: technical
         correlationId: correlation-opaque
     RequestMalformed:

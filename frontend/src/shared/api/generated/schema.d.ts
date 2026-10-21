@@ -1447,7 +1447,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1850,10 +1850,13 @@ export interface components {
             };
         };
         /**
-         * @description This instance has no API admission capacity. No controller or product write was
-         *     invoked. Wait at least Retry-After seconds and retry reads with backoff and jitter;
-         *     never automatically replay a personal command. Authentication and CSRF checks
-         *     precede admission. This is capacity rejection (503), not an identity/IP quota (429).
+         * @description This instance has no API admission capacity, the public edge's aggregate request
+         *     budget is exhausted (`SERVICE_OVERLOADED`), or the deployment is in recovery
+         *     maintenance (`SERVICE_MAINTENANCE`). No controller or product write was invoked.
+         *     Wait at least Retry-After seconds and retry reads with backoff and jitter; never
+         *     automatically replay a personal command. Authentication and CSRF checks precede
+         *     application admission; the edge answers before them. This is capacity or
+         *     maintenance rejection (503), not a per-source quota (429).
          */
         ServiceOverloaded: {
             headers: {
@@ -1866,7 +1869,29 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description No local snapshot is ready, local catalogue data cannot be read, or this instance has no admission capacity; no provider fallback call is made. */
+        /**
+         * @description The public edge refused the request because its source, the TCP peer address (one
+         *     IPv4 address or one IPv6 /64), exceeded a per-source request quota for this class of
+         *     request. Neither the application nor any product write was invoked. Wait at least
+         *     Retry-After seconds before retrying; never automatically replay a personal command.
+         *     Clients behind one shared address share its quota.
+         */
+        RateLimited: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                /**
+                 * @description Seconds until the quota admits another request.
+                 * @example 3
+                 */
+                "Retry-After": number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description No local snapshot is ready, local catalogue data cannot be read, this instance has no admission capacity, the public edge's aggregate budget is exhausted, or the deployment is in recovery maintenance; no provider fallback call is made. */
         CatalogueUnavailable: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -2217,6 +2242,7 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2284,6 +2310,7 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseCalendarValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2358,6 +2385,7 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["FeaturedReleaseValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2406,6 +2434,7 @@ export interface operations {
             400: components["responses"]["MalformedRequest"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["SearchValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2448,6 +2477,7 @@ export interface operations {
             404: components["responses"]["GameNotFound"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseReviewBlocked"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["GameReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2483,6 +2513,7 @@ export interface operations {
             400: components["responses"]["MalformedRequest"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PlatformListValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2508,6 +2539,7 @@ export interface operations {
                 };
             };
             406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2542,6 +2574,7 @@ export interface operations {
             };
             403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2580,6 +2613,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["PersonalRatingsReadFailed"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2624,6 +2658,7 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PersonalRatingsValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["PersonalRatingsReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2658,6 +2693,7 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["RatingNotFound"];
             406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2732,6 +2768,7 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["RatingValidationFailed"];
             428: components["responses"]["PreconditionRequired"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["RatingWriteFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -2777,6 +2814,7 @@ export interface operations {
             406: components["responses"]["NotAcceptable"];
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["RatingWriteFailed"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2804,6 +2842,7 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PlatformPreferencesValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2845,6 +2884,7 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["PlatformPreferencesValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2873,6 +2913,7 @@ export interface operations {
             403: components["responses"]["AccessDenied"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["AdministrationValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2918,6 +2959,7 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["SynchronizationRequestRejected"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -2963,6 +3005,7 @@ export interface operations {
             404: components["responses"]["SynchronizationRunNotFound"];
             406: components["responses"]["NotAcceptable"];
             409: components["responses"]["SynchronizationRunFinished"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -3005,6 +3048,7 @@ export interface operations {
             404: components["responses"]["SynchronizationRunNotFound"];
             406: components["responses"]["NotAcceptable"];
             409: components["responses"]["SynchronizationRunNotAbandonable"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
@@ -3045,6 +3089,7 @@ export interface operations {
             403: components["responses"]["AccessDenied"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["CoverageValidationFailed"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };

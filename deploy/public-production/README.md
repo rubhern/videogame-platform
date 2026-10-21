@@ -17,13 +17,15 @@ what the repository checks and what only a real host can prove.
 | File | Owns |
 |---|---|
 | [`compose.yaml`](compose.yaml) | Services, networks, published ports, images, secrets, limits |
-| [`caddy/Caddyfile`](caddy/Caddyfile) | Stock-Caddy HTTPS edge: hosts, routes, forwarding headers, bounds |
+| [`caddy/Caddyfile`](caddy/Caddyfile) | HTTPS edge: hosts, routes, forwarding headers, bounds, request limits, maintenance gate |
+| [`caddy/Dockerfile`](caddy/Dockerfile) | Edge image: stock Caddy plus the [ADR-0030](../../docs/decisions/0030-limit-public-edge-requests-with-a-caddy-module.md) limiter module, pinned |
 | [`bin/run-postgres`](bin/run-postgres) | Reads role secret files before the stock entrypoint drops supplemental groups |
 | [`bin/run-keycloak`](bin/run-keycloak) | Keycloak entrypoint that reads secret files and refuses empty inputs |
 | [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private recovery transport for the existing privacy commands and session revocation |
+| [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
 
@@ -194,9 +196,11 @@ python3 -I scripts/test-public-production-runtime.py
 ```
 
 It renders Compose with synthetic inputs, checks the exposure, isolation, image,
-secret and resource contract, adapts the Caddyfile, exercises the real routes and
-forwarding-header handling with a disposable internal CA and upstream stand-ins on
-unpublished networks, and proves that each deliberate violation is detected.
+secret and resource contract, builds a disposable edge image from the recipe (never
+published), adapts the Caddyfile, exercises the real routes, forwarding-header
+handling, request limits and maintenance gate with a disposable internal CA and
+upstream stand-ins on unpublished networks, and proves that each deliberate violation
+is detected.
 `--env-file <protected runtime.env>` runs only the static Compose checks against a
 real host's inputs, refusing any remaining placeholder, without reading secret files
 or starting containers.
@@ -278,8 +282,8 @@ These need later increments or the real host (#276):
   telemetry, the owner's Keycloak administration path, and the
   [canonical issuer check](../../docs/architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract)
   with the publicly served production certificate.
-- Per-source and aggregate request-rate limits, which stock Caddy does not provide;
-  the edge's body, header and timeout bounds are uncalibrated.
+- The [request limits and maintenance gate](#request-limits-on-the-real-host), whose
+  thresholds, like the edge's body, header and timeout bounds, are uncalibrated.
 
 ## Paired backup and recovery candidate
 
@@ -332,7 +336,8 @@ startup gate, sets all three database consumer roles to `NOLOGIN`, stops the edg
 application, migration and Keycloak, terminates and waits for existing database
 sessions to roll back, then refuses unknown login roles, remaining connections,
 prepared transactions or subscriptions. A runtime-volume lease excludes concurrent recovery actors even from different
-owner journals or machines. Privileged PostgreSQL/host administration
+owner journals or machines, and every actor refuses while an
+[identity-maintenance](#identity-maintenance) fence is held. Privileged PostgreSQL/host administration
 must be exclusive during this maintenance window; no mechanism protects against a
 concurrent root/superuser deliberately bypassing it. Scheduled sync is already off.
 There is no claim that sequential dumps share a transaction: **both databases remain
@@ -512,3 +517,128 @@ over the intended SSH context; real owner identity administration, offline-token
 revocation, deletion replay and smoke; every copy's 35-day expiry and replacement of
 the last verified pair; scheduling/failure-age notification through a tested private
 channel. RPO <=24h and RTO <=48h remain proposals until measured and accepted there.
+
+## Edge limits and identity maintenance
+
+**Implemented for isolated synthetic exercise (#275 increment 6); not operated on a
+host.** The [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#public-edge-request-limits)
+owns the limit classes, source identity, refusal semantics and calibration status;
+the Caddyfile owns every threshold. The edge reads the `recovery-state` gate
+read-only, so a closed or interrupted recovery is a 503 maintenance response on both
+hosts even if the edge is started during it. Recovery commands still stop the edge.
+
+### Maintenance modes
+
+Two modes share the `recovery-state` volume and the recovery actor's lease; each
+refuses to start while the other is active, so they never overlap.
+
+| | Identity-only fence | Global write freeze |
+|---|---|---|
+| Purpose | Unverified-account cleanup and its retry | Paired backup, restore, deletion replay and reopening |
+| Owner | `bin/identity-maintenance` (`IDENTITY-MAINTENANCE.json`) | `bin/recovery` (no `READY`, or `PENDING.json`) |
+| Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503, then the edge is stopped |
+| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration, edge and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
+| Startup | Unchanged | Application and migration wrappers refuse without `READY` |
+| Release | `exit` by the same run after a second drain | `thaw` or `reopen` with their evidence; services started separately |
+
+Neither mode has an alternate public route. Only the edge publishes ports; it routes no
+Keycloak administration, management or Actuator path, and refuses non-canonical identity
+paths that Keycloak would otherwise route to a limited endpoint. The application calls
+Keycloak only through the edge, as an OIDC client, never its Admin API. The remaining
+writer is the owner's private administration, which both modes deliberately keep and
+which no mechanism here can stop a root or superuser from bypassing.
+
+### Identity maintenance
+
+[`bin/identity-maintenance`](bin/identity-maintenance) is the deny/drain adapter that
+`personal-data-ledger cleanup-unverified --execute --maintenance-command` and cleanup
+`retry` require. It takes the recovery actor's runtime lease for each call:
+
+```bash
+python3 deploy/public-production/bin/identity-maintenance --config /protected/compose.json \
+  --project gameometro-production --state /protected/recovery-journal enter --run-id <UUID>
+```
+
+The ledger appends `enter`, `check` or `exit` and `--run-id`, and accepts only its JSON
+answer. `enter` refuses unless the recovery gate is open and no other run holds the
+fence, writes `IDENTITY-MAINTENANCE.json` naming the run, confirms that the running edge
+sees it, waits beyond the edge's upstream dial bound and then until Keycloak reports
+no in-flight public request (`http_server_active_requests` on its public listener,
+read on the management interface). A stopped Keycloak has nothing in flight; a missing
+or ambiguous count is a refusal. `check` repeats the ownership, edge and drain proof.
+`exit` waits for the same drain, so an administrative mutation that outlived its
+client settles first, and then removes only its own fence; a repeated or enter-less
+exit is harmless. The fence survives failed calls, adapter interruption and edge
+restarts, and identity stays closed until its run exits.
+
+While the fence exists every identity-host request, including the BFF's issuer calls,
+answers 503 maintenance; catalogue reads, product writes and existing BFF sessions
+continue. Backup, restore, thaw, replay, reopening and deployment all refuse until
+it is released. A failed `exit` is an owner incident: inspect the run and Keycloak
+privately, then repeat `exit` with the same run ID. Never delete the file by hand to
+reopen identity; that bypasses the drain proof.
+
+No production host command exists yet for the cleanup's candidate reads and erasure
+steps; `bin/recovery-personal-data` serves restore replay only. The cleanup therefore
+stays unexecutable in production until that adapter and the real-host drain acceptance
+below exist.
+
+### Limiter memory
+
+```bash
+python3 scripts/measure-edge-limiter-memory.py --family 6 --sources 8000 --rate 500 \
+  --evidence <new-local-evidence-directory>
+```
+
+The measurement runs the reviewed Caddyfile on an edge image built from the recipe,
+with the production memory, CPU and PID ceilings, and drives distinct IPv4 addresses or
+IPv6 /64s from one disposable client: each source opens TLS once per host and touches
+every per-source zone (`--zones all`) or only catalogue reads (`--zones reads`). It
+samples the edge's cgroup memory during churn and through the sweep of expired limiters,
+then requires a fresh source to be served. It needs Docker only and stays local: it is a
+measurement, not a pass/fail gate.
+
+Local results on the reviewed configuration (2026-10-21, one workstation, synthetic):
+
+| Churn | New sources/s reached | Peak | End of churn | After 2–3 min | Edge |
+|---|---|---|---|---|---|
+| 8,000 IPv6 /64s, every zone | 37 | 82 MiB | 59 MiB | 34 MiB | No OOM or restart; fresh source served |
+| 20,000 IPv4, catalogue reads | 32 | 107 MiB | 40 MiB | 39 MiB | No OOM or restart; fresh source served |
+
+The edge's 0.5 CPU ceiling, spent on TLS handshakes, set the arrival rate; the requested
+rate was never reached, and many refused or timed-out requests show that legitimate
+users degrade under such churn before memory runs out. Peaks include connection state
+and stay under the Go runtime's soft limit derived from the cgroup ceiling. Before the
+long windows were rescaled, the same IPv6 run peaked at 114 MiB. These are local
+observations, not a guarantee: a client that reuses TLS sessions, more distinct sources or
+a faster host can still reach the 128 MiB ceiling, which restarts the edge and resets
+every quota.
+
+### Request limits on the real host
+
+Local and CI evidence covers the Caddy configuration, the rebuilt binary and synthetic
+clients on Docker bridge networks. #276 must establish, before public registration
+opens:
+
+- **Source addresses.** External IPv4 and IPv6 clients reach the edge with their own
+  addresses through Docker's published ports. If Docker's userland proxy hides IPv6
+  clients behind a network gateway, the edge aborts them: enable IPv6 on the edge
+  networks or disable the userland proxy, then verify again. Host-originated requests
+  through the proxy are refused by design.
+- **Thresholds.** Real browser journeys, including mobile carrier NAT, shared IPv4 and
+  IPv6 /64 households, sign-in, registration, verification and recovery, are not
+  refused; aggregate budgets are set from measured VPS headroom.
+- **Edge resources.** Repeat the limiter-memory measurement on the VPS's CPU, including
+  TLS session resumption, and decide whether the 128 MiB ceiling, a restart's quota reset
+  and the CPU-bound degradation under churn are acceptable; do not raise the ceiling
+  without that evidence.
+- **BFF calls.** The application's fixed address is the only peer whose issuer calls
+  use their budget, with the real canonical certificate.
+- **Maintenance.** A real cleanup window denies the identity host, drains in-flight
+  verification requests, settles administrative mutations and reopens; record its
+  duration and frequency.
+- **Mail.** All verification and recovery sends stay within the relay allowance; the
+  minute limits do not provide a daily reserve.
+- **Signals.** Refusal counts need the increment-7
+  [edge HTTP metrics](../../docs/development/observability.md#identity-and-overload-security-signals)
+  with their actual scrape and notification; none is collected now.

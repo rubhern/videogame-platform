@@ -56,7 +56,8 @@ class Recovery(unittest.TestCase):
         self.runtime.gate_volume = 'synthetic-gate'
         lease = patch.object(self.runtime, 'engine_lock', return_value=__import__('contextlib').nullcontext())
         lease.start(); self.addCleanup(lease.stop)
-        self.gate_patch = patch.object(self.runtime, 'gate', return_value=b'closed')
+        # A closed recovery gate with no identity-maintenance fence held.
+        self.gate_patch = patch.object(self.runtime, 'gate', side_effect=lambda action, run_id=None: b'none' if action == 'maintenance-check' else b'closed')
         self.gate_patch.start(); self.addCleanup(self.gate_patch.stop)
         self.runtime.images = {x: x + '@sha256:' + 'b' * 64 for x in ['postgres','application','keycloak']}
         self.runtime.volumes = {}

@@ -40,6 +40,7 @@ historical decision.
 
 - [ADR-0026: Defer ARM64 runtime support](0026-defer-arm64-runtime-support.md) — amends ADR-0008/ADR-0019; AMD64-only with a pre-deployment restoration gate.
 - [ADR-0027: Revoke and end BFF sessions in the application](0027-revoke-and-end-bff-sessions-in-the-application.md) — #274; direct session invalidation, eight-hour absolute lifetime and OIDC logout; implemented in #274 phase 2 increment 2.
+- [ADR-0030: Limit public-edge requests with a Caddy module](0030-limit-public-edge-requests-with-a-caddy-module.md) — #275; one commit-pinned module on the accepted Caddy edge, per-source and aggregate limits keyed on the TCP peer; owner-approved 2026-10-21, implemented locally, real-host evidence in #276.
 
 ## Proposed
 

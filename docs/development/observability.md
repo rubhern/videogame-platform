@@ -721,3 +721,21 @@ personal investigation metadata needs the separately recorded purpose/access/exp
 already required by this policy. Native SMTP transport failures may still produce
 technical logs; the actual relay failure/redaction test remains required before
 launch, independently of the no-event-listener proof.
+
+Public-edge [request-limit](../architecture/deployment/mvp-platform-and-delivery.md#public-edge-request-limits)
+refusals (#275) are deliberately unobserved for now. The limiter's own metrics cannot be
+used: every counter is also emitted per client address, and those series are never
+removed, so they would export addresses and grow without bound. Its refusal log carries
+the address too. Both stay disabled, and edge 429s and 503s never reach the application's
+counters.
+
+**Planned for #275 increment 7, locally checked only:** Caddy's own HTTP metrics count
+requests by `server`, `handler`, `method` and `code`, so 429 refusals appear as a bounded
+count, while the limiter's metrics stay disabled. A local scrape of the production
+Caddyfile with those metrics enabled, after per-source refusals, held no address-like
+label value and no limiter series. Increment 7 needs a metrics listener on a private
+telemetry network only, never routed or published, a scrape allowlist for those labels
+and a contract test that refuses any address, key or host label. Edge 503s for overload
+and maintenance share their labels with upstream 503s; read them with the gate state or
+add a distinguishing route there. Until then, a missing count is not evidence that no
+client was refused.

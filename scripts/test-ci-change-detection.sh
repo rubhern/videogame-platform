@@ -145,6 +145,16 @@ run_case localizer-image-source \
   'dependency_images,backend,container' \
   'identity,production_runtime,ci'
 
+run_case edge-image-recipe \
+  $'deploy/public-production/caddy/Dockerfile\ndeploy/public-production/caddy/Caddyfile' \
+  'dependency_images,production_runtime' \
+  'container,identity,frontend,ci'
+
+run_case production-compose-skips-dependency-images \
+  'deploy/public-production/compose.yaml' \
+  'production_runtime' \
+  'dependency_images,container,identity'
+
 run_case unrelated-frontend-skips-dependency-images \
   'frontend/src/features/releases/releases-shell.tsx' \
   'frontend' \

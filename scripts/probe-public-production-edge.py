@@ -6,6 +6,10 @@ Runs inside disposable containers started by test-public-production-runtime.py:
   probe           Client on a network outside the runtime: routes, forwarding headers,
                   host/TLS refusal, protocol and size bounds. Prints each violation.
   backchannel     Client on the application edge network: the BFF's path to the issuer.
+  limit <scenario> [arguments]
+                  One request-limit or maintenance scenario from one source address; the
+                  contract test runs them in order from differently addressed clients.
+                  EDGE_ADDRESS, when set, is the edge address to connect to (IPv6 clients).
 
 Exit status 1 means at least one violation. No real host name resolves outside Docker.
 """
@@ -13,9 +17,11 @@ Exit status 1 means at least one violation. No real host name resolves outside D
 import http.client
 import http.server
 import json
+import os
 import socket
 import ssl
 import sys
+import time
 
 APPLICATION_HOST = "gameometro.com"
 IDENTITY_HOST = "auth.gameometro.com"
@@ -62,6 +68,14 @@ IDENTITY_REFUSED = (
     "/resources/%2e%2e/admin/master/console/",
     "/resources/..%2fadmin%2fmaster%2fconsole%2f",
     "/realms/gameometro/protocol/openid-connect/%2e%2e/%2e%2e/%2e%2e/master/protocol/openid-connect/token",
+    # Keycloak reaches the same endpoint through these, past the exact per-path limits.
+    "/realms/gameometro/login-actions/registration;x=1",
+    "/realms/gameometro/login-actions/registration%3Bx=1",
+    "/realms/gameometro/login-actions/registration/",
+    "/realms/gameometro/login-actions/reset-credentials;x",
+    "/realms/gameometro/login-actions/authenticate/",
+    "/realms/gameometro/protocol/openid-connect/token;x",
+    "/realms/gameometro/login-actions/required-action;x?execution=VERIFY_EMAIL",
 )
 APPLICATION_REFUSED = (
     "/actuator",
@@ -93,7 +107,7 @@ class Echo(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    do_GET = do_POST = do_HEAD = _echo
+    do_GET = do_POST = do_HEAD = do_PUT = do_DELETE = _echo
 
     def log_message(self, *_):
         pass
@@ -112,9 +126,18 @@ def tls_context():
     return context
 
 
-def request(server_name, path, host=None, method="GET", headers=None, body=None):
-    """Return (status, response headers, echoed upstream or None); raise on transport failure."""
-    connection = http.client.HTTPSConnection(server_name, 443, timeout=10, context=tls_context())
+class EdgeConnection(http.client.HTTPSConnection):
+    """TLS for the server name, to EDGE_ADDRESS when set (an IPv6 literal), else by name."""
+
+    def connect(self):
+        address = os.environ.get("EDGE_ADDRESS") or self.host
+        raw = socket.create_connection((address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
+
+
+def exchange(server_name, path, host=None, method="GET", headers=None, body=None):
+    """Return (status, lower-cased response headers, body bytes); raise on transport failure."""
+    connection = EdgeConnection(server_name, 443, timeout=10, context=tls_context())
     try:
         connection.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
         connection.putheader("Host", host or server_name)
@@ -124,16 +147,21 @@ def request(server_name, path, host=None, method="GET", headers=None, body=None)
             connection.putheader("Content-Length", str(len(body)))
         connection.endheaders(body)
         response = connection.getresponse()
-        payload = response.read()
-        upstream = None
-        if response.getheader("Content-Type") == "application/json":
-            try:
-                upstream = json.loads(payload)
-            except ValueError:
-                upstream = None
-        return response.status, {k.lower(): v for k, v in response.getheaders()}, upstream
+        return response.status, {k.lower(): v for k, v in response.getheaders()}, response.read()
     finally:
         connection.close()
+
+
+def request(server_name, path, host=None, method="GET", headers=None, body=None):
+    """Return (status, response headers, echoed upstream or None); raise on transport failure."""
+    status, response_headers, payload = exchange(server_name, path, host, method, headers, body)
+    upstream = None
+    if response_headers.get("content-type") == "application/json":
+        try:
+            upstream = json.loads(payload)
+        except ValueError:
+            upstream = None
+    return status, response_headers, upstream
 
 
 def plain_request(host, path):
@@ -274,15 +302,157 @@ def backchannel():
     return check
 
 
+# --- Request limits and maintenance -------------------------------------------------
+
+REALM = "/realms/gameometro"
+RATING = "/api/v1/me/ratings/00000000-0000-4000-8000-000000000001"
+# One representative request per limited class: (method, host, path, body).
+KINDS = {
+    "shell": ("GET", APPLICATION_HOST, "/", None),
+    "asset": ("GET", APPLICATION_HOST, "/assets/index-synthetic.js", None),
+    "navigation": ("GET", APPLICATION_HOST, "/auth/start", None),
+    "callback": ("GET", APPLICATION_HOST, "/login/oauth2/code/keycloak?code=synthetic&state=synthetic", None),
+    "read": ("GET", APPLICATION_HOST, "/api/v1/platforms", None),
+    "session": ("GET", APPLICATION_HOST, "/api/v1/session", None),
+    "search": ("GET", APPLICATION_HOST, "/api/v1/games?q=synthetic", None),
+    "releases": ("GET", APPLICATION_HOST, "/api/v1/releases", None),
+    "write": ("PUT", APPLICATION_HOST, RATING, b'{"value":8}'),
+    "identity-page": ("GET", IDENTITY_HOST, REALM + "/protocol/openid-connect/auth?client_id=videogame-platform-bff", None),
+    "identity-resource": ("GET", IDENTITY_HOST, "/resources/abc12/login/gameometro/css/login.css", None),
+    "login": ("POST", IDENTITY_HOST, REALM + "/login-actions/authenticate", b"username=synthetic"),
+    "registration": ("POST", IDENTITY_HOST, REALM + "/login-actions/registration", b"email=synthetic"),
+    # Keycloak serves this as the registration endpoint; the limit must count it the same way.
+    "registration-slashes": ("POST", IDENTITY_HOST, "/realms/gameometro/login-actions//registration", b"email=synthetic"),
+    "recovery": ("POST", IDENTITY_HOST, REALM + "/login-actions/reset-credentials", b"username=synthetic"),
+    "verification": ("GET", IDENTITY_HOST, REALM + "/login-actions/required-action?execution=VERIFY_EMAIL&client_id=videogame-platform-bff", None),
+    "required-action": ("POST", IDENTITY_HOST, REALM + "/login-actions/required-action?execution=UPDATE_PASSWORD", b"password-new=synthetic"),
+    "action-link": ("GET", IDENTITY_HOST, REALM + "/login-actions/action-token?key=synthetic", None),
+    "token": ("POST", IDENTITY_HOST, REALM + "/protocol/openid-connect/token", b"grant_type=authorization_code"),
+    "userinfo": ("GET", IDENTITY_HOST, REALM + "/protocol/openid-connect/userinfo", None),
+    "certs": ("GET", IDENTITY_HOST, REALM + "/protocol/openid-connect/certs", None),
+}
+# Every header a client might use to claim another address; none may choose the limit key.
+SPOOFS = {
+    "xff": {"X-Forwarded-For": "{target}"},
+    "xff-chain": {"X-Forwarded-For": "{target}, 198.51.100.7"},
+    "real-ip": {"X-Real-Ip": "{target}"},
+    "forwarded": {"Forwarded": "for={target}"},
+    "client-ip": {"Client-Ip": "{target}", "X-Client-Ip": "{target}"},
+    "true-client-ip": {"True-Client-Ip": "{target}", "Cf-Connecting-Ip": "{target}"},
+    "cluster-client-ip": {"X-Cluster-Client-Ip": "{target}", "Fastly-Client-Ip": "{target}"},
+}
+EXPECTED = ("ok", "limited", "overloaded", "maintenance", "aborted")
+
+
+class Limits(Probe):
+    def __init__(self):
+        super().__init__()
+        self.retry_after = None
+
+    def send(self, kind, spoof=None):
+        method, host, path, body = KINDS[kind]
+        headers = {}
+        if spoof:
+            target = os.environ.get("SPOOF_ADDRESS", "10.203.9.12")
+            headers = {name: value.format(target=target) for name, value in SPOOFS[spoof].items()}
+        if body is not None:
+            headers["Content-Type"] = "application/json" if host == APPLICATION_HOST else "application/x-www-form-urlencoded"
+        return exchange(host, path, method=method, headers=headers, body=body)
+
+    def check(self, label, kind, expected, response):
+        _, host, path, _ = KINDS[kind]
+        if response is None:
+            self.expect(f"{label} {kind} aborted", expected == "aborted", "transport failure")
+            return
+        status, headers, body = response
+        if expected == "aborted":
+            self.expect(f"{label} {kind} aborted", False, f"answered {status}")
+            return
+        echoed = headers.get("content-type") == "application/json" and b'"upstream"' in body
+        if expected == "ok":
+            self.expect(f"{label} {kind} reaches its upstream", status == 200 and echoed, f"-> {status}")
+            return
+        codes = {"limited": (429, "RATE_LIMITED", "Demasiadas solicitudes seguidas"),
+                 "overloaded": (503, "SERVICE_OVERLOADED", "demasiadas solicitudes"),
+                 "maintenance": (503, "SERVICE_MAINTENANCE", "en mantenimiento")}
+        status_expected, code, text = codes[expected]
+        name = f"{label} {kind} {expected}"
+        self.expect(f"{name} status", status == status_expected and not echoed, f"-> {status}, upstream reached {echoed}")
+        retry = headers.get("retry-after", "")
+        # Within the longest limiter window plus jitter; the contract test scales some to 5 minutes.
+        self.expect(f"{name} Retry-After", retry.isdigit() and (retry == "300" if expected == "maintenance" else 1 <= int(retry) <= 361),
+                    repr(retry))
+        self.retry_after = int(retry) if retry.isdigit() else None
+        self.expect(f"{name} is not stored", headers.get("cache-control") == "no-store", str(headers.get("cache-control")))
+        correlation = headers.get("x-correlation-id", "")
+        self.expect(f"{name} correlation", 0 < len(correlation) <= 200, repr(correlation))
+        self.expect(f"{name} hides Server", "server" not in headers, headers.get("server", ""))
+        if host == APPLICATION_HOST and path.startswith("/api/"):
+            try:
+                problem = json.loads(body)
+            except ValueError:
+                problem = {}
+            self.expect(f"{name} problem", headers.get("content-type") == "application/problem+json"
+                        and problem.get("status") == status_expected and problem.get("code") == code
+                        and problem.get("category") == "technical" and problem.get("correlationId") == correlation
+                        and all(problem.get(k) for k in ("type", "title", "detail", "instance")), body[:200].decode("utf-8", "replace"))
+        else:
+            self.expect(f"{name} page", headers.get("content-type", "").startswith("text/html")
+                        and text in body.decode("utf-8", "replace"), body[:200].decode("utf-8", "replace"))
+
+    def run(self, steps, pace=0.0):
+        """Steps are kind[~spoof]:count:expected, or pause:<seconds> / pause:retry-after."""
+        for step in steps:
+            if step.startswith("pause:"):
+                seconds = self.retry_after if step == "pause:retry-after" else float(step.split(":", 1)[1])
+                self.expect("a refusal announced when to retry", seconds is not None)
+                time.sleep((seconds or 0) + 0.5)
+                continue
+            target, count, expected = step.split(":")
+            kind, _, spoof = target.partition("~")
+            assert kind in KINDS and expected in EXPECTED and (not spoof or spoof in SPOOFS), step
+            for index in range(int(count)):
+                try:
+                    response = self.send(kind, spoof or None)
+                except (OSError, http.client.HTTPException):
+                    response = None
+                self.check(f"#{index + 1}" + (f" spoofed {spoof}" if spoof else ""), kind, expected, response)
+                if pace:
+                    time.sleep(pace)
+        return self
+
+
+# Legitimate traffic from one shared household address: four people loading the site,
+# browsing, three signing in, one registering and one recovering a password, at a browser
+# pace of about ten requests a second. None of it may be refused.
+HOUSEHOLD_PERSON = ["shell", *["asset"] * 20, "session", "releases", "read", "search", "search", "read",
+                    "read", "write", "write"]
+HOUSEHOLD_SIGN_IN = ["navigation", "identity-page", *["identity-resource"] * 6, "login", "callback", "session"]
+HOUSEHOLD_REGISTRATION = ["navigation", "identity-page", *["identity-resource"] * 6, "registration", "verification",
+                          "action-link", "required-action", "callback"]
+HOUSEHOLD_RECOVERY = ["navigation", "identity-page", "recovery", "action-link", "required-action", "callback"]
+
+
+def household():
+    check = Limits()
+    journey = HOUSEHOLD_PERSON * 4 + HOUSEHOLD_SIGN_IN * 3 + HOUSEHOLD_REGISTRATION + HOUSEHOLD_RECOVERY
+    check.run([f"{kind}:1:ok" for kind in journey], pace=0.1)
+    return check
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "serve" and len(sys.argv) == 3:
         serve(sys.argv[2])
         return 0
-    if mode not in ("probe", "backchannel"):
-        print("usage: probe-public-production-edge.py serve <tag> | probe | backchannel", file=sys.stderr)
+    if mode == "limit" and len(sys.argv) >= 3:
+        check = household() if sys.argv[2:] == ["household"] else Limits().run(sys.argv[2:])
+    elif mode in ("probe", "backchannel"):
+        check = probe() if mode == "probe" else backchannel()
+    else:
+        print("usage: probe-public-production-edge.py serve <tag> | probe | backchannel | limit <steps...>",
+              file=sys.stderr)
         return 2
-    check = probe() if mode == "probe" else backchannel()
     for violation in check.violations:
         print(f"VIOLATION {violation}")
     print(f"{mode}: {check.checks} checks, {len(check.violations)} violation(s)")

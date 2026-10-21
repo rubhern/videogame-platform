@@ -663,9 +663,11 @@ committed erasures with the application stopped and never recaptures legal sourc
 and configured protected holds stores. Admission stops at 100 accounts or 120 seconds;
 a started account is completed or left recoverable before release. This is not a
 hard 120-second interruption SLA. Exceptions/backlog are reported; a shared failure
-stops the run. No timer or real proxy adapter is installed. The adapter must also
-serialize owner identity changes/restores/deployments and settle management requests
-before releasing the fence; a local ledger lock cannot prove those properties.
+stops the run. No timer is installed. The
+[#275 adapter](../../deploy/public-production/README.md#identity-maintenance) serializes
+owner identity changes/restores/deployments through the recovery lease and settles
+management requests before releasing the fence; a local ledger lock cannot prove those
+properties. It is locally exercised; its real-host drain acceptance belongs to #276.
 
 B uses `pending-signup-v1`, `requested-account-v1` and `case-hold-v1`. Ordinary
 profiles persist issuer/subject/UserId linkage, email once, account creation and
