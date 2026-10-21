@@ -211,6 +211,8 @@ export interface paths {
          * Read public game details
          * @description Never varies by session or embeds a personal rating. Unavailable aggregate
          *     statistics and fallback covers are explicit degraded states in a coherent `200`.
+         *     Available statistics carry the per-platform community readings beside the one-vote-per-user
+         *     Gameómetro mean; the validator covers both.
          *     The Game's own external player score is optional local evidence; its absence is not
          *     a degraded state. The validator covers it, so every reuse reflects its refresh or removal.
          */
@@ -294,12 +296,16 @@ export interface paths {
          * @description UC-015. One repeatable-read snapshot of only the authenticated principal's current
          *     active ratings and Ratings-owned projected local genre/game context. No query inputs,
          *     external/community scores or provider access. Fixed-size aggregates, never a full history.
-         *     All means round half up to one decimal. A genre receives one full contribution for
+         *     Each rated game contributes its one personal contribution: the direct score, or the
+         *     unrounded mean of its scored platforms. All means use the unrounded contributions and
+         *     round half up to one decimal only for presentation. The distribution places each game once,
+         *     in the bucket of its contribution rounded half up to the nearest integer (8.5 counts as 9),
+         *     so bucket counts sum to the total while the mean stays exact. A genre receives one full contribution for
          *     every rated game assigned to it, so genre counts overlap; games without genres are
          *     counted separately. Genre lists hold at most six entries: most rated by count descending
          *     then genreId ascending; best rated (at least three games) by unrounded mean descending,
-         *     count descending then genreId ascending. Extreme ties select gameId ascending and count
-         *     every tied game. Activity is twelve calendar months ending in evaluatedOn's month in
+         *     count descending then genreId ascending. Extremes compare unrounded contributions; ties
+         *     select gameId ascending and count every game with exactly that contribution. Activity is twelve calendar months ending in evaluatedOn's month in
          *     Europe/Madrid, counting surviving ratings by original creation time; edits do not move
          *     a contribution and deletion removes it. It is not a historical score or playing log.
          */
@@ -325,9 +331,10 @@ export interface paths {
          *     pagination. Only active game ratings are returned. Search uses the catalogue's
          *     case- and diacritic-insensitive all-token word-prefix rules for canonical titles
          *     and approved aliases. Every sort ends with gameId ascending as its unique
-         *     tie-breaker. Each item's entityTag is the current strong rating validator for
-         *     conditional update and delete; it is not a collection cache validator. Community
-         *     and external scores are read afterwards for only the selected page's Games.
+         *     tie-breaker; `ratingValue` orders by each rating's unrounded contribution. Each item's
+         *     entityTag is the current strong rating validator for conditional update and delete; it
+         *     is not a collection cache validator. Community and external scores are read afterwards
+         *     for only the selected page's Games.
          */
         get: operations["listMyRatings"];
         put?: never;
@@ -361,12 +368,24 @@ export interface paths {
          * @description Creation requires `If-None-Match: *`; update requires current `If-Match`.
          *     Exactly one intent precondition is allowed. Eligibility is re-evaluated with
          *     the trusted application clock.
+         *
+         *     The command states the rating's score and, optionally, its played platforms. A rating
+         *     has exactly one score source, so the user always casts one community vote: `value` is
+         *     the direct score and is required exactly when no resulting platform carries a score;
+         *     otherwise the contribution is the arithmetic mean of the scored platforms and `value`
+         *     must be absent. `platforms`, when present, replaces the whole played-platform set (an
+         *     empty array clears it); absent or null keeps the saved set unchanged, so a command with
+         *     only `value` never touches saved platforms. A newly named platform must be one of the
+         *     game's current release platforms; a platform already saved on the rating stays valid
+         *     even if catalogue evidence later changes. The command is atomic: an invalid platform,
+         *     score or precondition changes nothing.
          */
         put: operations["putMyRating"];
         post?: never;
         /**
          * Delete the current user's active rating
          * @description Current eligibility never blocks owner deletion; success returns updated aggregate state.
+         *     The rating's played platforms and their scores are removed with it.
          */
         delete: operations["deleteMyRating"];
         options?: never;
@@ -1121,7 +1140,11 @@ export interface components {
             /** Format: date */
             evaluatedOn: string;
         };
-        /** @description Bucket sum equals count; enforced by implementation and contract tests. */
+        /**
+         * @description Bucket sum equals count; enforced by implementation and contract tests. Each voter sits
+         *     in exactly one bucket: their contribution rounded half up to the nearest integer, so a
+         *     platform-derived 8.5 counts in bucket 9. Buckets never feed the mean.
+         */
         RatingDistribution: {
             1: number;
             2: number;
@@ -1134,12 +1157,34 @@ export interface components {
             9: number;
             10: number;
         };
-        /** @description Mean is null exactly when count is zero; otherwise it is rounded half up to one decimal. */
+        /**
+         * @description Gameómetro's community reading. Each user contributes exactly one vote: a direct score,
+         *     or the arithmetic mean of the platforms that user scored. `count` is the number of users
+         *     and the mean averages their unrounded contributions; it is null exactly when count is
+         *     zero and otherwise rounded half up to one decimal.
+         */
         AvailableRatingStatistics: {
             status: string;
             mean: number | null;
             count: number;
             distribution: components["schemas"]["RatingDistribution"];
+            /**
+             * @description Per-platform community readings, only for platforms with at least one score, ordered
+             *     by count descending, then case-insensitive name, then `platformId`. Empty when no
+             *     user has scored a platform.
+             */
+            platforms: components["schemas"]["PlatformRatingStatistics"][];
+        };
+        /**
+         * @description The community reading for one platform: the mean of the explicit scores users gave this
+         *     platform, rounded half up to one decimal, and the number of users who scored it. A user
+         *     counts at most once per platform but may count on several platforms, so platform counts
+         *     never add up to community voters; a platform played without a score is not counted.
+         */
+        PlatformRatingStatistics: {
+            platform: components["schemas"]["Platform"];
+            mean: number;
+            count: number;
         };
         UnavailableRatingStatistics: {
             status: string;
@@ -1219,12 +1264,35 @@ export interface components {
         SessionState: components["schemas"]["AnonymousSession"] | components["schemas"]["AuthenticatedSession"];
         PersonalRating: {
             gameId: components["schemas"]["GameId"];
-            value: number;
+            /**
+             * @description `direct` when `value` is the rating's score; `platforms` when the score is the mean of
+             *     the scored platforms.
+             * @enum {string}
+             */
+            mode: "direct" | "platforms";
+            /** @description The direct score; null exactly when `mode` is `platforms`. */
+            value: number | null;
+            /**
+             * @description The rating's one vote in the community mean, rounded half up to one decimal: `value`
+             *     in direct mode, otherwise the arithmetic mean of the scored platforms.
+             */
+            contribution: number;
+            /**
+             * @description The platforms the user played on, ordered by case-insensitive name then
+             *     `platformId`; each scored one carries its own integer score. Empty when none was
+             *     declared. A saved platform stays even if it no longer has a current release.
+             */
+            platforms: components["schemas"]["PersonalRatingPlatform"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
             entityTag: components["schemas"]["StrongEntityTag"];
+        };
+        PersonalRatingPlatform: {
+            platform: components["schemas"]["Platform"];
+            /** @description The user's score on this platform; null when only played. */
+            value: number | null;
         };
         RatedGame: {
             gameId: components["schemas"]["GameId"];
@@ -1260,7 +1328,10 @@ export interface components {
             total: number;
             /** @description Equally weighted personal mean; null exactly when total is zero. */
             mean: number | null;
-            /** @description Counts for scores 1 through 10 in ascending order, zero-filled. */
+            /**
+             * @description Counts for scores 1 through 10 in ascending order, zero-filled; each game counts once,
+             *     in the bucket of its contribution rounded half up to the nearest integer.
+             */
             distribution: number[];
             mostRatedGenres: components["schemas"]["PersonalGenreInsight"][];
             bestRatedGenres: components["schemas"]["PersonalGenreInsight"][];
@@ -1280,6 +1351,7 @@ export interface components {
         };
         PersonalRatingExtreme: {
             game: components["schemas"]["RatedGame"];
+            /** @description The game's personal contribution, rounded half up to one decimal. */
             value: number;
             /** Format: int64 */
             tiedGames: number;
@@ -1295,7 +1367,21 @@ export interface components {
             page: components["schemas"]["PageMetadata"];
         };
         RatingWrite: {
-            value: number;
+            /**
+             * @description The direct score. Required exactly when no resulting platform carries a score; must be
+             *     absent when one does.
+             */
+            value?: number;
+            /**
+             * @description When present, the complete set of played platforms, replacing the saved one; an empty
+             *     array clears it. Absent or null keeps the saved set. Platform identifiers are unique.
+             */
+            platforms?: components["schemas"]["RatingPlatformWrite"][] | null;
+        };
+        RatingPlatformWrite: {
+            platformId: components["schemas"]["PlatformId"];
+            /** @description The score on this platform; omit it to record the platform as played only. */
+            value?: number;
         };
         RatingWriteResult: {
             personalRating: components["schemas"]["PersonalRating"];
@@ -1447,7 +1533,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1816,7 +1902,11 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Rating input or current eligibility violates the contract. */
+        /**
+         * @description Rating input or current eligibility violates the contract: a score outside 1–10, a
+         *     repeated platform, a missing or ambiguous score source, or a newly named platform that is
+         *     not one of the game's release platforms. Nothing changes.
+         */
         RatingValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
