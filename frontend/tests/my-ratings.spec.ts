@@ -12,7 +12,16 @@ import { analyzeAccessibility } from "./fixtures/accessibility";
  * reference width, and works by touch.
  */
 
-type Rating = { gameId: string; value: number; createdAt: string; updatedAt: string; entityTag: string };
+type Rating = {
+  gameId: string;
+  mode: "direct" | "platforms";
+  value: number | null;
+  contribution: number;
+  platforms: { platform: { platformId: string; name: string }; value: number | null }[];
+  createdAt: string;
+  updatedAt: string;
+  entityTag: string;
+};
 
 const titles = [
   "Élite Dangerous",
@@ -34,7 +43,10 @@ class ScriptedCollection {
     title,
     rating: {
       gameId: `30000000-0000-4000-8000-00000000000${index + 1}`,
+      mode: "direct",
       value: [7, 3, 10][index] ?? 5,
+      contribution: [7, 3, 10][index] ?? 5,
+      platforms: [],
       createdAt: "2026-08-13T10:00:00Z",
       // The first rating was changed later, so its line names both dates.
       updatedAt: index === 0 ? "2026-09-21T10:00:00Z" : "2026-08-13T10:00:00Z",
@@ -92,13 +104,13 @@ class ScriptedCollection {
       if (headers["x-csrf-token"] !== "browser-csrf") return problem(route, 403, "CSRF_VALIDATION_FAILED");
       if (!entry || headers["if-match"] !== entry.rating.entityTag) return problem(route, 412, "RATING_WRITE_CONFLICT");
       const statistics = { status: "available", mean: 8, count: 1,
-        distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 1, "9": 0, "10": 0 } };
+        distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 1, "9": 0, "10": 0 }, platforms: [] };
       if (request.method() === "DELETE") {
         this.ratings.splice(index, 1);
         return route.fulfill({ json: { personalRating: null, ratingStatistics: statistics } });
       }
       const { value } = request.postDataJSON() as { value: number };
-      entry.rating = { ...entry.rating, value, updatedAt: "2026-08-14T10:00:00Z", entityTag: '"version-2"' };
+      entry.rating = { ...entry.rating, value, contribution: value, updatedAt: "2026-08-14T10:00:00Z", entityTag: '"version-2"' };
       return route.fulfill({ json: { personalRating: entry.rating, ratingStatistics: statistics } });
     });
   }

@@ -4,18 +4,24 @@ package com.videogameplatform.ratings.adapter.persistence;
 final class PersonalRatingInsightsSql {
     private PersonalRatingInsightsSql() {}
 
+    // Each rating counts once, in its contribution's half-up integer bucket; the mean averages the
+    // unrounded contributions themselves.
     static final String DISTRIBUTION =
             """
-            WITH buckets AS (
-                SELECT value, count(*) AS count FROM ratings.rating
-                WHERE user_id=:user GROUP BY value
+            WITH scoped AS MATERIALIZED (
+                SELECT contribution FROM ratings.rating WHERE user_id=:user
+            ), buckets AS (
+                SELECT %s AS score, count(*) AS count FROM scoped GROUP BY 1
+            ), totals AS (
+                SELECT count(*) AS total, %s AS mean FROM scoped
             )
-            SELECT score, coalesce(count,0) AS count,
-                sum(coalesce(count,0)) OVER () AS total,
-                round(sum(score * coalesce(count,0)) OVER ()::numeric /
-                    nullif(sum(coalesce(count,0)) OVER (),0),1) AS mean
-            FROM generate_series(1,10) score LEFT JOIN buckets ON value=score ORDER BY score
-            """;
+            SELECT series.score, coalesce(b.count,0) AS count, t.total, t.mean
+            FROM generate_series(1,10) series(score) CROSS JOIN totals t
+            LEFT JOIN buckets b ON b.score=series.score ORDER BY series.score
+            """
+                    .formatted(
+                            ContributionMean.bucket("contribution"),
+                            ContributionMean.exposed("contribution"));
 
     static final String COVERAGE =
             """
@@ -29,14 +35,15 @@ final class PersonalRatingInsightsSql {
     static String genres(boolean bestRated) {
         return """
                 WITH scoped AS MATERIALIZED (
-                    SELECT game_id,value FROM ratings.rating WHERE user_id=:user
+                    SELECT game_id,contribution FROM ratings.rating WHERE user_id=:user
                 ), aggregates AS (
-                    SELECT g.genre_code,count(*) AS count,avg(r.value) AS mean
+                    SELECT g.genre_code,count(*) AS count,%s AS mean
                     FROM scoped r JOIN ratings.game_listing_genre g ON g.game_id=r.game_id
                     GROUP BY g.genre_code
                 ), selected AS (
                     SELECT * FROM aggregates
                 """
+                        .formatted(ContributionMean.exact("r.contribution"))
                 + (bestRated
                         ? " WHERE count>=3 ORDER BY mean DESC,count DESC,genre_code LIMIT 6"
                         : " ORDER BY count DESC,genre_code LIMIT 6")
@@ -50,15 +57,26 @@ final class PersonalRatingInsightsSql {
                         : "s.count DESC,s.genre_code");
     }
 
-    static final String EXTREME =
-            """
-            SELECT r.game_id,r.value,g.slug,g.canonical_title,g.cover_kind,g.cover_reference,
-                   g.cover_alternative_text,g.cover_attribution,g.cover_source_url
-            FROM (
-                SELECT game_id,value FROM ratings.rating
-                WHERE user_id=:user AND value=:value ORDER BY game_id LIMIT 1
-            ) r JOIN ratings.game_listing g USING (game_id)
-            """;
+    /**
+     * The rated game with the highest or lowest unrounded contribution, the smallest game id among
+     * equal ones, and how many games share exactly that contribution.
+     */
+    static String extreme(boolean highest) {
+        return """
+                WITH scoped AS MATERIALIZED (
+                    SELECT game_id,contribution FROM ratings.rating WHERE user_id=:user
+                ), chosen AS (
+                    SELECT game_id,contribution FROM scoped
+                    ORDER BY contribution %s,game_id LIMIT 1
+                )
+                SELECT c.game_id,round(c.contribution,1) AS value,
+                       (SELECT count(*) FROM scoped s WHERE s.contribution=c.contribution) AS tied,
+                       g.slug,g.canonical_title,g.cover_kind,g.cover_reference,
+                       g.cover_alternative_text,g.cover_attribution,g.cover_source_url
+                FROM chosen c JOIN ratings.game_listing g USING (game_id)
+                """
+                .formatted(highest ? "DESC" : "ASC");
+    }
 
     static final String ACTIVITY =
             """

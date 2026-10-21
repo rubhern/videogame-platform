@@ -78,6 +78,11 @@ class PersonalRatingApiIntegrationTest {
             OpenApiResponseContract.load("/me/ratings/{gameId}", "put");
     private static final OpenApiResponseContract DELETE_CONTRACT =
             OpenApiResponseContract.load("/me/ratings/{gameId}", "delete");
+    private static final OpenApiResponseContract GAME_CONTRACT =
+            OpenApiResponseContract.load("/games/{gameId}");
+    private static final String PS5 = "10000000-0000-4000-8000-000000000001";
+    private static final String SWITCH_2 = "10000000-0000-4000-8000-000000000002";
+    private static final String XBOX = "10000000-0000-4000-8000-000000000004";
 
     @Autowired MockMvc mockMvc;
     private JdbcTemplate admin;
@@ -97,6 +102,7 @@ class PersonalRatingApiIntegrationTest {
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword()));
         admin.update("DELETE FROM ratings.rating");
+        admin.update("DELETE FROM ratings.platform_label");
         // The projection follows the ratings it summarizes, removed here behind the store's back.
         admin.update("DELETE FROM catalogue.game_community_score");
         game = UUID.randomUUID();
@@ -132,6 +138,237 @@ class PersonalRatingApiIntegrationTest {
                 """,
                 release,
                 game);
+    }
+
+    @Test
+    void scoredPlatformsCastOneVoteAndPublishSeparatePlatformReadings() throws Exception {
+        release(SWITCH_2);
+        MvcResult alice =
+                write(
+                                ALICE,
+                                "{\"platforms\":[{\"platformId\":\"%s\",\"value\":9},{\"platformId\":\"%s\",\"value\":8}]}"
+                                        .formatted(PS5, SWITCH_2),
+                                null)
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.personalRating.mode").value("platforms"))
+                        .andExpect(jsonPath("$.personalRating.value").isEmpty())
+                        .andExpect(jsonPath("$.personalRating.contribution").value(8.5))
+                        .andExpect(
+                                jsonPath("$.personalRating.platforms[0].platform.name")
+                                        .value("Nintendo Switch 2"))
+                        .andExpect(jsonPath("$.personalRating.platforms[0].value").value(8))
+                        .andExpect(
+                                jsonPath("$.personalRating.platforms[1].platform.platformId")
+                                        .value(PS5))
+                        .andReturn();
+        PUT_CONTRACT.assertJsonResponse(alice.getResponse(), 201, "RatingWriteResult");
+
+        MvcResult bob =
+                write(BOB, "{\"value\":9}", null)
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.personalRating.mode").value("direct"))
+                        .andExpect(jsonPath("$.personalRating.contribution").value(9.0))
+                        .andExpect(jsonPath("$.personalRating.platforms.length()").value(0))
+                        // (8.5 + 9) / 2 voters, never (9 + 8 + 9) / 3 platform scores.
+                        .andExpect(jsonPath("$.ratingStatistics.count").value(2))
+                        .andExpect(jsonPath("$.ratingStatistics.mean").value(8.8))
+                        .andExpect(jsonPath("$.ratingStatistics.distribution['9']").value(2))
+                        .andExpect(jsonPath("$.ratingStatistics.platforms.length()").value(2))
+                        .andReturn();
+        PUT_CONTRACT.assertJsonResponse(bob.getResponse(), 201, "RatingWriteResult");
+
+        MvcResult details =
+                mockMvc.perform(get("/api/v1/games/" + game).accept(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.ratingStatistics.count").value(2))
+                        .andExpect(
+                                jsonPath("$.ratingStatistics.platforms[0].platform.name")
+                                        .value("Nintendo Switch 2"))
+                        .andExpect(jsonPath("$.ratingStatistics.platforms[0].mean").value(8.0))
+                        .andExpect(jsonPath("$.ratingStatistics.platforms[0].count").value(1))
+                        .andExpect(jsonPath("$.ratingStatistics.platforms[1].mean").value(9.0))
+                        .andReturn();
+        GAME_CONTRACT.assertJsonResponse(details.getResponse(), 200, "GameDetails");
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT rating_count FROM catalogue.game_community_score WHERE game_id = ?",
+                                Integer.class,
+                                game))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void transitionsBetweenDirectAndPlatformScoresAreExplicitAndKeepPlayedPlatforms()
+            throws Exception {
+        String tag =
+                write(
+                                ALICE,
+                                "{\"value\":7,\"platforms\":[{\"platformId\":\"%s\"}]}"
+                                        .formatted(PS5),
+                                null)
+                        .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.personalRating.mode").value("direct"))
+                        .andExpect(jsonPath("$.personalRating.platforms[0].value").isEmpty())
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+
+        // A command with only a value, as every client before #359 sent, keeps saved platforms.
+        tag =
+                write(ALICE, "{\"value\":9}", tag)
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.personalRating.value").value(9))
+                        .andExpect(
+                                jsonPath("$.personalRating.platforms[0].platform.platformId")
+                                        .value(PS5))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+        tag =
+                write(
+                                ALICE,
+                                "{\"platforms\":[{\"platformId\":\"%s\",\"value\":6}]}"
+                                        .formatted(PS5),
+                                tag)
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.personalRating.mode").value("platforms"))
+                        .andExpect(jsonPath("$.personalRating.value").isEmpty())
+                        .andExpect(jsonPath("$.personalRating.contribution").value(6.0))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+
+        // A direct value never silently replaces platform scores, and removing the last one needs
+        // a direct value in the same command.
+        write(ALICE, "{\"value\":5}", tag)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("RATING_SCORE_SOURCE_INVALID"))
+                .andExpect(jsonPath("$.violations[0].pointer").value("/value"));
+        write(ALICE, "{\"platforms\":[{\"platformId\":\"%s\"}]}".formatted(PS5), tag)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("RATING_SCORE_SOURCE_INVALID"));
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT contribution FROM ratings.rating WHERE game_id = ?",
+                                java.math.BigDecimal.class,
+                                game))
+                .isEqualByComparingTo("6");
+
+        write(ALICE, "{\"value\":5,\"platforms\":[]}", tag)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personalRating.mode").value("direct"))
+                .andExpect(jsonPath("$.personalRating.value").value(5))
+                .andExpect(jsonPath("$.personalRating.platforms.length()").value(0))
+                .andExpect(jsonPath("$.ratingStatistics.platforms.length()").value(0));
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT count(*) FROM ratings.rating_platform", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void rejectsUnsupportedRepeatedAndOutOfRangePlatformsWithoutChangingState() throws Exception {
+        write(ALICE, "{\"value\":7,\"platforms\":[{\"platformId\":\"%s\"}]}".formatted(XBOX), null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("PLATFORM_NOT_SUPPORTED"))
+                .andExpect(jsonPath("$.violations[0].pointer").value("/platforms/0/platformId"));
+        write(
+                        ALICE,
+                        "{\"platforms\":[{\"platformId\":\"%s\",\"value\":9},{\"platformId\":\"%s\",\"value\":7}]}"
+                                .formatted(PS5, PS5),
+                        null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("RATING_PLATFORMS_INVALID"));
+        write(
+                        ALICE,
+                        "{\"platforms\":[{\"platformId\":\"%s\",\"value\":9},{\"platformId\":\"%s\",\"value\":11}]}"
+                                .formatted(PS5, SWITCH_2),
+                        null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("RATING_VALUE_INVALID"))
+                .andExpect(jsonPath("$.violations[0].pointer").value("/platforms/1/value"));
+        String fiftyOne =
+                java.util.stream.IntStream.range(0, 51)
+                        .mapToObj(index -> "{\"platformId\":\"p" + index + "\"}")
+                        .collect(java.util.stream.Collectors.joining(","));
+        write(ALICE, "{\"value\":7,\"platforms\":[" + fiftyOne + "]}", null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("RATING_PLATFORMS_INVALID"));
+        write(
+                        ALICE,
+                        "{\"value\":7,\"platforms\":[{\"platformId\":\"%s\",\"score\":1}]}"
+                                .formatted(PS5),
+                        null)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("REQUEST_PROPERTY_UNKNOWN"));
+        assertThat(admin.queryForObject("SELECT count(*) FROM ratings.rating", Integer.class))
+                .isZero();
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT count(*) FROM ratings.platform_label", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void aSavedPlatformOutlivesItsReleaseWhileANewOneNeedsCurrentEvidence() throws Exception {
+        UUID switchRelease = release(SWITCH_2);
+        String tag =
+                write(
+                                ALICE,
+                                "{\"platforms\":[{\"platformId\":\"%s\",\"value\":8},{\"platformId\":\"%s\"}]}"
+                                        .formatted(SWITCH_2, PS5),
+                                null)
+                        .andExpect(status().isCreated())
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+        admin.update("DELETE FROM catalogue.release_snapshot WHERE release_id = ?", switchRelease);
+
+        tag =
+                write(
+                                ALICE,
+                                "{\"platforms\":[{\"platformId\":\"%s\",\"value\":6},{\"platformId\":\"%s\",\"value\":10}]}"
+                                        .formatted(SWITCH_2, PS5),
+                                tag)
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.personalRating.contribution").value(8.0))
+                        .andExpect(
+                                jsonPath("$.personalRating.platforms[0].platform.name")
+                                        .value("Nintendo Switch 2"))
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+        tag =
+                write(
+                                ALICE,
+                                "{\"platforms\":[{\"platformId\":\"%s\",\"value\":10}]}"
+                                        .formatted(PS5),
+                                tag)
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getHeader(HttpHeaders.ETAG);
+        // Once removed from the rating, the platform needs a current release again.
+        write(
+                        ALICE,
+                        "{\"platforms\":[{\"platformId\":\"%s\",\"value\":10},{\"platformId\":\"%s\",\"value\":6}]}"
+                                .formatted(PS5, SWITCH_2),
+                        tag)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("PLATFORM_NOT_SUPPORTED"))
+                .andExpect(jsonPath("$.violations[0].pointer").value("/platforms/1/platformId"));
+
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .header(HttpHeaders.IF_MATCH, tag))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ratingStatistics.platforms.length()").value(0));
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT count(*) FROM ratings.rating_platform", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -735,7 +972,7 @@ class PersonalRatingApiIntegrationTest {
     }
 
     @Test
-    void collectionEnrichmentUsesTwoQueriesForAPageRatherThanOneLookupPerGame() throws Exception {
+    void collectionEnrichmentUsesThreeQueriesForAPageRatherThanOneLookupPerGame() throws Exception {
         create(ALICE, 7);
         for (int index = 0; index < 4; index++) addListedGame("Additional rated game " + index, 6);
         var jdbc =
@@ -764,7 +1001,8 @@ class PersonalRatingApiIntegrationTest {
                                 10));
         assertThat(page.items()).hasSize(5);
         assertThat(page.items()).allSatisfy(item -> assertThat(item.ratingSummary()).isPresent());
-        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.times(2))
+        // Played platforms, genres and community summaries: one bounded query each.
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.times(3))
                 .query(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.<String, Object>anyMap(),
@@ -787,7 +1025,7 @@ class PersonalRatingApiIntegrationTest {
                         })
                 .when(jdbc)
                 .query(
-                        org.mockito.ArgumentMatchers.contains("round(avg(value),1)"),
+                        org.mockito.ArgumentMatchers.contains("unnest(CAST(:gameIds AS uuid[]))"),
                         org.mockito.ArgumentMatchers.<String, Object>anyMap(),
                         org.mockito.ArgumentMatchers.any(
                                 org.springframework.jdbc.core.RowCallbackHandler.class));
@@ -1135,6 +1373,48 @@ class PersonalRatingApiIntegrationTest {
                                 .content("{\"value\":" + value + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
+    }
+
+    /** A raw rating command: create without an entity tag, update with one. */
+    private org.springframework.test.web.servlet.ResultActions write(
+            String subject, String body, String entityTag) throws Exception {
+        var request =
+                put(path())
+                        .with(login(subject))
+                        .with(csrf().asHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(body);
+        return mockMvc.perform(
+                entityTag == null
+                        ? request.header(HttpHeaders.IF_NONE_MATCH, "*")
+                        : request.header(HttpHeaders.IF_MATCH, entityTag));
+    }
+
+    /** Adds a released, verified release of the game on {@code platformId}. */
+    private UUID release(String platformId) {
+        UUID release = UUID.randomUUID();
+        admin.update(
+                "INSERT INTO catalogue.game_release(release_id, game_id, created_at) VALUES (?, ?, now())",
+                release,
+                game);
+        admin.update(
+                """
+                INSERT INTO catalogue.release_snapshot(
+                    publication_id, release_id, game_id, platform_id, region_id,
+                    date_precision, exact_date, release_status, source_kind, source_name,
+                    source_entity_type, last_synchronized_at, last_verified_at,
+                    verification_level, review_status)
+                SELECT publication_id, ?, ?, ?::uuid,
+                    '20000000-0000-4000-8000-000000000002', 'day', date '2026-08-13',
+                    'released', 'official_source', 'Publisher', 'release', now(), now(),
+                    'verified', 'not_required'
+                FROM catalogue.catalogue_publication WHERE is_current
+                """,
+                release,
+                game,
+                platformId);
+        return release;
     }
 
     private MvcResult update(String subject, int value, String entityTag) throws Exception {

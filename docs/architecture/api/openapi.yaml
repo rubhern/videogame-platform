@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 4.4.0
+  version: 5.0.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -791,6 +791,8 @@ paths:
       description: |
         Never varies by session or embeds a personal rating. Unavailable aggregate
         statistics and fallback covers are explicit degraded states in a coherent `200`.
+        Available statistics carry the per-platform community readings beside the one-vote-per-user
+        Gameómetro mean; the validator covers both.
         The Game's own external player score is optional local evidence; its absence is not
         a degraded state. The validator covers it, so every reuse reflects its refresh or removal.
       security: []
@@ -861,6 +863,13 @@ paths:
                       mean: 8.4
                       count: 17
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 5, '10': 2 }
+                      platforms:
+                        - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          mean: 8.8
+                          count: 6
+                        - platform: { platformId: platform_switch, name: Nintendo Switch }
+                          mean: 7.5
+                          count: 2
                     externalScore:
                       source: igdb
                       kind: player
@@ -953,6 +962,7 @@ paths:
                       mean: null
                       count: 0
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
+                      platforms: []
                 noRatings:
                   summary: Verified unknown release date and no active ratings
                   value:
@@ -1006,6 +1016,7 @@ paths:
                       mean: null
                       count: 0
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
+                      platforms: []
                 degradedAggregate:
                   summary: Aggregate unavailable; review-required release remains explicit
                   value:
@@ -1174,12 +1185,16 @@ paths:
         UC-015. One repeatable-read snapshot of only the authenticated principal's current
         active ratings and Ratings-owned projected local genre/game context. No query inputs,
         external/community scores or provider access. Fixed-size aggregates, never a full history.
-        All means round half up to one decimal. A genre receives one full contribution for
+        Each rated game contributes its one personal contribution: the direct score, or the
+        unrounded mean of its scored platforms. All means use the unrounded contributions and
+        round half up to one decimal only for presentation. The distribution places each game once,
+        in the bucket of its contribution rounded half up to the nearest integer (8.5 counts as 9),
+        so bucket counts sum to the total while the mean stays exact. A genre receives one full contribution for
         every rated game assigned to it, so genre counts overlap; games without genres are
         counted separately. Genre lists hold at most six entries: most rated by count descending
         then genreId ascending; best rated (at least three games) by unrounded mean descending,
-        count descending then genreId ascending. Extreme ties select gameId ascending and count
-        every tied game. Activity is twelve calendar months ending in evaluatedOn's month in
+        count descending then genreId ascending. Extremes compare unrounded contributions; ties
+        select gameId ascending and count every game with exactly that contribution. Activity is twelve calendar months ending in evaluatedOn's month in
         Europe/Madrid, counting surviving ratings by original creation time; edits do not move
         a contribution and deletion removes it. It is not a historical score or playing log.
       security:
@@ -1220,9 +1235,10 @@ paths:
         pagination. Only active game ratings are returned. Search uses the catalogue's
         case- and diacritic-insensitive all-token word-prefix rules for canonical titles
         and approved aliases. Every sort ends with gameId ascending as its unique
-        tie-breaker. Each item's entityTag is the current strong rating validator for
-        conditional update and delete; it is not a collection cache validator. Community
-        and external scores are read afterwards for only the selected page's Games.
+        tie-breaker; `ratingValue` orders by each rating's unrounded contribution. Each item's
+        entityTag is the current strong rating validator for conditional update and delete; it
+        is not a collection cache validator. Community and external scores are read afterwards
+        for only the selected page's Games.
       security:
         - sessionCookie: []
       parameters:
@@ -1257,7 +1273,14 @@ paths:
                               sourceUrl: https://www.igdb.com/games/example-game
                         personalRating:
                           gameId: game_example
-                          value: 9
+                          mode: platforms
+                          value: null
+                          contribution: 8.5
+                          platforms:
+                            - platform: { platformId: platform_switch, name: Nintendo Switch }
+                              value: 8
+                            - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                              value: 9
                           createdAt: '2026-07-20T10:15:30Z'
                           updatedAt: '2026-07-30T10:15:30Z'
                           entityTag: '"rating-version-opaque"'
@@ -1306,10 +1329,33 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PersonalRating' }
               examples:
-                currentRating:
+                directRating:
+                  summary: Direct score with an unscored played platform
                   value:
                     gameId: game_example
+                    mode: direct
                     value: 9
+                    contribution: 9
+                    platforms:
+                      - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                        value: null
+                    createdAt: '2026-07-20T10:15:30Z'
+                    updatedAt: '2026-07-30T10:15:30Z'
+                    entityTag: '"rating-version-opaque"'
+                platformRating:
+                  summary: Contribution derived from two scored platforms
+                  value:
+                    gameId: game_example
+                    mode: platforms
+                    value: null
+                    contribution: 8.5
+                    platforms:
+                      - platform: { platformId: platform_switch, name: Nintendo Switch }
+                        value: 8
+                      - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                        value: 9
+                      - platform: { platformId: platform_windows, name: Windows PC }
+                        value: null
                     createdAt: '2026-07-20T10:15:30Z'
                     updatedAt: '2026-07-30T10:15:30Z'
                     entityTag: '"rating-version-opaque"'
@@ -1327,6 +1373,17 @@ paths:
         Creation requires `If-None-Match: *`; update requires current `If-Match`.
         Exactly one intent precondition is allowed. Eligibility is re-evaluated with
         the trusted application clock.
+
+        The command states the rating's score and, optionally, its played platforms. A rating
+        has exactly one score source, so the user always casts one community vote: `value` is
+        the direct score and is required exactly when no resulting platform carries a score;
+        otherwise the contribution is the arithmetic mean of the scored platforms and `value`
+        must be absent. `platforms`, when present, replaces the whole played-platform set (an
+        empty array clears it); absent or null keeps the saved set unchanged, so a command with
+        only `value` never touches saved platforms. A newly named platform must be one of the
+        game's current release platforms; a platform already saved on the rating stays valid
+        even if catalogue evidence later changes. The command is atomic: an invalid platform,
+        score or precondition changes nothing.
       security:
         - sessionCookie: []
       parameters:
@@ -1339,7 +1396,25 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RatingWrite' }
             examples:
-              ratingNine: { value: { value: 9 } }
+              ratingNine:
+                summary: Direct score; saved platforms stay unchanged
+                value: { value: 9 }
+              playedWithoutPlatformScores:
+                summary: Direct score with the complete played-platform set
+                value:
+                  value: 9
+                  platforms:
+                    - platformId: platform_ps5
+              platformScores:
+                summary: Contribution derived from the scored platforms
+                value:
+                  platforms:
+                    - { platformId: platform_ps5, value: 9 }
+                    - { platformId: platform_switch, value: 8 }
+                    - platformId: platform_windows
+              clearPlatforms:
+                summary: Back to a direct score with no played platform
+                value: { value: 8, platforms: [] }
       responses:
         '200':
           description: Existing rating updated with coherent aggregate context.
@@ -1355,7 +1430,14 @@ paths:
                   value:
                     personalRating:
                       gameId: game_example
-                      value: 9
+                      mode: platforms
+                      value: null
+                      contribution: 8.5
+                      platforms:
+                        - platform: { platformId: platform_switch, name: Nintendo Switch }
+                          value: 8
+                        - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          value: 9
                       createdAt: '2026-07-20T10:15:30Z'
                       updatedAt: '2026-07-31T12:30:00Z'
                       entityTag: '"rating-version-3"'
@@ -1364,6 +1446,13 @@ paths:
                       mean: 8.4
                       count: 17
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 5, '10': 2 }
+                      platforms:
+                        - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          mean: 8.8
+                          count: 6
+                        - platform: { platformId: platform_switch, name: Nintendo Switch }
+                          mean: 7.5
+                          count: 2
         '201':
           description: First active rating created with coherent aggregate context.
           headers:
@@ -1379,7 +1468,10 @@ paths:
                   value:
                     personalRating:
                       gameId: game_example
+                      mode: direct
                       value: 9
+                      contribution: 9
+                      platforms: []
                       createdAt: '2026-07-31T12:30:00Z'
                       updatedAt: '2026-07-31T12:30:00Z'
                       entityTag: '"rating-version-1"'
@@ -1388,6 +1480,10 @@ paths:
                       mean: 8.5
                       count: 18
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 6, '10': 2 }
+                      platforms:
+                        - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          mean: 8.8
+                          count: 6
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
@@ -1405,7 +1501,9 @@ paths:
       tags: [Ratings]
       operationId: deleteMyRating
       summary: Delete the current user's active rating
-      description: Current eligibility never blocks owner deletion; success returns updated aggregate state.
+      description: |
+        Current eligibility never blocks owner deletion; success returns updated aggregate state.
+        The rating's played platforms and their scores are removed with it.
       security:
         - sessionCookie: []
       parameters:
@@ -1429,6 +1527,10 @@ paths:
                       mean: 8.4
                       count: 17
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 5, '10': 2 }
+                      platforms:
+                        - platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          mean: 8.8
+                          count: 6
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
@@ -2876,10 +2978,13 @@ components:
         '9': { type: integer, minimum: 0 }
         '10': { type: integer, minimum: 0 }
       additionalProperties: false
-      description: Bucket sum equals count; enforced by implementation and contract tests.
+      description: |
+        Bucket sum equals count; enforced by implementation and contract tests. Each voter sits
+        in exactly one bucket: their contribution rounded half up to the nearest integer, so a
+        platform-derived 8.5 counts in bucket 9. Buckets never feed the mean.
     AvailableRatingStatistics:
       type: object
-      required: [status, mean, count, distribution]
+      required: [status, mean, count, distribution, platforms]
       properties:
         status: { type: string, pattern: '^available$' }
         mean:
@@ -2888,8 +2993,33 @@ components:
             - { type: 'null' }
         count: { type: integer, minimum: 0 }
         distribution: { $ref: '#/components/schemas/RatingDistribution' }
+        platforms:
+          type: array
+          maxItems: 500
+          description: |
+            Per-platform community readings, only for platforms with at least one score, ordered
+            by count descending, then case-insensitive name, then `platformId`. Empty when no
+            user has scored a platform.
+          items: { $ref: '#/components/schemas/PlatformRatingStatistics' }
       unevaluatedProperties: false
-      description: Mean is null exactly when count is zero; otherwise it is rounded half up to one decimal.
+      description: |
+        Gameómetro's community reading. Each user contributes exactly one vote: a direct score,
+        or the arithmetic mean of the platforms that user scored. `count` is the number of users
+        and the mean averages their unrounded contributions; it is null exactly when count is
+        zero and otherwise rounded half up to one decimal.
+    PlatformRatingStatistics:
+      type: object
+      required: [platform, mean, count]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        mean: { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+        count: { type: integer, minimum: 1 }
+      unevaluatedProperties: false
+      description: |
+        The community reading for one platform: the mean of the explicit scores users gave this
+        platform, rounded half up to one decimal, and the number of users who scored it. A user
+        counts at most once per platform but may count on several platforms, so platform counts
+        never add up to community voters; a platform played without a score is not counted.
     UnavailableRatingStatistics:
       type: object
       required: [status, reasonCode]
@@ -3008,13 +3138,52 @@ components:
         - $ref: '#/components/schemas/AuthenticatedSession'
     PersonalRating:
       type: object
-      required: [gameId, value, createdAt, updatedAt, entityTag]
+      required: [gameId, mode, value, contribution, platforms, createdAt, updatedAt, entityTag]
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
-        value: { type: integer, minimum: 1, maximum: 10 }
+        mode:
+          type: string
+          enum: [direct, platforms]
+          description: |
+            `direct` when `value` is the rating's score; `platforms` when the score is the mean of
+            the scored platforms.
+        value:
+          oneOf:
+            - { type: integer, minimum: 1, maximum: 10 }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+          description: The direct score; null exactly when `mode` is `platforms`.
+        contribution:
+          type: number
+          minimum: 1
+          maximum: 10
+          multipleOf: 0.1
+          description: |
+            The rating's one vote in the community mean, rounded half up to one decimal: `value`
+            in direct mode, otherwise the arithmetic mean of the scored platforms.
+        platforms:
+          type: array
+          maxItems: 50
+          description: |
+            The platforms the user played on, ordered by case-insensitive name then
+            `platformId`; each scored one carries its own integer score. Empty when none was
+            declared. A saved platform stays even if it no longer has a current release.
+          items: { $ref: '#/components/schemas/PersonalRatingPlatform' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         entityTag: { $ref: '#/components/schemas/StrongEntityTag' }
+    PersonalRatingPlatform:
+      type: object
+      required: [platform, value]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        value:
+          oneOf:
+            - { type: integer, minimum: 1, maximum: 10 }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+          description: The user's score on this platform; null when only played.
+      unevaluatedProperties: false
     RatedGame:
       type: object
       required: [gameId, slug, canonicalTitle, primaryCover]
@@ -3077,7 +3246,9 @@ components:
           minItems: 10
           maxItems: 10
           items: { type: integer, format: int64, minimum: 0 }
-          description: Counts for scores 1 through 10 in ascending order, zero-filled.
+          description: |
+            Counts for scores 1 through 10 in ascending order, zero-filled; each game counts once,
+            in the bucket of its contribution rounded half up to the nearest integer.
         mostRatedGenres:
           type: array
           maxItems: 6
@@ -3117,7 +3288,12 @@ components:
       required: [game, value, tiedGames]
       properties:
         game: { $ref: '#/components/schemas/RatedGame' }
-        value: { type: integer, minimum: 1, maximum: 10 }
+        value:
+          type: number
+          minimum: 1
+          maximum: 10
+          multipleOf: 0.1
+          description: The game's personal contribution, rounded half up to one decimal.
         tiedGames: { type: integer, format: int64, minimum: 1 }
       unevaluatedProperties: false
     PersonalRatingMonth:
@@ -3137,9 +3313,32 @@ components:
         page: { $ref: '#/components/schemas/PageMetadata' }
     RatingWrite:
       type: object
-      required: [value]
       properties:
-        value: { type: integer, minimum: 1, maximum: 10 }
+        value:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: |
+            The direct score. Required exactly when no resulting platform carries a score; must be
+            absent when one does.
+        platforms:
+          type: [array, 'null']
+          maxItems: 50
+          description: |
+            When present, the complete set of played platforms, replacing the saved one; an empty
+            array clears it. Absent or null keeps the saved set. Platform identifiers are unique.
+          items: { $ref: '#/components/schemas/RatingPlatformWrite' }
+      additionalProperties: false
+    RatingPlatformWrite:
+      type: object
+      required: [platformId]
+      properties:
+        platformId: { $ref: '#/components/schemas/PlatformId' }
+        value:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: The score on this platform; omit it to record the platform as played only.
       additionalProperties: false
     RatingWriteResult:
       type: object
@@ -3327,6 +3526,8 @@ components:
         - GAME_NOT_FOUND
         - RATING_NOT_FOUND
         - RATING_VALUE_INVALID
+        - RATING_PLATFORMS_INVALID
+        - RATING_SCORE_SOURCE_INVALID
         - RATING_NOT_ELIGIBLE
         - RELEASE_DATA_REVIEW_REQUIRED
         - SEARCH_QUERY_INVALID
@@ -3712,7 +3913,10 @@ components:
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     RatingValidationFailed:
-      description: Rating input or current eligibility violates the contract.
+      description: |
+        Rating input or current eligibility violates the contract: a score outside 1–10, a
+        repeated platform, a missing or ambiguous score source, or a newly named platform that is
+        not one of the game's release platforms. Nothing changes.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -3721,6 +3925,9 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             ratingValueInvalid: { $ref: '#/components/examples/RatingValueInvalid' }
+            ratingPlatformsInvalid: { $ref: '#/components/examples/RatingPlatformsInvalid' }
+            ratingScoreSourceInvalid: { $ref: '#/components/examples/RatingScoreSourceInvalid' }
+            ratingPlatformNotSupported: { $ref: '#/components/examples/RatingPlatformNotSupported' }
             ratingNotEligible: { $ref: '#/components/examples/RatingNotEligible' }
             releaseReviewRequired: { $ref: '#/components/examples/ReleaseDataReviewRequired' }
             propertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
@@ -4196,6 +4403,48 @@ components:
           - pointer: /value
             code: RATING_VALUE_INVALID
             message: Must be an integer from 1 through 10.
+    RatingPlatformsInvalid:
+      value:
+        type: urn:videogame-platform:problem:rating-platforms-invalid
+        title: Rating platforms are invalid
+        status: 422
+        detail: Name each platform at most once and at most 50 platforms.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: RATING_PLATFORMS_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /platforms
+            code: RATING_PLATFORMS_INVALID
+            message: Platform identifiers must be unique.
+    RatingScoreSourceInvalid:
+      value:
+        type: urn:videogame-platform:problem:rating-score-source-invalid
+        title: Rating score source is invalid
+        status: 422
+        detail: A rating has exactly one score source.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: RATING_SCORE_SOURCE_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /value
+            code: RATING_SCORE_SOURCE_INVALID
+            message: Send a direct value exactly when no platform carries a score.
+    RatingPlatformNotSupported:
+      value:
+        type: urn:videogame-platform:problem:platform-not-supported
+        title: Platform is not supported
+        status: 422
+        detail: Choose platforms from the game's releases.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PLATFORM_NOT_SUPPORTED
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /platforms/0/platformId
+            code: PLATFORM_NOT_SUPPORTED
+            message: Must name one of the game's release platforms or a platform already saved on this rating.
     RatingNotEligible:
       value:
         type: urn:videogame-platform:problem:rating-not-eligible

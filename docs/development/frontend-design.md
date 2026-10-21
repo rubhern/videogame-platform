@@ -755,6 +755,17 @@ explanation invites a first rating only when the game's existing eligibility exp
 it; an ineligible game states that rating is unavailable, and a pending read never invites a
 rating. The distribution remains a backend/API capability and is not rendered on this page.
 
+Post-MVP (#359, implemented; awaiting owner review), once any player has scored a platform,
+a quiet ice text control, **Por plataforma** with a caret, follows the count inside the
+community reading; without platform scores it is absent rather than empty. It opens an
+anchored, non-modal, opaque panel with an ice top edge, overlaying what follows, that lists
+each platform the API returns in its order: the platform's mark and name, `N
+puntuación`/`puntuaciones` beneath, and its mean in plain ink opposite, with one footnote
+saying a player who scores several platforms counts once in the community score. It never
+repeats a G-meter, a temperature or a thermal colour, so the community reading keeps its
+authority. Escape, an outside press or moving focus away close it, returning focus to the
+control; it adds at most one line to the readings band.
+
 Post-MVP (#279 phase 3, implemented; awaiting owner review): **Jugadores IGDB** follows as a
 separate, supporting reading: the community reading's parts at a smaller size and in quieter
 neutral ink rather than a temperature, so it never reads as Gameómetro's own. The white
@@ -792,6 +803,31 @@ commands; the last valid personal and community state stays visible and nothing 
 automatically. An anonymous pick starts authentication with that value; after returning, the
 recovered value is persisted once automatically (no command when it equals the existing rating)
 and any failure surfaces like any other command.
+
+Post-MVP (#359, implemented; awaiting owner review), a signed-in player may rate by platform
+without the reading growing: it shows the rating's one contribution, `8,5/10` when it is a
+platform mean (`9/10` stays whole), and names that source for assistive technology. In the
+panel, a direct rating keeps the keypad as the quick general score, which never touches saved
+platforms, with any played platforms as one quiet `Jugado en …` line; a platform-scored rating
+shows its breakdown — mark, name and each platform's own score in its temperature — in the
+keypad's place, so a general pick can never silently replace platform scores. Beneath, behind a
+hairline, a full-width **Puntuar por plataforma** (or **Editar plataformas**) opens the platform
+sheet, present only when the game has release platforms or the rating already names some, and
+disabled with the scale when the game is ineligible. The sheet is a native modal dialog: opaque
+night with an ice top edge, a centred sheet up to 32rem wide from 620px and a bottom sheet across
+the width on phones, never taller than most of the screen. Its header holds **Puntuar por
+plataforma** and a close control, its body — the only part that scrolls — a one-line lead and
+the game's platforms (then any saved platform the game no longer releases on) as native
+checkboxes with their marks; a checked platform gains a score control (`Puntuar` or its score in
+its temperature, edged in ice otherwise) that opens the shared keypad beneath that row, one at a
+time, with **Quitar la nota de …** once scored. While no platform is scored, **Tu puntuación
+general** follows with the keypad. A sticky footer shows the result as the player's own reading
+— G-meter, value, band in words and one plain source line (`Tu puntuación general`, `Media de tus
+2 plataformas puntuadas`, adding that it replaces the general score when it does) — above
+**Cancelar** and **Guardar**, enabled only for a valid change. Nothing is sent until **Guardar**;
+Escape or **Cancelar** closes without a command and focus returns to the reading. Opening lands
+on the first platform, and the sheet itself takes none of the reading's temperature. A pick
+recovered after sign-in is never applied over platform scores: a notice says so instead.
 
 The summary has a comfortable reading measure below the title: up to eight lines on desktop
 and six on narrower screens, with a native **Leer más** / **Mostrar menos** button only when the
@@ -906,6 +942,18 @@ nor picking ever sends a command. Opening focuses the pressed value. Escape and 
 the panel and return focus to the reading; an outside press or moving focus away also closes
 it. Outcomes show inside the panel: one live status while a command runs and one alert for
 rejected, conflicting or ambiguous commands.
+
+Post-MVP (#359, implemented; awaiting owner review), each line reads the rating's one
+contribution (`8,5/10` for a platform mean) and, when the rating names platforms, one quiet line
+beneath the reading: up to three platform marks with the exact `+N`, and `Media de N
+plataformas` when the score is their mean; the line never grows into a per-platform breakdown.
+A platform-scored rating opens the same panel with its breakdown and the delete action instead
+of the keypad and **Guardar puntuación**; a general score saved here keeps the platforms a
+rating names. Every panel ends with a full-width **Puntuar por plataforma** (or **Editar
+plataformas**) that closes it and opens the game page's own platform sheet, unchanged, over the
+ledger; only then is the game's public detail read for its release platforms, with one quiet
+status while it loads and an alert if it fails. Closing the sheet returns focus to the line's
+reading, and a save announces the outcome and reads the collection again.
 
 There is no manual refresh. The collection is read on entry and on every reload, and again
 automatically after a successful update or deletion and after a conflicting or ambiguous
@@ -1049,8 +1097,10 @@ from the two games presented as extremes. It never repeats the temporal G.
 A full-width ten-column thermal histogram follows; every column is a native button
 that names its score, exact count and share, and selection announces those facts below.
 The five temperature summaries keep their names, numerical ranges and counts alongside
-colour. Two game covers anchor the extremes, with full title links and personal scores;
-coincident extremes present one game with the shared reading.
+colour. Two game covers anchor the extremes, with full title links and personal scores, a
+platform mean with its decimal (#359); coincident extremes present one game with the shared
+reading. The calculation notes state that a game scored by platform counts once at its mean
+and joins the histogram at its nearest whole score.
 The lower composition gives overlapping genre groups a count bar or a score bar,
 selected with **Más puntuados** / **Mejor puntuados**, beside a quieter twelve-month
 count chart in ice. Every genre mean carries its sample. The month table is available

@@ -598,6 +598,47 @@
     font-size: 1.25rem;
   }
 
+  /* Where the game was played: quiet marks under the reading, never a per-row breakdown. */
+  .my-rating-platforms {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    margin-top: 8px;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+  }
+
+  /* A rating scored by platform: its breakdown and the way to edit it, instead of the keypad. */
+  .my-rating-editor-platforms {
+    display: grid;
+    gap: 10px;
+  }
+
+  .my-rating-editor-platforms p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .my-rating-editor-platforms ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .my-rating-editor-platforms li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.875rem;
+  }
+
   .my-rating-editor-actions {
     display: flex;
     justify-content: flex-end;

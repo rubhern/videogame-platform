@@ -7,6 +7,11 @@ import {
 export type PersonalRating = components["schemas"]["PersonalRating"];
 export type RatingStatistics =
   components["schemas"]["AvailableRatingStatistics"];
+/**
+ * A rating command: `value` is the direct score; `platforms`, when present, replaces the whole
+ * played-platform set and, absent, keeps the saved one.
+ */
+export type RatingWrite = components["schemas"]["RatingWrite"];
 type Problem = components["schemas"]["Problem"];
 
 /**
@@ -21,6 +26,7 @@ export type RatingFailureKind =
   | "csrf"
   | "conflict"
   | "validation"
+  | "platform"
   | "ineligible"
   | "rate-limited"
   | "unavailable"
@@ -68,7 +74,9 @@ function failure(
     return new RatingCommandError(
       code === "RATING_NOT_ELIGIBLE" || code === "RELEASE_DATA_REVIEW_REQUIRED"
         ? "ineligible"
-        : "validation",
+        : code === "PLATFORM_NOT_SUPPORTED"
+          ? "platform"
+          : "validation",
       code,
       correlationId,
     );
@@ -103,7 +111,7 @@ export type RatingWriteResult = components["schemas"]["RatingWriteResult"];
 /** Creates (`If-None-Match: *`) or updates (`If-Match`) the current user's rating. */
 export async function putMyRating(
   { gameId, csrfToken }: CommandContext,
-  value: number,
+  write: RatingWrite,
   precondition: RatingPrecondition,
   client: ProductApiClient = productApiClient,
 ): Promise<RatingWriteResult> {
@@ -118,7 +126,7 @@ export async function putMyRating(
             : { "If-Match": precondition.entityTag }),
         },
       },
-      body: { value },
+      body: write,
     })
     .catch(() => {
       throw new RatingCommandError("ambiguous", null, null);

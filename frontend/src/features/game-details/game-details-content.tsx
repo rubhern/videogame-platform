@@ -8,6 +8,7 @@ import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { StageLight } from "../../shared/ui/stage-light";
 import { GameRatingPanel } from "../ratings/game-rating-panel";
+import { CommunityPlatformScores } from "./community-platform-scores";
 import type { GameDetails } from "./game-details-api";
 import { GameInformation } from "./game-information";
 import { GameSummary } from "./game-summary";
@@ -44,9 +45,10 @@ const decimal = (value: number) =>
  * The community reading, the most prominent score on the page: the G-meter beside the mean, its
  * temperature in words and the count. The empty reading is quieter and smaller.
  */
-function CommunityScore({ statistics, eligible }: {
+function CommunityScore({ statistics, eligible, title }: {
   statistics: GameDetails["ratingStatistics"];
   eligible: GameDetails["ratingEligibility"]["eligible"];
+  title: string;
 }) {
   const available =
     statistics.status === "available" && "count" in statistics ? statistics : null;
@@ -97,10 +99,13 @@ function CommunityScore({ statistics, eligible }: {
           {eligible === true ? "Sé el primero en puntuar este juego" : "Aún no se puede puntuar"}
         </p>
       ) : (
-        <p className="game-reading-description">
-          Basada en <strong>{available.count.toLocaleString("es-ES")}</strong>{" "}
-          {available.count === 1 ? "puntuación" : "puntuaciones"}
-        </p>
+        <div className="game-reading-description">
+          <p>
+            Basada en <strong>{available.count.toLocaleString("es-ES")}</strong>{" "}
+            {available.count === 1 ? "puntuación" : "puntuaciones"}
+          </p>
+          <CommunityPlatformScores platforms={available.platforms} title={title} />
+        </div>
       )}
     </section>
   );
@@ -198,7 +203,11 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
           leads; IGDB's supporting reading sits beside it and the visitor's own follows. IGDB's is
           omitted, never invented, without a score. */}
       <div className="game-scores" data-sources={externalScore === null ? 1 : 2}>
-        <CommunityScore statistics={game.ratingStatistics} eligible={game.ratingEligibility.eligible} />
+        <CommunityScore
+          eligible={game.ratingEligibility.eligible}
+          statistics={game.ratingStatistics}
+          title={game.canonicalTitle}
+        />
         <div className="game-scores-aside">
           {externalScore === null ? null : (
             <ExternalScore score={externalScore} title={game.canonicalTitle} />

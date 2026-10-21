@@ -17,9 +17,10 @@
 | Import policy | Product rule deciding which provider work types become a game; unsupported types are deferred, not failed |
 | Cover reference | Provider image identifier or product asset reference used without making provider binaries product-owned storage |
 | Verification / review / freshness | Independent axes: evidence level, unresolved ambiguity, and internal time-policy state |
-| Rating | One active personal integer score from 1 to 10 for a released game; not a written review |
+| Rating | One active personal score for a released game: an integer from 1 to 10 or, post-MVP (#359), integer scores per platform played whose mean is its one community vote; not a written review |
+| Played platform | A platform a user says they played a rated game on, optionally with their own score there (#359); never inferred and never an ownership claim |
 | Rating eligibility | Dated decision that a qualifying commercial release permits create/update; delete remains allowed |
-| Aggregate rating | Arithmetic mean to one decimal, count, and distribution from active ratings; separate from personal rating |
+| Aggregate rating | Arithmetic mean to one decimal, count, and distribution of one contribution per active rating; separate from personal rating. Per-platform readings average only that platform's scores and never count voters (#359) |
 | Score temperature | Presentation of a personal or aggregate score as one of five bands, from Congelado to Ardiendo; never a separate score and never a change to ratings or the aggregate |
 | `Mis puntuaciones` | Authenticated view for finding, sorting, editing, and deleting the current user's ratings |
 | `Tus estadísticas` | Private descriptive view of the current user's recorded ratings; selected statistics and sample rules belong to [UC-015](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254) |
@@ -52,6 +53,7 @@ is set on screen.
 | External player score count | `Valoraciones` | Number of a source's player ratings (`Basada en 1.234 valoraciones`), under the `Jugadores IGDB` source label, which also names the release explorer's order by that score (`Ordenar por: Jugadores IGDB`, #285) | Blending it with Gameómetro ratings |
 | Rating | `Puntuación` / `Puntuaciones` | `Puntuación de la comunidad`, `Tu puntuación`, `Mis puntuaciones`, `Puntuar`; the chosen 1–10 value is also a `puntuación` (#286, superseding the earlier `nota` variant); the release explorer's community-mean order is `Ordenar por: Puntuación Gameómetro` (#285) | `Nota`; `Valoración` for a Gameómetro rating |
 | Preferred platforms | `Mis plataformas` | The saved choice of platforms, first offered by the welcome **¿A qué juegas?**, and the `Mi cuenta` row whose checkbox applies or sets it aside on TOPómetro, Explorar lanzamientos and the calendar (#295, #250); `Ver todas las plataformas` beside an empty view | `Favoritos`, `Perfil`, `Mis consolas`, `Para ti`, `Recomendados` or anything implying ownership or recommendations |
+| Rating by platform | `Puntuar por plataforma`, `Editar plataformas`, `Tu puntuación general`, `Media de 2 plataformas`; the community's readings open from `Por plataforma` (#359) | Asking where a game was played and, optionally, its score there; the personal reading names its source only when it is a platform mean | `Consola`, `Versión`, `Voto` or showing the arithmetic; presenting platform counts as voters |
 | Personal rating statistics | `Tus estadísticas` | Entry from `Mis puntuaciones` and `Mi cuenta`; descriptive personal readings (#254) | Personality claims, platforms played or score-history claims |
 | Score temperature | `Congelado`, `Frío`, `Templado`, `Caliente`, `Ardiendo` | Unchanged bands presenting a numerical score | A separate rating or scale |
 | Release stage | Only special stages: `Acceso anticipado` (Early Access), `Acceso previo` (Advance Access), `Beta`, `Alfa` | A full release and an unknown stage are not labelled | `Lanzamiento completo`; merging Early and Advance Access |

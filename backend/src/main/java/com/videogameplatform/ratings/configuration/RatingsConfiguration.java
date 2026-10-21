@@ -89,8 +89,17 @@ class RatingsConfiguration {
     }
 
     @Bean
-    RatingStatisticsReadPort ratingStatisticsReadPort(RatingJdbcExecution execution) {
-        return new JdbcRatingStatisticsReadAdapter(execution.jdbc());
+    RatingStatisticsReadPort ratingStatisticsReadPort(
+            RatingJdbcExecution execution,
+            PlatformTransactionManager manager,
+            RatingJdbcProperties properties) {
+        // The community and platform readings come from one snapshot.
+        var read = new TransactionTemplate(manager);
+        read.setReadOnly(true);
+        read.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        read.setTimeout(properties.operationTimeoutSeconds());
+        return new JdbcRatingStatisticsReadAdapter(execution.jdbc(), read);
     }
 
     @Bean

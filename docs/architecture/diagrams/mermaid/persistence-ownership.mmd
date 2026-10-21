@@ -44,7 +44,13 @@ erDiagram
         jsonb report "bounded run history, one active run, no catalogue content"
         timestamptz stop_requested_at "operator stop request read at safe points"
     }
-    rating["ratings.rating"]
+    rating["ratings.rating"] {
+        numeric contribution "one community vote: direct value or mean of scored platforms"
+    }
+    rating_platform["ratings.rating_platform"] {
+        smallint value "the user's optional score on a platform played"
+    }
+    rating_platform_label["ratings.platform_label"]
     game_listing["ratings.game_listing"]
     game_listing_alias["ratings.game_listing_alias"]
     rating_genre_label["ratings.genre_label"]
@@ -82,3 +88,6 @@ erDiagram
     rating_genre_label ||--o{ game_listing_genre : "localized through application events"
     game_listing }o..o| game : "rebuildable projection via application contract"
     rating }o..o| game_listing : "listed in Mis puntuaciones"
+    rating ||--o{ rating_platform : "played on, removed with the rating"
+    rating_platform_label ||--o{ rating_platform : "names"
+    platform ||--o{ rating_platform_label : "labelled from the game's releases (FK only)"

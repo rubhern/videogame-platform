@@ -25,7 +25,10 @@ const basePath = `/games/${gameId}/resident-evil-requiem`;
 function rating(value: number, version: number): PersonalRating {
   return {
     gameId,
+    mode: "direct",
     value,
+    contribution: value,
+    platforms: [],
     createdAt: "2026-08-13T10:00:00Z",
     updatedAt: "2026-08-13T10:00:00Z",
     entityTag: `"rating-version-${version}"`,
@@ -40,6 +43,7 @@ function statistics(mean: number | null, count: number) {
     distribution: {
       "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 0,
     },
+    platforms: [],
   };
 }
 
@@ -504,5 +508,234 @@ describe("compact personal rating", () => {
       await screen.findByText(/no se completó el inicio de sesión/i),
     ).toBeVisible();
     await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar"));
+  });
+});
+
+/** The fixture game released on two platforms. */
+function twoPlatformGame() {
+  const game = gameDetailsFixture();
+  const [first] = game.releases;
+  if (first === undefined) throw new Error("The fixture has a release");
+  game.releases = [
+    first,
+    {
+      ...first,
+      releaseId: "release-two",
+      platform: { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" },
+    },
+  ];
+  return game;
+}
+
+function platformRating(
+  version: number,
+  platforms: { platformId: string; name: string; value: number | null }[],
+  value: number | null = null,
+): PersonalRating {
+  const scores = platforms.flatMap((entry) => (entry.value === null ? [] : [entry.value]));
+  return {
+    gameId,
+    mode: value === null ? "platforms" : "direct",
+    value,
+    contribution:
+      value ?? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10,
+    platforms: platforms.map(({ platformId, name, value: score }) => ({
+      platform: { platformId, name },
+      value: score,
+    })),
+    createdAt: "2026-08-13T10:00:00Z",
+    updatedAt: "2026-08-13T10:00:00Z",
+    entityTag: `"rating-version-${version}"`,
+  };
+}
+
+const ps5 = { platformId: "playstation-5", name: "PlayStation 5" };
+const switch2 = { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" };
+const sheet = () => screen.getByRole("dialog", { name: "Puntuar por plataforma" });
+
+async function openSheet(user: User) {
+  const panel = await openScale(user);
+  await user.click(within(panel).getByRole("button", { name: /plataforma/ }));
+  return sheet();
+}
+
+describe("rating by platform (#359)", () => {
+  it("rates platforms in a sheet: one vote from their mean, sent without a general value", async () => {
+    const user = userEvent.setup();
+    let saved: PersonalRating | null = null;
+    const server = serve({
+      session: authenticated,
+      put: async (request) => {
+        const body = (await request.clone().json()) as { platforms: { value: number }[] };
+        expect(body).not.toHaveProperty("value");
+        saved = platformRating(1, [
+          { ...ps5, value: 9 },
+          { ...switch2, value: 8 },
+        ]);
+        return Response.json(
+          { personalRating: saved, ratingStatistics: statistics(8.5, 1) },
+          { status: 201 },
+        );
+      },
+    });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/sin puntuación/));
+
+    const dialog = await openSheet(user);
+    // A modal sheet: the anchored panel closes behind it.
+    expect(scale()).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: "PlayStation 5" })).toHaveFocus();
+    expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("checkbox", { name: "PlayStation 5" }));
+    await user.click(within(dialog).getByRole("button", { name: "Puntuar PlayStation 5" }));
+    await user.click(
+      within(within(dialog).getByRole("group", { name: "Nota en PlayStation 5 del 1 al 10" }))
+        .getByRole("button", { name: "9" }),
+    );
+    await user.click(within(dialog).getByRole("checkbox", { name: "Nintendo Switch 2" }));
+    await user.click(within(dialog).getByRole("button", { name: "Puntuar Nintendo Switch 2" }));
+    await user.click(
+      within(within(dialog).getByRole("group", { name: "Nota en Nintendo Switch 2 del 1 al 10" }))
+        .getByRole("button", { name: "8" }),
+    );
+
+    // The player's own score as it will be saved, without the arithmetic.
+    expect(within(dialog).getByText("8,5/10")).toBeVisible();
+    expect(within(dialog).getByText(/Media de tus 2 plataformas puntuadas/)).toBeVisible();
+    // A scored platform replaces the general keypad.
+    expect(
+      within(dialog).queryByRole("group", { name: "Tu puntuación general del 1 al 10" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const [put] = server.commands();
+    expect(put?.headers.get("If-None-Match")).toBe("*");
+    await expect(put?.clone().json()).resolves.toEqual({
+      platforms: [
+        { platformId: "playstation-5", value: 9 },
+        { platformId: "nintendo-switch-2", value: 8 },
+      ],
+    });
+    expect(reading()).toHaveAccessibleName(
+      "Tu puntuación Ardiendo 8,5/10, media de 2 plataformas. Cambiar o eliminar",
+    );
+    expect(reading()).toHaveFocus();
+  });
+
+  it("shows a platform-scored rating's breakdown instead of the keypad", async () => {
+    const user = userEvent.setup();
+    serve({
+      session: authenticated,
+      read: () =>
+        Response.json(
+          platformRating(2, [
+            { ...switch2, value: 8 },
+            { ...ps5, value: 9 },
+          ]),
+        ),
+    });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/8,5\/10/));
+
+    const panel = await openScale(user);
+    expect(
+      within(panel).queryByRole("group", { name: "Puntuación del 1 al 10" }),
+    ).not.toBeInTheDocument();
+    const breakdown = within(panel).getByRole("list", { name: "Tus notas por plataforma" });
+    expect(within(breakdown).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Nintendo Switch 28",
+      "PlayStation 59",
+    ]);
+    expect(within(panel).getByRole("button", { name: "Editar plataformas" })).toBeEnabled();
+    expect(within(panel).getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
+  });
+
+  it("keeps the played platforms when a quick pick changes the general score", async () => {
+    const user = userEvent.setup();
+    const server = serve({
+      session: authenticated,
+      read: () => Response.json(platformRating(1, [{ ...ps5, value: null }], 7)),
+      put: () =>
+        Response.json({
+          personalRating: platformRating(2, [{ ...ps5, value: null }], 9),
+          ratingStatistics: statistics(9, 1),
+        }),
+    });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+
+    const panel = await openScale(user);
+    expect(within(panel).getByText("PlayStation 5")).toBeVisible();
+    await user.click(note(9));
+
+    await waitFor(() => expect(server.commands()).toHaveLength(1));
+    await expect(server.commands()[0]?.clone().json()).resolves.toEqual({ value: 9 });
+    expect(server.commands()[0]?.headers.get("If-Match")).toBe('"rating-version-1"');
+  });
+
+  it("asks for a general score before the last platform score can be removed", async () => {
+    const user = userEvent.setup();
+    const server = serve({
+      session: authenticated,
+      read: () => Response.json(platformRating(3, [{ ...ps5, value: 9 }])),
+      put: () =>
+        Response.json({
+          personalRating: platformRating(4, [{ ...ps5, value: null }], 6),
+          ratingStatistics: statistics(6, 1),
+        }),
+    });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/9\/10/));
+
+    const dialog = await openSheet(user);
+    await user.click(
+      within(dialog).getByRole("button", { name: "Nota en PlayStation 5: 9 de 10. Cambiar" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Quitar la nota de PlayStation 5" }));
+
+    // No score source is left: nothing can be saved until a general score is chosen.
+    expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeDisabled();
+    const general = within(dialog).getByRole("group", { name: "Tu puntuación general del 1 al 10" });
+    expect(within(general).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    await user.click(within(general).getByRole("button", { name: "6" }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(server.commands()).toHaveLength(1));
+    await expect(server.commands()[0]?.clone().json()).resolves.toEqual({
+      value: 6,
+      platforms: [{ platformId: "playstation-5" }],
+    });
+  });
+
+  it("closes the sheet on Cancelar without a command", async () => {
+    const user = userEvent.setup();
+    const server = serve({ session: authenticated, read: () => Response.json(rating(7, 1)) });
+    renderPanel(basePath, twoPlatformGame());
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+
+    const dialog = await openSheet(user);
+    await user.click(within(dialog).getByRole("checkbox", { name: "PlayStation 5" }));
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(reading()).toHaveFocus();
+    expect(server.commands()).toHaveLength(0);
+  });
+
+  it("never applies a pick recovered after sign-in over platform scores", async () => {
+    const server = serve({
+      session: authenticated,
+      read: () => Response.json(platformRating(1, [{ ...ps5, value: 9 }])),
+      intent: () => Response.json({ gameId, slug: "resident-evil-requiem", value: 4 }),
+    });
+    const { router } = renderPanel(`${basePath}?rating-intent=resumed`, twoPlatformGame());
+
+    expect(await screen.findByText(/Ya tenías este juego puntuado por plataforma/)).toBeVisible();
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(server.commands()).toHaveLength(0);
+    expect(reading()).toHaveAccessibleName(/9\/10/);
   });
 });

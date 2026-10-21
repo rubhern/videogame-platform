@@ -5,6 +5,9 @@ import com.videogameplatform.api.generated.model.AvailableRatingSummary;
 import com.videogameplatform.api.generated.model.Genre;
 import com.videogameplatform.api.generated.model.PersonalRating;
 import com.videogameplatform.api.generated.model.PersonalRatingItem;
+import com.videogameplatform.api.generated.model.PersonalRatingPlatform;
+import com.videogameplatform.api.generated.model.Platform;
+import com.videogameplatform.api.generated.model.PlatformRatingStatistics;
 import com.videogameplatform.api.generated.model.RatedGame;
 import com.videogameplatform.api.generated.model.RatingDistribution;
 import com.videogameplatform.api.generated.model.RatingSummary;
@@ -17,7 +20,7 @@ import org.springframework.stereotype.Component;
 
 /** Maps provider-independent rating results to the generated HTTP transport. */
 @Component
-final class RatingApiMapper {
+public final class RatingApiMapper {
     private final com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper covers;
 
     RatingApiMapper(com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper covers) {
@@ -71,13 +74,31 @@ final class RatingApiMapper {
     PersonalRating toResponse(com.videogameplatform.ratings.application.PersonalRating rating) {
         return new PersonalRating(
                 rating.gameId(),
+                // A direct value exists exactly when the rating is not derived from platforms.
+                rating.value() == null
+                        ? PersonalRating.ModeEnum.PLATFORMS
+                        : PersonalRating.ModeEnum.DIRECT,
                 rating.value(),
+                rating.contribution(),
+                rating.platforms().stream()
+                        .map(
+                                platform ->
+                                        new PersonalRatingPlatform(
+                                                new Platform(
+                                                        platform.platformId(), platform.name()),
+                                                platform.value()))
+                        .toList(),
                 rating.createdAt().atOffset(ZoneOffset.UTC),
                 rating.updatedAt().atOffset(ZoneOffset.UTC),
                 entityTag(rating.versionToken()));
     }
 
     AvailableRatingStatistics toResponse(RatingStatistics.Available statistics) {
+        return statistics(statistics);
+    }
+
+    /** The available community reading, shared with the public game details. */
+    public static AvailableRatingStatistics statistics(RatingStatistics.Available statistics) {
         var buckets = statistics.distribution();
         return new AvailableRatingStatistics(
                 "available",
@@ -93,7 +114,16 @@ final class RatingApiMapper {
                         buckets.get(6),
                         buckets.get(7),
                         buckets.get(8),
-                        buckets.get(9)));
+                        buckets.get(9)),
+                statistics.platforms().stream()
+                        .map(
+                                platform ->
+                                        new PlatformRatingStatistics(
+                                                new Platform(
+                                                        platform.platformId(), platform.name()),
+                                                platform.mean(),
+                                                platform.count()))
+                        .toList());
     }
 
     com.videogameplatform.api.generated.model.PersonalRatingInsights toResponse(

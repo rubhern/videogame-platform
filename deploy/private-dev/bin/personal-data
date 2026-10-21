@@ -176,13 +176,15 @@ class Runtime:
         return int(self.sql("SELECT count(*) FROM ratings.rating WHERE user_id = :'user_id';\n", user_id))
 
     def ratings(self, user_id: str) -> list[dict[str, object]]:
-        # One account's ratings, at most one per game, through the (user_id, game_id) key.
+        # One account's ratings, at most one per game, through the (user_id, game_id) key. The
+        # value is the direct score, null when the rating is scored by platform.
         rows = self.sql(
-            """
+            f"""
             SELECT coalesce(json_agg(json_build_object(
                      'gameId', r.game_id,
                      'title', g.canonical_title,
                      'value', r.value,
+                     'platforms', {rating_platforms_sql(self, user_id, "r")},
                      'createdAt', to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
                      'updatedAt', to_char(r.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
                    ORDER BY r.created_at, r.game_id), '[]'::json)
@@ -339,6 +341,20 @@ def archive_snapshot(runtime: Runtime, subject: str) -> dict[str, object]:
             "ratingCount": runtime.rating_count(derive_user_id(runtime.issuer, subject))}
 
 
+def rating_platforms_sql(runtime: Runtime, user_id: str, rating: str) -> str:
+    # The platforms one rating names (#359), with the user's own score on each where given. They
+    # hang from the rating and go with it. A database restored from before they existed has no
+    # such table, so every rating there is a direct score.
+    if runtime.sql("SELECT to_regclass('ratings.rating_platform') IS NOT NULL;\n", user_id) != "t":
+        return "'[]'::json"
+    return f"""coalesce((SELECT json_agg(json_build_object(
+                             'platformId', p.platform_id, 'name', l.display_name, 'value', p.value)
+                           ORDER BY lower(l.display_name), p.platform_id)
+                         FROM ratings.rating_platform p
+                         JOIN ratings.platform_label l ON l.platform_id = p.platform_id
+                         WHERE p.user_id = :'user_id' AND p.game_id = {rating}.game_id), '[]'::json)"""
+
+
 def archive_rating_page(runtime: Runtime, subject: str, selected: str, after: str) -> dict[str, object]:
     # Exceptional cases name at most 100 relevant games; never export all ordinary ratings.
     games = selected.split(",")
@@ -348,13 +364,16 @@ def archive_rating_page(runtime: Runtime, subject: str, selected: str, after: st
         canonical_uuid(game, "GameId")
     canonical_uuid(after, "after GameId")
     literals = ",".join("'" + game + "'::uuid" for game in games)
+    user_id = derive_user_id(runtime.issuer, subject)
+    platforms = rating_platforms_sql(runtime, user_id, "rating")
     rows = runtime.sql(f"""
         SELECT coalesce(json_agg(page ORDER BY page."gameId"), '[]'::json)
-        FROM (SELECT game_id AS "gameId", value, created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM (SELECT game_id AS "gameId", value, {platforms} AS platforms,
+                     created_at AS "createdAt", updated_at AS "updatedAt"
               FROM ratings.rating
               WHERE user_id = :'user_id' AND game_id IN ({literals})
                 AND game_id > '{after}'::uuid ORDER BY game_id LIMIT 100) page;
-        """, derive_user_id(runtime.issuer, subject))
+        """, user_id)
     return {"issuer": runtime.issuer, "ratings": json.loads(rows)}
 
 

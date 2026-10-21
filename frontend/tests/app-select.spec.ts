@@ -70,7 +70,10 @@ test("personal rating dropdowns use the same keyboard and visual treatment", asy
       },
       personalRating: {
         gameId: pragmata.gameId,
+        mode: "direct",
         value: 7,
+        contribution: 7,
+        platforms: [],
         createdAt: "2026-08-13T10:00:00Z",
         updatedAt: "2026-08-13T10:00:00Z",
         entityTag: '"version-1"',

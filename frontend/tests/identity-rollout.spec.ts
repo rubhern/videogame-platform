@@ -185,7 +185,10 @@ test("each line of Mis puntuaciones takes its own score's temperature at its edg
             },
             personalRating: {
               gameId,
+              mode: "direct",
               value,
+              contribution: value,
+              platforms: [],
               createdAt: "2026-08-13T10:00:00Z",
               updatedAt: "2026-08-13T10:00:00Z",
               entityTag: '"v1"',

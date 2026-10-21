@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Personal Ratings",
-    "description": "Executable UC-005 through UC-008 and UC-015 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
+    "description": "Executable UC-005 through UC-008 and UC-015 examples, including rating by platform (#359), for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -20,6 +20,22 @@
     {
       "key": "updatedRatingEtag",
       "value": ""
+    },
+    {
+      "key": "platformRatingEtag",
+      "value": ""
+    },
+    {
+      "key": "ps5PlatformId",
+      "value": "10000000-0000-4000-8000-000000000001"
+    },
+    {
+      "key": "pcPlatformId",
+      "value": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "key": "xboxPlatformId",
+      "value": "10000000-0000-4000-8000-000000000004"
     }
   ],
   "item": [
@@ -44,6 +60,7 @@
               "pm.test(\"Session state is private\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
               "pm.collectionVariables.unset(\"createdRatingEtag\");",
               "pm.collectionVariables.unset(\"updatedRatingEtag\");",
+              "pm.collectionVariables.unset(\"platformRatingEtag\");",
               "if (authenticated) {",
               "    pm.collectionVariables.set(\"csrfToken\", body.csrfToken);",
               "} else {",
@@ -125,7 +142,7 @@
           { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
           { "key": "If-None-Match", "value": "*" }
         ],
-        "body": { "mode": "raw", "raw": "{\n  \"value\": 8\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 8,\n  \"platforms\": [{ \"platformId\": \"{{ps5PlatformId}}\" }]\n}" },
         "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
       },
       "event": [
@@ -139,6 +156,7 @@
               "const etag = pm.response.headers.get(\"ETag\");",
               "pm.test(\"Strong opaque ETag is consistent\", () => { pm.expect(etag).to.match(/^\"[^\"\\r\\n]+\"$/); pm.expect(body.personalRating.entityTag).to.eql(etag); });",
               "pm.test(\"Created resource and coherent aggregate\", () => { pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/v1/me/ratings/${pm.collectionVariables.get(\"gameId\")}`); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); pm.expect(body.personalRating.value).to.eql(8); pm.expect(body.ratingStatistics.count).to.be.at.least(1); });",
+              "pm.test(\"A direct score names a played platform without a score\", () => { pm.expect(body.personalRating.mode).to.eql(\"direct\"); pm.expect(body.personalRating.contribution).to.eql(8); pm.expect(body.personalRating.platforms.map(entry => entry.platform.platformId)).to.eql([pm.collectionVariables.get(\"ps5PlatformId\")]); pm.expect(body.personalRating.platforms[0].value).to.eql(null); pm.expect(body.ratingStatistics.platforms).to.be.an(\"array\"); });",
               "pm.collectionVariables.set(\"createdRatingEtag\", etag);"
             ]
           }
@@ -159,7 +177,8 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
-              "pm.test(\"Read returns created validator\", () => { const body = pm.response.json(); pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(body.entityTag).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+              "pm.test(\"Read returns created validator\", () => { const body = pm.response.json(); pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(body.entityTag).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });",
+              "pm.test(\"The played platform is part of the rating\", () => { const body = pm.response.json(); pm.expect(body.mode).to.eql(\"direct\"); pm.expect(body.value).to.eql(8); pm.expect(body.platforms.map(entry => entry.platform.platformId)).to.eql([pm.collectionVariables.get(\"ps5PlatformId\")]); });"
             ]
           }
         }
@@ -287,7 +306,91 @@
               "const body = pm.response.json();",
               "const etag = pm.response.headers.get(\"ETag\");",
               "pm.test(\"Update rotates the validator\", () => { pm.expect(etag).to.match(/^\"[^\"\\r\\n]+\"$/); pm.expect(etag).not.to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(body.personalRating.entityTag).to.eql(etag); pm.expect(body.personalRating.value).to.eql(9); });",
+              "pm.test(\"A command with only a value keeps the saved platforms\", () => { pm.expect(body.personalRating.mode).to.eql(\"direct\"); pm.expect(body.personalRating.platforms.map(entry => entry.platform.platformId)).to.eql([pm.collectionVariables.get(\"ps5PlatformId\")]); });",
               "pm.collectionVariables.set(\"updatedRatingEtag\", etag);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rate by platform",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{updatedRatingEtag}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"platforms\": [\n    { \"platformId\": \"{{ps5PlatformId}}\", \"value\": 9 },\n    { \"platformId\": \"{{pcPlatformId}}\", \"value\": 8 }\n  ]\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const etag = pm.response.headers.get(\"ETag\");",
+              "pm.test(\"Platform scores replace the general value with their mean\", () => { pm.expect(body.personalRating.mode).to.eql(\"platforms\"); pm.expect(body.personalRating.value).to.eql(null); pm.expect(body.personalRating.contribution).to.eql(8.5); pm.expect(body.personalRating.entityTag).to.eql(etag); });",
+              "pm.test(\"Each scored platform has its own community reading\", () => { const ids = body.ratingStatistics.platforms.map(entry => entry.platform.platformId); pm.expect(ids).to.include(pm.collectionVariables.get(\"ps5PlatformId\")); pm.expect(ids).to.include(pm.collectionVariables.get(\"pcPlatformId\")); body.ratingStatistics.platforms.forEach(entry => pm.expect(entry.count).to.be.at.least(1)); });",
+              "pm.test(\"The user still casts one community vote\", () => { const buckets = Object.values(body.ratingStatistics.distribution).reduce((sum, count) => sum + count, 0); pm.expect(buckets).to.eql(body.ratingStatistics.count); });",
+              "pm.collectionVariables.set(\"platformRatingEtag\", etag);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a general value over platform scores",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{platformRatingEtag}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 5\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Stable score-source code and no change\", () => { const body = pm.response.json(); pm.expect(body.code).to.eql(\"RATING_SCORE_SOURCE_INVALID\"); pm.expect(body.violations[0].pointer).to.eql(\"/value\"); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a platform the game is not released on",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{platformRatingEtag}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 7,\n  \"platforms\": [{ \"platformId\": \"{{xboxPlatformId}}\" }]\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Stable platform code names the position\", () => { const body = pm.response.json(); pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\"); pm.expect(body.violations[0].pointer).to.eql(\"/platforms/0/platformId\"); });"
             ]
           }
         }
@@ -345,7 +448,7 @@
         "header": [
           { "key": "Accept", "value": "application/json" },
           { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
-          { "key": "If-Match", "value": "{{updatedRatingEtag}}" }
+          { "key": "If-Match", "value": "{{platformRatingEtag}}" }
         ],
         "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
       },
@@ -356,7 +459,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
-              "pm.test(\"Personal state is absent and aggregate remains coherent\", () => { const body = pm.response.json(); pm.expect(body.personalRating).to.eql(null); pm.expect(body.ratingStatistics.status).to.eql(\"available\"); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+              "pm.test(\"Personal state is absent and aggregate remains coherent\", () => { const body = pm.response.json(); pm.expect(body.personalRating).to.eql(null); pm.expect(body.ratingStatistics.status).to.eql(\"available\"); pm.expect(body.ratingStatistics.platforms).to.be.an(\"array\"); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
             ]
           }
         }

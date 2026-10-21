@@ -10,6 +10,7 @@ import com.videogameplatform.ratings.application.port.PersonalRatingsReadPort;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,13 +51,22 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
                 Objects.requireNonNull(
                         jdbc.queryForObject(
                                 PersonalRatingsSql.count(criteria), parameters, Long.class));
-        var items =
+        var rows =
                 jdbc.query(
                         PersonalRatingsSql.page(criteria),
                         parameters,
-                        JdbcPersonalRatingsReadAdapter::item);
-        if (!items.isEmpty()) {
-            var ids = items.stream().map(item -> UUID.fromString(item.gameId())).toList();
+                        JdbcPersonalRatingsReadAdapter::row);
+        List<PersonalRatingsPage.Item> items = List.of();
+        if (!rows.isEmpty()) {
+            var ids = rows.stream().map(row -> UUID.fromString(row.gameId())).toList();
+            // The page's played platforms, read in the same snapshot as its ratings.
+            var platforms =
+                    RatingPlatformRows.forGames(
+                            jdbc, userId, rows.stream().map(PageRow::gameId).toList());
+            items =
+                    rows.stream()
+                            .map(row -> row.item(platforms.getOrDefault(row.gameId(), List.of())))
+                            .toList();
             var metadataParams = Map.<String, Object>of("gameIds", ids);
             Map<String, List<GameDetailsResult.Term>> genres = new HashMap<>();
             jdbc.query(
@@ -116,23 +126,35 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
         return new PersonalRatingsPage(items, criteria.page(), criteria.pageSize(), total);
     }
 
-    private static PersonalRatingsPage.Item item(ResultSet rs, int row) throws SQLException {
-        CatalogueCover cover = cover(rs);
-        var rating =
-                new PersonalRating(
-                        rs.getString("game_id"),
-                        rs.getInt("value"),
-                        rs.getTimestamp("created_at").toInstant(),
-                        rs.getTimestamp("updated_at").toInstant(),
-                        rs.getString("version_token"));
-        return new PersonalRatingsPage.Item(
-                rating.gameId(),
+    private static PageRow row(ResultSet rs, int row) throws SQLException {
+        return new PageRow(
+                rs.getString("game_id"),
                 rs.getString("slug"),
                 rs.getString("canonical_title"),
-                cover,
-                rating,
-                List.of(),
-                Optional.empty());
+                cover(rs),
+                rs.getObject("value") == null ? null : rs.getInt("value"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                rs.getString("version_token"));
+    }
+
+    /** One paged rating before its played platforms are attached. */
+    private record PageRow(
+            String gameId,
+            String slug,
+            String canonicalTitle,
+            CatalogueCover cover,
+            Integer value,
+            Instant createdAt,
+            Instant updatedAt,
+            String versionToken) {
+        PersonalRatingsPage.Item item(List<PersonalRating.PlayedPlatform> platforms) {
+            var rating =
+                    new PersonalRating(
+                            gameId, value, platforms, createdAt, updatedAt, versionToken);
+            return new PersonalRatingsPage.Item(
+                    gameId, slug, canonicalTitle, cover, rating, List.of(), Optional.empty());
+        }
     }
 
     static CatalogueCover cover(ResultSet rs) throws SQLException {

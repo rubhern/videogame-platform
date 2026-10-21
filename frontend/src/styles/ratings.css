@@ -391,10 +391,420 @@
     padding-top: 12px;
   }
 
+  /* ---------------------------------------------------------------- Platforms (#359) */
+
+  /* Platform marks keep the shared row height; the owner's wide wordmarks keep their ratio. */
+  :is(.game-rating-breakdown, .platform-rating-check, .community-platforms-list) .app-select-icon {
+    width: 18px;
+    height: 18px;
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-muted));
+  }
+
+  :is(.game-rating-breakdown, .platform-rating-check, .community-platforms-list)
+    :is(.app-select-icon-playstation-5, .app-select-icon-playstation-4) {
+    width: 40px;
+    height: 12px;
+  }
+
+  :is(.game-rating-breakdown, .platform-rating-check, .community-platforms-list)
+    :is(.app-select-icon-xbox-series-x-s, .app-select-icon-nintendo-switch-2) {
+    width: 28px;
+    height: 14px;
+  }
+
+  /* In the panel: one quiet line under the keypad, or the platform breakdown in its place. */
+  .game-rating-platforms {
+    display: grid;
+    gap: 10px;
+    border-top: 1px solid var(--color-line);
+    padding-top: 12px;
+  }
+
+  .game-rating-played {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-played span {
+    margin-right: 4px;
+    color: var(--color-muted);
+  }
+
+  .game-rating-platforms-edit {
+    justify-self: stretch;
+  }
+
+  .game-rating-breakdown {
+    display: grid;
+    gap: 10px;
+  }
+
+  .game-rating-breakdown ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .game-rating-breakdown li {
+    display: grid;
+    min-height: 32px;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.875rem;
+  }
+
+  .game-rating-breakdown li .app-select-icon {
+    justify-self: center;
+  }
+
+  /* A platform's own score: its number in its temperature, never a second meter. */
+  .game-rating-breakdown strong,
+  .my-rating-editor-platforms strong,
+  .platform-rating-score strong {
+    color: var(--thermal, var(--color-ink));
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The platform sheet: opaque night with an ice top edge, a bottom sheet on phones and a centred
+     sheet wider up. Only its body scrolls; the reading and the actions stay in reach. */
+  .platform-rating-dialog {
+    /* The sheet sits inside the reading but takes none of its temperature: only a score inside
+       it is coloured, by its own value. */
+    --thermal: initial;
+
+    width: min(32rem, calc(100vw - 32px));
+    max-width: none;
+    max-height: min(46rem, calc(100dvh - 48px));
+    margin: auto;
+    border: 1px solid var(--color-line);
+    border-top: 2px solid var(--color-ice);
+    border-radius: 6px;
+    padding: 0;
+    overflow: hidden;
+    color: var(--color-ink);
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .platform-rating-dialog::backdrop {
+    background: color-mix(in srgb, var(--color-night) 78%, transparent);
+  }
+
+  :root:has(.platform-rating-dialog[open]) {
+    overflow: hidden;
+  }
+
+  .platform-rating-sheet {
+    display: grid;
+    max-height: inherit;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    container-type: inline-size;
+  }
+
+  .platform-rating-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--color-line);
+    padding: 14px 16px 12px 20px;
+  }
+
+  .platform-rating-header h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  /* A cross drawn from two strokes, at the shared 44px target. */
+  .platform-rating-close {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--color-muted);
+    background: transparent;
+  }
+
+  .platform-rating-close::before,
+  .platform-rating-close::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    content: "";
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .platform-rating-close::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+
+  .platform-rating-close:hover:not(:disabled) {
+    border-color: var(--color-line);
+    color: var(--color-ink);
+  }
+
+  .platform-rating-close:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 2px;
+  }
+
+  .platform-rating-body {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+    padding: 16px 20px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .platform-rating-lead {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .platform-rating-options {
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .platform-rating-options ul {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platform-rating-option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 12px;
+    border-bottom: 1px solid var(--color-line);
+    padding-block: 6px;
+  }
+
+  .platform-rating-option:first-child {
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* The whole row is the checkbox's label: a 44px target with the mark beside the name. */
+  .platform-rating-check {
+    display: grid;
+    min-width: 0;
+    min-height: 44px;
+    grid-template-columns: 20px 40px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9375rem;
+  }
+
+  .platform-rating-check input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--color-ice-light);
+  }
+
+  .platform-rating-check .app-select-icon {
+    justify-self: center;
+  }
+
+  .platform-rating-option[data-checked] .platform-rating-check {
+    font-weight: 650;
+  }
+
+  .platform-rating-score {
+    display: inline-flex;
+    min-width: 92px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    border: 1px solid
+      color-mix(in srgb, var(--thermal, var(--color-ice)) 30%, var(--color-line));
+    border-radius: 6px;
+    padding: 4px 6px 4px 12px;
+    color: var(--color-ice-light);
+    background: var(--control);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .platform-rating-score:hover:not(:disabled),
+  .platform-rating-score[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--thermal, var(--color-ice)) 70%, transparent);
+    background: var(--control-hover);
+  }
+
+  .platform-rating-score[aria-expanded="true"] .game-rating-caret::before {
+    margin-top: 3px;
+    transform: rotate(225deg);
+  }
+
+  .platform-rating-score:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 2px;
+  }
+
+  .platform-rating-keypad {
+    display: grid;
+    grid-column: 1 / -1;
+    justify-items: stretch;
+    gap: 10px;
+    padding: 4px 0 8px;
+    container-type: inline-size;
+  }
+
+  .platform-rating-keypad .rating-remove {
+    justify-self: start;
+  }
+
+  .platform-rating-general {
+    display: grid;
+    gap: 12px;
+    container-type: inline-size;
+  }
+
+  .platform-rating-general h3 {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .platform-rating-footer {
+    display: grid;
+    gap: 12px;
+    border-top: 1px solid var(--color-line);
+    padding: 12px 20px 16px;
+    background: var(--overlay);
+  }
+
+  /* The player's own Gameómetro score as it will be saved: the meter, the value and its source. */
+  .platform-rating-result {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .platform-rating-meter {
+    width: 40px;
+    height: 40px;
+  }
+
+  .platform-rating-result p {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 12px;
+    margin: 0;
+  }
+
+  .platform-rating-result-label {
+    color: color-mix(in srgb, var(--color-ink) 88%, var(--color-muted));
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .platform-rating-result-label b {
+    margin-left: 4px;
+    color: var(--thermal);
+    font-weight: 700;
+  }
+
+  .platform-rating-result strong {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 850;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .platform-rating-result-source {
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .platform-rating-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  @media (max-width: 619px) {
+    /* Phones: a bottom sheet across the width, never taller than most of the screen. */
+    .platform-rating-dialog {
+      width: 100%;
+      max-height: min(88dvh, 100dvh - 24px);
+      margin: auto 0 0;
+      border-inline: 0;
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+    }
+
+    .platform-rating-header {
+      padding-inline: 16px 10px;
+    }
+
+    .platform-rating-body,
+    .platform-rating-footer {
+      padding-inline: 16px;
+    }
+
+    .platform-rating-footer {
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    .platform-rating-actions .button {
+      flex: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .platform-rating-dialog[open] {
+      animation: pop-in 180ms var(--ease-out) both;
+    }
+  }
+
   @media (forced-colors: active) {
     .rating-option,
     .game-rating-trigger,
     .game-rating-panel,
+    .platform-rating-dialog,
+    .platform-rating-score,
     .game-rating-feedback,
     .game-rating-notice {
       border-color: ButtonText;

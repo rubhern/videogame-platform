@@ -19,7 +19,10 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
-/** All aggregation stays in PostgreSQL; at most 37 result rows cross into Java. */
+/**
+ * All aggregation stays in PostgreSQL over one contribution per rating; at most 37 result rows
+ * cross into Java.
+ */
 public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRatingInsightsReadPort {
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
@@ -91,8 +94,8 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
                 genres(params, false),
                 genres(params, true),
                 coverage[0],
-                extreme(params, distribution.counts(), true),
-                extreme(params, distribution.counts(), false),
+                extreme(params, true),
+                extreme(params, false),
                 activity,
                 coverage[1]);
     }
@@ -110,26 +113,22 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
                                 rs.getBigDecimal("mean")));
     }
 
-    private Extreme extreme(Map<String, Object> params, List<Long> counts, boolean highest) {
-        // This searches a fixed ten-bucket aggregate, never a persistent collection.
-        for (int i = 0; i < 10; i++) {
-            int index = highest ? 9 - i : i;
-            if (counts.get(index) == 0) continue;
-            var selected = new HashMap<>(params);
-            selected.put("value", index + 1);
-            return jdbc.queryForObject(
-                    PersonalRatingInsightsSql.EXTREME,
-                    selected,
-                    (rs, row) ->
-                            new Extreme(
-                                    rs.getString("game_id"),
-                                    rs.getString("slug"),
-                                    rs.getString("canonical_title"),
-                                    JdbcPersonalRatingsReadAdapter.cover(rs),
-                                    rs.getInt("value"),
-                                    counts.get(index)));
-        }
-        return null;
+    private Extreme extreme(Map<String, Object> params, boolean highest) {
+        return jdbc
+                .query(
+                        PersonalRatingInsightsSql.extreme(highest),
+                        params,
+                        (rs, row) ->
+                                new Extreme(
+                                        rs.getString("game_id"),
+                                        rs.getString("slug"),
+                                        rs.getString("canonical_title"),
+                                        JdbcPersonalRatingsReadAdapter.cover(rs),
+                                        rs.getBigDecimal("value"),
+                                        rs.getLong("tied")))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private record Distribution(long total, BigDecimal mean, List<Long> counts) {}

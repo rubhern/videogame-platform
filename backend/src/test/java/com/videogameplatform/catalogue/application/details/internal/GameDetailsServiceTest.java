@@ -42,7 +42,7 @@ class GameDetailsServiceTest {
                 new RatingContextService(
                                 id ->
                                         new RatingStatistics.Available(
-                                                null, 0, Collections.nCopies(10, 0)))
+                                                null, 0, Collections.nCopies(10, 0), List.of()))
                         .get(game);
         assertThat(context.eligible()).isEqualTo(eligible);
         assertThat(context.evaluatedOn()).isEqualTo(date);

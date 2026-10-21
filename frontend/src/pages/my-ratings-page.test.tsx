@@ -1,9 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { gameDetailsFixture } from "../test/game-details-fixture";
 import { renderApp } from "../test/render-app";
 
-const rating = { gameId: "game-1", value: 7, createdAt: "2026-08-13T10:00:00Z",
+type Rating = { gameId: string; mode: "direct" | "platforms"; value: number | null; contribution: number;
+  platforms: { platform: { platformId: string; name: string }; value: number | null }[];
+  createdAt: string; updatedAt: string; entityTag: string };
+const rating: Rating = { gameId: "game-1", mode: "direct", value: 7, contribution: 7,
+  platforms: [], createdAt: "2026-08-13T10:00:00Z",
   updatedAt: "2026-08-13T10:00:00Z", entityTag: '"version-1"' };
 const game = { gameId: "game-1", slug: "elite", canonicalTitle: "Élite Dangerous",
   primaryCover: { kind: "fallback", url: "/assets/covers/fallback.svg",
@@ -16,7 +21,7 @@ const igdb = { source: "igdb", kind: "player", value: 7.8, scale: 10, count: 23,
   attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/elite-dangerous" },
   observedAt: "2026-08-01T10:00:00Z" };
 const stats = { status: "available", mean: 9, count: 1,
-  distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 1, "10": 0 } };
+  distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 1, "10": 0 }, platforms: [] };
 
 function stub(handler: (request: Request) => Response | Promise<Response>, authenticated = true) {
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
@@ -44,6 +49,75 @@ async function openEditor() {
 }
 
 describe("Mis puntuaciones", () => {
+  it("edits platforms in the game page's sheet, reading the game's platforms only when asked", async () => {
+    const user = userEvent.setup();
+    const ps5 = { platformId: "playstation-5", name: "PlayStation 5" };
+    const pc = { platformId: "windows-pc", name: "Windows PC" };
+    let current: Rating = { ...rating, platforms: [{ platform: ps5, value: null }] };
+    const details = gameDetailsFixture();
+    const [release] = details.releases;
+    if (release === undefined) throw new Error("The fixture has a release");
+    details.gameId = "game-1";
+    details.releases = [{ ...release, platform: ps5 }, { ...release, releaseId: "pc", platform: pc }];
+    const fetchMock = stub(async request => {
+      const url = new URL(request.url);
+      if (url.pathname === "/api/v1/games/game-1") return Response.json(details);
+      if (request.method === "PUT") {
+        current = { ...rating, mode: "platforms", value: null, contribution: 8.5, entityTag: '"version-2"',
+          platforms: [{ platform: ps5, value: 9 }, { platform: pc, value: 8 }] };
+        return Response.json({ personalRating: current, ratingStatistics: stats });
+      }
+      return Response.json(page(current));
+    });
+    renderApp("/mis-puntuaciones");
+    const { card, editor } = await openEditor();
+    expect(fetchMock.mock.calls.some(([request]) => new URL((request as Request).url).pathname === "/api/v1/games/game-1")).toBe(false);
+
+    await user.click(within(editor).getByRole("button", { name: "Editar plataformas" }));
+    const sheet = await screen.findByRole("dialog", { name: "Puntuar por plataforma" });
+    expect(within(sheet).getByRole("checkbox", { name: "PlayStation 5" })).toBeChecked();
+    await user.click(within(sheet).getByRole("button", { name: "Puntuar PlayStation 5" }));
+    await user.click(within(within(sheet).getByRole("group", { name: "Nota en PlayStation 5 del 1 al 10" }))
+      .getByRole("button", { name: "9" }));
+    await user.click(within(sheet).getByRole("checkbox", { name: "Windows PC" }));
+    await user.click(within(sheet).getByRole("button", { name: "Puntuar Windows PC" }));
+    await user.click(within(within(sheet).getByRole("group", { name: "Nota en Windows PC del 1 al 10" }))
+      .getByRole("button", { name: "8" }));
+    await user.click(within(sheet).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Puntuar por plataforma" })).not.toBeInTheDocument());
+    const [put] = commands(fetchMock, "PUT");
+    expect(put?.headers.get("If-Match")).toBe('"version-1"');
+    await expect(put?.clone().json()).resolves.toEqual({
+      platforms: [{ platformId: "playstation-5", value: 9 }, { platformId: "windows-pc", value: 8 }] });
+    expect(await within(card).findByRole("button", { name: /^Tu puntuación Ardiendo 8,5\/10, media de 2 plataformas/ }))
+      .toBeVisible();
+  });
+
+  it("reads a platform-scored rating at its mean with quiet marks and sends no general score over it", async () => {
+    const byPlatform: Rating = { ...rating, mode: "platforms", value: null, contribution: 8.5,
+      platforms: [
+        { platform: { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" }, value: 8 },
+        { platform: { platformId: "playstation-5", name: "PlayStation 5" }, value: 9 },
+      ] };
+    const fetchMock = stub(() => Response.json(page(byPlatform)));
+    renderApp("/mis-puntuaciones");
+    const card = await screen.findByRole("article", { name: "Élite Dangerous" });
+    expect(within(card).getByRole("button", { name: /^Tu puntuación/ })).toHaveAccessibleName(
+      "Tu puntuación Ardiendo 8,5/10, media de 2 plataformas. Cambiar o eliminar");
+    expect(within(card).getByRole("list", { name: "Plataformas en las que has jugado a Élite Dangerous" }))
+      .toHaveTextContent("Nintendo Switch 2PlayStation 5");
+    expect(within(card).getByText("Media de 2 plataformas")).toBeVisible();
+
+    const { editor } = await openEditor();
+    expect(within(editor).queryByRole("group", { name: "Puntuación del 1 al 10" })).not.toBeInTheDocument();
+    expect(within(editor).queryByRole("button", { name: "Guardar puntuación" })).not.toBeInTheDocument();
+    expect(within(editor).getByRole("button", { name: "Editar plataformas" })).toBeEnabled();
+    expect(within(editor).getByRole("list", { name: "Tus notas por plataforma" })).toHaveTextContent("PlayStation 59");
+    expect(within(editor).getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
+    expect(commands(fetchMock, "PUT")).toHaveLength(0);
+  });
+
   it("keeps the editable personal reading apart from the shared community and IGDB readings, without detail requests", async () => {
     const extras = { summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }], releases: [{ platform: { name: "Hidden platform" } }] };
     const fetchMock = stub(() => Response.json({ ...page(), items: [
@@ -188,7 +262,7 @@ describe("Mis puntuaciones", () => {
     const fetchMock = stub(async request => {
       if (request.method === "PUT") {
         const body = await request.json() as { value: number };
-        current = { ...rating, value: body.value, entityTag: '"version-2"' };
+        current = { ...rating, value: body.value, contribution: body.value, entityTag: '"version-2"' };
         return Response.json({ personalRating: current, ratingStatistics: stats });
       }
       return Response.json(page(current));
@@ -277,7 +351,7 @@ describe("Mis puntuaciones", () => {
     let current = rating;
     const fetchMock = stub(request => {
       if (request.method === "PUT") {
-        current = { ...rating, value: 9, entityTag: '"winner"' };
+        current = { ...rating, value: 9, contribution: 9, entityTag: '"winner"' };
         return Response.json({ code: "RATING_WRITE_CONFLICT" }, { status: 412 });
       }
       return Response.json(page(current));

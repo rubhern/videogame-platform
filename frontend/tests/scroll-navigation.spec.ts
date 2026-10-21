@@ -151,7 +151,7 @@ for (const width of [390, 412, 1320]) {
         await route.fulfill({ json: {
           items: Array.from({ length: 10 }, (_, i) => ({
             game: { ...pragmata, gameId: `30000000-0000-4000-8000-${String(i).padStart(12, "0")}`, canonicalTitle: `Nota ${i}` },
-            personalRating: { gameId: pragmata.gameId, value: 7, createdAt: "2026-08-13T10:00:00Z", updatedAt: "2026-08-13T10:00:00Z", entityTag: '"version-1"' },
+            personalRating: { gameId: pragmata.gameId, mode: "direct", value: 7, contribution: 7, platforms: [], createdAt: "2026-08-13T10:00:00Z", updatedAt: "2026-08-13T10:00:00Z", entityTag: '"version-1"' },
             ratingSummary: { status: "available", mean: 7, count: 1 },
           })),
           page: { number: 1, size: 10, totalItems: 10, totalPages: 1 },

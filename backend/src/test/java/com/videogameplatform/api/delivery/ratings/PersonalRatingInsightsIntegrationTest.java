@@ -159,6 +159,48 @@ class PersonalRatingInsightsIntegrationTest {
     }
 
     @Test
+    void countsAPlatformDerivedGameOnceAtItsUnroundedContribution() throws Exception {
+        game(1, "alice", 9, "2026-10-05T10:00:00Z");
+        game(3, "alice", 8, "2026-10-05T10:00:00Z");
+        // Game 2 is rated 10 on one platform and 9 on another: one game contributing 9.5.
+        game(2, "alice", 5, "2026-10-05T10:00:00Z");
+        UUID alice = UUID.fromString(UserId.fromIssuerAndSubject(ISSUER, "alice").value());
+        jdbc.update(
+                "INSERT INTO ratings.platform_label(platform_id,display_name) VALUES"
+                        + " ('10000000-0000-4000-8000-000000000001','PlayStation 5'),"
+                        + " ('10000000-0000-4000-8000-000000000002','Nintendo Switch 2')"
+                        + " ON CONFLICT DO NOTHING");
+        jdbc.update(
+                "UPDATE ratings.rating SET value=NULL,platform_score_count=2,platform_score_sum=19"
+                        + " WHERE user_id=? AND game_id=?",
+                alice,
+                id(2));
+        jdbc.update(
+                "INSERT INTO ratings.rating_platform(user_id,game_id,platform_id,value) VALUES"
+                        + " (?,?,'10000000-0000-4000-8000-000000000001',10),"
+                        + " (?,?,'10000000-0000-4000-8000-000000000002',9)",
+                alice,
+                id(2),
+                alice,
+                id(2));
+
+        var result = read("alice");
+
+        assertThat(result.path("total").longValue()).isEqualTo(3);
+        // (9 + 9.5 + 8) / 3 = 8.83…, from the unrounded contributions.
+        assertThat(result.path("mean").decimalValue()).isEqualByComparingTo("8.8");
+        // Each game once: 9.5 in bucket 10, 9 in bucket 9 and 8 in bucket 8.
+        assertThat(result.path("distribution").get(9).longValue()).isEqualTo(1);
+        assertThat(result.path("distribution").get(8).longValue()).isEqualTo(1);
+        assertThat(result.path("distribution").get(7).longValue()).isEqualTo(1);
+        assertThat(result.path("highest").path("game").path("gameId").stringValue())
+                .isEqualTo(id(2).toString());
+        assertThat(result.path("highest").path("value").decimalValue()).isEqualByComparingTo("9.5");
+        assertThat(result.path("highest").path("tiedGames").longValue()).isEqualTo(1);
+        assertThat(result.path("lowest").path("value").decimalValue()).isEqualByComparingTo("8");
+    }
+
+    @Test
     void roundsAnExactHalfUpAndPreservesProjectedCoverProvenance() throws Exception {
         for (int i = 1; i <= 4; i++) game(i, "alice", i == 4 ? 8 : 7, "2026-10-05T10:00:00Z");
         jdbc.update(

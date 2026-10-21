@@ -5,12 +5,11 @@ import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
 import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
 import com.videogameplatform.api.delivery.catalogue.ExternalPlayerScoreMapper;
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseApiMapper;
-import com.videogameplatform.api.generated.model.AvailableRatingStatistics;
+import com.videogameplatform.api.delivery.ratings.RatingApiMapper;
 import com.videogameplatform.api.generated.model.Company;
 import com.videogameplatform.api.generated.model.GameDetails;
 import com.videogameplatform.api.generated.model.GameMode;
 import com.videogameplatform.api.generated.model.Genre;
-import com.videogameplatform.api.generated.model.RatingDistribution;
 import com.videogameplatform.api.generated.model.RatingEligibility;
 import com.videogameplatform.api.generated.model.RatingStatistics;
 import com.videogameplatform.api.generated.model.UnavailableRatingStatistics;
@@ -113,26 +112,8 @@ public final class GameDetailsEndpoint {
         return switch (statistics) {
             case com.videogameplatform.ratings.application.RatingStatistics.Unavailable _ ->
                     new UnavailableRatingStatistics("unavailable", "RATING_STATISTICS_READ_FAILED");
-            case com.videogameplatform.ratings.application.RatingStatistics.Available(
-                            var mean,
-                            var count,
-                            var distribution) -> {
-                yield new AvailableRatingStatistics(
-                        "available",
-                        mean,
-                        count,
-                        new RatingDistribution(
-                                distribution.get(0),
-                                distribution.get(1),
-                                distribution.get(2),
-                                distribution.get(3),
-                                distribution.get(4),
-                                distribution.get(5),
-                                distribution.get(6),
-                                distribution.get(7),
-                                distribution.get(8),
-                                distribution.get(9)));
-            }
+            case com.videogameplatform.ratings.application.RatingStatistics.Available available ->
+                    RatingApiMapper.statistics(available);
         };
     }
 }

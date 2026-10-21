@@ -58,6 +58,7 @@ export function gameDetailsFixture(): GameDetails {
         "9": 0,
         "10": 0,
       },
+      platforms: [],
     },
   };
 }

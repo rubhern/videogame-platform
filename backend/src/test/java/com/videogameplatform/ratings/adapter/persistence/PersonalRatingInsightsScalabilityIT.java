@@ -102,8 +102,8 @@ class PersonalRatingInsightsScalabilityIT {
                                     PersonalRatingInsightsSql.genres(false),
                                     "bestGenres",
                                     PersonalRatingInsightsSql.genres(true),
-                                    "extreme",
-                                    PersonalRatingInsightsSql.EXTREME,
+                                    "highest",
+                                    PersonalRatingInsightsSql.extreme(true),
                                     "activity",
                                     PersonalRatingInsightsSql.ACTIVITY)
                             .entrySet()) {

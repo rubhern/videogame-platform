@@ -272,7 +272,10 @@ presented-release order. Catalogue supplies the application-derived Madrid
 date and release context; Ratings evaluates eligibility and reads its own aggregate.
 No rating contribution returns an empty aggregate; an isolated statistics failure
 returns an explicit unavailable aggregate while preserving the game page. Personal
-rating reads and writes are outside this public operation.
+rating reads and writes are outside this public operation. Post-MVP (#359), the available
+aggregate also carries each scored platform's reading, from the same read-only snapshot,
+and each release names its platform by the taxonomy's `PlatformId`, as every other
+catalogue read does.
 
 Post-MVP (#279 phase 3, implemented; awaiting owner review): `UC-003` also returns the
 Game's current external player score, read for its one Game ID through the same Catalogue
@@ -364,14 +367,33 @@ returns are never interrupted.
 | ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
 |----------|-------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | `UC-004` | Authenticate and resume rating      | Visitor             | Store short-lived tamper-resistant context; derive user from principal; atomically consume/replay-protect; return to allowlisted game context |
-| `UC-005` | Create rating                       | Authenticated user  | Validate 1–10 and current eligibility; prevent duplicate; update personal/aggregate coherently                                                |
-| `UC-006` | Update rating                       | Authenticated owner | Scope by principal + game; validate value/eligibility/concurrency; preserve previous state on failure                                         |
-| `UC-007` | Delete rating                       | Authenticated owner | Scope by principal + game; delete regardless of current eligibility; update aggregate coherently                                              |
-| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker; bounded projected genres and mean/count for the paged games; isolated aggregate failure preserves personal context                                          |
+| `UC-005` | Create rating                       | Authenticated user  | Validate every score 1–10, one score source and any named platforms against the game's releases, and current eligibility; prevent duplicate; update personal/aggregate coherently |
+| `UC-006` | Update rating                       | Authenticated owner | Scope by principal + game; validate scores/score source/platforms/eligibility/concurrency; keep saved platforms unless the command replaces them; preserve previous state on failure |
+| `UC-007` | Delete rating                       | Authenticated owner | Scope by principal + game; delete the rating with its platforms regardless of current eligibility; update aggregate coherently                |
+| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; score order by unrounded contribution; unique `gameId` tie-breaker; bounded projected genres, each paged rating's platforms and mean/count for the paged games; isolated aggregate failure preserves personal context |
 | `UC-015` | Inspect personal rating statistics | Authenticated user | Post-MVP (#254, owner-requested implementation; awaiting review): derive fixed-size statistics only from the principal’s current active ratings, in one local PostgreSQL snapshot; no inferred playing behaviour, recommendations or provider request |
 
 The client never supplies a trusted user/evaluation date. Scoped absence returns
-`RATING_NOT_FOUND` without revealing another user's state. Authentication cancellation
+`RATING_NOT_FOUND` without revealing another user's state.
+
+Post-MVP (#359, [ADR-0031](../../decisions/0031-count-one-community-vote-per-rating-across-platforms.md)):
+a rating may also name the platforms its user played on, each with an optional score.
+A command's direct value is required exactly when no resulting platform carries a score,
+and must be absent when one does; `RATING_SCORE_SOURCE_INVALID` rejects a command that
+leaves no score source or two of them, so a direct value never silently replaces platform
+scores and removing the last platform score needs a direct value in the same command. A
+command that names platforms replaces the whole set (an empty set clears it); one that
+names none keeps the saved set, which is what every earlier client sends. A repeated
+platform or more than 50 are `RATING_PLATFORMS_INVALID`; a newly named platform that is not
+one of the game's current release platforms, read through Catalogue's game-details
+contract, is `PLATFORM_NOT_SUPPORTED`, while a platform already on the rating stays valid.
+Validation of scores and the platform set precedes any read; precondition, eligibility
+and platform support follow, and any failure changes nothing. The write stores the rating,
+its platform rows and their Ratings-owned labels in one transaction under the per-game lock,
+and the response carries the rating's mode, direct value, exposed contribution and
+platforms with the recomputed aggregate. Platform choices are never inferred from preferred
+platforms (#295), devices or releases, and a pick recovered after authentication
+(`UC-004`) is a direct value that is never applied over platform scores. Authentication cancellation
 or invalid/expired/replayed context creates no rating. Any failed rating command
 preserves personal and aggregate state.
 
@@ -413,7 +435,9 @@ would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 Implemented; awaiting owner review. **Tus estadísticas** describes the authenticated
 user's current surviving ratings, never community/external scores or games played.
 Each game contributes once to the total, arithmetic mean and ten integer distribution
-buckets. Means round half up to one decimal; the empty mean is null. The UI applies
+buckets, with its one contribution (#359): the direct score, or the unrounded mean of its
+scored platforms, placed in the bucket of that contribution rounded half up. Means round
+half up to one decimal; the empty mean is null. The UI applies
 the existing score temperatures, groups adjacent bucket pairs and warns that one to
 four games are a small sample, without inferring a personality or preference.
 
@@ -424,7 +448,8 @@ genres are counted explicitly. Return up to six genres by count descending then 
 ID ascending, and up to six by unrounded mean descending, count descending then genre
 ID ascending, requiring at least three games for the latter. Always show sample sizes.
 The highest and lowest values each name one game, the smallest game ID in a tie, and
-the exact tied-game count; equal extremes are explicitly described as such.
+the exact tied-game count; equal extremes are explicitly described as such. They compare
+unrounded contributions and expose the value half up to one decimal.
 
 Activity returns exactly twelve zero-filled calendar months, ending in the API's
 evaluated month in `Europe/Madrid`, plus the number of older ratings. It counts current
@@ -454,7 +479,7 @@ clears it on session changes and re-reads after rating mutations. HTTP responses
 
 | Category               | Principal codes / guarantees                                                                                                                                                                                                          |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Validation             | `COVERAGE_RANGE_INVALID`, `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED` (also an unknown preferred platform), `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
+| Validation             | `COVERAGE_RANGE_INVALID`, `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED` (also an unknown preferred platform or a rating's newly named platform outside the game's releases), `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`, `RATING_PLATFORMS_INVALID`, `RATING_SCORE_SOURCE_INVALID`; do not execute invalid work |
 | Authentication/replay  | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command                                                                                                                   |
 | Authorization          | `ACCESS_DENIED` for a signed-in session without the operation's authority; decided before validation or any read                                                                                                                       |
 | Domain/conflict        | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state                                                                   |
