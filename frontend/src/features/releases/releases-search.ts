@@ -100,7 +100,7 @@ function readSort(value: string | null): ReleaseSort {
 }
 
 /** Trims, drops blank and over-long values and de-duplicates while keeping first-seen order. */
-function readFilters(values: string[]): string[] {
+export function readFilters(values: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const raw of values) {

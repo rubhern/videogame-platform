@@ -1,0 +1,813 @@
+/* Release calendar (#250): a month of days on the plain night canvas, active from today. Each day
+   with releases takes the colour of its total Hype — blue, yellow, orange, red — as a quiet atmosphere behind its count,
+   which always states the same thing in words. Ice marks selection and focus; fire keeps the
+   chosen day's short rule. */
+
+@layer components {
+  .calendar-day[data-density="1"] {
+    --density: var(--color-density-1);
+  }
+
+  .calendar-day[data-density="2"] {
+    --density: var(--color-density-2);
+  }
+
+  .calendar-day[data-density="3"] {
+    --density: var(--color-density-3);
+  }
+
+  .calendar-day[data-density="4"] {
+    --density: var(--color-density-4);
+  }
+
+  /* ---------------------------------------------------------------- Opening */
+
+  /* The view switch closes the title's row; the month reads beneath as the instrument's readout. */
+  .page-head-row > .release-view-switch {
+    margin-inline-start: auto;
+  }
+
+  .calendar-heading {
+    gap: 4px;
+  }
+
+  .calendar-toolbar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 24px;
+    margin-top: 16px;
+  }
+
+  /* ---------------------------------------------------------------- Months */
+
+  .calendar-months {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+    margin-inline-start: auto;
+  }
+
+  .calendar-months-pending {
+    width: 380px;
+    max-width: 100%;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+
+  .calendar-month-chips {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .calendar-month-chip {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding-inline: 14px;
+    color: var(--color-muted);
+    background: var(--control);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calendar-month-chip:hover {
+    border-color: var(--line-ice-strong);
+    color: var(--color-ink);
+  }
+
+  /* The served month in ice, edged and inset like a selected control, never filled. */
+  .calendar-month-chip[aria-current="true"] {
+    border-color: var(--color-ice-light);
+    color: var(--color-ice-light);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-ice) 55%, transparent);
+  }
+
+  .calendar-month-step {
+    border: 1px solid var(--color-line);
+    background: var(--control);
+  }
+
+  .calendar-month-name {
+    display: none;
+  }
+
+  /* ---------------------------------------------------------------- Grid */
+
+  .calendar-grid {
+    width: calc(100% + 16px);
+    margin: 14px -8px 0;
+    border-collapse: separate;
+    border-spacing: 8px;
+    table-layout: fixed;
+  }
+
+  .calendar-grid th {
+    padding: 0 0 2px;
+    color: var(--color-subtle);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .calendar-weekday-letter {
+    display: none;
+  }
+
+  .calendar-cell {
+    height: 64px;
+    padding: 0;
+    vertical-align: top;
+  }
+
+  /* Days of neighbouring months keep the week's shape and nothing else. */
+  .calendar-cell-outside {
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-ink) 2%, transparent);
+  }
+
+  .calendar-day {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 64px;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 4px;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 7px 10px 8px;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* A day with releases: its total-Hype light rises from the lower corner over a far ridge of
+     night, as a quiet atmosphere; the count in words stays the reading. */
+  .calendar-day[data-density]:not([data-density="0"]) {
+    border-color: color-mix(in srgb, var(--density) 42%, var(--color-line));
+    color: var(--color-ink);
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 40' preserveAspectRatio='none'%3E%3Cpath d='M0 40V24l12-6 10 4 16-12 13 8 9-5 19 13 14-9 17 10 12-6 15 8 23-11V40z' fill='%2306080d' fill-opacity='.42'/%3E%3C/svg%3E")
+        bottom / 100% 52% no-repeat,
+      radial-gradient(
+        120% 95% at 88% 118%,
+        color-mix(in srgb, var(--density) 58%, transparent),
+        transparent 62%
+      ),
+      linear-gradient(
+        158deg,
+        color-mix(in srgb, var(--density) 9%, var(--color-surface)) 0%,
+        color-mix(in srgb, var(--density) 30%, var(--color-night)) 100%
+      );
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--density) 26%, transparent);
+  }
+
+  .calendar-day:hover {
+    border-color: var(--line-ice-strong);
+  }
+
+  .calendar-day:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  /* The chosen day is ringed in ice, a shape as well as a light, and lifted in its own light. */
+  .calendar-day[aria-pressed="true"] {
+    border-color: var(--color-ice-light);
+    color: var(--color-ink);
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 2px;
+    box-shadow: inset 0 0 0 1px var(--color-ice-light);
+  }
+
+  .calendar-day[aria-pressed="true"]:focus-visible {
+    outline-color: var(--color-ice);
+    outline-offset: 3px;
+  }
+
+  .calendar-day[aria-pressed="true"]:not([data-density="0"]) {
+    filter: brightness(1.14) saturate(1.08);
+  }
+
+  /* The calendar is active from today: a day gone by keeps only its quiet number, with no count,
+     colour or action. */
+  .calendar-day-past {
+    border-color: transparent;
+    color: var(--color-subtle);
+    background: color-mix(in srgb, var(--color-ink) 2%, transparent);
+    cursor: default;
+  }
+
+  .calendar-day-past .calendar-day-number {
+    font-weight: 600;
+    opacity: 0.55;
+  }
+
+  .calendar-day-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .calendar-day-number {
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calendar-day[data-density="0"] .calendar-day-number {
+    font-weight: 650;
+  }
+
+  .calendar-day-hoy {
+    color: var(--g-ice);
+    font-size: 0.6875rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  /* Today carries a fine notch of ice along its foot, as the day bar marks it. */
+  .calendar-day-today::after {
+    position: absolute;
+    right: 10px;
+    bottom: 0;
+    left: 10px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--g-ice-deep);
+    content: "";
+  }
+
+  .calendar-day-count {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    color: color-mix(in srgb, var(--color-ink) 90%, transparent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .calendar-day-dot {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--density);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--density) 24%, transparent);
+  }
+
+  .calendar-day-count-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .calendar-day-count-number {
+    display: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Placeholders keep the calendar's frame while a month loads. */
+  .calendar-grid-pending {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    margin-inline: 0;
+  }
+
+  .calendar-pending-weekdays,
+  .calendar-pending-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .calendar-pending-weekdays > span {
+    color: var(--color-subtle);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .calendar-pending-day {
+    height: 64px;
+    border-radius: 6px;
+  }
+
+  /* ---------------------------------------------------------------- Chosen day */
+
+  .calendar-day-hint {
+    margin: 22px 0 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+
+  .calendar-day-panel {
+    margin-top: 22px;
+    border-top: 1px solid var(--color-line);
+    padding-top: 20px;
+  }
+
+  .calendar-day-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+  }
+
+  /* The chosen day under the section's short fire rule: the day is the event. */
+  .calendar-day-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: clamp(1.25rem, 1.9vw, 1.625rem);
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  .calendar-day-panel-title::before {
+    width: 4px;
+    height: 1.05em;
+    flex: none;
+    border-radius: 2px;
+    background: var(--g-fire);
+    content: "";
+  }
+
+  .calendar-day-panel-count {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .calendar-day-all {
+    margin-inline-start: auto;
+  }
+
+  .calendar-day-all .featured-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .calendar-day-empty {
+    margin: 12px 0 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+
+  .calendar-day-error {
+    margin-top: 14px;
+  }
+
+  .calendar-release-list {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* One compact row per game: the cover, the title as the row's only keyboard stop with its
+     pointer target stretched over the row, the platforms and region, the genres, and a quiet way
+     in. The row never grows with the number of releases. */
+  .calendar-release {
+    position: relative;
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 9px 14px 9px 9px;
+    background: var(--color-surface);
+  }
+
+  .calendar-release:hover {
+    border-color: var(--line-ice-strong);
+  }
+
+  .calendar-release:has(.calendar-release-title a:focus-visible) {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  .calendar-release-copy {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+  }
+
+  .calendar-release-title {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 750;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .calendar-release-title a {
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .calendar-release-title a:focus-visible {
+    outline: none;
+  }
+
+  .calendar-release-title a::after {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    border-radius: 6px;
+    content: "";
+  }
+
+  .calendar-release:hover .calendar-release-title a {
+    text-decoration: underline;
+    text-decoration-color: var(--color-ice);
+    text-underline-offset: 4px;
+  }
+
+  .calendar-release-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
+
+  .calendar-release-region {
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .calendar-release-review {
+    justify-self: start;
+    margin: 0;
+  }
+
+  /* The readings keep their own column beside the copy, above the row's stretched link. */
+  .calendar-release-scores {
+    position: relative;
+    z-index: 3;
+  }
+
+  .calendar-release-go {
+    grid-column: -2;
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    color: var(--color-muted);
+    background: var(--control);
+  }
+
+  .calendar-release:hover .calendar-release-go {
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
+  }
+
+  .calendar-release-pending {
+    min-height: 102px;
+  }
+
+  .calendar-release-pending-cover {
+    aspect-ratio: var(--cover-aspect);
+  }
+
+  .calendar-release-pending-lines {
+    display: grid;
+    gap: 10px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .calendar-grid,
+    .calendar-day-panel {
+      animation: fade-in 500ms var(--ease-out) both;
+    }
+
+    .calendar-day,
+    .calendar-release,
+    .calendar-release-go,
+    .calendar-month-chip {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        filter var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  /* ---------------------------------------------------------------- Tablet */
+
+  /* The weekday names shorten and a day states its count as a number beside its dot. */
+  @media (max-width: 1023px) {
+    .calendar-grid {
+      width: calc(100% + 12px);
+      margin-inline: -6px;
+      border-spacing: 6px;
+    }
+
+    .calendar-grid th {
+      font-size: 0.6875rem;
+      letter-spacing: 0.06em;
+    }
+
+    .calendar-day {
+      padding: 6px 8px 7px;
+    }
+
+    .calendar-day-count-text {
+      display: none;
+    }
+
+    .calendar-day-count-number {
+      display: inline;
+    }
+
+    .calendar-month-chips li:nth-child(n + 4) {
+      display: none;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Phones */
+
+  /* Phones adapt rather than shrink: the month's name sits between its steps in place of the
+     chips, the weekdays become letters, and each day is a compact square holding its number and
+     density dot; its count stays in its name and in the chosen day's heading. */
+  @media (max-width: 619px) {
+    .page-head-row > .release-view-switch {
+      flex-basis: 100%;
+      margin-inline-start: 0;
+    }
+
+    .calendar-heading .calendar-period {
+      display: none;
+    }
+
+    .calendar-toolbar {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .calendar-months {
+      justify-content: space-between;
+      margin-inline-start: 0;
+    }
+
+    .calendar-months-pending {
+      width: 100%;
+    }
+
+    .calendar-month-chips {
+      display: none;
+    }
+
+    .calendar-month-name {
+      display: block;
+      margin: 0;
+      color: var(--g-ice);
+      font-size: 1.125rem;
+      font-stretch: 75%;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .calendar-grid {
+      width: calc(100% + 8px);
+      margin: 10px -4px 0;
+      border-spacing: 4px;
+    }
+
+    .calendar-grid th {
+      font-size: 0.75rem;
+      letter-spacing: 0;
+    }
+
+    /* The letter is drawn; the full weekday stays the header's text for assistive technology. */
+    .calendar-grid .calendar-weekday-name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .calendar-weekday-letter {
+      display: inline;
+    }
+
+    .calendar-pending-weekdays .calendar-weekday-name {
+      display: none;
+    }
+
+    .calendar-pending-weekdays .calendar-weekday-letter {
+      display: inline;
+    }
+
+    .calendar-pending-days,
+    .calendar-pending-weekdays {
+      gap: 4px;
+    }
+
+    .calendar-cell,
+    .calendar-pending-day {
+      height: 46px;
+    }
+
+    .calendar-day {
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 4px 2px;
+      text-align: center;
+    }
+
+    .calendar-day-number {
+      font-size: 0.9375rem;
+    }
+
+    /* A day without a dot keeps its number on the same line as its neighbours'. */
+    .calendar-day[data-density="0"] .calendar-day-head,
+    .calendar-day-past .calendar-day-head {
+      margin-bottom: 10px;
+    }
+
+    .calendar-day-hoy,
+    .calendar-day-count-text,
+    .calendar-day-count-number {
+      display: none;
+    }
+
+    .calendar-day-dot {
+      width: 7px;
+      height: 7px;
+    }
+
+    .calendar-day-today::after {
+      right: 30%;
+      left: 30%;
+    }
+
+
+    /* The chosen day reads down one column; Ver todos closes it at full width. */
+    .calendar-day-panel {
+      display: flex;
+      flex-direction: column;
+      margin-top: 16px;
+      padding-top: 16px;
+    }
+
+    .calendar-day-panel-head {
+      display: contents;
+    }
+
+    .calendar-day-panel-title {
+      order: 1;
+      font-size: 1.375rem;
+    }
+
+    .calendar-day-panel-count {
+      order: 2;
+      margin-top: 2px;
+      padding-inline-start: 16px;
+      font-size: 0.9375rem;
+    }
+
+    .calendar-day-panel > .calendar-release-list,
+    .calendar-day-panel > .calendar-day-empty,
+    .calendar-day-panel > .calendar-day-error {
+      order: 3;
+    }
+
+    .calendar-day-all {
+      order: 4;
+      width: 100%;
+      margin-top: 14px;
+      margin-inline-start: 0;
+    }
+
+    .calendar-release-list {
+      margin-top: 12px;
+    }
+
+    .calendar-release {
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      padding: 8px 10px 8px 8px;
+    }
+
+    .calendar-release-scores {
+      grid-column: 2 / -1;
+      grid-row: 2;
+    }
+
+    .calendar-release > .cover-figure {
+      grid-row: 1 / span 2;
+      align-self: start;
+    }
+
+    .calendar-release-go {
+      grid-row: 1;
+    }
+
+    .calendar-release-title {
+      font-size: 1rem;
+    }
+
+    .calendar-release-go {
+      width: 34px;
+      height: 34px;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .calendar-grid {
+      width: calc(100% + 6px);
+      margin-inline: -3px;
+      border-spacing: 3px;
+    }
+
+    .calendar-day-number {
+      font-size: 0.875rem;
+    }
+
+    .calendar-release {
+      grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .calendar-release-go {
+      display: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .calendar-day,
+    .calendar-day[data-density]:not([data-density="0"]) {
+      border-color: CanvasText;
+      color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+      filter: none;
+    }
+
+    .calendar-day[aria-pressed="true"] {
+      outline: 3px solid Highlight;
+      outline-offset: -3px;
+    }
+
+    .calendar-day-dot {
+      border: 1px solid CanvasText;
+      background: CanvasText;
+      box-shadow: none;
+    }
+
+    .calendar-day-today::after,
+    .calendar-day-panel-title::before {
+      background: CanvasText;
+    }
+
+    .calendar-month-chip[aria-current="true"] {
+      border-width: 2px;
+      box-shadow: none;
+    }
+  }
+}

@@ -130,6 +130,14 @@ afterEach(() => {
 });
 
 describe("release explorer page", () => {
+  it("lists all releases when an old URL names the removed highlights filter", async () => {
+    const fetchMock = stubReleases(() => Response.json(releasePage()));
+    renderApp("/lanzamientos?from=2026-11-13&to=2026-11-13&sort=hype&featuredOnly=true");
+    expect(await screen.findByRole("heading", { name: "Pragmata" })).toBeVisible();
+    expect(screen.queryByText("Solo destacados")).not.toBeInTheDocument();
+    expect(requestedQueries(fetchMock)[0]?.has("featuredOnly")).toBe(false);
+  });
+
   it("adds only localized genres to release cards", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
       const request = input instanceof Request ? input : new Request(input);

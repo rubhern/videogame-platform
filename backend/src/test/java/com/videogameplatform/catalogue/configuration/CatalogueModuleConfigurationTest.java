@@ -65,6 +65,13 @@ class CatalogueModuleConfigurationTest {
                             .isEqualTo(new ReleaseBrowsePolicy(12));
                     assertThat(context.getBean(BrowseFeaturedReleasesUseCase.class))
                             .isInstanceOf(FeaturedReleaseService.class);
+                    assertThat(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application.releases
+                                                    .BrowseReleaseCalendarUseCase.class))
+                            .isInstanceOf(
+                                    com.videogameplatform.catalogue.application.releases.internal
+                                            .ReleaseCalendarService.class);
                     assertThat(context).hasSingleBean(GetExternalPlayerScoresUseCase.class);
                     assertThat(context.getBean(GetExternalPlayerScoresUseCase.class))
                             .isInstanceOf(ExternalPlayerScoresService.class);
@@ -180,6 +187,12 @@ class CatalogueModuleConfigurationTest {
 
         @Bean
         FeaturedReleaseReadPort featuredReleaseReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort
+                releaseCalendarReadPort() {
             return criteria -> Optional.empty();
         }
 

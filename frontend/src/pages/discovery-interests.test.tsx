@@ -152,7 +152,7 @@ describe("Mis plataformas on TOPómetro", () => {
     const check = await platformsCheck(user);
     expect(check).toBeChecked();
     expect(check).toHaveAccessibleDescription(
-      "En TOPómetro y Explorar lanzamientos: Nintendo Switch 2, PlayStation 5",
+      "En TOPómetro, Explorar lanzamientos y el calendario: Nintendo Switch 2, PlayStation 5",
     );
     expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
   });

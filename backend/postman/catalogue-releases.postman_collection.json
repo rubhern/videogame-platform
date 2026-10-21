@@ -2,12 +2,17 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 4.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game over an inclusive date range. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 4.3.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game over an inclusive date range, and for GET /api/v1/release-calendar, the per-day game counts of one month through the generated ReleaseCalendarApi. Each release item is one game with its matching releases, and pagination counts games; a highlights-calendar day counts only games with local IGDB Hypes >= 10, while the explorer lists every qualifying game. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "releaseEtag",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "calendarNextMonth",
       "value": "",
       "type": "string"
     }
@@ -1304,6 +1309,331 @@
           ]
         },
         "description": "Proves representation negotiation returns stable RFC 9457 Problem Details."
+      },
+      "response": []
+    },
+    {
+      "name": "Release calendar of the current month",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-calendar contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\");",
+              "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
+              "    pm.expect(body.window.to.startsWith(body.month)).to.be.true;",
+              "    pm.expect(body.navigation.first <= body.month && body.month <= body.navigation.last).to.be.true;",
+              "    pm.expect(body.days.length).to.be.at.most(31);",
+              "    let previous = \"\";",
+              "    body.days.forEach(function (day) {",
+              "        pm.expect(day.date >= body.window.from && day.date <= body.window.to, \"a day of the month\").to.be.true;",
+              "        pm.expect(day.date > previous, \"ascending and unique\").to.be.true;",
+              "        pm.expect(day.gameCount).to.be.a(\"number\").and.at.least(1);",
+              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(day.gameCount * 10);",
+              "        previous = day.date;",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "",
+              "pm.test(\"Without a month the API reads the current month, its first\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.month).to.eql(body.evaluatedOn.slice(0, 7));",
+              "    body.days.forEach(function (day) { pm.expect(day.date >= body.evaluatedOn, \"no day before today\").to.be.true; });",
+              "    pm.expect(body.navigation.first).to.eql(body.month);",
+              "    pm.expect(body.navigation).to.not.have.property(\"previous\");",
+              "    pm.expect(body.activeFilters).to.eql({ platformIds: [], regionIds: [] });",
+              "});",
+              "",
+              "pm.collectionVariables.set(\"calendarNextMonth\", pm.response.json().navigation.next || pm.response.json().month);"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/release-calendar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "release-calendar"
+          ]
+        },
+        "description": "Per-day game counts of the current month in Europe/Madrid. Only exact days from today on are counted; month, quarter, year and unknown dates never are. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+      },
+      "response": []
+    },
+    {
+      "name": "Release calendar of the next month filtered by platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-calendar contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\");",
+              "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
+              "    pm.expect(body.window.to.startsWith(body.month)).to.be.true;",
+              "    pm.expect(body.navigation.first <= body.month && body.month <= body.navigation.last).to.be.true;",
+              "    pm.expect(body.days.length).to.be.at.most(31);",
+              "    let previous = \"\";",
+              "    body.days.forEach(function (day) {",
+              "        pm.expect(day.date >= body.window.from && day.date <= body.window.to, \"a day of the month\").to.be.true;",
+              "        pm.expect(day.date > previous, \"ascending and unique\").to.be.true;",
+              "        pm.expect(day.gameCount).to.be.a(\"number\").and.at.least(1);",
+              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(day.gameCount * 10);",
+              "        previous = day.date;",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "",
+              "pm.test(\"The platform filter is applied and reported\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.activeFilters.platformIds).to.eql([\"10000000-0000-4000-8000-000000000001\"]);",
+              "    pm.expect(body.availableFilters.platforms.map(function (platform) { return platform.platformId; })).to.include(\"10000000-0000-4000-8000-000000000001\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/release-calendar?month={{calendarNextMonth}}&platformIds=10000000-0000-4000-8000-000000000001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "release-calendar"
+          ],
+          "query": [
+            {
+              "key": "month",
+              "value": "{{calendarNextMonth}}"
+            },
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        "description": "A later month inside the forward acquisition bound, narrowed to one platform. A day's highlighted-game count may be smaller than the full explorer's total for that day and filters. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+      },
+      "response": []
+    },
+    {
+      "name": "Release calendar month before the current one",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "",
+              "pm.test(\"The month is the rejected parameter\", function () {",
+              "    pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/query/month\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/release-calendar?month=2020-01",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "release-calendar"
+          ],
+          "query": [
+            {
+              "key": "month",
+              "value": "2020-01"
+            }
+          ]
+        },
+        "description": "Navigation never goes back: any month before the current one is an invalid filter. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+      },
+      "response": []
+    },
+    {
+      "name": "Release calendar with an unsupported region",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"REGION_NOT_SUPPORTED\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/release-calendar?regionIds=unsupported-region",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "release-calendar"
+          ],
+          "query": [
+            {
+              "key": "regionIds",
+              "value": "unsupported-region"
+            }
+          ]
+        },
+        "description": "Demonstrates the stable product validation error for a region outside the local taxonomy. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+      },
+      "response": []
+    },
+    {
+      "name": "All releases of a calendar day",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Full explorer lists the seeded release of the day\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.items.length).to.eql(1);",
+              "    pm.expect(body.page.totalItems).to.eql(1);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?from=2026-09-25&to=2026-09-25&sort=hype&pageSize=3",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "2026-09-25"
+            },
+            {
+              "key": "to",
+              "value": "2026-09-25"
+            },
+            {
+              "key": "sort",
+              "value": "hype"
+            },
+            {
+              "key": "pageSize",
+              "value": "3"
+            }
+          ]
+        },
+        "description": "The calendar link opens every release of this day, ordered by Hype, without a highlights restriction."
       },
       "response": []
     }

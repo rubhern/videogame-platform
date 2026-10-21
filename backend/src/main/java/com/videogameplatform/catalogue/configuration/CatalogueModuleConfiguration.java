@@ -9,13 +9,16 @@ import com.videogameplatform.catalogue.application.details.internal.GameDetailsS
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.BrowseReleaseCalendarUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedPeriodPolicy;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
+import com.videogameplatform.catalogue.application.releases.internal.ReleaseCalendarService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
@@ -114,6 +117,16 @@ class CatalogueModuleConfiguration {
                 browsePolicy,
                 freshnessPolicy,
                 new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
+    }
+
+    /** The calendar reaches the same future as featured months: one forward acquisition bound. */
+    @Bean
+    BrowseReleaseCalendarUseCase browseReleaseCalendarUseCase(
+            ReleaseCalendarReadPort readPort,
+            Clock clock,
+            CatalogueSchedulingProperties scheduling) {
+        return new ReleaseCalendarService(
+                readPort, clock, new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
     }
 
     @Bean

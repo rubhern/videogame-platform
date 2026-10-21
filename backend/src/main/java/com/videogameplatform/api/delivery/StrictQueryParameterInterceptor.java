@@ -5,6 +5,7 @@ import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.PlatformPreferencesApi;
 import com.videogameplatform.api.generated.RatingsApi;
+import com.videogameplatform.api.generated.ReleaseCalendarApi;
 import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,6 +93,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
     private static boolean isClosedQueryOperation(HandlerMethod method) {
         Class<?> beanType = method.getBeanType();
         return ReleasesApi.class.isAssignableFrom(beanType)
+                || ReleaseCalendarApi.class.isAssignableFrom(beanType)
                 || FeaturedReleasesApi.class.isAssignableFrom(beanType)
                 || CatalogueApi.class.isAssignableFrom(beanType)
                 || RatingsApi.class.isAssignableFrom(beanType)

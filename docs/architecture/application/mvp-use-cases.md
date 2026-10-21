@@ -16,6 +16,7 @@
 | `UC-011` | Inspect catalogue acquisition state | Catalogue operator    | Post-MVP (#247): read the run in flight, at most twenty finished retained runs with their outcome and counters, and durable coverage of an inclusive release-date range as bounded consecutive periods; local evidence only, never a provider call or a synchronization start; only a session holding the operator authority |
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
+| `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
 of the releases matching the requested range and active filters, only the presented
@@ -108,6 +109,33 @@ selected valid value always stays representable. A future or historical platform
 region therefore does not appear in an unrelated range merely because it exists.
 The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
+
+Post-MVP (#250, implemented; awaiting owner review), `UC-016` is the highlights calendar (**Calendario de destacados**), a second
+view of **Lanzamientos** beside the explorer. It reads one calendar month at a time, the
+current month in `Europe/Madrid` by default; navigation never goes back, and it reaches forward
+to the same last month that `UC-010` months reach, so both monthly views share one bound. The
+calendar is active from the evaluation date on (owner decision): the current month is counted
+from today, and a day that has gone by is never counted or chosen. A day holds only releases
+with that exact day, classified exactly as `UC-001` classifies a range of that single day
+without approximate dates, with the same multi-select filters and contextual facets. Its count
+is of games, not releases. Only games with locally stored IGDB Hypes >= 10 qualify; lower,
+null or absent Hype is excluded before contextual facets, counts and pagination. The threshold is fixed, informed by the private-dev Hype distribution reviewed for the owner's
+2026-10-21 request, rather than a percentile recalculated per request. The count covers highlights only; the full explorer lists all games for that day and the same
+platform/region filters, so its total can be larger.
+A release known only to its month, quarter or year, or with an unknown (TBA) date, is never
+placed on a day or counted (owner decision: no separate imprecise-date line). PostgreSQL
+filters, groups, counts and sums the local Hype once per game and day, irrespective of
+matching platforms or regions. The daily `totalHype` follows the same filters as its count,
+includes every qualifying game (not only the preview), and drives the calendar colours. Work stays
+in PostgreSQL over the shared period index, so a response holds at most 31 days
+and no game page is read. The games of a chosen day are an ordinary `UC-001` read of that one
+day ordered by Hype with `UC-001`'s fallback and tie-breakers. The preview's page size is the
+smaller of three and the highlighted-game count: high-Hype games precede every lower or
+missing signal, so a short highlighted day never fills its preview with other games.
+**Ver todos los lanzamientos del día** opens the unrestricted explorer for that day in the
+same order and platform/region context. No highlights filter exists in the explorer or its API.
+The calendar never shows numeric Hype.
+The API owns the bounds and the evaluation date; the browser never decides "today".
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
 the landing view of release discovery, **TOPómetro** (named in #341), beside the release explorer under **Lanzamientos** (#285). It
@@ -320,10 +348,11 @@ current publication's releases, so its work follows the bounded taxonomy, and it
 rather than truncating beyond 500 platforms.
 
 The browser resolves the preferences into the explicit platform filter of the public
-`UC-001` and `UC-010` reads, so those reads stay publicly cacheable and identical for every
-session. They apply by default on TOPómetro and Explorar lanzamientos; one document-wide
-switch in **Mi cuenta** turns them off for both screens without changing the saved set, and a
-manual platform selection in the explorer sets them aside rather than intersecting with them.
+`UC-001`, `UC-010` and `UC-016` reads, so those reads stay publicly cacheable and identical for
+every session. They apply by default on TOPómetro, Explorar lanzamientos and the release
+calendar; one document-wide switch in **Mi cuenta** turns them off for those screens without
+changing the saved set, and a manual platform selection in the explorer or the calendar sets
+them aside rather than intersecting with them.
 The frontend offers only the platforms it presents with an owner-provided mark (owner
 decision); the API keeps the whole selectable taxonomy. `UC-002`, `UC-003` and `UC-008` never apply preferences. A signed-in user who has
 not chosen yet is offered the choice once per document on the way into release discovery,

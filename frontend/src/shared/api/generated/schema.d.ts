@@ -56,6 +56,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/release-calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count highlighted games releasing on each day of one calendar month
+         * @description Reads, from the last valid local catalogue publication, how many games release on each
+         *     day of one calendar month, for a monthly calendar. Without `month` the current month in
+         *     `Europe/Madrid` is served. Navigation never goes back: a month must lie between the
+         *     current month and the last calendar month lying entirely inside the configured forward
+         *     acquisition horizon, the same forward bound featured months use; the current month is
+         *     always accepted. The bound states what acquisition is configured to cover, never that the
+         *     local catalogue is complete.
+         *
+         *     This is the highlights calendar: only games with locally stored IGDB Hypes >= 10
+         *     qualify; missing or lower Hype is excluded. The threshold is fixed, not a percentile
+         *     recomputed per request. It filters contextual facets as well as day counts.
+         *
+         *     The calendar is active from the evaluation date on: days of the month before it are
+         *     never counted. A day holds only releases with that exact day, under the release
+         *     explorer's own rules (`GET /releases`): never cancelled, and on the evaluation date not
+         *     delayed either. `days` lists each day from the evaluation date (or the month's first day,
+         *     for a later month) to the month's last day holding at least one such release that matches
+         *     the active filters, in ascending order; a day without one is absent.
+         *     `totalHype` is the sum of local Hypes of the qualifying games on that day, counting each
+         *     game once regardless of how many matching platforms or regions it has. The sum uses the
+         *     same active filters as `gameCount` and excludes games below the highlights threshold.
+         *     `gameCount` counts games, not releases: a game releasing on several platforms or regions that day
+         *     counts once. The full explorer lists every qualifying release of that day without a
+         *     highlights restriction, so its `page.totalItems` may exceed the calendar's `gameCount`.
+         *     The calendar preview reads the leading games from `GET /releases` with `sort=hype` and
+         *     a page size capped by both three and the day's highlighted-game count.
+         *
+         *     A release known only to its month, quarter or year, or with an unknown (TBA) date, never
+         *     belongs to a day and is not counted; nothing is attributed to an invented day or month.
+         *
+         *     Platform and region filters, `activeFilters` and the contextual, faceted
+         *     `availableFilters` follow `GET /releases`, evaluated over every release the calendar
+         *     counts. PostgreSQL applies the filters, groups and counts; the response holds at most 31
+         *     days, and no game page is read. No provider is called, and the
+         *     representation never varies on a session.
+         */
+        get: operations["getReleaseCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/featured-releases": {
         parameters: {
             query?: never;
@@ -1016,6 +1070,46 @@ export interface components {
             items: components["schemas"]["ReleaseItem"][];
             page: components["schemas"]["PageMetadata"];
         };
+        ReleaseCalendar: {
+            month: components["schemas"]["CalendarMonth"];
+            /**
+             * Format: date
+             * @description Today in `Europe/Madrid`, which decides the current month, the first counted day and the delayed rule.
+             */
+            evaluatedOn: string;
+            /** @description The month's first and last day, inclusive; days before `evaluatedOn` are not counted. */
+            window: components["schemas"]["ReleaseWindow"];
+            navigation: components["schemas"]["ReleaseCalendarNavigation"];
+            activeFilters: components["schemas"]["ActiveFilters"];
+            availableFilters: components["schemas"]["AvailableFilters"];
+            /** @description Days from the evaluation date on with at least one qualifying exact-day release, ascending. */
+            days: components["schemas"]["ReleaseCalendarDay"][];
+        };
+        /**
+         * @description The months that may be requested, evaluated in `Europe/Madrid`: `first` is always the
+         *     current month and `last` the last month inside the forward bound. `previous` and `next`
+         *     are the adjacent months, each absent at its bound.
+         */
+        ReleaseCalendarNavigation: {
+            first: components["schemas"]["CalendarMonth"];
+            last: components["schemas"]["CalendarMonth"];
+            previous?: components["schemas"]["CalendarMonth"];
+            next?: components["schemas"]["CalendarMonth"];
+        };
+        ReleaseCalendarDay: {
+            /** Format: date */
+            date: string;
+            /**
+             * Format: int64
+             * @description Games with at least one qualifying release on exactly this day.
+             */
+            gameCount: number;
+            /**
+             * Format: int64
+             * @description Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
+             */
+            totalHype: number;
+        };
         GameSearchPage: {
             items: components["schemas"]["GameSummary"][];
             page: components["schemas"]["PageMetadata"];
@@ -1648,6 +1742,20 @@ export interface components {
             };
         };
         /**
+         * @description The requested month is malformed or outside the navigation bounds, a platform or region
+         *     is unknown, or a request parameter is invalid.
+         */
+        ReleaseCalendarValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
          * @description The requested week or month is malformed, outside the navigation bounds or combined with
          *     the other granularity, a platform is unknown, or a request parameter is invalid.
          */
@@ -1873,6 +1981,15 @@ export interface components {
          * @example 2026-10
          */
         FeaturedMonth: components["schemas"]["CalendarMonth"];
+        /**
+         * @description Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
+         *     It must lie between the current month and the last calendar month lying entirely inside
+         *     the configured forward acquisition horizon; the current month is always accepted. A
+         *     malformed month or a month outside the bounds, including any earlier month, yields 422
+         *     `FILTER_INVALID` for `/query/month`.
+         * @example 2026-11
+         */
+        ReleaseCalendarMonth: components["schemas"]["CalendarMonth"];
         /**
          * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
          *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
@@ -2100,6 +2217,73 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getReleaseCalendar: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
+                 *     It must lie between the current month and the last calendar month lying entirely inside
+                 *     the configured forward acquisition horizon; the current month is always accepted. A
+                 *     malformed month or a month outside the bounds, including any earlier month, yields 422
+                 *     `FILTER_INVALID` for `/query/month`.
+                 * @example 2026-11
+                 */
+                month?: components["parameters"]["ReleaseCalendarMonth"];
+                /**
+                 * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+                 *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+                 *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["PlatformIdsQuery"];
+                /**
+                 * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+                 *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+                 *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+                 *     and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "region_europe",
+                 *       "region_worldwide"
+                 *     ]
+                 */
+                regionIds?: components["parameters"]["RegionIdsQuery"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month's per-day game counts, possibly without any day. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseCalendar"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ReleaseCalendarValidationFailed"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };

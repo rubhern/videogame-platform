@@ -12,6 +12,13 @@ import {
 } from "../features/releases/releases-search";
 import { featuredReleasesQueryOptions } from "../features/releases/use-featured-releases-query";
 import { releasesQueryOptions } from "../features/releases/use-releases-query";
+import {
+  CALENDAR_PATH,
+  readCalendarSearch,
+  toCalendarQuery,
+} from "../features/releases/release-calendar-search";
+import { releaseCalendarQueryOptions } from "../features/releases/use-release-calendar-query";
+import { resolvePlatformFilter } from "../features/platform-preferences/interests";
 import { hasSearchableQuery, readGameSearchParams } from "../features/search/game-search-params";
 import { gameSearchQueryOptions } from "../features/search/use-game-search-query";
 import { getSession } from "../features/session/session-api";
@@ -40,7 +47,7 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
   let welcomeOffered = false;
   return async ({ request, params }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
-    if (url.pathname === "/" || url.pathname === RELEASES_PATH) {
+    if (url.pathname === "/" || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
       const interests = await loadInterests(queryClient);
       const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
       if (!welcomeOffered && preferences?.configured === false) {
@@ -58,6 +65,14 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
             ),
           );
         }
+      } else if (url.pathname === CALENDAR_PATH) {
+        const search = readCalendarSearch(url.searchParams);
+        const { platformIds } = resolvePlatformFilter(
+          search.platformIds,
+          interestsSwitch.enabled(),
+          interests,
+        );
+        await queryClient.prefetchQuery(releaseCalendarQueryOptions(toCalendarQuery(search, platformIds)));
       } else {
         await queryClient.prefetchQuery(
           releasesQueryOptions(
