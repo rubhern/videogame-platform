@@ -153,6 +153,7 @@ class SynchronizationStatusIntegrationTest {
                 """
                 UPDATE catalogue.synchronization_run
                 SET report = report #- '{counters,deletedReleases}' #- '{counters,redundantReleases}'
+                    #- '{counters,dataQualityFailedGames}'
                 """);
 
         FinishedRun legacy = status(T0.plus(Duration.ofHours(1))).recentRuns().getFirst();
@@ -160,6 +161,18 @@ class SynchronizationStatusIntegrationTest {
         assertThat(legacy.result()).isEqualTo(Result.PARTIAL);
         assertThat(legacy.counters().orElseThrow().deletedReleases()).isZero();
         assertThat(legacy.counters().orElseThrow().failedGames()).isEqualTo(2);
+        // Older reports never claim their failures were data quality, so they are never downgraded.
+        assertThat(store.lastRun().orElseThrow().counters().dataQualityFailedGames()).isZero();
+    }
+
+    @Test
+    void theDurableReportKeepsTheDataQualityShareOfItsFailedGames() {
+        finish(T0, SynchronizationOutcome.PARTIAL, 2);
+
+        var counters = store.lastRun().orElseThrow().counters();
+
+        assertThat(counters.failedGames()).isEqualTo(2);
+        assertThat(counters.dataQualityFailedGames()).isEqualTo(2);
     }
 
     private SynchronizationStatus status(Instant now) {
@@ -214,7 +227,8 @@ class SynchronizationStatusIntegrationTest {
                                 0,
                                 0,
                                 0,
-                                0));
+                                0,
+                                failedGames));
         store.completeRun(report, RETAINED_RUNS);
     }
 

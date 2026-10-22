@@ -52,6 +52,47 @@ class CatalogueSynchronizationMetricsTest {
     }
 
     @Test
+    void everyAssessmentIsPreregisteredAndEachFinishedRunCountsUnderItsOwn() {
+        var registry = new SimpleMeterRegistry();
+        var metrics = new CatalogueSynchronizationMetrics(registry);
+
+        // A completed interval whose only failure was a known data-quality failure.
+        metrics.recordRun(
+                report(
+                        SynchronizationOutcome.PARTIAL,
+                        "SYNCHRONIZATION_COMPLETED_WITH_FAILURES",
+                        new Counters(
+                                0, 5, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                0, 0, 0, 0, 0, 1)));
+        metrics.recordRun(report(SynchronizationOutcome.FAILED, "SYNCHRONIZATION_FAILED", none()));
+        metrics.recordRun(
+                report(SynchronizationOutcome.PARTIAL, "SYNCHRONIZATION_STOPPED", none()));
+
+        assertThat(
+                        registry
+                                .find(CatalogueSynchronizationMetrics.ASSESSMENT)
+                                .counters()
+                                .stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                counter -> counter.getId().getTag("assessment"),
+                                                counter -> counter.count())))
+                .containsExactlyInAnyOrderEntriesOf(
+                        Map.of(
+                                "clean", 0.0,
+                                "data_quality", 1.0,
+                                "stopped", 1.0,
+                                "skipped", 0.0,
+                                "attention", 1.0));
+        assertThat(
+                        registry.find("catalogue.synchronization.run.records")
+                                .tag("kind", "data_quality_failed_games")
+                                .summary()
+                                .totalAmount())
+                .isEqualTo(1.0);
+    }
+
+    @Test
     void thePlayerScorePanelsSelectExactlyTheRecordedSeries() throws Exception {
         var registry = new SimpleMeterRegistry();
         new CatalogueSynchronizationMetrics(registry).recordRun(report());
@@ -99,6 +140,25 @@ class CatalogueSynchronizationMetricsTest {
                                 DistributionSummary::totalAmount));
     }
 
+    private static Counters none() {
+        return new Counters(
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0);
+    }
+
+    private static CatalogueSynchronizationReport report(
+            SynchronizationOutcome outcome, String code, Counters counters) {
+        return new CatalogueSynchronizationReport(
+                UUID.fromString("10000000-0000-4000-8000-000000000001"),
+                LocalDate.parse("2026-10-10"),
+                LocalDate.parse("2026-10-13"),
+                Instant.parse("2026-10-14T10:00:00Z"),
+                Instant.parse("2026-10-14T10:01:00Z"),
+                outcome,
+                code,
+                counters);
+    }
+
     private static CatalogueSynchronizationReport report() {
         return new CatalogueSynchronizationReport(
                 UUID.fromString("10000000-0000-4000-8000-000000000001"),
@@ -110,6 +170,6 @@ class CatalogueSynchronizationMetricsTest {
                 "SYNCHRONIZATION_COMPLETED",
                 new Counters(
                         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 31,
-                        32, 33, 34, 35, 36, 37, 38));
+                        32, 33, 34, 35, 36, 37, 38, 0));
     }
 }

@@ -6,7 +6,7 @@
     "version": "0.0.0-synthetic"
   },
   "blocked": false,
-  "checkedAt": "2026-10-22T12:25:06Z",
+  "checkedAt": "2026-10-22T16:02:13Z",
   "checks": [
     {
       "check": "month",
@@ -20,8 +20,8 @@
     },
     {
       "check": "evidence storage",
-      "detail": "/synthetic/evidence is writable with 920.9 GiB free",
-      "freeBytes": 988861902848,
+      "detail": "/synthetic/evidence is writable with 919.8 GiB free",
+      "freeBytes": 987628351488,
       "status": "pass"
     },
     {
@@ -86,8 +86,8 @@
     },
     {
       "check": "docker storage",
-      "detail": "/synthetic has 920.9 GiB free",
-      "freeBytes": 988861902848,
+      "detail": "/synthetic has 919.8 GiB free",
+      "freeBytes": 987628351488,
       "status": "pass"
     }
   ],
@@ -109,8 +109,8 @@
   },
   "host": {
     "cpus": 32,
-    "load1m": 0.34,
-    "memoryAvailableBytes": 14852399104,
+    "load1m": 0.59,
+    "memoryAvailableBytes": 13648986112,
     "name": "synthetic-host"
   },
   "month": "2017-03",

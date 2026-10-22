@@ -17,12 +17,15 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport.Counters;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.OwnedRun;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationStart;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlayerScore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWorkBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ReleasePage;
@@ -40,6 +43,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
+import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderWorkType;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
@@ -48,6 +52,8 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
+import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -170,6 +176,10 @@ class CatalogueSynchronizationServiceTest {
         assertThat(report.counters().createdGames()).isEqualTo(1);
         assertThat(report.counters().deferredGames()).isEqualTo(1);
         assertThat(report.counters().failedGames()).isEqualTo(6);
+        // Only the missing title is a known data-quality failure; the rest need an operator.
+        assertThat(report.counters().dataQualityFailedGames()).isEqualTo(1);
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.ATTENTION);
         assertThat(progress.events)
                 .containsExactly(
                         "started:" + RUN,
@@ -205,6 +215,90 @@ class CatalogueSynchronizationServiceTest {
     }
 
     @Test
+    void isolatedDataQualityFailuresKeepACoveredPartialRunThatNeedsNoOperator() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2", "3"), 4, 3L, true, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Created game", List.of());
+        when(provider.fetchWorks(List.of("2")))
+                .thenReturn(new ProviderWorkBatch(List.of(), ONE_REQUEST));
+        conflictingReleases("3");
+        when(store.saveGame(eq(RUN), any())).thenReturn(new WriteResult(true, false, 0, 0, 0, 0));
+
+        var report = service.synchronize(REQUEST);
+
+        // The failures stay failures: counted, reported, and the run stays PARTIAL.
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED_WITH_FAILURES");
+        assertThat(report.counters().createdGames()).isEqualTo(1);
+        assertThat(report.counters().failedGames()).isEqualTo(2);
+        assertThat(report.counters().dataQualityFailedGames()).isEqualTo(2);
+        assertThat(progress.events)
+                .contains(
+                        "gameFailed:1/2:PROVIDER_GAME:WORK_NOT_RETURNED:none",
+                        "gameFailed:1/3:RECONCILIATION:RELEASE_TUPLE_CONFLICT:unpublished");
+        // The whole interval was read, so its coverage is recorded as before.
+        verify(store).completeCoveredRun(report, 50);
+        verify(store, never()).completeRun(any(), anyInt());
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.DATA_QUALITY);
+    }
+
+    @Test
+    void aProviderPageFailureAfterCommittedGamesInterruptsTheIntervalAndNeedsAttention() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1"), 1, 1L, false, ONE_REQUEST))
+                .thenThrow(
+                        new ProviderRequestException(
+                                ProviderFailureCode.PROVIDER_UNAVAILABLE, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Created game", List.of());
+        when(store.saveGame(eq(RUN), any())).thenReturn(new WriteResult(true, false, 0, 0, 0, 0));
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_INTERRUPTED");
+        assertThat(report.counters().failedGames()).isEqualTo(1);
+        assertThat(report.counters().dataQualityFailedGames()).isZero();
+        verify(store).completeRun(report, 50);
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.ATTENTION);
+    }
+
+    @Test
+    void aSystemicPersistenceFailureNeedsAttentionEvenAmongDataQualityFailures() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2", "3"), 4, 3L, true, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Created game", List.of());
+        when(provider.fetchWorks(List.of("2")))
+                .thenReturn(new ProviderWorkBatch(List.of(), ONE_REQUEST));
+        work("3", ProviderWorkType.MAIN_GAME, "Unwritable game", List.of());
+        when(store.saveGame(eq(RUN), any()))
+                .thenAnswer(
+                        invocation -> {
+                            GameWrite write = invocation.getArgument(1);
+                            if (write.title().equals("Unwritable game")) {
+                                throw new SynchronizationWriteException(
+                                        Reason.PERSISTENCE_CONNECTION_FAILED,
+                                        new IllegalStateException("connection refused"));
+                            }
+                            return new WriteResult(true, false, 0, 0, 0, 0);
+                        });
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED_WITH_FAILURES");
+        assertThat(report.counters().failedGames()).isEqualTo(2);
+        assertThat(report.counters().dataQualityFailedGames()).isEqualTo(1);
+        verify(store).completeCoveredRun(report, 50);
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.ATTENTION);
+    }
+
+    @Test
     void aProviderPageFailureIsARunFailureWithItsProviderCode() {
         startRun();
         when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
@@ -224,6 +318,8 @@ class CatalogueSynchronizationServiceTest {
                         "pageRequested:1",
                         "runFailed:PROVIDER_PAGE:PROVIDER_RATE_LIMITED:-",
                         "finished:FAILED");
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.ATTENTION);
     }
 
     @Test
@@ -329,6 +425,8 @@ class CatalogueSynchronizationServiceTest {
         verify(store).completeRun(report, 50);
         verify(store, never()).completeCoveredRun(any(), anyInt());
         assertThat(progress.events).last().isEqualTo("finished:PARTIAL");
+        assertThat(SynchronizationAssessment.of(report))
+                .isEqualTo(SynchronizationAssessment.STOPPED);
     }
 
     @Test
@@ -850,6 +948,41 @@ class CatalogueSynchronizationServiceTest {
             boolean transparent,
             boolean animated) {
         return new ProviderImage(kind, reference, width, height, transparent, animated);
+    }
+
+    /** Two staged references sharing one release tuple, which no reference stands for. */
+    private void conflictingReleases(String providerId) {
+        var platform = new ProviderPlatform("508", "Nintendo Switch 2", "switch-2");
+        var day = new ReleaseDate.Day(LocalDate.parse("2026-05-01"));
+        when(provider.fetchWorks(List.of(providerId)))
+                .thenReturn(
+                        new ProviderWorkBatch(
+                                List.of(
+                                        new ProviderWork(
+                                                providerId,
+                                                "Conflicting game",
+                                                ProviderWorkType.MAIN_GAME,
+                                                Instant.parse("2026-05-01T00:00:00Z"),
+                                                Optional.empty(),
+                                                List.of(),
+                                                Optional.empty(),
+                                                List.of(
+                                                        new ProviderRelease(
+                                                                "r1",
+                                                                platform,
+                                                                Optional.empty(),
+                                                                day,
+                                                                ProviderReleaseSignal.NONE,
+                                                                ReleaseStage.FULL_RELEASE),
+                                                        new ProviderRelease(
+                                                                "r2",
+                                                                platform,
+                                                                Optional.empty(),
+                                                                day,
+                                                                ProviderReleaseSignal.NONE,
+                                                                ReleaseStage.FULL_RELEASE)),
+                                                List.of())),
+                                ONE_REQUEST));
     }
 
     private void work(

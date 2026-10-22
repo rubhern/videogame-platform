@@ -27,7 +27,9 @@ public record CatalogueSynchronizationReport(
      * valid answer stating none, or re-checked unchanged. A Game that neither held nor now holds a
      * usable score changes none of them. {@code redundantReleases} counts returned release references
      * of committed Games that restated another reference's Release and were not stored (ADR-0017);
-     * they are neither failures nor withheld updates.
+     * they are neither failures nor withheld updates. {@code dataQualityFailedGames} is the part of
+     * {@code failedGames} whose failure was a known, isolated data-quality failure of the provider's
+     * own record; a report written before it existed reads zero.
      */
     public record Counters(
             long inspectedReleaseDates,
@@ -57,5 +59,6 @@ public record CatalogueSynchronizationReport(
             long playerScoreUpdatedGames,
             long playerScoreRemovedGames,
             long playerScoreUnchangedGames,
-            long redundantReleases) {}
+            long redundantReleases,
+            long dataQualityFailedGames) {}
 }

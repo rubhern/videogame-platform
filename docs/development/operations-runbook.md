@@ -172,7 +172,7 @@ no real message delivery or independent detection of host/Grafana failure is pro
 | Sustained product-route latency | Open Application / HTTP for the route/method, then Runtime / Resources for Hikari and bounded database diagnostics; inspect expensive search patterns without logging raw search input. |
 | Hikari connection acquisition pressure (Telegram: *Database connection pool pressure*) | Inspect pending, acquisition timeouts and HTTP 503s in Runtime / Resources; examine database activity/locks and query durations. Reduce an optional operator workload if safe; do not tune pool/quota/SQL without evidence and a separate decision. |
 | Application telemetry unavailable | Check both scrape targets and advancing application uptime in Runtime / Resources, then private readiness/product reads. Healthy scrapes with frozen uptime suggest broken export or an unavailable application; failed scrapes locate a collection problem. A Prometheus query error identifies unavailable telemetry, not proven application downtime. |
-| Catalogue synchronization failed or partial | Open Catalogue Synchronization's retained run reports and logs, inspect failure stage/credentials/provider response, and retry only a justified bounded interval. Confirm success in the durable ledger; automatic alert resolution only expires recent failure evidence. |
+| Catalogue synchronization needs attention | Open Catalogue Synchronization's retained run reports and the run's `finished` log line; its `failures=` tally names each stage and reason. Inspect credentials, provider responses or the datastore as the reasons indicate, and retry only a justified bounded interval. Confirm success in the durable ledger; automatic alert resolution only expires recent failure evidence. The [failure policy](#when-a-synchronization-needs-an-operator) says what is not an incident. |
 
 A single ordinary error, short queue or restart, idle traffic, normal sync, skip or
 lack of sync is intentionally quiet. During planned maintenance, allow the pending
@@ -530,7 +530,8 @@ docker compose --env-file /etc/videogame-platform/dev/runtime.env \
 
 Locally, `docker compose logs --follow application | grep 'Catalogue synchronization'`
 does the same. Expect `started`, then a `progress` line at least every minute, then one
-`finished` line with the outcome, stable code and a `failures=stage/REASON=count` tally.
+`finished` line with the outcome, stable code, assessment and a `failures=stage/REASON=count`
+tally.
 `skipped` names `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`. A
 `game failed` or `run failure` line names the stage and reason. A progress line with
 rising counters means the run is advancing slowly. No progress line for more than about
@@ -539,6 +540,30 @@ its timeout and retries. The event model and levels are in
 [observability](observability.md#application-logs). This procedure is verified by tests
 and a local probe only; it is not yet proven on `vgpdev`. The
 `catalogue.synchronization.*` meters remain the aggregate signal.
+
+### When a synchronization needs an operator
+
+Post-MVP (#246 spike follow-up; implemented, awaiting owner review). Every finished run keeps
+its outcome, failed-Game count, failure tally and coverage. Its assessment,
+[defined in observability](observability.md#correlation-logs-metrics-and-traces), adds only whether someone has to act:
+
+| Assessment | What happened | Operator action |
+|---|---|---|
+| `clean` | Every Game succeeded | None |
+| `data_quality` | The whole interval was read and covered; each failed Game failed with a known IGDB data inconsistency, such as a work the provider did not return or releases that repeat one another | None for the run. The Games keep their last valid state and are retried by the next run of that interval |
+| `stopped` | An operator stopped it | None beyond the decision that caused it. The interval is not covered; request it again when wanted |
+| `skipped` | Disabled, or another run owned the provider | None, unless credentials were expected |
+| `attention` | Failed, interrupted before reading the whole interval, lost its ownership, or failed a Game for any other reason | Alerts. Read the tally and act on its reasons |
+
+Intervene when the alert fires, and when the same interval fails the same Games with the
+same data-quality reason on successive runs while its coverage stays old. Also intervene
+when a data-quality reason appears that earlier runs never showed, or when a run's
+data-quality failures are clearly out of line with comparable intervals: compare
+`failed_games` with `data_quality_failed_games` on the synchronization dashboard and in the run
+reports. These are review triggers, not thresholds: no evidence yet supports a percentage
+that would mean a provider or importer problem. Review them when looking at the dashboard
+after scheduled runs or a planned backfill, and open an issue for a recurring reason instead
+of retrying blindly. Isolated data-quality failures in a covered interval need no action.
 
 Featured releases (#151) rank each month by the IGDB Hypes signal that this same run
 acquires with the existing Game request, together with first-release and distinct-product

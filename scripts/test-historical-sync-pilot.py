@@ -69,7 +69,8 @@ class Sandbox:
             "coverage": [{"from": "2017-03-01", "to": "2017-03-31", "status": "never_covered"}],
             "scenario": {"duration": 2.5}, "run": None, "otherRuns": [], "logs": [],
             "meters": {"providerRequests": 0, "providerUnsuccessful": 0, "providerRetries": 0,
-                       "localization": {"translated": 10, "reused": 0}},
+                       # Nothing localized since application start: the meter is not registered yet.
+                       "localization": {}},
             "games": 1000, "databaseBytes": 50 * 1024**2, "commits": 100,
         }
         for key, value in overrides.items():
@@ -194,6 +195,43 @@ class UnitTest(unittest.TestCase):
             self.assertEqual(len(lines), 6)
             self.assertIn("suppressed", lines[-1])
 
+    def test_timer_totals_follow_the_declared_base_unit_and_an_undeclared_one_is_unavailable(self):
+        measured = {"measurements": [{"statistic": "TOTAL_TIME", "value": 1_112_032.097}]}
+        self.assertAlmostEqual(pilot.seconds({**measured, "baseUnit": "milliseconds"}), 1112.032097)
+        self.assertEqual(pilot.seconds({**measured, "baseUnit": "seconds"}), 1_112_032.097)
+        self.assertIsNone(pilot.seconds(measured))
+        self.assertIsNone(pilot.seconds({**measured, "baseUnit": "fortnights"}))
+
+    def test_lazily_absent_counters_read_zero_only_when_the_scrape_listed_meter_names(self):
+        class Stub:
+            def __init__(self, answers):
+                self.answers = answers
+
+            def management(self, application, paths):
+                return [self.answers.get(path) for path in paths]
+
+        heap = {"measurements": [{"statistic": "VALUE", "value": 1.0}]}
+        listed = {"metrics": {"names": ["jvm.memory.used"]}, "metrics/jvm.memory.used?tag=area:heap": heap}
+        snapshot = pilot.metric_snapshot(Stub(listed), "app")
+        self.assertEqual(snapshot["localization"]["translated"], 0.0)
+        self.assertEqual(snapshot["providerRequests"], 0.0)
+        self.assertIn("localization.translated", snapshot["lazilyAbsentAsZero"])
+        # The names probe failed: nothing is assumed, even though the heap gauge answered.
+        unlisted = {"metrics/jvm.memory.used?tag=area:heap": heap}
+        snapshot = pilot.metric_snapshot(Stub(unlisted), "app")
+        self.assertIsNone(snapshot["localization"]["translated"])
+        self.assertIsNone(snapshot["providerRequests"])
+        self.assertEqual(snapshot["lazilyAbsentAsZero"], [])
+        # A registered meter whose own read failed stays unavailable rather than zero.
+        registered = {"metrics": {"names": ["catalogue.localization.content"]}}
+        self.assertIsNone(pilot.metric_snapshot(Stub(registered), "app")["localization"]["translated"])
+        # A registered meter without that tag value has counted none of it.
+        tagged = {"metrics": {"names": ["catalogue.localization.content"]},
+                  "metrics/catalogue.localization.content": {"availableTags": [{"tag": "outcome", "values": ["translated"]}]},
+                  "metrics/catalogue.localization.content?tag=outcome:translated": {"measurements": [{"statistic": "COUNT", "value": 7}]}}
+        snapshot = pilot.metric_snapshot(Stub(tagged), "app")
+        self.assertEqual((snapshot["localization"]["translated"], snapshot["localization"]["failed"]), (7.0, 0.0))
+
     def test_byte_and_percent_parsing(self):
         self.assertEqual(pilot.byte_size("512MiB"), 512 * 1024**2)
         self.assertEqual(pilot.byte_size(" 1.5GB "), 1_500_000_000)
@@ -223,6 +261,46 @@ class HarnessTest(unittest.TestCase):
         result = sandbox.command("start", "--month", "2017-03", "--interval", "1", "--label", "synthetic-test", *extra)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return sandbox.execution()
+
+    def test_lazy_counters_and_timer_units_are_measured_correctly_end_to_end(self):
+        sandbox = self.sandbox(scenario={"duration": 1.5})
+        directory = self.start(sandbox)
+        sandbox.wait_finished(directory)
+        baseline = json.loads((directory / "baseline.json").read_text())["metrics"]
+        self.assertIn("localization.translated", baseline["lazilyAbsentAsZero"])
+        localization = json.loads((directory / "localization.json").read_text())["contentByOutcome"]
+        translated = localization["translated"]
+        self.assertEqual(translated["status"], "measured")
+        self.assertEqual(translated["value"], sandbox.state()["meters"]["localization"]["translated"])
+        self.assertEqual((localization["failed"]["status"], localization["failed"]["value"]), ("measured", 0.0))
+        meters = json.loads((directory / "synchronization.json").read_text())["providerMeters"]
+        requests = sandbox.state()["meters"]["providerRequests"]
+        self.assertEqual(meters["requests"]["value"], requests)
+        self.assertEqual(meters["requestTimeSeconds"]["unit"], "s")
+        self.assertAlmostEqual(meters["requestTimeSeconds"]["value"], requests * 0.3, places=3)
+        self.assertEqual(json.loads((directory / "methodology.json").read_text())["schemaVersion"], 2)
+
+    def test_older_evidence_is_never_rewritten_and_its_reanalysis_is_labelled(self):
+        sandbox = self.sandbox()
+        evidence = sandbox.root / "2017-03" / "hsp-20261022T141844Z-8b1dce"
+        write_schema_one_evidence(evidence)
+        before = {path.name: path.read_bytes() for path in evidence.iterdir()}
+        shown = sandbox.command("report", "--execution", evidence.name)
+        self.assertEqual(shown.returncode, 0, shown.stderr)
+        self.assertIn("shown unchanged", shown.stdout)
+        output = sandbox.directory / "reanalysis"
+        result = sandbox.command("report", "--evidence-dir", str(evidence), "--output-dir", str(output))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual({path.name: path.read_bytes() for path in evidence.iterdir()}, before)
+        self.assertTrue((output / "summary.md").read_text().startswith("> **RE-ANALYSIS.**"))
+        localization = json.loads((output / "localization.json").read_text())["contentByOutcome"]
+        self.assertEqual((localization["translated"]["status"], localization["translated"]["value"]), ("estimated", 970.0))
+        self.assertEqual((localization["failed"]["status"], localization["failed"]["value"]), ("estimated", 0.0))
+        timer = json.loads((output / "synchronization.json").read_text())["providerMeters"]["requestTimeSeconds"]
+        self.assertEqual((timer["status"], timer["unit"]), ("estimated", "s"))
+        self.assertAlmostEqual(timer["value"], 1112.032, places=3)
+        self.assertEqual(sandbox.command("report", "--evidence-dir", str(evidence), "--output-dir", str(output)).returncode, 2)
+        self.assertEqual(sandbox.command("report", "--evidence-dir", str(evidence), "--output-dir", str(evidence / "x")).returncode, 2)
 
     def test_preflight_passes_and_changes_nothing(self):
         sandbox = self.sandbox()
@@ -292,6 +370,7 @@ class HarnessTest(unittest.TestCase):
         summary = json.loads((directory / "summary.json").read_text())
         self.assertTrue(summary["synthetic"])
         self.assertEqual(summary["applicationOutcome"]["status"], "partial")
+        self.assertEqual(summary["assessment"], "attention")
         self.assertEqual(summary["measured"]["runDurationSeconds"]["status"], "measured")
         self.assertEqual(summary["estimated"]["gamesPerHour"]["status"], "estimated")
         self.assertIn("perPhaseTiming (provider vs reconciliation vs localization)", summary["unavailable"])
@@ -416,6 +495,32 @@ class HarnessTest(unittest.TestCase):
                     self.assertNotIn(secret, text, path.name)
         self.assertIn("[redacted]", (directory / "errors.log").read_text())
         self.assertEqual(sandbox.command("export", "--output", str(sandbox.directory / "out.tar.gz")).returncode, 0)
+
+
+def write_schema_one_evidence(directory: pathlib.Path) -> None:
+    """The shape of the March 2017 schema-1 evidence: lazily absent localization counters at the
+    baseline and the provider timer's raw millisecond total, reduced to what the report reads."""
+    directory.mkdir(parents=True)
+    heap = {"heapUsedBytes": 1.5e8, "processCpuRatio": 0.02}
+    absent = dict.fromkeys(pilot.LOCALIZATION_OUTCOMES)
+    files = {
+        "metadata.json": {"schemaVersion": 1, "executionId": directory.name, "month": "2017-03",
+                          "window": {"from": "2017-03-01", "to": "2017-03-31"}, "label": "synthetic-schema-one",
+                          "sampling": {"intervalSeconds": 30}, "monitorOutcome": "run_finished"},
+        "state.json": {"runId": "8315b644-6f79-4821-96b9-b3f287802314", "runRow": {
+            "status": "partial", "outcomeCode": "SYNCHRONIZATION_COMPLETED_WITH_FAILURES",
+            "startedAt": "2026-10-22T14:18:47.928Z", "completedAt": "2026-10-22T14:48:23.836Z",
+            "report": {"counters": {"createdGames": 993, "unchangedGames": 15, "deferredGames": 163, "failedGames": 3,
+                                    "providerRequests": 2358, "providerRetries": 0, "providerLatencyMillis": 1074718}}}},
+        "baseline.json": {"application": {"startedAt": "2026-10-22T09:00:00Z"}, "metrics": {
+            **heap, "providerRequests": None, "providerTimeSeconds": 0.0, "localization": absent}},
+        "final.json": {"application": {"startedAt": "2026-10-22T09:00:00Z"}, "metrics": {
+            **heap, "providerRequests": 2357.0, "providerTimeSeconds": 1112032.096987,
+            "localization": {**absent, "translated": 970.0, "reused": 1.0, "skipped": 3380.0}}},
+        "summary.md": "# Original schema 1 summary\n",
+    }
+    for name, content in files.items():
+        (directory / name).write_text(content if isinstance(content, str) else json.dumps(content))
 
 
 def write_example(target: pathlib.Path) -> None:

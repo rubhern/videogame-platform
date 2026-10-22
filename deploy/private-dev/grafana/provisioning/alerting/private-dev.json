@@ -321,7 +321,7 @@
         },
         {
           "uid": "vgp-sync-failures",
-          "title": "Catalogue synchronization failed or partial",
+          "title": "Catalogue synchronization needs attention",
           "condition": "B",
           "data": [
             {
@@ -333,7 +333,7 @@
               "datasourceUid": "private-dev-prometheus",
               "model": {
                 "refId": "A",
-                "expr": "sum by (outcome) (increase(catalogue_synchronization_run_total{job=\"application-otlp\",outcome=~\"failed|partial\"}[15m])) > bool 0",
+                "expr": "sum by (assessment) (increase(catalogue_synchronization_run_assessment_total{job=\"application-otlp\",assessment=\"attention\"}[15m])) > bool 0",
                 "instant": true,
                 "range": false,
                 "format": "table",
@@ -382,13 +382,13 @@
           "execErrState": "KeepLast",
           "for": "2m",
           "annotations": {
-            "summary": "Catalogue synchronization failed or partial",
-            "description": "A completed synchronization failed or was partial in the last fifteen minutes. Inspect the retained run report and synchronization logs before a bounded retry. Skips and inactivity do not trigger this rule; resolution is window expiry, not proof of a successful retry.",
+            "summary": "Catalogue synchronization needs attention",
+            "description": "A synchronization in the last fifteen minutes failed, was interrupted before reading its whole interval, lost its ownership, or failed Games for a reason that is not a known data-quality failure. A completed interval whose only failed Games are known IGDB data inconsistencies, an operator stop, skips and inactivity do not trigger this rule; their counts stay on the dashboard and in the run report. Resolution is window expiry, not proof of a successful retry.",
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-synchronization",
             "__panelId__": "10",
             "resolution_kind": "window_expiry",
-            "action": "Open the latest run report and synchronization logs before any bounded retry."
+            "action": "Open the latest run report and its failure tally in the synchronization log before any bounded retry."
           },
           "labels": {
             "environment": "private-dev",

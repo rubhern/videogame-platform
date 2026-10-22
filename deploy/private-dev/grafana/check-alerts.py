@@ -129,10 +129,16 @@ def rule_tests():
     case('timeouts without pending then recovery', [series('hikaricp_connections_pending{job="application-otlp",pool="HikariPool-1"}', '0+0x80'),
         series('hikaricp_connections_timeout_total{job="application-otlp",pool="HikariPool-1"}', '0+0x3 2+0x76')],
         {('vgp-pool-pressure', '5m'): [{}]}, checks=('1m', '5m', '12m'))
-    case('completed failed sync then window expiry', [series('catalogue_synchronization_run_total{job="application-otlp",outcome="failed"}', '0+0x3 1+0x76')],
-         {('vgp-sync-failures', '8m'): [{'outcome': 'failed'}]})
-    case('normal success, skips and idle are quiet', [series('catalogue_synchronization_run_total{job="application-otlp",outcome="succeeded"}', '0+1x80'),
-        series('catalogue_synchronization_run_total{job="application-otlp",outcome="skipped"}', '0+1x80')])
+    case('sync needing attention then window expiry', [series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="attention"}', '0+0x3 1+0x76')],
+         {('vgp-sync-failures', '8m'): [{'assessment': 'attention'}]})
+    case('normal success, skips and idle are quiet', [series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="clean"}', '0+1x80'),
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="skipped"}', '0+1x80')])
+    # A completed interval with only known IGDB data inconsistencies, and an operator stop, are
+    # partial runs by outcome but need no operator.
+    case('data-quality partial and operator stop are quiet', [
+        series('catalogue_synchronization_run_total{job="application-otlp",outcome="partial"}', '0+0x3 2+0x76'),
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="data_quality"}', '0+0x3 1+0x76'),
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="stopped"}', '0+0x3 1+0x76')])
     case('healthy scrape but frozen OTLP', [], {('vgp-telemetry-unavailable', '10m'): [{}]}, checks=('2m', '10m'),
          background=up + [series('process_uptime_milliseconds{job="application-otlp"}', '60000+0x80')])
     case('missing heartbeat with healthy scrape targets', [],
@@ -142,8 +148,9 @@ def rule_tests():
          background=up + [series('process_uptime_milliseconds{job="application-otlp"}',
                                 samples([60000 if i < 24 else (i-22)//2*60000 for i in range(81)]))])
     case('one acquisition timeout is quiet', [series('hikaricp_connections_timeout_total{job="application-otlp",pool="HikariPool-1"}', '0+0x3 1+0x76')])
-    case('partial sync is actionable', [series('catalogue_synchronization_run_total{job="application-otlp",outcome="partial"}', '0+0x3 1+0x76')],
-         {('vgp-sync-failures', '8m'): [{'outcome': 'partial'}]})
+    case('interrupted partial sync is actionable', [series('catalogue_synchronization_run_total{job="application-otlp",outcome="partial"}', '0+0x3 1+0x76'),
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="attention"}', '0+0x3 1+0x76')],
+         {('vgp-sync-failures', '8m'): [{'assessment': 'attention'}]})
     case('scrape down', [], {('vgp-telemetry-unavailable', '8m'): [{}], ('vgp-telemetry-unavailable', '20m'): [{}]},
          background=[up[1], heartbeat, series('up{job="application-otlp"}', '0+0x80')])
     case('missing target and all application data', [], {('vgp-telemetry-unavailable', '8m'): [{}], ('vgp-telemetry-unavailable', '20m'): [{}]}, background=[])
@@ -156,9 +163,9 @@ def rule_tests():
         series('platform_http_errors_total{job="application-otlp",kind="server_failure",code="CATALOGUE_READ_FAILED",status="503"}', samples([min(i,20)*0.3 for i in range(81)]))],
         {('vgp-http-failures','8m'):[{}]})
     case('a later success cannot prove ordered sync recovery', [
-        series('catalogue_synchronization_run_total{job="application-otlp",outcome="failed"}','0+0x3 1+0x76'),
-        series('catalogue_synchronization_run_total{job="application-otlp",outcome="succeeded"}','0+0x5 1+0x74')],
-        {('vgp-sync-failures','8m'):[{'outcome':'failed'}]})
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="attention"}','0+0x3 1+0x76'),
+        series('catalogue_synchronization_run_assessment_total{job="application-otlp",assessment="clean"}','0+0x5 1+0x74')],
+        {('vgp-sync-failures','8m'):[{'assessment':'attention'}]})
     reg='keycloak_user_events_total{job="keycloak-product",realm="videogame-platform",event="register",error=""}'
     case('one observed registration opens one window', [series(reg,'0+0x3 1+0x76')],
          {('vgp-registration-window','4m'):[{}]},checks=('1m','4m','10m'))

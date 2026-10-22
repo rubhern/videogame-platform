@@ -32,6 +32,14 @@ questions about a single month:
 - A detached monitor samples every 30 seconds by default. It takes a baseline and a final
   snapshot and writes self-describing evidence. That evidence is labelled as measured,
   estimated or unavailable, and an unavailable value is never filled in.
+- Harness schema 2 corrects two measurement defects found in the first pilot's schema-1
+  evidence. Provider request time is converted from the base unit the management port
+  declares: the application reports milliseconds, so schema 1's raw total read about a
+  thousand times too large. A counter that is lazily absent from an otherwise answering
+  scrape now reads zero, so localization is no longer unavailable when nothing was
+  localized before the pilot started. A failed probe stays unavailable. A re-analysis
+  leaves the schema-1 evidence unchanged. It labels the inferred values as estimated, and
+  accepts the millisecond reading only where it agrees with the durable report.
 - A month that is already covered measures a re-synchronization: mostly unchanged Games and no
   new identities. It is not comparable with a first import, and the evidence records which one
   it was.

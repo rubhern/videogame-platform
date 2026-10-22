@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -170,8 +171,30 @@ public interface SynchronizationProgress {
      */
     record Failure(Stage stage, String reason, Optional<String> failureType) {
 
+        /**
+         * Game failures whose cause is understood to be the provider's own record: an answer that
+         * omits the requested work, releases that restate or repeat each other, a missing title or
+         * date, or more releases than the approved bound. They isolate one Game and say nothing
+         * about the health of the provider, the datastore or the run. Everything else, including
+         * an unreadable or rejected record that a provider format change could cause, stays
+         * outside this set and needs an operator's attention.
+         */
+        private static final Set<Failure> DATA_QUALITY =
+                Set.of(
+                        of(Stage.PROVIDER_GAME, "WORK_NOT_RETURNED"),
+                        of(Stage.RECONCILIATION, "RELEASE_TUPLE_CONFLICT"),
+                        of(Stage.RECONCILIATION, "DUPLICATE_RELEASE_REFERENCE"),
+                        of(Stage.VALIDATION, "TITLE_MISSING"),
+                        of(Stage.VALIDATION, "RELEASE_LIMIT_EXCEEDED"),
+                        of(Stage.VALIDATION, ProviderMappingFailure.RELEASE_DATE_INVALID.name()));
+
         public static Failure of(Stage stage, String reason) {
             return new Failure(stage, reason, Optional.empty());
+        }
+
+        /** Whether this is a known, isolated data-quality failure of one provider record. */
+        public boolean dataQuality() {
+            return failureType.isEmpty() && DATA_QUALITY.contains(this);
         }
     }
 }

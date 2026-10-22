@@ -153,6 +153,7 @@ def synthetic_metrics(count):
     for action in ('created','updated','deleted'):
         counter('ratings.personal.activity', {'action':action})
     counter('catalogue.synchronization.run', {'outcome': 'succeeded'})
+    counter('catalogue.synchronization.run.assessment', {'assessment': 'clean'})
     histogram('catalogue.synchronization.run.duration', {'outcome': 'succeeded'}, 'ms')
     histogram('catalogue.synchronization.run.records', {'kind': 'unchanged_games'})
     histogram('catalogue.synchronization.run.records', {'kind': 'logo_observed_games'})
@@ -385,7 +386,7 @@ assert seen == expected_uids
 assert {item["uid"] for item in request("http://grafana:3000/api/search?type=dash-db", authenticated=True)} == expected_uids, "Obsolete or duplicate dashboards remain"
 series = query('{job="application-otlp"}')
 allowed = {'__name__', 'job', 'instance', 'uri', 'method', 'status', 'outcome', 'le', 'area', 'id',
-           'exception', 'error', 'action', 'cause', 'state', 'pool', 'name', 'sort', 'eligibility', 'aggregate', 'kind', 'operation', 'reason', 'code', 'freshness', 'month', 'lead_image'}
+           'exception', 'error', 'action', 'cause', 'state', 'pool', 'name', 'sort', 'eligibility', 'aggregate', 'kind', 'operation', 'reason', 'code', 'freshness', 'month', 'lead_image', 'assessment'}
 for sample in series:
     assert set(sample['metric']) <= allowed, 'Unexpected stored metric dimension'
     assert sample['metric'].get('instance') == 'telemetry:9464', 'Unbounded resource instance stored'

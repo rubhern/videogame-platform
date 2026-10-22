@@ -3,18 +3,18 @@
 
 # Historical synchronization pilot 2017-03
 
-- Execution: `hsp-20261022T122506Z-77b304`; label: synthetic-example
+- Execution: `hsp-20261022T160213Z-b943b4`; label: synthetic-example
 - Window: 2017-03-01..2017-03-31 (inclusive, UC-009 management trigger)
 - Environment: private-dev on synthetic-host; application 0.0.0-synthetic (0000000000000000000000000000000000000000)
 - Previously covered: none; recurring scheduling: disabled
-- Application run: `e5f86f5e-6202-46b1-98e9-9e0957a3a31f`, outcome **partial** `SYNCHRONIZATION_PARTIAL`
-- Monitor: 2026-10-22T12:25:06Z → 2026-10-22T12:25:12Z, outcome `run_finished`, 5 samples every 1 s
+- Application run: `9cb0d8ab-1012-4c40-87a6-6f60bdacd38b`, outcome **partial** `SYNCHRONIZATION_COMPLETED_WITH_FAILURES`, assessment `attention`
+- Monitor: 2026-10-22T16:02:13Z → 2026-10-22T16:02:19Z, outcome `run_finished`, 5 samples every 1 s
 
 ## Measured
 
 | Measurement | Value | Basis |
 |---|---|---|
-| runDurationSeconds | 4.174 s (measured) | synchronization_run completed_at - started_at (database clock) |
+| runDurationSeconds | 4.104 s (measured) | synchronization_run completed_at - started_at (database clock) |
 | gamesAccounted | 130 Games (measured) | created+updated+unchanged+deferred+failed from the durable report |
 | releasesAccounted | 100 Releases (measured) | created+updated+unchanged from the durable report |
 | providerRequests | 40 requests (measured) | durable report, attempts including retries |
@@ -28,9 +28,9 @@
 
 | Estimate | Value | Basis |
 |---|---|---|
-| gamesPerHour | 112,134.27 Games/h (estimated) | Games accounted / run duration |
-| providerRequestsPerSecond | 9.584 requests/s (estimated) | mean over the whole run; the configured ceiling is IGDB_REQUESTS_PER_SECOND |
-| providerTimeShare | 2.396 ratio (estimated) | summed provider latency / run duration; above about 0.8 means provider-bound |
+| gamesPerHour | 114,041.59 Games/h (estimated) | Games accounted / run duration |
+| providerRequestsPerSecond | 9.747 requests/s (estimated) | mean over the whole run; the configured ceiling is IGDB_REQUESTS_PER_SECOND |
+| providerTimeShare | 2.437 ratio (estimated) | summed provider latency / run duration; above about 0.8 means provider-bound |
 | secondsPerGame | 0.032 s/Game (estimated) | run duration / Games accounted |
 
 ## Resources (sampled)
@@ -41,7 +41,7 @@
 - Database pool active / pending: mean 1.0, sampled max 1.0 (5 samples) / mean 0.0, sampled max 0.0 (5 samples)
 - PostgreSQL container CPU: mean 42.5 %, sampled max 42.5 % (5 samples); memory: mean 512.0 MiB, sampled max 512.0 MiB (5 samples)
 - Longest open transaction: mean 0.4 s, sampled max 0.4 s (5 samples)
-- Host load (1 min): mean 0.4, sampled max 0.4 (5 samples)
+- Host load (1 min): mean 0.6, sampled max 0.6 (5 samples)
 - Harness sampling time (observer overhead): mean 0.1 s, sampled max 0.1 s (5 samples)
 - Database growth: 163,840 bytes (measured)
 - Catalogue growth: games 60 rows (measured), releases 120 rows (measured), featuredEvidenceGames 60 rows (measured), coverageIntervals 0 rows (measured)

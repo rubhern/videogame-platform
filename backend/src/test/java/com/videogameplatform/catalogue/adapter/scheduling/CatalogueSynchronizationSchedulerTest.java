@@ -160,6 +160,7 @@ class CatalogueSynchronizationSchedulerTest {
                                                                         "trigger",
                                                                         "policy",
                                                                         "outcome",
+                                                                        "assessment",
                                                                         "kind",
                                                                         "operation",
                                                                         "reason")));
@@ -284,6 +285,6 @@ class CatalogueSynchronizationSchedulerTest {
                 code,
                 new CatalogueSynchronizationReport.Counters(
                         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0));
+                        0, 0, 0, 0));
     }
 }

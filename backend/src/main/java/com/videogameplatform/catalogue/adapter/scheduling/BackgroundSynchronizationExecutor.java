@@ -1,14 +1,15 @@
 package com.videogameplatform.catalogue.adapter.scheduling;
 
+import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.observability.SynchronizationTrigger;
 import com.videogameplatform.catalogue.application.synchronization.OwnedRun;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.BackgroundSynchronization;
 import java.util.concurrent.ExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
 
 /**
  * Executes operator-requested runs on the composition root's executor and records them under the
@@ -50,15 +51,11 @@ public final class BackgroundSynchronizationExecutor
             var report = run.execute();
             outcome = report.outcome();
             metrics.recordRun(report);
-            LOGGER.atLevel(
-                            switch (outcome) {
-                                case FAILED -> Level.ERROR;
-                                case PARTIAL -> Level.WARN;
-                                default -> Level.INFO;
-                            })
+            LOGGER.atLevel(CatalogueSynchronizationLog.resultLevel(report))
                     .addKeyValue(TRIGGER_FIELD, TRIGGER.type())
                     .addKeyValue("sync.outcome", outcome)
                     .addKeyValue("sync.code", report.outcomeCode())
+                    .addKeyValue("sync.assessment", SynchronizationAssessment.of(report).tag())
                     .log(
                             "Catalogue synchronization requested result: outcome={} code={}",
                             outcome,

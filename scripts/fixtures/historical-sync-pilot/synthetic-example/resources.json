@@ -22,7 +22,7 @@
       "memoryLimitBytes": 0,
       "startedAt": "2026-10-22T08:00:00.000000000Z"
     },
-    "at": "2026-10-22T12:25:06Z",
+    "at": "2026-10-22T16:02:14Z",
     "containers": {
       "application": {
         "cpuPercent": 42.5,
@@ -45,7 +45,7 @@
     },
     "database": {
       "activeQueries": 1,
-      "clock": "2026-10-22T12:25:06.802501Z",
+      "clock": "2026-10-22T16:02:14.062618Z",
       "committed": 100,
       "connections": 7,
       "deleted": 0,
@@ -57,10 +57,10 @@
     },
     "host": {
       "cpus": 32,
-      "dockerFreeBytes": 988861874176,
-      "evidenceFreeBytes": 988861874176,
-      "load1m": 0.34,
-      "memoryAvailableBytes": 14838161408
+      "dockerFreeBytes": 987628322816,
+      "evidenceFreeBytes": 987628322816,
+      "load1m": 0.59,
+      "memoryAvailableBytes": 13648986112
     },
     "inventory": {
       "coverageIntervals": 3,
@@ -76,23 +76,36 @@
     "metrics": {
       "heapMaxBytes": 1073741824.0,
       "heapUsedBytes": 314572800.0,
+      "lazilyAbsentAsZero": [
+        "providerRequests",
+        "providerSuccessful",
+        "mappingFailures",
+        "localization.translated",
+        "localization.reused",
+        "localization.skipped",
+        "localization.failed",
+        "localization.busy",
+        "localization.fallback"
+      ],
       "localization": {
         "busy": 0.0,
         "failed": 0.0,
         "fallback": 0.0,
         "reused": 0.0,
         "skipped": 0.0,
-        "translated": 10.0
+        "translated": 0.0
       },
       "mappingFailures": 0.0,
+      "meterNamesListed": true,
       "poolActive": 1.0,
       "poolPending": 0.0,
       "processCpuRatio": 0.25,
-      "providerRequests": null,
+      "providerRequests": 0.0,
       "providerRetries": 0.0,
-      "providerSuccessful": null,
+      "providerSuccessful": 0.0,
+      "providerTimeBaseUnit": "milliseconds",
       "providerTimeSeconds": 0.0,
-      "providerUnsuccessful": null
+      "providerUnsuccessful": 0.0
     }
   },
   "catalogueGrowth": {
@@ -174,7 +187,7 @@
       "memoryLimitBytes": 0,
       "startedAt": "2026-10-22T08:00:00.000000000Z"
     },
-    "at": "2026-10-22T12:25:12Z",
+    "at": "2026-10-22T16:02:19Z",
     "containers": {
       "application": {
         "cpuPercent": 42.5,
@@ -197,7 +210,7 @@
     },
     "database": {
       "activeQueries": 1,
-      "clock": "2026-10-22T12:25:12.262709Z",
+      "clock": "2026-10-22T16:02:19.606856Z",
       "committed": 220,
       "connections": 7,
       "deleted": 0,
@@ -209,10 +222,10 @@
     },
     "host": {
       "cpus": 32,
-      "dockerFreeBytes": 988861833216,
-      "evidenceFreeBytes": 988861833216,
-      "load1m": 0.39,
-      "memoryAvailableBytes": 14887182336
+      "dockerFreeBytes": 987628281856,
+      "evidenceFreeBytes": 987628281856,
+      "load1m": 0.55,
+      "memoryAvailableBytes": 13638078464
     },
     "inventory": {
       "coverageIntervals": 3,
@@ -228,40 +241,49 @@
     "metrics": {
       "heapMaxBytes": 1073741824.0,
       "heapUsedBytes": 356515840.0,
+      "lazilyAbsentAsZero": [
+        "mappingFailures",
+        "localization.skipped",
+        "localization.failed",
+        "localization.busy",
+        "localization.fallback"
+      ],
       "localization": {
         "busy": 0.0,
         "failed": 0.0,
         "fallback": 0.0,
         "reused": 20.0,
         "skipped": 0.0,
-        "translated": 50.0
+        "translated": 40.0
       },
       "mappingFailures": 0.0,
+      "meterNamesListed": true,
       "poolActive": 1.0,
       "poolPending": 0.0,
       "processCpuRatio": 0.25,
       "providerRequests": 40.0,
       "providerRetries": 10.0,
       "providerSuccessful": 40.0,
+      "providerTimeBaseUnit": "milliseconds",
       "providerTimeSeconds": 12.0,
       "providerUnsuccessful": 0.0
     }
   },
   "hostLoad1m": {
-    "first": 0.34,
-    "last": 0.39,
-    "max": 0.39,
-    "mean": 0.37,
-    "min": 0.34,
+    "first": 0.59,
+    "last": 0.55,
+    "max": 0.59,
+    "mean": 0.566,
+    "min": 0.55,
     "samples": 5,
     "status": "measured"
   },
   "hostMemoryAvailableBytes": {
-    "first": 14838460416.0,
-    "last": 14886539264.0,
-    "max": 14886539264.0,
-    "mean": 14862276198.4,
-    "min": 14838460416.0,
+    "first": 13646286848.0,
+    "last": 13638066176.0,
+    "max": 13654573056.0,
+    "mean": 13643024793.6,
+    "min": 13638049792.0,
     "samples": 5,
     "status": "measured"
   },
@@ -302,11 +324,11 @@
     "status": "measured"
   },
   "sampleDurationSeconds": {
-    "first": 0.1,
+    "first": 0.11,
     "last": 0.13,
     "max": 0.13,
-    "mean": 0.122,
-    "min": 0.1,
+    "mean": 0.12,
+    "min": 0.11,
     "samples": 5,
     "status": "measured"
   }

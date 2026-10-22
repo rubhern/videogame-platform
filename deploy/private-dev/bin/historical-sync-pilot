@@ -37,7 +37,9 @@ import time
 
 sys.dont_write_bytecode = True
 
-SCHEMA_VERSION = 1
+# 2: meters lazily absent from a successful scrape read zero, and timer totals are converted from
+# the base unit the management port declares. Evidence of an older schema is never rewritten.
+SCHEMA_VERSION = 2
 repository_root = pathlib.Path(__file__).resolve().parents[3]
 compose_file = repository_root / "deploy/private-dev/compose.yaml"
 DEFAULT_ENV_FILE = pathlib.Path("/etc/videogame-platform/dev/runtime.env")
@@ -93,7 +95,7 @@ COLUMN_MEANINGS = {
     "stop_requested": "true once an operator requested the UC-013 stop",
     "progress_*": "fields of the application's latest INFO progress line (at most one a minute); cumulative for the run",
     "progress_log_age_s": "seconds since that progress line",
-    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s, mapping failures",
+    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s (converted from the base unit the management port declares), mapping failures",
     "meter_localization_<outcome>": "process-cumulative catalogue.localization.content count for that outcome, all kinds",
     "jvm_heap_used_bytes / jvm_heap_max_bytes": "JVM heap gauges, bytes",
     "process_cpu_ratio": "JVM process CPU usage, 0..1 of the whole container allowance",
@@ -113,6 +115,9 @@ COLUMN_MEANINGS = {
 METHODOLOGY = {
     "sampling": "one row per interval; every value is a point reading, so a sampled maximum is a lower bound",
     "emptyCell": "unavailable: the probe failed or the source does not exist yet; never zero",
+    "lazyCounters": "a counter registers on its first increment; when the same scrape lists the registered meter names and the counter (or its tag value) is absent, it reads 0, and the snapshot lists it under lazilyAbsentAsZero; a failed probe stays empty",
+    "timerUnits": "timer totals are converted to seconds from the baseUnit each answer declares (milliseconds for the application's OTLP registry); an undeclared unit is unavailable",
+    "schemaChanges": "evidence keeps the schemaVersion it was collected with; report never rewrites older evidence and derives a re-analysis into another directory with --output-dir",
     "measured": "read from the durable run report, PostgreSQL, Docker or the application's meters",
     "estimated": "arithmetic on measured values, labelled with its basis",
     "redaction": "external text is redacted for credentials, tokens and e-mail addresses and truncated; Game identities are not kept",
@@ -484,6 +489,9 @@ DB_CLOCK = "SELECT to_json(clock_timestamp());\n"
 def metric_paths() -> list[tuple[str, str]]:
     """Management metric reads for one sample: (key, path)."""
     paths = [
+        # The registered meter names tell a lazily absent meter from a failed probe.
+        ("names", "metrics"),
+        ("localization", "metrics/catalogue.localization.content"),
         ("provider_requests", "metrics/catalogue.synchronization.provider.request"),
         ("provider_success", "metrics/catalogue.synchronization.provider.request?tag=outcome:success"),
         ("provider_retries", "metrics/catalogue.synchronization.provider.retry"),
@@ -510,25 +518,80 @@ def statistic(answer: object, name: str) -> float | None:
     return None
 
 
+SECONDS_PER_BASE_UNIT = {"nanoseconds": 1e-9, "microseconds": 1e-6, "milliseconds": 1e-3, "seconds": 1.0}
+PROVIDER_REQUEST_METER = "catalogue.synchronization.provider.request"
+MAPPING_FAILURE_METER = "catalogue.synchronization.provider.mapping.failure"
+LOCALIZATION_METER = "catalogue.localization.content"
+
+
+def seconds(answer: object) -> float | None:
+    """A timer's TOTAL_TIME in seconds, from the base unit the management port declares.
+
+    The application's OTLP registry reports milliseconds, so a raw total read as seconds would be a
+    thousand times too large; an undeclared or unknown unit is unavailable, never guessed.
+    """
+    total = statistic(answer, "TOTAL_TIME")
+    factor = SECONDS_PER_BASE_UNIT.get(str((answer or {}).get("baseUnit", "")).lower()) if isinstance(answer, dict) else None
+    return None if total is None or factor is None else total * factor
+
+
+def tag_values(answer: object, tag: str) -> set[str] | None:
+    if not isinstance(answer, dict):
+        return None
+    for item in answer.get("availableTags") or []:
+        if isinstance(item, dict) and item.get("tag") == tag:
+            return {str(found) for found in item.get("values") or []}
+    return set()
+
+
+def counter(value: float | None, names: set[str] | None, meter: str, tags: set[str] | None = None,
+            tag: str | None = None, zeros: list[str] | None = None, key: str = "") -> float | None:
+    """A counter, or zero when it is lazily absent from a scrape that otherwise answered.
+
+    Micrometer registers a counter, or one of its tag values, only on its first increment, so the
+    management port answers 404 until then. That reads as zero only when the same scrape listed
+    the registered meter names and the meter (or tag value) is absent from them; a failed or
+    incomplete probe stays unavailable.
+    """
+    if value is not None:
+        return value
+    absent = names is not None and (meter not in names or (tag is not None and tags is not None and tag not in tags))
+    if absent and zeros is not None:
+        zeros.append(key)
+    return 0.0 if absent else None
+
+
 def metric_snapshot(runtime: Runtime, application: str | None) -> dict:
     if not application:
         return {}
     keys, paths = zip(*metric_paths())
     answers = dict(zip(keys, runtime.management(application, list(paths))))
+    listed = answers["names"].get("names") if isinstance(answers["names"], dict) else None
+    names = {str(name) for name in listed} if isinstance(listed, list) else None
+    outcomes = tag_values(answers["provider_requests"], "outcome")
+    localized = tag_values(answers["localization"], "outcome")
+    zeros: list[str] = []
     snapshot = {
-        "providerRequests": statistic(answers["provider_requests"], "COUNT"),
-        "providerSuccessful": statistic(answers["provider_success"], "COUNT"),
+        "providerRequests": counter(statistic(answers["provider_requests"], "COUNT"), names, PROVIDER_REQUEST_METER,
+                                    zeros=zeros, key="providerRequests"),
+        "providerSuccessful": counter(statistic(answers["provider_success"], "COUNT"), names, PROVIDER_REQUEST_METER,
+                                      outcomes, "success", zeros, "providerSuccessful"),
         "providerRetries": statistic(answers["provider_retries"], "COUNT"),
-        "providerTimeSeconds": statistic(answers["provider_time"], "TOTAL_TIME"),
-        "mappingFailures": statistic(answers["mapping_failures"], "COUNT"),
+        "providerTimeSeconds": seconds(answers["provider_time"]),
+        "providerTimeBaseUnit": (answers["provider_time"] or {}).get("baseUnit") if isinstance(answers["provider_time"], dict) else None,
+        "mappingFailures": counter(statistic(answers["mapping_failures"], "COUNT"), names, MAPPING_FAILURE_METER,
+                                   zeros=zeros, key="mappingFailures"),
         "heapUsedBytes": statistic(answers["heap_used"], "VALUE"),
         "heapMaxBytes": statistic(answers["heap_max"], "VALUE"),
         "processCpuRatio": statistic(answers["process_cpu"], "VALUE"),
         "poolActive": statistic(answers["pool_active"], "VALUE"),
         "poolPending": statistic(answers["pool_pending"], "VALUE"),
-        "localization": {outcome: statistic(answers[f"localization_{outcome}"], "COUNT") for outcome in LOCALIZATION_OUTCOMES},
+        "localization": {outcome: counter(statistic(answers[f"localization_{outcome}"], "COUNT"), names, LOCALIZATION_METER,
+                                          localized, outcome, zeros, f"localization.{outcome}")
+                         for outcome in LOCALIZATION_OUTCOMES},
+        "meterNamesListed": names is not None,
+        "lazilyAbsentAsZero": zeros,
     }
-    # A meter absent from the registry answers 404, which reads as unavailable rather than zero.
     if snapshot["providerRequests"] is not None and snapshot["providerSuccessful"] is not None:
         snapshot["providerUnsuccessful"] = snapshot["providerRequests"] - snapshot["providerSuccessful"]
     else:
@@ -544,7 +607,7 @@ PROGRESS = re.compile(
     r" updated=(?P<updated>\d+) unchanged=(?P<unchanged>\d+) deferred=(?P<deferred>\d+) failed=(?P<failed>\d+)\]"
     r" release_dates_inspected=(?P<dates>\d+) provider\[requests=(?P<requests>\d+) retries=(?P<retries>\d+)\]")
 FINISHED = re.compile(r"Catalogue synchronization finished: run=(?P<run>\S+) outcome=(?P<outcome>\S+) code=(?P<code>\S+)"
-                      r" .*? pages=(?P<pages>\d+) .*?failures=(?P<failures>\S+)\s*$")
+                      r"(?: assessment=(?P<assessment>[a-z_]+))? .*? pages=(?P<pages>\d+) .*?failures=(?P<failures>\S+)\s*$")
 GAME_FAILED = re.compile(r"Catalogue synchronization game failed: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
 RUN_FAILURE = re.compile(r"Catalogue synchronization run failure: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
 LOOKUP_UNAVAILABLE = re.compile(r"Catalogue synchronization page lookup unavailable: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
@@ -621,6 +684,8 @@ class LogFollower:
             if finished:
                 self.state["finishedLog"] = {
                     "outcome": finished.group("outcome"), "code": finished.group("code"),
+                    # Applications before the run assessment existed log none.
+                    "assessment": finished.group("assessment"),
                     "pages": int(finished.group("pages")), "failures": redact(finished.group("failures"), 500),
                     "at": iso(moment),
                 }
@@ -1316,7 +1381,13 @@ def value(status: str, amount: object = None, unit: str = "", basis: str = "") -
     return entry
 
 
-def build_report(directory: pathlib.Path) -> dict:
+def build_report(directory: pathlib.Path, output: pathlib.Path | None = None) -> dict:
+    """Derive the report files from the evidence in `directory`, writing them to `output`.
+
+    The default output is the evidence directory itself; a re-analysis of older evidence names
+    another directory so the original files stay exactly as collected.
+    """
+    out = output or directory
     metadata = read_json(directory / "metadata.json")
     state = read_json(directory / "state.json")
     baseline = read_json(directory / "baseline.json")
@@ -1349,23 +1420,53 @@ def build_report(directory: pathlib.Path) -> dict:
     metrics_first, metrics_last = baseline.get("metrics") or {}, final.get("metrics") or {}
     restarted = (baseline.get("application") or {}).get("startedAt") != (final.get("application") or {}).get("startedAt")
     meter_basis = "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads"
+    schema = metadata.get("schemaVersion")
+    # Schema 1 snapshots did not list the registered meter names, so a counter missing from a
+    # scrape whose always-registered heap gauge answered is inferred to be lazily absent.
+    legacy_inference = schema == 1
 
-    def meter_delta(key: str) -> dict:
+    def snapshot_counter(snapshot: dict, get) -> tuple[float | None, bool]:
+        found = get(snapshot)
+        if found is None and legacy_inference and snapshot.get("heapUsedBytes") is not None:
+            return 0.0, True
+        return found, False
+
+    def counter_delta(get, unit: str) -> dict:
         if restarted:
             return value("unavailable", basis="application restarted between baseline and final, so its meters reset")
-        first, last = metrics_first.get(key), metrics_last.get(key)
-        if first is None and isinstance(last, (int, float)) and metrics_first:
-            # Outcome-tagged provider meters exist only after the first request since application start.
-            return value("estimated", last, "count", meter_basis + "; baseline meter absent, treated as zero")
-        return value("measured", delta(first, last), "count", meter_basis)
+        (first, inferred_first), (last, inferred_last) = snapshot_counter(metrics_first, get), snapshot_counter(metrics_last, get)
+        if inferred_first or inferred_last:
+            return value("estimated", delta(first, last), unit, meter_basis + "; schema 1 evidence did not record meter "
+                         "registration, so a counter absent from an otherwise answering scrape is taken as not yet registered")
+        lazy = "; a meter absent from the registered names of an answering scrape counts as zero"
+        return value("measured", delta(first, last), unit, meter_basis + lazy)
 
-    localization_delta = {}
-    for outcome in LOCALIZATION_OUTCOMES:
-        first = (metrics_first.get("localization") or {}).get(outcome)
-        last = (metrics_last.get("localization") or {}).get(outcome)
-        localization_delta[outcome] = (value("unavailable", basis="application restarted") if restarted
-                                       else value("measured", delta(first, last), "items", meter_basis))
-    write_json(directory / "localization.json", {
+    def meter_delta(key: str) -> dict:
+        return counter_delta(lambda snapshot: snapshot.get(key), "count")
+
+    def provider_time() -> dict:
+        if restarted:
+            return value("unavailable", basis="application restarted between baseline and final, so its meters reset")
+        first, last = metrics_first.get("providerTimeSeconds"), metrics_last.get("providerTimeSeconds")
+        if schema != 1:
+            return value("measured", delta(first, last), "s", meter_basis + "; TOTAL_TIME converted from the declared base unit")
+        # Schema 1 stored the raw TOTAL_TIME without its base unit. The application's OTLP registry
+        # declares milliseconds; accept that conversion only when it agrees with the durable report.
+        raw = delta(first, last)
+        if raw is None or not isinstance(latency, (int, float)) or latency <= 0:
+            return value("unavailable", basis="schema 1 evidence recorded the timer without its base unit")
+        converted = raw / 1000
+        if not 0.5 <= converted / (latency / 1000) <= 2:
+            return value("unavailable", basis="schema 1 evidence recorded the timer without its base unit, "
+                         "and a millisecond reading disagrees with the durable report")
+        return value("estimated", converted, "s", meter_basis + "; schema 1 recorded the raw total without its base "
+                     "unit, read as milliseconds (the application's OTLP registry) and cross-checked against the "
+                     "durable report's summed latency")
+
+    localization_delta = {
+        outcome: counter_delta(lambda snapshot, outcome=outcome: (snapshot.get("localization") or {}).get(outcome), "items")
+        for outcome in LOCALIZATION_OUTCOMES}
+    write_json(out / "localization.json", {
         "contentByOutcome": localization_delta,
         "helperHealthBaseline": baseline.get("localizerHealth"), "helperHealthFinal": final.get("localizerHealth"),
         "helperCpuPercent": aggregate(rows, "localizer_cpu_percent"),
@@ -1399,7 +1500,7 @@ def build_report(directory: pathlib.Path) -> dict:
                                        "free space on the Docker root filesystem; includes everything else on it"),
         "baseline": baseline, "final": final,
     }
-    write_json(directory / "resources.json", resources)
+    write_json(out / "resources.json", resources)
     progress = state.get("progress") or {}
     synchronization = {
         "runId": state.get("runId"), "applicationOutcome": application_outcome,
@@ -1410,9 +1511,9 @@ def build_report(directory: pathlib.Path) -> dict:
         "failureTally": state.get("failureTally") or {}, "applicationWarnings": state.get("applicationWarnings", 0),
         "providerMeters": {"requests": meter_delta("providerRequests"), "unsuccessful": meter_delta("providerUnsuccessful"),
                            "retries": meter_delta("providerRetries"), "mappingFailures": meter_delta("mappingFailures"),
-                           "requestTimeSeconds": meter_delta("providerTimeSeconds")},
+                           "requestTimeSeconds": provider_time()},
     }
-    write_json(directory / "synchronization.json", synchronization)
+    write_json(out / "synchronization.json", synchronization)
 
     measured = {
         "runDurationSeconds": value("measured", duration, "s", "synchronization_run completed_at - started_at (database clock)"),
@@ -1437,7 +1538,8 @@ def build_report(directory: pathlib.Path) -> dict:
     unavailable += ["perPhaseTiming (provider vs reconciliation vs localization)", "translationLatency",
                     "perGameWriteLatency", "providerRateLimitWaits", "ioWaitPerContainer"]
     summary = {
-        "schemaVersion": SCHEMA_VERSION, "synthetic": synthetic,
+        "schemaVersion": SCHEMA_VERSION, "evidenceSchemaVersion": schema, "synthetic": synthetic,
+        "reanalysis": out != directory,
         "executionId": metadata.get("executionId"), "month": metadata.get("month"), "window": metadata.get("window"),
         "label": metadata.get("label"), "environment": metadata.get("environment"), "application": metadata.get("application"),
         "previouslyCovered": metadata.get("previouslyCovered"), "scheduling": (metadata.get("scheduling") or {}).get("status"),
@@ -1445,13 +1547,14 @@ def build_report(directory: pathlib.Path) -> dict:
                     "outcome": metadata.get("monitorOutcome") or state.get("monitorOutcome") or "unfinished",
                     "samples": len(rows), "intervalSeconds": (metadata.get("sampling") or {}).get("intervalSeconds")},
         "applicationOutcome": application_outcome, "runId": state.get("runId"),
+        "assessment": (state.get("finishedLog") or {}).get("assessment"),
         "measured": measured, "estimated": estimated, "unavailable": unavailable,
         "failureTally": state.get("failureTally") or {},
         "applicationRestarted": restarted if baseline and final else None,
         "stopRequested": bool(run_row.get("stopRequestedAt") or state.get("stopObserved")),
     }
-    write_json(directory / "summary.json", summary)
-    (directory / "summary.md").write_text(render_summary(summary, resources, localization_delta), encoding="utf-8")
+    write_json(out / "summary.json", summary)
+    (out / "summary.md").write_text(render_summary(summary, resources, localization_delta), encoding="utf-8")
     return summary
 
 
@@ -1471,6 +1574,10 @@ def show_aggregate(entry: dict, scale: float = 1.0, unit: str = "") -> str:
 
 def render_summary(summary: dict, resources: dict, localization: dict) -> str:
     lines = []
+    if summary.get("reanalysis"):
+        lines += [f"> **RE-ANALYSIS.** Harness schema {summary['schemaVersion']} derived this summary from schema "
+                  f"{summary.get('evidenceSchemaVersion')} evidence, which stays unchanged in its own directory. "
+                  "Values it could only infer are labelled estimated.", ""]
     if summary["synthetic"]:
         lines += ["> **SYNTHETIC EVIDENCE.** Generated by the harness tests from a fake runtime. It proves the",
                   "> evidence format only; none of its values is a real throughput or resource measurement.", ""]
@@ -1485,7 +1592,8 @@ def render_summary(summary: dict, resources: dict, localization: dict) -> str:
         f"application {application.get('version') or 'unavailable'} ({application.get('sourceRevision') or 'revision unavailable'})",
         f"- Previously covered: {summary.get('previouslyCovered') or 'unavailable'}; recurring scheduling: {summary.get('scheduling') or 'unavailable'}",
         f"- Application run: `{summary.get('runId') or 'not identified'}`, outcome **{outcome['status']}** "
-        f"`{outcome.get('code') or ''}`" + ("; a stop was requested" if summary["stopRequested"] else ""),
+        f"`{outcome.get('code') or ''}`, assessment `{summary.get('assessment') or 'not logged'}`"
+        + ("; a stop was requested" if summary["stopRequested"] else ""),
         f"- Monitor: {monitor['startedAt']} → {monitor['endedAt'] or 'still running or lost'}, outcome `{monitor['outcome']}`, "
         f"{monitor['samples']} samples every {monitor['intervalSeconds']} s",
     ]
@@ -1600,9 +1708,36 @@ def command_stop(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def reanalyze(directory: pathlib.Path, output: pathlib.Path) -> int:
+    """Derive current-schema report files from any evidence directory into a separate one."""
+    directory, output = directory.resolve(), output.resolve()
+    if not (directory / "metadata.json").is_file():
+        raise PilotError(f"{directory} holds no pilot evidence (metadata.json is missing)")
+    if output == directory or directory in output.parents:
+        raise PilotError("--output-dir must be outside the evidence directory, which is never rewritten")
+    if output.exists() and any(output.iterdir()):
+        raise PilotError(f"{output} already exists and is not empty")
+    output.mkdir(parents=True, exist_ok=True)
+    build_report(directory, output)
+    print((output / "summary.md").read_text(encoding="utf-8"))
+    return 0
+
+
 def command_report(arguments: argparse.Namespace) -> int:
+    if arguments.evidence_dir:
+        if not arguments.output_dir:
+            raise PilotError("--evidence-dir needs --output-dir; evidence is never rewritten")
+        return reanalyze(pathlib.Path(arguments.evidence_dir), pathlib.Path(arguments.output_dir))
     root = evidence_root(arguments)
     directory = select_execution(root, arguments.execution, arguments.month)
+    if arguments.output_dir:
+        return reanalyze(directory, pathlib.Path(arguments.output_dir))
+    schema = read_json(directory / "metadata.json").get("schemaVersion")
+    if schema != SCHEMA_VERSION:
+        print(f"This evidence was collected with harness schema {schema}; it is shown unchanged. Run report "
+              f"--output-dir <dir> to derive a schema {SCHEMA_VERSION} re-analysis elsewhere.")
+        print((directory / "summary.md").read_text(encoding="utf-8"))
+        return 0
     if monitor_alive(directory):
         print("The monitor is still running; this is an interim report.")
     marker = root / ACTIVE_MARKER
@@ -1658,7 +1793,8 @@ def command_export(arguments: argparse.Namespace) -> int:
     directory = select_execution(root, arguments.execution, arguments.month)
     if monitor_alive(directory):
         raise PilotError("The monitor is still running; export after it finishes or after stop --monitor-only")
-    build_report(directory)
+    if read_json(directory / "metadata.json").get("schemaVersion") == SCHEMA_VERSION:
+        build_report(directory)
     files = [directory / name for name in EXPORT_FILES if (directory / name).is_file()]
     findings = [finding for path in files for finding in scan_for_secrets(path)]
     if findings:
@@ -1713,6 +1849,8 @@ def parser() -> argparse.ArgumentParser:
     report = commands.add_parser("report", help="rebuild the summary from the evidence on disk")
     report.add_argument("--execution")
     report.add_argument("--month")
+    report.add_argument("--output-dir", help="write a re-analysis there and leave the evidence untouched")
+    report.add_argument("--evidence-dir", help="re-analyse an unpacked evidence directory, such as an export; needs --output-dir")
     export = commands.add_parser("export", help="package the sanitized evidence into one archive")
     export.add_argument("--execution")
     export.add_argument("--month")

@@ -105,23 +105,48 @@ def psql(arguments):
 
 
 def metric(value, path):
+    """Actuator metric answers as Micrometer gives them: counters appear on first increment, an
+    unknown name or tag value is a 404 (None), and timers declare their base unit."""
     name, _, query = path.partition("?")
     meters = value["meters"]
+    if value.get("metricsProbeFails"):
+        return None
+    localized = {outcome: count for outcome, count in meters["localization"].items() if count}
+    registered = ["catalogue.synchronization.provider.retry", "catalogue.synchronization.provider.request.duration",
+                  "jvm.memory.used", "jvm.memory.max", "process.cpu.usage", "hikaricp.connections.active",
+                  "hikaricp.connections.pending"]
+    if meters["providerRequests"]:
+        registered.append("catalogue.synchronization.provider.request")
+    if localized:
+        registered.append("catalogue.localization.content")
+    if name == "metrics":
+        return {"names": sorted(registered)}
     if name == "metrics/catalogue.synchronization.provider.request":
         if not meters["providerRequests"]:
             return None
         count = meters["providerRequests"] - (meters["providerUnsuccessful"] if query else 0)
-        return {"measurements": [{"statistic": "COUNT", "value": count}]}
+        return {"measurements": [{"statistic": "COUNT", "value": count}],
+                "availableTags": [{"tag": "outcome", "values": ["success"]}]}
+    if name == "metrics/catalogue.localization.content":
+        if not localized:
+            return None
+        if not query:
+            return {"measurements": [{"statistic": "COUNT", "value": sum(localized.values())}],
+                    "availableTags": [{"tag": "outcome", "values": sorted(localized)}, {"tag": "kind", "values": ["summary"]}]}
+        outcome = query.rpartition(":")[2]
+        return {"measurements": [{"statistic": "COUNT", "value": localized[outcome]}]} if outcome in localized else None
+    if name == "metrics/catalogue.synchronization.provider.request.duration":
+        # The OTLP registry's base unit: 300 ms per request.
+        return {"baseUnit": "milliseconds", "measurements": [
+            {"statistic": "COUNT", "value": meters["providerRequests"]},
+            {"statistic": "TOTAL_TIME", "value": meters["providerRequests"] * 300.0}]}
     table = {
         "metrics/catalogue.synchronization.provider.retry": ("COUNT", meters["providerRetries"]),
-        "metrics/catalogue.synchronization.provider.request.duration": ("TOTAL_TIME", meters["providerRequests"] * 0.3),
-        "metrics/catalogue.synchronization.provider.mapping.failure": ("COUNT", 0),
         "metrics/jvm.memory.used": ("VALUE", 300 * 1024**2 + meters["providerRequests"] * 1024**2),
         "metrics/jvm.memory.max": ("VALUE", 1024**3),
         "metrics/process.cpu.usage": ("VALUE", 0.25),
         "metrics/hikaricp.connections.active": ("VALUE", 1),
         "metrics/hikaricp.connections.pending": ("VALUE", 0),
-        "metrics/catalogue.localization.content": ("COUNT", meters["localization"].get(query.rpartition(":")[2], 0)),
     }
     if name in table:
         statistic, amount = table[name]
@@ -162,8 +187,8 @@ def synchronize(body):
                               ("inspectedReleaseDates", 9), ("providerRequests", 2), ("providerLatencyMillis", 500)):
                 c[key] = c.get(key, 0) + step
             value["meters"]["providerRequests"] += 2
-            value["meters"]["localization"]["translated"] += 2
-            value["meters"]["localization"]["reused"] += 1
+            value["meters"]["localization"]["translated"] = value["meters"]["localization"].get("translated", 0) + 2
+            value["meters"]["localization"]["reused"] = value["meters"]["localization"].get("reused", 0) + 1
             value["games"] += 3
             value["databaseBytes"] += 8192
             value["commits"] += 6
@@ -184,13 +209,14 @@ def synchronize(body):
             stopped = run.get("stopRequestedAt") is not None
             if stopped or time.monotonic() - started >= scenario["duration"]:
                 outcome, code = ("partial", "SYNCHRONIZATION_STOPPED") if stopped else (
-                    ("partial", "SYNCHRONIZATION_PARTIAL") if c.get("failedGames") else ("succeeded", "SYNCHRONIZATION_SUCCEEDED"))
+                    ("partial", "SYNCHRONIZATION_COMPLETED_WITH_FAILURES") if c.get("failedGames") else ("succeeded", "SYNCHRONIZATION_COMPLETED"))
                 run.update(status=outcome, outcomeCode=code, completedAt=stamp())
                 report = {"runId": run["runId"], "from": run["from"], "to": run["to"], "startedAt": run["startedAt"],
                           "completedAt": run["completedAt"], "outcome": outcome.upper(), "outcomeCode": code,
                           "counters": counters(value)}
                 run["report"] = report
                 log(value, "INFO", f"Catalogue synchronization finished: run={run['runId']} outcome={outcome.upper()} code={code}"
+                    f" assessment={'stopped' if stopped else 'attention' if c.get('failedGames') else 'clean'}"
                     f" window={run['from']}..{run['to']} pages={page} elapsed_s=1 games[created=1] failures=reconcile/WRITE_FAILED={c.get('failedGames', 0)}")
                 return json.dumps(report)
 
