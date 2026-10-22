@@ -63,6 +63,8 @@ class PersonalRatingInsightsIntegrationTest {
         jdbc.update("DELETE FROM ratings.rating");
         jdbc.update("DELETE FROM ratings.game_listing");
         jdbc.update("DELETE FROM ratings.genre_label");
+        jdbc.update("DELETE FROM ratings.platform_label WHERE platform_id::text LIKE 'bbbbbbbb-%'");
+        jdbc.update("DELETE FROM catalogue.platform WHERE platform_id::text LIKE 'bbbbbbbb-%'");
         jdbc.update("DELETE FROM catalogue.game WHERE game_id::text LIKE 'aaaaaaaa-%'");
     }
 
@@ -81,6 +83,8 @@ class PersonalRatingInsightsIntegrationTest {
         assertThat(empty.path("activity").get(0).path("month").stringValue()).isEqualTo("2025-12");
         assertThat(empty.path("activity").get(11).path("month").stringValue()).isEqualTo("2026-11");
         assertThat(empty.path("bestRatedGenres").isEmpty()).isTrue();
+        assertThat(empty.path("platforms").path("items").isEmpty()).isTrue();
+        assertThat(empty.path("platforms").path("gamesWithoutPlatforms").longValue()).isZero();
         game(1, "alice", 7, "2026-10-31T23:30:00Z"); // November in Madrid, UTC still October.
         var single = read("alice");
         assertThat(single.path("total").longValue()).isEqualTo(1);
@@ -89,6 +93,101 @@ class PersonalRatingInsightsIntegrationTest {
         assertThat(single.path("highest")).isEqualTo(single.path("lowest"));
         assertThat(single.path("activity").get(11).path("count").longValue()).isEqualTo(1);
         assertThat(single.path("activity").get(10).path("count").longValue()).isZero();
+        // A direct rating without platforms stays valid and is never given one.
+        assertThat(single.path("platforms").path("items").isEmpty()).isTrue();
+        assertThat(single.path("platforms").path("gamesWithoutPlatforms").longValue()).isEqualTo(1);
+    }
+
+    @Test
+    void countsRecordedPlatformsWithOverlapAndOnlyExplicitPlatformScores() throws Exception {
+        platform(1, "PlayStation 5");
+        platform(2, "Nintendo Switch 2");
+        // Game 1: a direct 9 played on both platforms without a score on either.
+        game(1, "alice", 9, "2026-10-05T10:00:00Z");
+        played(1, "alice", 1, null);
+        played(1, "alice", 2, null);
+        // Game 2: scored 10 and 8 by platform, contributing 9.
+        game(2, "alice", 5, "2026-10-05T10:00:00Z");
+        scoredByPlatform(2, "alice", 18, 2);
+        played(2, "alice", 1, 10);
+        played(2, "alice", 2, 8);
+        // Game 3: scored 7 on one platform.
+        game(3, "alice", 5, "2026-10-05T10:00:00Z");
+        scoredByPlatform(3, "alice", 7, 1);
+        played(3, "alice", 1, 7);
+        // Game 4: a direct 5 without any platform.
+        game(4, "alice", 5, "2026-10-05T10:00:00Z");
+        // Bob's platform score must not reach Alice's readings.
+        game(5, "bob", 5, "2026-10-05T10:00:00Z");
+        scoredByPlatform(5, "bob", 1, 1);
+        played(5, "bob", 1, 1);
+
+        var result = read("alice");
+
+        assertThat(result.path("mean").decimalValue()).isEqualByComparingTo("7.5");
+        var platforms = result.path("platforms");
+        assertThat(platforms.path("gamesWithoutPlatforms").longValue()).isEqualTo(1);
+        assertThat(platforms.path("gamesOnSeveralPlatforms").longValue()).isEqualTo(2);
+        assertThat(platforms.path("otherPlatforms").longValue()).isZero();
+        assertThat(platforms.path("items").size()).isEqualTo(2);
+        var first = platforms.path("items").get(0);
+        assertThat(first.path("platform").path("name").stringValue()).isEqualTo("PlayStation 5");
+        assertThat(first.path("platform").path("platformId").stringValue())
+                .isEqualTo(platformId(1).toString());
+        assertThat(first.path("playedGames").longValue()).isEqualTo(3);
+        assertThat(first.path("scoredGames").longValue()).isEqualTo(2);
+        // (10 + 7) / 2; game 1's direct 9 is never a PlayStation 5 score.
+        assertThat(first.path("mean").decimalValue()).isEqualByComparingTo("8.5");
+        var second = platforms.path("items").get(1);
+        assertThat(second.path("playedGames").longValue()).isEqualTo(2);
+        assertThat(second.path("scoredGames").longValue()).isEqualTo(1);
+        assertThat(second.path("mean").decimalValue()).isEqualByComparingTo("8.0");
+
+        jdbc.update("DELETE FROM ratings.rating WHERE game_id=?", id(2));
+        var after = read("alice").path("platforms");
+        assertThat(after.path("gamesOnSeveralPlatforms").longValue()).isEqualTo(1);
+        assertThat(after.path("items").get(0).path("playedGames").longValue()).isEqualTo(2);
+        assertThat(after.path("items").get(0).path("mean").decimalValue())
+                .isEqualByComparingTo("7.0");
+        // Played without a score: counted where played, with no mean at all.
+        assertThat(after.path("items").get(1).path("scoredGames").longValue()).isZero();
+        assertThat(after.path("items").get(1).path("mean").isNull()).isTrue();
+        jdbc.update(
+                "DELETE FROM ratings.rating_platform WHERE game_id=? AND platform_id=?",
+                id(1),
+                platformId(2));
+        var cleared = read("alice").path("platforms");
+        assertThat(cleared.path("items").size()).isEqualTo(1);
+        assertThat(cleared.path("gamesOnSeveralPlatforms").longValue()).isZero();
+        assertThat(cleared.path("gamesWithoutPlatforms").longValue()).isEqualTo(1);
+    }
+
+    @Test
+    void boundsPlatformsToSixWithDeterministicTiesAndCountsTheRest() throws Exception {
+        String[] names = {"Theta", "alpha", "Beta", "gamma", "Delta", "epsilon", "Zeta", "Eta"};
+        for (int p = 1; p <= names.length; p++) platform(p, names[p - 1]);
+        game(1, "alice", 5, "2026-10-05T10:00:00Z");
+        game(2, "alice", 5, "2026-10-05T10:00:00Z");
+        for (int p = 1; p <= names.length; p++) played(1, "alice", p, null);
+        // Theta has a second game; Zeta has the same one game but a score of its own.
+        played(2, "alice", 1, null);
+        jdbc.update(
+                "UPDATE ratings.rating SET value=NULL,platform_score_count=1,platform_score_sum=6"
+                        + " WHERE game_id=?",
+                id(1));
+        jdbc.update(
+                "UPDATE ratings.rating_platform SET value=6 WHERE game_id=? AND platform_id=?",
+                id(1),
+                platformId(7));
+
+        var platforms = read("alice").path("platforms");
+
+        assertThat(platforms.path("items").size()).isEqualTo(6);
+        assertThat(platforms.path("otherPlatforms").longValue()).isEqualTo(2);
+        assertThat(platforms.path("gamesOnSeveralPlatforms").longValue()).isEqualTo(1);
+        assertThat(platforms.path("items"))
+                .extracting(item -> item.path("platform").path("name").stringValue())
+                .containsExactly("Theta", "Zeta", "alpha", "Beta", "Delta", "epsilon");
     }
 
     @Test
@@ -346,6 +445,46 @@ class PersonalRatingInsightsIntegrationTest {
                     id(game),
                     code,
                     id(game));
+    }
+
+    private void platform(int n, String name) {
+        jdbc.update(
+                "INSERT INTO catalogue.platform(platform_id,code,display_name) VALUES (?,?,?)",
+                platformId(n),
+                "insights-platform-" + n,
+                name);
+        jdbc.update(
+                "INSERT INTO ratings.platform_label(platform_id,display_name) VALUES (?,?)",
+                platformId(n),
+                name);
+    }
+
+    private void played(int game, String subject, int platform, Integer score) {
+        jdbc.update(
+                "INSERT INTO ratings.rating_platform(user_id,game_id,platform_id,value) VALUES (?,?,?,?)",
+                user(subject),
+                id(game),
+                platformId(platform),
+                score);
+    }
+
+    /** Turns a direct rating into one scored by platform, as a command writes it. */
+    private void scoredByPlatform(int game, String subject, int sum, int count) {
+        jdbc.update(
+                "UPDATE ratings.rating SET value=NULL,platform_score_sum=?,platform_score_count=?"
+                        + " WHERE user_id=? AND game_id=?",
+                sum,
+                count,
+                user(subject),
+                id(game));
+    }
+
+    private static UUID user(String subject) {
+        return UUID.fromString(UserId.fromIssuerAndSubject(ISSUER, subject).value());
+    }
+
+    private static UUID platformId(int n) {
+        return UUID.fromString("bbbbbbbb-0000-4000-8000-" + String.format("%012d", n));
     }
 
     private static UUID id(int n) {

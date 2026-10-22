@@ -52,6 +52,57 @@ describe("Tus estadísticas", () => {
     expect(fetch.mock.calls.filter(([r]) => (r as Request).url.includes("rating-insights"))).toHaveLength(1);
   });
 
+  it("reads recorded platforms as overlapping counts with means only from platform scores", async () => {
+    stub(() => Response.json(ratingInsightsFixture()));
+    renderApp(path);
+    const section = await screen.findByRole("region", { name: "Dónde has jugado" });
+    expect(section).toHaveTextContent("62 de 84 juegos con plataforma");
+    // The ring is the collection's one partition: 53 + 9 + 22 = 84.
+    const legend = within(section).getAllByRole("listitem").filter(row => row.closest(".insights-donut-legend"));
+    expect(legend.map(row => row.textContent?.replace(/\s/g, " "))).toEqual([
+      "En una plataforma 53 63,1 %", "En varias plataformas 9 10,7 %", "Sin plataforma indicada 22 26,2 %"]);
+    const rows = within(section).getAllByRole("listitem").filter(row => row.closest("ol"));
+    expect(rows).toHaveLength(6);
+    expect(rows[0]).toHaveTextContent("PlayStation 5");
+    expect(rows[0]).toHaveTextContent("31 juegos, 14 con puntuación");
+    expect(rows[0]).toHaveTextContent("Tu media en PlayStation 5: 7,9 /10 Caliente");
+    // Played without a single platform score: no mean, no temperature.
+    expect(rows[4]).toHaveTextContent("Xbox Series X|S4 juegos, ninguno con puntuaciónSin puntuar");
+    expect(rows[4]).not.toHaveTextContent(/\/10|Congelado|Frío|Templado|Caliente|Ardiendo/);
+    expect(section).toHaveTextContent("Y 2 plataformas más fuera de esta lista.");
+    expect(within(section).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("states missing platform information without inventing one or drawing empty bars", async () => {
+    const data = ratingInsightsFixture();
+    stub(() => Response.json({ ...data, platforms: { items: [], otherPlatforms: 0, gamesWithoutPlatforms: 84, gamesOnSeveralPlatforms: 0 } }));
+    renderApp(path);
+    const section = await screen.findByRole("region", { name: "Dónde has jugado" });
+    expect(section).toHaveTextContent("Aún no has indicado en qué plataformas jugaste tus 84 juegos.");
+    expect(within(section).queryByRole("list")).not.toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "Ir a Mis puntuaciones" })).toHaveAttribute("href", "/mis-puntuaciones");
+    // The rest of the page keeps its readings.
+    expect(screen.getByRole("heading", { name: "Así puntúas" })).toBeVisible();
+  });
+
+  it("explains a played-only collection and a bucket toggled off again", async () => {
+    const data = ratingInsightsFixture();
+    const played = data.platforms.items.map(item => ({ ...item, scoredGames: 0, mean: null }));
+    stub(() => Response.json({ ...data, platforms: { ...data.platforms, items: played, otherPlatforms: 0 } }));
+    renderApp(path);
+    const section = await screen.findByRole("region", { name: "Dónde has jugado" });
+    expect(section).toHaveTextContent("Todavía no has puntuado ningún juego por plataforma");
+    expect(within(section).getAllByText("Sin puntuar")).toHaveLength(6);
+    expect(section).not.toHaveTextContent("fuera de esta lista");
+    const readout = screen.getByText(/La aguja marca tu media exacta, 7,2/);
+    const ten = screen.getByRole("button", { name: /^10 de 10: 8 juegos/ });
+    await userEvent.click(ten);
+    expect(ten).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(ten);
+    expect(ten).toHaveAttribute("aria-pressed", "false");
+    expect(readout).toHaveTextContent("Cada columna reúne los juegos cuya puntuación se redondea a ese número.");
+  });
+
   it("keeps an empty collection free of charts and offers discovery and the personal list", async () => {
     stub(() => Response.json(emptyRatingInsightsFixture()));
     renderApp(path);
@@ -59,6 +110,7 @@ describe("Tus estadísticas", () => {
     expect(screen.getByRole("link", { name: "Buscar juegos" })).toHaveAttribute("href", "/search");
     expect(screen.queryByRole("heading", { name: "Así puntúas" })).not.toBeInTheDocument();
     expect(screen.queryByText("7,2")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Dónde has jugado" })).not.toBeInTheDocument();
   });
 
   it("labels small samples, coincident extremes and missing metadata without preferences", async () => {

@@ -23,13 +23,39 @@ final class PersonalRatingInsightsSql {
                             ContributionMean.bucket("contribution"),
                             ContributionMean.exposed("contribution"));
 
+    // A rating's recorded platforms are its own rows, removed with it, so they need no join to
+    // tell current ratings from deleted ones.
     static final String COVERAGE =
             """
+            WITH played AS (
+                SELECT game_id,count(*) AS platforms FROM ratings.rating_platform
+                WHERE user_id=:user GROUP BY game_id
+            )
             SELECT count(*) FILTER (WHERE NOT EXISTS (
                        SELECT 1 FROM ratings.game_listing_genre g WHERE g.game_id=r.game_id
                    )) AS missing_genres,
-                   count(*) FILTER (WHERE r.created_at < :start) AS older
-            FROM ratings.rating r WHERE r.user_id=:user
+                   count(*) FILTER (WHERE r.created_at < :start) AS older,
+                   count(*) FILTER (WHERE p.platforms IS NULL) AS missing_platforms,
+                   count(*) FILTER (WHERE p.platforms > 1) AS several_platforms
+            FROM ratings.rating r LEFT JOIN played p USING (game_id) WHERE r.user_id=:user
+            """;
+
+    /**
+     * Up to six recorded platforms. A row is one game on one platform, so its count is distinct
+     * games; only explicit platform scores are averaged, as integers whose mean is exact at a
+     * half-way decimal and so rounds directly. {@code platforms} counts every recorded platform.
+     */
+    static final String PLATFORMS =
+            """
+            WITH played AS (
+                SELECT platform_id,count(*) AS played,count(value) AS scored,
+                       round(avg(value),1) AS mean
+                FROM ratings.rating_platform WHERE user_id=:user GROUP BY platform_id
+            )
+            SELECT p.platform_id::text AS platform_id,l.display_name,p.played,p.scored,p.mean,
+                   count(*) OVER () AS platforms
+            FROM played p JOIN ratings.platform_label l USING (platform_id)
+            ORDER BY p.played DESC,p.scored DESC,lower(l.display_name),p.platform_id LIMIT 6
             """;
 
     static String genres(boolean bestRated) {

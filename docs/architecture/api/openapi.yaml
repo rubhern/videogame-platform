@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.0.0
+  version: 5.1.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -1197,6 +1197,8 @@ paths:
         select gameId ascending and count every game with exactly that contribution. Activity is twelve calendar months ending in evaluatedOn's month in
         Europe/Madrid, counting surviving ratings by original creation time; edits do not move
         a contribution and deletion removes it. It is not a historical score or playing log.
+        Platforms read only the played platforms the user recorded on current ratings, never
+        Catalogue releases, preferred platforms or devices; see PersonalPlatformInsights.
       security:
         - sessionCookie: []
       responses:
@@ -3231,7 +3233,7 @@ components:
             the personal rating.
     PersonalRatingInsights:
       type: object
-      required: [evaluatedOn, total, mean, distribution, mostRatedGenres, bestRatedGenres, gamesWithoutGenres, highest, lowest, activity, olderRatings]
+      required: [evaluatedOn, total, mean, distribution, mostRatedGenres, bestRatedGenres, gamesWithoutGenres, highest, lowest, activity, olderRatings, platforms]
       properties:
         evaluatedOn: { type: string, format: date }
         total: { type: integer, format: int64, minimum: 0 }
@@ -3274,6 +3276,67 @@ components:
           maxItems: 12
           items: { $ref: '#/components/schemas/PersonalRatingMonth' }
         olderRatings: { type: integer, format: int64, minimum: 0 }
+        platforms: { $ref: '#/components/schemas/PersonalPlatformInsights' }
+      unevaluatedProperties: false
+    PersonalPlatformInsights:
+      type: object
+      description: |
+        Where the user recorded playing their currently rated games (#363). A game counts once
+        on every platform recorded for it, so platform counts overlap and never partition the
+        total; `gamesOnSeveralPlatforms` states that overlap. A rating without any recorded
+        platform remains valid and is counted in `gamesWithoutPlatforms`, never assigned one.
+        Says nothing about ownership, playing time or the platform's quality.
+      required: [items, otherPlatforms, gamesWithoutPlatforms, gamesOnSeveralPlatforms]
+      properties:
+        items:
+          type: array
+          maxItems: 6
+          description: |
+            Up to six platforms by playedGames descending, then scoredGames descending, then
+            name case-insensitively ascending and platformId ascending.
+          items: { $ref: '#/components/schemas/PersonalPlatformInsight' }
+        otherPlatforms:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Further recorded platforms beyond `items`.
+        gamesWithoutPlatforms:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Rated games without any recorded platform.
+        gamesOnSeveralPlatforms:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Rated games recorded on two or more platforms.
+      unevaluatedProperties: false
+    PersonalPlatformInsight:
+      type: object
+      required: [platform, playedGames, scoredGames, mean]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        playedGames:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Distinct rated games the user recorded playing on this platform.
+        scoredGames:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Of those games, the ones the user gave this platform an explicit score; a platform
+            recorded without a score is played, never scored.
+        mean:
+          oneOf:
+            - { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+            - { type: 'null' }
+          x-jackson-json-include-policy: ALWAYS
+          description: |
+            Mean of the user's explicit integer scores on this platform, rounded half up to one
+            decimal; null exactly when scoredGames is zero. Never derived from a game's direct
+            score or its global contribution.
       unevaluatedProperties: false
     PersonalGenreInsight:
       type: object

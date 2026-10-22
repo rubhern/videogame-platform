@@ -1092,34 +1092,68 @@ a native link, marks it with `aria-current`, and moves focus to the level that c
 
 ## Personal statistics
 
-Post-MVP (#254, implemented; awaiting owner review), **Tus estadísticas** opens from
-`Mis puntuaciones` and `Mi cuenta` at `/mis-puntuaciones/estadisticas`. It is a personal
-score atlas on night: an asymmetric opening pairs the collection total with a large
-existing score G-meter and its separate mean/temperature readout. Light comes only
-from the two games presented as extremes. It never repeats the temporal G.
+Post-MVP (#254, refined with personal platforms by #363; implemented, awaiting owner review),
+**Tus estadísticas** opens from `Mis puntuaciones` and `Mi cuenta` at
+`/mis-puntuaciones/estadisticas`. It is a personal score atlas on night, composed for phones
+first. Light comes only from the two games presented as extremes; it never repeats the
+temporal G. The [use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
+owns meaning, thresholds, ranking and tie rules.
 
-A full-width ten-column thermal histogram follows; every column is a native button
-that names its score, exact count and share, and selection announces those facts below.
-The five temperature summaries keep their names, numerical ranges and counts alongside
-colour. Two game covers anchor the extremes, with full title links and personal scores, a
-platform mean with its decimal (#359); coincident extremes present one game with the shared
-reading. The calculation notes state that a game scored by platform counts once at its mean
-and joins the histogram at its nearest whole score.
-The lower composition gives overlapping genre groups a count bar or a score bar,
-selected with **Más puntuados** / **Mejor puntuados**, beside a quieter twelve-month
-count chart in ice. Every genre mean carries its sample. The month table is available
-through a native disclosure, as are the calculation notes. The
-[use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
-owns meaning, thresholds and tie rules.
+The reading order is: the opening, **Así puntúas**, **Dónde has jugado**, the extremes, the
+genres beside the twelve months, then the calculation notes in a native disclosure. Sections
+sit between hairlines rather than in cards, and each one uses a different shape (columns, a
+ledger of bars, covers, a calendar) so the page keeps a rhythm instead of repeating one
+chart.
 
-Phones stack the instrument, extremes and lower sections, keep all ten score targets
-inside the viewport and place the five thermal summaries on two rows. Text and native
-controls carry every reading without SVG or colour. Only the opening enters once and
-bar changes transition; reduced motion removes both. Forced colours use system text
-for bars and their counts and an outlined selection. Empty collections show a quiet
-invitation to find a game, with no simulated charts or meaningless instrument. A small
-sample keeps real results with an explicit caveat; missing genre metadata stays visible.
-Loading and failures use the shared server-backed state language below.
+- **Opening.** The collection total in the wide heavy cut is paired with the existing score
+  G-meter and its separate mean and temperature. On phones they share one row, so the first
+  viewport shows the total, the mean and most of the distribution. A total of four or more
+  digits steps down a size. The one-line invitation shows only from tablet width. A
+  collection of one to four games adds the small-sample caveat beneath.
+- **Así puntúas.** One thermal scale: ten equal columns without gaps, each a native button
+  that names its score, exact count and share and toggles a selection that the readout
+  below announces. The five temperatures sit directly under their two columns with their
+  name, count and share, replacing a separate summary. A tapered fire blade with its pivot,
+  the needle language of compact scales, marks the exact mean on the same scale, labelled
+  `Media 7,2` in the readout voice. It runs behind the columns, so counts stay legible; the
+  readout states that the needle is the unrounded mean while each column gathers the
+  scores that round to it. Empty columns keep a quiet `0` and draw no bar.
+- **Dónde has jugado.** The coverage of the collection comes first as the page's one pie,
+  a ring, because it is the only partition the section has: every rated game falls in
+  exactly one slice — recorded on one platform (ice), on several (ice-light) or on none,
+  left as the empty, outlined part of the ring. Its centre states the share with a platform,
+  and beside it the figure (`62 de 84 juegos con plataforma`) and a legend give each slice's
+  count and share. Platform counts overlap, so they never become slices of a pie. Then come up to six
+  platforms as a ledger, each with its mark and name, one ice bar and that platform's
+  personal mean. The bar's length is the games played there. Its solid part is the games
+  scored on that platform, and its outlined, hatched part the games only marked as played;
+  a key names both, so the two never depend on colour. The counts follow in words
+  (`31 juegos`, `14 con puntuación`). The mean takes its temperature, with the band in
+  words, or reads `Sin puntuar`. Counts are measures, so they stay ice; only the mean is
+  thermal. Further platforms are counted beneath, and a note states that platform counts
+  overlap and that each mean uses only that platform's scores. On phones the ring sits beside
+  its legend and each platform reads down its own column beside its mean; from 620px the bar
+  takes the middle column, and from 1000px the ring and its legend lead a column of their own. Without any recorded platform the section
+  says so and explains **Puntuar por plataforma**, with no empty chart. Nothing in it claims
+  ownership, playing time or a favourite platform.
+- **Extremes.** Two game covers anchor the extremes, with full title links and personal
+  scores, a platform mean with its decimal (#359). Coincident extremes present one game with
+  the shared reading. On phones the covers shrink and the two games stack.
+- **Genres and months.** Overlapping genre groups take a count bar or a score bar, selected
+  with **Más puntuados** / **Mejor puntuados**; every genre mean carries its sample. The
+  quieter twelve-month count chart in ice follows its own column's width: two half-years of
+  six months when narrow, one row of twelve when wide. The first month and every January
+  name their year. Counts too wide for a narrow column use compact notation, and the month
+  table in its native disclosure keeps every exact value. From 720px the genres and the
+  months sit side by side.
+
+Text and native controls carry every reading without SVG, colour, hover or a tooltip; touch
+selects. Only the opening enters once and bar changes transition, and reduced motion removes
+both. Forced colours use system text for bars, the needle and their counts, keep the
+platform bars' fill-and-outline contrast, stripe the ring's several-platform slice and outline a
+selection. Empty collections show a
+quiet invitation to find a game, with no simulated charts or meaningless instrument. Loading
+and failures use the shared server-backed state language below.
 
 ## Server-backed states
 

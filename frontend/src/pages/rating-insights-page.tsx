@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "react-router-dom";
 import { getRatingInsights, RATING_INSIGHTS_KEY, type RatingExtreme, type RatingInsights, type RatingInsightsError } from "../features/ratings/rating-insights-api";
 import { GenreInsights, RatingActivity, RatingDistribution } from "../features/ratings/rating-insights-charts";
+import { PlatformInsights } from "../features/ratings/rating-insights-platforms";
 import { number, decimal } from "../features/ratings/rating-insights-format";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
@@ -37,18 +38,19 @@ function InsightsContent({ data }: { data: RatingInsights }) {
   return <>
     <div className="insights-opening">
       <div className="insights-collection">
-        <p className="insights-caption">Tu colección, vista de otra forma</p>
-        <p className="insights-total"><strong>{number(data.total)}</strong><span>{data.total === 1 ? "juego puntuado" : "juegos puntuados"}</span></p>
-        <p className="insights-intro">Cada juego deja una huella.<br />Estas son las tuyas.</p>
-        {data.total < 5 ? <p className="insights-note insights-small-sample">Tu colección acaba de empezar. Con menos de cinco juegos, estas cifras describen una muestra pequeña.</p> : null}
+        <p className="insights-caption">Tu colección</p>
+        <p className="insights-total" data-size={data.total >= 1000 ? "long" : undefined}><strong>{number(data.total)}</strong><span>{data.total === 1 ? "juego puntuado" : "juegos puntuados"}</span></p>
+        <p className="insights-intro">Cada juego deja una huella. <br />Estas son las tuyas.</p>
       </div>
       <div className="insights-instrument" data-thermal={band ?? undefined}>
         <GameMeter className="insights-meter" value={data.mean} />
-        <div className="insights-mean"><p className="insights-caption">Tu puntuación media</p><p><strong>{data.mean === null ? "—" : decimal(data.mean)}</strong><span> /10</span></p>
+        <div className="insights-mean"><p className="insights-caption">Tu media</p><p><strong>{data.mean === null ? "—" : decimal(data.mean)}</strong><span> /10</span></p>
           <p className="insights-temperature">{band ? thermalLabels[band] : "Sin puntuaciones"}</p></div>
       </div>
+      {data.total < 5 ? <p className="insights-note insights-small-sample">Tu colección acaba de empezar. Con menos de cinco juegos, estas cifras describen una muestra pequeña.</p> : null}
     </div>
-    <RatingDistribution distribution={data.distribution} total={data.total} />
+    <RatingDistribution distribution={data.distribution} total={data.total} mean={data.mean} />
+    <PlatformInsights platforms={data.platforms} total={data.total} />
     <section className="insights-extremes" aria-labelledby="extremes-title">
       <div className="insights-section-head"><div><p className="insights-caption">Los extremos de tu escala</p><h2 id="extremes-title">{coincident ? "Una misma puntuación" : "De un juego a otro"}</h2></div>
         <p>{coincident ? "Todas tus puntuaciones coinciden." : "Tus dos extremos. El mismo criterio, distintas temperaturas."}</p></div>
@@ -60,9 +62,10 @@ function InsightsContent({ data }: { data: RatingInsights }) {
     </section>
     <div className="insights-exploration"><GenreInsights {...data} /><RatingActivity activity={data.activity} olderRatings={data.olderRatings} /></div>
     <details className="insights-method insights-calculation"><summary>Cómo se leen tus estadísticas</summary>
-      <p>Solo cuentan tus puntuaciones actuales. Cada juego pesa lo mismo en la media, redondeada a un decimal. Si puntúas un juego por plataformas, cuenta una vez con la media de esas notas; en la distribución se redondea al entero más cercano (8,5 cuenta como 9). Las temperaturas leen la puntuación que ves: Congelado (1–2), Frío (más de 2–4), Templado (más de 4–6), Caliente (más de 6–8) y Ardiendo (más de 8–10).</p>
+      <p>Solo cuentan tus puntuaciones actuales. Cada juego pesa lo mismo en la media, redondeada a un decimal. Si puntúas un juego por plataforma, cuenta una vez con la media de esas puntuaciones; en la distribución se redondea al entero más cercano (8,5 cuenta como 9), mientras la aguja de la media usa el valor sin redondear. Las temperaturas leen la puntuación que ves: Congelado (1–2), Frío (más de 2–4), Templado (más de 4–6), Caliente (más de 6–8) y Ardiendo (más de 8–10).</p>
+      <p>Las plataformas son solo las que indicaste al puntuar. Un juego cuenta en cada una de sus plataformas, y la media de una plataforma usa únicamente las puntuaciones que le diste a esa plataforma; marcarla como jugada no cuenta como puntuación. Se muestran hasta seis, por número de juegos, después por juegos con puntuación y por nombre. No indican cuánto jugaste ni qué plataformas tienes.</p>
       <p>En géneros, los empates por cantidad se resuelven por el identificador del género. Por media, se compara primero la media sin redondear, después la muestra y por último el identificador. Un grupo pequeño no demuestra una preferencia.</p>
-      <p>Las cifras cambian al editar o eliminar tus puntuaciones. No mezclan puntuaciones de la comunidad ni de fuentes externas.</p>
+      <p>Las cifras cambian al editar o eliminar tus puntuaciones y sus plataformas. No mezclan puntuaciones de la comunidad ni de fuentes externas.</p>
     </details>
   </>;
 }
