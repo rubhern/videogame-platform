@@ -1,0 +1,129 @@
+{
+  "application": {
+    "configuredVersion": "0.0.0-synthetic",
+    "image": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRevision": "0000000000000000000000000000000000000000",
+    "version": "0.0.0-synthetic"
+  },
+  "blocked": false,
+  "checkedAt": "2026-10-22T12:25:06Z",
+  "checks": [
+    {
+      "check": "month",
+      "detail": "2017-03 is the inclusive window 2017-03-01..2017-03-31",
+      "status": "pass"
+    },
+    {
+      "check": "host",
+      "detail": "host is synthetic-host",
+      "status": "pass"
+    },
+    {
+      "check": "evidence storage",
+      "detail": "/synthetic/evidence is writable with 920.9 GiB free",
+      "freeBytes": 988861902848,
+      "status": "pass"
+    },
+    {
+      "check": "pilot overlap",
+      "detail": "no other pilot is active",
+      "status": "pass"
+    },
+    {
+      "check": "runtime configuration",
+      "detail": "Compose project videogame-platform-dev",
+      "status": "pass"
+    },
+    {
+      "check": "application container",
+      "detail": "running",
+      "status": "pass"
+    },
+    {
+      "check": "postgres container",
+      "detail": "running",
+      "status": "pass"
+    },
+    {
+      "check": "catalogue-localizer container",
+      "detail": "running",
+      "status": "pass"
+    },
+    {
+      "check": "application readiness",
+      "detail": "readiness is UP",
+      "status": "pass"
+    },
+    {
+      "check": "provider credentials",
+      "detail": "both IGDB credential files are non-empty in the application container (content not read)",
+      "status": "pass"
+    },
+    {
+      "check": "coverage",
+      "detail": "2017-03 was never covered",
+      "status": "pass"
+    },
+    {
+      "check": "active synchronization",
+      "detail": "no synchronization run is in flight",
+      "status": "pass"
+    },
+    {
+      "check": "postgresql",
+      "detail": "database size 50.0 MiB",
+      "status": "pass"
+    },
+    {
+      "check": "localization helper",
+      "detail": "health is healthy; when unhealthy the run keeps source text and records fallback",
+      "status": "pass"
+    },
+    {
+      "check": "recurring scheduling",
+      "detail": "scheduling is disabled",
+      "status": "pass"
+    },
+    {
+      "check": "docker storage",
+      "detail": "/synthetic has 920.9 GiB free",
+      "freeBytes": 988861902848,
+      "status": "pass"
+    }
+  ],
+  "coverage": {
+    "from": "x",
+    "periods": [
+      {
+        "from": "2017-03-01",
+        "status": "never_covered",
+        "to": "2017-03-31"
+      }
+    ],
+    "to": "y"
+  },
+  "database": {
+    "activeQueries": 1,
+    "connections": 7,
+    "sizeBytes": 52428800
+  },
+  "host": {
+    "cpus": 32,
+    "load1m": 0.34,
+    "memoryAvailableBytes": 14852399104,
+    "name": "synthetic-host"
+  },
+  "month": "2017-03",
+  "previouslyCovered": "none",
+  "runningRuns": [],
+  "scheduling": {
+    "abandonRunAfter": "application default",
+    "nearTermCron": "application default",
+    "status": "disabled",
+    "upcomingCron": "application default"
+  },
+  "window": {
+    "from": "2017-03-01",
+    "to": "2017-03-31"
+  }
+}

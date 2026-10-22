@@ -1,0 +1,130 @@
+{
+  "application": {
+    "configuredVersion": "0.0.0-synthetic",
+    "image": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRevision": "0000000000000000000000000000000000000000",
+    "version": "0.0.0-synthetic"
+  },
+  "applicationOutcome": {
+    "code": "SYNCHRONIZATION_PARTIAL",
+    "status": "partial"
+  },
+  "applicationRestarted": false,
+  "environment": {
+    "composeProject": "videogame-platform-dev",
+    "host": "synthetic-host",
+    "name": "private-dev"
+  },
+  "estimated": {
+    "gamesPerHour": {
+      "basis": "Games accounted / run duration",
+      "status": "estimated",
+      "unit": "Games/h",
+      "value": 112134.27
+    },
+    "providerRequestsPerSecond": {
+      "basis": "mean over the whole run; the configured ceiling is IGDB_REQUESTS_PER_SECOND",
+      "status": "estimated",
+      "unit": "requests/s",
+      "value": 9.584
+    },
+    "providerTimeShare": {
+      "basis": "summed provider latency / run duration; above about 0.8 means provider-bound",
+      "status": "estimated",
+      "unit": "ratio",
+      "value": 2.396
+    },
+    "secondsPerGame": {
+      "basis": "run duration / Games accounted",
+      "status": "estimated",
+      "unit": "s/Game",
+      "value": 0.032
+    }
+  },
+  "executionId": "hsp-20261022T122506Z-77b304",
+  "failureTally": {
+    "game:reconcile/WRITE_FAILED": 10
+  },
+  "label": "synthetic-example",
+  "measured": {
+    "deferredGames": {
+      "basis": "durable report",
+      "status": "measured",
+      "unit": "Games",
+      "value": 0
+    },
+    "failedGames": {
+      "basis": "durable report",
+      "status": "measured",
+      "unit": "Games",
+      "value": 10
+    },
+    "gamesAccounted": {
+      "basis": "created+updated+unchanged+deferred+failed from the durable report",
+      "status": "measured",
+      "unit": "Games",
+      "value": 130
+    },
+    "pages": {
+      "basis": "finished log line",
+      "status": "measured",
+      "unit": "pages",
+      "value": 20
+    },
+    "providerLatency": {
+      "basis": "durable report, summed request latency",
+      "status": "measured",
+      "unit": "s",
+      "value": 10.0
+    },
+    "providerRequests": {
+      "basis": "durable report, attempts including retries",
+      "status": "measured",
+      "unit": "requests",
+      "value": 40
+    },
+    "providerRetries": {
+      "basis": "durable report",
+      "status": "measured",
+      "unit": "retries",
+      "value": 10
+    },
+    "releasesAccounted": {
+      "basis": "created+updated+unchanged from the durable report",
+      "status": "measured",
+      "unit": "Releases",
+      "value": 100
+    },
+    "runDurationSeconds": {
+      "basis": "synchronization_run completed_at - started_at (database clock)",
+      "status": "measured",
+      "unit": "s",
+      "value": 4.174
+    }
+  },
+  "monitor": {
+    "endedAt": "2026-10-22T12:25:12Z",
+    "intervalSeconds": 1,
+    "outcome": "run_finished",
+    "samples": 5,
+    "startedAt": "2026-10-22T12:25:06Z"
+  },
+  "month": "2017-03",
+  "previouslyCovered": "none",
+  "runId": "e5f86f5e-6202-46b1-98e9-9e0957a3a31f",
+  "scheduling": "disabled",
+  "schemaVersion": 1,
+  "stopRequested": false,
+  "synthetic": true,
+  "unavailable": [
+    "perPhaseTiming (provider vs reconciliation vs localization)",
+    "translationLatency",
+    "perGameWriteLatency",
+    "providerRateLimitWaits",
+    "ioWaitPerContainer"
+  ],
+  "window": {
+    "from": "2017-03-01",
+    "to": "2017-03-31"
+  }
+}

@@ -46,6 +46,7 @@ export const groups = [
   ]],
   ['Research & history', [
     ['docs/research/README.md', 'Research index & limitations'],
+    ['docs/research/historical-sync-pilot.md', 'Historical sync pilot · #246'],
     ['docs/research/reviews/user-facing-copy-audit-2026-10-19.md', 'User-facing copy audit · #286'],
     ['tools/igdb-poc/README.md', 'IGDB proof of concept'],
   ]],

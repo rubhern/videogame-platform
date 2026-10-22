@@ -1,0 +1,103 @@
+{
+  "applicationOutcome": {
+    "code": "SYNCHRONIZATION_PARTIAL",
+    "status": "partial"
+  },
+  "applicationWarnings": 0,
+  "failureTally": {
+    "game:reconcile/WRITE_FAILED": 10
+  },
+  "finishedLog": {
+    "at": "2026-10-22T12:25:11Z",
+    "code": "SYNCHRONIZATION_PARTIAL",
+    "failures": "reconcile/WRITE_FAILED=10",
+    "outcome": "PARTIAL",
+    "pages": 20
+  },
+  "lastProgress": {
+    "elapsedSeconds": 4,
+    "gamesCreated": 60,
+    "gamesDeferred": 0,
+    "gamesFailed": 10,
+    "gamesUnchanged": 40,
+    "gamesUpdated": 20,
+    "page": 20,
+    "pageGames": 3,
+    "pagePosition": 2,
+    "phase": "reconciling",
+    "providerRequests": 40,
+    "providerRetries": 10,
+    "releaseDatesInspected": 180
+  },
+  "lastProgressAt": "2026-10-22T12:25:11Z",
+  "launcher": {
+    "exitCode": 0
+  },
+  "providerMeters": {
+    "mappingFailures": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "count",
+      "value": 0.0
+    },
+    "requestTimeSeconds": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "count",
+      "value": 12.0
+    },
+    "requests": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; baseline meter absent, treated as zero",
+      "status": "estimated",
+      "unit": "count",
+      "value": 40.0
+    },
+    "retries": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "count",
+      "value": 10.0
+    },
+    "unsuccessful": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; baseline meter absent, treated as zero",
+      "status": "estimated",
+      "unit": "count",
+      "value": 0.0
+    }
+  },
+  "providerPageSize": 500,
+  "report": {
+    "completedAt": "2026-10-22T12:25:11.140482Z",
+    "counters": {
+      "createdGames": 60,
+      "createdReleases": 100,
+      "deferredGames": 0,
+      "failedGames": 10,
+      "inspectedReleaseDates": 180,
+      "providerLatencyMillis": 10000,
+      "providerRequests": 40,
+      "providerRetries": 10,
+      "unchangedGames": 40,
+      "unchangedReleases": 0,
+      "updatedGames": 20,
+      "updatedReleases": 0
+    },
+    "from": "2017-03-01",
+    "outcome": "PARTIAL",
+    "outcomeCode": "SYNCHRONIZATION_PARTIAL",
+    "runId": "e5f86f5e-6202-46b1-98e9-9e0957a3a31f",
+    "startedAt": "2026-10-22T12:25:06.966914Z",
+    "to": "2017-03-31"
+  },
+  "run": {
+    "completedAt": "2026-10-22T12:25:11.140482Z",
+    "heartbeatAt": "2026-10-22T12:25:11.140434Z",
+    "startedAt": "2026-10-22T12:25:06.966914Z",
+    "stopRequestedAt": null
+  },
+  "runId": "e5f86f5e-6202-46b1-98e9-9e0957a3a31f",
+  "window": {
+    "from": "2017-03-01",
+    "to": "2017-03-31"
+  }
+}

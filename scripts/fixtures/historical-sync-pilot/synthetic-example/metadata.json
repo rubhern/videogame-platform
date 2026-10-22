@@ -1,0 +1,37 @@
+{
+  "application": {
+    "configuredVersion": "0.0.0-synthetic",
+    "image": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceRevision": "0000000000000000000000000000000000000000",
+    "version": "0.0.0-synthetic"
+  },
+  "endedAt": "2026-10-22T12:25:12Z",
+  "environment": {
+    "composeProject": "videogame-platform-dev",
+    "host": "synthetic-host",
+    "name": "private-dev"
+  },
+  "executionId": "hsp-20261022T122506Z-77b304",
+  "label": "synthetic-example",
+  "monitorOutcome": "run_finished",
+  "month": "2017-03",
+  "previouslyCovered": "none",
+  "requestedAt": "2026-10-22T12:25:06Z",
+  "sampling": {
+    "intervalSeconds": 1,
+    "maxMonitorHours": 36.0
+  },
+  "scheduling": {
+    "abandonRunAfter": "application default",
+    "nearTermCron": "application default",
+    "status": "disabled",
+    "upcomingCron": "application default"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-10-22T12:25:06Z",
+  "trigger": "management command POST /actuator/cataloguesync (UC-009, manual trigger meters)",
+  "window": {
+    "from": "2017-03-01",
+    "to": "2017-03-31"
+  }
+}
