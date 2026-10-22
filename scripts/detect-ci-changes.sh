@@ -209,7 +209,7 @@ for path in "${changed_paths[@]}"; do
       enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;

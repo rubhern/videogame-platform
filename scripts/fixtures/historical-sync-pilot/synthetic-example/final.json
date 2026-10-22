@@ -1,0 +1,78 @@
+{
+  "application": {
+    "memoryLimitBytes": 0,
+    "startedAt": "2026-10-22T08:00:00.000000000Z"
+  },
+  "at": "2026-10-22T12:25:12Z",
+  "containers": {
+    "application": {
+      "cpuPercent": 42.5,
+      "memoryBytes": 536870912,
+      "memoryLimitBytes": 2147483648,
+      "pids": 40
+    },
+    "catalogue-localizer": {
+      "cpuPercent": 42.5,
+      "memoryBytes": 536870912,
+      "memoryLimitBytes": 2147483648,
+      "pids": 40
+    },
+    "postgres": {
+      "cpuPercent": 42.5,
+      "memoryBytes": 536870912,
+      "memoryLimitBytes": 2147483648,
+      "pids": 40
+    }
+  },
+  "database": {
+    "activeQueries": 1,
+    "clock": "2026-10-22T12:25:12.262709Z",
+    "committed": 220,
+    "connections": 7,
+    "deleted": 0,
+    "inserted": 660,
+    "longestTransactionSeconds": 0.4,
+    "run": null,
+    "sizeBytes": 52592640,
+    "updated": 220
+  },
+  "host": {
+    "cpus": 32,
+    "dockerFreeBytes": 988861833216,
+    "evidenceFreeBytes": 988861833216,
+    "load1m": 0.39,
+    "memoryAvailableBytes": 14887182336
+  },
+  "inventory": {
+    "coverageIntervals": 3,
+    "featuredEvidenceGames": 1060,
+    "games": 1060,
+    "releases": 2120,
+    "tableBytes": {
+      "game_snapshot": 13148160
+    }
+  },
+  "label": "final",
+  "localizerHealth": "healthy",
+  "metrics": {
+    "heapMaxBytes": 1073741824.0,
+    "heapUsedBytes": 356515840.0,
+    "localization": {
+      "busy": 0.0,
+      "failed": 0.0,
+      "fallback": 0.0,
+      "reused": 20.0,
+      "skipped": 0.0,
+      "translated": 50.0
+    },
+    "mappingFailures": 0.0,
+    "poolActive": 1.0,
+    "poolPending": 0.0,
+    "processCpuRatio": 0.25,
+    "providerRequests": 40.0,
+    "providerRetries": 10.0,
+    "providerSuccessful": 40.0,
+    "providerTimeSeconds": 12.0,
+    "providerUnsuccessful": 0.0
+  }
+}

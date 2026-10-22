@@ -560,6 +560,84 @@ new sessions only; to end access at once, also revoke the account's sessions wit
 `--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
 against an existing local realm; a freshly imported local realm already declares the role.
 
+## Historical synchronization pilot
+
+Post-MVP (#246 spike; tooling prepared, not yet run on `vgpdev`).
+`bin/historical-sync-pilot` measures one calendar month of the existing UC-009 run, from
+2017-03 onwards, and leaves self-describing, sanitized evidence. The
+[research record](../../docs/research/historical-sync-pilot.md) owns what the evidence can
+and cannot show and how it feeds #246. The script owns the mechanics. Its tests run with
+`python3 scripts/test-historical-sync-pilot.py` against a synthetic Docker runtime.
+
+Boundaries:
+
+- `start` launches exactly one month through the management command
+  (`POST /actuator/cataloguesync`, the [diagnostic trigger](../../docs/development/operations-runbook.md#catalogue-synchronization)).
+  It adds no endpoint, importer, scheduler or service. It never launches another month or
+  retries, and never changes configuration, scheduling or credentials.
+- Three things have separate lives. The **monitor** is a detached harness process in its own
+  session, so it survives a closed terminal. The **run** executes on the application's own
+  thread, and its `catalogue.synchronization_run` row in PostgreSQL is the only truth about
+  it. The **application container** is not touched by the harness. Losing the monitor never
+  stops the run. Recreating the application kills the run's worker; its row stays `running`
+  until it is abandoned, as the runbook describes.
+- The harness only reads PostgreSQL (in read-only transactions), the management port, Docker
+  and the log. It checks credential presence by file size inside the container and never
+  reads their content. Of `runtime.env` it reads only the project name and version.
+- Evidence is written as the run goes, so a crash or host restart keeps what was measured.
+  Samples, events and errors are bounded. Monitoring ends at `--max-hours` (default 36); the
+  run itself has no harness limit.
+
+Once, after review, merge, the [checkout update](#restricted-host-installation) and its
+[contract acknowledgement](#acknowledge-the-applied-runtime-contract) (the tooling changes
+the deployment contract, not the application image), create the evidence root:
+
+```bash
+sudo install -d -m 0750 /var/lib/videogame-platform/dev/historical-sync-evidence
+```
+
+Each pilot, on `vgpdev` from the installed checkout, one month at a time and only when the
+owner chooses it:
+
+```bash
+pilot=(sudo /opt/videogame-platform/deploy/private-dev/bin/historical-sync-pilot)
+"${pilot[@]}" preflight --month 2017-03
+"${pilot[@]}" start --month 2017-03   # prints the execution identifier; then disconnect freely
+"${pilot[@]}" status                  # any time later: monitor, PostgreSQL run state, latest progress
+"${pilot[@]}" stop                    # explains the safe UC-013 stop; changes nothing
+"${pilot[@]}" report                  # rebuilds summary.md/json from whatever evidence exists
+"${pilot[@]}" export --output /tmp/hsp-2017-03.tar.gz
+```
+
+`preflight` fails on: the wrong host; an invalid or out-of-scope month; missing or full
+evidence storage; another pilot; a run already in flight; application, PostgreSQL or
+credential problems. It warns, without changing anything, about:
+
+- a month that was already covered; `start` then needs `--allow-covered`, and the evidence
+  measures a re-synchronization;
+- recurring scheduling being enabled. A scheduled run in flight makes the pilot skip, and one
+  that falls due during the pilot is skipped. Choose the launch time accordingly, or pause
+  scheduling through the normal reviewed configuration change;
+- an unhealthy localization helper.
+
+To stop a run safely, use **Detener sincronización** at `/administracion/catalogo` for the run
+identifier that `status` shows. The monitor records the stop and the run's
+`SYNCHRONIZATION_STOPPED` outcome. Committed Games stay and the month records no coverage.
+The harness has no shell equivalent, by design. `stop --monitor-only` ends only the monitor,
+which finalizes its evidence while the run continues. If `status` reports a lost monitor
+(for example after a host restart), `report` closes that evidence and frees the root for the
+next pilot.
+
+Retrieve the archive with
+`ssh videogame-platform-lenovo 'sudo cat /tmp/hsp-2017-03.tar.gz' > hsp-2017-03.tar.gz`,
+then remove the host copy. Export refuses a file that looks like it holds a credential, token
+or e-mail address. The archive holds the files under
+`<evidence-root>/<YYYY-MM>/<execution-id>/`: `metadata.json`, `methodology.json` (every
+`samples.csv` column with its unit), `preflight.json`, `samples.csv`, `synchronization.json`,
+`localization.json`, `resources.json`, `baseline.json`, `final.json`, `events.jsonl`,
+`errors.log` and `summary.md`/`summary.json`. The monitor's own `state.json` and
+`monitor.log` stay on the host.
+
 ## Personal-data requests
 
 Post-MVP (#274). The

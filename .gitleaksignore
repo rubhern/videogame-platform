@@ -9,3 +9,6 @@ c20e6360e340166d4a904dee5431498e20eaa552:docs/research/performance-baseline/remo
 0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:2912
 0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:4003
 0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:5721
+
+# False positive: synthetic unsigned JWT in the #246 redaction test, assembled at run time since.
+37e28a81abdb303264069c62b1d4e26716952e1f:scripts/test-historical-sync-pilot.py:jwt:140

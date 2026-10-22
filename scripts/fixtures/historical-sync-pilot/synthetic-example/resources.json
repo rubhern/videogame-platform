@@ -1,0 +1,313 @@
+{
+  "applicationCpuPercent": {
+    "first": 42.5,
+    "last": 42.5,
+    "max": 42.5,
+    "mean": 42.5,
+    "min": 42.5,
+    "samples": 5,
+    "status": "measured"
+  },
+  "applicationMemoryBytes": {
+    "first": 536870912.0,
+    "last": 536870912.0,
+    "max": 536870912.0,
+    "mean": 536870912.0,
+    "min": 536870912.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "baseline": {
+    "application": {
+      "memoryLimitBytes": 0,
+      "startedAt": "2026-10-22T08:00:00.000000000Z"
+    },
+    "at": "2026-10-22T12:25:06Z",
+    "containers": {
+      "application": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      },
+      "catalogue-localizer": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      },
+      "postgres": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      }
+    },
+    "database": {
+      "activeQueries": 1,
+      "clock": "2026-10-22T12:25:06.802501Z",
+      "committed": 100,
+      "connections": 7,
+      "deleted": 0,
+      "inserted": 300,
+      "longestTransactionSeconds": 0.4,
+      "run": null,
+      "sizeBytes": 52428800,
+      "updated": 100
+    },
+    "host": {
+      "cpus": 32,
+      "dockerFreeBytes": 988861874176,
+      "evidenceFreeBytes": 988861874176,
+      "load1m": 0.34,
+      "memoryAvailableBytes": 14838161408
+    },
+    "inventory": {
+      "coverageIntervals": 3,
+      "featuredEvidenceGames": 1000,
+      "games": 1000,
+      "releases": 2000,
+      "tableBytes": {
+        "game_snapshot": 13107200
+      }
+    },
+    "label": "baseline",
+    "localizerHealth": "healthy",
+    "metrics": {
+      "heapMaxBytes": 1073741824.0,
+      "heapUsedBytes": 314572800.0,
+      "localization": {
+        "busy": 0.0,
+        "failed": 0.0,
+        "fallback": 0.0,
+        "reused": 0.0,
+        "skipped": 0.0,
+        "translated": 10.0
+      },
+      "mappingFailures": 0.0,
+      "poolActive": 1.0,
+      "poolPending": 0.0,
+      "processCpuRatio": 0.25,
+      "providerRequests": null,
+      "providerRetries": 0.0,
+      "providerSuccessful": null,
+      "providerTimeSeconds": 0.0,
+      "providerUnsuccessful": null
+    }
+  },
+  "catalogueGrowth": {
+    "coverageIntervals": {
+      "basis": "catalogue.observability_inventory final minus baseline",
+      "status": "measured",
+      "unit": "rows",
+      "value": 0
+    },
+    "featuredEvidenceGames": {
+      "basis": "catalogue.observability_inventory final minus baseline",
+      "status": "measured",
+      "unit": "rows",
+      "value": 60
+    },
+    "games": {
+      "basis": "catalogue.observability_inventory final minus baseline",
+      "status": "measured",
+      "unit": "rows",
+      "value": 60
+    },
+    "releases": {
+      "basis": "catalogue.observability_inventory final minus baseline",
+      "status": "measured",
+      "unit": "rows",
+      "value": 120
+    }
+  },
+  "databaseConnections": {
+    "first": 7.0,
+    "last": 7.0,
+    "max": 7.0,
+    "mean": 7.0,
+    "min": 7.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "databaseLongestTransactionSeconds": {
+    "first": 0.4,
+    "last": 0.4,
+    "max": 0.4,
+    "mean": 0.4,
+    "min": 0.4,
+    "samples": 5,
+    "status": "measured"
+  },
+  "databasePoolActive": {
+    "first": 1.0,
+    "last": 1.0,
+    "max": 1.0,
+    "mean": 1.0,
+    "min": 1.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "databasePoolPending": {
+    "first": 0.0,
+    "last": 0.0,
+    "max": 0.0,
+    "mean": 0.0,
+    "min": 0.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "databaseSizeGrowthBytes": {
+    "basis": "pg_database_size final minus baseline; includes concurrent writes and autovacuum",
+    "status": "measured",
+    "unit": "bytes",
+    "value": 163840
+  },
+  "dockerFreeBytesChange": {
+    "basis": "free space on the Docker root filesystem; includes everything else on it",
+    "status": "measured",
+    "unit": "bytes",
+    "value": -40960
+  },
+  "final": {
+    "application": {
+      "memoryLimitBytes": 0,
+      "startedAt": "2026-10-22T08:00:00.000000000Z"
+    },
+    "at": "2026-10-22T12:25:12Z",
+    "containers": {
+      "application": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      },
+      "catalogue-localizer": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      },
+      "postgres": {
+        "cpuPercent": 42.5,
+        "memoryBytes": 536870912,
+        "memoryLimitBytes": 2147483648,
+        "pids": 40
+      }
+    },
+    "database": {
+      "activeQueries": 1,
+      "clock": "2026-10-22T12:25:12.262709Z",
+      "committed": 220,
+      "connections": 7,
+      "deleted": 0,
+      "inserted": 660,
+      "longestTransactionSeconds": 0.4,
+      "run": null,
+      "sizeBytes": 52592640,
+      "updated": 220
+    },
+    "host": {
+      "cpus": 32,
+      "dockerFreeBytes": 988861833216,
+      "evidenceFreeBytes": 988861833216,
+      "load1m": 0.39,
+      "memoryAvailableBytes": 14887182336
+    },
+    "inventory": {
+      "coverageIntervals": 3,
+      "featuredEvidenceGames": 1060,
+      "games": 1060,
+      "releases": 2120,
+      "tableBytes": {
+        "game_snapshot": 13148160
+      }
+    },
+    "label": "final",
+    "localizerHealth": "healthy",
+    "metrics": {
+      "heapMaxBytes": 1073741824.0,
+      "heapUsedBytes": 356515840.0,
+      "localization": {
+        "busy": 0.0,
+        "failed": 0.0,
+        "fallback": 0.0,
+        "reused": 20.0,
+        "skipped": 0.0,
+        "translated": 50.0
+      },
+      "mappingFailures": 0.0,
+      "poolActive": 1.0,
+      "poolPending": 0.0,
+      "processCpuRatio": 0.25,
+      "providerRequests": 40.0,
+      "providerRetries": 10.0,
+      "providerSuccessful": 40.0,
+      "providerTimeSeconds": 12.0,
+      "providerUnsuccessful": 0.0
+    }
+  },
+  "hostLoad1m": {
+    "first": 0.34,
+    "last": 0.39,
+    "max": 0.39,
+    "mean": 0.37,
+    "min": 0.34,
+    "samples": 5,
+    "status": "measured"
+  },
+  "hostMemoryAvailableBytes": {
+    "first": 14838460416.0,
+    "last": 14886539264.0,
+    "max": 14886539264.0,
+    "mean": 14862276198.4,
+    "min": 14838460416.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "jvmHeapUsedBytes": {
+    "first": 314572800.0,
+    "last": 356515840.0,
+    "max": 356515840.0,
+    "mean": 338060902.4,
+    "min": 314572800.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "postgresCpuPercent": {
+    "first": 42.5,
+    "last": 42.5,
+    "max": 42.5,
+    "mean": 42.5,
+    "min": 42.5,
+    "samples": 5,
+    "status": "measured"
+  },
+  "postgresMemoryBytes": {
+    "first": 536870912.0,
+    "last": 536870912.0,
+    "max": 536870912.0,
+    "mean": 536870912.0,
+    "min": 536870912.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "processCpuRatio": {
+    "first": 0.25,
+    "last": 0.25,
+    "max": 0.25,
+    "mean": 0.25,
+    "min": 0.25,
+    "samples": 5,
+    "status": "measured"
+  },
+  "sampleDurationSeconds": {
+    "first": 0.1,
+    "last": 0.13,
+    "max": 0.13,
+    "mean": 0.122,
+    "min": 0.1,
+    "samples": 5,
+    "status": "measured"
+  }
+}

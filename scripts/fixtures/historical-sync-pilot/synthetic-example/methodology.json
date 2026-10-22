@@ -1,0 +1,33 @@
+{
+  "columns": {
+    "<container>_cpu_percent": "docker stats CPU percent, 100 = one core",
+    "<container>_memory_bytes": "docker stats memory usage, bytes",
+    "db_connections / db_active_queries": "pg_stat_activity backends of the application database / those active",
+    "db_longest_transaction_s": "age of the oldest open transaction, s",
+    "db_pool_active / db_pool_pending": "Hikari connections in use / threads waiting",
+    "db_size_bytes": "pg_database_size of the application database",
+    "db_transactions_committed / db_rows_*": "cumulative pg_stat_database counters of the application database",
+    "elapsed_s": "seconds since the monitor started",
+    "evidence_free_bytes / docker_free_bytes": "free bytes on the evidence and Docker root filesystems",
+    "heartbeat_age_s": "seconds since the run's last heartbeat, database clock",
+    "host_load_1m / host_memory_available_bytes": "/proc/loadavg and MemAvailable of the host",
+    "jvm_heap_used_bytes / jvm_heap_max_bytes": "JVM heap gauges, bytes",
+    "localizer_health": "Docker health status of catalogue-localizer",
+    "meter_localization_<outcome>": "process-cumulative catalogue.localization.content count for that outcome, all kinds",
+    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s, mapping failures",
+    "probe_failures": "probes that answered nothing in this sample; their columns are empty, never zero",
+    "process_cpu_ratio": "JVM process CPU usage, 0..1 of the whole container allowance",
+    "progress_*": "fields of the application's latest INFO progress line (at most one a minute); cumulative for the run",
+    "progress_log_age_s": "seconds since that progress line",
+    "run_status": "synchronization_run.run_status read from PostgreSQL; empty until the run is identified",
+    "sample_duration_s": "time this sample took to collect, the harness's own observer overhead",
+    "stop_requested": "true once an operator requested the UC-013 stop",
+    "timestamp_utc": "sample time, host clock, UTC ISO-8601"
+  },
+  "emptyCell": "unavailable: the probe failed or the source does not exist yet; never zero",
+  "estimated": "arithmetic on measured values, labelled with its basis",
+  "measured": "read from the durable run report, PostgreSQL, Docker or the application's meters",
+  "redaction": "external text is redacted for credentials, tokens and e-mail addresses and truncated; Game identities are not kept",
+  "sampling": "one row per interval; every value is a point reading, so a sampled maximum is a lower bound",
+  "schemaVersion": 1
+}

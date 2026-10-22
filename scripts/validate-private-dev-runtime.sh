@@ -444,6 +444,8 @@ python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(enc
   "$repository_root/deploy/private-dev/bin/configure-keycloak-identity"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/configure-keycloak-operator"
+python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+  "$repository_root/deploy/private-dev/bin/historical-sync-pilot"
 for personal_data_command in personal-data personal-data-ledger; do
   python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
     "$repository_root/deploy/private-dev/bin/$personal_data_command"
@@ -461,6 +463,7 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   bash "$repository_root/scripts/test-local-localization.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
   python3 "$repository_root/scripts/test-private-dev-identity-commands.py"
+  python3 "$repository_root/scripts/test-historical-sync-pilot.py"
 fi
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-realm.json" >/dev/null
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-users-0.json" >/dev/null

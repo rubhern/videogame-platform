@@ -425,6 +425,12 @@ the application while a requested run is in flight. Intervals longer than half a
 to several requests, one after another, until resumable backfill
 ([#246](https://github.com/rubhern/videogame-platform/issues/246)) exists.
 
+Post-MVP (#246 spike; prepared, not yet proven on `vgpdev`): to measure one historical month
+before that backfill is designed, the owner launches it with the
+[historical synchronization pilot](../../deploy/private-dev/README.md#historical-synchronization-pilot).
+It uses the management command below and leaves sanitized evidence; the
+[research record](../research/historical-sync-pilot.md) owns how to read that evidence.
+
 Post-MVP (#342, implemented; awaiting owner review): **Ejecución actual** can end the run in
 flight, whatever started it: a scheduled, management or requested run.
 

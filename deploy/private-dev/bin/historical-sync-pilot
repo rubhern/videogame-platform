@@ -1,0 +1,1739 @@
+#!/usr/bin/env python3
+
+"""Owner-operated diagnostic pilot of one historical month of catalogue synchronization (#246).
+
+The harness measures the existing UC-009 run; it never imports anything itself. `start` launches
+exactly one calendar month through the private management command `POST /actuator/cataloguesync`
+(the documented break-glass/diagnostic trigger, so no product endpoint, session or CSRF is
+involved) and leaves a detached monitor that samples bounded evidence until the run ends. The
+monitor is not the synchronization worker: the run executes on the application's own thread,
+PostgreSQL's `catalogue.synchronization_run` row is its truth, and stopping or losing the monitor
+never stops the run. Nothing here restarts a run, launches another month, changes configuration
+or scheduling, writes to PostgreSQL or reads a secret's content.
+
+Evidence is written incrementally under `<evidence-root>/<YYYY-MM>/<execution-id>/` so a crash or
+host restart keeps what was measured; `report` rebuilds the summary from whatever exists.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import datetime as dt
+import fcntl
+import json
+import os
+import pathlib
+import re
+import secrets
+import shlex
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tarfile
+import time
+
+sys.dont_write_bytecode = True
+
+SCHEMA_VERSION = 1
+repository_root = pathlib.Path(__file__).resolve().parents[3]
+compose_file = repository_root / "deploy/private-dev/compose.yaml"
+DEFAULT_ENV_FILE = pathlib.Path("/etc/videogame-platform/dev/runtime.env")
+DEFAULT_EVIDENCE_ROOT = pathlib.Path("/var/lib/videogame-platform/dev/historical-sync-evidence")
+DEFAULT_PROJECT = "videogame-platform-dev"
+APPLICATION_DATABASE = "videogame_platform"
+MANAGEMENT = "http://127.0.0.1:8081/actuator"
+# The approved historical scope starts here; earlier months need a separate owner decision.
+FIRST_MONTH = (2017, 3)
+ACTIVE_MARKER = "ACTIVE"
+MONTH = re.compile(r"(\d{4})-(\d{2})")
+EXECUTION = re.compile(r"hsp-\d{8}T\d{6}Z-[0-9a-f]{6}")
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+ZERO_UUID = "00000000-0000-0000-0000-000000000000"
+MAX_ERROR_LINES = 400
+MAX_EVENT_LINES = 400
+MAX_RESPONSE_BYTES = 1024 * 1024
+MIN_FREE_BYTES = 512 * 1024 * 1024
+# Only these runtime.env keys are ever read; every other line, including any value, is ignored.
+RUNTIME_KEYS = ("COMPOSE_PROJECT_NAME", "APPLICATION_VERSION")
+
+# Provider and localization meters with their closed tag vocabularies (observability catalogue).
+PROVIDER_OPERATIONS = ("window", "works", "release_dates", "logos")
+LOCALIZATION_KINDS = ("summary", "genre", "game_mode")
+LOCALIZATION_OUTCOMES = ("translated", "reused", "skipped", "failed", "busy", "fallback")
+
+SAMPLE_COLUMNS = (
+    "timestamp_utc", "elapsed_s", "run_status", "heartbeat_age_s", "stop_requested",
+    "progress_phase", "progress_page", "progress_page_position", "progress_page_games",
+    "progress_games_created", "progress_games_updated", "progress_games_unchanged",
+    "progress_games_deferred", "progress_games_failed", "progress_release_dates_inspected",
+    "progress_provider_requests", "progress_provider_retries", "progress_log_age_s",
+    "meter_provider_requests", "meter_provider_unsuccessful", "meter_provider_retries",
+    "meter_provider_time_s", "meter_mapping_failures",
+    *(f"meter_localization_{outcome}" for outcome in LOCALIZATION_OUTCOMES),
+    "jvm_heap_used_bytes", "jvm_heap_max_bytes", "process_cpu_ratio", "db_pool_active",
+    "db_pool_pending",
+    "application_cpu_percent", "application_memory_bytes", "application_memory_limit_bytes",
+    "postgres_cpu_percent", "postgres_memory_bytes",
+    "localizer_cpu_percent", "localizer_memory_bytes", "localizer_health",
+    "db_size_bytes", "db_connections", "db_active_queries", "db_longest_transaction_s",
+    "db_transactions_committed", "db_rows_inserted", "db_rows_updated", "db_rows_deleted",
+    "host_load_1m", "host_memory_available_bytes",
+    "evidence_free_bytes", "docker_free_bytes", "probe_failures", "sample_duration_s",
+)
+
+# Each evidence directory carries this description, so shared evidence needs no repository access.
+COLUMN_MEANINGS = {
+    "timestamp_utc": "sample time, host clock, UTC ISO-8601",
+    "elapsed_s": "seconds since the monitor started",
+    "run_status": "synchronization_run.run_status read from PostgreSQL; empty until the run is identified",
+    "heartbeat_age_s": "seconds since the run's last heartbeat, database clock",
+    "stop_requested": "true once an operator requested the UC-013 stop",
+    "progress_*": "fields of the application's latest INFO progress line (at most one a minute); cumulative for the run",
+    "progress_log_age_s": "seconds since that progress line",
+    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s, mapping failures",
+    "meter_localization_<outcome>": "process-cumulative catalogue.localization.content count for that outcome, all kinds",
+    "jvm_heap_used_bytes / jvm_heap_max_bytes": "JVM heap gauges, bytes",
+    "process_cpu_ratio": "JVM process CPU usage, 0..1 of the whole container allowance",
+    "db_pool_active / db_pool_pending": "Hikari connections in use / threads waiting",
+    "<container>_cpu_percent": "docker stats CPU percent, 100 = one core",
+    "<container>_memory_bytes": "docker stats memory usage, bytes",
+    "localizer_health": "Docker health status of catalogue-localizer",
+    "db_size_bytes": "pg_database_size of the application database",
+    "db_connections / db_active_queries": "pg_stat_activity backends of the application database / those active",
+    "db_longest_transaction_s": "age of the oldest open transaction, s",
+    "db_transactions_committed / db_rows_*": "cumulative pg_stat_database counters of the application database",
+    "host_load_1m / host_memory_available_bytes": "/proc/loadavg and MemAvailable of the host",
+    "evidence_free_bytes / docker_free_bytes": "free bytes on the evidence and Docker root filesystems",
+    "probe_failures": "probes that answered nothing in this sample; their columns are empty, never zero",
+    "sample_duration_s": "time this sample took to collect, the harness's own observer overhead",
+}
+METHODOLOGY = {
+    "sampling": "one row per interval; every value is a point reading, so a sampled maximum is a lower bound",
+    "emptyCell": "unavailable: the probe failed or the source does not exist yet; never zero",
+    "measured": "read from the durable run report, PostgreSQL, Docker or the application's meters",
+    "estimated": "arithmetic on measured values, labelled with its basis",
+    "redaction": "external text is redacted for credentials, tokens and e-mail addresses and truncated; Game identities are not kept",
+    "columns": COLUMN_MEANINGS,
+}
+
+# Redaction runs on every string taken from an external process before it reaches evidence.
+SECRET_PATTERNS = (
+    (re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+"), r"\1 [redacted]"),
+    (re.compile(r"(?i)\b(authorization|client[_-]?secret|client[_-]?id|access[_-]?token|refresh[_-]?token|"
+                r"password|passwd|api[_-]?key|token)([\"']?\s*[:=]\s*)(?!\w+ \[redacted\])[^\s,;\"'}&]+"), r"\1=[redacted]"),
+    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[redacted]"),
+    (re.compile(r"-----BEGIN [A-Z ]+-----"), "[redacted]"),
+    (re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}"), "[redacted]"),
+)
+EXPORT_DENYLIST = (
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._-]{8,}"),
+    re.compile(r"(?i)(client[_-]?secret|access[_-]?token|password)\s*[\"']?\s*[:=]\s*[\"']?[^\s\"'\[]{4,}"),
+    re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    re.compile(r"-----BEGIN [A-Z ]+-----"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}"),
+)
+
+
+class PilotError(Exception):
+    """A refusal or failure the owner must act on; its message never contains secret values."""
+
+
+def redact(text: str, limit: int = 300) -> str:
+    text = text.replace("\r", " ").replace("\n", " ").strip()
+    for pattern, replacement in SECRET_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text[:limit]
+
+
+def utc_now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def iso(moment: dt.datetime | None) -> str | None:
+    return None if moment is None else moment.astimezone(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def parse_instant(value: object) -> dt.datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    # PostgreSQL json timestamps carry fractional seconds and an offset such as +00:00.
+    match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d+)?([+-]\d{2}(:?\d{2})?)?", text)
+    if not match:
+        return None
+    offset = match.group(4) or "+00:00"
+    if re.fullmatch(r"[+-]\d{2}", offset):
+        offset += ":00"
+    fraction = (match.group(3) or "")[:7]
+    try:
+        return dt.datetime.fromisoformat(f"{match.group(1)}T{match.group(2)}{fraction}{offset}")
+    except ValueError:
+        return None
+
+
+def month_window(month: str, today: dt.date | None = None) -> tuple[dt.date, dt.date]:
+    match = MONTH.fullmatch(month or "")
+    if not match:
+        raise PilotError("--month must be one calendar month written YYYY-MM, for example 2017-03")
+    year, number = int(match.group(1)), int(match.group(2))
+    if not 1 <= number <= 12:
+        raise PilotError("--month must name a month between 01 and 12")
+    today = today or utc_now().date()
+    if (year, number) < FIRST_MONTH:
+        raise PilotError("The approved historical scope starts at 2017-03")
+    if (year, number) > (today.year, today.month):
+        raise PilotError("A historical pilot month cannot be in the future")
+    first = dt.date(year, number, 1)
+    following = dt.date(year + (number == 12), number % 12 + 1, 1)
+    return first, following - dt.timedelta(days=1)
+
+
+def write_json(path: pathlib.Path, value: object) -> None:
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def read_json(path: pathlib.Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def append_bounded(path: pathlib.Path, line: str, limit: int) -> None:
+    count_path = path.with_name(f".{path.name}.count")
+    try:
+        count = int(count_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        count = 0
+    if count > limit:
+        return
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write((line if count < limit else f"{iso(utc_now())} further lines suppressed (limit {limit})") + "\n")
+    count_path.write_text(str(count + 1), encoding="utf-8")
+
+
+def parse_runtime_environment(path: pathlib.Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        raise PilotError(f"Cannot read the runtime environment file {path}") from None
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, raw_value = line.split("=", 1)
+        if key.strip() in RUNTIME_KEYS:
+            parsed = shlex.split(raw_value, comments=False, posix=True)
+            if len(parsed) == 1:
+                values[key.strip()] = parsed[0]
+    return values
+
+
+# Runtime access ----------------------------------------------------------------------------------
+
+
+class Runtime:
+    """Read-only access to the private-dev containers, always through the docker CLI."""
+
+    def __init__(self, env_file: pathlib.Path) -> None:
+        self.env_file = env_file
+        values = parse_runtime_environment(env_file)
+        self.project = values.get("COMPOSE_PROJECT_NAME", DEFAULT_PROJECT)
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{2,62}", self.project):
+            raise PilotError("COMPOSE_PROJECT_NAME is not a valid Compose project name")
+        self.configured_version = values.get("APPLICATION_VERSION")
+        self.compose = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file),
+                        "--project-name", self.project, "--profile", "application"]
+
+    @staticmethod
+    def run(command: list[str], *, timeout: float = 60, stdin: str | None = None) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(command, input=stdin, capture_output=True, text=True, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(command, 124, "", "timed out")
+        except OSError as error:
+            return subprocess.CompletedProcess(command, 127, "", str(error))
+
+    def container(self, service: str) -> str | None:
+        result = self.run(self.compose + ["ps", "--quiet", "--status", "running", service])
+        if result.returncode != 0:
+            raise PilotError(f"docker compose could not list the {service} service")
+        ids = result.stdout.split()
+        return ids[0] if ids else None
+
+    def inspect(self, container: str) -> dict:
+        result = self.run(["docker", "inspect", "--format",
+                           '{"started":{{json .State.StartedAt}},"running":{{json .State.Running}},'
+                           '"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},'
+                           '"image":{{json .Image}},"memoryLimit":{{json .HostConfig.Memory}}}', container])
+        if result.returncode != 0:
+            return {}
+        try:
+            return json.loads(result.stdout)
+        except ValueError:
+            return {}
+
+    def scheduling(self) -> dict:
+        # Only the scheduling keys of the rendered application environment are kept.
+        result = self.run(self.compose + ["config", "--format", "json"])
+        if result.returncode != 0:
+            return {"status": "unavailable"}
+        try:
+            environment = json.loads(result.stdout)["services"]["application"].get("environment") or {}
+        except (ValueError, KeyError, TypeError):
+            return {"status": "unavailable"}
+        enabled = str(environment.get("CATALOGUE_SYNC_SCHEDULING_ENABLED", "false")).lower() == "true"
+        return {
+            "status": "enabled" if enabled else "disabled",
+            "nearTermCron": environment.get("CATALOGUE_SYNC_NEAR_TERM_CRON", "application default"),
+            "upcomingCron": environment.get("CATALOGUE_SYNC_UPCOMING_CRON", "application default"),
+            "abandonRunAfter": environment.get("CATALOGUE_SYNC_ABANDON_RUN_AFTER", "application default"),
+        }
+
+    def sql(self, postgres: str, statement: str, run_id: str = ZERO_UUID, **variables: str) -> object:
+        # Values reach SQL only as psql variables quoted by psql itself (:'name'), never by formatting.
+        settings = [item for name, text in {"run_id": run_id, **variables}.items() for item in ("--set", f"{name}={text}")]
+        result = self.run(
+            ["docker", "exec", "-i", postgres, "gosu", "postgres", "psql", "--no-psqlrc", "--quiet",
+             "--tuples-only", "--no-align", "--set", "ON_ERROR_STOP=1", *settings,
+             f"--dbname={APPLICATION_DATABASE}", "--file=-"],
+            stdin="SET statement_timeout = '20s'; SET lock_timeout = '2s';\n"
+                  "SET default_transaction_read_only = on;\n" + statement,
+            timeout=45,
+        )
+        if result.returncode != 0:
+            raise PilotError("PostgreSQL read failed")
+        return json.loads(result.stdout.strip() or "null")
+
+    def management(self, application: str, paths: list[str]) -> list[object]:
+        """Read several management GETs in one exec; an unavailable answer is None."""
+        script = 'for path in "$@"; do wget -q -T 20 -O - "' + MANAGEMENT + '/$path" 2>/dev/null; printf "\\n@@@END@@@\\n"; done'
+        result = self.run(["docker", "exec", application, "sh", "-c", script, "sh", *paths], timeout=30 + 5 * len(paths))
+        if result.returncode != 0 and "@@@END@@@" not in result.stdout:
+            return [None] * len(paths)
+        chunks = result.stdout.split("\n@@@END@@@\n")
+        answers: list[object] = []
+        for index in range(len(paths)):
+            chunk = chunks[index].strip() if index < len(chunks) else ""
+            try:
+                answers.append(json.loads(chunk) if chunk else None)
+            except ValueError:
+                answers.append(None)
+        return answers
+
+    def credentials_present(self, application: str) -> bool | None:
+        # Only the exit status leaves the container: the files' content is never read here.
+        result = self.run(["docker", "exec", application, "sh", "-c",
+                           'test -s "$IGDB_CLIENT_ID_FILE" && test -s "$IGDB_CLIENT_SECRET_FILE"'])
+        if result.returncode in (0, 1):
+            return result.returncode == 0
+        return None
+
+    def stats(self, containers: dict[str, str | None]) -> dict[str, dict]:
+        present = {name: cid for name, cid in containers.items() if cid}
+        if not present:
+            return {}
+        result = self.run(["docker", "stats", "--no-stream", "--no-trunc", "--format", "{{json .}}", *present.values()], timeout=60)
+        answers: dict[str, dict] = {}
+        if result.returncode != 0:
+            return answers
+        for line in result.stdout.splitlines():
+            try:
+                item = json.loads(line)
+            except ValueError:
+                continue
+            for name, cid in present.items():
+                if str(item.get("ID", "")).startswith(cid[:12]) or cid.startswith(str(item.get("ID", "x"))):
+                    usage, _, limit = str(item.get("MemUsage", "")).partition("/")
+                    answers[name] = {
+                        "cpuPercent": percent(item.get("CPUPerc")),
+                        "memoryBytes": byte_size(usage),
+                        "memoryLimitBytes": byte_size(limit),
+                        "pids": integer(item.get("PIDs")),
+                    }
+        return answers
+
+    def logs(self, application: str, since: str) -> list[str]:
+        result = self.run(["docker", "logs", "--timestamps", "--since", since, application], timeout=60)
+        if result.returncode != 0:
+            raise PilotError("docker logs unavailable")
+        return (result.stdout + result.stderr).splitlines()
+
+    def docker_root(self) -> str | None:
+        result = self.run(["docker", "info", "--format", "{{.DockerRootDir}}"])
+        root = result.stdout.strip()
+        return root if result.returncode == 0 and root.startswith("/") else None
+
+
+def percent(value: object) -> float | None:
+    try:
+        return round(float(str(value).strip().rstrip("%")), 2)
+    except ValueError:
+        return None
+
+
+def integer(value: object) -> int | None:
+    try:
+        return int(str(value).strip())
+    except ValueError:
+        return None
+
+
+def byte_size(value: str) -> int | None:
+    match = re.fullmatch(r"\s*([0-9.]+)\s*([KMGTP]?i?B|B)?\s*", value or "")
+    if not match:
+        return None
+    units = {"B": 1, "KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4,
+             "KIB": 1024, "MIB": 1024**2, "GIB": 1024**3, "TIB": 1024**4}
+    return int(float(match.group(1)) * units.get((match.group(2) or "B").upper(), 1))
+
+
+def free_bytes(path: str | pathlib.Path | None) -> int | None:
+    if not path:
+        return None
+    try:
+        return shutil.disk_usage(path).free
+    except OSError:
+        return None
+
+
+def host_load() -> tuple[float | None, int | None]:
+    load = memory = None
+    try:
+        load = float(pathlib.Path("/proc/loadavg").read_text(encoding="utf-8").split()[0])
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        for line in pathlib.Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemAvailable:"):
+                memory = int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return load, memory
+
+
+# Queries --------------------------------------------------------------------------------------
+
+RUNNING_RUNS = """
+SELECT coalesce(json_agg(json_build_object(
+         'runId', run_id, 'from', window_from, 'to', window_to, 'startedAt', started_at,
+         'heartbeatAt', heartbeat_at, 'stopRequestedAt', stop_requested_at,
+         'heartbeatAgeSeconds', round(extract(epoch FROM clock_timestamp() - heartbeat_at)::numeric, 1))
+       ORDER BY started_at, run_id), '[]'::json)
+FROM catalogue.synchronization_run WHERE run_status = 'running';
+"""
+
+RUN_ROW = """
+SELECT json_build_object(
+  'runId', run_id, 'from', window_from, 'to', window_to, 'status', run_status,
+  'outcomeCode', outcome_code, 'startedAt', started_at, 'heartbeatAt', heartbeat_at,
+  'completedAt', completed_at, 'stopRequestedAt', stop_requested_at, 'report', report,
+  'heartbeatAgeSeconds', round(extract(epoch FROM clock_timestamp() - heartbeat_at)::numeric, 1))
+FROM catalogue.synchronization_run WHERE run_id = :'run_id';
+"""
+
+# The run is identified by its exact window and by starting after the launch marker taken from the
+# database clock itself, so host clock steps cannot select an older run of the same month.
+FIND_RUN = """
+SELECT json_build_object('runId', run_id, 'status', run_status)
+FROM catalogue.synchronization_run
+WHERE window_from = :'window_from'::date AND window_to = :'window_to'::date
+  AND started_at >= :'launched_at'::timestamptz
+ORDER BY started_at, run_id LIMIT 1;
+"""
+
+DATABASE_SAMPLE = """
+SELECT json_build_object(
+  'clock', clock_timestamp(),
+  'sizeBytes', pg_database_size(current_database()),
+  'connections', (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()),
+  'activeQueries', (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()
+                     AND state = 'active' AND pid <> pg_backend_pid()),
+  'longestTransactionSeconds', (SELECT round(coalesce(max(extract(epoch FROM clock_timestamp() - xact_start)), 0)::numeric, 1)
+                     FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()
+                     AND xact_start IS NOT NULL),
+  'committed', d.xact_commit, 'inserted', d.tup_inserted, 'updated', d.tup_updated, 'deleted', d.tup_deleted,
+  'run', (SELECT json_build_object('status', run_status, 'outcomeCode', outcome_code,
+                 'stopRequestedAt', stop_requested_at,
+                 'heartbeatAgeSeconds', round(extract(epoch FROM clock_timestamp() - heartbeat_at)::numeric, 1))
+          FROM catalogue.synchronization_run WHERE run_id = :'run_id'))
+FROM pg_stat_database d WHERE d.datname = current_database();
+"""
+
+# Baseline/final only: whole-catalogue counts through the existing read-contract view.
+INVENTORY = """
+SELECT json_build_object('games', games, 'releases', releases,
+  'featuredEvidenceGames', featured_evidence_games,
+  'coverageIntervals', (SELECT count(*) FROM catalogue.synchronization_coverage),
+  'tableBytes', (SELECT json_object_agg(relname, pg_total_relation_size(c.oid) ORDER BY relname)
+                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                 WHERE n.nspname = 'catalogue' AND c.relkind = 'r'))
+FROM catalogue.observability_inventory;
+"""
+
+DB_CLOCK = "SELECT to_json(clock_timestamp());\n"
+
+
+def metric_paths() -> list[tuple[str, str]]:
+    """Management metric reads for one sample: (key, path)."""
+    paths = [
+        ("provider_requests", "metrics/catalogue.synchronization.provider.request"),
+        ("provider_success", "metrics/catalogue.synchronization.provider.request?tag=outcome:success"),
+        ("provider_retries", "metrics/catalogue.synchronization.provider.retry"),
+        ("provider_time", "metrics/catalogue.synchronization.provider.request.duration"),
+        ("mapping_failures", "metrics/catalogue.synchronization.provider.mapping.failure"),
+        ("heap_used", "metrics/jvm.memory.used?tag=area:heap"),
+        ("heap_max", "metrics/jvm.memory.max?tag=area:heap"),
+        ("process_cpu", "metrics/process.cpu.usage"),
+        ("pool_active", "metrics/hikaricp.connections.active"),
+        ("pool_pending", "metrics/hikaricp.connections.pending"),
+    ]
+    paths += [(f"localization_{outcome}", f"metrics/catalogue.localization.content?tag=outcome:{outcome}")
+              for outcome in LOCALIZATION_OUTCOMES]
+    return paths
+
+
+def statistic(answer: object, name: str) -> float | None:
+    if not isinstance(answer, dict):
+        return None
+    for measurement in answer.get("measurements") or []:
+        if isinstance(measurement, dict) and measurement.get("statistic") == name:
+            value = measurement.get("value")
+            return float(value) if isinstance(value, (int, float)) else None
+    return None
+
+
+def metric_snapshot(runtime: Runtime, application: str | None) -> dict:
+    if not application:
+        return {}
+    keys, paths = zip(*metric_paths())
+    answers = dict(zip(keys, runtime.management(application, list(paths))))
+    snapshot = {
+        "providerRequests": statistic(answers["provider_requests"], "COUNT"),
+        "providerSuccessful": statistic(answers["provider_success"], "COUNT"),
+        "providerRetries": statistic(answers["provider_retries"], "COUNT"),
+        "providerTimeSeconds": statistic(answers["provider_time"], "TOTAL_TIME"),
+        "mappingFailures": statistic(answers["mapping_failures"], "COUNT"),
+        "heapUsedBytes": statistic(answers["heap_used"], "VALUE"),
+        "heapMaxBytes": statistic(answers["heap_max"], "VALUE"),
+        "processCpuRatio": statistic(answers["process_cpu"], "VALUE"),
+        "poolActive": statistic(answers["pool_active"], "VALUE"),
+        "poolPending": statistic(answers["pool_pending"], "VALUE"),
+        "localization": {outcome: statistic(answers[f"localization_{outcome}"], "COUNT") for outcome in LOCALIZATION_OUTCOMES},
+    }
+    # A meter absent from the registry answers 404, which reads as unavailable rather than zero.
+    if snapshot["providerRequests"] is not None and snapshot["providerSuccessful"] is not None:
+        snapshot["providerUnsuccessful"] = snapshot["providerRequests"] - snapshot["providerSuccessful"]
+    else:
+        snapshot["providerUnsuccessful"] = None
+    return snapshot
+
+
+# Log parsing ------------------------------------------------------------------------------------
+
+PROGRESS = re.compile(
+    r"Catalogue synchronization progress: run=(?P<run>\S+) phase=(?P<phase>\S+) page=(?P<page>\d+)"
+    r" game=(?P<position>\d+)/(?P<page_games>\d+) elapsed_s=(?P<elapsed>\d+) games\[created=(?P<created>\d+)"
+    r" updated=(?P<updated>\d+) unchanged=(?P<unchanged>\d+) deferred=(?P<deferred>\d+) failed=(?P<failed>\d+)\]"
+    r" release_dates_inspected=(?P<dates>\d+) provider\[requests=(?P<requests>\d+) retries=(?P<retries>\d+)\]")
+FINISHED = re.compile(r"Catalogue synchronization finished: run=(?P<run>\S+) outcome=(?P<outcome>\S+) code=(?P<code>\S+)"
+                      r" .*? pages=(?P<pages>\d+) .*?failures=(?P<failures>\S+)\s*$")
+GAME_FAILED = re.compile(r"Catalogue synchronization game failed: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
+RUN_FAILURE = re.compile(r"Catalogue synchronization run failure: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
+LOOKUP_UNAVAILABLE = re.compile(r"Catalogue synchronization page lookup unavailable: run=(?P<run>\S+) stage=(?P<stage>\S+) reason=(?P<reason>\S+)")
+STARTED = re.compile(r"Catalogue synchronization started: run=(?P<run>\S+) window=(?P<from>\S+)\.\.(?P<to>\S+)"
+                     r" provider_page_size=(?P<page_size>\d+)")
+
+
+def log_entry(line: str) -> tuple[dt.datetime | None, str, str, str]:
+    """Split a `docker logs --timestamps` line into timestamp, level, logger and message.
+
+    Private dev writes ECS JSON; local console lines are plain text. Both carry the same message.
+    """
+    stamp, _, body = line.partition(" ")
+    found = re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d{1,6})?", stamp)
+    moment = parse_instant(f"{found.group(1)}{found.group(2) or ''}Z") if found else None
+    body = body.strip()
+    level = logger = ""
+    message = body
+    if body.startswith("{"):
+        try:
+            event = json.loads(body)
+            message = str(event.get("message", ""))
+            nested = event.get("log") if isinstance(event.get("log"), dict) else {}
+            level = str(event.get("log.level") or nested.get("level") or event.get("level") or "")
+            logger = str(event.get("log.logger") or nested.get("logger") or event.get("logger_name") or "")
+        except ValueError:
+            pass
+    else:
+        found = re.search(r"\b(TRACE|DEBUG|INFO|WARN|ERROR)\b", body)
+        level = found.group(1) if found else ""
+    return moment, level.upper(), logger, message
+
+
+def progress_fields(match: re.Match) -> dict:
+    return {
+        "phase": match.group("phase"), "page": int(match.group("page")),
+        "pagePosition": int(match.group("position")), "pageGames": int(match.group("page_games")),
+        "elapsedSeconds": int(match.group("elapsed")), "gamesCreated": int(match.group("created")),
+        "gamesUpdated": int(match.group("updated")), "gamesUnchanged": int(match.group("unchanged")),
+        "gamesDeferred": int(match.group("deferred")), "gamesFailed": int(match.group("failed")),
+        "releaseDatesInspected": int(match.group("dates")), "providerRequests": int(match.group("requests")),
+        "providerRetries": int(match.group("retries")),
+    }
+
+
+class LogFollower:
+    """Bounded incremental reading of the application log for one run."""
+
+    def __init__(self, directory: pathlib.Path, state: dict) -> None:
+        self.directory = directory
+        self.state = state
+
+    def consume(self, lines: list[str], run_id: str | None) -> None:
+        last_seen = parse_instant(self.state.get("logCursor"))
+        newest = last_seen
+        tally = self.state.setdefault("failureTally", {})
+        for line in lines:
+            moment, level, logger, message = log_entry(line)
+            if moment is not None and last_seen is not None and moment <= last_seen:
+                continue
+            if moment is not None and (newest is None or moment > newest):
+                newest = moment
+            if "Catalogue synchronization" in message and run_id and f"run={run_id}" not in message:
+                continue
+            started = STARTED.search(message)
+            if started:
+                self.state["providerPageSize"] = int(started.group("page_size"))
+            progress = PROGRESS.search(message)
+            if progress:
+                self.state["progress"] = progress_fields(progress)
+                self.state["progressAt"] = iso(moment)
+                continue
+            finished = FINISHED.search(message)
+            if finished:
+                self.state["finishedLog"] = {
+                    "outcome": finished.group("outcome"), "code": finished.group("code"),
+                    "pages": int(finished.group("pages")), "failures": redact(finished.group("failures"), 500),
+                    "at": iso(moment),
+                }
+                continue
+            for kind, pattern in (("game", GAME_FAILED), ("run", RUN_FAILURE), ("page_lookup", LOOKUP_UNAVAILABLE)):
+                failure = pattern.search(message)
+                if failure:
+                    # Only bounded stage/reason vocabularies are kept, never Game identities.
+                    key = f"{kind}:{failure.group('stage')}/{failure.group('reason')}"
+                    tally[key] = tally.get(key, 0) + 1
+                    append_bounded(self.directory / "errors.log",
+                                   f"{iso(moment)} application {kind} failure stage={failure.group('stage')} "
+                                   f"reason={failure.group('reason')}", MAX_ERROR_LINES)
+                    break
+            else:
+                if level in ("WARN", "ERROR") and "Catalogue synchronization game failed" not in message:
+                    self.state["applicationWarnings"] = self.state.get("applicationWarnings", 0) + 1
+                    append_bounded(self.directory / "errors.log",
+                                   f"{iso(moment)} application {level} {redact(logger, 80)}: {redact(message, 200)}",
+                                   MAX_ERROR_LINES)
+        if newest is not None:
+            self.state["logCursor"] = iso(newest) if newest.microsecond == 0 else newest.isoformat().replace("+00:00", "Z")
+
+
+# Evidence directories -------------------------------------------------------------------------
+
+
+def evidence_root(arguments: argparse.Namespace) -> pathlib.Path:
+    root = pathlib.Path(arguments.evidence_root)
+    if not root.is_absolute():
+        raise PilotError("--evidence-root must be absolute")
+    return root
+
+
+def executions(root: pathlib.Path) -> list[pathlib.Path]:
+    found = [path for path in root.glob("*/hsp-*") if path.is_dir() and EXECUTION.fullmatch(path.name)]
+    return sorted(found, key=lambda path: path.name)
+
+
+def select_execution(root: pathlib.Path, execution: str | None, month: str | None = None) -> pathlib.Path:
+    candidates = executions(root)
+    if execution:
+        if not EXECUTION.fullmatch(execution):
+            raise PilotError("--execution must be an identifier printed by start, such as hsp-20261022T101500Z-1a2b3c")
+        candidates = [path for path in candidates if path.name == execution]
+    if month:
+        candidates = [path for path in candidates if path.parent.name == month]
+    if not candidates:
+        raise PilotError("No matching pilot execution exists under the evidence root")
+    return candidates[-1]
+
+
+def monitor_alive(directory: pathlib.Path) -> bool:
+    """The detached monitor holds an exclusive lock on monitor.lock for its whole life."""
+    lock = directory / "monitor.lock"
+    if not lock.exists():
+        return False
+    with lock.open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle, fcntl.LOCK_UN)
+    return False
+
+
+def active_execution(root: pathlib.Path) -> tuple[pathlib.Path | None, bool]:
+    marker = root / ACTIVE_MARKER
+    try:
+        execution = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None, False
+    directory = next((path for path in executions(root) if path.name == execution), None)
+    return directory, bool(directory and monitor_alive(directory))
+
+
+# Preflight ------------------------------------------------------------------------------------
+
+
+class Checks:
+    def __init__(self) -> None:
+        self.items: list[dict] = []
+
+    def add(self, name: str, status: str, detail: str, **facts: object) -> None:
+        self.items.append({"check": name, "status": status, "detail": detail, **facts})
+
+    @property
+    def blocked(self) -> bool:
+        return any(item["status"] == "fail" for item in self.items)
+
+
+def preflight(arguments: argparse.Namespace) -> dict:
+    checks = Checks()
+    facts: dict[str, object] = {"checkedAt": iso(utc_now()), "month": arguments.month}
+    window_from, window_to = month_window(arguments.month)
+    facts["window"] = {"from": window_from.isoformat(), "to": window_to.isoformat()}
+    checks.add("month", "pass", f"{arguments.month} is the inclusive window {window_from}..{window_to}")
+
+    host = socket.gethostname().split(".")[0]
+    checks.add("host", "pass" if host == arguments.expected_host else "fail",
+               f"host is {host}" + ("" if host == arguments.expected_host else f"; this command runs only on {arguments.expected_host}"))
+
+    root = evidence_root(arguments)
+    if root.is_dir() and os.access(root, os.W_OK):
+        free = free_bytes(root)
+        checks.add("evidence storage", "pass" if (free or 0) >= MIN_FREE_BYTES else "fail",
+                   f"{root} is writable with {human_bytes(free)} free", freeBytes=free)
+    else:
+        checks.add("evidence storage", "fail", f"{root} must already exist and be writable (install -d -m 0750 {root})")
+    if root.is_dir():
+        directory, alive = active_execution(root)
+        if directory and alive:
+            checks.add("pilot overlap", "fail", f"pilot {directory.name} is still being monitored; one month at a time")
+        elif directory:
+            checks.add("pilot overlap", "fail", f"pilot {directory.name} was left unfinished by a lost monitor; "
+                       f"run `report --execution {directory.name}` to close its evidence first")
+        else:
+            checks.add("pilot overlap", "pass", "no other pilot is active")
+
+    try:
+        runtime = Runtime(pathlib.Path(arguments.env_file))
+    except PilotError as error:
+        checks.add("runtime configuration", "fail", str(error))
+        facts["checks"] = checks.items
+        facts["blocked"] = True
+        return facts
+    checks.add("runtime configuration", "pass", f"Compose project {runtime.project}")
+
+    containers = {}
+    for service in ("application", "postgres", "catalogue-localizer"):
+        try:
+            containers[service] = runtime.container(service)
+        except PilotError as error:
+            containers[service] = None
+            checks.add(f"{service} container", "fail", str(error))
+            continue
+        checks.add(f"{service} container", "pass" if containers[service] else "fail",
+                   "running" if containers[service] else "not running")
+    application, postgres, localizer = containers["application"], containers["postgres"], containers["catalogue-localizer"]
+
+    if application:
+        info, readiness, coverage, last_run = runtime.management(application, [
+            "info", "health/readiness",
+            f"cataloguecoverage?from={window_from}&to={window_to}", "cataloguesync"])
+        status = readiness.get("status") if isinstance(readiness, dict) else None
+        checks.add("application readiness", "pass" if status == "UP" else "fail", f"readiness is {status or 'unavailable'}")
+        build = info.get("build", {}) if isinstance(info, dict) else {}
+        facts["application"] = {
+            "version": build.get("version"), "configuredVersion": runtime.configured_version,
+            "sourceRevision": build.get("sourceRevision"),
+            "image": runtime.inspect(application).get("image"),
+        }
+        credentials = runtime.credentials_present(application)
+        checks.add("provider credentials",
+                   {True: "pass", False: "fail", None: "warn"}[credentials],
+                   {True: "both IGDB credential files are non-empty in the application container (content not read)",
+                    False: "an IGDB credential file is empty or missing; the run would be SYNCHRONIZATION_DISABLED",
+                    None: "credential file presence could not be checked"}[credentials])
+        if isinstance(last_run, dict) and last_run.get("outcomeCode") == "SYNCHRONIZATION_DISABLED":
+            checks.add("last run", "warn", "the last run reported SYNCHRONIZATION_DISABLED; recreate the application after fixing credentials")
+        facts["coverage"] = coverage if isinstance(coverage, dict) else None
+        periods = coverage.get("periods", []) if isinstance(coverage, dict) else None
+        if periods is None:
+            checks.add("coverage", "warn", "coverage is unavailable")
+            facts["previouslyCovered"] = None
+        else:
+            covered = [period for period in periods if period.get("status") == "covered"]
+            facts["previouslyCovered"] = "full" if covered and len(covered) == len(periods) else ("partial" if covered else "none")
+            if covered:
+                checks.add("coverage", "warn",
+                           f"{arguments.month} was already {facts['previouslyCovered']}ly covered (last scan "
+                           f"{max(str(period.get('scanCompletedAt')) for period in covered)}); this pilot measures a re-synchronization, "
+                           "which is not comparable with a first import")
+            else:
+                checks.add("coverage", "pass", f"{arguments.month} was never covered")
+    if postgres:
+        try:
+            running = runtime.sql(postgres, RUNNING_RUNS)
+            facts["runningRuns"] = running
+            checks.add("active synchronization", "fail" if running else "pass",
+                       f"a run is already in flight: {running[0]['runId']} {running[0]['from']}..{running[0]['to']}"
+                       if running else "no synchronization run is in flight")
+            database = runtime.sql(postgres, DATABASE_SAMPLE)
+            facts["database"] = {key: database.get(key) for key in ("sizeBytes", "connections", "activeQueries")} if isinstance(database, dict) else None
+            checks.add("postgresql", "pass", f"database size {human_bytes((database or {}).get('sizeBytes'))}")
+        except PilotError as error:
+            checks.add("postgresql", "fail", str(error))
+    if localizer:
+        health = runtime.inspect(localizer).get("health")
+        checks.add("localization helper", "pass" if health == "healthy" else "warn",
+                   f"health is {health or 'unavailable'}; when unhealthy the run keeps source text and records fallback")
+    else:
+        checks.add("localization helper", "warn", "not running; the run keeps serving source text and localization evidence will be degraded")
+
+    scheduling = runtime.scheduling()
+    facts["scheduling"] = scheduling
+    checks.add("recurring scheduling", "warn" if scheduling.get("status") == "enabled" else "pass",
+               "scheduling is enabled (near-term {nearTermCron}, upcoming {upcomingCron}, Europe/Madrid); a scheduled run "
+               "already in flight makes the pilot skip, and one due during the pilot is skipped with "
+               "SYNCHRONIZATION_ALREADY_RUNNING. The harness never changes it".format(**scheduling)
+               if scheduling.get("status") == "enabled" else f"scheduling is {scheduling.get('status')}")
+    docker_root = runtime.docker_root()
+    docker_free = free_bytes(docker_root)
+    checks.add("docker storage", "pass" if docker_free is None or docker_free >= 2 * 1024**3 else "warn",
+               f"{docker_root or 'docker root unavailable'} has {human_bytes(docker_free)} free", freeBytes=docker_free)
+    load, memory = host_load()
+    facts["host"] = {"name": host, "load1m": load, "memoryAvailableBytes": memory, "cpus": os.cpu_count()}
+    facts["checks"] = checks.items
+    facts["blocked"] = checks.blocked
+    return facts
+
+
+def human_bytes(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return "unavailable"
+    amount = float(value)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if abs(amount) < 1024 or unit == "TiB":
+            return f"{amount:.1f} {unit}" if unit != "B" else f"{int(amount)} B"
+        amount /= 1024
+    return str(value)
+
+
+def print_preflight(result: dict) -> None:
+    for item in result.get("checks", []):
+        print(f"{item['status'].upper():5} {item['check']}: {item['detail']}")
+    print("BLOCKED: resolve every FAIL before start." if result.get("blocked") else "Preflight passed; warnings need an owner judgement.")
+
+
+# Start ----------------------------------------------------------------------------------------
+
+
+def command_preflight(arguments: argparse.Namespace) -> int:
+    result = preflight(arguments)
+    if arguments.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print_preflight(result)
+    return 1 if result["blocked"] else 0
+
+
+def command_start(arguments: argparse.Namespace) -> int:
+    if not 1 <= arguments.interval <= 600:
+        raise PilotError("--interval must be between 1 and 600 seconds; 30 is the intended default")
+    if not 0.1 <= arguments.max_hours <= 72:
+        raise PilotError("--max-hours must be between 0.1 and 72")
+    if arguments.label and not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", arguments.label):
+        raise PilotError("--label must be lower-case letters, digits and hyphens")
+    result = preflight(arguments)
+    print_preflight(result)
+    if result["blocked"]:
+        return 1
+    if result.get("previouslyCovered") not in (None, "none") and not arguments.allow_covered:
+        raise PilotError("The month is already covered; repeat with --allow-covered to measure a re-synchronization deliberately")
+    root = evidence_root(arguments)
+    now = utc_now()
+    execution = f"hsp-{now.strftime('%Y%m%dT%H%M%SZ')}-{secrets.token_hex(3)}"
+    directory = root / arguments.month / execution
+    # The marker is created exclusively, so two concurrent starts cannot both proceed.
+    try:
+        descriptor = os.open(root / ACTIVE_MARKER, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+    except FileExistsError:
+        raise PilotError("Another pilot holds the evidence root; run status") from None
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(execution + "\n")
+    try:
+        directory.mkdir(parents=True, mode=0o750)
+        write_json(directory / "preflight.json", result)
+        write_json(directory / "methodology.json", {"schemaVersion": SCHEMA_VERSION, **METHODOLOGY})
+        window = result["window"]
+        write_json(directory / "metadata.json", {
+            "schemaVersion": SCHEMA_VERSION,
+            "executionId": execution,
+            "month": arguments.month,
+            "window": window,
+            "label": arguments.label,
+            "environment": {"name": "private-dev", "host": result["host"]["name"], "composeProject": Runtime(pathlib.Path(arguments.env_file)).project},
+            "application": result.get("application"),
+            "scheduling": result.get("scheduling"),
+            "previouslyCovered": result.get("previouslyCovered"),
+            "trigger": "management command POST /actuator/cataloguesync (UC-009, manual trigger meters)",
+            "sampling": {"intervalSeconds": arguments.interval, "maxMonitorHours": arguments.max_hours},
+            "requestedAt": iso(now),
+        })
+        (directory / "monitor.lock").touch()
+        with (directory / "monitor.log").open("ab") as log:
+            process = subprocess.Popen(
+                [sys.executable, "-I", str(pathlib.Path(__file__).resolve()), "--env-file", str(pathlib.Path(arguments.env_file).resolve()),
+                 "--evidence-root", str(root), "--expected-host", arguments.expected_host, "supervise", str(directory)],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, close_fds=True, cwd="/",
+            )
+    except BaseException:
+        (root / ACTIVE_MARKER).unlink(missing_ok=True)
+        raise
+    # Wait briefly for the monitor to take its lock so status is meaningful immediately.
+    for _ in range(50):
+        if monitor_alive(directory) or process.poll() is not None:
+            break
+        time.sleep(0.1)
+    if process.poll() is not None and not monitor_alive(directory):
+        raise PilotError(f"The monitor exited at once; read {directory / 'monitor.log'}")
+    print(f"Started pilot {execution} for {arguments.month} (monitor pid {process.pid}, detached from this terminal).")
+    print(f"Evidence: {directory}")
+    print(f"Follow it with: {pathlib.Path(__file__).name} status --execution {execution}")
+    return 0
+
+
+# Monitor --------------------------------------------------------------------------------------
+
+
+class Monitor:
+    def __init__(self, arguments: argparse.Namespace, directory: pathlib.Path) -> None:
+        self.arguments = arguments
+        self.directory = directory
+        self.root = evidence_root(arguments)
+        self.metadata = read_json(directory / "metadata.json")
+        self.runtime = Runtime(pathlib.Path(arguments.env_file))
+        self.state = read_json(directory / "state.json") or {}
+        self.stop_requested = False
+        self.launcher: subprocess.Popen | None = None
+        self.follower: LogFollower | None = None
+        self.response_path = directory / "synchronization-response.json"
+
+    def event(self, kind: str, **facts: object) -> None:
+        line = json.dumps({"at": iso(utc_now()), "event": kind, **facts}, sort_keys=True)
+        append_bounded(self.directory / "events.jsonl", line, MAX_EVENT_LINES)
+
+    def error(self, probe: str, detail: str) -> None:
+        append_bounded(self.directory / "errors.log", f"{iso(utc_now())} harness {probe}: {redact(detail)}", MAX_ERROR_LINES)
+
+    def save(self, **changes: object) -> None:
+        self.state.update(changes, updatedAt=iso(utc_now()), pid=os.getpid())
+        write_json(self.directory / "state.json", self.state)
+
+    def containers(self) -> dict[str, str | None]:
+        found = {}
+        for service in ("application", "postgres", "catalogue-localizer"):
+            try:
+                found[service] = self.runtime.container(service)
+            except PilotError as error:
+                found[service] = None
+                self.error(f"container {service}", str(error))
+        return found
+
+    def snapshot(self, label: str, containers: dict[str, str | None]) -> dict:
+        snapshot: dict[str, object] = {"label": label, "at": iso(utc_now())}
+        application, postgres = containers.get("application"), containers.get("postgres")
+        try:
+            snapshot["metrics"] = metric_snapshot(self.runtime, application)
+        except Exception as error:  # noqa: BLE001 - evidence collection must never stop the monitor
+            self.error(f"{label} metrics", str(error))
+        if postgres:
+            for key, statement in (("database", DATABASE_SAMPLE), ("inventory", INVENTORY)):
+                try:
+                    snapshot[key] = self.runtime.sql(postgres, statement)
+                except Exception as error:  # noqa: BLE001
+                    self.error(f"{label} {key}", str(error))
+        snapshot["containers"] = self.runtime.stats(containers)
+        if application:
+            inspected = self.runtime.inspect(application)
+            snapshot["application"] = {"startedAt": inspected.get("started"), "memoryLimitBytes": inspected.get("memoryLimit")}
+        if containers.get("catalogue-localizer"):
+            snapshot["localizerHealth"] = self.runtime.inspect(containers["catalogue-localizer"]).get("health")
+        docker_root = self.runtime.docker_root()
+        load, memory = host_load()
+        snapshot["host"] = {"load1m": load, "memoryAvailableBytes": memory, "cpus": os.cpu_count(),
+                            "evidenceFreeBytes": free_bytes(self.root), "dockerFreeBytes": free_bytes(docker_root)}
+        return snapshot
+
+    def launch(self, application: str, postgres: str) -> None:
+        launched_at = self.runtime.sql(postgres, DB_CLOCK)
+        window = self.metadata["window"]
+        body = json.dumps({"from": window["from"], "to": window["to"]})
+        timeout = int(self.metadata["sampling"]["maxMonitorHours"] * 3600) + 600
+        # The run executes on the application's management request thread; this exec only holds the
+        # request open to capture the blocking report. Its death never stops the run.
+        command = ["docker", "exec", application, "wget", "-q", "-T", str(timeout), "-O", "-",
+                   "--header", "Content-Type: application/json", "--post-data", body, f"{MANAGEMENT}/cataloguesync"]
+        response = self.response_path.with_suffix(".part")
+        self.launcher = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=response.open("wb"),
+                                         stderr=subprocess.DEVNULL, close_fds=True)
+        self.save(phase="launched", launchedAt=launched_at, launcherPid=self.launcher.pid,
+                  applicationContainer=application)
+        self.event("launched", window=window, launchedAtDatabaseClock=launched_at)
+
+    def find_run(self, postgres: str) -> None:
+        window = self.metadata["window"]
+        found = self.runtime.sql(postgres, FIND_RUN, window_from=window["from"], window_to=window["to"],
+                                 launched_at=str(self.state["launchedAt"]))
+        if isinstance(found, dict) and UUID.fullmatch(str(found.get("runId", ""))):
+            self.save(runId=found["runId"], phase="running")
+            self.event("run identified", runId=found["runId"])
+
+    def launcher_finished(self) -> bool:
+        if self.launcher is None:
+            return self.state.get("launcherExit") is not None
+        code = self.launcher.poll()
+        if code is None:
+            return False
+        if self.state.get("launcherExit") is None:
+            part = self.response_path.with_suffix(".part")
+            try:
+                payload = part.read_bytes()[:MAX_RESPONSE_BYTES]
+                answer = json.loads(payload) if payload.strip() else None
+            except (OSError, ValueError):
+                answer = None
+            write_json(self.response_path, {"launcherExitCode": code, "response": sanitize_report(answer)})
+            part.unlink(missing_ok=True)
+            self.save(launcherExit=code)
+            self.event("launcher exited", exitCode=code,
+                       note="the management request returned" if code == 0 else
+                       "the held request ended without a report; the application run is judged from PostgreSQL")
+        return True
+
+    def sample(self, containers: dict[str, str | None], writer: csv.DictWriter, follower: LogFollower) -> None:
+        row: dict[str, object] = {column: "" for column in SAMPLE_COLUMNS}
+        failures: list[str] = []
+        began = time.monotonic()
+        now = utc_now()
+        row["timestamp_utc"] = iso(now)
+        started = parse_instant(self.metadata.get("startedAt"))
+        row["elapsed_s"] = round((now - started).total_seconds()) if started else ""
+        application, postgres = containers.get("application"), containers.get("postgres")
+        run_id = self.state.get("runId")
+        if postgres:
+            try:
+                database = self.runtime.sql(postgres, DATABASE_SAMPLE, run_id or ZERO_UUID) or {}
+                run = database.get("run") or {}
+                row.update(run_status=run.get("status", ""), heartbeat_age_s=run.get("heartbeatAgeSeconds", ""),
+                           stop_requested=("" if not run else str(bool(run.get("stopRequestedAt"))).lower()),
+                           db_size_bytes=database.get("sizeBytes"), db_connections=database.get("connections"),
+                           db_active_queries=database.get("activeQueries"),
+                           db_longest_transaction_s=database.get("longestTransactionSeconds"),
+                           db_transactions_committed=database.get("committed"), db_rows_inserted=database.get("inserted"),
+                           db_rows_updated=database.get("updated"), db_rows_deleted=database.get("deleted"))
+                if run.get("stopRequestedAt") and not self.state.get("stopObserved"):
+                    self.save(stopObserved=run["stopRequestedAt"])
+                    self.event("stop request observed", requestedAt=run["stopRequestedAt"])
+                if run:
+                    self.state["lastRunStatus"] = run.get("status")
+            except PilotError as error:
+                failures.append("postgres")
+                self.error("sample postgres", str(error))
+        else:
+            failures.append("postgres")
+        if application:
+            try:
+                metrics = metric_snapshot(self.runtime, application)
+                row.update(meter_provider_requests=metrics.get("providerRequests"),
+                           meter_provider_unsuccessful=metrics.get("providerUnsuccessful"),
+                           meter_provider_retries=metrics.get("providerRetries"),
+                           meter_provider_time_s=metrics.get("providerTimeSeconds"),
+                           meter_mapping_failures=metrics.get("mappingFailures"),
+                           jvm_heap_used_bytes=metrics.get("heapUsedBytes"), jvm_heap_max_bytes=metrics.get("heapMaxBytes"),
+                           process_cpu_ratio=metrics.get("processCpuRatio"), db_pool_active=metrics.get("poolActive"),
+                           db_pool_pending=metrics.get("poolPending"),
+                           **{f"meter_localization_{key}": value for key, value in (metrics.get("localization") or {}).items()})
+                # Outcome-tagged provider meters appear only after the first request; the heap gauge
+                # always exists, so only its absence means the management port did not answer.
+                if metrics.get("heapUsedBytes") is None:
+                    failures.append("metrics")
+            except Exception as error:  # noqa: BLE001
+                failures.append("metrics")
+                self.error("sample metrics", str(error))
+            try:
+                since = self.state.get("logCursor") or self.metadata.get("startedAt")
+                follower.consume(self.runtime.logs(application, since), run_id)
+            except PilotError as error:
+                failures.append("logs")
+                self.error("sample logs", str(error))
+        else:
+            failures.append("application")
+        progress = self.state.get("progress") or {}
+        for key, column in (("phase", "progress_phase"), ("page", "progress_page"), ("pagePosition", "progress_page_position"),
+                            ("pageGames", "progress_page_games"), ("gamesCreated", "progress_games_created"),
+                            ("gamesUpdated", "progress_games_updated"), ("gamesUnchanged", "progress_games_unchanged"),
+                            ("gamesDeferred", "progress_games_deferred"), ("gamesFailed", "progress_games_failed"),
+                            ("releaseDatesInspected", "progress_release_dates_inspected"),
+                            ("providerRequests", "progress_provider_requests"), ("providerRetries", "progress_provider_retries")):
+            row[column] = progress.get(key, "")
+        progress_at = parse_instant(self.state.get("progressAt"))
+        row["progress_log_age_s"] = round((now - progress_at).total_seconds()) if progress_at else ""
+        stats = self.runtime.stats(containers)
+        for name, prefix in (("application", "application"), ("postgres", "postgres"), ("catalogue-localizer", "localizer")):
+            item = stats.get(name)
+            if item:
+                row[f"{prefix}_cpu_percent"] = item.get("cpuPercent")
+                row[f"{prefix}_memory_bytes"] = item.get("memoryBytes")
+                if prefix == "application":
+                    row["application_memory_limit_bytes"] = item.get("memoryLimitBytes")
+            elif containers.get(name):
+                failures.append(f"stats:{prefix}")
+        if containers.get("catalogue-localizer"):
+            row["localizer_health"] = self.runtime.inspect(containers["catalogue-localizer"]).get("health") or ""
+        load, memory = host_load()
+        row.update(host_load_1m=load, host_memory_available_bytes=memory, evidence_free_bytes=free_bytes(self.root),
+                   docker_free_bytes=free_bytes(self.state.get("dockerRoot")), probe_failures=";".join(failures),
+                   sample_duration_s=round(time.monotonic() - began, 2))
+        writer.writerow({key: ("" if value is None else value) for key, value in row.items()})
+        self.save()
+
+    def run(self) -> int:
+        lock = (self.directory / "monitor.lock").open("a")
+        # A status probe holds the lock only for an instant; a second monitor never gets it.
+        for attempt in range(50):
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if attempt == 49:
+                    raise PilotError("another monitor already owns this execution") from None
+                time.sleep(0.1)
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, lambda *_: setattr(self, "stop_requested", True))
+        signal.signal(signal.SIGINT, lambda *_: setattr(self, "stop_requested", True))
+        started = utc_now()
+        self.metadata["startedAt"] = iso(started)
+        write_json(self.directory / "metadata.json", self.metadata)
+        self.save(phase="baseline", dockerRoot=self.runtime.docker_root())
+        outcome = "monitor_error"
+        try:
+            containers = self.containers()
+            application, postgres = containers.get("application"), containers.get("postgres")
+            write_json(self.directory / "baseline.json", self.snapshot("baseline", containers))
+            if not application or not postgres:
+                raise PilotError("application or PostgreSQL is not running; nothing was launched")
+            if self.runtime.sql(postgres, RUNNING_RUNS):
+                raise PilotError("a synchronization run appeared before launch; nothing was launched")
+            self.launch(application, postgres)
+            application_started = self.runtime.inspect(application).get("started")
+            deadline = started + dt.timedelta(hours=self.metadata["sampling"]["maxMonitorHours"])
+            interval = self.metadata["sampling"]["intervalSeconds"]
+            follower = self.follower = LogFollower(self.directory, self.state)
+            samples = self.directory / "samples.csv"
+            new_file = not samples.exists()
+            restarted_at = None
+            with samples.open("a", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=SAMPLE_COLUMNS)
+                if new_file:
+                    writer.writeheader()
+                while True:
+                    current = self.containers()
+                    if not self.state.get("runId") and current.get("postgres"):
+                        try:
+                            self.find_run(current["postgres"])
+                        except PilotError as error:
+                            self.error("find run", str(error))
+                    if current.get("application") != application or (
+                            current.get("application") and self.runtime.inspect(current["application"]).get("started") != application_started):
+                        if restarted_at is None:
+                            restarted_at = utc_now()
+                            self.event("application restarted or stopped",
+                                       note="the run's worker died with it; PostgreSQL keeps it running until abandoned")
+                    self.sample(current, writer, follower)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    status = self.state.get("lastRunStatus")
+                    launcher_done = self.launcher_finished()
+                    if status and status != "running":
+                        # Give the held request a moment to return the blocking report.
+                        for _ in range(30):
+                            if self.launcher_finished():
+                                break
+                            time.sleep(1)
+                        outcome = "run_finished"
+                        break
+                    if launcher_done and not self.state.get("runId"):
+                        # A skipped run is never written durably; its report comes only from the response.
+                        try:
+                            self.find_run(current["postgres"]) if current.get("postgres") else None
+                        except PilotError:
+                            pass
+                        if not self.state.get("runId"):
+                            outcome = "run_not_started"
+                            break
+                    if restarted_at and utc_now() - restarted_at > dt.timedelta(seconds=2 * interval):
+                        outcome = "application_restarted"
+                        break
+                    if self.stop_requested:
+                        outcome = "monitor_stopped"
+                        break
+                    if utc_now() >= deadline:
+                        outcome = "monitor_time_limit"
+                        break
+                    sleep_until = time.monotonic() + interval
+                    while time.monotonic() < sleep_until and not self.stop_requested:
+                        time.sleep(min(1.0, sleep_until - time.monotonic()))
+                        if self.launcher_finished() and not self.state.get("finalSampleAfterLauncher"):
+                            self.state["finalSampleAfterLauncher"] = True
+                            break
+        except PilotError as error:
+            self.error("monitor", str(error))
+            self.event("monitor refused", detail=redact(str(error)))
+            outcome = "monitor_refused"
+        except Exception as error:  # noqa: BLE001 - always finalize evidence
+            self.error("monitor", f"{type(error).__name__}: {error}")
+            outcome = "monitor_error"
+        finally:
+            self.finalize(outcome)
+            fcntl.flock(lock, fcntl.LOCK_UN)
+            lock.close()
+        return 0
+
+    def finalize(self, outcome: str) -> None:
+        self.save(phase="finalizing", monitorOutcome=outcome)
+        try:
+            if self.launcher is not None:
+                self.launcher_finished()
+            containers = self.containers()
+            if self.follower and containers.get("application"):
+                # The finished line and the last failures are logged after the final sample.
+                since = self.state.get("logCursor") or self.metadata.get("startedAt")
+                self.follower.consume(self.runtime.logs(containers["application"], since), self.state.get("runId"))
+            write_json(self.directory / "final.json", self.snapshot("final", containers))
+            if self.state.get("runId") and containers.get("postgres"):
+                row = self.runtime.sql(containers["postgres"], RUN_ROW, self.state["runId"])
+                self.state["runRow"] = sanitize_report(row)
+        except Exception as error:  # noqa: BLE001
+            self.error("finalize", str(error))
+        self.metadata["endedAt"] = iso(utc_now())
+        self.metadata["monitorOutcome"] = outcome
+        write_json(self.directory / "metadata.json", self.metadata)
+        self.save(phase="finished")
+        self.event("monitor finished", outcome=outcome,
+                   note="the application run continues unless PostgreSQL shows it finished" if outcome in
+                   ("monitor_stopped", "monitor_time_limit") else "")
+        try:
+            build_report(self.directory)
+        except Exception as error:  # noqa: BLE001 - report can be rebuilt later
+            self.error("report", f"{type(error).__name__}: {error}")
+        marker = self.root / ACTIVE_MARKER
+        try:
+            if marker.read_text(encoding="utf-8").strip() == self.directory.name:
+                marker.unlink()
+        except OSError:
+            pass
+
+
+def sanitize_report(value: object) -> object:
+    """Keep only the bounded report vocabulary: identifiers, dates, outcomes and integer counters."""
+    if isinstance(value, dict):
+        return {redact(str(key), 80): sanitize_report(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_report(item) for item in value[:100]]
+    if isinstance(value, str):
+        return redact(value, 200)
+    return value
+
+
+# Report ---------------------------------------------------------------------------------------
+
+
+def read_samples(directory: pathlib.Path) -> list[dict]:
+    try:
+        with (directory / "samples.csv").open(encoding="utf-8", newline="") as handle:
+            return list(csv.DictReader(handle))
+    except OSError:
+        return []
+
+
+def numbers(rows: list[dict], column: str) -> list[float]:
+    values = []
+    for row in rows:
+        try:
+            values.append(float(row.get(column) or "x"))
+        except ValueError:
+            continue
+    return values
+
+
+def aggregate(rows: list[dict], column: str) -> dict:
+    values = numbers(rows, column)
+    if not values:
+        return {"status": "unavailable"}
+    return {"status": "measured", "samples": len(values), "min": min(values), "max": max(values),
+            "mean": round(sum(values) / len(values), 3), "first": values[0], "last": values[-1]}
+
+
+def delta(first: object, last: object) -> float | None:
+    if isinstance(first, (int, float)) and isinstance(last, (int, float)):
+        return last - first
+    return None
+
+
+def value(status: str, amount: object = None, unit: str = "", basis: str = "") -> dict:
+    entry: dict[str, object] = {"status": status if amount is not None or status == "unavailable" else "unavailable"}
+    if amount is not None:
+        entry["value"] = round(amount, 3) if isinstance(amount, float) else amount
+    if unit:
+        entry["unit"] = unit
+    if basis:
+        entry["basis"] = basis
+    return entry
+
+
+def build_report(directory: pathlib.Path) -> dict:
+    metadata = read_json(directory / "metadata.json")
+    state = read_json(directory / "state.json")
+    baseline = read_json(directory / "baseline.json")
+    final = read_json(directory / "final.json")
+    response = read_json(directory / "synchronization-response.json")
+    rows = read_samples(directory)
+    run_row = state.get("runRow") if isinstance(state.get("runRow"), dict) else {}
+    report = run_row.get("report") if isinstance(run_row.get("report"), dict) else None
+    answer = response.get("response") if isinstance(response.get("response"), dict) else None
+    if report is None and answer and answer.get("counters"):
+        report = answer
+    counters = (report or {}).get("counters") or {}
+    started, completed = parse_instant(run_row.get("startedAt")), parse_instant(run_row.get("completedAt"))
+    duration = (completed - started).total_seconds() if started and completed else None
+    games = sum(counters.get(key, 0) for key in ("createdGames", "updatedGames", "unchangedGames", "deferredGames", "failedGames")) if counters else None
+    releases = sum(counters.get(key, 0) for key in ("createdReleases", "updatedReleases", "unchangedReleases")) if counters else None
+    requests = counters.get("providerRequests")
+    latency = counters.get("providerLatencyMillis")
+    synthetic = "synthetic" in str(metadata.get("label") or "")
+
+    if run_row.get("status") and run_row.get("status") != "running":
+        application_outcome = {"status": run_row.get("status"), "code": run_row.get("outcomeCode")}
+    elif answer and answer.get("outcome"):
+        application_outcome = {"status": str(answer.get("outcome")).lower(), "code": answer.get("outcomeCode")}
+    elif run_row.get("status") == "running":
+        application_outcome = {"status": "running", "code": None}
+    else:
+        application_outcome = {"status": "unknown", "code": None}
+
+    metrics_first, metrics_last = baseline.get("metrics") or {}, final.get("metrics") or {}
+    restarted = (baseline.get("application") or {}).get("startedAt") != (final.get("application") or {}).get("startedAt")
+    meter_basis = "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads"
+
+    def meter_delta(key: str) -> dict:
+        if restarted:
+            return value("unavailable", basis="application restarted between baseline and final, so its meters reset")
+        first, last = metrics_first.get(key), metrics_last.get(key)
+        if first is None and isinstance(last, (int, float)) and metrics_first:
+            # Outcome-tagged provider meters exist only after the first request since application start.
+            return value("estimated", last, "count", meter_basis + "; baseline meter absent, treated as zero")
+        return value("measured", delta(first, last), "count", meter_basis)
+
+    localization_delta = {}
+    for outcome in LOCALIZATION_OUTCOMES:
+        first = (metrics_first.get("localization") or {}).get(outcome)
+        last = (metrics_last.get("localization") or {}).get(outcome)
+        localization_delta[outcome] = (value("unavailable", basis="application restarted") if restarted
+                                       else value("measured", delta(first, last), "items", meter_basis))
+    write_json(directory / "localization.json", {
+        "contentByOutcome": localization_delta,
+        "helperHealthBaseline": baseline.get("localizerHealth"), "helperHealthFinal": final.get("localizerHealth"),
+        "helperCpuPercent": aggregate(rows, "localizer_cpu_percent"),
+        "helperMemoryBytes": aggregate(rows, "localizer_memory_bytes"),
+        "unhealthySamples": sum(1 for row in rows if row.get("localizer_health") not in ("", "healthy")),
+        "note": "Per-kind counts and translation latency are not exposed by the existing meters.",
+    })
+    resources = {
+        "applicationCpuPercent": aggregate(rows, "application_cpu_percent"),
+        "applicationMemoryBytes": aggregate(rows, "application_memory_bytes"),
+        "jvmHeapUsedBytes": aggregate(rows, "jvm_heap_used_bytes"),
+        "processCpuRatio": aggregate(rows, "process_cpu_ratio"),
+        "databasePoolActive": aggregate(rows, "db_pool_active"),
+        "databasePoolPending": aggregate(rows, "db_pool_pending"),
+        "postgresCpuPercent": aggregate(rows, "postgres_cpu_percent"),
+        "postgresMemoryBytes": aggregate(rows, "postgres_memory_bytes"),
+        "databaseConnections": aggregate(rows, "db_connections"),
+        "databaseLongestTransactionSeconds": aggregate(rows, "db_longest_transaction_s"),
+        "hostLoad1m": aggregate(rows, "host_load_1m"),
+        "hostMemoryAvailableBytes": aggregate(rows, "host_memory_available_bytes"),
+        "sampleDurationSeconds": aggregate(rows, "sample_duration_s"),
+        "databaseSizeGrowthBytes": value("measured", delta(((baseline.get("database") or {}).get("sizeBytes")),
+                                                           ((final.get("database") or {}).get("sizeBytes"))), "bytes",
+                                         "pg_database_size final minus baseline; includes concurrent writes and autovacuum"),
+        "catalogueGrowth": {
+            key: value("measured", delta((baseline.get("inventory") or {}).get(key), (final.get("inventory") or {}).get(key)), "rows",
+                       "catalogue.observability_inventory final minus baseline")
+            for key in ("games", "releases", "featuredEvidenceGames", "coverageIntervals")},
+        "dockerFreeBytesChange": value("measured", delta((baseline.get("host") or {}).get("dockerFreeBytes"),
+                                                         (final.get("host") or {}).get("dockerFreeBytes")), "bytes",
+                                       "free space on the Docker root filesystem; includes everything else on it"),
+        "baseline": baseline, "final": final,
+    }
+    write_json(directory / "resources.json", resources)
+    progress = state.get("progress") or {}
+    synchronization = {
+        "runId": state.get("runId"), "applicationOutcome": application_outcome,
+        "window": metadata.get("window"), "run": {key: run_row.get(key) for key in ("startedAt", "completedAt", "stopRequestedAt", "heartbeatAt")},
+        "report": report, "launcher": {"exitCode": response.get("launcherExitCode")},
+        "providerPageSize": state.get("providerPageSize"), "lastProgress": progress or None,
+        "lastProgressAt": state.get("progressAt"), "finishedLog": state.get("finishedLog"),
+        "failureTally": state.get("failureTally") or {}, "applicationWarnings": state.get("applicationWarnings", 0),
+        "providerMeters": {"requests": meter_delta("providerRequests"), "unsuccessful": meter_delta("providerUnsuccessful"),
+                           "retries": meter_delta("providerRetries"), "mappingFailures": meter_delta("mappingFailures"),
+                           "requestTimeSeconds": meter_delta("providerTimeSeconds")},
+    }
+    write_json(directory / "synchronization.json", synchronization)
+
+    measured = {
+        "runDurationSeconds": value("measured", duration, "s", "synchronization_run completed_at - started_at (database clock)"),
+        "gamesAccounted": value("measured", games, "Games", "created+updated+unchanged+deferred+failed from the durable report"),
+        "releasesAccounted": value("measured", releases, "Releases", "created+updated+unchanged from the durable report"),
+        "providerRequests": value("measured", requests, "requests", "durable report, attempts including retries"),
+        "providerRetries": value("measured", counters.get("providerRetries"), "retries", "durable report"),
+        "providerLatency": value("measured", latency / 1000 if isinstance(latency, (int, float)) else None, "s", "durable report, summed request latency"),
+        "failedGames": value("measured", counters.get("failedGames"), "Games", "durable report"),
+        "deferredGames": value("measured", counters.get("deferredGames"), "Games", "durable report"),
+        "pages": value("measured", (state.get("finishedLog") or {}).get("pages"), "pages", "finished log line"),
+    }
+    estimated = {
+        "gamesPerHour": value("estimated", games / duration * 3600 if games and duration else None, "Games/h", "Games accounted / run duration"),
+        "providerRequestsPerSecond": value("estimated", requests / duration if requests and duration else None, "requests/s",
+                                           "mean over the whole run; the configured ceiling is IGDB_REQUESTS_PER_SECOND"),
+        "providerTimeShare": value("estimated", (latency / 1000) / duration if latency and duration else None, "ratio",
+                                   "summed provider latency / run duration; above about 0.8 means provider-bound"),
+        "secondsPerGame": value("estimated", duration / games if games and duration else None, "s/Game", "run duration / Games accounted"),
+    }
+    unavailable = [name for group in (measured, estimated) for name, entry in group.items() if entry["status"] == "unavailable"]
+    unavailable += ["perPhaseTiming (provider vs reconciliation vs localization)", "translationLatency",
+                    "perGameWriteLatency", "providerRateLimitWaits", "ioWaitPerContainer"]
+    summary = {
+        "schemaVersion": SCHEMA_VERSION, "synthetic": synthetic,
+        "executionId": metadata.get("executionId"), "month": metadata.get("month"), "window": metadata.get("window"),
+        "label": metadata.get("label"), "environment": metadata.get("environment"), "application": metadata.get("application"),
+        "previouslyCovered": metadata.get("previouslyCovered"), "scheduling": (metadata.get("scheduling") or {}).get("status"),
+        "monitor": {"startedAt": metadata.get("startedAt"), "endedAt": metadata.get("endedAt"),
+                    "outcome": metadata.get("monitorOutcome") or state.get("monitorOutcome") or "unfinished",
+                    "samples": len(rows), "intervalSeconds": (metadata.get("sampling") or {}).get("intervalSeconds")},
+        "applicationOutcome": application_outcome, "runId": state.get("runId"),
+        "measured": measured, "estimated": estimated, "unavailable": unavailable,
+        "failureTally": state.get("failureTally") or {},
+        "applicationRestarted": restarted if baseline and final else None,
+        "stopRequested": bool(run_row.get("stopRequestedAt") or state.get("stopObserved")),
+    }
+    write_json(directory / "summary.json", summary)
+    (directory / "summary.md").write_text(render_summary(summary, resources, localization_delta), encoding="utf-8")
+    return summary
+
+
+def show(entry: dict) -> str:
+    if entry.get("status") == "unavailable":
+        return "unavailable"
+    amount = entry.get("value")
+    text = f"{amount:,.3f}".rstrip("0").rstrip(".") if isinstance(amount, float) else f"{amount:,}" if isinstance(amount, int) else str(amount)
+    return f"{text} {entry.get('unit', '')}".strip() + f" ({entry['status']})"
+
+
+def show_aggregate(entry: dict, scale: float = 1.0, unit: str = "") -> str:
+    if entry.get("status") != "measured":
+        return "unavailable"
+    return f"mean {entry['mean'] / scale:,.1f}{unit}, sampled max {entry['max'] / scale:,.1f}{unit} ({entry['samples']} samples)"
+
+
+def render_summary(summary: dict, resources: dict, localization: dict) -> str:
+    lines = []
+    if summary["synthetic"]:
+        lines += ["> **SYNTHETIC EVIDENCE.** Generated by the harness tests from a fake runtime. It proves the",
+                  "> evidence format only; none of its values is a real throughput or resource measurement.", ""]
+    monitor = summary["monitor"]
+    outcome = summary["applicationOutcome"]
+    application = summary.get("application") or {}
+    lines += [
+        f"# Historical synchronization pilot {summary['month']}", "",
+        f"- Execution: `{summary['executionId']}`; label: {summary.get('label') or 'none'}",
+        f"- Window: {(summary.get('window') or {}).get('from')}..{(summary.get('window') or {}).get('to')} (inclusive, UC-009 management trigger)",
+        f"- Environment: {(summary.get('environment') or {}).get('name')} on {(summary.get('environment') or {}).get('host')}; "
+        f"application {application.get('version') or 'unavailable'} ({application.get('sourceRevision') or 'revision unavailable'})",
+        f"- Previously covered: {summary.get('previouslyCovered') or 'unavailable'}; recurring scheduling: {summary.get('scheduling') or 'unavailable'}",
+        f"- Application run: `{summary.get('runId') or 'not identified'}`, outcome **{outcome['status']}** "
+        f"`{outcome.get('code') or ''}`" + ("; a stop was requested" if summary["stopRequested"] else ""),
+        f"- Monitor: {monitor['startedAt']} → {monitor['endedAt'] or 'still running or lost'}, outcome `{monitor['outcome']}`, "
+        f"{monitor['samples']} samples every {monitor['intervalSeconds']} s",
+    ]
+    if summary.get("applicationRestarted"):
+        lines.append("- The application restarted during the pilot: its meters reset and the run's worker died with it.")
+    lines += ["", "## Measured", "", "| Measurement | Value | Basis |", "|---|---|---|"]
+    lines += [f"| {name} | {show(entry)} | {entry.get('basis', '')} |" for name, entry in summary["measured"].items()]
+    lines += ["", "## Estimated (derived, not observed directly)", "", "| Estimate | Value | Basis |", "|---|---|---|"]
+    lines += [f"| {name} | {show(entry)} | {entry.get('basis', '')} |" for name, entry in summary["estimated"].items()]
+    lines += ["", "## Resources (sampled)", "",
+              f"- Application container CPU: {show_aggregate(resources['applicationCpuPercent'], unit=' %')}",
+              f"- Application container memory: {show_aggregate(resources['applicationMemoryBytes'], 1024**2, ' MiB')}",
+              f"- JVM heap used: {show_aggregate(resources['jvmHeapUsedBytes'], 1024**2, ' MiB')}",
+              f"- Database pool active / pending: {show_aggregate(resources['databasePoolActive'])} / {show_aggregate(resources['databasePoolPending'])}",
+              f"- PostgreSQL container CPU: {show_aggregate(resources['postgresCpuPercent'], unit=' %')}; memory: {show_aggregate(resources['postgresMemoryBytes'], 1024**2, ' MiB')}",
+              f"- Longest open transaction: {show_aggregate(resources['databaseLongestTransactionSeconds'], unit=' s')}",
+              f"- Host load (1 min): {show_aggregate(resources['hostLoad1m'])}",
+              f"- Harness sampling time (observer overhead): {show_aggregate(resources['sampleDurationSeconds'], unit=' s')}",
+              f"- Database growth: {show(resources['databaseSizeGrowthBytes'])}",
+              "- Catalogue growth: " + ", ".join(f"{key} {show(entry)}" for key, entry in resources["catalogueGrowth"].items()),
+              "", "## Localization", "",
+              "- Content items by outcome: " + ", ".join(f"{key} {show(entry)}" for key, entry in localization.items()),
+              "", "## Failures", ""]
+    tally = summary.get("failureTally") or {}
+    lines += [f"- `{key}`: {count}" for key, count in sorted(tally.items())] or ["- none logged"]
+    lines += ["", "## Unavailable", "", *[f"- {name}" for name in summary["unavailable"]], "",
+              "## Method", "",
+              "- `measured`: read from the durable run report, PostgreSQL, Docker or the application's own meters.",
+              "- `estimated`: arithmetic on measured values; `unavailable`: not observed, never filled in.",
+              "- Samples are point readings; a sampled maximum is a lower bound of the true peak.",
+              "- CPU percent is Docker's per-container figure where 100 % is one core. Bytes are binary multiples.",
+              "- Meter deltas are process-cumulative and include anything else the application did meanwhile.",
+              "- `methodology.json` in this directory gives every `samples.csv` column with its unit.",
+              ""]
+    return "\n".join(lines)
+
+
+# Status, stop, report, export ------------------------------------------------------------------
+
+
+def command_status(arguments: argparse.Namespace) -> int:
+    root = evidence_root(arguments)
+    directory = select_execution(root, arguments.execution, arguments.month)
+    metadata = read_json(directory / "metadata.json")
+    state = read_json(directory / "state.json")
+    alive = monitor_alive(directory)
+    now = utc_now()
+    started = parse_instant(metadata.get("startedAt"))
+    print(f"Pilot {directory.name} for {metadata.get('month')} ({(metadata.get('window') or {}).get('from')}..{(metadata.get('window') or {}).get('to')})")
+    print(f"  Monitor (this harness): {'running' if alive else 'not running'}; phase {state.get('phase', 'unknown')}; "
+          f"outcome {metadata.get('monitorOutcome') or ('pending' if alive else 'lost before finishing; run report')}")
+    print(f"  Started {metadata.get('startedAt')}; elapsed {round((now - started).total_seconds() / 60, 1) if started else '?'} min; "
+          f"last monitor update {state.get('updatedAt')}")
+    run_id = state.get("runId")
+    live = None
+    try:
+        runtime = Runtime(pathlib.Path(arguments.env_file))
+        postgres = runtime.container("postgres")
+        if postgres and run_id:
+            live = runtime.sql(postgres, RUN_ROW, run_id)
+    except PilotError as error:
+        print(f"  Application state: unavailable ({error})")
+    if live:
+        print(f"  Application run (PostgreSQL, authoritative): {run_id} {live.get('status')} {live.get('outcomeCode') or ''}".rstrip())
+        print(f"    heartbeat {live.get('heartbeatAgeSeconds')} s ago; stop requested: {'yes' if live.get('stopRequestedAt') else 'no'}; "
+              f"completed {live.get('completedAt') or '-'}")
+    elif run_id:
+        print(f"  Application run {run_id}: no longer readable (pruned history or PostgreSQL unavailable)")
+    else:
+        print("  Application run: not identified (not launched yet, skipped, or refused)")
+    progress = state.get("progress")
+    if progress:
+        print(f"  Latest progress log ({state.get('progressAt')}): phase {progress['phase']} page {progress['page']} "
+              f"game {progress['pagePosition']}/{progress['pageGames']}; games created {progress['gamesCreated']} "
+              f"updated {progress['gamesUpdated']} unchanged {progress['gamesUnchanged']} deferred {progress['gamesDeferred']} "
+              f"failed {progress['gamesFailed']}; provider requests {progress['providerRequests']} retries {progress['providerRetries']}")
+    else:
+        print("  Latest progress log: none yet (the application logs progress at most once a minute)")
+    rows = read_samples(directory)
+    if rows:
+        last = rows[-1]
+        print(f"  Last sample {last['timestamp_utc']}: app CPU {last['application_cpu_percent'] or '?'} % "
+              f"memory {human_bytes(float(last['application_memory_bytes'])) if last['application_memory_bytes'] else '?'}; "
+              f"DB {human_bytes(float(last['db_size_bytes'])) if last['db_size_bytes'] else '?'}; probe failures: {last['probe_failures'] or 'none'}")
+    if not alive and live and live.get("status") == "running":
+        print("  WARNING: the run is still in flight but nothing is monitoring it; evidence after this point is not collected.")
+    return 0
+
+
+def command_stop(arguments: argparse.Namespace) -> int:
+    root = evidence_root(arguments)
+    directory = select_execution(root, arguments.execution)
+    state = read_json(directory / "state.json")
+    run_id = state.get("runId")
+    if arguments.monitor_only:
+        pid = state.get("pid")
+        if not monitor_alive(directory) or not isinstance(pid, int):
+            print("The monitor is not running; nothing to stop. Run report to rebuild the summary.")
+            return 0
+        os.kill(pid, signal.SIGTERM)
+        print(f"Asked monitor {pid} to finish its evidence. This does NOT stop application run {run_id or '(unidentified)'}.")
+        return 0
+    print(f"The safe stop of application run {run_id or '(not identified yet; read status)'} is the existing UC-013 action:")
+    print("  1. Open /administracion/catalogo with a catalogue-operator session.")
+    print(f"  2. In Ejecución actual, confirm the run identifier is {run_id} and choose Detener sincronización.")
+    print("  3. The worker stops at its next safe point (before its next provider page or Game) as SYNCHRONIZATION_STOPPED.")
+    print("Consequences: Games already committed stay; no coverage is recorded for the month and earlier coverage stays;")
+    print("nothing retries and scheduling is unchanged. The monitor keeps sampling and records the stop in its evidence.")
+    print("This harness never writes the stop itself, kills the application or interrupts PostgreSQL. Without the product")
+    print("origin there is no shell equivalent: leave the run, or recreate the application only as a deliberate interruption")
+    print("(the run is then orphaned and abandoned later, as the operations runbook explains).")
+    return 0
+
+
+def command_report(arguments: argparse.Namespace) -> int:
+    root = evidence_root(arguments)
+    directory = select_execution(root, arguments.execution, arguments.month)
+    if monitor_alive(directory):
+        print("The monitor is still running; this is an interim report.")
+    marker = root / ACTIVE_MARKER
+    if not monitor_alive(directory):
+        state = read_json(directory / "state.json")
+        if state.get("runId"):
+            # A lost monitor never read the final row; the run may have finished since.
+            try:
+                runtime = Runtime(pathlib.Path(arguments.env_file))
+                postgres = runtime.container("postgres")
+                row = runtime.sql(postgres, RUN_ROW, state["runId"]) if postgres else None
+                if isinstance(row, dict):
+                    state["runRow"] = sanitize_report(row)
+                    write_json(directory / "state.json", state)
+            except PilotError as error:
+                print(f"Final run state unavailable: {error}")
+    summary = build_report(directory)
+    if not monitor_alive(directory):
+        metadata = read_json(directory / "metadata.json")
+        if not metadata.get("monitorOutcome"):
+            metadata["monitorOutcome"] = "monitor_lost"
+            write_json(directory / "metadata.json", metadata)
+            summary = build_report(directory)
+        try:
+            if marker.read_text(encoding="utf-8").strip() == directory.name:
+                marker.unlink()
+                print("Cleared the active marker that the lost monitor left behind.")
+        except OSError:
+            pass
+    print((directory / "summary.md").read_text(encoding="utf-8"))
+    return 0 if summary else 1
+
+
+EXPORT_FILES = ("metadata.json", "methodology.json", "preflight.json", "samples.csv", "synchronization.json", "localization.json",
+                "resources.json", "summary.json", "summary.md", "events.jsonl", "errors.log", "baseline.json",
+                "final.json", "synchronization-response.json")
+
+
+def scan_for_secrets(path: pathlib.Path) -> list[str]:
+    findings = []
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return findings
+    for number, line in enumerate(text.splitlines(), 1):
+        if any(pattern.search(line) for pattern in EXPORT_DENYLIST):
+            findings.append(f"{path.name}:{number}")
+    return findings
+
+
+def command_export(arguments: argparse.Namespace) -> int:
+    root = evidence_root(arguments)
+    directory = select_execution(root, arguments.execution, arguments.month)
+    if monitor_alive(directory):
+        raise PilotError("The monitor is still running; export after it finishes or after stop --monitor-only")
+    build_report(directory)
+    files = [directory / name for name in EXPORT_FILES if (directory / name).is_file()]
+    findings = [finding for path in files for finding in scan_for_secrets(path)]
+    if findings:
+        raise PilotError("Refusing to export: possible secret or personal data at " + ", ".join(findings[:10]))
+    output = pathlib.Path(arguments.output or f"{directory.parent.name}-{directory.name}.tar.gz").resolve()
+    if output.exists():
+        raise PilotError(f"{output} already exists")
+    prefix = f"historical-sync-evidence/{directory.parent.name}/{directory.name}"
+
+    def normalized(info: tarfile.TarInfo) -> tarfile.TarInfo:
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mode = 0o644
+        return info
+
+    with tarfile.open(output, "w:gz") as archive:
+        for path in files:
+            archive.add(path, arcname=f"{prefix}/{path.name}", filter=normalized)
+    print(f"Wrote {output} ({len(files)} files, scanned for credentials and e-mail addresses).")
+    return 0
+
+
+def command_supervise(arguments: argparse.Namespace) -> int:
+    directory = pathlib.Path(arguments.directory).resolve()
+    root = evidence_root(arguments).resolve()
+    if directory.parent.parent != root or not EXECUTION.fullmatch(directory.name):
+        raise PilotError("supervise accepts only an execution directory under the evidence root")
+    return Monitor(arguments, directory).run()
+
+
+def parser() -> argparse.ArgumentParser:
+    root = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    root.add_argument("--env-file", default=str(DEFAULT_ENV_FILE), help="protected private-dev runtime.env; only the project name and version are read")
+    root.add_argument("--evidence-root", default=str(DEFAULT_EVIDENCE_ROOT))
+    root.add_argument("--expected-host", default="vgpdev", help=argparse.SUPPRESS)
+    commands = root.add_subparsers(dest="command", required=True, metavar="{preflight,start,status,stop,report,export}")
+    check = commands.add_parser("preflight", help="check one month without changing anything")
+    check.add_argument("--month", required=True)
+    check.add_argument("--json", action="store_true")
+    start = commands.add_parser("start", help="launch one month and detach its monitor")
+    start.add_argument("--month", required=True)
+    start.add_argument("--interval", type=int, default=30, help="sampling interval in seconds (default 30)")
+    start.add_argument("--max-hours", type=float, default=36.0, help="monitoring bound; the run itself is not limited")
+    start.add_argument("--allow-covered", action="store_true", help="deliberately measure an already covered month")
+    start.add_argument("--label", help="short lower-case tag recorded in the evidence")
+    status = commands.add_parser("status", help="show monitor and application state")
+    status.add_argument("--execution")
+    status.add_argument("--month")
+    stop = commands.add_parser("stop", help="explain the safe application stop, or end only the monitor")
+    stop.add_argument("--execution")
+    stop.add_argument("--monitor-only", action="store_true")
+    report = commands.add_parser("report", help="rebuild the summary from the evidence on disk")
+    report.add_argument("--execution")
+    report.add_argument("--month")
+    export = commands.add_parser("export", help="package the sanitized evidence into one archive")
+    export.add_argument("--execution")
+    export.add_argument("--month")
+    export.add_argument("--output")
+    supervise = commands.add_parser("supervise", help=argparse.SUPPRESS)
+    supervise.add_argument("directory")
+    return root
+
+
+COMMANDS = {"preflight": command_preflight, "start": command_start, "status": command_status, "stop": command_stop,
+            "report": command_report, "export": command_export, "supervise": command_supervise}
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = parser().parse_args(argv)
+    try:
+        return COMMANDS[arguments.command](arguments)
+    except PilotError as error:
+        print(f"historical-sync-pilot: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

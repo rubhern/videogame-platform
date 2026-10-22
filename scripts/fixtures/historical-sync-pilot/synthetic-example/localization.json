@@ -1,0 +1,62 @@
+{
+  "contentByOutcome": {
+    "busy": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 0.0
+    },
+    "failed": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 0.0
+    },
+    "fallback": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 0.0
+    },
+    "reused": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 20.0
+    },
+    "skipped": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 0.0
+    },
+    "translated": {
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "status": "measured",
+      "unit": "items",
+      "value": 40.0
+    }
+  },
+  "helperCpuPercent": {
+    "first": 42.5,
+    "last": 42.5,
+    "max": 42.5,
+    "mean": 42.5,
+    "min": 42.5,
+    "samples": 5,
+    "status": "measured"
+  },
+  "helperHealthBaseline": "healthy",
+  "helperHealthFinal": "healthy",
+  "helperMemoryBytes": {
+    "first": 536870912.0,
+    "last": 536870912.0,
+    "max": 536870912.0,
+    "mean": 536870912.0,
+    "min": 536870912.0,
+    "samples": 5,
+    "status": "measured"
+  },
+  "note": "Per-kind counts and translation latency are not exposed by the existing meters.",
+  "unhealthySamples": 0
+}
