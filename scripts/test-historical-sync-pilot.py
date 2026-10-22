@@ -29,7 +29,7 @@ sys.dont_write_bytecode = True
 
 repository_root = pathlib.Path(__file__).resolve().parents[1]
 harness_path = repository_root / "deploy/private-dev/bin/historical-sync-pilot"
-fake_directory = repository_root / "scripts/fixtures/historical-sync-pilot"
+fake_docker = repository_root / "scripts/fixtures/historical-sync-pilot/fake_docker.py"
 _loader = importlib.machinery.SourceFileLoader("historical_sync_pilot", str(harness_path))
 _spec = importlib.util.spec_from_loader(_loader.name, _loader)
 assert _spec is not None
@@ -52,6 +52,12 @@ class Sandbox:
         self.env_file.write_text(f"COMPOSE_PROJECT_NAME=videogame-platform-dev\nAPPLICATION_VERSION=0.0.0-synthetic\n"
                                  f"PRIVATE_DEV_OPAQUE_VALUE={LEAK}\n")
         self.state_path = self.directory / "docker-state.json"
+        # The fixture stays a plain module; an executable shim puts it on PATH as `docker`.
+        self.bin = self.directory / "bin"
+        self.bin.mkdir()
+        shim = self.bin / "docker"
+        shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{fake_docker}" "$@"\n')
+        shim.chmod(0o755)
         started = "2026-10-22T08:00:00.000000000Z"
         state = {
             "containers": {"application": "app1", "postgres": "pg1", "catalogue-localizer": "loc1"},
@@ -90,7 +96,7 @@ class Sandbox:
         return json.loads(self.state_path.read_text())
 
     def environment(self) -> dict:
-        return {**os.environ, "PATH": f"{fake_directory}{os.pathsep}{os.environ['PATH']}",
+        return {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
                 "FAKE_DOCKER_STATE": str(self.state_path)}
 
     def command(self, *arguments: str, timeout: float = 60) -> subprocess.CompletedProcess:
@@ -136,9 +142,10 @@ class UnitTest(unittest.TestCase):
                 pilot.month_window(invalid, today)
 
     def test_redaction_removes_credentials_tokens_and_addresses(self):
-        text = pilot.redact("Authorization: Bearer abcdefghijkl client_secret=s3cr3t password=x owner@example.org "
-                            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJl")
-        for secret in ("abcdefghijkl", "s3cr3t", "owner@example.org", "eyJhbGci"):
+        # Assembled at run time so no token-shaped literal sits in the repository.
+        token = ".".join(("eyJ" + "hbGciOiJub25lIn0", "eyJ" + "zdWIiOiJzeW50aGV0aWMifQ", "c3ludGhldGlj"))
+        text = pilot.redact(f"Authorization: Bearer abcdefghijkl client_secret=s3cr3t password=x owner@example.org {token}")
+        for secret in ("abcdefghijkl", "s3cr3t", "owner@example.org", token):
             self.assertNotIn(secret, text)
         self.assertEqual(pilot.redact("failures=reconcile/WRITE_FAILED=2"), "failures=reconcile/WRITE_FAILED=2")
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Synthetic `docker` for the historical-sync-pilot tests; no container, network or provider.
 
 It answers only the commands the harness issues, from one JSON state file named by
