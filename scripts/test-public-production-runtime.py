@@ -361,12 +361,13 @@ def environment_violations(name, environment, expected):
 
 
 def env_example_violations(config):
-    referenced = set(re.findall(r"\$\{([A-Z0-9_]+)", COMPOSE_FILE.read_text()))
+    referenced = {name for path in (COMPOSE_FILE, RUNTIME / "compose.observability.yaml")
+                  for name in re.findall(r"\$\{([A-Z0-9_]+)", path.read_text())}
     documented = {line.split("=", 1)[0] for line in ENV_EXAMPLE.read_text().splitlines()
                   if line and not line.startswith("#")}
     found = []
     if referenced != documented:
-        found.append(f"runtime.env.example and compose.yaml disagree: "
+        found.append(f"runtime.env.example and production Compose files disagree: "
                      f"missing {sorted(referenced - documented)}, unused {sorted(documented - referenced)}")
     example = dict(line.split("=", 1) for line in ENV_EXAMPLE.read_text().splitlines()
                    if line and not line.startswith("#"))
