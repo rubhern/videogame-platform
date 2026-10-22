@@ -60,14 +60,14 @@ MIB = 1024 * 1024
 
 SERVICES = {"caddy", "postgres", "keycloak", "catalogue-localizer", "application", "migration"}
 NETWORKS = {
-    "caddy": {"application-edge", "identity-edge"},
+    "caddy": {"application-edge", "identity-edge", "telemetry"},
     "postgres": {"application-data", "identity-data"},
     "keycloak": {"identity-edge", "identity-data"},
     "catalogue-localizer": {"application-data"},
     "application": {"application-edge", "application-data"},
     "migration": {"application-data"},
 }
-INTERNAL_NETWORKS = {"application-data", "identity-data"}
+INTERNAL_NETWORKS = {"application-data", "identity-data", "telemetry"}
 SECRETS = {
     "caddy": set(),
     "postgres": {"postgres_admin_password", "application_db_password", "application_migration_db_password",
@@ -258,7 +258,7 @@ def service_violations(name, service, config, secrets_dir):
         found.append(f"{name} networks must be exactly {sorted(NETWORKS.get(name, set()))}, found {sorted(networks)}")
     for network, attachment in networks.items():
         attachment = attachment or {}
-        expected_address = EDGE_ADDRESSES.get(network) if name == "caddy" else \
+        expected_address = ({**EDGE_ADDRESSES, "telemetry": "10.203.3.2"}).get(network) if name == "caddy" else \
             BFF_ADDRESS if (name, network) == ("application", "application-edge") else None
         if attachment.get("ipv4_address") != expected_address or attachment.get("ipv6_address"):
             found.append(f"{name} on {network} must use {expected_address or 'a dynamic address'}")
@@ -428,9 +428,11 @@ def caddy_violations(config):
     if set(config.get("apps", {})) - {"http"}:
         found.append(f"Caddy must not configure apps {sorted(set(config['apps']) - {'http'})}")
     servers = config.get("apps", {}).get("http", {}).get("servers", {})
-    if sorted(server.get("listen", [None])[0] for server in servers.values()) != [":443", ":80"]:
-        found.append("Caddy must listen only on :80 and :443")
+    if sorted(server.get("listen", [None])[0] for server in servers.values()) != sorted([":443", ":80", "10.203.3.2:9180"]):
+        found.append("Caddy must listen only on :80, :443 and the telemetry interface")
     for name, server in servers.items():
+        if any(n.get("handler") == "metrics" for n in walk(server)) and server.get("listen") != ["10.203.3.2:9180"]:
+            found.append("Caddy metrics handler must bind only the telemetry interface")
         if server.get("protocols") != ["h1", "h2"]:
             found.append(f"Caddy server {name} must serve only HTTP/1.1 and HTTP/2")
         if server.get("strict_sni_host") is not True:
@@ -453,7 +455,7 @@ def caddy_violations(config):
                 found.append(f"Caddy upstream {node['upstreams'][0]['dial']} must drop {sorted(missing)}")
             if node.get("transport", {}).get("tls", None) is not None and node["transport"]["tls"].get("insecure_skip_verify"):
                 found.append("Caddy must not skip upstream TLS verification")
-        if node.get("handler") in ("file_server", "metrics", "pprof", "vars", "authentication"):
+        if node.get("handler") in ("file_server", "pprof", "vars", "authentication"):
             found.append(f"Caddy must not enable the {node['handler']} handler")
         if node.get("module") == "internal" or node.get("on_demand"):
             found.append("Caddy production TLS must not use the internal CA or on-demand issuance")
@@ -741,6 +743,32 @@ def run_scenario(edge, config, label, clients):
     return failures
 
 
+def exercise_edge_metrics(edge):
+    """Prove private native metrics and the sanitized final-response origin bridge."""
+    request = "import http.client,ssl; c=http.client.HTTPSConnection('gameometro.com',context=ssl._create_unverified_context()); c.request('GET', '%s'); r=c.getresponse(); assert r.status==503; r.read()"
+    def invoke(path):
+        run(edge.compose + ['--profile','probe','run','--rm','--no-deps','--entrypoint','python','prober','-c',request % path])
+    def metrics():
+        return run(edge.compose + ['exec','-T','caddy','wget','-q','-O','-','http://10.203.3.2:9180/metrics']).stdout
+    edge.gate('empty');invoke('/api/v1/releases')
+    edge.gate('ready');invoke('/synthetic-upstream-503')
+    upstream=metrics()
+    records=[json.loads(line) for line in run(edge.compose+['logs','--no-log-prefix','--no-color','caddy']).stdout.splitlines() if line.startswith('{')]
+    access=[r for r in records if r.get('logger','').startswith('http.log.access')]
+    assert any(r.get('response_origin')=='maintenance' and r['status']==503 for r in access), access
+    assert any(r.get('response_origin','upstream')=='upstream' and r['status']==503 for r in access), access
+    for r in access:
+        assert set(r) <= {'level','ts','logger','msg','bytes_read','duration','size','status','response_origin'}, set(r)
+    assert not any('request' in r or 'resp_headers' in r or 'user_id' in r for r in access)
+    # The raw endpoint itself must be safe, before Prometheus applies its allowlist.
+    assert not re.search(r'(?i)(rate_limit|client_ip|remote_ip|user_id|email|token|key=|host=)',upstream)
+    for line in upstream.splitlines():
+        if line.startswith('caddy_http_') and '{' in line:
+            labels=re.findall(r'([a-zA-Z_][a-zA-Z_0-9]*)="',line.split('{',1)[1])
+            assert set(labels) <= {'server','handler','code','method','le'}
+    print('Private Caddy metrics and sanitized origin records distinguish 503s without client/limiter labels.')
+
+
 def exercise_limits(edge, caddyfile, directory):
     """Every limit, spoofing, source-family, aggregate and maintenance scenario, then its mutations."""
     failures = []
@@ -756,6 +784,15 @@ def exercise_limits(edge, caddyfile, directory):
     for label, clients in AGGREGATES:
         edge.load(scaled, gate="ready")
         failures += run_scenario(edge, scaled, label, clients)
+        records=[json.loads(line) for line in run(edge.compose+['logs','--no-log-prefix','--no-color','caddy']).stdout.splitlines() if line.startswith('{')]
+        access=[r for r in records if r.get('logger','').startswith('http.log.access')]
+        if not any(r.get('response_origin')=='overload' and r.get('status')==503 for r in access):
+            failures.append('Aggregate overload response origin was not observed')
+        if not any(r.get('response_origin')=='quota' and r.get('status')==429 for r in access):
+            failures.append('Per-source quota response origin was not observed')
+        for record in access:
+            if set(record)-{'level','ts','logger','msg','bytes_read','duration','size','status','response_origin'}:
+                failures.append('Unexpected field in sanitized edge access record')
     for label, gate, clients in MAINTENANCE:
         if label.endswith("survives an edge restart"):
             edge.load(production)  # The gate is unchanged; only the edge restarts.
@@ -1093,6 +1130,7 @@ def contract(arguments):
         if not arguments.static_only and not failures:
             with Edge(directory, env_file) as edge:
                 edge.load(edge_test_config(caddy_config), gate="ready")
+                exercise_edge_metrics(edge)
                 for service in ("prober", "backchannel-prober"):
                     status, output = edge.probe(service)
                     print(output.strip().splitlines()[-1] if output.strip() else f"{service}: no output")

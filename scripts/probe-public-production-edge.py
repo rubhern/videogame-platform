@@ -101,7 +101,7 @@ class Echo(http.server.BaseHTTPRequestHandler):
         for name, value in self.headers.items():
             headers.setdefault(name.lower(), []).append(value)
         body = json.dumps({"upstream": self.tag, "path": self.path, "headers": headers}).encode()
-        self.send_response(200)
+        self.send_response(503 if self.path == "/synthetic-upstream-503" else 200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

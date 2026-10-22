@@ -383,6 +383,14 @@ else
   printf 'PASS unexpected-execution-gate\n'
 fi
 
+
+run_case production-observability \
+  $'deploy/public-production/compose.observability.yaml\nscripts/test-production-observability.py\nscripts/production_observability_smoke.py\nscripts/fixtures/production-telemetry.py' \
+  'production_runtime' 'backend,frontend,container,identity,ci'
+run_case shared-telemetry \
+  $'deploy/private-dev/grafana/dashboards/vgp-runtime.json\ndeploy/private-dev/otel/collector.yaml' \
+  'production_runtime,container,backend' 'frontend,ci'
+
 if ((failures > 0)); then
   printf 'CI change-detection tests failed with %d problem(s).\n' "$failures" >&2
   exit 1

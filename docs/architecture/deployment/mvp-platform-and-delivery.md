@@ -534,6 +534,23 @@ Fetch-Metadata checks are what refuse a state change sent from the identity orig
 observed cookies are recorded in the
 [#274 research](../../research/public-release-rights-and-privacy.md#74-increment-4-canonical-issuer-and-cookies-2026-10-15).
 
+The production observability candidate reuses the five private-dev dashboard sources
+and native Grafana notifications. It adds standard node/TLS probes and a bounded
+host-only sampler under the existing monitoring envelope; the
+[observability contract](../../development/observability.md#public-production-observability-proposal)
+owns signal semantics and calibration. Its separate internal telemetry and view-only
+analytics networks do not participate in product readiness. Grafana alone has a
+notification egress bridge; no monitoring port is published.
+
+The sampler's host timer deliberately uses root-equivalent Docker administration
+only for a fixed Compose-project/service inventory, selected PID/restart/OOM fields
+and bounded sanitized edge records. Standard node_exporter cannot map Compose
+services to lifecycle state or certify recovery receipts; cAdvisor would add broader
+container/host access and collection for this small required bridge. No Docker socket,
+host PID namespace or privileged mode is granted to a monitoring container. Keep the
+timer and its inputs owner-controlled. Failure preserves stale observations and alerts;
+it never controls a product request or automatically resizes the host.
+
 ### Resource and work envelope (proposal, not capacity evidence)
 
 Begin qualification with explicit memory/CPU/PID/connection/request/log/storage

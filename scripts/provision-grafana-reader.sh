@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-[[ $# == 2 && ( "$1" == --local || "$1" == --private-dev ) ]] || {
-  echo 'Usage: provision-grafana-reader.sh --local|--private-dev ENV_FILE' >&2; exit 1;
+[[ $# == 2 && ( "$1" == --local || "$1" == --private-dev || "$1" == --production ) ]] || {
+  echo 'Usage: provision-grafana-reader.sh --local|--private-dev|--production ENV_FILE' >&2; exit 1;
 }
 # Resolve secret and service from the authoritative rendered Compose config.
 if [[ "$1" == --local ]]; then
   export APPLICATION_VERSION="$(bash "$repository_root/scripts/backend-artifact.sh" version)"
   compose=(docker compose --env-file "$2" --file "$repository_root/compose.yaml" --file "$repository_root/compose.observability.yaml" --profile observability)
+elif [[ "$1" == --production ]]; then
+  # Refuse private-dev/repository secrets and unresolved image inputs before a host write.
+  python3 -I "$repository_root/scripts/test-public-production-runtime.py" --env-file "$2" >/dev/null
+  compose=(docker compose --env-file "$2" --file "$repository_root/deploy/public-production/compose.yaml" --file "$repository_root/deploy/public-production/compose.observability.yaml")
 else
   compose=(docker compose --env-file "$2" --file "$repository_root/deploy/private-dev/compose.yaml")
 fi

@@ -50,12 +50,22 @@ services:
           - auth.gameometro.com
       identity-edge:
         ipv4_address: 10.203.2.2
+      telemetry:
+        ipv4_address: 10.203.3.2
     restart: unless-stopped
     stop_grace_period: 15s
     mem_limit: 128m
     cpus: 0.5
     pids_limit: 128
-    logging: *bounded-logging
+    # Access records are sanitized in Caddy before writing; backpressure may drop logs,
+    # never hold a product response waiting for the Docker logging driver.
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+        mode: non-blocking
+        max-buffer-size: 1m
 
   postgres:
     entrypoint: ["/opt/gameometro/bin/run-postgres"]
@@ -379,3 +389,10 @@ networks:
     internal: true
   identity-data:
     internal: true
+
+  telemetry:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.203.3.0/28
+          ip_range: 10.203.3.8/29

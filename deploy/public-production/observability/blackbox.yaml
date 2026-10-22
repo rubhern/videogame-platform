@@ -1,0 +1,32 @@
+modules:
+  tls-product:
+    prober: http
+    timeout: 4s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      valid_status_codes:
+      - 200
+      - 503
+      tls_config:
+        server_name: gameometro.com
+  tls-identity:
+    prober: http
+    timeout: 4s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      valid_status_codes:
+      - 200
+      - 503
+      tls_config:
+        server_name: auth.gameometro.com
+  identity-health:
+    prober: http
+    timeout: 4s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false

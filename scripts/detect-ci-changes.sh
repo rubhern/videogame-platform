@@ -163,7 +163,7 @@ for path in "${changed_paths[@]}"; do
       enable production_runtime dependency_images
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py)
+    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
       enable production_runtime
       matched=true
       ;;
@@ -191,6 +191,15 @@ for path in "${changed_paths[@]}"; do
       enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
+    scripts/provision-grafana-reader.sh)
+      enable documentation build backend migrations identity container production_runtime
+      matched=true
+      ;;
+    deploy/private-dev/grafana/* | deploy/private-dev/prometheus/* | deploy/private-dev/otel/* | deploy/private-dev/compose.observability.yaml)
+      # Canonical definitions feed both private-dev and the production telemetry candidate.
+      enable documentation build backend migrations identity container production_runtime
+      matched=true
+      ;;
     deploy/private-dev/keycloak/*)
       # One Keycloak recipe for local, private-dev and the published production image.
       enable documentation build backend migrations identity container dependency_images
@@ -200,7 +209,7 @@ for path in "${changed_paths[@]}"; do
       enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/provision-grafana-reader.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;

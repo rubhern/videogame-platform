@@ -5,9 +5,22 @@
 {
 	# No admin API: a reviewed file change is applied by recreating the container.
 	admin off
+	metrics
 	# The limiter logs every refusal with the client address; refusals stay unlogged.
 	log default {
 		exclude http.handlers.rate_limit
+        # Upstream transport errors use the default logger, not the access encoder.
+        format filter {
+            wrap json
+            fields {
+                request delete
+                resp_headers delete
+                user_id delete
+                err_id delete
+                err_trace delete
+                uuid delete
+            }
+        }
 	}
 	servers {
 		# HTTP/1.1 and HTTP/2 over TCP only; HTTP/3 (UDP 443) is outside the exposure contract.
@@ -22,6 +35,26 @@
 			idle 2m
 		}
 	}
+}
+
+# Native access encoder drops the complete request and response-header objects BEFORE
+# writing. No address, path/query, identity, token, cookie or correlation ID is stored.
+# Fixed origin values are consumed by the host textfile bridge, not used as client tags.
+(safe_access) {
+    log {
+        output stdout
+        format filter {
+            wrap json
+            fields {
+                request delete
+                resp_headers delete
+                user_id delete
+                err_id delete
+                err_trace delete
+                uuid delete
+            }
+        }
+    }
 }
 
 (upstream_headers) {
@@ -93,6 +126,7 @@
 }
 
 (refuse_maintenance) {
+	log_append response_origin maintenance
 	import refusal_headers
 	header Retry-After 300
 	@api path /api/*
@@ -107,6 +141,7 @@
 }
 
 (refuse_rate_limited) {
+	log_append response_origin quota
 	import refusal_headers
 	@api path /api/*
 	handle @api {
@@ -120,6 +155,7 @@
 }
 
 (refuse_overloaded) {
+	log_append response_origin overload
 	import refusal_headers
 	@api path /api/*
 	handle @api {
@@ -147,6 +183,7 @@
 }
 
 gameometro.com {
+	import safe_access
 	request_body {
 		max_size 1MB
 	}
@@ -235,6 +272,7 @@ gameometro.com {
 }
 
 auth.gameometro.com {
+	import safe_access
 	request_body {
 		max_size 1MB
 	}
@@ -395,4 +433,10 @@ auth.gameometro.com {
 # server names have no certificate, so their handshake fails.
 http:// {
 	abort
+}
+
+# Metrics binds only the private telemetry interface, with no admin API.
+http://:9180 {
+	bind 10.203.3.2
+	metrics /metrics
 }

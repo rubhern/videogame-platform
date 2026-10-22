@@ -320,6 +320,9 @@ jobs:
       - name: Prove the identity-maintenance fence and its Keycloak drain evidence
         run: python3 scripts/test-production-identity-maintenance.py
 
+      - name: Prove production dashboards, PromQL, privacy, Telegram mock and bounded overhead
+        run: python3 scripts/test-production-observability.py --smoke
+
       - name: Check topology, exposure, secrets, edge routes, limits and maintenance with synthetic inputs
         run: python3 -I scripts/test-public-production-runtime.py
 

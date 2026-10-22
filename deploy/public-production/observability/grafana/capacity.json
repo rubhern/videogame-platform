@@ -1,0 +1,551 @@
+{
+  "uid": "vgp-production",
+  "title": "Production / Capacity, security and recovery",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "60s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "tags": [
+    "production"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Traffic trend and qualified workload budget",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m]))",
+          "legendFormat": "Current"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[1h]))",
+          "legendFormat": "Hourly baseline"
+        },
+        {
+          "refId": "C",
+          "expr": "production_capacity_rps",
+          "legendFormat": "Qualified budget"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Final refused / unavailable responses in five minutes",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "production_edge_responses_5m",
+          "legendFormat": "{{origin}} {{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Product latency (p95)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\"}[5m])))",
+          "legendFormat": "p95 ms"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Container CPU headroom",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(production_container_cpu_seconds_total[5m]) / production_container_cpu_limit_cores",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Container memory headroom",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "production_container_memory_bytes / production_container_memory_limit_bytes",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Container CPU throttling",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(production_container_cpu_throttled_periods_total[5m]) / clamp_min(rate(production_container_cpu_periods_total[5m]), 0.001)",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Host available memory and pressure",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "Available fraction"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_pressure_memory_waiting_seconds_total[5m])",
+          "legendFormat": "Memory PSI"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(node_pressure_io_waiting_seconds_total[5m])",
+          "legendFormat": "I/O PSI"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Root disk reserve and predicted availability",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}",
+          "legendFormat": "Available"
+        },
+        {
+          "refId": "B",
+          "expr": "predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h],86400)",
+          "legendFormat": "Projected in one day"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Hikari waiters and acquisition timeouts",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending",
+          "legendFormat": "Pending {{pool}}"
+        },
+        {
+          "refId": "B",
+          "expr": "increase(hikaricp_connections_timeout_total[5m])",
+          "legendFormat": "Timeouts {{pool}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Application database connections vs server ceiling",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT connections, server_connection_limit FROM public.observability_database",
+          "format": "table",
+          "rawQuery": true,
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Aggregate identity events and failures",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (event,error) (increase(keycloak_user_events_total{job=\"keycloak-security\"}[5m]))",
+          "legendFormat": "{{event}} {{error}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Scrape and probe availability",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up",
+          "legendFormat": "{{job}}"
+        },
+        {
+          "refId": "B",
+          "expr": "probe_success",
+          "legendFormat": "{{job}} probe"
+        },
+        {
+          "refId": "C",
+          "expr": "production_edge_observation_complete",
+          "legendFormat": "Edge window complete"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Container running and OOM / restarts",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "production_container_running",
+          "legendFormat": "{{service}} running"
+        },
+        {
+          "refId": "B",
+          "expr": "increase(production_container_restarts_total[10m])",
+          "legendFormat": "{{service}} restarted"
+        },
+        {
+          "refId": "C",
+          "expr": "production_container_oom_killed",
+          "legendFormat": "{{service}} OOM"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Host sample and verified off-host recovery-point age",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - production_host_sample_timestamp_seconds",
+          "legendFormat": "Host sample"
+        },
+        {
+          "refId": "B",
+          "expr": "time() - production_offhost_recovery_point_seconds",
+          "legendFormat": "Off-host recovery point"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Backup verification and last attempt",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "production_offhost_verified",
+          "legendFormat": "Verified independent recovery"
+        },
+        {
+          "refId": "B",
+          "expr": "production_backup_last_attempt_failed",
+          "legendFormat": "Failed last attempt"
+        },
+        {
+          "refId": "C",
+          "expr": "production_backup_attempt_observed",
+          "legendFormat": "Attempt observed"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "TLS certificate lifetime",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "probe_ssl_earliest_cert_expiry - time()",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Telemetry head series and calibration state",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "prometheus_tsdb_head_series",
+          "legendFormat": "Head series"
+        },
+        {
+          "refId": "B",
+          "expr": "production_capacity_calibrated",
+          "legendFormat": "Capacity calibrated"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    }
+  ]
+}

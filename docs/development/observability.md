@@ -8,8 +8,8 @@ versions remain in Maven manifests.
 
 ## Local inspection
 
-The unbuilt public target has a separate
-[minimal observability proposal](#public-production-observability-proposal);
+The public target has a separate, locally prepared
+[observability candidate](#public-production-observability-proposal);
 private-dev configuration and proven evidence remain environment-specific.
 
 ```bash
@@ -639,41 +639,123 @@ Helper failure never participates in liveness/readiness.
 
 ## Public production observability proposal
 
-**Proposed, unbuilt (#252):** reuse Collector → Prometheus → private Grafana;
-initially retain redacted, rotated Docker logs without a production Loki/Alloy stack
-or retained traces. The [platform target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
-owns topology/resource budgets. No private-dev collector configuration is modified.
+**Implemented local candidate (#275 increment 7), not deployed or accepted on a VPS.**
+The [production overlay](../../deploy/public-production/compose.observability.yaml)
+reuses Collector → Prometheus → Grafana, the five canonical private-dev dashboard
+JSON files, both datasource definitions, view-only SQL grants and native Telegram
+provisioning. Stable datasource UIDs retain their historical private-dev names inside
+an independent production Grafana database; they never point to private-dev services.
+Only the Growth dashboard's literal realm selector is substituted at startup.
+Runtime / Resources, Application / HTTP, Product / Business, Catalogue Synchronization
+and Growth remain complete; Production / Capacity, security and recovery adds the
+operational signals. No Loki, Alloy or retained trace store is added. Their extra
+memory, disk and log-ingestion privileges have no demonstrated production need here.
 
-Start with seven days / 512 MiB of Prometheus history, including bounded label sets;
-WAL/head/compaction need extra disk, so this is not a filesystem quota. Diagnostic
-logs are owner-limited to seven days (#274); propose at most 100 MiB per service as
-well, whichever expires first, with an enforced age/rotation procedure. Ordinary byte
-rotation alone does not implement age deletion. Disable detailed identity events/edge
-access logging by default; retain only necessary redacted outcomes. Keycloak's default
-event logging writes the username and IP of failed logins, so the
-[production realm](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)
-stores no events and registers no realm logging listener; its gate proves that synthetic
-credentials, addresses and client IPs stay out of the Keycloak log. The [security signal preparation](#identity-and-overload-security-signals) uses native
-aggregate metrics independently of those listeners; actual-host acceptance is pending. Do not collect
-tokens, cookies, email/name, raw IP, full URLs/query strings or rating-owner IDs. If a
-security investigation requires exceptional personal metadata, record purpose/access/expiry
-separately and keep it out of metrics. Never send real account data to public GitHub
-reports or monitoring SaaS. Backups follow their independent protected retention.
+Telemetry has no product startup, readiness or request dependency. Management stays
+on application loopback. None of the monitoring services publishes a host port;
+Grafana administration needs the existing private host/tunnel boundary. Only Grafana
+joins the separate notification egress bridge. Its analytics network reaches the
+application database with the existing restricted reader and approved observability
+views, two connections and short query limits; no identity database privileges or
+new analytics queries across base tables are granted.
 
-Observe HTTP rate/errors/latency, Hikari pending/timeouts, JVM/PG/identity resources,
-disk/free space, sync outcomes, latest verified off-host backup age and certificate
-expiry. Notifications need no new alert service: reuse the existing Grafana route
-where sufficient and an existing private owner channel within budget; link relevant
-work to [#269](https://github.com/rubhern/videogame-platform/issues/269).
-A failed-backup and disk/error/certificate test must reach the owner before opening.
-An on-host monitor cannot prove host-loss notification: run a lightweight external
-reachability/backup-age check from an existing independent owner device with a
-documented check cadence. No paid uptime service or status platform is assumed.
+Standard node_exporter collects host CPU/steal, memory, swap, pressure, root filesystem
+and disk I/O; blackbox_exporter probes Keycloak readiness and both HTTPS certificates
+through the private edge. Those TLS probes verify SNI and trust but do not prove public
+DNS, IPv6 ingress or ACME renewal. Caddy's private listener exports only bounded native
+HTTP families; its per-client limiter metrics and refusal logger remain disabled.
 
-Telemetry remains outside product readiness/request dependencies. Resource pressure
-stops ingestion before threatening durable data. Deletion/redaction and notification
-behaviour must be tested locally, then on the actual VPS; the
-[public gates](delivery-lifecycle.md#public-production-gates) require that evidence.
+A bounded host-only textfile sampler bridges cgroup v2 resource ceilings/usage,
+Docker lifecycle fields, sanitized edge response origins, backup evidence and optional
+capacity evidence. Its fixed service inventory never exports container IDs, PIDs,
+addresses, paths or account information. It has no listener or long-running buffer.
+The host timer uses existing administrative Docker access to map service PIDs and read
+restart/OOM state and the sanitized edge log window. That interface is root-equivalent;
+the [platform target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
+owns its justification. No container receives the Docker socket, host PID namespace,
+extra capability or privileged mode. Host-wide observations still come from the mature
+exporter, rather than reimplementing it in the sampler.
+
+### Production response origin and privacy
+
+Native Caddy route metrics aggregate these routes as `subroute`; their status label can
+also reflect the error before an error-handler rewrites the response. They cannot
+prove the origin of a final 503. The native access encoder removes the entire request,
+response headers, identity/error identifiers and generated UUID **before** writing a
+record. Refusal handlers append one fixed `response_origin`: maintenance, overload or quota.
+A final 503 without that field comes from the upstream; no other static 503 response
+is configured. Appending at the refusal handler also covers error-handler overloads
+without depending on middleware timing or duplicate JSON keys. The sampler exposes the final status/origin count in a bounded
+five-minute window. It refuses oversized/truncated windows and unknown record fields;
+missing or incomplete observations alert instead of becoming zero. Non-blocking bounded
+Docker logging protects response availability but can lose records under extreme load;
+these are operational observations, not an audit or billing ledger. Native HTTP metrics
+remain an independent volume signal. The edge exercise proves maintenance/upstream
+separation and rejects unexpected access-record fields and sensitive metric labels.
+
+Prometheus rejects samples with sensitive dimensions before stripping labels, so an
+unapproved dimension cannot collapse different counters into one retained series.
+Scrape body/sample/label limits, query limits and closed Keycloak event/error vocabularies
+bound collection. Never collect client IPs, email/names, account IDs, tokens, cookies,
+full URLs/queries or correlation IDs. Native Keycloak event storage/listeners remain off;
+actual SMTP failure/redaction and relay quota acceptance still belong to #276.
+
+### Production alert interpretation and calibration
+
+The [production rule file](../../deploy/public-production/observability/grafana/alerts.json)
+owns every threshold, window, traffic guard and pending period. Each rule carries an
+explicit #276 calibration annotation. The five existing operational rules are also
+provisioned with production labels: unexpected application errors, traffic-guarded p95
+latency, Hikari pending/timeouts, failed/partial sync and absent/stale application
+telemetry. Their existing heuristics remain provisional on the selected host.
+
+| Additional signal family | Interpretation and #276 acceptance/calibration |
+|---|---|
+| Traffic trend and measured capacity proximity | Compare current rate with its longer baseline plus CPU pressure and a volume guard. Qualify the representative traffic mix, sustainable rate, workload changes, warning/critical fractions and pending periods. No rate capacity is supplied by default |
+| HTTP error share, edge 429/503 and upstream HTTP/transport failures | Validate count/share guards under quiet traffic, bursts and maintenance; correlate with latency and resource headroom. Edge counts use final sanitized origin records |
+| Container CPU, throttling, memory, OOM/restarts and missing state | Validate actual cgroup v2 fields, quota headroom, chargeable page cache, recreation/reset and deliberate stop/restart behaviour. A restart signal warrants inspection; it does not prove OOM |
+| Host available memory, swap and memory/I/O pressure | Test pressure before failure, pause background jobs first, and verify the approved available-memory reserve under job/deployment overlap |
+| PostgreSQL/Hikari pressure | Validate connection guards and wait/timeouts. The approved SQL view covers application-database connections versus the server limit, not total identity-database activity; use host/container pressure alongside it |
+| Disk free reserve and predicted depletion | Validate the filesystem mapping, growth lookback/prediction horizon, reserves, WAL/image/backup overlap and job stop response. Root filesystem collection assumes the proposed single data filesystem; another mount needs explicit collection before acceptance |
+| Identity failures, lockout, mail sending/failure and health | Calibrate aggregate count windows against legitimate/shared-source traffic and actual relay allowance. These signals are indicators, not proof of distinct attackers or inbox delivery |
+| Telemetry target, host sampler and edge-window availability | Exercise missing/down/removed targets, frozen exports, malformed textfiles, dropped records and delayed timers. Scrape success alone does not prove fresh application exports |
+| Failed, missing or stale verified off-host backups | Verify the schedule, recovery-point age, independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
+| TLS expiry and failed probes | Verify both hostname chains, warning/critical lead times, local probe failure, actual ACME renewal failure and recovery with the real domains before exposure |
+| Series budget and monitoring resources | Review active/head series, refresh/query concurrency, rule evaluations, retention/compaction and disk growth at the qualified workload; stop ingestion before threatening durable product state |
+
+Only a protected, fresh **real-VPS** calibration record enables capacity-proximity
+rules. It expires automatically; local fixture measurements are rejected. Operating
+thresholds (including resource percentages and traffic guards) are early-warning
+hypotheses, not proven capacity limits or published SLOs. Missing data uses dedicated
+availability alerts and Grafana datasource errors. Availability expressions return an
+explicit healthy zero, so a healthy empty condition cannot become a Grafana NoData
+incident; optional/lazy activity counters
+can be absent during quiet traffic. Warning/critical resource bands are mutually
+exclusive. Native notification grouping, bounded message rendering and repeat intervals
+are reused; all delivery is off until explicitly enabled with production-only secrets.
+Information-only product notifications stay off.
+
+The [platform resource envelope](../architecture/deployment/mvp-platform-and-delivery.md#resource-and-work-envelope-proposal-not-capacity-evidence)
+remains unchanged. The overlay and host unit share its monitoring allocation. Go
+soft memory limits leave room for native allocations and tmpfs; their GC/CPU trade-off
+and reduced production query concurrency need the real-host soak. Budget
+at most 5,000 active series (warning before that budget), seven days / 512 MiB of
+compacted Prometheus history, **2 GiB total Prometheus head/WAL/block/compaction space**,
+**256 MiB Grafana state**, and the existing per-service rotated Docker log allowance.
+Those are qualification budgets and stop/review triggers, not filesystem quotas.
+Root free-space and growth alerts protect the shared disk; a long soak must confirm
+retention/compaction and the diagnostic-log seven-day age procedure on the real host.
+
+The [isolated proof](../../scripts/test-production-observability.py) checks exact
+PromQL and alert timing, complete dashboard provisioning and SQL compatibility,
+sensitive-label rejection, production Telegram firing/recovery against HTTPS mock,
+and a bounded synthetic overhead sample. Its sanitized receipt is disposable evidence,
+not production capacity acceptance. The separate backend isolation test proves reads
+and readiness during rejected/unavailable metric exports. The
+[operator procedure](../../deploy/public-production/README.md#production-observability-candidate)
+owns provisioning and remaining host-only checks. Host-loss notification still needs
+an independent owner-device check and cadence; an on-host Grafana cannot report its
+own complete host loss.
 
 ## Identity and overload security signals
 
@@ -692,8 +774,8 @@ job alongside the unchanged successful-product-event job. Its
 limits event/error values, samples, body and labels before storage. Unknown error
 constants are dropped, not relabelled into colliding series: review the allowlist
 on Keycloak upgrades. This deliberately loses unsupported error details. The
-production runtime must install an equivalent realm-specific scrape in #275; do not
-copy the private realm name into production.
+production overlay installs the equivalent realm-specific scrape. Its Growth selector
+is rendered from the shared dashboard for the production realm.
 
 Inspect in existing private Grafana Explore, starting with:
 
@@ -727,19 +809,8 @@ technical logs; the actual relay failure/redaction test remains required before
 launch, independently of the no-event-listener proof.
 
 Public-edge [request-limit](../architecture/deployment/mvp-platform-and-delivery.md#public-edge-request-limits)
-refusals (#275) are deliberately unobserved for now. The limiter's own metrics cannot be
-used: every counter is also emitted per client address, and those series are never
-removed, so they would export addresses and grow without bound. Its refusal log carries
-the address too. Both stay disabled, and edge 429s and 503s never reach the application's
-counters.
-
-**Planned for #275 increment 7, locally checked only:** Caddy's own HTTP metrics count
-requests by `server`, `handler`, `method` and `code`, so 429 refusals appear as a bounded
-count, while the limiter's metrics stay disabled. A local scrape of the production
-Caddyfile with those metrics enabled, after per-source refusals, held no address-like
-label value and no limiter series. Increment 7 needs a metrics listener on a private
-telemetry network only, never routed or published, a scrape allowlist for those labels
-and a contract test that refuses any address, key or host label. Edge 503s for overload
-and maintenance share their labels with upstream 503s; read them with the gate state or
-add a distinguishing route there. Until then, a missing count is not evidence that no
-client was refused.
+telemetry is prepared in the [production candidate](#production-response-origin-and-privacy).
+Limiter metrics and refusal logging stay disabled because both expose client addresses.
+Native HTTP metrics and sanitized final status/origin observations provide separate,
+private signals. Actual-host calibration, log-age enforcement and owner notification
+acceptance remain required before exposure.

@@ -1,0 +1,2577 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "production",
+      "folder": "VideoGame Platform",
+      "interval": "60s",
+      "rules": [
+        {
+          "uid": "prod-traffic-trend",
+          "title": "Traffic has grown with pressure",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) > 2 * sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[1h]))) and (sum(increase(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) >= 100) and ((1 - avg(rate(node_cpu_seconds_total{job=\"host\",mode=\"idle\"}[5m]))) > 0.65)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "10m",
+          "annotations": {
+            "summary": "Traffic has grown with pressure",
+            "action": "Compare rate and host/container headroom; pause sync before revising limits.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "1",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-capacity-warning",
+          "title": "Measured request capacity warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) / scalar(production_capacity_rps)) >= 0.7 and (sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) / scalar(production_capacity_rps)) < 0.9 and on() (production_capacity_calibrated == 1)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Measured request capacity warning",
+            "action": "Review the calibrated workload and stop conditions; reduce acquisition or close ingress.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "1",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-capacity-critical",
+          "title": "Measured request capacity critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(rate(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) / scalar(production_capacity_rps)) >= 0.9 and on() (production_capacity_calibrated == 1)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Measured request capacity critical",
+            "action": "Review the calibrated workload and stop conditions; reduce acquisition or close ingress.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "1",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-capacity-unknown",
+          "title": "Production capacity is uncalibrated",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(production_capacity_calibrated == 0) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "30m",
+          "annotations": {
+            "summary": "Production capacity is uncalibrated",
+            "action": "Run #276 qualification before accepting capacity proximity warnings.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "1",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-edge-429",
+          "title": "Edge 429 responses",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(production_edge_responses_5m{origin=~\"quota\",status=\"429\"}) >= 10) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Edge 429 responses",
+            "action": "Check maintenance gates, limiter refusals and resource pressure; do not blindly raise quotas.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "2",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "edge",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-edge-503",
+          "title": "Edge 503 responses",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(production_edge_responses_5m{origin=~\"maintenance|overload\",status=\"503\"}) >= 10) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Edge 503 responses",
+            "action": "Check maintenance gates, limiter refusals and resource pressure; do not blindly raise quotas.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "2",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "edge",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-upstream-503",
+          "title": "Upstream HTTP or transport failures",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(production_edge_responses_5m{origin=~\"upstream\",status=~\"500|502|503|504\"}) >= 5) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Upstream HTTP or transport failures",
+            "action": "Check upstream readiness and Hikari pressure; edge maintenance is a separate signal.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "2",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-http-critical",
+          "title": "High application error share",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(increase(http_server_requests_milliseconds_count{job=\"application-otlp\",status=~\"5..\"}[5m])) / sum(increase(http_server_requests_milliseconds_count{job=\"application-otlp\"}[5m]))) > 0.1 and sum(increase(http_server_requests_milliseconds_count{job=\"application-otlp\"}[5m])) >= 100) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "High application error share",
+            "action": "Check error codes and readiness; use bounded Docker diagnostics.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "3",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "application",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-cpu-warning",
+          "title": "Container CPU saturation warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((rate(production_container_cpu_seconds_total[5m]) / production_container_cpu_limit_cores) >= 0.7 and (rate(production_container_cpu_seconds_total[5m]) / production_container_cpu_limit_cores) < 0.9) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container CPU saturation warning",
+            "action": "Pause sync/translation; check host pressure and the service ceiling before changing resources.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "4",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-memory-warning",
+          "title": "Container memory pressure warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((production_container_memory_bytes / production_container_memory_limit_bytes) >= 0.85 and (production_container_memory_bytes / production_container_memory_limit_bytes) < 0.95) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container memory pressure warning",
+            "action": "Inspect working set and pressure for the affected service. Pause product background work or reduce monitoring collection/query concurrency; do not raise the VPS envelope.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "5",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-cpu-critical",
+          "title": "Container CPU saturation critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((rate(production_container_cpu_seconds_total[5m]) / production_container_cpu_limit_cores) >= 0.9) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container CPU saturation critical",
+            "action": "Pause sync/translation; check host pressure and the service ceiling before changing resources.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "4",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-memory-critical",
+          "title": "Container memory pressure critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((production_container_memory_bytes / production_container_memory_limit_bytes) >= 0.95) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "1m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container memory pressure critical",
+            "action": "Inspect working set and pressure for the affected service. Pause product background work or reduce monitoring collection/query concurrency; do not raise the VPS envelope.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "5",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-cpu-throttle",
+          "title": "Sustained container CPU throttling",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(rate(production_container_cpu_throttled_periods_total[5m]) / clamp_min(rate(production_container_cpu_periods_total[5m]), 0.001) > 0.2) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "10m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Sustained container CPU throttling",
+            "action": "Compare CPU quota and pressure with traffic. Pause background work first.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "6",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-host-pressure",
+          "title": "Host memory or I/O pressure",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.2) or (rate(node_pressure_memory_waiting_seconds_total[5m]) > 0.1) or (rate(node_pressure_io_waiting_seconds_total[5m]) > 0.2) or (rate(node_vmstat_pswpout[5m]) > 0) or (avg(rate(node_cpu_seconds_total{mode=\"steal\"}[5m])) > 0.1) or (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) < 0.2)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Host memory or I/O pressure",
+            "action": "Pause acquisition and deployment; preserve identity and ratings. Inspect I/O, swap and CPU steal.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "7",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-oom-restarts",
+          "title": "Container OOM or restart detected",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((increase(production_container_oom_total[10m]) > 0) or (production_container_oom_killed == 1) or (increase(production_container_restarts_total[10m]) > 0) or (changes(production_container_started_seconds[10m]) > 0)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "0s",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container OOM or restart detected",
+            "action": "Inspect the affected service and resource ceiling. Confirm recovery; counters can reset on recreation.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "13",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-container-missing",
+          "title": "Container stopped or resource observations missing",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((production_container_running == 0) or (production_container_resources_observed == 0)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "3m",
+          "annotations": {
+            "summary": "{{ $labels.service }}: Container stopped or resource observations missing",
+            "action": "Inspect the container and cgroup v2 mapping. Missing resources do not mean idle.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "13",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-disk-warning",
+          "title": "Low disk space warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"} < 0.25) and (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"} >= 0.15)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Low disk space warning",
+            "action": "Stop sync and new deployments. Inspect WAL, telemetry and backup scratch; never remove durable data blindly.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "8",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-disk-critical",
+          "title": "Low disk space critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"} < 0.15)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Low disk space critical",
+            "action": "Stop sync and new deployments. Inspect WAL, telemetry and backup scratch; never remove durable data blindly.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "8",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-disk-growth",
+          "title": "Disk projected to cross reserve within one day",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h], 86400) < 0.25 * node_filesystem_size_bytes{mountpoint=\"/\"} and deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) < 0) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "30m",
+          "annotations": {
+            "summary": "Disk projected to cross reserve within one day",
+            "action": "Inspect abnormal consumption, retention and job overlap; validate the trend before it exhausts headroom.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "8",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-identity-failures",
+          "title": "Identity failure or mail-abuse indicators",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(increase(keycloak_user_events_total{job=\"keycloak-security\",error!=\"\"}[5m])) >= 20) or (sum(increase(keycloak_user_events_total{job=\"keycloak-security\",event=~\"send_verify_email|send_reset_password\"}[15m])) >= 30)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Identity failure or mail-abuse indicators",
+            "action": "Check aggregate failures, relay allowance and edge refusals; narrow identity exposure if necessary.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "11",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "identity",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-identity-mail-failed",
+          "title": "Identity SMTP failure or lockout",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-security\",error=\"email_send_failed\"}[5m])) >= 1 or sum(increase(keycloak_user_events_total{job=\"keycloak-security\",event=\"user_disabled_by_temporary_lockout\"}[5m])) >= 5) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "1m",
+          "annotations": {
+            "summary": "Identity SMTP failure or lockout",
+            "action": "Inspect redacted SMTP diagnostics and relay health privately; do not send accounts or addresses in notifications.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "11",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "identity",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-identity-health",
+          "title": "Keycloak readiness probe failed",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(probe_success{job=\"identity-health\"} == 0) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Keycloak readiness probe failed",
+            "action": "Check Keycloak readiness, pool and resource pressure through private administration.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "12",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "identity",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-telemetry-missing",
+          "title": "Telemetry target missing or failing",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((((absent(up{job=\"application-otlp\"}) or (up{job=\"application-otlp\"} == 0)) or (absent(up{job=\"collector\"}) or (up{job=\"collector\"} == 0)) or (absent(up{job=\"caddy\"}) or (up{job=\"caddy\"} == 0)) or (absent(up{job=\"host\"}) or (up{job=\"host\"} == 0)) or (absent(up{job=\"keycloak-product\"}) or (up{job=\"keycloak-product\"} == 0)) or (absent(up{job=\"keycloak-security\"}) or (up{job=\"keycloak-security\"} == 0)) or (absent(up{job=\"tls-product\"}) or (up{job=\"tls-product\"} == 0)) or (absent(up{job=\"tls-identity\"}) or (up{job=\"tls-identity\"} == 0)) or (absent(up{job=\"identity-health\"}) or (up{job=\"identity-health\"} == 0)) or (absent(up{job=\"prometheus\"}) or (up{job=\"prometheus\"} == 0))) * 0 + 1) or ((absent(node_cpu_seconds_total{job=\"host\",mode=\"idle\"}) or absent(node_memory_MemAvailable_bytes{job=\"host\"}) or absent(node_filesystem_avail_bytes{job=\"host\",mountpoint=\"/\"}) or absent(probe_success{job=\"identity-health\"}) or absent(probe_success{job=\"tls-product\"}) or absent(probe_success{job=\"tls-identity\"}) or (absent(probe_ssl_earliest_cert_expiry{job=\"tls-product\"}) and on(job) (probe_success{job=\"tls-product\"} == 1)) or (absent(probe_ssl_earliest_cert_expiry{job=\"tls-identity\"}) and on(job) (probe_success{job=\"tls-identity\"} == 1))) * 0 + 1)) or vector(0)",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "3m",
+          "annotations": {
+            "summary": "Telemetry target or required metric missing: {{ $labels.job }}",
+            "action": "Check target/scrape limits. For the host, verify CPU, memory and root-filesystem series and exporter permissions; a successful scrape alone does not prove those observations exist.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "12",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-sample-stale",
+          "title": "Host or backup sampler missing/stale",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(((time() - production_host_sample_timestamp_seconds > 180) or absent(production_host_sample_timestamp_seconds) or (node_textfile_scrape_error > 0) or (production_edge_observation_complete == 0) or absent(production_edge_observation_complete) or ((sum(increase(caddy_http_request_duration_seconds_count{job=\"caddy\",handler=\"subroute\"}[5m])) >= 10) and on() (sum(production_edge_access_records_5m) == 0))) * 0 + 1) or vector(0)",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Host or backup sampler missing/stale",
+            "action": "Check the host timer and protected evidence. Do not change missing data into healthy values.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "14",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-backup-unverified",
+          "title": "Verified off-host backup missing or failed",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((production_offhost_verified == 0) or (production_backup_attempt_observed == 0) or (production_backup_last_attempt_failed == 1)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Verified off-host backup missing or failed",
+            "action": "Verify the independent copy and full restore receipt. Local dumps/checksums alone are insufficient.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "15",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-backup-stale-warning",
+          "title": "Verified off-host recovery point stale warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((time() - production_offhost_recovery_point_seconds > 18 * 3600) and (time() - production_offhost_recovery_point_seconds <= 24 * 3600)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Verified off-host recovery point stale warning",
+            "action": "Check the backup and independent-copy schedule; produce and verify a new paired backup.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "15",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-backup-stale-critical",
+          "title": "Verified off-host recovery point stale critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((time() - production_offhost_recovery_point_seconds > 24 * 3600)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Verified off-host recovery point stale critical",
+            "action": "Check the backup and independent-copy schedule; produce and verify a new paired backup.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "15",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-tls-warning",
+          "title": "TLS certificate expires soon warning",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((probe_ssl_earliest_cert_expiry - time() < 21 * 86400) and (probe_ssl_earliest_cert_expiry - time() >= 7 * 86400)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "TLS certificate expires soon warning",
+            "action": "Inspect Caddy renewal, persistent certificate state and ACME reachability. Never erase the certificate volume.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "16",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "edge",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-tls-critical",
+          "title": "TLS certificate expires soon critical",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((probe_ssl_earliest_cert_expiry - time() < 7 * 86400)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "TLS certificate expires soon critical",
+            "action": "Inspect Caddy renewal, persistent certificate state and ACME reachability. Never erase the certificate volume.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "16",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "edge",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-tls-failed",
+          "title": "TLS probe failed",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(probe_success{job=~\"tls-product|tls-identity\"} == 0) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "3m",
+          "annotations": {
+            "summary": "TLS probe failed",
+            "action": "Check TLS validation, renewal and local edge reachability; this probe does not prove external DNS/ingress.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "16",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "edge",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-series-budget",
+          "title": "Telemetry cardinality approaching budget",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(prometheus_tsdb_head_series > 4000) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "15m",
+          "annotations": {
+            "summary": "Telemetry cardinality approaching budget",
+            "action": "Inspect scrape sample counts; reduce collection before raising memory or retention.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "17",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-postgres-pressure",
+          "title": "Application database connection pressure",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-postgres",
+              "model": {
+                "refId": "A",
+                "format": "table",
+                "rawQuery": true,
+                "rawSql": "SELECT CASE WHEN connections::double precision / NULLIF(server_connection_limit, 0) > 0.7 THEN 1 ELSE 0 END AS value FROM public.observability_database"
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "5m",
+          "annotations": {
+            "summary": "Application database connection pressure",
+            "action": "Inspect application Hikari and database connections. This view covers the application database only; do not query Keycloak data.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit.",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "10"
+          },
+          "labels": {
+            "environment": "production",
+            "service": "postgres",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "prod-pool-critical",
+          "title": "Persistent database pool saturation",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((sum(increase(hikaricp_connections_timeout_total[5m])) >= 5) or ((sum(hikaricp_connections_pending) > 0) and (sum(hikaricp_connections_active) / sum(hikaricp_connections_max) >= 0.9))) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Persistent database pool saturation",
+            "action": "Pause background database work; inspect Hikari pending, active/max and timeout signals before changing the pool.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "9",
+            "calibration": "#276: validate the threshold, observation window, traffic guard and pending/recovery behaviour on the selected VPS. Operating hypothesis; not a proven capacity limit."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "application",
+            "severity": "critical",
+            "category": "operational"
+          },
+          "isPaused": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+scrape_configs:
+- job_name: keycloak-product
+  static_configs:
+  - targets:
+    - keycloak:9000
+  metrics_path: /metrics
+  sample_limit: 100
+  body_size_limit: 8MB
+  label_limit: 8
+  label_name_length_limit: 80
+  label_value_length_limit: 80
+  metric_relabel_configs:
+  - &id001
+    source_labels:
+    - client_ip
+    - ip
+    - user_id
+    - email
+    - token
+    - client_id
+    - host
+    - key
+    separator: ;
+    regex: .*[^;].*
+    action: drop
+  - source_labels:
+    - __name__
+    regex: keycloak_user_events_total
+    action: keep
+  - source_labels:
+    - realm
+    regex: gameometro
+    action: keep
+  - source_labels:
+    - event
+    regex: register|verify_email
+    action: keep
+  - source_labels:
+    - error
+    regex: ''
+    action: keep
+  - regex: __name__|job|instance|realm|event|error
+    action: labelkeep
+- job_name: keycloak-security
+  static_configs:
+  - targets:
+    - keycloak:9000
+  metrics_path: /metrics
+  sample_limit: 250
+  body_size_limit: 8MB
+  label_limit: 8
+  label_name_length_limit: 80
+  label_value_length_limit: 80
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: keycloak_user_events_total
+    action: keep
+  - source_labels:
+    - realm
+    regex: gameometro
+    action: keep
+  - source_labels:
+    - event
+    regex: login|register|verify_email|send_verify_email|send_reset_password|reset_password|user_disabled_by_temporary_lockout
+    action: keep
+  - source_labels:
+    - error
+    regex: '|invalid_user_credentials|user_not_found|user_disabled|user_temporarily_disabled|email_in_use|username_in_use|invalid_registration|invalid_email|invalid_token|expired_code|email_send_failed|reset_credential_disabled|not_allowed|unknown'
+    action: keep
+  - regex: __name__|job|instance|realm|event|error
+    action: labelkeep

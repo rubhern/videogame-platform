@@ -200,6 +200,40 @@ Ordinary restarts fit within the operational pending windows. Planned longer wor
 should have an owner-managed Grafana silence, without changing provisioned rules.
 Telegram cannot notify when this same host or Grafana is unavailable.
 
+## Production monitoring
+
+**Prepared candidate, not a deployed operation.** Provisioning and secret/operator
+inputs are in the [production runtime guide](../../deploy/public-production/README.md#production-observability-candidate);
+[observability](observability.md#production-alert-interpretation-and-calibration)
+owns threshold meaning, unknown-data behaviour and #276 calibration.
+
+On a warning, compare traffic trend with host/container headroom and Hikari/database
+pressure. Pause acquisition/translation and deployment overlap before raising limits.
+For disk warnings, inspect WAL, telemetry, image generations and backup scratch; stop
+new jobs before crossing the approved reserve. Never delete identity/ratings or the
+last verified recovery pair to silence a warning. A critical CPU/memory, OOM/restart,
+error or identity signal needs private readiness checks and bounded diagnostics;
+use the existing edge/identity-maintenance controls if integrity or recovery is uncertain.
+Aggregate identity events warrant checking relay allowance and narrowing exposure;
+never add addresses, accounts or tokens to notification text.
+
+For missing telemetry, inspect the Collector, scrape limits/targets, textfile timer,
+Caddy safe encoder schema and Grafana datasource health. Compare the last host/export
+heartbeat; an absent series is not healthy zero traffic. A stopped telemetry component
+must leave product reads and readiness available. For missing/failed/stale backup proof,
+check the source backup attempt, independent pull, protected isolation review and the
+matching full restore/deletion-replay receipt. A local dump or checksum-only receipt
+must never reset the verified off-host recovery-point age.
+
+For TLS warnings, inspect both certificate chains and Caddy renewal diagnostics/state
+privately. Verify persistence and the actual ACME path; never erase certificate state
+as an automatic fix. A local probe is insufficient evidence of external availability.
+When an alert closes, confirm the actual service and next successful operation; a sync
+window expiring does not mean a later sync succeeded. Keep notification grouping and
+repeat timing; do not send raw logs or identifiers to Telegram. Test delivery and recovery
+through the owner channel before exposure, then verify the independent-device cadence
+for host loss and stale backup checks under #276.
+
 ## Product growth
 
 Open **Gameómetro · Growth** for observed registrations, verification actions and

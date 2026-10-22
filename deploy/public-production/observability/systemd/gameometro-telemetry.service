@@ -1,0 +1,15 @@
+[Unit]
+Description=Bounded Gameometro host telemetry sample (prepared, not installed)
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/observability/sample-host.py --output /var/lib/gameometro/production/metrics/host.prom --offhost-evidence /etc/gameometro/production/observability/offhost.json --backup-receipt /etc/gameometro/production/observability/backup.json --capacity-evidence /etc/gameometro/production/observability/capacity.json
+TimeoutStartSec=20
+MemoryMax=64M
+CPUQuota=10%
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/gameometro/production/metrics
+# Host Docker administration is needed solely for selected lifecycle fields and PIDs.
+# This unit has root-equivalent Docker access; never expose its interface to containers.

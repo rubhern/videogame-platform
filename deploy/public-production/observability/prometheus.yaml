@@ -1,0 +1,174 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 5s
+  evaluation_interval: 60s
+scrape_config_files:
+- /etc/prometheus/keycloak.yaml
+scrape_configs:
+- job_name: application-otlp
+  static_configs:
+  - targets:
+    - telemetry:9464
+  sample_limit: 10000
+  body_size_limit: 8MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - &id001
+    source_labels:
+    - client_ip
+    - ip
+    - user_id
+    - email
+    - token
+    - client_id
+    - host
+    - key
+    separator: ;
+    regex: .*[^;].*
+    action: drop
+  - source_labels:
+    - __name__
+    regex: (http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|platform_http_errors_.*|ratings_personal_activity_total|issue43_synthetic_receipt.*)
+    action: keep
+  - regex: __name__|job|instance|uri|method|status|outcome|exception|error|le|area|id|action|cause|state|pool|name|sort|eligibility|aggregate|kind|operation|reason|code|freshness|month|lead_image
+    action: labelkeep
+- job_name: collector
+  static_configs:
+  - targets:
+    - telemetry:8888
+  sample_limit: 1000
+  body_size_limit: 2MB
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: otelcol_(receiver_(accepted|refused|failed)_metric_points.*|exporter_(sent|send_failed)_metric_points.*|process_uptime.*)
+    action: keep
+  - regex: __name__|job|instance|receiver|exporter|transport
+    action: labelkeep
+- job_name: caddy
+  static_configs:
+  - targets:
+    - caddy:9180
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: caddy_http_(request_duration_seconds_(bucket|sum|count)|request_errors_total)
+    action: keep
+  - regex: __name__|job|instance|server|handler|code|method|le
+    action: labelkeep
+- job_name: host
+  static_configs:
+  - targets:
+    - node-exporter:9100
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - service
+    regex: '|caddy|application|postgres|keycloak|catalogue-localizer|telemetry|prometheus|grafana|node-exporter|blackbox'
+    action: keep
+  - source_labels:
+    - __name__
+    regex: node_(cpu_seconds_total|memory_(MemAvailable|MemTotal|SwapFree|SwapTotal)_bytes|pressure_.*|disk_(read|written)_bytes_total|filesystem_(avail|size)_bytes|vmstat_pswpout|textfile_scrape_error)|production_.*
+    action: keep
+  - regex: __name__|job|instance|cpu|mode|device|mountpoint|fstype|service|resource|signal|operation|origin|status
+    action: labelkeep
+- job_name: tls-product
+  static_configs:
+  - targets:
+    - blackbox:9115
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: probe_success|probe_ssl_earliest_cert_expiry
+    action: keep
+  - regex: __name__|job|instance|
+    action: labelkeep
+  metrics_path: /probe
+  params:
+    module:
+    - tls-product
+    target:
+    - https://gameometro.com/
+- job_name: tls-identity
+  static_configs:
+  - targets:
+    - blackbox:9115
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: probe_success|probe_ssl_earliest_cert_expiry
+    action: keep
+  - regex: __name__|job|instance|
+    action: labelkeep
+  metrics_path: /probe
+  params:
+    module:
+    - tls-identity
+    target:
+    - https://auth.gameometro.com/realms/gameometro/.well-known/openid-configuration
+- job_name: identity-health
+  static_configs:
+  - targets:
+    - blackbox:9115
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: probe_success|probe_ssl_earliest_cert_expiry
+    action: keep
+  - regex: __name__|job|instance|
+    action: labelkeep
+  metrics_path: /probe
+  params:
+    module:
+    - identity-health
+    target:
+    - http://keycloak:9000/health/ready
+- job_name: prometheus
+  static_configs:
+  - targets:
+    - localhost:9090
+  sample_limit: 3000
+  body_size_limit: 4MB
+  label_limit: 16
+  label_name_length_limit: 80
+  label_value_length_limit: 160
+  metric_relabel_configs:
+  - *id001
+  - source_labels:
+    - __name__
+    regex: prometheus_(tsdb_head_series|tsdb_storage_blocks_bytes|notifications_errors_total|rule_evaluation_failures_total)|process_resident_memory_bytes
+    action: keep
+  - regex: __name__|job|instance|
+    action: labelkeep

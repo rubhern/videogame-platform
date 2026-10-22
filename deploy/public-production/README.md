@@ -642,3 +642,104 @@ opens:
 - **Signals.** Refusal counts need the increment-7
   [edge HTTP metrics](../../docs/development/observability.md#identity-and-overload-security-signals)
   with their actual scrape and notification; none is collected now.
+
+
+## Production observability candidate
+
+**Prepared and tested only in disposable local infrastructure.** Use the base runtime
+and `compose.observability.yaml` together when rendering the production candidate.
+[Observability](../../docs/development/observability.md#public-production-observability-proposal)
+owns privacy, signal interpretation, calibration and resource/storage budgets;
+[production monitoring](../../docs/development/operations-runbook.md#production-monitoring)
+owns the incident response. No production or private-dev operation was performed.
+
+```bash
+docker compose --env-file /protected/production/runtime.env \
+  --file deploy/public-production/compose.yaml \
+  --file deploy/public-production/compose.observability.yaml \
+  --profile application config --quiet
+bash scripts/provision-grafana-reader.sh --production /protected/production/runtime.env
+```
+
+The reader command is a **host operation after migrations**, never part of the agent's
+local proof. It provisions the existing view-only role with the production database
+secret. The base-only runtime remains usable for the earlier deployment/recovery
+exercises with telemetry export off; production acceptance requires the combined
+candidate. Include the overlay in the reviewed rendered configuration/fingerprint.
+Never silently reuse an earlier base-only fingerprint as telemetry acceptance.
+
+Additional protected production files, with the same inventory/storage rules above:
+
+| File | Consumer and rotation |
+|---|---|
+| `grafana-admin-password` | Production Grafana bootstrap; rotate the persisted administrator credential through private administration as well as replacing the file |
+| `grafana-database-password` | Production Grafana and the host reader-provisioning command; update the PostgreSQL role, replace the file and recreate Grafana together |
+| `grafana-telegram-bot-token`, `grafana-telegram-chat-id` | Production Grafana only; independent production bot/destination, never private-dev values. Replace files and recreate Grafana; revoke the former bot token |
+
+Files must exist even while delivery is off; empty Telegram placeholders are accepted
+only with `PRODUCTION_TELEGRAM_ENABLED=false`. Enabling delivery validates the
+protected values and fails closed on invalid input. Do not enable product notices.
+The generated notification configuration lives in a protected tmpfs. Its internal
+contact-point names are inherited compatibility identifiers, not a connection to
+private-dev. Grafana, Prometheus, exporters and Collector publish no ports. Use the
+existing private SSH boundary and a local tunnel to the Grafana container address;
+re-resolve that address after recreation. Keep the tunnel local and authenticate.
+
+Prepare an owner-controlled `PRODUCTION_METRICS_DIR` readable by the unprivileged
+node exporter, containing only sanitized `.prom` files. The proposed single filesystem
+must include Docker/data volumes; additional filesystems need an explicit bounded
+collector change before acceptance. The standard exporter mounts host proc/sys/root
+read-only without secrets-group membership or extra privileges. The systemd unit/timer
+under `observability/systemd/` are **templates, not installed**. Review the absolute
+checkout path and evidence paths before installation. The host timer reads only
+selected Docker state and the bounded safe Caddy window, then atomically replaces
+one textfile. Failed sampling leaves its timestamp stale. Test cgroup v2, permissions,
+PID mapping, recreation, timer delays and the fixed root mount on the actual VPS;
+Docker Desktop's non-shared root uses a test-only mount-propagation seam.
+
+The timer expects three independent protected inputs under the observability directory:
+
+- `backup.json`: the latest sanitized receipt from the existing paired-backup actor,
+  including failed attempts. Publish it atomically after every attempt; do not retain
+  only successes. Missing/corrupt input alerts.
+- `offhost.json`: a monitoring attestation generated **on the independent destination**
+  by `observability/verify-offhost.py`. Supply its verified encrypted pair directory,
+  successful `pull` receipt, matching successful full recovery/deletion-replay receipt
+  and an owner-protected isolation record. The latter has `environment: production`,
+  `storageIsolationVerified: true` and a timezone-qualified `reviewedAt`; it attests a
+  physical/privilege review, which the script cannot itself prove. The verifier checks
+  pair integrity and matching backup/manifest evidence and rejects local rehearsals.
+  Copy only its sanitized output back through an owner-reviewed private route. No
+  destination credential is installed in the source runtime. Transfer loss leaves the
+  earlier recovery point aging; it cannot turn into current verified health.
+- Optional `capacity.json`: owner-reviewed qualification evidence with `scope: real-vps`,
+  `environment: production`, timezone-qualified `measuredAt`/`expiresAt` and positive
+  `sustainableRps` for the representative workload. Expiry or a local scope disables
+  proximity alerts. Requalify after traffic-mix or runtime changes. No example capacity
+  value is committed and none is automatically inferred from the workstation.
+
+Use `python3 observability/verify-offhost.py --help` from this directory for the exact
+input arguments. Keep all attestation inputs outside Git with no group/world write
+permission. Runtime metrics contain only flags/times and the qualified rate; no backup
+IDs, manifest paths, secrets or source account details enter metrics or Telegram.
+
+Run `python3 scripts/test-production-observability.py --smoke` from the repository root
+for the focused isolated proof. It starts fresh synthetic services, exercises the five
+shared dashboards plus the operational dashboard, executes their SQL through the
+restricted role, rejects sensitive samples and sends native Telegram firing/recovery
+messages only to an HTTPS mock. Test-only loopback API listeners and a pinned mock
+hostname are not production configuration. The ignored
+`target/production-observability-evidence.json` records bounded synthetic workload,
+head series, memory/CPU samples and data-directory disk usage. No raw requests, host
+names/addresses, container IDs, credentials or personal data are retained there.
+
+Real-VPS acceptance under #276 must repeat the annotated rule calibration with the
+representative traffic mix and background/deployment overlap; validate active-series,
+RSS/CPU and long-soak WAL/retention/compaction growth within the existing envelope;
+verify cgroup/host filesystem mapping and job stop controls; prove real Keycloak and
+SMTP/relay-quota observations, off-host backup/restore/attestation freshness and failed
+attempts; exercise actual certificate expiry/renewal failures; deliver warning, critical,
+missing-data and recovery notifications to the protected owner channel; and establish
+an independent-device cadence for complete host loss. Recheck pinned dependency scans,
+log-age enforcement and current trusted-source CI before the separate purchase/exposure
+gates. The short workstation sample does not pass those checks or authorize more RAM.
