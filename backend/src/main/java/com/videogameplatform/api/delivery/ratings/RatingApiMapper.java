@@ -145,7 +145,26 @@ public final class RatingApiMapper {
                                                 .PersonalRatingMonth(
                                                 month.month().toString(), month.count()))
                         .toList(),
-                insights.olderRatings());
+                insights.olderRatings(),
+                platforms(insights.platforms()));
+    }
+
+    private com.videogameplatform.api.generated.model.PersonalPlatformInsights platforms(
+            com.videogameplatform.ratings.application.PersonalRatingInsights.Platforms platforms) {
+        return new com.videogameplatform.api.generated.model.PersonalPlatformInsights(
+                platforms.items().stream()
+                        .map(
+                                platform ->
+                                        new com.videogameplatform.api.generated.model
+                                                .PersonalPlatformInsight(
+                                                new Platform(platform.id(), platform.name()),
+                                                platform.playedGames(),
+                                                platform.scoredGames(),
+                                                platform.mean()))
+                        .toList(),
+                platforms.otherPlatforms(),
+                platforms.gamesWithoutPlatforms(),
+                platforms.gamesOnSeveralPlatforms());
     }
 
     private com.videogameplatform.api.generated.model.PersonalGenreInsight genre(

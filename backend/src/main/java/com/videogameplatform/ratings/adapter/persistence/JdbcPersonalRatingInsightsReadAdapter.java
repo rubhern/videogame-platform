@@ -20,8 +20,8 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * All aggregation stays in PostgreSQL over one contribution per rating; at most 37 result rows
- * cross into Java.
+ * All aggregation stays in PostgreSQL over one contribution per rating and the user's recorded
+ * platforms; at most 43 result rows cross into Java.
  */
 public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRatingInsightsReadPort {
     private final NamedParameterJdbcOperations jdbc;
@@ -76,7 +76,10 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
                                 params,
                                 (rs, row) ->
                                         new long[] {
-                                            rs.getLong("missing_genres"), rs.getLong("older")
+                                            rs.getLong("missing_genres"),
+                                            rs.getLong("older"),
+                                            rs.getLong("missing_platforms"),
+                                            rs.getLong("several_platforms")
                                         }));
         var activity =
                 jdbc.query(
@@ -97,7 +100,31 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
                 extreme(params, true),
                 extreme(params, false),
                 activity,
-                coverage[1]);
+                coverage[1],
+                platforms(params, coverage[2], coverage[3]));
+    }
+
+    private PersonalRatingInsights.Platforms platforms(
+            Map<String, Object> params, long withoutPlatforms, long onSeveralPlatforms) {
+        var rows =
+                jdbc.query(
+                        PersonalRatingInsightsSql.PLATFORMS,
+                        params,
+                        (rs, row) ->
+                                new PlatformRow(
+                                        new PersonalRatingInsights.Platform(
+                                                rs.getString("platform_id"),
+                                                rs.getString("display_name"),
+                                                rs.getLong("played"),
+                                                rs.getLong("scored"),
+                                                rs.getBigDecimal("mean")),
+                                        rs.getLong("platforms")));
+        long recorded = rows.isEmpty() ? 0 : rows.getFirst().recorded();
+        return new PersonalRatingInsights.Platforms(
+                rows.stream().map(PlatformRow::platform).toList(),
+                recorded - rows.size(),
+                withoutPlatforms,
+                onSeveralPlatforms);
     }
 
     private List<PersonalRatingInsights.Genre> genres(
@@ -132,4 +159,6 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
     }
 
     private record Distribution(long total, BigDecimal mean, List<Long> counts) {}
+
+    private record PlatformRow(PersonalRatingInsights.Platform platform, long recorded) {}
 }

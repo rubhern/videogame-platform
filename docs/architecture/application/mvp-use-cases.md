@@ -433,7 +433,8 @@ would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 ### Personal rating statistics (UC-015, post-MVP #254)
 
 Implemented; awaiting owner review. **Tus estadísticas** describes the authenticated
-user's current surviving ratings, never community/external scores or games played.
+user's current surviving ratings and, post-MVP (#363), the platforms recorded on them;
+never community/external scores, ownership or playing time.
 Each game contributes once to the total, arithmetic mean and ten integer distribution
 buckets, with its one contribution (#359): the direct score, or the unrounded mean of its
 scored platforms, placed in the bucket of that contribution rounded half up. Means round
@@ -455,13 +456,26 @@ Activity returns exactly twelve zero-filled calendar months, ending in the API's
 evaluated month in `Europe/Madrid`, plus the number of older ratings. It counts current
 ratings by original creation month: edits do not move them and deletes remove them.
 It is neither a play/completion log nor historical score evolution. The evaluation
-date is application-owned. No platform-play inference is possible from release metadata.
+date is application-owned.
+
+Platforms (#363) read only the played platforms the user recorded on current ratings
+under [ADR-0031](../../decisions/0031-count-one-community-vote-per-rating-across-platforms.md);
+nothing is inferred from Catalogue releases, preferred platforms (#295) or devices. A
+platform's played count is the distinct rated games recorded on it, so a game on two
+platforms counts on both and platform counts overlap; the games recorded on two or more
+platforms are counted. Its scored count is the games given an explicit score on that
+platform and its mean averages only those integer scores, half up to one decimal, null
+without any; a platform played without a score, a direct score and the game's
+contribution never reach it. Ratings without any recorded platform stay valid and are
+counted. Return up to six platforms by played count descending, scored count descending,
+case-insensitive name then platform ID ascending, plus the number of further platforms.
 
 PostgreSQL scopes by principal before aggregation, ordering and limits in one read-only
 repeatable-read snapshot. Java receives ten buckets, two lists of at most six genres,
-at most two games and twelve months: constant memory as the user's collection grows.
-Database work grows with that user's ratings and their at-most-fifty projected genre
-links per game, with indexed user/game access; no process-local correctness state.
+at most two games, twelve months and at most six platforms: constant memory as the
+user's collection grows. Database work grows with that user's ratings, their
+at-most-fifty projected genre links and at-most-fifty platforms per game, with indexed
+user/game access; no process-local correctness state.
 The browser keeps this personal response only in session-bound document memory,
 clears it on session changes and re-reads after rating mutations. HTTP responses are
 `no-store`. The wire contract owns response shapes and errors.

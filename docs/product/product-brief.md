@@ -147,9 +147,11 @@ decisions before deployment.
 
 **Post-MVP, owner-requested and implemented; awaiting review (#254):**
 **Tus estadísticas** gives a signed-in player a visual way to inspect their own
-recorded ratings. Its value is a hypothesis: recognising patterns may make maintaining
-a personal collection more useful. It makes no claim about personality, playing time,
-platforms played or recommendations. Sparse samples remain descriptive. The
+recorded ratings and, post-MVP (#363, implemented; awaiting review), the platforms they
+recorded playing them on. Its value is a hypothesis: recognising patterns may make
+maintaining a personal collection more useful. It makes no claim about personality,
+playing time, ownership, inferred platforms or recommendations. Sparse samples remain
+descriptive. The
 [application use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
 owns the selected statistics and calculation guarantees; the accepted MVP cut is unchanged.
 

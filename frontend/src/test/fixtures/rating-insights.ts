@@ -22,12 +22,28 @@ export function ratingInsightsFixture(): RatingInsights {
     activity: [4, 0, 6, 3, 8, 5, 11, 7, 6, 8, 4, 10].map((count,index) => ({
       month: index === 0 ? "2025-11" : index === 1 ? "2025-12" : `2026-${String(index-1).padStart(2,"0")}`, count,
     })), olderRatings: 12,
+    platforms: {
+      items: [
+        platform("10000000-0000-4000-8000-000000000001", "PlayStation 5", 31, 14, 7.9),
+        platform("10000000-0000-4000-8000-000000000003", "Windows PC", 18, 6, 8.3),
+        platform("10000000-0000-4000-8000-000000000002", "Nintendo Switch 2", 9, 9, 6.4),
+        platform("30000000-0000-4000-8000-000000000005", "Nintendo Switch", 6, 2, 9.5),
+        platform("10000000-0000-4000-8000-000000000004", "Xbox Series X|S", 4, 0, null),
+        platform("30000000-0000-4000-8000-000000000006", "Sega Mega Drive/Genesis (Mini Edition)", 2, 1, 3),
+      ],
+      otherPlatforms: 2, gamesWithoutPlatforms: 22, gamesOnSeveralPlatforms: 9,
+    },
   };
+}
+
+function platform(platformId: string, name: string, playedGames: number, scoredGames: number, mean: number | null) {
+  return { platform: { platformId, name }, playedGames, scoredGames, mean };
 }
 
 export function emptyRatingInsightsFixture(): RatingInsights {
   const data = ratingInsightsFixture();
   return { ...data, total: 0, mean: null, distribution: Array.from({ length: 10 }, () => 0),
     mostRatedGenres: [], bestRatedGenres: [], gamesWithoutGenres: 0, highest: null, lowest: null,
-    activity: data.activity.map(month => ({ ...month, count: 0 })), olderRatings: 0 };
+    activity: data.activity.map(month => ({ ...month, count: 0 })), olderRatings: 0,
+    platforms: { items: [], otherPlatforms: 0, gamesWithoutPlatforms: 0, gamesOnSeveralPlatforms: 0 } };
 }

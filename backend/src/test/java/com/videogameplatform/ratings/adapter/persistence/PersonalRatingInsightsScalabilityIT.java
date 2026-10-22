@@ -49,6 +49,13 @@ class PersonalRatingInsightsScalabilityIT {
                 "INSERT INTO ratings.game_listing_genre(game_id,genre_code,position) SELECT game_id,genre_code,row_number() OVER (PARTITION BY game_id ORDER BY genre_code) FROM ratings.game_listing CROSS JOIN ratings.genre_label");
         jdbc.execute(
                 "INSERT INTO ratings.rating(user_id,game_id,value,created_at,updated_at) SELECT md5('other-user-'||n)::uuid,game_id,8,'2026-10-01T10:00:00Z','2026-10-01T10:00:00Z' FROM ratings.game_listing CROSS JOIN generate_series(1,3) n");
+        jdbc.execute(
+                "INSERT INTO catalogue.platform(platform_id,code,display_name) SELECT md5('insight-platform-'||n)::uuid,'insight-platform-'||n,'Platform '||n FROM generate_series(1,8) n");
+        jdbc.execute(
+                "INSERT INTO ratings.platform_label(platform_id,display_name) SELECT platform_id,display_name FROM catalogue.platform WHERE code LIKE 'insight-platform-%'");
+        // Every other rating names two platforms played without a score.
+        jdbc.execute(
+                "INSERT INTO ratings.rating_platform(user_id,game_id,platform_id) SELECT r.user_id,r.game_id,md5('insight-platform-'||n)::uuid FROM ratings.rating r CROSS JOIN generate_series(1,2) n");
         UUID owner = UUID.fromString("00000000-0000-4000-8000-000000000001");
         var named = new NamedParameterJdbcTemplate(jdbc);
         var tx = new TransactionTemplate(new JdbcTransactionManager(ds));
@@ -56,13 +63,20 @@ class PersonalRatingInsightsScalabilityIT {
         tx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         var read = new JdbcPersonalRatingInsightsReadAdapter(named, tx);
         var evidence =
-                new StringBuilder("20,000 games; 60,000 other-user ratings; 60,000 genre links.\n");
+                new StringBuilder(
+                        "20,000 games; 60,000 other-user ratings with 120,000 platforms;"
+                                + " 60,000 genre links.\n");
         for (int userCount : List.of(10, 1000)) {
             jdbc.update("DELETE FROM ratings.rating WHERE user_id=?", owner);
             jdbc.update(
                     "INSERT INTO ratings.rating(user_id,game_id,value,created_at,updated_at) SELECT ?,md5('insight-game-'||n)::uuid,1+n%10,'2026-10-01T10:00:00Z','2026-10-01T10:00:00Z' FROM generate_series(1,?) n",
                     owner, userCount);
+            // Half the owner's games name one platform, played without a score.
+            jdbc.update(
+                    "INSERT INTO ratings.rating_platform(user_id,game_id,platform_id,value) SELECT user_id,game_id,md5('insight-platform-'||(1+abs(hashtext(game_id::text))%8))::uuid,NULL FROM ratings.rating WHERE user_id=? AND contribution<=5",
+                    owner);
             jdbc.execute("ANALYZE ratings.rating");
+            jdbc.execute("ANALYZE ratings.rating_platform");
             jdbc.execute("ANALYZE ratings.game_listing_genre");
             jdbc.execute("ANALYZE ratings.game_listing");
             jdbc.execute("ANALYZE ratings.genre_label");
@@ -78,6 +92,16 @@ class PersonalRatingInsightsScalabilityIT {
             assertThat(result.activity()).hasSize(12);
             assertThat(result.activity().getLast().count()).isEqualTo(userCount);
             assertThat(result.highest().tiedGames()).isEqualTo(userCount / 10);
+            assertThat(result.platforms().gamesWithoutPlatforms()).isEqualTo(userCount / 2);
+            assertThat(result.platforms().gamesOnSeveralPlatforms()).isZero();
+            long recorded =
+                    jdbc.queryForObject(
+                            "SELECT count(DISTINCT platform_id) FROM ratings.rating_platform WHERE user_id=?",
+                            Long.class,
+                            owner);
+            assertThat(result.platforms().items()).hasSize((int) Math.min(6, recorded));
+            assertThat(result.platforms().otherPlatforms())
+                    .isEqualTo(recorded - result.platforms().items().size());
             Map<String, Object> params =
                     Map.of(
                             "user",
@@ -105,7 +129,9 @@ class PersonalRatingInsightsScalabilityIT {
                                     "highest",
                                     PersonalRatingInsightsSql.extreme(true),
                                     "activity",
-                                    PersonalRatingInsightsSql.ACTIVITY)
+                                    PersonalRatingInsightsSql.ACTIVITY,
+                                    "platforms",
+                                    PersonalRatingInsightsSql.PLATFORMS)
                             .entrySet()) {
                 evidence.append("\n")
                         .append(userCount)
@@ -122,6 +148,7 @@ class PersonalRatingInsightsScalabilityIT {
                         .noneMatch(
                                 line ->
                                         line.contains("Seq Scan on rating ")
+                                                || line.contains("Seq Scan on rating_platform ")
                                                 || line.contains("Seq Scan on game_listing ")
                                                 || line.contains(
                                                         "Seq Scan on game_listing_genre "));

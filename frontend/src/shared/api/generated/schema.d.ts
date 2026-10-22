@@ -308,6 +308,8 @@ export interface paths {
          *     select gameId ascending and count every game with exactly that contribution. Activity is twelve calendar months ending in evaluatedOn's month in
          *     Europe/Madrid, counting surviving ratings by original creation time; edits do not move
          *     a contribution and deletion removes it. It is not a historical score or playing log.
+         *     Platforms read only the played platforms the user recorded on current ratings, never
+         *     Catalogue releases, preferred platforms or devices; see PersonalPlatformInsights.
          */
         get: operations["getMyRatingInsights"];
         put?: never;
@@ -1342,6 +1344,56 @@ export interface components {
             activity: components["schemas"]["PersonalRatingMonth"][];
             /** Format: int64 */
             olderRatings: number;
+            platforms: components["schemas"]["PersonalPlatformInsights"];
+        };
+        /**
+         * @description Where the user recorded playing their currently rated games (#363). A game counts once
+         *     on every platform recorded for it, so platform counts overlap and never partition the
+         *     total; `gamesOnSeveralPlatforms` states that overlap. A rating without any recorded
+         *     platform remains valid and is counted in `gamesWithoutPlatforms`, never assigned one.
+         *     Says nothing about ownership, playing time or the platform's quality.
+         */
+        PersonalPlatformInsights: {
+            /**
+             * @description Up to six platforms by playedGames descending, then scoredGames descending, then
+             *     name case-insensitively ascending and platformId ascending.
+             */
+            items: components["schemas"]["PersonalPlatformInsight"][];
+            /**
+             * Format: int64
+             * @description Further recorded platforms beyond `items`.
+             */
+            otherPlatforms: number;
+            /**
+             * Format: int64
+             * @description Rated games without any recorded platform.
+             */
+            gamesWithoutPlatforms: number;
+            /**
+             * Format: int64
+             * @description Rated games recorded on two or more platforms.
+             */
+            gamesOnSeveralPlatforms: number;
+        };
+        PersonalPlatformInsight: {
+            platform: components["schemas"]["Platform"];
+            /**
+             * Format: int64
+             * @description Distinct rated games the user recorded playing on this platform.
+             */
+            playedGames: number;
+            /**
+             * Format: int64
+             * @description Of those games, the ones the user gave this platform an explicit score; a platform
+             *     recorded without a score is played, never scored.
+             */
+            scoredGames: number;
+            /**
+             * @description Mean of the user's explicit integer scores on this platform, rounded half up to one
+             *     decimal; null exactly when scoredGames is zero. Never derived from a game's direct
+             *     score or its global contribution.
+             */
+            mean: number | null;
         };
         PersonalGenreInsight: {
             genre: components["schemas"]["Genre"];

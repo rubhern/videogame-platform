@@ -27,6 +27,20 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
     await page.screenshot({path:testInfo.outputPath(`personal-statistics-${width}.png`),fullPage:true});
   }
   expect(reads).toBe(1);
+  // The needle reads the exact mean on the columns' own scale: 7,2 falls inside column 7, right of its centre.
+  const centre=async (name: RegExp) => { const box=await page.getByRole("button",{name}).boundingBox(); return box ? box.x+box.width/2 : NaN; };
+  const needle=await page.locator(".insights-mean-needle").boundingBox();
+  const [seven,eight]=[await centre(/^7 de 10:/),await centre(/^8 de 10:/)];
+  expect(needle?.x).toBeGreaterThan(seven);
+  expect(needle?.x).toBeLessThan((seven+eight)/2);
+  const platforms=page.getByRole("region",{name:"Dónde has jugado"});
+  await expect(platforms).toContainText("62 de 84 juegos con plataforma");
+  // The ring's slices are the collection's one partition and its arcs follow their counts.
+  const slices=await platforms.locator(".insights-donut-slice").evaluateAll(nodes => nodes.map(node => Number.parseFloat(node.getAttribute("stroke-dasharray") ?? "0")));
+  expect(slices).toHaveLength(3);
+  expect(slices.reduce((sum,length) => sum+length,0)).toBeCloseTo(100-3*1.2,1);
+  expect(slices[0]).toBeCloseTo(53/84*100-1.2,1);
+  await expect(platforms.getByRole("listitem").filter({hasText:"Xbox Series X|S"})).toContainText("Sin puntuar");
   const nine=page.getByRole("button",{name:/^9 de 10: 18 juegos/});
   await nine.focus();
   await page.keyboard.press("Enter");
@@ -48,6 +62,10 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
   expect((await new AxeBuilder({page}).disableRules(["color-contrast"]).analyze()).violations).toEqual([]);
   await expect(page.locator(".insights-bin-fill").first()).toHaveCSS("background-color","rgb(0, 0, 0)");
   await expect(page.locator(".insights-bin-fill > span").first()).toHaveCSS("color","rgb(0, 0, 0)");
+  // Scored and played-only segments stay distinct as fill against outline, not by colour.
+  await expect(page.locator(".insights-platform-played > span").first()).toHaveCSS("background-color","rgb(0, 0, 0)");
+  await expect(page.locator(".insights-platform-played").first()).toHaveCSS("border-top-style","solid");
+  await expect(page.locator(".insights-donut-slice.insights-donut-one")).toHaveCSS("stroke","rgb(0, 0, 0)");
   await page.screenshot({path:testInfo.outputPath("personal-statistics-forced-colours.png"),fullPage:true});
   expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState==="running").length)).toBe(0);
 });
@@ -119,9 +137,19 @@ test("large collections keep exact accessible counts without overflowing narrow 
     gamesWithoutGenres:original.gamesWithoutGenres*factor,
     activity:original.activity.map(month=>({...month,count:month.count*factor})),
     olderRatings:original.olderRatings*factor,
+    platforms:{...original.platforms,
+      items:original.platforms.items.map(item=>({...item,playedGames:item.playedGames*factor,scoredGames:item.scoredGames*factor})),
+      gamesWithoutPlatforms:original.platforms.gamesWithoutPlatforms*factor,
+      gamesOnSeveralPlatforms:original.platforms.gamesOnSeveralPlatforms*factor},
   };
   await page.route("**/api/v1/me/rating-insights",route=>route.fulfill({json:data}));
   await page.goto(path);
   await expect(page.getByRole("button",{name:/^9 de 10: 180.000 juegos/})).toBeVisible();
+  await expect(page.getByRole("region",{name:"Dónde has jugado"})).toContainText("310.000 juegos");
+  // Narrow chart labels never spill into a neighbour's column.
+  for(const label of await page.locator(".insights-month-count, .insights-bin-fill > span").all()) {
+    const [own,parent]=await label.evaluate(node => [node.scrollWidth,(node.closest(".insights-month, .insights-bin") as HTMLElement).clientWidth+8]);
+    expect(own).toBeLessThanOrEqual(parent ?? 0);
+  }
   await accessible(page);
 });
