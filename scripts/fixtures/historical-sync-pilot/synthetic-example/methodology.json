@@ -14,7 +14,7 @@
     "jvm_heap_used_bytes / jvm_heap_max_bytes": "JVM heap gauges, bytes",
     "localizer_health": "Docker health status of catalogue-localizer",
     "meter_localization_<outcome>": "process-cumulative catalogue.localization.content count for that outcome, all kinds",
-    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s, mapping failures",
+    "meter_provider_*": "process-cumulative application meters since application start: requests (attempts), unsuccessful, retries, summed request time in s (converted from the base unit the management port declares), mapping failures",
     "probe_failures": "probes that answered nothing in this sample; their columns are empty, never zero",
     "process_cpu_ratio": "JVM process CPU usage, 0..1 of the whole container allowance",
     "progress_*": "fields of the application's latest INFO progress line (at most one a minute); cumulative for the run",
@@ -26,8 +26,11 @@
   },
   "emptyCell": "unavailable: the probe failed or the source does not exist yet; never zero",
   "estimated": "arithmetic on measured values, labelled with its basis",
+  "lazyCounters": "a counter registers on its first increment; when the same scrape lists the registered meter names and the counter (or its tag value) is absent, it reads 0, and the snapshot lists it under lazilyAbsentAsZero; a failed probe stays empty",
   "measured": "read from the durable run report, PostgreSQL, Docker or the application's meters",
   "redaction": "external text is redacted for credentials, tokens and e-mail addresses and truncated; Game identities are not kept",
   "sampling": "one row per interval; every value is a point reading, so a sampled maximum is a lower bound",
-  "schemaVersion": 1
+  "schemaChanges": "evidence keeps the schemaVersion it was collected with; report never rewrites older evidence and derives a re-analysis into another directory with --output-dir",
+  "schemaVersion": 2,
+  "timerUnits": "timer totals are converted to seconds from the baseUnit each answer declares (milliseconds for the application's OTLP registry); an undeclared unit is unavailable"
 }

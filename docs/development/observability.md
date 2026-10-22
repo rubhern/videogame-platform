@@ -54,7 +54,18 @@ with a dedicated short statement timeout; health details remain hidden.
   aggregate uses only `available`/`unavailable`. This distinguishes a degraded rating
   read from a healthy empty aggregate even when the public response remains HTTP 200.
 - Synchronization run meters are `catalogue.synchronization.run{outcome}`,
-  `.run.duration{outcome}` and `.run.records{kind}`. The record kinds count
+  `.run.duration{outcome}`, `.run.assessment{assessment}` and `.run.records{kind}`.
+  The assessment says whether a finished run needs an operator, from its report alone:
+  `clean`, `data_quality` (the whole interval was read and covered, and every failed Game
+  failed with a known data-quality reason), `stopped` (an operator's stop), `skipped`
+  (disabled or already running) and `attention` (everything else that finished). It
+  never changes the outcome, the counters or coverage; `assessment` is in the Prometheus
+  label allowlist of both observability stacks. Known data-quality reasons are the
+  closed set in `SynchronizationProgress.Failure`: `provider_game/WORK_NOT_RETURNED`,
+  `reconciliation/RELEASE_TUPLE_CONFLICT`, `reconciliation/DUPLICATE_RELEASE_REFERENCE` and
+  `validation/TITLE_MISSING|RELEASE_DATE_INVALID|RELEASE_LIMIT_EXCEEDED`. Provider,
+  persistence and run failures, `RECORD_UNREADABLE` and `RECORD_REJECTED` stay outside it,
+  because a provider format change or a defect can cause them systemically. The record kinds count
   inspected release dates, created/updated/unchanged Games and
   Releases, deferred Games and failed Games, and, for committed Games, popularity
   signals observed, absent for zero/missing Hypes, and kept because featured evidence
@@ -64,6 +75,9 @@ with a dedicated short statement timeout; health details remain hidden.
   that detail metadata was invalid, and external player scores observed, absent because
   the provider states none or zero ratings, and kept because the answer was invalid or
   unattributable (`player_score_*`). Deferral is import policy, not failure.
+  `data_quality_failed_games` is the part of `failed_games` with a known data-quality
+  reason; the durable report carries the same `dataQualityFailedGames` counter, and a
+  report written before it existed reads zero, so it is never downgraded.
   `redundant_releases` counts stage-less provider references of committed Games that
   restated another reference's Release (`REL-014`); they are neither stored nor failures,
   and the durable report and finished log carry the same count.
@@ -86,8 +100,8 @@ with a dedicated short statement timeout; health details remain hidden.
   never metric labels.
 - An operator's stop or abandonment (#342) adds no meter or label. A run stopped at a safe
   point reports the stable code `SYNCHRONIZATION_STOPPED` with the existing `partial` or
-  `failed` outcome, so the run meters and the *failed or partial* alert count it like an
-  interrupted run; its log line and retained report name the code. An abandonment writes no
+  `failed` outcome, so the run meters count it like an interrupted run, while its
+  `stopped` assessment keeps it out of the *needs attention* alert; its log line and retained report name the code. An abandonment writes no
   report: it appears as its HTTP request's route template, status and stable error code, and
   the run history holds `SYNCHRONIZATION_ABANDONED_BY_OPERATOR`. A worker that lost ownership
   returns `SYNCHRONIZATION_OWNERSHIP_LOST` to its trigger's log and meters only; the store
@@ -264,10 +278,10 @@ validated critical timeout boundary. `info` belongs only to optional product act
 | Sustained product-route latency | `http_server_requests_milliseconds_bucket` and `_count`, pooled by route template/method across successful, conditional and server-error responses | Histogram p95 above one second with at least 100 estimated requests on that same route/method in five minutes, sustained for five minutes; session/auth and client-error responses are excluded |
 | Hikari connection acquisition pressure | `hikaricp_connections_pending` and `hikaricp_connections_timeout_total`, combined into one application alert | Any pending request or at least two estimated acquisition timeouts in five minutes, sustained for two minutes; #85 demonstrated this failure mechanism |
 | Application telemetry unavailable | Both fixed `up` targets plus changes in `process_uptime_milliseconds` over three minutes | A failed/missing scrape or non-advancing/missing application heartbeat persists for five minutes; this allows ordinary restarts and detects frozen OTLP even while the Collector still exposes cached series |
-| Catalogue synchronization failed or partial | Preinitialized `catalogue_synchronization_run_total` outcomes `failed`/`partial`, retaining their distinction in alert instances | At least one estimated completed failure in fifteen minutes, sustained for two minutes; successful/skipped commands and inactivity are quiet |
+| Catalogue synchronization needs attention | Preinitialized `catalogue_synchronization_run_assessment_total{assessment="attention"}`: a failed, interrupted or ownership-lost run, or a failed Game outside the known data-quality reasons | At least one estimated such run in fifteen minutes, sustained for two minutes; clean, data-quality, stopped and skipped runs and inactivity are quiet |
 
 Each rule links to its existing diagnostic dashboard and the runbook. Aggregation
-retains only route templates/methods or the two sync outcomes; HTTP errors,
+retains only route templates/methods or the one sync assessment; HTTP errors,
 pool and telemetry each produce one instance. Error codes remain on the diagnostic
 dashboard. The exclusion is the specific approved empty-catalogue business code,
 not HTTP 503 generally; genuine server degradation returning 503 is included. Evaluation scans at most fifteen minutes of the
@@ -553,12 +567,12 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 | Started                     | `INFO`                                           | run, window, provider page size                                                                |
 | Progress checkpoint         | `INFO`                                           | run, phase, page, game position, elapsed, Game/release/provider counters                       |
 | Game reconciled or deferred | `DEBUG`                                          | run, page, position, result                                                                    |
-| Game failed                 | `WARN` for the first 20 of a run, then `DEBUG`   | run, page, position, stage, reason, failed count, identity (below)                             |
+| Game failed                 | First 20 of a run: `INFO` for a known data-quality reason, otherwise `WARN`; then `DEBUG` | run, page, position, stage, reason, failed count, identity (below)                             |
 | Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` stage, provider failure code  |
 | Run failure                 | `WARN`                                           | run, phase, page, stage, reason, exception class when unexpected                               |
-| Finished                    | `INFO` succeeded, `WARN` partial, `ERROR` failed | outcome, stable code, window, pages, elapsed, all counters, failures tallied by `stage/reason` |
+| Finished                    | `INFO` for a `clean`, `data_quality` or `stopped` assessment; otherwise `WARN` partial, `ERROR` failed | outcome, stable code, assessment, window, pages, elapsed, all counters including `data_quality_failed`, failures tallied by `stage/reason` |
 | Skipped                     | `INFO`                                           | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window                        |
-| Scheduled invocation/result | `INFO`, result `WARN` partial / `ERROR` failed | trigger, policy, window at invocation; result outcome and stable code |
+| Scheduled or requested result | `INFO`, result at the same level as the finished event | trigger, policy, window at invocation; result outcome, stable code and assessment |
 | Unexpected scheduled failure | `ERROR` | trigger, policy, `SYNCHRONIZATION_TRIGGER_FAILED`, exception class; no message/payload/stack |
 | Rejected command            | `INFO`                                           | `INVALID_SYNCHRONIZATION_WINDOW`, never the raw input                                          |
 | IGDB retry                  | `DEBUG`                                          | endpoint name, retry, provider failure code, backoff                                           |

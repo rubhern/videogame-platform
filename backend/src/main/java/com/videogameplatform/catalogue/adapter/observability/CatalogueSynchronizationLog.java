@@ -3,7 +3,7 @@ package com.videogameplatform.catalogue.adapter.observability;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport.Counters;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import java.time.Duration;
@@ -191,7 +191,10 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             this.position = position;
             gameFailures++;
             failures.merge(key(failure), 1L, Long::sum);
-            Level level = gameFailures <= GAME_FAILURE_WARN_LIMIT ? Level.WARN : Level.DEBUG;
+            // A known data-quality failure isolates one provider record and needs no operator, so
+            // it is informational; the per-Game detail stays bounded by the same limit.
+            Level detailed = failure.dataQuality() ? Level.INFO : Level.WARN;
+            Level level = gameFailures <= GAME_FAILURE_WARN_LIMIT ? detailed : Level.DEBUG;
             LoggingEventBuilder event =
                     LOGGER.atLevel(level)
                             .addKeyValue(RUN_ID, runId)
@@ -275,10 +278,13 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             long elapsedMillis =
                     Duration.between(report.startedAt(), report.completedAt()).toMillis();
             String failureSummary = failureSummary();
-            withCounters(LOGGER.atLevel(level(report.outcome())), c)
+            SynchronizationAssessment assessment = SynchronizationAssessment.of(report);
+            withCounters(LOGGER.atLevel(resultLevel(report)), c)
                     .addKeyValue(RUN_ID, runId)
                     .addKeyValue("sync.outcome", report.outcome())
                     .addKeyValue("sync.code", report.outcomeCode())
+                    .addKeyValue("sync.assessment", assessment.tag())
+                    .addKeyValue("sync.games.data_quality_failed", c.dataQualityFailedGames())
                     .addKeyValue(WINDOW_FROM, report.from())
                     .addKeyValue(WINDOW_TO, report.to())
                     .addKeyValue("sync.pages", page)
@@ -306,8 +312,9 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue("sync.failures", failureSummary)
                     .log(
                             "Catalogue synchronization finished: run={} outcome={} code={}"
-                                    + " window={}..{} pages={} elapsed_s={} games[created={}"
-                                    + " updated={} unchanged={} deferred={} failed={}]"
+                                    + " assessment={} window={}..{} pages={} elapsed_s={}"
+                                    + " games[created={} updated={} unchanged={} deferred={}"
+                                    + " failed={} data_quality_failed={}]"
                                     + " releases[created={} updated={} unchanged={}]"
                                     + " popularity[observed={} cleared={} unavailable={}]"
                                     + " media[images={} logos={} logos_unavailable={}]"
@@ -319,6 +326,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                             runId,
                             report.outcome(),
                             report.outcomeCode(),
+                            assessment.tag(),
                             report.from(),
                             report.to(),
                             page,
@@ -328,6 +336,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                             c.unchangedGames(),
                             c.deferredGames(),
                             c.failedGames(),
+                            c.dataQualityFailedGames(),
                             c.createdReleases(),
                             c.updatedReleases(),
                             c.unchangedReleases(),
@@ -420,8 +429,17 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                 .addKeyValue("sync.provider.retries", c.providerRetries());
     }
 
-    private static Level level(SynchronizationOutcome outcome) {
-        return switch (outcome) {
+    /**
+     * The severity of a run's result wherever it is logged: runs that need no operator (known
+     * data-quality failures only, or a deliberate stop) are INFO; the rest keep their outcome's.
+     */
+    public static Level resultLevel(CatalogueSynchronizationReport report) {
+        var assessment = SynchronizationAssessment.of(report);
+        if (assessment == SynchronizationAssessment.DATA_QUALITY
+                || assessment == SynchronizationAssessment.STOPPED) {
+            return Level.INFO;
+        }
+        return switch (report.outcome()) {
             case FAILED -> Level.ERROR;
             case PARTIAL -> Level.WARN;
             case SUCCEEDED, SKIPPED, RUNNING -> Level.INFO;

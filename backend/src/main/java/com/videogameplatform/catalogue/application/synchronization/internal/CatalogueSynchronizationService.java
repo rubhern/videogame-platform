@@ -540,6 +540,9 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             Optional<SynchronizedGameIdentity> identity,
             Counts counts) {
         counts.failed++;
+        if (failure.dataQuality()) {
+            counts.dataQualityFailed++;
+        }
         game.run().gameFailed(game.page(), game.position(), failure, identity, counters(counts));
     }
 
@@ -839,7 +842,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 c.playerScoreUpdated,
                 c.playerScoreRemoved,
                 c.playerScoreUnchanged,
-                c.redundantReleases);
+                c.redundantReleases,
+                c.dataQualityFailed);
     }
 
     /**
@@ -978,6 +982,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long unchangedReleases;
         long deletedReleases;
         long redundantReleases;
+        long dataQualityFailed;
         long deferred;
         long failed;
         long popularityObserved;

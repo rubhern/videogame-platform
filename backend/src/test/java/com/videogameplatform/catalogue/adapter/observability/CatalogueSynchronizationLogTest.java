@@ -273,6 +273,82 @@ class CatalogueSynchronizationLogTest {
     }
 
     @Test
+    void knownDataQualityFailuresAreInformationalWhileOtherGameFailuresStayWarnings() {
+        Run run = log.started(RUN, REQUEST, STARTED, 500);
+        run.pageFetched(1, 3, counters(0, 0));
+        run.gameFailed(
+                1,
+                1,
+                Failure.of(Stage.PROVIDER_GAME, "WORK_NOT_RETURNED"),
+                Optional.empty(),
+                counters(0, 1, 1));
+        run.gameFailed(
+                1,
+                2,
+                Failure.of(Stage.RECONCILIATION, "RELEASE_TUPLE_CONFLICT"),
+                Optional.of(SynchronizedGameIdentity.published(GAME, "published-game")),
+                counters(0, 2, 2));
+        run.finished(
+                report(
+                        SynchronizationOutcome.PARTIAL,
+                        "SYNCHRONIZATION_COMPLETED_WITH_FAILURES",
+                        2,
+                        2));
+
+        // Nothing is WARN or ERROR, yet each failure keeps its bounded detail and its tally.
+        assertThat(at(Level.WARN)).isEmpty();
+        assertThat(at(Level.ERROR)).isEmpty();
+        assertThat(at(Level.INFO))
+                .filteredOn(event -> keyValue(event, "sync.failure.reason") != null)
+                .extracting(event -> keyValue(event, "sync.failure.reason"))
+                .containsExactly("WORK_NOT_RETURNED", "RELEASE_TUPLE_CONFLICT");
+        ILoggingEvent finished = at(Level.INFO).getLast();
+        assertThat(keyValue(finished, "sync.outcome")).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(keyValue(finished, "sync.assessment")).isEqualTo("data_quality");
+        assertThat(keyValue(finished, "sync.games.data_quality_failed")).isEqualTo(2L);
+        assertThat(keyValue(finished, "sync.failures"))
+                .isEqualTo(
+                        "provider_game/WORK_NOT_RETURNED=1,"
+                                + "reconciliation/RELEASE_TUPLE_CONFLICT=1");
+        assertThat(finished.getFormattedMessage())
+                .contains("assessment=data_quality", "failed=2 data_quality_failed=2");
+    }
+
+    @Test
+    void aPartialRunWithAnyUnderstoodOperationalFailureStillWarnsAndAStopIsInformational() {
+        Run run = log.started(RUN, REQUEST, STARTED, 500);
+        run.gameFailed(
+                1,
+                1,
+                Failure.of(Stage.PROVIDER_GAME, "PROVIDER_UNAVAILABLE"),
+                Optional.empty(),
+                counters(0, 1));
+        run.finished(
+                report(
+                        SynchronizationOutcome.PARTIAL,
+                        "SYNCHRONIZATION_COMPLETED_WITH_FAILURES",
+                        2,
+                        1));
+        log.started(RUN, REQUEST, STARTED, 500)
+                .finished(report(SynchronizationOutcome.PARTIAL, "SYNCHRONIZATION_STOPPED", 0));
+
+        assertThat(at(Level.WARN))
+                .anySatisfy(
+                        event ->
+                                assertThat(keyValue(event, "sync.failure.reason"))
+                                        .isEqualTo("PROVIDER_UNAVAILABLE"))
+                .anySatisfy(
+                        event ->
+                                assertThat(keyValue(event, "sync.assessment"))
+                                        .isEqualTo("attention"));
+        assertThat(at(Level.INFO))
+                .anySatisfy(
+                        event ->
+                                assertThat(keyValue(event, "sync.assessment"))
+                                        .isEqualTo("stopped"));
+    }
+
+    @Test
     void runFailureAndOutcomesUseDistinguishableLevels() {
         Run run = log.started(RUN, REQUEST, STARTED, 500);
         run.pageRequested(1, counters(0, 0));
@@ -318,6 +394,10 @@ class CatalogueSynchronizationLogTest {
     }
 
     private static Counters counters(long created, long failed) {
+        return counters(created, failed, 0);
+    }
+
+    private static Counters counters(long created, long failed, long dataQuality) {
         return new Counters(
                 created * 2,
                 created,
@@ -346,11 +426,17 @@ class CatalogueSynchronizationLogTest {
                 0,
                 0,
                 0,
-                0);
+                0,
+                dataQuality);
     }
 
     private static CatalogueSynchronizationReport report(
             SynchronizationOutcome outcome, String code, long failed) {
+        return report(outcome, code, failed, 0);
+    }
+
+    private static CatalogueSynchronizationReport report(
+            SynchronizationOutcome outcome, String code, long failed, long dataQuality) {
         return new CatalogueSynchronizationReport(
                 outcome == SynchronizationOutcome.SKIPPED ? null : RUN,
                 REQUEST.from(),
@@ -359,7 +445,7 @@ class CatalogueSynchronizationLogTest {
                 STARTED.plusSeconds(90),
                 outcome,
                 code,
-                counters(3, failed));
+                counters(3, failed, dataQuality));
     }
 
     private static Object keyValue(ILoggingEvent event, String key) {

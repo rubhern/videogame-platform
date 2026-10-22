@@ -6,10 +6,11 @@
     "version": "0.0.0-synthetic"
   },
   "applicationOutcome": {
-    "code": "SYNCHRONIZATION_PARTIAL",
+    "code": "SYNCHRONIZATION_COMPLETED_WITH_FAILURES",
     "status": "partial"
   },
   "applicationRestarted": false,
+  "assessment": "attention",
   "environment": {
     "composeProject": "videogame-platform-dev",
     "host": "synthetic-host",
@@ -20,19 +21,19 @@
       "basis": "Games accounted / run duration",
       "status": "estimated",
       "unit": "Games/h",
-      "value": 112134.27
+      "value": 114041.59
     },
     "providerRequestsPerSecond": {
       "basis": "mean over the whole run; the configured ceiling is IGDB_REQUESTS_PER_SECOND",
       "status": "estimated",
       "unit": "requests/s",
-      "value": 9.584
+      "value": 9.747
     },
     "providerTimeShare": {
       "basis": "summed provider latency / run duration; above about 0.8 means provider-bound",
       "status": "estimated",
       "unit": "ratio",
-      "value": 2.396
+      "value": 2.437
     },
     "secondsPerGame": {
       "basis": "run duration / Games accounted",
@@ -41,7 +42,8 @@
       "value": 0.032
     }
   },
-  "executionId": "hsp-20261022T122506Z-77b304",
+  "evidenceSchemaVersion": 2,
+  "executionId": "hsp-20261022T160213Z-b943b4",
   "failureTally": {
     "game:reconcile/WRITE_FAILED": 10
   },
@@ -99,21 +101,22 @@
       "basis": "synchronization_run completed_at - started_at (database clock)",
       "status": "measured",
       "unit": "s",
-      "value": 4.174
+      "value": 4.104
     }
   },
   "monitor": {
-    "endedAt": "2026-10-22T12:25:12Z",
+    "endedAt": "2026-10-22T16:02:19Z",
     "intervalSeconds": 1,
     "outcome": "run_finished",
     "samples": 5,
-    "startedAt": "2026-10-22T12:25:06Z"
+    "startedAt": "2026-10-22T16:02:13Z"
   },
   "month": "2017-03",
   "previouslyCovered": "none",
-  "runId": "e5f86f5e-6202-46b1-98e9-9e0957a3a31f",
+  "reanalysis": false,
+  "runId": "9cb0d8ab-1012-4c40-87a6-6f60bdacd38b",
   "scheduling": "disabled",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "stopRequested": false,
   "synthetic": true,
   "unavailable": [

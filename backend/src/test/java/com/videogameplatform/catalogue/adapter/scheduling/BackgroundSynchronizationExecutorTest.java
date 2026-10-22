@@ -161,6 +161,6 @@ class BackgroundSynchronizationExecutorTest {
                 "CODE",
                 new CatalogueSynchronizationReport.Counters(
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0));
+                        0, 0, 0, 0));
     }
 }

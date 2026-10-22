@@ -111,7 +111,7 @@ class SynchronizationRequestServiceTest {
                 code,
                 new CatalogueSynchronizationReport.Counters(
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0));
+                        0, 0, 0, 0));
     }
 
     private static final class FakeSynchronization implements SynchronizeCatalogueUseCase {

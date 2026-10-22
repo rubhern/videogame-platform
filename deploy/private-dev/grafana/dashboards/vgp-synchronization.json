@@ -1993,7 +1993,74 @@
       "gridPos": {
         "x": 0,
         "y": 78,
-        "w": 24,
+        "w": 16,
+        "h": 8
+      }
+    },
+    {
+      "title": "Run assessments \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals of finished runs by whether they need an operator; reset on application restart. Missing is not zero. attention drives the needs-attention alert; data_quality runs read and covered their whole interval and failed Games only for known IGDB data inconsistencies, still counted as failed Games in Recent runs; stopped is an operator stop; skipped never ran.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (assessment) (catalogue_synchronization_run_assessment_total{job=\"application-otlp\"})",
+          "legendFormat": "{{assessment}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 40,
+      "gridPos": {
+        "x": 16,
+        "y": 78,
+        "w": 8,
         "h": 8
       }
     },

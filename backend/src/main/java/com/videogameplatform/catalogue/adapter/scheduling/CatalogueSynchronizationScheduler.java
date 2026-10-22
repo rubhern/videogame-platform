@@ -1,8 +1,10 @@
 package com.videogameplatform.catalogue.adapter.scheduling;
 
+import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.observability.SynchronizationTrigger;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import java.time.Clock;
@@ -84,16 +86,12 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
             var report = synchronization.synchronize(request);
             outcome = report.outcome();
             metrics.recordRun(report);
-            LOGGER.atLevel(
-                            switch (outcome) {
-                                case FAILED -> org.slf4j.event.Level.ERROR;
-                                case PARTIAL -> org.slf4j.event.Level.WARN;
-                                default -> org.slf4j.event.Level.INFO;
-                            })
+            LOGGER.atLevel(CatalogueSynchronizationLog.resultLevel(report))
                     .addKeyValue(TRIGGER_FIELD, trigger.type())
                     .addKeyValue(POLICY_FIELD, trigger.policy())
                     .addKeyValue("sync.outcome", outcome)
                     .addKeyValue("sync.code", report.outcomeCode())
+                    .addKeyValue("sync.assessment", SynchronizationAssessment.of(report).tag())
                     .log(
                             "Catalogue synchronization scheduled result: policy={} outcome={} code={}",
                             trigger.policy(),

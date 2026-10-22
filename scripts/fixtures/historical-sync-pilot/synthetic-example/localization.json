@@ -1,37 +1,37 @@
 {
   "contentByOutcome": {
     "busy": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 0.0
     },
     "failed": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 0.0
     },
     "fallback": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 0.0
     },
     "reused": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 20.0
     },
     "skipped": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 0.0
     },
     "translated": {
-      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads",
+      "basis": "process-cumulative application meters, final minus baseline; includes any concurrent synchronization or reads; a meter absent from the registered names of an answering scrape counts as zero",
       "status": "measured",
       "unit": "items",
       "value": 40.0

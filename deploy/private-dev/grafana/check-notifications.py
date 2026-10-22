@@ -283,7 +283,7 @@ def main(smoke):
             time.sleep(15)
             assert len(messages())==count, 'Every product resolution remains silent'
             alert(sync=True)
-            poll(lambda:any('Problem: Catalogue synchronization failed or partial' in m['text'] for m in messages()),'Synchronization route delivered')
+            poll(lambda:any('Problem: Catalogue synchronization needs attention' in m['text'] for m in messages()),'Synchronization route delivered')
             alert(sync=True,resolved=True)
             poll(lambda:any('Window expired: Catalogue synchronization' in m['text'] and 'does NOT confirm a later successful run' in m['text'] for m in messages()),'Synchronization resolution does not claim recovery')
             examples['synchronization window expired']=next(m['text'] for m in messages() if 'Window expired:' in m['text'])

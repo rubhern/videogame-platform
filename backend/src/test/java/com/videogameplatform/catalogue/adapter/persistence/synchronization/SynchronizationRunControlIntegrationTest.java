@@ -297,6 +297,6 @@ class SynchronizationRunControlIntegrationTest {
                 "SYNCHRONIZATION_COMPLETED",
                 new CatalogueSynchronizationReport.Counters(
                         0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0));
+                        0, 0, 0, 0));
     }
 }

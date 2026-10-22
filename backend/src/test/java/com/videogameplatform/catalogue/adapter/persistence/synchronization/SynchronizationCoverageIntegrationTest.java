@@ -356,6 +356,7 @@ class SynchronizationCoverageIntegrationTest {
                 0,
                 0,
                 0,
+                0,
                 0);
     }
 

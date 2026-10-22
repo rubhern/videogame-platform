@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.observability;
 
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
@@ -15,6 +16,10 @@ public final class CatalogueSynchronizationMetrics {
     public static final String OPERATION_WORKS = "works";
     public static final String OPERATION_RELEASE_DATES = "release_dates";
     public static final String OPERATION_LOGOS = "logos";
+
+    /** Finished runs by whether they need an operator; the attention value is what alerts. */
+    public static final String ASSESSMENT = "catalogue.synchronization.run.assessment";
+
     private final MeterRegistry registry;
 
     public CatalogueSynchronizationMetrics(MeterRegistry registry) {
@@ -26,6 +31,9 @@ public final class CatalogueSynchronizationMetrics {
             String tag = outcome.name().toLowerCase(Locale.ROOT);
             registry.counter("catalogue.synchronization.run", "outcome", tag);
             registry.timer("catalogue.synchronization.run.duration", "outcome", tag);
+        }
+        for (var assessment : SynchronizationAssessment.values()) {
+            registry.counter(ASSESSMENT, "assessment", assessment.tag());
         }
         for (String operation :
                 List.of(
@@ -50,6 +58,8 @@ public final class CatalogueSynchronizationMetrics {
         registry.counter("catalogue.synchronization.run", "outcome", outcome).increment();
         registry.timer("catalogue.synchronization.run.duration", "outcome", outcome)
                 .record(Duration.between(report.startedAt(), report.completedAt()));
+        registry.counter(ASSESSMENT, "assessment", SynchronizationAssessment.of(report).tag())
+                .increment();
         var c = report.counters();
         record("inspected_release_dates", c.inspectedReleaseDates());
         record("created_games", c.createdGames());
@@ -62,6 +72,7 @@ public final class CatalogueSynchronizationMetrics {
         record("unchanged_releases", c.unchangedReleases());
         record("deferred_games", c.deferredGames());
         record("failed_games", c.failedGames());
+        record("data_quality_failed_games", c.dataQualityFailedGames());
         record("popularity_observed_games", c.popularityObservedGames());
         record("popularity_cleared_games", c.popularityClearedGames());
         record("popularity_unavailable_games", c.popularityUnavailableGames());

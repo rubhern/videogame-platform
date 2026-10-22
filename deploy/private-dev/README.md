@@ -609,6 +609,16 @@ pilot=(sudo /opt/videogame-platform/deploy/private-dev/bin/historical-sync-pilot
 "${pilot[@]}" export --output /tmp/hsp-2017-03.tar.gz
 ```
 
+Evidence keeps the harness schema it was collected with. `report` never rewrites evidence
+from an older schema. It writes a labelled re-analysis to another directory instead, either
+on the host (`report --execution <id> --output-dir <dir>`) or on any workstation from an
+unpacked export:
+
+```bash
+python3 deploy/private-dev/bin/historical-sync-pilot report \
+  --evidence-dir <unpacked>/historical-sync-evidence/2017-03/<execution-id> --output-dir <new-dir>
+```
+
 `preflight` fails on: the wrong host; an invalid or out-of-scope month; missing or full
 evidence storage; another pilot; a run already in flight; application, PostgreSQL or
 credential problems. It warns, without changing anything, about:
