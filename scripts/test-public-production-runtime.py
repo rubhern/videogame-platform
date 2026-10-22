@@ -980,7 +980,7 @@ CADDY_STATIC_MUTATIONS = [
     ("limiter keyed on a header", lambda text: text.replace("key {remote_host}", "key {header.X-Forwarded-For}"),
      "must key on the TCP peer"),
     ("IPv6 sources not grouped", lambda text: text.replace("\tipv6_prefix 64\n", ""), "group IPv6 sources by /64"),
-    ("limiter refusals logged", lambda text: text.replace("\tlog default {\n\t\texclude http.handlers.rate_limit\n\t}\n", ""),
+    ("limiter refusals logged", lambda text: re.sub(r"(?m)^\s*exclude http\.handlers\.rate_limit\s*$", "", text),
      "must not log limiter refusals"),
     ("limiter keys logged", lambda text: text.replace("\tdisable_metrics\n", "\tdisable_metrics\n\tlog_key\n"),
      "must not log keys"),
