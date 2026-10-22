@@ -151,6 +151,8 @@ def main():
             run(compose+['exec','-T','mock','python','-c',send])
             poll(lambda:bool(query('http_server_requests_milliseconds_count')),'OTLP -> Collector -> Prometheus produced synthetic series')
             poll(lambda:bool(query('keycloak_user_events_total{job="keycloak-product"}')),'Production realm Growth metrics collected')
+            # Each job scrapes at its own offset within the interval: wait for the security job too.
+            poll(lambda:bool(query('keycloak_user_events_total{job="keycloak-security"}')),'Production realm security metrics collected')
             assert not query('keycloak_user_events_total{client_ip!=""}')
             assert sum(float(x['value'][1]) for x in query('keycloak_user_events_total{job="keycloak-security",event="login"}'))==2
             print('Sensitive-label samples rejected before storage without merging counters.',flush=True)
