@@ -1021,7 +1021,7 @@ del catálogo** over **Sincronización y cobertura**). Players never see it; a s
 visitor gets the sign-in notice and a signed-in account without the role a warning notice,
 both from the server's answer rather than from hidden navigation.
 
-Two tabs split the page, **Ejecuciones** (the default) and **Cobertura**: a labelled
+The ordinary tabs split the page, **Ejecuciones** (the default) and **Cobertura**: a labelled
 tablist under the opening whose selection lives in the URL (`tab`), operated by click,
 arrow keys, Home and End, and marked by ink, weight and an ice rule rather than colour alone.
 Coverage is read only while its tab is open.
@@ -1089,6 +1089,25 @@ a square for a failed or abandoned run), so no state depends on colour, and forc
 keep the shapes. Tables sit in a labelled, focusable region that may scroll sideways on
 phones while the page never does; their cells keep words whole. Choosing a year or month is
 a native link, marks it with `aria-current`, and moves focus to the level that changed.
+
+Post-MVP (#246, implementation prepared; owner review and private-dev acceptance pending),
+**Sincronización histórica** is a third URL-selected tab within the same plain administration
+ledger. Tabs wrap on narrow screens. This tab has its own lifecycle and controls: explicit
+inclusive date fields, a required skip/reprocess choice for covered months, then a confirmation
+with the safe **Cancelar** action first and focused. Escape returns focus to its trigger.
+Start, stop and resume each name their consequences; command feedback takes focus and reports
+conflicts without losing persisted progress. Historical controls never issue ordinary stop
+commands.
+
+The backend's state, requested dates, current/pending month, completed/omitted/remaining counts,
+month-based native progress bar, current available counters, completed-month processing totals,
+known quality failures and activity/timing facts form one ledger. Unknown counters read **No
+disponible**. Completed months do not imply error-free acquisition, and totals do not claim
+distinct catalogue identities. Operational failures and interruptions carry a warning and
+explicit resume. A separate line names an ordinary run that makes history wait; **Cobertura**
+remains the canonical scanned-period view. Poll every five seconds while active and every
+fifteen seconds otherwise, with no ETA or browser-local progress. Actions stack on phones;
+keyboard focus, forced colours and native controls retain their meaning.
 
 ## Personal statistics
 

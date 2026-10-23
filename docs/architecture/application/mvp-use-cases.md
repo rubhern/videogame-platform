@@ -17,6 +17,7 @@
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
+| `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
 of the releases matching the requested range and active filters, only the presented
@@ -544,3 +545,25 @@ other Games can commit independently. A partial/failed/skipped batch retains its
 cursor, so safe retries replay successes idempotently. A completed checkpoint performs only
 summaries; a fresh checkpoint rechecks later provider changes. This is explicit operator
 maintenance on private management, not a product-facing endpoint or historical ledger.
+
+### Historical catalogue synchronization (UC-017, post-MVP #246)
+
+Owner-requested extension, implemented subject to review and private-dev acceptance. The
+catalogue operator explicitly starts one historical target and chooses whether already-covered
+months are skipped or re-run. Deterministic calendar-month chunks clip the first and last
+month to the requested dates. Only UC-009 acquires provider data, with all supported Games
+and platforms and unchanged per-Game reconciliation. Completed months, including empty ones,
+are durable checkpoints independent of run-history retention. Known data-quality failures
+follow the existing assessment; operational failures pause progression for explicit resume.
+
+Stop affects only this target and its linked run. Committed Games survive; a partial month
+replays idempotently after explicit resume. Startup never starts or resumes historical work.
+Scheduled synchronization takes priority at month boundaries. A due regular window is deferred
+rather than lost, with one coalesced pending request per existing policy. Both pending policies
+run before the next historical chunk; history then continues automatically only while still
+activated. Deferred periodic intent survives restart, independently of historical activation
+and stop. Inspection reads constant-size
+local progress, including completed/skipped/remaining months, current counters, timings and
+stable failure reasons. Month completion is acquisition evidence, never a guarantee that all
+Games were imported without errors. The existing coverage view remains canonical. Commands
+require the authenticated catalogue-operator authority, same-origin BFF and CSRF proof.

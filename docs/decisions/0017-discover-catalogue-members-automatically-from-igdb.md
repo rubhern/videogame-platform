@@ -18,6 +18,10 @@
   last-valid-state rules below; [use cases](../architecture/application/mvp-use-cases.md)
   and `CAT-009` own the behaviour
 
+- **Extended:** 2026-10-23, owner-requested #246: historical month orchestration and bounded
+  durable deferral of periodic policy windows reuse the same UC-009 ownership, fencing and
+  reconciliation; [ADR-0032](0032-checkpoint-historical-synchronization-by-month.md) records the
+  implementation proposal for owner review.
 - **Extended:** 2026-10-05, owner-requested #155: recurring inbound policies reuse UC-009;
   reconciliation, paging, identity, per-Game atomicity and database fencing remain unchanged.
 - **Extended:** 2026-10-14, #255 phase 1: the same Game request also acquires the IGDB player
@@ -240,8 +244,11 @@ without a broker, distributed scheduler, durable queue or another acquisition pa
 Near-term/upcoming recurrence and windows are operational policy outside domain logic.
 A dedicated single scheduler thread avoids scheduled-worker parallelism; the existing
 PostgreSQL ownership constraint and fencing remain the concurrency authority for all
-callers and instances. The trade-off is delayed or missed scheduled work during long
-runs or downtime, rather than durable catch-up. Provider/trigger failure stays outside
+callers and instances. At the #155 decision, the trade-off was delayed or missed scheduled
+work during long runs or downtime, rather than durable catch-up. Owner-requested #246
+replaces that admission trade-off with bounded deferral of the two existing policies;
+[ADR-0032](0032-checkpoint-historical-synchronization-by-month.md) records the proposal.
+Downtime still does not reconstruct arbitrary missed cron occurrences. Provider/trigger failure stays outside
 serving and health dependencies. The [solution architecture](../architecture/mvp-solution-architecture.md)
 owns current placement; configuration, policy rationale and acceptance evidence belong
 to the [operations runbook](../development/operations-runbook.md#catalogue-synchronization).

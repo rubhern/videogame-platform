@@ -95,3 +95,12 @@ session signs in. The [private-dev runbook](../../deploy/private-dev/README.md#c
 owns how the role is configured and granted. Run **Catalogue Administration** in its
 defined order; its first request stops the run with an actionable message unless the
 session reports the `catalogue_administration` capability.
+
+Historical synchronization examples in `catalogue-administration` read durable status and
+exercise missing-target refusal without changing any real target. The small-range start
+requires the explicit collection variable `enableHistoricalStart=true`; selected-target
+stop/resume additionally require `enableHistoricalControl=true` and the opaque
+`historicalBackfillId`. Ordinary collection execution leaves these commands skipped.
+Use them only after owner authorization for an acceptance exercise; never substitute the
+complete historical range. The [runbook](../../docs/development/operations-runbook.md#historical-synchronization)
+owns recovery and acceptance procedure.

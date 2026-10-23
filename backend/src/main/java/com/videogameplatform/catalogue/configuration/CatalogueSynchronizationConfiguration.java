@@ -2,9 +2,11 @@ package com.videogameplatform.catalogue.configuration;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.adapter.observability.HistoricalSynchronizationProgress;
 import com.videogameplatform.catalogue.adapter.operator.CatalogueCoverageEndpoint;
 import com.videogameplatform.catalogue.adapter.operator.CatalogueSynchronizationEndpoint;
 import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcCatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcHistoricalBackfillStore;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiClient;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiSettings;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCatalogueProviderAdapter;
@@ -12,10 +14,12 @@ import com.videogameplatform.catalogue.adapter.scheduling.BackgroundSynchronizat
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatusQuery;
 import com.videogameplatform.catalogue.application.administration.ControlCatalogueSynchronization;
+import com.videogameplatform.catalogue.application.administration.HistoricalSynchronization;
 import com.videogameplatform.catalogue.application.administration.RequestCatalogueSynchronization;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.HistoricalBackfillService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationControlService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
@@ -23,6 +27,7 @@ import com.videogameplatform.catalogue.application.synchronization.internal.Sync
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationStatusService;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.net.http.HttpClient;
@@ -61,14 +66,89 @@ class CatalogueSynchronizationConfiguration {
     /** Each write transaction commits one Game aggregate; provider calls happen outside it. */
     private static final int WRITE_TRANSACTION_TIMEOUT_SECONDS = 120;
 
+    /** Disabling a periodic policy cancels only its deferred slot, never historical work. */
+    @Bean
+    org.springframework.boot.ApplicationRunner cancelDisabledScheduledPolicies(
+            com.videogameplatform.catalogue.application.synchronization.port
+                            .ScheduledSynchronizationStore
+                    pending,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${catalogue.synchronization.scheduling.enabled:false}")
+                    boolean enabled,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${catalogue.synchronization.scheduling.near-term.cron:-}")
+                    String nearCron,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${catalogue.synchronization.scheduling.upcoming.cron:-}")
+                    String upcomingCron) {
+        return args -> {
+            if (!enabled || "-".equals(nearCron))
+                pending.cancel(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ScheduledSynchronizationStore.Policy.NEAR_TERM);
+            if (!enabled || "-".equals(upcomingCron))
+                pending.cancel(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ScheduledSynchronizationStore.Policy.UPCOMING);
+        };
+    }
+
+    @Bean
+    JdbcHistoricalBackfillStore historicalBackfillStore(DataSource dataSource) {
+        return new JdbcHistoricalBackfillStore(
+                dataSource, IgdbCatalogueProviderAdapter.PROVIDER_NAME);
+    }
+
+    /** One in-process orchestration thread, excluded across instances by PostgreSQL. */
+    @Bean(destroyMethod = "close")
+    HistoricalExecutor historicalExecutor() {
+        return new HistoricalExecutor();
+    }
+
+    static final class HistoricalExecutor implements AutoCloseable {
+        private final java.util.concurrent.ExecutorService delegate =
+                new ThreadPoolExecutor(
+                        1,
+                        1,
+                        0,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(1),
+                        Thread.ofPlatform().name("catalogue-historical-", 0).daemon().factory());
+
+        public void execute(Runnable work) {
+            delegate.execute(work);
+        }
+
+        @Override
+        public void close() {
+            for (Runnable pending : delegate.shutdownNow()) {
+                if (pending instanceof java.util.concurrent.Future<?> future) future.cancel(false);
+            }
+        }
+    }
+
+    @Bean
+    HistoricalSynchronization historicalSynchronization(
+            HistoricalBackfillStore store,
+            CatalogueSynchronizationStore runs,
+            SynchronizeCatalogueUseCase synchronization,
+            HistoricalExecutor executor,
+            Clock clock,
+            CatalogueSynchronizationMetrics metrics) {
+        return new HistoricalBackfillService(
+                store, runs, synchronization, executor::execute, clock, metrics::recordRun);
+    }
+
     @Bean
     CatalogueSynchronizationMetrics catalogueSynchronizationMetrics(MeterRegistry registry) {
         return new CatalogueSynchronizationMetrics(registry);
     }
 
     @Bean
-    SynchronizationProgress catalogueSynchronizationLog() {
-        return new CatalogueSynchronizationLog();
+    SynchronizationProgress catalogueSynchronizationLog(
+            HistoricalBackfillStore store, Clock clock) {
+        return new HistoricalSynchronizationProgress(
+                new CatalogueSynchronizationLog(), store, clock);
     }
 
     @Bean

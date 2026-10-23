@@ -124,6 +124,36 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "Use a single ISO date that does not precede from.");
+            case HISTORICAL_SYNCHRONIZATION_RANGE_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Historical synchronization rejected",
+                            "Use an inclusive date range between 1950 and 2099.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use an inclusive date range between 1950 and 2099.");
+            case HISTORICAL_SYNCHRONIZATION_NOT_FOUND ->
+                    problem(
+                            response,
+                            HttpStatus.NOT_FOUND,
+                            exception.code(),
+                            "Historical synchronization rejected",
+                            "The named historical synchronization does not exist.",
+                            ErrorCategory.NOT_FOUND,
+                            exception.pointer(),
+                            "The named historical synchronization does not exist.");
+            case HISTORICAL_SYNCHRONIZATION_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Historical synchronization rejected",
+                            "Read the historical state. Existing unfinished work or an active run prevents this command.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Read the historical state. Existing unfinished work or an active run prevents this command.");
             case SYNCHRONIZATION_RANGE_INVALID ->
                     problem(
                             response,
@@ -664,6 +694,18 @@ public class ApiExceptionHandler {
                                 PlatformPreferencesWrite.class.equals(
                                         result.getMethodParameter().getParameterType()))) {
             return requestMalformed(response);
+        }
+        if (exception.getParameterValidationResults().stream()
+                .anyMatch(
+                        result ->
+                                com.videogameplatform.api.generated.model
+                                        .HistoricalSynchronizationTarget.class
+                                        .equals(result.getMethodParameter().getParameterType()))) {
+            return requestInvalid(
+                    new ApiRequestException(
+                            ProblemCode.HISTORICAL_SYNCHRONIZATION_RANGE_INVALID,
+                            "/historicalSynchronization"),
+                    response);
         }
         if (exception.getParameterValidationResults().stream()
                 .anyMatch(

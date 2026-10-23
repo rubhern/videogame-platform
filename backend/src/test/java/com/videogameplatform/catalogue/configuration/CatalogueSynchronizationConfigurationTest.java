@@ -57,9 +57,30 @@ class CatalogueSynchronizationConfigurationTest {
                             "catalogue.synchronization.provider.unknown-region-code=unknown");
 
     @Test
+    void disablingSchedulingCancelsOnlyTheTwoDeferredPolicySlots() throws Exception {
+        var pending =
+                org.mockito.Mockito.mock(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ScheduledSynchronizationStore.class);
+        new CatalogueSynchronizationConfiguration()
+                .cancelDisabledScheduledPolicies(pending, false, "0 0 4 * * *", "0 0 5 * * SUN")
+                .run(new org.springframework.boot.DefaultApplicationArguments());
+        org.mockito.Mockito.verify(pending)
+                .cancel(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ScheduledSynchronizationStore.Policy.NEAR_TERM);
+        org.mockito.Mockito.verify(pending)
+                .cancel(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ScheduledSynchronizationStore.Policy.UPCOMING);
+        org.mockito.Mockito.verifyNoMoreInteractions(pending);
+    }
+
+    @Test
     void wiresTheOperatorCommandOntoTheBoundedUseCaseAndItsAdapters() {
         contextRunner.run(
                 context -> {
+                    assertThat(context).doesNotHaveBean(java.util.concurrent.Executor.class);
                     assertThat(context).hasSingleBean(SynchronizeCatalogueUseCase.class);
                     assertThat(context.getBean(SynchronizeCatalogueUseCase.class))
                             .isInstanceOf(CatalogueSynchronizationService.class);

@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(31);
+                    .isEqualTo(33);
             assertThat(
                             singleString(
                                     statement,
@@ -201,6 +201,57 @@ class DatabaseMigrationApplicationTest {
                                 "SELECT catalogue_version FROM catalogue.catalogue_publication",
                                 String.class))
                 .isNotEqualTo(revision);
+    }
+
+    @Test
+    void deferredPolicyUpgradePreservesTheAppliedHistoricalMigrationAndCheckpoint()
+            throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("historical_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        var configuration =
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(database),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration");
+        configuration.target("20261023.120000").load().migrate();
+        try (var connection = PostgreSqlTestDatabase.adminConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT checksum FROM flyway_schema_history WHERE version='20261023.120000'"))
+                    .isEqualTo(1998861081);
+            statement.execute(
+                    """
+                    INSERT INTO catalogue.historical_backfill
+                        (backfill_id,execution_id,window_from,window_to,covered_months,state,
+                         next_from,completed_months,started_at,activity_at)
+                    VALUES ('30000000-0000-4000-8000-000000000246',
+                            '30000000-0000-4000-8000-000000000247',
+                            DATE '2017-03-01',DATE '2017-04-30','skip','stopped',
+                            DATE '2017-04-01',1,now(),now())
+                    """);
+        }
+
+        var flyway = configuration.target("latest").load();
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
+        flyway.validate();
+        assertThat(flyway.migrate().migrationsExecuted).isZero();
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleString(
+                                    statement,
+                                    "SELECT next_from::text FROM catalogue.historical_backfill WHERE state='stopped' AND completed_months=1"))
+                    .isEqualTo("2017-04-01");
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.deferred_synchronization_policy"))
+                    .isZero();
+        }
     }
 
     @Test

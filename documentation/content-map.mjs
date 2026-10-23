@@ -26,7 +26,10 @@ export const groups = [
     ['backend/postman/igdb-exploration.md', 'IGDB integration exploration'],
     ['docs/architecture/technology/mvp-technology-baseline.md', 'Technology baseline'],
   ]],
-  ['Decisions', [['docs/decisions/README.md', 'Decision register']]],
+  ['Decisions', [
+    ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0032-checkpoint-historical-synchronization-by-month.md', 'Historical month checkpoints · proposed'],
+  ]],
   ['Development & quality', [
     ['docs/development/delivery-lifecycle.md', 'Delivery & validation'],
     ['docs/development/work-management.md', 'Issues & Project workflow'],

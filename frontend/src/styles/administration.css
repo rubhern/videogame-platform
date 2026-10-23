@@ -5,10 +5,11 @@
 @layer components {
   /* ---------------------------------------------------------------- Tabs */
 
-  /* Two night tabs on one hairline; the selected one is ink, heavier and carries an ice rule,
+  /* Night tabs on one hairline; the selected one is ink, heavier and carries an ice rule,
      so selection never depends on colour alone. */
   .admin-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     margin-top: 24px;
     border-bottom: 1px solid var(--color-line);
@@ -587,4 +588,22 @@
       background: radial-gradient(circle, CanvasText 30%, transparent 34%);
     }
   }
+}
+
+@layer components {
+/* Historical acquisition reuses the administration ledger, with native bounded progress. */
+.admin-history-form { display: grid; gap: 1rem; max-width: 48rem; margin-top: 1.5rem; }
+.admin-history-form label { display: grid; gap: .4rem; }
+.admin-history-form input, .admin-history-form select { min-width: 0; min-height: 44px; width: 100%; padding: .65rem; font: inherit; color-scheme: dark; border: 1px solid var(--color-line); background: var(--color-night); color: var(--color-ink); }
+.admin-history-form :is(input, select):focus-visible { outline: 2px solid var(--color-ice); outline-offset: 2px; }
+.admin-history-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
+.admin-history-progress { display: grid; gap: .5rem; max-width: 48rem; }
+.admin-history-progress progress { width: 100%; height: .65rem; appearance: none; border: 1px solid var(--color-line); background: var(--color-night); accent-color: var(--color-ice); }
+.admin-history-progress progress::-webkit-progress-bar { background: var(--color-night); }
+.admin-history-progress progress::-webkit-progress-value { background: var(--color-ice); }
+.admin-history-progress progress::-moz-progress-bar { background: var(--color-ice); }
+@media (min-width: 620px) { .admin-history-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-history-form > p, .admin-history-form > button { grid-column: 1 / -1; } }
+@media (max-width: 619px) { .admin-history-actions > button { width: 100%; } }
+@media (forced-colors: active) { .admin-history-progress progress { appearance: auto; forced-color-adjust: auto; } }
+
 }

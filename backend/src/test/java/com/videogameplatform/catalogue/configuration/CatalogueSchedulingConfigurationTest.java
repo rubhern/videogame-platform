@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
+import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,6 +29,12 @@ class CatalogueSchedulingConfigurationTest {
                     .withInitializer(new ConfigDataApplicationContextInitializer())
                     .withUserConfiguration(CatalogueSchedulingConfiguration.class)
                     .withBean(SynchronizeCatalogueUseCase.class, () -> synchronization)
+                    .withBean(
+                            HistoricalBackfillStore.class,
+                            () -> mock(HistoricalBackfillStore.class))
+                    .withBean(
+                            ScheduledSynchronizationStore.class,
+                            () -> mock(ScheduledSynchronizationStore.class))
                     .withBean(Clock.class, () -> clock)
                     .withBean(
                             CatalogueSynchronizationMetrics.class,
@@ -61,7 +69,7 @@ class CatalogueSchedulingConfigurationTest {
                                                             ScheduledAnnotationBeanPostProcessor
                                                                     .class)
                                                     .getScheduledTasks())
-                                    .hasSize(2);
+                                    .hasSize(3);
                             var properties = context.getBean(CatalogueSchedulingProperties.class);
                             assertThat(properties.nearTerm().pastDays()).isEqualTo(28);
                             assertThat(properties.nearTerm().futureDays()).isEqualTo(28);
@@ -92,7 +100,7 @@ class CatalogueSchedulingConfigurationTest {
                                                             ScheduledAnnotationBeanPostProcessor
                                                                     .class)
                                                     .getScheduledTasks())
-                                    .hasSize(1);
+                                    .hasSize(2);
                         });
     }
 }
