@@ -52,10 +52,17 @@ public final class JdbcHistoricalBackfillStore
         return acquire(SCHEDULED);
     }
 
-    private Optional<Lease> acquire(int key) {
-        Connection connection = null;
+    private Connection openOwnershipConnection() {
         try {
-            connection = dataSource.getConnection();
+            return dataSource.getConnection();
+        } catch (SQLException failure) {
+            throw new IllegalStateException("Historical ownership unavailable", failure);
+        }
+    }
+
+    private Optional<Lease> acquire(int key) {
+        Connection connection = openOwnershipConnection();
+        try {
             try (var statement = connection.prepareStatement("SELECT pg_try_advisory_lock(?, ?)")) {
                 statement.setInt(1, NAMESPACE);
                 statement.setInt(2, key);
@@ -109,12 +116,11 @@ public final class JdbcHistoricalBackfillStore
                         }
                     });
         } catch (SQLException failure) {
-            if (connection != null)
-                try {
-                    connection.close();
-                } catch (SQLException ignored) {
-                    /* Already broken. */
-                }
+            try {
+                connection.close();
+            } catch (SQLException ignored) {
+                /* Already broken. */
+            }
             throw new IllegalStateException("Historical ownership unavailable", failure);
         }
     }
