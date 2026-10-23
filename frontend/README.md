@@ -66,7 +66,7 @@ owner review and provider/operating verification.
 | `src/features/` | Product capabilities and their API/view-model/UI code |
 | `src/pages/` | Route-level composition |
 | `src/shared/api/` | Generated contract and product-facing transport boundary |
-| `src/shared/brand/` | Canonical Gameómetro mark, wordmark and lockup SVGs and their inline components |
+| `src/shared/brand/` | Canonical Gameómetro standalone mark and shared lockup SVGs and their inline components |
 | `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
 | `src/shared/score/` | Score temperature bands and the G-meter shared by the game page and personal ratings; the external player score check shared by discovery and the game page; the compact score readings shared by release discovery, search results and personal ratings |
 | `src/shared/ui/` | UI patterns with demonstrated cross-feature reuse |

@@ -1,20 +1,23 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { BrandMark, BrandWordmark } from "./brand-logo";
+import { BrandLogo, BrandMark } from "./brand-logo";
 
 describe("brand logo", () => {
   it("stays decorative inside the link that names the brand", () => {
     const { container } = render(
       <a href="/" aria-label="Gameómetro · Inicio">
         <BrandMark />
-        <BrandWordmark />
+        <BrandLogo />
       </a>,
     );
 
     const svgs = container.querySelectorAll("svg");
     expect(svgs).toHaveLength(2);
-    svgs.forEach((svg) => expect(svg).toHaveAttribute("aria-hidden", "true"));
+    svgs.forEach((svg) => {
+      expect(svg).toHaveAttribute("aria-hidden", "true");
+      expect(svg).toHaveAttribute("focusable", "false");
+    });
     expect(container.querySelector("title")).toBeNull();
   });
 
@@ -22,7 +25,8 @@ describe("brand logo", () => {
     const { container } = render(
       <>
         <BrandMark />
-        <BrandMark />
+        <BrandLogo />
+        <BrandLogo />
       </>,
     );
 

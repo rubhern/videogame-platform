@@ -48,8 +48,8 @@ test("the browser names the product Gameómetro and shows its icons", async ({ p
   }
 });
 
-for (const width of [320, 390, 834, 1320]) {
-  test(`the identity keeps its place in the header at ${width}px`, async ({ page }) => {
+for (const width of [320, 390, 620, 720, 834, 1100, 1180, 1320]) {
+  test(`the identity keeps its place in the header at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await anonymous(page);
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
@@ -57,14 +57,33 @@ for (const width of [320, 390, 834, 1320]) {
 
     const brand = page.getByRole("link", { name: "Gameómetro · Inicio" });
     await expect(brand).toBeVisible();
-    // Phones and the narrowest tablets carry the identity with the compact mark alone, so the
-    // account control shares the first row; the wordmark joins the mark from 720px.
-    await expect(brand.locator(".brand-wordmark")).toBeVisible({ visible: width >= 720 });
+    // Compact layouts keep the standalone G; wider layouts use the integrated lockup.
+    const compact = width < 720 || (width >= 1024 && width < 1180);
+    await expect(brand.locator(".brand-logo")).toBeVisible({ visible: !compact });
+    await expect(brand.locator(".brand-mark")).toBeVisible({ visible: compact });
     await expect(page.getByRole("contentinfo")).toContainText("Gameómetro");
+    await expect(page.locator(".site-footer-logo")).toBeVisible();
+    await brand.focus();
+    await expect(brand).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    await testInfo.attach(`identity-${width}`, {
+      body: await page.screenshot({ fullPage: true }), contentType: "image/png",
+    });
   });
 }
+
+test("the brand needle stays still under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await anonymous(page);
+  await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
+  await page.goto("/lanzamientos");
+
+  const brand = page.getByRole("link", { name: "Gameómetro · Inicio" });
+  await brand.focus();
+  await brand.hover();
+  expect(await brand.evaluate((link) => link.getAnimations({ subtree: true }).length)).toBe(0);
+});
 
 for (const [mean, label, band] of [
   [2, "Congelado", "freeze"],

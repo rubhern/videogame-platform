@@ -161,8 +161,7 @@
     padding-block: 12px;
   }
 
-  /* Gameómetro identity: the Tilde mark and the wordmark, inlined from the canonical SVGs in
-     shared/brand so the needle can answer the link. */
+  /* The shared integrated lockup and its compact mark keep the needle interactive. */
   .brand {
     order: 1;
     display: inline-flex;
@@ -175,7 +174,7 @@
   }
 
   .brand-mark,
-  .brand-wordmark {
+  .brand-logo {
     display: block;
     flex: none;
   }
@@ -193,9 +192,11 @@
     margin: -1px -3px -1px -7px;
   }
 
-  .brand-wordmark svg {
+  .brand-mark { display: none; }
+
+  .brand-logo svg {
     width: auto;
-    height: 19px;
+    height: 36px;
   }
 
   .brand .gm-needle {
@@ -1051,11 +1052,10 @@
     gap: 6px;
   }
 
-  .site-footer-mark svg {
+  .site-footer-logo svg {
     display: block;
-    width: 28px;
-    height: 28px;
-    margin: -8px -2px -8px -6px;
+    width: auto;
+    height: 24px;
   }
 
   /* ---------------------------------------------------------------- Utilities */
@@ -1136,9 +1136,8 @@
       justify-content: center;
     }
 
-    .brand-wordmark {
-      display: none;
-    }
+    .brand-logo { display: none; }
+    .brand-mark { display: block; }
 
     /* Both release entries and both entry links still share the first row. */
     .header-layout {
@@ -1224,11 +1223,8 @@
       margin: 0 -2px 0 -6px;
     }
 
-    .brand-wordmark svg {
-      height: 15px;
-    }
-
-    .brand-wordmark { display: none; }
+    .brand-logo { display: none; }
+    .brand-mark { display: block; }
 
     .account-trigger {
       width: 44px;
@@ -1390,9 +1386,8 @@
       justify-content: center;
     }
 
-    .brand-wordmark {
-      display: none;
-    }
+    .brand-logo { display: none; }
+    .brand-mark { display: block; }
   }
 
   /* ---------------------------------------------------------------- Forced colours */
@@ -1453,13 +1448,13 @@
 
     /* The identity keeps its shape in the system's text colour. */
     .brand svg :is(path, circle),
-    .site-footer-mark svg :is(path, circle) {
+    .site-footer-logo svg :is(path, circle) {
       fill: CanvasText;
       filter: none;
     }
 
     .brand svg .gm-ring,
-    .site-footer-mark svg .gm-ring {
+    .site-footer-logo svg .gm-ring {
       fill: none;
       stroke: CanvasText;
     }

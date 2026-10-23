@@ -7,7 +7,7 @@ import {
   releasesSearchPath,
 } from "../features/releases/releases-search";
 import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
-import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
+import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
 import { LegalLinks } from "../shared/legal/legal-links";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
@@ -57,7 +57,7 @@ export function AppShell() {
         <div className="header-layout page-container">
           <Link className="brand" to="/" aria-label="Gameómetro · Inicio">
             <BrandMark className="brand-mark" />
-            <BrandWordmark className="brand-wordmark" />
+            <BrandLogo className="brand-logo" />
           </Link>
 
           {/* Two release entries (#341): Lanzamientos opens the release explorer (#285) and
@@ -95,8 +95,8 @@ export function AppShell() {
       <footer className="site-footer">
         <div className="page-container">
           <span className="site-footer-brand">
-            <BrandMark className="site-footer-mark" />
-            Gameómetro
+            <BrandLogo className="site-footer-logo" />
+            <span className="sr-only">Gameómetro</span>
           </span>
           <LegalLinks />
         </div>

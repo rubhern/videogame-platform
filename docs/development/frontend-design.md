@@ -355,13 +355,16 @@ from Chromium and automated accessibility evidence.
   `gameometro` only where a technical identifier cannot carry the accent.
 - The identity is the Tilde: a moonlit G whose gauge needle, in fire, leaves through the G's
   mouth at the angle of an acute accent, and a wordmark whose `ó` carries the same needle.
-  The canonical vector sources are the mark, wordmark and lockup in
+  The owner-approved integrated lockup (#321) uses the mark as the initial G, followed by
+  outlined `ameómetro`, so there is one visual G. Accessible names keep **Gameómetro** in full.
+  The canonical vector sources are the standalone mark and shared lockup in
   [`shared/brand`](../../frontend/src/shared/brand/); the favicon in `frontend/public` is the
-  mark on a night tile with heavier geometry, and the touch icon is its raster. The wordmark
+  mark on a night tile with heavier geometry, and the touch icon is its raster. The lettering
   is outlined from the bundled Mona Sans; the mark is product-owned geometry. Keep the G ice
   and the needle fire, never draw the needle without its G, and do not restate the lockup in
-  CSS or in other files. The header inlines the mark and wordmark so the needle can answer
-  hover and focus.
+  CSS or in other files. The header, footer and hosted identity screens share the lockup;
+  compact headers keep the standalone mark. The header inlines the SVG so the needle can
+  answer hover and focus.
 - A score is also read as a temperature. `thermalBand` in
   [`shared/score`](../../frontend/src/shared/score/thermal-band.ts) is the only mapping and
   owns the exact edges, upper bounds inclusive: freeze (Congelado) up to 2, cold (Frío) up to 4,

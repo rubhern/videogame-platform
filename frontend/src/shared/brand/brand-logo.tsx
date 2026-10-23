@@ -1,7 +1,7 @@
 import { useId } from "react";
 
 import markSource from "./gameometro-mark.svg?raw";
-import wordmarkSource from "./gameometro-wordmark.svg?raw";
+import logoSource from "./gameometro-logo.svg?raw";
 
 /**
  * Inlines a canonical brand file so CSS can light its parts (the needle reacts to the brand
@@ -24,7 +24,7 @@ export function BrandMark({ className }: { className?: string }) {
   return <span className={className} dangerouslySetInnerHTML={useInlineBrandSvg(markSource)} />;
 }
 
-/** The Gameómetro wordmark, whose ó carries the same needle as its accent. */
-export function BrandWordmark({ className }: { className?: string }) {
-  return <span className={className} dangerouslySetInnerHTML={useInlineBrandSvg(wordmarkSource)} />;
+/** The shared lockup: the Tilde mark supplies the G in Gameómetro. */
+export function BrandLogo({ className }: { className?: string }) {
+  return <span className={className} dangerouslySetInnerHTML={useInlineBrandSvg(logoSource)} />;
 }
