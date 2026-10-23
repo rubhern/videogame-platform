@@ -24,6 +24,7 @@ import tarfile
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True
 
@@ -128,8 +129,44 @@ class Sandbox:
             time.sleep(0.1)
         raise AssertionError("condition not reached")
 
+    def wait_for_state(self, directory: pathlib.Path, field: str, timeout: float = 30) -> None:
+        # start returns before the detached monitor necessarily publishes its first state.
+        def published() -> bool:
+            try:
+                state = json.loads((directory / "state.json").read_text())
+            except FileNotFoundError:
+                return False
+            return bool(state.get(field))
+
+        self.wait_for(published, timeout)
+
     def cleanup(self) -> None:
         shutil.rmtree(self.directory, ignore_errors=True)
+
+
+class SandboxTest(unittest.TestCase):
+    def test_state_wait_accepts_the_monitor_publishing_its_first_file_later(self):
+        sandbox = Sandbox()
+        try:
+            directory = sandbox.directory / "monitor"
+            directory.mkdir()
+            state = directory / "state.json"
+            self.assertFalse(state.exists())
+            with mock.patch.object(time, "sleep", side_effect=lambda _: pilot.write_json(
+                    state, {"runId": "synthetic-run"})) as sleep:
+                sandbox.wait_for_state(directory, "runId")
+            sleep.assert_called_once_with(0.1)
+        finally:
+            sandbox.cleanup()
+
+    def test_state_wait_does_not_hide_malformed_monitor_json(self):
+        sandbox = Sandbox()
+        try:
+            (sandbox.directory / "state.json").write_text("{")
+            with self.assertRaises(json.JSONDecodeError):
+                sandbox.wait_for_state(sandbox.directory, "runId")
+        finally:
+            sandbox.cleanup()
 
 
 class UnitTest(unittest.TestCase):
@@ -354,7 +391,7 @@ class HarnessTest(unittest.TestCase):
     def test_successful_run_is_detached_monitored_reported_and_exported(self):
         sandbox = self.sandbox()
         directory = self.start(sandbox)
-        sandbox.wait_for(lambda: json.loads((directory / "state.json").read_text()).get("pid"))
+        sandbox.wait_for_state(directory, "pid")
         monitor = json.loads((directory / "state.json").read_text())["pid"]
         # The monitor leads its own session, so a closed terminal's hang-up never reaches it.
         self.assertEqual(os.getsid(monitor), monitor)
@@ -409,7 +446,7 @@ class HarnessTest(unittest.TestCase):
     def test_safe_stop_is_the_application_action_and_its_evidence_is_kept(self):
         sandbox = self.sandbox(scenario={"duration": 60})
         directory = self.start(sandbox)
-        sandbox.wait_for(lambda: json.loads((directory / "state.json").read_text()).get("runId"))
+        sandbox.wait_for_state(directory, "runId")
         guidance = sandbox.command("stop")
         self.assertEqual(guidance.returncode, 0)
         self.assertIn("Detener sincronización", guidance.stdout)
@@ -428,7 +465,7 @@ class HarnessTest(unittest.TestCase):
     def test_monitor_only_stop_leaves_the_application_run_alone(self):
         sandbox = self.sandbox(scenario={"duration": 60})
         directory = self.start(sandbox)
-        sandbox.wait_for(lambda: json.loads((directory / "state.json").read_text()).get("runId"))
+        sandbox.wait_for_state(directory, "runId")
         result = sandbox.command("stop", "--monitor-only")
         self.assertIn("does NOT stop application run", result.stdout)
         metadata = sandbox.wait_finished(directory)
@@ -464,7 +501,7 @@ class HarnessTest(unittest.TestCase):
     def test_application_restart_ends_monitoring_without_claiming_an_outcome(self):
         sandbox = self.sandbox(scenario={"duration": 60})
         directory = self.start(sandbox)
-        sandbox.wait_for(lambda: json.loads((directory / "state.json").read_text()).get("runId"))
+        sandbox.wait_for_state(directory, "runId")
         sandbox.update(containers=lambda state: state["containers"].update(application="app2"),
                        startedAt=lambda state: state["startedAt"].update(application="2026-10-22T09:00:00Z"))
         metadata = sandbox.wait_finished(directory)
