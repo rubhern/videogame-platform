@@ -29,7 +29,9 @@ class CatalogueSchedulingConfigurationTest {
                     .withInitializer(new ConfigDataApplicationContextInitializer())
                     .withUserConfiguration(CatalogueSchedulingConfiguration.class)
                     .withBean(SynchronizeCatalogueUseCase.class, () -> synchronization)
-                    .withBean(HistoricalBackfillStore.class, () -> mock(HistoricalBackfillStore.class))
+                    .withBean(
+                            HistoricalBackfillStore.class,
+                            () -> mock(HistoricalBackfillStore.class))
                     .withBean(
                             ScheduledSynchronizationStore.class,
                             () -> mock(ScheduledSynchronizationStore.class))
