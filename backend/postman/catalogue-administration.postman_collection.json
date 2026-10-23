@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
+    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -521,6 +521,217 @@
               "});",
               "pm.test(\"Stable code SYNCHRONIZATION_RUN_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RUN_NOT_FOUND\"));",
               "pm.test(\"The violation names the run path parameter\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/runId\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical synchronization: durable status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Closed historical state\", () => pm.expect([\"not_started\",\"running\",\"waiting\",\"stopping\",\"stopped\",\"interrupted\",\"completed\",\"attention\"]).to.include(body.state));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "if (body.backfillId) pm.collectionVariables.set(\"historicalBackfillId\", body.backfillId);",
+              "if (body.totalMonths) pm.test(\"Durable month arithmetic\", () => pm.expect(body.completedMonths + body.remainingMonths).to.eql(body.totalMonths));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical stop: unknown target cannot affect any run",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization/not-a-real-target/stop"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Stable missing-target code\", () => pm.expect(pm.response.json().code).to.eql(\"HISTORICAL_SYNCHRONIZATION_NOT_FOUND\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical resume: unknown target cannot affect any run",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization/not-a-real-target/resume"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Stable missing-target code\", () => pm.expect(pm.response.json().code).to.eql(\"HISTORICAL_SYNCHRONIZATION_NOT_FOUND\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical start: explicit opt-in small acceptance range",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"2024-02-01\",\n  \"to\": \"2024-02-02\",\n  \"coveredMonths\": \"rerun\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"enableHistoricalStart\") !== \"true\") pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Accepted or safely refused\", () => pm.expect([202,409]).to.include(pm.response.code));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 202) { pm.test(\"Target identity\", () => pm.expect(body.backfillId).to.be.a(\"string\")); pm.collectionVariables.set(\"historicalBackfillId\", body.backfillId); }",
+              "if (pm.response.code === 409) pm.test(\"Unfinished work preserved\", () => pm.expect(body.code).to.eql(\"HISTORICAL_SYNCHRONIZATION_CONFLICT\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical stop: explicitly selected acceptance target",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization/{{historicalBackfillId}}/stop"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"enableHistoricalControl\") !== \"true\" || !pm.collectionVariables.get(\"historicalBackfillId\")) pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Accepted or safely refused\", () => pm.expect([202,404,409]).to.include(pm.response.code));",
+              "if (pm.response.code === 202) pm.test(\"Named target only\", () => pm.expect(pm.response.json().backfillId).to.eql(pm.collectionVariables.get(\"historicalBackfillId\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historical resume: explicitly selected acceptance target",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/historical-synchronization/{{historicalBackfillId}}/resume"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"enableHistoricalControl\") !== \"true\" || !pm.collectionVariables.get(\"historicalBackfillId\")) pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Accepted or safely refused\", () => pm.expect([202,404,409]).to.include(pm.response.code));",
+              "if (pm.response.code === 202) pm.test(\"Named target only\", () => pm.expect(pm.response.json().backfillId).to.eql(pm.collectionVariables.get(\"historicalBackfillId\")));"
             ]
           }
         }

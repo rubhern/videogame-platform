@@ -16,13 +16,18 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
+import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,6 +42,8 @@ class CatalogueSynchronizationSchedulerTest {
     private static final Policy NEAR = new Policy("0 0 4 * * *", 28, 28);
     private static final Policy UPCOMING = new Policy("0 0 5 * * SUN", 0, 180);
     private final SynchronizeCatalogueUseCase useCase = mock(SynchronizeCatalogueUseCase.class);
+    private final PendingPolicies pending = new PendingPolicies();
+    private final HistoricalBackfillStore ownership = mock(HistoricalBackfillStore.class);
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
     @Test
@@ -94,13 +101,14 @@ class CatalogueSynchronizationSchedulerTest {
                                     SynchronizationOutcome.SUCCEEDED,
                                     "SYNCHRONIZATION_COMPLETED");
                         });
-        var tasks = tasks(clock, NEAR, UPCOMING).getTriggerTaskList();
-        tasks.get(0).getRunnable().run();
-        tasks.get(1).getRunnable().run();
+        var registrar = tasks(clock, NEAR, UPCOMING);
+        var tasks = registrar.getTriggerTaskList();
+        invoke(registrar, 0);
+        invoke(registrar, 1);
         now.set(Instant.parse("2028-03-25T23:30:00Z"));
-        tasks.get(0).getRunnable().run();
+        invoke(registrar, 0);
         now.set(Instant.parse("2028-03-26T22:30:00Z"));
-        tasks.get(0).getRunnable().run();
+        invoke(registrar, 0);
         assertThat(requests)
                 .containsExactly(
                         window("2028-02-01", "2028-03-28"),
@@ -117,11 +125,7 @@ class CatalogueSynchronizationSchedulerTest {
             SynchronizationOutcome outcome) {
         when(useCase.synchronize(any()))
                 .thenAnswer(call -> report(call.getArgument(0), outcome, "BOUNDED_CODE"));
-        tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING)
-                .getTriggerTaskList()
-                .getFirst()
-                .getRunnable()
-                .run();
+        invoke(tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING), 0);
         String tag = outcome.name().toLowerCase(java.util.Locale.ROOT);
         assertThat(
                         registry.get("catalogue.synchronization.trigger")
@@ -167,7 +171,7 @@ class CatalogueSynchronizationSchedulerTest {
     }
 
     @Test
-    void overlapSkipIsObservableAndLaterInvocationsStillRun() {
+    void overlapKeepsBothPoliciesPendingWithoutAnOccurrenceBacklog() {
         when(useCase.synchronize(any()))
                 .thenAnswer(
                         call ->
@@ -175,20 +179,12 @@ class CatalogueSynchronizationSchedulerTest {
                                         call.getArgument(0),
                                         SynchronizationOutcome.SKIPPED,
                                         "SYNCHRONIZATION_ALREADY_RUNNING"));
-        var tasks = tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING).getTriggerTaskList();
-        tasks.forEach(task -> task.getRunnable().run());
-        assertThat(
-                        registry.get("catalogue.synchronization.trigger")
-                                .tags("policy", "near_term", "outcome", "skipped")
-                                .counter()
-                                .count())
-                .isEqualTo(1);
-        assertThat(
-                        registry.get("catalogue.synchronization.trigger")
-                                .tags("policy", "upcoming", "outcome", "skipped")
-                                .counter()
-                                .count())
-                .isEqualTo(1);
+        var registrar = tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING);
+        invoke(registrar, 0);
+        invoke(registrar, 1);
+        invoke(registrar, 0);
+        assertThat(pending.rows).hasSize(2);
+        assertThat(registry.find("catalogue.synchronization.trigger").counters()).isEmpty();
     }
 
     @Test
@@ -206,11 +202,8 @@ class CatalogueSynchronizationSchedulerTest {
         appender.start();
         logger.addAppender(appender);
         try {
-            var runnable =
-                    tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING)
-                            .getTriggerTaskList()
-                            .getFirst()
-                            .getRunnable();
+            var registrar = tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING);
+            Runnable runnable = () -> invoke(registrar, 0);
             assertThatCode(runnable::run).doesNotThrowAnyException();
             runnable.run();
             assertThat(appender.list)
@@ -247,6 +240,67 @@ class CatalogueSynchronizationSchedulerTest {
     }
 
     @Test
+    void shutdownKeepsThePendingWindowForTheNextDrainAndDoesNotNeedAnotherCron() {
+        var registrar = tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING);
+        when(useCase.synchronize(any()))
+                .thenAnswer(
+                        call -> {
+                            Thread.currentThread().interrupt();
+                            return report(
+                                    call.getArgument(0),
+                                    SynchronizationOutcome.FAILED,
+                                    "SYNCHRONIZATION_INTERRUPTED");
+                        });
+        try {
+            invoke(registrar, 0);
+            assertThat(pending.rows).hasSize(1);
+        } finally {
+            Thread.interrupted();
+        }
+        org.mockito.Mockito.doAnswer(
+                        call ->
+                                report(
+                                        call.getArgument(0),
+                                        SynchronizationOutcome.SUCCEEDED,
+                                        "SYNCHRONIZATION_COMPLETED"))
+                .when(useCase)
+                .synchronize(any());
+        registrar.getFixedDelayTaskList().getFirst().getRunnable().run();
+        assertThat(pending.rows).isEmpty();
+    }
+
+    @Test
+    void aNewerNearTermWindowCannotStarveAnAlreadyPendingUpcomingWindow() {
+        var registrar = tasks(Clock.fixed(Instant.EPOCH, MADRID), NEAR, UPCOMING);
+        registrar.getTriggerTaskList().forEach(task -> task.getRunnable().run());
+        var requests = new ArrayList<CatalogueSynchronizationRequest>();
+        when(useCase.synchronize(any()))
+                .thenAnswer(
+                        call -> {
+                            CatalogueSynchronizationRequest request = call.getArgument(0);
+                            requests.add(request);
+                            if (requests.size() == 1)
+                                pending.defer(
+                                        ScheduledSynchronizationStore.Policy.NEAR_TERM,
+                                        window("1970-01-02", "1970-02-01"),
+                                        Instant.EPOCH.plusSeconds(1));
+                            return report(
+                                    request,
+                                    SynchronizationOutcome.SUCCEEDED,
+                                    "SYNCHRONIZATION_COMPLETED");
+                        });
+        registrar.getFixedDelayTaskList().getFirst().getRunnable().run();
+        assertThat(requests).hasSize(2);
+        assertThat(requests.get(1).from()).isEqualTo(LocalDate.of(1970, 1, 1));
+        assertThat(pending.rows)
+                .hasSize(1)
+                .containsKey(ScheduledSynchronizationStore.Policy.NEAR_TERM);
+        registrar.getFixedDelayTaskList().getFirst().getRunnable().run();
+        assertThat(requests.get(2)).isEqualTo(window("1970-01-02", "1970-02-01"));
+        assertThat(pending.rows).isEmpty();
+    }
+
+    @Test
     void rejectsInvalidCronAndNegativeWindowsBeforeAnyProviderWork() {
         assertThatThrownBy(() -> new Policy("wrong", 0, 0))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -258,15 +312,48 @@ class CatalogueSynchronizationSchedulerTest {
 
     private ScheduledTaskRegistrar tasks(Clock clock, Policy near, Policy upcoming) {
         var registrar = new ScheduledTaskRegistrar();
+        when(ownership.acquireScheduledTurn())
+                .thenReturn(Optional.of(mock(HistoricalBackfillStore.Lease.class)));
         new CatalogueSynchronizationScheduler(
                         useCase,
                         new CatalogueSynchronizationMetrics(registry),
                         clock,
                         mock(TaskScheduler.class),
                         near,
-                        upcoming)
+                        upcoming,
+                        ownership,
+                        pending)
                 .configureTasks(registrar);
         return registrar;
+    }
+
+    private static void invoke(ScheduledTaskRegistrar registrar, int index) {
+        registrar.getTriggerTaskList().get(index).getRunnable().run();
+        registrar.getFixedDelayTaskList().getFirst().getRunnable().run();
+    }
+
+    private static final class PendingPolicies implements ScheduledSynchronizationStore {
+        private final java.util.Map<Policy, Pending> rows = new LinkedHashMap<>();
+
+        @Override
+        public void defer(Policy policy, CatalogueSynchronizationRequest window, Instant dueAt) {
+            rows.put(policy, new Pending(policy, UUID.randomUUID(), window, dueAt));
+        }
+
+        @Override
+        public List<Pending> pending() {
+            return List.copyOf(rows.values());
+        }
+
+        @Override
+        public void complete(Pending request) {
+            rows.remove(request.policy(), request);
+        }
+
+        @Override
+        public void cancel(Policy policy) {
+            rows.remove(policy);
+        }
     }
 
     private static CatalogueSynchronizationRequest window(String from, String to) {

@@ -14,7 +14,7 @@ Keycloak), the
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
 TOPómetro, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
 `/lanzamientos/calendario`, and
-the operator-only `UC-011`–`UC-013` `/administracion/catalogo`. Behaviour is specified by the
+the operator-only `UC-011`–`UC-013` and historical `UC-017` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
 [frontend design guidelines](../docs/development/frontend-design.md); this README
 owns only how to build, run, and organise it.

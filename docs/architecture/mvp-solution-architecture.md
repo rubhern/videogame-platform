@@ -246,3 +246,43 @@ Revisit the modular monolith, page pagination, identity provider, local catalogu
 or hosting only when their documented ADR triggers occur. Directional possibilities
 such as messaging, services, specialized stores, advanced analytics, or orchestration
 are not an implementation roadmap.
+
+## Historical acquisition orchestration
+
+Post-MVP #246, implemented pending owner review and private-dev acceptance, adds one
+Catalogue-owned historical target over UC-009. Application orchestration calls the existing
+synchronization contract; API delivery maps the generated contract and the administration
+frontend polls only local durable evidence. There is no second provider integration.
+
+PostgreSQL holds the explicit target, current run correlation, completed-month checkpoint,
+processing counters and activity. Its state survives ordinary run-history pruning. A fixed
+session advisory lock excludes concurrent historical orchestrators, releases on process
+death, and holds no transaction across provider work. A new execution token fences old
+orchestration writes on resume, while UC-009 retains its existing per-run write fencing.
+Two bounded, dedicated ownership sessions (historical and scheduled) do not borrow the
+application transaction pool. One in-process thread executes months sequentially; it is
+not a separate worker service. Reads return one row and coverage is aggregated in SQL.
+
+The existing single Spring scheduler thread records due windows in two PostgreSQL slots,
+one per near-term/upcoming policy, rather than blocking in an admission wait. Repeated due
+events coalesce into the latest window for that policy, retaining its original place; there
+is no occurrence backlog or generic job queue. A busy UC-009 leaves both slots pending.
+Historical work checks pending intent and yields at month boundaries. The same scheduler
+thread drains at most two admissions per tick under a fixed session reservation, retaining
+priority until that drain finishes. The ordinary UC-009 ownership/fencing remains the only
+provider execution authority.
+
+Pending policy intent survives process death and shutdown interruption. A restarted, enabled
+scheduler drains recorded intent without waiting for another cron; it does not reconstruct
+cron occurrences missed during downtime. A changed window has a new token, so completing an
+older scheduled run cannot delete newer intent. An ambiguous interrupted scheduled window
+may replay through ordinary idempotence. Disabling a policy cancels only its pending slot;
+globally disabled scheduling cancels both slots at startup. Historical processing continues
+automatically after scheduled completion only while its explicit activation is still alive;
+a stop or process restart never activates it. No extra executor or parallel provider worker
+is introduced.
+History never auto-resumes at startup. The
+[historical use case](application/mvp-use-cases.md#historical-catalogue-synchronization-uc-017-post-mvp-246)
+owns lifecycle guarantees and the [runbook](../development/operations-runbook.md#historical-synchronization)
+owns operator recovery. [ADR-0032](../decisions/0032-checkpoint-historical-synchronization-by-month.md)
+records the proposal's tradeoffs for owner review.

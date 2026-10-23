@@ -1175,9 +1175,11 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         var registry = new SimpleMeterRegistry();
         var tasks = scheduledTasks(new CatalogueSynchronizationMetrics(registry));
         tasks.getTriggerTaskList().getFirst().getRunnable().run();
+        tasks.getFixedDelayTaskList().getFirst().getRunnable().run();
         var before = store.loadGame("100", 25).orElseThrow();
         String revision = version();
         tasks.getTriggerTaskList().getLast().getRunnable().run();
+        tasks.getFixedDelayTaskList().getFirst().getRunnable().run();
         var after = store.loadGame("100", 25).orElseThrow();
         assertThat(after.gameId()).isEqualTo(before.gameId());
         assertThat(after.releases().get("10").releaseId())
@@ -1195,11 +1197,14 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     }
 
     @Test
-    void activeDatabaseRunSkipsBothScheduledPoliciesAndManualCommandWithoutProviderCalls() {
+    void activeDatabaseRunDefersScheduledPoliciesAndSkipsManualCommandWithoutProviderCalls() {
         UUID active = store.beginRun("IGDB", WINDOW, NOW, Duration.ofMinutes(30)).orElseThrow();
         var registry = new SimpleMeterRegistry();
         var metrics = new CatalogueSynchronizationMetrics(registry);
-        scheduledTasks(metrics).getTriggerTaskList().forEach(task -> task.getRunnable().run());
+        var scheduled = scheduledTasks(metrics);
+        scheduled.getTriggerTaskList().forEach(task -> task.getRunnable().run());
+        scheduled.getFixedDelayTaskList().getFirst().getRunnable().run();
+        assertThat(count("deferred_synchronization_policy")).isEqualTo(2);
         var manual =
                 (CatalogueSynchronizationReport)
                         new CatalogueSynchronizationEndpoint(service, metrics)
@@ -1215,15 +1220,13 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                                 .tag("outcome", "skipped")
                                 .counter()
                                 .count())
-                .isEqualTo(3);
-        for (String policy : List.of("near_term", "upcoming", "none")) {
-            assertThat(
-                            registry.get("catalogue.synchronization.trigger")
-                                    .tags("policy", policy, "outcome", "skipped")
-                                    .counter()
-                                    .count())
-                    .isEqualTo(1);
-        }
+                .isEqualTo(1);
+        assertThat(
+                        registry.get("catalogue.synchronization.trigger")
+                                .tags("policy", "none", "outcome", "skipped")
+                                .counter()
+                                .count())
+                .isEqualTo(1);
     }
 
     @Test
@@ -1284,13 +1287,16 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
 
     private ScheduledTaskRegistrar scheduledTasks(CatalogueSynchronizationMetrics metrics) {
         var registrar = new ScheduledTaskRegistrar();
+        var scheduledStore = new JdbcHistoricalBackfillStore(jdbc.getDataSource(), "IGDB");
         new CatalogueSynchronizationScheduler(
                         service,
                         metrics,
                         Clock.fixed(NOW, ZoneId.of("Europe/Madrid")),
                         org.mockito.Mockito.mock(TaskScheduler.class),
                         new CatalogueSynchronizationScheduler.Policy("0 0 4 * * *", 28, 28),
-                        new CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180))
+                        new CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180),
+                        scheduledStore,
+                        scheduledStore)
                 .configureTasks(registrar);
         return registrar;
     }

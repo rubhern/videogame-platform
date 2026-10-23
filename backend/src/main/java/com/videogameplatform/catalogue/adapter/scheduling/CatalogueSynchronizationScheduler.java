@@ -7,6 +7,9 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
+import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore.Pending;
 import java.time.Clock;
 import java.time.LocalDate;
 import org.slf4j.Logger;
@@ -27,6 +30,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
     private final CatalogueSynchronizationMetrics metrics;
     private final Clock clock;
     private final TaskScheduler scheduler;
+    private final HistoricalBackfillStore ownership;
+    private final ScheduledSynchronizationStore pending;
     private final Policy nearTerm;
     private final Policy upcoming;
 
@@ -36,8 +41,12 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
             Clock clock,
             TaskScheduler scheduler,
             Policy nearTerm,
-            Policy upcoming) {
+            Policy upcoming,
+            HistoricalBackfillStore ownership,
+            ScheduledSynchronizationStore pending) {
         this.synchronization = synchronization;
+        this.ownership = ownership;
+        this.pending = pending;
         this.metrics = metrics;
         this.clock = clock;
         this.scheduler = scheduler;
@@ -50,6 +59,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
         registrar.setTaskScheduler(scheduler);
         register(registrar, SynchronizationTrigger.NEAR_TERM, nearTerm);
         register(registrar, SynchronizationTrigger.UPCOMING, upcoming);
+        // The same single scheduler thread drains the two fixed slots, including after restart.
+        registrar.addFixedDelayTask(this::drain, 1000);
     }
 
     private void register(
@@ -57,22 +68,65 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
         if (!ScheduledTaskRegistrar.CRON_DISABLED.equals(policy.cron())) {
             // Lenient cron resumes after completion; no replay of missed runs after downtime.
             registrar.addTriggerTask(
-                    () -> synchronize(trigger, policy),
-                    new CronTrigger(policy.cron(), clock.getZone()));
+                    () -> defer(trigger, policy), new CronTrigger(policy.cron(), clock.getZone()));
         }
     }
 
-    private void synchronize(SynchronizationTrigger trigger, Policy policy) {
+    private void defer(SynchronizationTrigger trigger, Policy policy) {
+        LocalDate today = LocalDate.now(clock);
+        pending.defer(
+                policyKey(trigger),
+                new CatalogueSynchronizationRequest(
+                        today.minusDays(policy.pastDays()), today.plusDays(policy.futureDays())),
+                clock.instant());
+    }
+
+    private static ScheduledSynchronizationStore.Policy policyKey(SynchronizationTrigger trigger) {
+        return switch (trigger) {
+            case NEAR_TERM -> ScheduledSynchronizationStore.Policy.NEAR_TERM;
+            case UPCOMING -> ScheduledSynchronizationStore.Policy.UPCOMING;
+            default -> throw new IllegalArgumentException("Not a scheduled policy");
+        };
+    }
+
+    private void drain() {
+        if (Thread.currentThread().isInterrupted()) return;
+        try {
+            if (pending.pending().isEmpty()) return;
+            var reserved = ownership.acquireScheduledTurn();
+            if (reserved.isEmpty()) return;
+            try (var lease = reserved.get()) {
+                if (ScheduledTaskRegistrar.CRON_DISABLED.equals(nearTerm.cron()))
+                    pending.cancel(ScheduledSynchronizationStore.Policy.NEAR_TERM);
+                if (ScheduledTaskRegistrar.CRON_DISABLED.equals(upcoming.cron()))
+                    pending.cancel(ScheduledSynchronizationStore.Policy.UPCOMING);
+                // A fixed two-row snapshot gives each policy one turn. New intent waits for
+                // the next tick and cannot starve the other policy or erase its newer token.
+                for (Pending next : pending.pending()) {
+                    if (Thread.currentThread().isInterrupted()) return;
+                    lease.check();
+                    if (!synchronize(next)) return;
+                }
+            }
+        } catch (RuntimeException failure) {
+            // Preserve pending work if its ownership/read/write failed. No payload or raw message.
+            LOGGER.atError()
+                    .addKeyValue("sync.code", "SYNCHRONIZATION_DEFERRED_ADMISSION_FAILED")
+                    .addKeyValue("sync.failure.type", failure.getClass().getSimpleName())
+                    .log("Scheduled synchronization admission failed");
+        }
+    }
+
+    private boolean synchronize(Pending deferred) {
+        SynchronizationTrigger trigger =
+                deferred.policy() == ScheduledSynchronizationStore.Policy.NEAR_TERM
+                        ? SynchronizationTrigger.NEAR_TERM
+                        : SynchronizationTrigger.UPCOMING;
+        CatalogueSynchronizationRequest request = deferred.window();
         long startedNanos = System.nanoTime();
         SynchronizationOutcome outcome = SynchronizationOutcome.FAILED;
+        boolean terminal = false;
         try {
-            // Evaluate once at invocation, including a delayed trigger, in the trusted clock's
-            // zone.
-            LocalDate today = LocalDate.now(clock);
-            var request =
-                    new CatalogueSynchronizationRequest(
-                            today.minusDays(policy.pastDays()),
-                            today.plusDays(policy.futureDays()));
             LOGGER.atInfo()
                     .addKeyValue(TRIGGER_FIELD, trigger.type())
                     .addKeyValue(POLICY_FIELD, trigger.policy())
@@ -85,6 +139,11 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
                             request.to());
             var report = synchronization.synchronize(request);
             outcome = report.outcome();
+            if (Thread.currentThread().isInterrupted()) return false;
+            if (outcome == SynchronizationOutcome.SKIPPED
+                    && "SYNCHRONIZATION_ALREADY_RUNNING".equals(report.outcomeCode())) return false;
+            pending.complete(deferred);
+            terminal = true;
             metrics.recordRun(report);
             LOGGER.atLevel(CatalogueSynchronizationLog.resultLevel(report))
                     .addKeyValue(TRIGGER_FIELD, trigger.type())
@@ -98,6 +157,10 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
                             outcome,
                             report.outcomeCode());
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) return false;
+            // Existing periodic failure policy: a terminal trigger failure waits for the next cron.
+            pending.complete(deferred);
+            terminal = true;
             // In particular, beginRun/completeRun can fail outside the use case's provider
             // handling.
             // Do not log exception messages or stop subsequent scheduled invocations.
@@ -112,8 +175,9 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
                             "SYNCHRONIZATION_TRIGGER_FAILED",
                             failure.getClass().getSimpleName());
         } finally {
-            metrics.recordTrigger(trigger, outcome, startedNanos);
+            if (terminal) metrics.recordTrigger(trigger, outcome, startedNanos);
         }
+        return true;
     }
 
     /** Operational tuning, never a domain invariant; '-' disables just this policy. */

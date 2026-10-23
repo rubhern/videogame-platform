@@ -93,3 +93,36 @@ export async function abandonRun(runId: string, csrfToken: string,
   if (data !== undefined) return data;
   throw failure(response, error);
 }
+
+export type HistoricalStatus = components["schemas"]["HistoricalSynchronizationStatus"];
+export type HistoricalTarget = components["schemas"]["HistoricalSynchronizationTarget"];
+export const HISTORICAL_STATUS_KEY = [...ADMINISTRATION_KEY, "historical"] as const;
+
+export async function getHistoricalStatus(signal?: AbortSignal,
+  client: ProductApiClient = productApiClient): Promise<HistoricalStatus> {
+  const { data, error, response } = await client.GET("/admin/catalogue/historical-synchronization", {
+    cache: "no-store", ...(signal ? { signal } : {}),
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function startHistoricalSynchronization(target: HistoricalTarget, csrfToken: string,
+  client: ProductApiClient = productApiClient): Promise<HistoricalStatus> {
+  const { data, error, response } = await client.POST("/admin/catalogue/historical-synchronization", {
+    params: { header: { "X-CSRF-Token": csrfToken } }, body: target, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function controlHistoricalSynchronization(action: "stop" | "resume", backfillId: string,
+  csrfToken: string, client: ProductApiClient = productApiClient): Promise<HistoricalStatus> {
+  const path = action === "stop" ? "/admin/catalogue/historical-synchronization/{backfillId}/stop"
+    : "/admin/catalogue/historical-synchronization/{backfillId}/resume";
+  const { data, error, response } = await client.POST(path, {
+    params: { path: { backfillId }, header: { "X-CSRF-Token": csrfToken } }, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}

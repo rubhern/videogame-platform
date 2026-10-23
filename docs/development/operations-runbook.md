@@ -361,8 +361,9 @@ that release exploration opens on. Weekly upcoming refresh covers
 roughly six months ahead, keeping wider acquisition less frequent. The default start
 times are staggered to reduce contention; the precise crons/offsets stay in
 `application.yaml` and can be tuned after observing run duration and provider volume.
-Their overlap is deliberate and uses stable-reference idempotence, with no scheduling
-de-duplication; each successful run refreshes the coverage of its own window.
+Their overlap is deliberate and uses stable-reference idempotence; distinct policy windows
+are not merged. Repeated pending occurrences of the same policy coalesce into one slot,
+and each successful run refreshes the coverage of its own window.
 
 The widest future window among the policies not disabled with `-` (the upcoming policy's
 180 days by default) is also the configured forward acquisition horizon that bounds
@@ -375,8 +376,11 @@ claiming that a browsable month was actually acquired.
 
 One dedicated scheduler thread serializes recurring work. If a long run delays the
 other policy, its date window is evaluated at actual invocation. Missed occurrences
-of a running policy and downtime are not replayed; no acquisition runs on startup,
-no persistent checkpoint is added, and failed/skipped runs wait for the next cron.
+of a running policy and downtime are not reconstructed. #246 adds durable deferral of an
+already-due window when UC-009 is occupied, with at most one slot per policy. Recorded
+pending periodic work can drain after restart; historical work never starts at startup.
+Terminal failures wait for the next cron, while an ownership-busy result keeps its slot;
+see [historical coordination](#historical-synchronization).
 All callers retain PostgreSQL active-provider ownership/fencing: contention with a
 manual/repair run (or another instance) reports `SYNCHRONIZATION_ALREADY_RUNNING`
 and does no provider work. Existing provider request paging, request timeouts and
@@ -471,11 +475,12 @@ Runtime provider/trigger failure preserves last-valid Game state and stays outsi
 readiness and product reads. Inspect trigger outcome/duration and existing run/provider
 counters via the [observability catalogue](observability.md); scheduled failure uses
 `SYNCHRONIZATION_TRIGGER_FAILED`, while a returned report retains its existing stable
-code. A skipped trigger is visible in logs/meters even when no new durable run is
-written. The manual command remains available on private management for exceptional
+code. A terminal skipped trigger is visible in logs/meters even when no new durable run is
+written; repeated ownership-busy admission is deferred rather than counted as a finished
+scheduled trigger on every drain tick. The manual command remains available on private management for exceptional
 recovery; pause scheduling before prolonged manual maintenance. The product API reaches
-synchronization only through the operator's bounded request, which never waits for the
-provider; no visitor request reaches it, and it is never a deployment prerequisite. Without
+synchronization only through the operator's bounded request and the historical lifecycle,
+which never hold a browser request open for provider work; no visitor request reaches it, and it is never a deployment prerequisite. Without
 IGDB credentials UC-009 reports `SYNCHRONIZATION_DISABLED` and changes nothing.
 
 Recurring catalogue synchronization has been exercised and accepted in private dev. 
@@ -1173,3 +1178,57 @@ restoring stores, then reapply purge to any restored matching ciphertext before
 access. Signed partial destruction can resume; unsigned intent or inconsistent
 review states require private reconciliation. Snapshot/media disposal and protected
 hold/proof retention are separately verified operator responsibilities.
+
+## Historical synchronization
+
+Implemented under #246; owner review and deployed private-dev acceptance remain pending.
+Use **Sincronización y cobertura → Sincronización histórica** with a catalogue-operator
+session. Select explicit inclusive dates and whether completely covered months are omitted
+or reprocessed, then review the confirmation. The initial intended historical interval is
+recorded in the [pilot evidence](../research/historical-sync-pilot.md#completed-measurements-and-conclusion);
+never run that full interval merely to accept the mechanism.
+
+Inspect the requested interval, pending month, completed/omitted/remaining month counts,
+progress, current available counters, processing totals, known data-quality failures,
+start/activity times and stable last reason. Totals cover completed month attempts only;
+Games can occur in more than one month and omitted months contribute no processing counts.
+Unavailable in-flight counters are unknown, not zero. Progress is persisted on the backend;
+closing the browser does not stop work. The ordinary **Cobertura** tab remains the canonical
+view of scanned dates. Empty month checkpoints and known data-quality completion never
+promise that every Game was acquired without errors.
+
+**Detener histórico** requests its next safe stop and preserves committed Games and completed
+months. It affects only the target's linked run, never another periodic/manual run. Wait for
+**Detenida**. Resume deliberately repeats the pending partial month through ordinary
+idempotent synchronization. **Deteniéndose** is acceptance of a stop request, not completion.
+Scheduled updates get the next run slot after a month and history waits between chunks.
+A due near-term or upcoming window stays pending, with at most one latest window per policy;
+both take priority before history continues automatically. **Esperando otra sincronización**
+with the scheduled-turn reason identifies this wait. You do not need to resume history after
+a regular run; stopping history while it waits still stops only history.
+
+Recorded periodic intent survives shutdown/restart and an enabled scheduler drains it without
+requiring another due event. It can replay an ambiguous interrupted regular window through
+UC-009 idempotence. This never starts a stopped/interrupted historical target. Disabling a
+periodic policy cancels its pending slot; globally disabling scheduling cancels both at startup.
+Terminal scheduled failures retain the existing next-cron retry policy, while shutdown
+interruption preserves pending intent. No missed-downtime cron backlog is reconstructed.
+
+After an operational failure, inspect the stable reason and existing acquisition/incident
+procedures before **Reanudar histórico**. After restart, status reports interruption and no
+historical work resumes automatically. If the linked ordinary run still appears active,
+wait for it to finish or stop it through its named controls; abandon only a stale run whose
+process is confirmed gone. Read status after an ambiguous command before repeating it.
+An existing unfinished target cannot be replaced by a new date range.
+
+For owner-authorized private-dev acceptance after review and promotion, choose a small
+representative interval crossing a month boundary, record the target and run identifiers,
+stop while the second month is active, restart the application only under the existing
+maintenance procedure, and verify no provider work starts before explicit resume. Resume
+and confirm the first completed month is retained and the second is replayed without new
+duplicate identities/releases. Exercise a fully covered skip and an empty month against
+controlled fixtures, review data-quality versus operational failure states, and verify a
+scheduled update takes its turn. Record duration/resource evidence with the
+[existing pilot procedure](../../deploy/private-dev/README.md#historical-synchronization-pilot).
+The present change provides automated local evidence; it does not claim this deployed
+acceptance or authorize deployment/full historical import.

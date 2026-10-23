@@ -426,6 +426,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalogue/historical-synchronization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read durable historical synchronization progress
+         * @description Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+         *     Calendar months are processed sequentially through ordinary reconciliation; first and
+         *     last months are clipped to the inclusive requested dates (1950 through 2099).
+         *     Completed months include deliberately skipped covered months. Completion does not
+         *     imply error-free acquisition of every Game. Empty completed months are checkpointed.
+         *     Counters total completed attempts only, excluding skipped months and failed attempts;
+         *     they count processing, not distinct catalogue identities across months.
+         *     A new target cannot replace unfinished work. Resume is explicit, including after restart.
+         *     No startup action resumes provider work. Scheduled runs take priority between months.
+         *     Read status after an ambiguous command before repeating it. No completion estimate.
+         */
+        get: operations["getHistoricalSynchronization"];
+        put?: never;
+        /**
+         * Start an explicitly bounded historical synchronization
+         * @description Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+         *     Calendar months are processed sequentially through ordinary reconciliation; first and
+         *     last months are clipped to the inclusive requested dates (1950 through 2099).
+         *     Completed months include deliberately skipped covered months. Completion does not
+         *     imply error-free acquisition of every Game. Empty completed months are checkpointed.
+         *     Counters total completed attempts only, excluding skipped months and failed attempts;
+         *     they count processing, not distinct catalogue identities across months.
+         *     A new target cannot replace unfinished work. Resume is explicit, including after restart.
+         *     No startup action resumes provider work. Scheduled runs take priority between months.
+         *     Read status after an ambiguous command before repeating it. No completion estimate.
+         */
+        post: operations["startHistoricalSynchronization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/historical-synchronization/{backfillId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop only the named historical synchronization
+         * @description Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+         *     Calendar months are processed sequentially through ordinary reconciliation; first and
+         *     last months are clipped to the inclusive requested dates (1950 through 2099).
+         *     Completed months include deliberately skipped covered months. Completion does not
+         *     imply error-free acquisition of every Game. Empty completed months are checkpointed.
+         *     Counters total completed attempts only, excluding skipped months and failed attempts;
+         *     they count processing, not distinct catalogue identities across months.
+         *     A new target cannot replace unfinished work. Resume is explicit, including after restart.
+         *     No startup action resumes provider work. Scheduled runs take priority between months.
+         *     Read status after an ambiguous command before repeating it. No completion estimate.
+         */
+        post: operations["stopHistoricalSynchronization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/historical-synchronization/{backfillId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicitly resume the named historical synchronization
+         * @description Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+         *     Calendar months are processed sequentially through ordinary reconciliation; first and
+         *     last months are clipped to the inclusive requested dates (1950 through 2099).
+         *     Completed months include deliberately skipped covered months. Completion does not
+         *     imply error-free acquisition of every Game. Empty completed months are checkpointed.
+         *     Counters total completed attempts only, excluding skipped months and failed attempts;
+         *     they count processing, not distinct catalogue identities across months.
+         *     A new target cannot replace unfinished work. Resume is explicit, including after restart.
+         *     No startup action resumes provider work. Scheduled runs take priority between months.
+         *     Read status after an ambiguous command before repeating it. No completion estimate.
+         */
+        post: operations["resumeHistoricalSynchronization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/catalogue/synchronization": {
         parameters: {
             query?: never;
@@ -1523,6 +1623,54 @@ export interface components {
         };
         /** Format: int64 */
         RunCount: number;
+        HistoricalSynchronizationTarget: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /**
+             * @description Explicit intent for completely covered chunks; never skip partial coverage.
+             * @enum {string}
+             */
+            coveredMonths: "skip" | "rerun";
+        };
+        HistoricalSynchronizationStatus: {
+            /** @enum {string} */
+            state: "not_started" | "running" | "waiting" | "stopping" | "stopped" | "interrupted" | "completed" | "attention";
+            backfillId?: string;
+            /** Format: date */
+            from?: string;
+            /** Format: date */
+            to?: string;
+            /** @enum {string} */
+            coveredMonths?: "skip" | "rerun";
+            /** Format: date */
+            currentFrom?: string;
+            /** Format: date */
+            currentTo?: string;
+            currentRunId?: string;
+            totalMonths?: number;
+            completedMonths?: number;
+            skippedMonths?: number;
+            remainingMonths?: number;
+            progressPercent?: number;
+            processedGames?: components["schemas"]["RunCount"];
+            processedReleases?: components["schemas"]["RunCount"];
+            dataQualityFailedGames?: components["schemas"]["RunCount"];
+            currentProcessedGames?: components["schemas"]["RunCount"];
+            currentProcessedReleases?: components["schemas"]["RunCount"];
+            currentFailedGames?: components["schemas"]["RunCount"];
+            currentDataQualityFailedGames?: components["schemas"]["RunCount"];
+            currentProviderRequests?: components["schemas"]["RunCount"];
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            lastActivityAt?: string;
+            /** Format: int64 */
+            elapsedSeconds?: number;
+            /** @description Stable operational code; never a raw error message or provider payload. */
+            lastReason?: string;
+        };
         /**
          * @description An inclusive release-date interval of at most 184 days between 1950-01-01 and
          *     2099-12-31, with `from` not after `to`.
@@ -1585,7 +1733,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1612,6 +1760,39 @@ export interface components {
         };
     };
     responses: {
+        /** @description HISTORICAL_SYNCHRONIZATION_RANGE_INVALID; the operation changed no historical target. */
+        HistoricalSynchronizationRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description HISTORICAL_SYNCHRONIZATION_NOT_FOUND; the operation changed no historical target. */
+        HistoricalSynchronizationNotFound: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description HISTORICAL_SYNCHRONIZATION_CONFLICT; the operation changed no historical target. */
+        HistoricalSynchronizationConflict: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The cached public representation remains current; no body is returned. */
         PublicNotModified: {
             headers: {
@@ -3026,6 +3207,163 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["PlatformPreferencesValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getHistoricalSynchronization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable progress; command acceptance never claims work has finished. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalSynchronizationStatus"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["HistoricalSynchronizationRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    startHistoricalSynchronization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistoricalSynchronizationTarget"];
+            };
+        };
+        responses: {
+            /** @description Durable progress; command acceptance never claims work has finished. */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalSynchronizationStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["HistoricalSynchronizationNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["HistoricalSynchronizationConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["HistoricalSynchronizationRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    stopHistoricalSynchronization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                backfillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable progress; command acceptance never claims work has finished. */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalSynchronizationStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["HistoricalSynchronizationNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["HistoricalSynchronizationConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["HistoricalSynchronizationRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    resumeHistoricalSynchronization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                backfillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable progress; command acceptance never claims work has finished. */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalSynchronizationStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["HistoricalSynchronizationNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["HistoricalSynchronizationConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["HistoricalSynchronizationRejected"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];

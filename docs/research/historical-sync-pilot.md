@@ -1,11 +1,35 @@
 # Historical synchronization pilot
 
-**Status: method and tooling prepared for
-[#246](https://github.com/rubhern/videogame-platform/issues/246); no real pilot has run.**
-This page records what the pilots are meant to measure, what the existing instrumentation can
-and cannot show, and how the evidence should refine #246. It does not approve chunk sizing,
-checkpointing, concurrency or resource limits, and it does not implement the resumable
-backfill. Real results are added here once the owner has run the pilots.
+**Status: three completed private-dev pilots reported by the owner for
+[#246](https://github.com/rubhern/videogame-platform/issues/246).**
+The measurements below are owner-supplied execution evidence, not synthetic fixtures.
+The underlying per-pilot receipts were not attached to this implementation request, so
+this record does not claim an independent audit of their CPU, storage or timing traces.
+The [operational procedure](../../deploy/private-dev/README.md#historical-synchronization-pilot)
+owns commands; this page owns the historical measurements and their limitations.
+
+## Completed measurements and conclusion
+
+| Inclusive month | Games | Duration | Derived throughput |
+|---|---:|---:|---:|
+| March 2017 | 1,174 | 1,776 s | approximately 2,380 Games/hour |
+| November 2020 | 1,921 | 2,702 s | approximately 2,559 Games/hour |
+| January 2025 | 2,170 | 2,911 s | approximately 2,684 Games/hour |
+
+The owner reports stable memory of approximately 516–526 MiB across these pilots and
+no IGDB retries. These observations support deterministic calendar months, sequential
+processing and checkpoints at month boundaries on this private host. They supply no
+reason for parallel month processing or distributed infrastructure. A lost partial
+month is re-run through UC-009's existing idempotent reconciliation; earlier checkpoints
+are retained. PR #368's closed assessment distinguishes known data-quality failures
+from operational failures that require an operator before progression resumes.
+
+The intended first explicit historical target is 2017-03-01 through 2026-09-30, including
+all supported Games and platforms, with no platform filter. This is an operator-selected
+target, not startup behaviour or authorization to import the complete range for acceptance.
+No completion ETA is inferred from three months. A small representative interruption/resume
+exercise of the orchestrator remains pending owner review and authorized private-dev
+promotion; completed pilots alone do not prove resumable orchestration.
 
 ## Question
 
@@ -22,9 +46,8 @@ questions about a single month:
 
 ## Method
 
-- One calendar month per run, launched and stopped only by the owner. The representative
-  months are 2017-03, 2020-11, 2023-10 and 2026-01: early, middle, recent and near-current
-  provider history. Each is a separate, explicit start, and none launches another.
+- One calendar month per run, launched and stopped only by the owner. The completed
+  months are 2017-03, 2020-11 and 2025-01: early, middle and recent provider history. Each is a separate, explicit start, and none launches another.
 - The trigger is the existing management command, so the run is the ordinary UC-009 run with
   its usual report, coverage, progress log and meters. The private-dev
   [operating procedure](../../deploy/private-dev/README.md#historical-synchronization-pilot)
@@ -85,7 +108,7 @@ is approximated.
 
 ## Using the evidence for #246
 
-Compare the four months with each other, not with a target.
+Compare the three measured months with each other, not with a throughput target.
 
 - **Chunk size.** If a month's duration stays well within an operator's session tolerance, and
   well beyond the abandonment period without long heartbeat gaps, month-sized chunks are
@@ -112,5 +135,5 @@ Compare the four months with each other, not with a target.
 - One private host, shared with private-dev reads and services; results describe that host
   only.
 - Provider behaviour, catalogue state and network conditions at run time are not reproducible.
-- A naive projection from four months to the whole period from 2017 onwards is only an
+- A naive projection from three months to the whole period from 2017 onwards is only an
   estimate, and is labelled as one.

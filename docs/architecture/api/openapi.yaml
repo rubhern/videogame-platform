@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.1.0
+  version: 5.2.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -20,6 +20,8 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Historical synchronization
+    description: Operator-controlled durable calendar-month backfill.
   - name: Releases
     description: Public release exploration over an inclusive date range.
   - name: Release calendar
@@ -1625,6 +1627,185 @@ paths:
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/historical-synchronization:
+    get:
+      tags: [Historical synchronization]
+      operationId: getHistoricalSynchronization
+      summary: Read durable historical synchronization progress
+      description: |
+        Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+        Calendar months are processed sequentially through ordinary reconciliation; first and
+        last months are clipped to the inclusive requested dates (1950 through 2099).
+        Completed months include deliberately skipped covered months. Completion does not
+        imply error-free acquisition of every Game. Empty completed months are checkpointed.
+        Counters total completed attempts only, excluding skipped months and failed attempts;
+        they count processing, not distinct catalogue identities across months.
+        A new target cannot replace unfinished work. Resume is explicit, including after restart.
+        No startup action resumes provider work. Scheduled runs take priority between months.
+        Read status after an ambiguous command before repeating it. No completion estimate.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Durable progress; command acceptance never claims work has finished.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoricalSynchronizationStatus' }
+              examples:
+                initial: { value: { state: not_started } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/HistoricalSynchronizationRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    post:
+      tags: [Historical synchronization]
+      operationId: startHistoricalSynchronization
+      summary: Start an explicitly bounded historical synchronization
+      description: |
+        Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+        Calendar months are processed sequentially through ordinary reconciliation; first and
+        last months are clipped to the inclusive requested dates (1950 through 2099).
+        Completed months include deliberately skipped covered months. Completion does not
+        imply error-free acquisition of every Game. Empty completed months are checkpointed.
+        Counters total completed attempts only, excluding skipped months and failed attempts;
+        they count processing, not distinct catalogue identities across months.
+        A new target cannot replace unfinished work. Resume is explicit, including after restart.
+        No startup action resumes provider work. Scheduled runs take priority between months.
+        Read status after an ambiguous command before repeating it. No completion estimate.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HistoricalSynchronizationTarget' }
+            examples:
+              initial: { value: { from: '2017-03-01', to: '2026-09-30', coveredMonths: skip } }
+      responses:
+        '202':
+          description: Durable progress; command acceptance never claims work has finished.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoricalSynchronizationStatus' }
+              examples:
+                initial: { value: { state: not_started } }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '404': { $ref: '#/components/responses/HistoricalSynchronizationNotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/HistoricalSynchronizationConflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/HistoricalSynchronizationRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/historical-synchronization/{backfillId}/stop:
+    post:
+      tags: [Historical synchronization]
+      operationId: stopHistoricalSynchronization
+      summary: Stop only the named historical synchronization
+      description: |
+        Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+        Calendar months are processed sequentially through ordinary reconciliation; first and
+        last months are clipped to the inclusive requested dates (1950 through 2099).
+        Completed months include deliberately skipped covered months. Completion does not
+        imply error-free acquisition of every Game. Empty completed months are checkpointed.
+        Counters total completed attempts only, excluding skipped months and failed attempts;
+        they count processing, not distinct catalogue identities across months.
+        A new target cannot replace unfinished work. Resume is explicit, including after restart.
+        No startup action resumes provider work. Scheduled runs take priority between months.
+        Read status after an ambiguous command before repeating it. No completion estimate.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - name: backfillId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '202':
+          description: Durable progress; command acceptance never claims work has finished.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoricalSynchronizationStatus' }
+              examples:
+                initial: { value: { state: not_started } }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '404': { $ref: '#/components/responses/HistoricalSynchronizationNotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/HistoricalSynchronizationConflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/HistoricalSynchronizationRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/historical-synchronization/{backfillId}/resume:
+    post:
+      tags: [Historical synchronization]
+      operationId: resumeHistoricalSynchronization
+      summary: Explicitly resume the named historical synchronization
+      description: |
+        Operator-only, local durable evidence. Commands require session-bound CSRF proof.
+        Calendar months are processed sequentially through ordinary reconciliation; first and
+        last months are clipped to the inclusive requested dates (1950 through 2099).
+        Completed months include deliberately skipped covered months. Completion does not
+        imply error-free acquisition of every Game. Empty completed months are checkpointed.
+        Counters total completed attempts only, excluding skipped months and failed attempts;
+        they count processing, not distinct catalogue identities across months.
+        A new target cannot replace unfinished work. Resume is explicit, including after restart.
+        No startup action resumes provider work. Scheduled runs take priority between months.
+        Read status after an ambiguous command before repeating it. No completion estimate.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - name: backfillId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '202':
+          description: Durable progress; command acceptance never claims work has finished.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoricalSynchronizationStatus' }
+              examples:
+                initial: { value: { state: not_started } }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '404': { $ref: '#/components/responses/HistoricalSynchronizationNotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/HistoricalSynchronizationConflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/HistoricalSynchronizationRejected' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
@@ -3498,6 +3679,52 @@ components:
       type: integer
       format: int64
       minimum: 0
+    HistoricalSynchronizationTarget:
+      type: object
+      required: [from, to, coveredMonths]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        coveredMonths:
+          type: string
+          enum: [skip, rerun]
+          description: Explicit intent for completely covered chunks; never skip partial coverage.
+      additionalProperties: false
+    HistoricalSynchronizationStatus:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [not_started, running, waiting, stopping, stopped, interrupted, completed, attention]
+        backfillId: { type: string }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        coveredMonths: { type: string, enum: [skip, rerun] }
+        currentFrom: { type: string, format: date }
+        currentTo: { type: string, format: date }
+        currentRunId: { type: string }
+        totalMonths: { type: integer, minimum: 1, maximum: 1800 }
+        completedMonths: { type: integer, minimum: 0, maximum: 1800 }
+        skippedMonths: { type: integer, minimum: 0, maximum: 1800 }
+        remainingMonths: { type: integer, minimum: 0, maximum: 1800 }
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+        processedGames: { $ref: '#/components/schemas/RunCount' }
+        processedReleases: { $ref: '#/components/schemas/RunCount' }
+        dataQualityFailedGames: { $ref: '#/components/schemas/RunCount' }
+        currentProcessedGames: { $ref: '#/components/schemas/RunCount' }
+        currentProcessedReleases: { $ref: '#/components/schemas/RunCount' }
+        currentFailedGames: { $ref: '#/components/schemas/RunCount' }
+        currentDataQualityFailedGames: { $ref: '#/components/schemas/RunCount' }
+        currentProviderRequests: { $ref: '#/components/schemas/RunCount' }
+        startedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        elapsedSeconds: { type: integer, format: int64, minimum: 0 }
+        lastReason:
+          type: string
+          maxLength: 100
+          description: Stable operational code; never a raw error message or provider payload.
+      unevaluatedProperties: false
     CatalogueSynchronizationWindow:
       type: object
       required: [from, to]
@@ -3571,6 +3798,9 @@ components:
     ProblemCode:
       type: string
       enum:
+        - HISTORICAL_SYNCHRONIZATION_RANGE_INVALID
+        - HISTORICAL_SYNCHRONIZATION_NOT_FOUND
+        - HISTORICAL_SYNCHRONIZATION_CONFLICT
         - REQUEST_MALFORMED
         - REQUEST_PROPERTY_UNKNOWN
         - REQUEST_PARAMETER_UNKNOWN
@@ -3648,6 +3878,30 @@ components:
       description: RFC 9457 Problem Details with stable product extensions.
 
   responses:
+    HistoricalSynchronizationRejected:
+      description: HISTORICAL_SYNCHRONIZATION_RANGE_INVALID; the operation changed no historical target.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    HistoricalSynchronizationNotFound:
+      description: HISTORICAL_SYNCHRONIZATION_NOT_FOUND; the operation changed no historical target.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    HistoricalSynchronizationConflict:
+      description: HISTORICAL_SYNCHRONIZATION_CONFLICT; the operation changed no historical target.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     PublicNotModified:
       description: The cached public representation remains current; no body is returned.
       headers:

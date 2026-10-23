@@ -3,6 +3,8 @@ package com.videogameplatform.catalogue.configuration;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
+import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
 import java.time.Clock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -32,13 +34,17 @@ class CatalogueSchedulingConfiguration {
             CatalogueSynchronizationMetrics metrics,
             Clock clock,
             ThreadPoolTaskScheduler catalogueTaskScheduler,
-            CatalogueSchedulingProperties properties) {
+            CatalogueSchedulingProperties properties,
+            HistoricalBackfillStore backfill,
+            ScheduledSynchronizationStore pending) {
         return new CatalogueSynchronizationScheduler(
                 synchronization,
                 metrics,
                 clock,
                 catalogueTaskScheduler,
                 properties.nearTerm(),
-                properties.upcoming());
+                properties.upcoming(),
+                backfill,
+                pending);
     }
 }

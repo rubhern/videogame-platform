@@ -85,7 +85,7 @@ with a dedicated short statement timeout; health details remain hidden.
   say what committed writes did to the stored usable score. The upsert's own
   `RETURNING old/new` classifies it, so there is no extra query per Game. A Game that
   neither held nor now holds a usable score, a kept score and an answer older than the
-  stored check change none of them. Only manual, administration and scheduled triggers record
+  stored check change none of them. Only manual, administration, historical and scheduled triggers record
   these meters; repair batches appear in the retained run reports only. A failed score write
   rolls back its whole Game and is counted only as a failed Game.
 - Trigger meters `catalogue.synchronization.trigger{trigger,policy,outcome}` and
@@ -828,3 +828,19 @@ Limiter metrics and refusal logging stay disabled because both expose client add
 Native HTTP metrics and sanitized final status/origin observations provide separate,
 private signals. Actual-host calibration, log-age enforcement and owner notification
 acceptance remain required before exposure.
+
+Historical synchronization (#246) records its completed UC-009 reports through the existing
+run meters and assessment. Its current counters and checkpoint activity are durable local
+administration evidence, not high-cardinality telemetry. Progress observation is bounded to
+one snapshot per five seconds plus completion and remains best effort; a final checkpoint
+uses the authoritative UC-009 report. A snapshot failure logs one safe warning per attempted
+snapshot, without target/run identity or payload. No new metric labels identify a target,
+month, Game, Release or operator.
+
+A periodic UC-009 admission that returns `SYNCHRONIZATION_ALREADY_RUNNING` retains its
+fixed policy slot and is not counted as a terminal scheduled trigger on each drain tick.
+Terminal scheduled results keep the existing trigger/policy/assessment vocabulary. A
+shutdown-interrupted admission remains pending, and policy-admission infrastructure failures
+log the stable `SYNCHRONIZATION_DEFERRED_ADMISSION_FAILED` code without payload or exception
+message. The [solution architecture](../architecture/mvp-solution-architecture.md#historical-acquisition-orchestration)
+owns bounded durable deferral and restart semantics.
