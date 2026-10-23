@@ -272,6 +272,55 @@ work never brings them back.
   monospaced in IBM Plex Mono, the only use of a mono face, and keep their exact casing. Never
   case-transform them for style.
 
+## Transactional email presentation
+
+- **Status:** Owner-requested visual direction; implementation pending review (#323). No live rollout authorized.
+
+The `gameometro` email theme uses a shared, table-based HTML layout and narrow
+per-flow adapters for recovery, verification, administrative actions and SMTP tests.
+Keycloak supplies action URLs, action lists and formatted expiration values; its
+plain-text renderers remain inherited. The [message bundle](../../docker/keycloak/themes/gameometro/email/messages/messages_es.properties)
+owns Spanish text in both alternatives. HTML interpolation escapes values; the
+presentation never constructs tokens, changes expiration or dispatches account actions.
+Verification wording also covers a manual request when signup verification is optional.
+
+The owner's email reference directs a dark reading surface, clear system typography,
+blue security accents and a prominent orange action. This email-specific orange CTA
+is explicitly requested; the [product identity](#brand-identity) owns other interfaces.
+Use a bounded single reading column, presentation tables, inline styles and a fixed
+Outlook desktop wrapper. Borders and solid colours carry the hierarchy without
+cinematic artwork, gradients, external fonts, social icons or decorative security
+claims. The native action appears as a button and an underlined alternative link;
+plain text includes the complete URL. Keep the neutral greeting, product sign-off
+and automatic-message footer without invented contacts or reply policies.
+
+The approved [canonical logo](../../frontend/src/shared/brand/gameometro-logo.svg)
+is rasterized by the existing Playwright-based [email logo renderer](../../scripts/render-keycloak-email-logo.mjs)
+into the theme's PNG resource; geometry and colours remain unchanged. The owner
+explicitly permits first-party static HTTPS images. The template uses
+`${url.resourcesUrl}/img/gameometro-logo.png`, Keycloak's native email resource
+mechanism, with an appropriate alt and a permanently visible product-name caption.
+The logo is optional for comprehension and action; no SPI, CID, data URI, tracking
+query or third-party image host is introduced. Keep the PNG synchronized with its
+canonical SVG when that approved asset changes; #321 is not assumed approved.
+
+Local development uses the local Keycloak origin; its resource links are not suitable
+for external recipients. Before external delivery, the browser-facing Keycloak hostname
+must generate absolute public HTTPS action and image URLs, and the existing
+`/resources/*` route must serve the PNG anonymously. URL publication, proxy trust,
+real certificates and deployed reachability remain with #275/#276; a theme must never
+hardcode Docker aliases, localhost, a proposed domain or a separate image host.
+
+The [isolated Mailpit review](../../scripts/review-keycloak-email.sh) checks native
+flows, both alternatives, image bytes/reachability, responsive layouts, blocked images
+and reduced CSS. Its additional synthetic HTTPS-hostname mode uses disposable local
+TLS and reserved DNS; it does not prove a real public certificate or ingress. Only
+validated static asset URLs may remain in captures; redact authentication URLs before
+saving anything. Ignored local captures are review evidence, excluded from the portal.
+Gmail, Outlook and Apple Mail may proxy/block images, recolour dark emails or ignore
+cosmetic styles. Native inbox and assistive-technology acceptance remain distinct
+from Chromium and automated accessibility evidence.
+
 ## Product identity and thermal language
 
 - Post-MVP (#162), the first authentication screen is hosted by Keycloak. Post-MVP (#290
