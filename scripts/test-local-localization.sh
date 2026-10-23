@@ -57,7 +57,7 @@ done
 CATALOGUE_TRANSLATION_MODEL_DIR="$fixture/missing" run status
 CATALOGUE_TRANSLATION_MODEL_DIR="$fixture/missing" run down
 CATALOGUE_TRANSLATION_MODEL_DIR="$fixture/missing" run reset --yes
-grep -q 'compose.localization.yaml --profile localization down --volumes --remove-orphans' "$LOCAL_LOCALIZATION_COMMAND_LOG"
+grep -q 'compose.localization.yaml --profile localization --profile full down --volumes --remove-orphans' "$LOCAL_LOCALIZATION_COMMAND_LOG"
 [[ -f "$model/manifest.json" ]]
 sed -i 's/COMPOSE_PROJECT_NAME=videogame-platform/COMPOSE_PROJECT_NAME=other-project/' "$fixture/.env"
 if run reset --yes 2>/dev/null; then

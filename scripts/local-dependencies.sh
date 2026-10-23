@@ -485,14 +485,14 @@ case "$command_name" in
     with_localization=true
     ensure_compose_available
     require_env
-    compose down --remove-orphans
+    compose --profile full down --remove-orphans
     ;;
   status)
     with_observability=true
     with_localization=true
     ensure_compose_available
     require_env
-    compose ps
+    compose --profile full ps
     ;;
   logs)
     ensure_compose_available
@@ -528,7 +528,7 @@ case "$command_name" in
       read -r -p 'Delete disposable local PostgreSQL, Keycloak, metrics and logs data? [y/N] ' confirmation
       [[ "$confirmation" == "y" || "$confirmation" == "Y" ]] || die "Reset cancelled"
     fi
-    compose down --volumes --remove-orphans
+    compose --profile full down --volumes --remove-orphans
     printf 'Deleted disposable Compose data. The ignored environment files were preserved.\n'
     ;;
   *)

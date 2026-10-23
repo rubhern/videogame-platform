@@ -70,5 +70,38 @@ class KeycloakThemeTest(unittest.TestCase):
                 self.assertTrue((ROOT / source).is_file())
 
 
+class KeycloakEmailThemeTest(unittest.TestCase):
+    def test_html_and_text_keep_the_provider_argument_contract(self):
+        # These positions are supplied by Keycloak's inherited per-flow templates.
+        email = ROOT / "docker/keycloak/themes/gameometro/email"
+        bundle = dict(line.split("=", 1) for line in
+                      (email / "messages/messages_es.properties").read_text().splitlines()
+                      if line and not line.startswith("#"))
+        for flow, positions in {
+            "passwordReset": {"0", "2", "3"},
+            "emailVerification": {"0", "2", "3"},
+            "executeActions": {"0", "2", "3", "4"},
+            "emailTest": {"0"},
+        }.items():
+            with self.subTest(flow=flow):
+                self.assertEqual(set(re.findall(r"\{(\d+)\}", bundle[flow + "Body"])), positions)
+        # Narrow adapters pass native variables into a shared, HTML-escaped presentation macro.
+        for flow in ("password-reset", "email-verification", "executeActions"):
+            source = (email / "html" / (flow + ".ftl")).read_text()
+            self.assertIn("link=link", source)
+            self.assertIn("linkExpirationFormatter(linkExpiration)", source)
+            self.assertNotIn("?no_esc", source)
+        self.assertIn('href="${link}"', (email / "html/template.ftl").read_text())
+
+    def test_logo_uses_the_native_email_resource_url_and_canonical_raster(self):
+        email = ROOT / "docker/keycloak/themes/gameometro/email"
+        source = (email / "html/template.ftl").read_text()
+        self.assertIn('${url.resourcesUrl}/img/gameometro-logo.png', source)
+        self.assertNotIn('http://', source)
+        self.assertNotIn('https://', source)
+        self.assertTrue((email / "resources/img/gameometro-logo.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+
+
+
 if __name__ == "__main__":
     unittest.main()
