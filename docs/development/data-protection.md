@@ -722,7 +722,7 @@ acceptance, not proven by the development preview.
 
 | Work | #274 local result | Remaining gate |
 |---|---|---|
-| A: 30-day pending signup cleanup | Bounded probe, conditional maintenance protocol, fresh verification guard, existing deletion/ledger and failure recovery | CI real native filters; #275 actual proxy deny/drain/admin exclusion and scheduling preparation; #276 measured deployed race/drain/backlog evidence before any real timer |
+| A: 30-day pending signup cleanup | Bounded probe, conditional maintenance protocol, fresh verification guard, existing deletion/ledger and failure recovery | CI real native filters; #275 [prepared production transport and local evidence](../../deploy/public-production/README.md#identity-maintenance), pending final acceptance; #276 measured deployed race/drain/backlog and scheduling acceptance before any real timer |
 | B: minimum blocked archive | Automatic profiles, scoped claims, encrypted signed two-copy sealing, separate proof, review/hold/expiry/purge and restored-copy refusal | #275 protected storage/keys and independent copies; #276 Lenovo isolation, actual recovery/snapshot/media disposal and longer applicable obligations |
 | C: public information | Four review pages/footer, generated staged Keycloak basic layer, publication withheld | Owner final copy approval; #274 supplier/legal review; #275 integration configuration; #276 actual realm/mail/storage/cookie/CDN evidence |
 | Rights and incidents | Register, rights/breach procedures and existing export/deletion/replay retained | #276 actual contacts, channels, backup replay and response exercise |

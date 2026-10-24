@@ -1,0 +1,36 @@
+{
+  "backupId": "178dfa35cf0f45648f964c95a5b0ef1c",
+  "backupSeconds": 3.971,
+  "cleanup": true,
+  "databaseBytes": 23623886,
+  "deletionReplay": true,
+  "encryptedBytes": 398803,
+  "exerciseSeconds": 229.889,
+  "inflightWritesRolledBack": true,
+  "kind": "recovery-rehearsal",
+  "manifestSha256": "0cffa3d2b5fff6aae58b9b2be045fabc6606d14fae50ebf7dee2f95571c9dde7",
+  "offlineSessionCaptured": true,
+  "offlineSessionsRevoked": true,
+  "oldOfflineRefreshRefused": true,
+  "outcome": "success",
+  "plaintextDumpBytes": 398060,
+  "productionReady": false,
+  "provenance": {
+    "applicationVersion": "0.50.0-SNAPSHOT",
+    "image_digest": "sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:e0e1bcf632a9f10e3ae02207c2eb29d18153ad0c71f674c6e7366ab2e620f291",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:071ab827baa601ff554fc0ea620bce24d1a09dd1d900c2bf70fa26278d43333f",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:4d62ec17fc1683cafc2129b0e496ce226f4757f5585bae7470c4a5970fe4223d"
+    },
+    "securityRunId": 39816926731,
+    "source_revision": "ec036c3b15167dfb44b8ffe8d8a071716426854f",
+    "source_run_attempt": "1",
+    "source_run_id": "39816921291"
+  },
+  "readiness": true,
+  "restoreSeconds": 9.294,
+  "restoreToReadinessSeconds": 92.124,
+  "scope": "isolated-local-synthetic-only"
+}

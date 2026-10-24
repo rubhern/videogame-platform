@@ -1,0 +1,62 @@
+{
+  "sourceRevision": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "trustedKeycloakImage": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:56014f025e391e5955e5540d5ad97c7d3535e8b3b268a3ca009a412979b70a00",
+  "publishedImageEmailFilesMatchCurrentSource": true,
+  "emailFileSha256": {
+    "/opt/keycloak/themes/gameometro/email/resources/img/gameometro-logo.png": "be5a3ab2c127b16f59dea9ce8f2a5d9ca6d7b6d7893e2c2da2b78ac0821ce042",
+    "/opt/keycloak/themes/gameometro/email/messages/messages_es.properties": "1106c8341fe75f71c86aea73f952b830f4f3663b93594c9089de2df6e798bf17",
+    "/opt/keycloak/themes/gameometro/email/theme.properties": "9172647c27e908971cd0479ade324f6dace9c20ce89b62d9426ddefe6cf9b400",
+    "/opt/keycloak/themes/gameometro/email/html/executeActions.ftl": "13c33ea2a064c861f9704533ddadaba503b63c34bdeaa5675921cfbc9da6e890",
+    "/opt/keycloak/themes/gameometro/email/html/email-verification.ftl": "04fec7561e281d44bddb1bbd029513fcc1f911ca119b1b74a7aa46ca4d4de188",
+    "/opt/keycloak/themes/gameometro/email/html/email-test.ftl": "c5d05dd46cfe13359b817bc0cade619f5c3353bf4b5ab245899bf64b57a48ad5",
+    "/opt/keycloak/themes/gameometro/email/html/password-reset.ftl": "c4ff3d19f39085d9a17929861baaa356651c2b07c430da7dcdecaeb5d72ecbdd",
+    "/opt/keycloak/themes/gameometro/email/html/template.ftl": "66ca1dfd83d5a3dde27ccf0c01b535b1073a803eec3dca42f05a9f7381d25aac"
+  },
+  "explicitCommand": "bash scripts/review-keycloak-email.sh after-public",
+  "testExecuted": true,
+  "outcome": "passed",
+  "scope": "synthetic HTTPS using native Keycloak TLS and Mailpit, current repository themes mounted explicitly; separate hash check verifies trusted current image contains those exact assets",
+  "flows": {
+    "verification": {
+      "captured": true,
+      "actionCompleted": true,
+      "accessibility": {
+        "320": [],
+        "390": [],
+        "834": [],
+        "1320": []
+      }
+    },
+    "recovery": {
+      "captured": true,
+      "actionCompleted": true,
+      "accessibility": {
+        "320": [],
+        "390": [],
+        "834": [],
+        "1320": []
+      }
+    },
+    "actions": {
+      "captured": true,
+      "actionCompleted": true,
+      "accessibility": {
+        "320": [],
+        "390": [],
+        "834": [],
+        "1320": []
+      }
+    },
+    "smtp-test": {
+      "captured": true,
+      "actionCompleted": "not applicable",
+      "accessibility": {
+        "320": [],
+        "390": [],
+        "834": [],
+        "1320": []
+      }
+    }
+  },
+  "setupFailure": "First attempt could not resolve an external node_modules symlink from inside the test container; copied existing ignored dependencies into this isolated worktree, then explicitly executed the test."
+}

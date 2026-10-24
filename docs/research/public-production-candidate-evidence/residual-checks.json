@@ -1,0 +1,140 @@
+{
+  "scope": "Six residual findings; current unpublished operational sources with retained trusted-main image baseline",
+  "workingTreeBase": "bf488970c4d103608f16891715abc033dae5b8d8",
+  "selectedImageSource": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "runtimeSourceFingerprint": "d3502c1bd084aeb297f947e64513cc17664abd7e0aa854019693979980437469",
+  "currentChangeCI": "not-run-uncommitted; no PR/main success claim",
+  "projectStatus": "In progress; independent read-only re-review before owner-authorized publication",
+  "sourceSha256": {
+    "deploy/private-dev/bin/personal-data-ledger": "7f841d31c82f7ca5ebe0a8a3118646f21f18d58f0367ad76cfceed4db1c16d4a",
+    "deploy/public-production/bin/recovery": "9c7da1b382c77c9914d1b8e653b150ac3f651587b1c5c603fb94b663647f29a3",
+    "scripts/public_production_deployment.py": "b71e56d67daa1f73a92c8974b96ae6e079bb2f86a2d028b541326e80ea35fe32",
+    "scripts/test-public-production-deployment.py": "25deb35380ce007977d4786eca6d3db4e83999899a6e51863c8900af3b5e5a5b",
+    "scripts/test-production-recovery.py": "60f9a8bcaa687437e672de23f4995255428523a160aaaec94ea56b9e5d10118a",
+    "scripts/rehearse-production-recovery.py": "70dd4275aebca428171ad16a09c3ce1dddb05497338a2deec34522ced34ea032",
+    "scripts/test-personal-data-privacy.py": "73b8b8b1cece90dd757756a52afa1c2ce5a030fc359d6b7fa4033e52d1e7d538",
+    "scripts/rehearse-production-cleanup.py": "9468ee5e2b64b88699c6768687b3e7751ddd41b9af60e1226516c4ee6c20f227",
+    "scripts/public_production_integration.py": "2245fba0005aa75853eea70ebf10b9e3bfbc97f0b7d36c11885ac68bfb1a1937",
+    "scripts/test-production-recovery-lock.py": "50a7db43789db2e4e19fb42d0f7027e38da80bf63f941dca3d6745125d74392a",
+    "scripts/test-public-production-runtime.py": "6fdc15135cbbdf61965274c5e8c625dfbc5c70f78016476bf116283f6dcd4f00",
+    "scripts/provision-grafana-reader.sh": "a1200cd6a5fb43af8157e98fd456be9d739375fb90742f00457839a800591bc9",
+    "scripts/probe-public-production-edge.py": "911a72ad99abab32c0968e8c5c1f46e08968afa64045a406067c76e78da2938b"
+  },
+  "checks": [
+    {
+      "command": "python3 scripts/test-production-recovery.py",
+      "outcome": "passed",
+      "tests": 41,
+      "logSha256": "a1d1e76a902b2ae5f601a4b04e63d562c6b18a555d54d1e2845bd9de4a7b1b5b"
+    },
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "outcome": "passed",
+      "tests": 24,
+      "logSha256": "9db777eaa5e8310f97449d313f354f3a3b288c7c7f06aa379e2133c4073d9f80"
+    },
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "outcome": "passed",
+      "tests": 10,
+      "logSha256": "85bdb3d23316195a7aad16b696a688d839cd6f3a8ddf856daed46f675b993098"
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "outcome": "passed",
+      "tests": 13,
+      "logSha256": "9972dffd580cb57a5ac848f19d720095df5532dfa0e11c6ffc2062cf174dbbc0"
+    },
+    {
+      "command": "python3 scripts/test-personal-data-privacy.py",
+      "outcome": "passed",
+      "logSha256": "48c133ca0c953382e239eb49441c3d1b9f6770200994ce829a92f45d584bc976"
+    },
+    {
+      "command": "python3 scripts/test-production-recovery-lock.py",
+      "outcome": "passed",
+      "logSha256": "90d06e4c718dc46ace82f1f4fa6d2cb424c08e77f4195c3ecdcb10b67eb7ea22"
+    },
+    {
+      "command": "python3 scripts/test-public-production-runtime.py --static-only",
+      "outcome": "passed",
+      "logSha256": "f528fea4a226cca132be160cb6bf224320ac699b3438f72c9bd7924d178aecc8"
+    }
+  ],
+  "privacyChecks": [
+    "failed requested-account drain before mutation/write-ahead record",
+    "requested-account interrupted retry with explicit fence",
+    "first retry paused in maintenance check excludes concurrent second retry under the ledger lock",
+    "replicated completion, suppression proof and original ciphertext",
+    "legacy erasure/replay and cleanup eligibility/holds retained"
+  ],
+  "reproduction": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-recovery.py --revision c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916 --evidence NEW_DIRECTORY",
+  "integratedOutcome": "success",
+  "integratedChecks": {
+    "cleanup": true,
+    "deletionReplay": true,
+    "grafanaDatasourceAfterReopenRestart": true,
+    "grafanaDatasourceBeforeBackup": true,
+    "grafanaStoppedBeforeDrain": true,
+    "inflightWritesRolledBack": true,
+    "missingArchiveReplayRefused": true,
+    "monitoringReaderDrained": true,
+    "monitoringReaderFreshLoginVerified": true,
+    "monitoringReaderProvisioned": true,
+    "monitoringReaderReconstructedAndReopened": true,
+    "monitoringReaderThawed": true,
+    "notificationEgressIsolatedOnlyInRehearsal": true,
+    "offlineSessionCaptured": true,
+    "offlineSessionsRevoked": true,
+    "oldOfflineRefreshRefused": true,
+    "originalArchiveCiphertextPreserved": true,
+    "productionReady": false,
+    "profiledErasureInterruptedAfterSealingBeforeDeletion": true,
+    "readiness": true,
+    "reconstructionCredentialMatchesDatasourceSecret": true,
+    "requestedAccountRetryCompleted": true,
+    "retryMaintenanceReleased": true,
+    "sealedCiphertextPreservedThroughRetry": true,
+    "suppressionProofOriginalArchiveSha256": true,
+    "unknownLoginRoleRefused": true,
+    "unknownLoginRoleReopenRefused": true,
+    "verifiedRecoveryRecordedBeforeLedgerRetry": true
+  },
+  "ownedResourcesRemaining": [],
+  "previousEvidenceBytesUnchanged": true,
+  "originalStagedDiffUnchanged": true,
+  "unrelatedWorkloads": "untouched; preexisting videogame-platform mailpit was not changed",
+  "privateDevSourceException": "Owner explicitly authorized only the narrow shared personal-data-ledger source correction; no private-dev configuration/service operation",
+  "bytecodeHygiene": "Generated validation bytecode retained recoverably outside the runtime inventory; authoritative rehearsal disables bytecode writes. No provenance exclusion added.",
+  "limitations": [
+    "Static dependency discovery covers repository file/import conventions; generated dynamic paths need review",
+    "Host loss pauses workflow after sealing, before delete-ratings dispatch; not power loss inside a DELETE",
+    "Independent directories are simulated storage failure domains; no VPS capacity qualification",
+    "Recovery readiness proof precedes live ledger completion; its older ledger digest is not relabelled",
+    "Focused rehearsal exercises Grafana but does not repeat localizer/browser/telemetry suites whose earlier receipts retain their narrower source scope"
+  ],
+  "externalGates": {
+    "upstreamSecurity": "bf48897 Security run 40029049556 failed npm audit; build run 40029049867 succeeded",
+    "inheritedImageFindings": "Retained c7bc scan: 63 localizer and 19 Keycloak unique HIGH/CRITICAL; no owner risk acceptance",
+    "legalProviderContracting": "Unchanged canonical owner decisions and contracting prerequisites remain pending",
+    "realHost": "#276 qualification and separate purchase/public-exposure authorization remain required"
+  },
+  "recommendation": "Ready for focused independent read-only re-review; #275 remains open, not accepted; no commit/push/merge",
+  "receiptSha256": {
+    "residual-backup.json": "e893b7963a2e3de7c59a9e11b8c3b8360e117616ff2968c13dccb21f8c17617c",
+    "residual-datasource-startup-failure.json": "21d588c4d6f2916a72c3c005e208f76b618f26b53d086e902141bee5029296ce",
+    "residual-provenance.json": "7887aa22b3290d244df1d6d24f66d58f3d032f9f06004823f55d193eb67e94a1",
+    "residual-recovery-generated-bytecode.json": "7adfe11614c0b46813c699e1c4792f1f36a4b03fecbeae60a095546c17eb41c2",
+    "residual-recovery.json": "b60e30a61dc70a74beeef75a20d9365fb0319a7562417cb2410d7b280d7a5c69",
+    "residual-replay.json": "09c470b6bed1c01d834d728324fa61023b8ab9cf7afc5e0c8bb469d6b2a76d9e",
+    "residual-restore.json": "208c47a0b5486764cb09bbef1d095a10cabc9fddbada1fa907edd305534fcdc5",
+    "residual-verified-recovery.json": "9add286bbd9a178820cdd68d0974a62675eae3f9cb430040ebcc0739a3aa6420"
+  },
+  "documentationValidation": {
+    "sourceReviewSnapshot": "passed",
+    "portalBuild": "passed: 100 pages, links, anchors, assets, search",
+    "portalBrowser": "passed: 3 focused tests plus candidate sidebar/search, residual matrix, 1320/390 layout and linked integrated receipt",
+    "sourceValidatorLogSha256": "a577c20ffd716a727eff6829bca7a41e2cbfc01a44de0198134499fdbac40f0a",
+    "browserLogSha256": "a4e286a4840cb15f13c25abe783786d0a8591eb037be2b2bd7ddd4d1c5451809"
+  }
+}

@@ -423,19 +423,19 @@ class Limits(Probe):
 
 
 # Legitimate traffic from one shared household address: four people loading the site,
-# browsing, three signing in, one registering and one recovering a password, at a browser
+# browsing, three signing in, two registering and one recovering a password, at a browser
 # pace of about ten requests a second. None of it may be refused.
 HOUSEHOLD_PERSON = ["shell", *["asset"] * 20, "session", "releases", "read", "search", "search", "read",
                     "read", "write", "write"]
 HOUSEHOLD_SIGN_IN = ["navigation", "identity-page", *["identity-resource"] * 6, "login", "callback", "session"]
 HOUSEHOLD_REGISTRATION = ["navigation", "identity-page", *["identity-resource"] * 6, "registration", "verification",
-                          "action-link", "required-action", "callback"]
+                          "action-link", *["required-action"] * 4, "callback"]
 HOUSEHOLD_RECOVERY = ["navigation", "identity-page", "recovery", "action-link", "required-action", "callback"]
 
 
 def household():
     check = Limits()
-    journey = HOUSEHOLD_PERSON * 4 + HOUSEHOLD_SIGN_IN * 3 + HOUSEHOLD_REGISTRATION + HOUSEHOLD_RECOVERY
+    journey = HOUSEHOLD_PERSON * 4 + HOUSEHOLD_SIGN_IN * 3 + HOUSEHOLD_REGISTRATION * 2 + HOUSEHOLD_RECOVERY
     check.run([f"{kind}:1:ok" for kind in journey], pace=0.1)
     return check
 

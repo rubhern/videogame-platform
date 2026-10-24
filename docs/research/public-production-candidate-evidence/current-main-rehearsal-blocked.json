@@ -1,0 +1,27 @@
+{
+  "checks": [],
+  "component": "all",
+  "failedAt": [
+    {
+      "file": "rehearse-production-cleanup.py",
+      "line": 68
+    },
+    {
+      "file": "public_production_integration.py",
+      "line": 51
+    },
+    {
+      "file": "public_production_integration.py",
+      "line": 43
+    }
+  ],
+  "failedProbe": null,
+  "failureType": "Refused",
+  "kind": "production-cleanup-rehearsal",
+  "operationalFailures": [],
+  "outcome": "failure",
+  "productionReady": false,
+  "scope": "local-synthetic-working-tree-transport-with-trusted-main-images",
+  "requestedRevision": "101ce2e17b2ec4c82a641964d2358329249205bf",
+  "environment": "Docker Desktop WSL integration unavailable; Docker CLI exits before context inspection; /var/run/docker.sock absent"
+}

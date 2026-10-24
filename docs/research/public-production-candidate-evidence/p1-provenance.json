@@ -1,0 +1,15 @@
+{
+  "sourceRevision": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "trustedArchiveFingerprint": "6f7d1bb735d5420fe1cf1faa7d4bfcba07815f8cb67fc59bcbb3cd43d61c1cec",
+  "candidateFingerprint": "cb34289d975ea434932072ae839305a6169538fa099cb50f4abd27d273bf476b",
+  "schemaInventory": "a820971eebcac5df6614206a58031392f31910c38904b8188fea830697f8bd41",
+  "trustedArchiveVerifiedUsingExpandedInventory": true,
+  "unpublishedCandidateRefused": true,
+  "mutationTests": "21 deployment tests including every explicit transitive dependency, mounted dashboard/notification/datasource additions, removal, content and mode checks",
+  "sourceSha256": {
+    "deploy/public-production/bin/recovery": "2b796d9531ffe07f5b455f3f321d26a2edf4d237114d667a603e32da0e792e50",
+    "scripts/public_production_deployment.py": "d42a9bd5253f3528396b8b30dde6b8f6ad67380fdfa94c74acce09685df8ed26",
+    "scripts/rehearse-production-recovery.py": "66e5fa33b78fece4c623b3b2b6a802d8e0a89cc527af52fe18364d0330a34f0a",
+    "scripts/rehearse-production-cleanup.py": "9468ee5e2b64b88699c6768687b3e7751ddd41b9af60e1226516c4ee6c20f227"
+  }
+}

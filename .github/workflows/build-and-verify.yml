@@ -318,7 +318,9 @@ jobs:
           python3 scripts/test-production-recovery-lock.py
 
       - name: Prove the identity-maintenance fence and its Keycloak drain evidence
-        run: python3 scripts/test-production-identity-maintenance.py
+        run: |
+          python3 scripts/test-production-identity-maintenance.py
+          python3 scripts/test-production-cleanup.py
 
       - name: Prove production dashboards, PromQL, privacy, Telegram mock and bounded overhead
         run: python3 scripts/test-production-observability.py --smoke

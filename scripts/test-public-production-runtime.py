@@ -650,12 +650,12 @@ class Edge:
 LIMIT = "limit"
 BURSTS = [
     ("application per-source", [("source-a", "shell:120:ok", "shell:1:limited")]),
-    ("BFF navigation per-source", [("source-a", "navigation:10:ok", "navigation:1:limited", "callback:1:limited")]),
+    ("BFF navigation per-source", [("source-a", "navigation:20:ok", "navigation:1:limited", "callback:1:limited")]),
     ("catalogue read per-source and quota recovery",
      [("source-a", "read:40:ok", "read:1:limited", "pause:retry-after", "read:1:ok")]),
     ("expensive search per-source", [("source-a", "search:20:ok", "releases:1:limited", "read:1:ok")]),
     ("product write per-source", [("source-a", "write:30:ok", "write:1:limited", "read:1:ok")]),
-    ("identity per-source", [("source-a", "identity-page:30:ok", "identity-resource:1:limited")]),
+    ("identity per-source", [("source-a", "identity-page:60:ok", "identity-resource:1:limited")]),
     ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
     ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
                                  "registration-slashes:1:limited", "login:1:ok")]),

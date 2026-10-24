@@ -1,0 +1,80 @@
+{
+  "checks": [],
+  "component": "telemetry",
+  "failedAt": [
+    {
+      "file": "rehearse-production-cleanup.py",
+      "line": 94
+    },
+    {
+      "file": "public_production_integration.py",
+      "line": 409
+    },
+    {
+      "file": "public_production_integration.py",
+      "line": 368
+    }
+  ],
+  "failedProbe": {
+    "browser": {
+      "identityActionRequests": 8,
+      "lastStage": "password login after logout",
+      "lines": [],
+      "rateRefusals": [
+        {
+          "origin": "product",
+          "retryAfterSeconds": 27
+        }
+      ],
+      "status": "timedOut"
+    },
+    "exitCode": 1,
+    "identityActionRequests": 8,
+    "locations": [
+      "production-identity.spec.ts:199",
+      "production-identity.spec.ts:205",
+      "production-identity.spec.ts:240",
+      "production-identity.spec.ts:66"
+    ],
+    "phase": "C-browser-security",
+    "rateRefusals": [
+      {
+        "origin": "product",
+        "retryAfterSeconds": 27
+      }
+    ],
+    "timeoutBudgetsMs": [
+      "120000"
+    ]
+  },
+  "failureType": "Refused",
+  "kind": "production-cleanup-rehearsal",
+  "localizer": "not-exercised-model-not-supplied",
+  "operationalFailures": [],
+  "outcome": "failure",
+  "productionReady": false,
+  "provenance": {
+    "applicationVersion": "0.48.0-SNAPSHOT",
+    "image_digest": "sha256:24e24e0ea9432ba745b83be67d279ed760b70f3f37785767111f45b5d449bc22",
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:24e24e0ea9432ba745b83be67d279ed760b70f3f37785767111f45b5d449bc22",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:d62505eed0f807a2905d63f35b787d66d136b07a27b73ecc086d71ba6dafad72",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:d09961801cd415ee68b31f7d321e1b9ce3139da8150380f944e98b877b792b68",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:d313fe0b4d0bca2a2d5a3bac485d9521a8298f1a9f0d1dbb82f5fb34e6986613"
+    },
+    "securityRunId": 39724333822,
+    "source_revision": "39b57c5d0fe96a0b71d5bb79c02523c2b06534f4",
+    "source_run_attempt": "1",
+    "source_run_id": "39724333840"
+  },
+  "renderedConfigurationSha256": "85f663eb4e036e7e0a00789fa1d74b88a50a9ba968c0323853ddd44323f9177a",
+  "runtimeSourceFingerprint": "acd662ecc765134b033d7866cf4fe33417eb9c99b289216593a68fcffee5a7ef",
+  "scope": "local-synthetic-working-tree-transport-with-trusted-main-images",
+  "sourceFiles": {
+    "deploy/public-production/bin/recovery-personal-data": "5321bfeee4b41efe60419ea81f949d1edcfda4ad32f8f679a1b1a3af73dc99fa",
+    "deploy/public-production/compose.observability.yaml": "8c757393ac501d99f36cc0f4b23e1285a36b209412571a7c55fe6bc1c0d9314f",
+    "deploy/public-production/compose.yaml": "8d5d6c090505ced8a91a589eca3d168dc8746ae20df506e8eba1ad8ebc9547c7",
+    "scripts/rehearse-production-cleanup.py": "9dd0f1b89e809c81cf564b708c8960b92afe4433ae10dc70c33ceb8419eb12e5"
+  },
+  "teardown": "passed"
+}

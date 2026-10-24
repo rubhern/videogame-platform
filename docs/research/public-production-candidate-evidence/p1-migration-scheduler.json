@@ -1,0 +1,12 @@
+{
+  "sourceRevision": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "actualMigrationVersion": "20261023.130000",
+  "schedulingFlagInRunningApplication": "false",
+  "effectiveSchedulingDefault": "false (backend/src/main/resources/application.yaml)",
+  "providerCallsExercised": false,
+  "scope": "Synthetic catalogue/translation only; no scheduled provider sync or real scheduler throughput evidence",
+  "newMigrations": [
+    "V20261023_120000__checkpoint_historical_backfill.sql",
+    "V20261023_130000__defer_scheduled_synchronization_policies.sql"
+  ]
+}

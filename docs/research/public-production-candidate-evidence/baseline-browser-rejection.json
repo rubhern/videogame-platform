@@ -1,0 +1,114 @@
+{
+  "outcome": "failure",
+  "phase": "C-browser-security",
+  "provenance": {
+    "source_revision": "39b57c5d0fe96a0b71d5bb79c02523c2b06534f4",
+    "image_digest": "sha256:24e24e0ea9432ba745b83be67d279ed760b70f3f37785767111f45b5d449bc22",
+    "source_run_id": "39724333840",
+    "source_run_attempt": "1",
+    "securityRunId": 39724333822,
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:24e24e0ea9432ba745b83be67d279ed760b70f3f37785767111f45b5d449bc22",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:d313fe0b4d0bca2a2d5a3bac485d9521a8298f1a9f0d1dbb82f5fb34e6986613",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:d09961801cd415ee68b31f7d321e1b9ce3139da8150380f944e98b877b792b68",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:d62505eed0f807a2905d63f35b787d66d136b07a27b73ecc086d71ba6dafad72"
+    },
+    "applicationVersion": "0.48.0-SNAPSHOT"
+  },
+  "localizer": "pending",
+  "productionReady": false,
+  "stages": [
+    "A",
+    "B"
+  ],
+  "resources": {
+    "postgres": {
+      "peakBytes": 100873011,
+      "steadyBytes": 100327751,
+      "samples": 46,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 805306368
+    },
+    "migration": {
+      "peakBytes": 72236400,
+      "steadyBytes": 72236400,
+      "samples": 1,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 536870912
+    },
+    "caddy": {
+      "peakBytes": 17332961,
+      "steadyBytes": 16011755,
+      "samples": 43,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 134217728
+    },
+    "keycloak": {
+      "peakBytes": 537604915,
+      "steadyBytes": 536241766,
+      "samples": 43,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 805306368
+    },
+    "mailpit": {
+      "peakBytes": 14774435,
+      "steadyBytes": 13694402,
+      "samples": 43,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 134217728
+    },
+    "application": {
+      "peakBytes": 476577792,
+      "steadyBytes": 472698060,
+      "samples": 30,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 1610612736
+    }
+  },
+  "startedAtUnix": 1792647102,
+  "measurement": "Docker sampled working-set memory every >=2 seconds; steady is the final idle sample. No VPS capacity claim.",
+  "runtimeConfigurationFingerprint": "a2eae489c07a5f7bde0d8f042acf935142991b7eb7c77a9b5c34f5144c39b670",
+  "requestedStage": "E",
+  "sourceFiles": {
+    "deploy/public-production/compose.yaml": "370af1b00fb32501bbd8dca92015b396628418cf7ecb4b7ae77e3af2c8bdcea4",
+    "deploy/public-production/caddy/Caddyfile": "4640f992ab5fefa750955736071f4ad0208a4205c8f166d5975584fc7787bbe0",
+    "deploy/public-production/bin/run-postgres": "b12b0d5f69b596e73ccf9613479fee8ca1d540a58000e40fc5322157c91b6ce6",
+    "deploy/public-production/bin/run-keycloak": "e93a340fb2060d819871b96cf46edf382472a2081a352797b5bf1bedd82200d7",
+    "scripts/public_production_integration.py": "f8958c8fe2756e4c034e6942d83127c0ce3e8ef99979ba72fd1d5b7fd3708103",
+    "scripts/run-production-runtime-browser.sh": "e2ac8482ebe1998315e9dea4a9d0e40fb046d6829bde69be2c6a530a2d8ec12e",
+    "frontend/tests/production-identity.spec.ts": "15b6883c30918e714438488b33ca43f2788bb613a32c852f13e79865f7020df2"
+  },
+  "configurationSha256": "4d65d187b4017787c819954e78890eca3807d2734435fc7be6845ff79c77f8e1",
+  "migrationVersion": "20261021.120000",
+  "failedProbe": {
+    "phase": "C-browser-security",
+    "locations": [
+      "production-identity.spec.ts:137",
+      "production-identity.spec.ts:185",
+      "production-identity.spec.ts:225",
+      "production-identity.spec.ts:54"
+    ],
+    "exitCode": 1,
+    "timeoutBudgetsMs": [
+      "120000"
+    ]
+  },
+  "runtimeEvents": [
+    {
+      "service": "migration",
+      "action": "die",
+      "exitCode": "0",
+      "expectedOperatorStop": false
+    }
+  ],
+  "eventObservation": "passed",
+  "durationSeconds": 218,
+  "teardown": "passed",
+  "reason": "Integration probe failed; raw evidence withheld."
+}

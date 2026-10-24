@@ -15,4 +15,6 @@ cp /work/frontend/package.json /work/frontend/playwright.config.ts /tmp/frontend
 cp /work/frontend/tests/production-identity.spec.ts /tmp/frontend/tests/
 ln -s /work/node_modules /tmp/node_modules
 cd /tmp/frontend
-/work/node_modules/.bin/playwright test tests/production-identity.spec.ts --config=/tmp/frontend/playwright.config.ts --reporter=line --trace=off --workers=1
+# Two complete signup/email journeys share the bounded production CPU allocation.
+# Keep a finite per-test budget without retries or changing runtime limits.
+/work/node_modules/.bin/playwright test tests/production-identity.spec.ts --config=/tmp/frontend/playwright.config.ts --reporter=line --trace=off --workers=1 --timeout=120000

@@ -577,7 +577,7 @@ def command_export(arguments: argparse.Namespace, host_command: list[str]) -> in
 def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int:
     request = request_reference(arguments.request)
     keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
-    with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger:
+    with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger, contextlib.ExitStack() as fence:
         existing = ledger.entry(keycloak_user_id)
         if existing is not None:
             if existing["completedAt"]:
@@ -606,6 +606,22 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
                     # A protected particular-case record is the explicit exception, not a default full export.
                     archive_module.read(hold_path, 16384)
                     profile = "case-hold-v1"
+        if arguments.maintenance_command:
+            issuer = identity.get("issuer", "")
+            if not issuer.startswith("https://") or not issuer.endswith("/realms/gameometro"):
+                raise LedgerError("Maintenance erasure requires the production issuer")
+            if archive is not None:
+                archive_preflight(archive)
+            adapter = shlex.split(arguments.maintenance_command)
+            run_id = str(uuid.uuid4())
+            # Register before entry, including lost acknowledgements and failed drains.
+            fence.callback(maintenance, adapter, "exit", run_id, issuer)
+            maintenance(adapter, "enter", run_id, issuer)
+            maintenance(adapter, "check", run_id, issuer)
+            refreshed = identify(host_command, keycloak_user_id)
+            if (refreshed.get("issuer") != issuer or refreshed["userId"] != identity["userId"]
+                    or refreshed["account"] == "absent"):
+                raise LedgerError("Erasure identity changed inside maintenance")
         # Write-ahead: the request is durable before the first mutation.
         ledger.append({"event": "requested", "request": request, "keycloakUserId": keycloak_user_id,
                        "userId": identity["userId"], **({"archiveProfile": profile} if profile else {})})
@@ -633,13 +649,15 @@ def command_retry(arguments: argparse.Namespace, host_command: list[str]) -> int
                 cutoff = entry.get("cleanupCutoffMs")
                 if type(cutoff) is not int or cutoff <= 0 or not arguments.maintenance_command:
                     raise LedgerError("Cleanup retry requires its recorded cutoff and a deny/drain adapter (#275)")
+            if is_cleanup or arguments.maintenance_command:
                 identity = identify(host_command, entry["keycloakUserId"])
                 issuer = identity.get("issuer", "")
                 if (identity["userId"] != entry["userId"] or not issuer.startswith("https://")
                         or not issuer.endswith("/realms/gameometro")):
                     raise LedgerError("Cleanup retry belongs to another runtime identity")
                 if active_fence is None:
-                    archive_preflight(archive)
+                    if archive is not None:
+                        archive_preflight(archive)
                     adapter = shlex.split(arguments.maintenance_command)
                     run_id = str(uuid.uuid4())
                     # Register before enter: an acknowledgement can be lost after entry succeeds.
@@ -650,6 +668,10 @@ def command_retry(arguments: argparse.Namespace, host_command: list[str]) -> int
                 if active_fence[2] != issuer:
                     raise LedgerError("Cleanup retry issuer changed inside maintenance")
                 maintenance(active_fence[0], "check", active_fence[1], issuer)
+                refreshed = identify(host_command, entry["keycloakUserId"])
+                if refreshed.get("issuer") != issuer or refreshed["userId"] != entry["userId"]:
+                    raise LedgerError("Retry identity changed inside maintenance")
+            if is_cleanup:
                 source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", entry["keycloakUserId"]])
                 user = source.get("account")
                 hold_path = archive.holds / (entry["keycloakUserId"] + ".json")
@@ -772,6 +794,7 @@ def main() -> int:
     erase.add_argument("--request", required=True)
     erase.add_argument("--keycloak-user-id", required=True)
     erase.add_argument("--archive-profile", choices=archive_module.PROFILES)
+    erase.add_argument("--maintenance-command", help="Trusted enter/check/exit deny-drain adapter for live erasure")
     cleanup = commands.add_parser("cleanup-unverified", help="Dry-run by default; never installs a timer")
     cleanup.add_argument("--execute", action="store_true")
     cleanup.add_argument("--maintenance-command", help="Trusted #275 enter/check/exit deny-drain adapter")
@@ -785,7 +808,7 @@ def main() -> int:
         if name == "archive-purge":
             command.add_argument("--execute", action="store_true")
     retry = commands.add_parser("retry", help="Run every incomplete erasure again")
-    retry.add_argument("--maintenance-command", help="Required deny/drain adapter for cleanup recovery")
+    retry.add_argument("--maintenance-command", help="Deny/drain adapter for live erasure; required for cleanup recovery")
     commands.add_parser("status", help="List ledger entries (identifiers and states only)")
     replay = commands.add_parser("replay", help="Reapply every erasure to a restored runtime before it reopens")
     replay.add_argument("--receipt", type=pathlib.Path, required=True)

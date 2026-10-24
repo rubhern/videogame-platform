@@ -855,7 +855,7 @@ now have administrative implementations and draft product review pages. Existing
 private-dev erasure/replay behavior remains available. Production cleanup execution
 requires the [#275 deny/drain adapter](../../deploy/public-production/README.md#identity-maintenance),
 its real-host drain acceptance (#276) and protected archive/proof/holds stores; no real
-timer is installed. Production/Lenovo qualification remains #275/#276. No host changes
+timer is installed. Real-VPS/Lenovo qualification remains #276. No host changes
 or legal publication are authorized by local success.
 
 Policy: the [data-protection procedure](data-protection.md#rights-request-procedure)
@@ -1106,8 +1106,9 @@ Pass global arguments before the subcommand. For example, use the same reviewed
 host command as the existing rights procedure, with its exact production HTTPS issuer
 ending `/realms/gameometro` and the selected container names. Production mutation
 requires a named application container even when stopped; a missing or uninspectable
-container never proves session absence. #275 must qualify the restore-time container
-state and actual origin/issuer/database pairing before real use:
+container never proves session absence. The [candidate audit](../research/public-production-candidate-acceptance.md)
+records the synthetic restore-time container and origin/issuer/database pairing;
+#276 must qualify actual host permissions and identity before real use:
 
 ```bash
 personal-data-ledger --ledger <owner-ledger> --ledger-copy <independent-ledger> \
@@ -1138,7 +1139,8 @@ identity/restore/deployment operations, keep that fence until exit, and settle
 management requests before release even after client timeout. A reload/sleep or
 self-asserted JSON is insufficient. The production adapter is
 [`identity-maintenance`](../../deploy/public-production/README.md#identity-maintenance) (#275); it is
-locally exercised only, and no production host command for cleanup exists yet. The protected Admin credential must permit filtered
+prepared for local exercise through its linked production privacy transport; real-host
+acceptance remains #276. The protected Admin credential must permit filtered
 user reads, management-client discovery and effective client-role reads; inability
 to establish role exclusion stops execution. Execute performs
 key/storage preflight, locks the ledger, re-reads candidates, checks the fence and

@@ -1,0 +1,25 @@
+{
+  "workingTreeBase": "bf488970c4d103608f16891715abc033dae5b8d8",
+  "lastQualifiedImageSource": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "upstreamChange": "#321 frontend brand lockup; no privacy/recovery/provenance sources, migrations, scheduler or Keycloak email files changed",
+  "securityRun": 40029049556,
+  "securityConclusion": "failure",
+  "failedJob": "npm dependency audit",
+  "failedJobUrl": "https://github.com/rubhern/videogame-platform/actions/runs/40029049556/job/120672466961",
+  "blockingFinding": {
+    "package": "zod",
+    "severity": "high",
+    "range": "<4.6.6",
+    "advisory": "GHSA-mrhx-c7xc-m3w5"
+  },
+  "otherReportedFindings": [
+    "GHSA-qxg6-89mg-rqv8",
+    "GHSA-xp26-3454-mjgp"
+  ],
+  "buildRun": 40029049867,
+  "buildStatusAtInspection": "completed",
+  "latestBrandImageQualified": false,
+  "olderImagesSubstitutedForNewBrandContent": false,
+  "nextStep": "Resolve upstream dependency security failure and obtain successful current trusted publications; then execute the full combined/browser candidate on that exact source. P1 component receipts retain their original source/images; no claim to qualification of changed branding.",
+  "buildConclusion": "success"
+}

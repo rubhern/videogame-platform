@@ -18,11 +18,28 @@ ROOT = Path(__file__).resolve().parents[1]
 require = trust.require
 
 
+RUNTIME_DIRECTORIES = ('deploy/public-production/', 'docker/postgres/init/',
+                       'deploy/private-dev/grafana/bin/', 'deploy/private-dev/grafana/dashboards/',
+                       'deploy/private-dev/grafana/provisioning/datasources/')
+RUNTIME_FILES = frozenset((
+    'deploy/private-dev/bin/run-application', 'deploy/private-dev/bin/run-migrations',
+    'deploy/private-dev/bin/personal-data', 'deploy/private-dev/bin/personal-data-ledger',
+    'deploy/private-dev/bin/configure-keycloak-mail', 'deploy/private-dev/bin/provision-oidc-smoke-user',
+    'deploy/private-dev/lib/personal_data_archive.py', 'deploy/private-dev/lib/backup-common.sh',
+    'deploy/private-dev/grafana/provision-reader.sql',
+    'deploy/private-dev/grafana/notifications.json.template',
+    'deploy/private-dev/grafana/provisioning/alerting/private-dev.json',
+    'docker/keycloak/import/videogame-platform-realm.json',
+    'tools/catalogue-localization/models.json',
+    'scripts/public_production_deployment.py', 'scripts/private_dev_promotion.py',
+    'scripts/provision-grafana-reader.sh', 'scripts/test-public-production-runtime.py',
+    'scripts/probe-public-production-edge.py',
+))
+
+
 def runtime_path(path):
-    return (path.startswith('deploy/public-production/') and not path.endswith('.md')
-            or path.startswith('docker/postgres/init/')
-            or path in ('deploy/private-dev/bin/run-application', 'deploy/private-dev/bin/run-migrations',
-                        'tools/catalogue-localization/models.json'))
+    return (any(path.startswith(d) for d in RUNTIME_DIRECTORIES) and not path.endswith('.md')
+            or path in RUNTIME_FILES)
 
 
 def inventory(tree, predicate):
@@ -42,16 +59,22 @@ def inventory(tree, predicate):
 def local_configuration():
     # Actual bytes/modes, including newly added files; index flags cannot hide drift.
     paths = set()
-    for directory in ('deploy/public-production', 'docker/postgres/init'):
-        paths.update(p for p in (ROOT / directory).rglob('*') if not p.is_dir())
-    paths.update(ROOT / p for p in ('deploy/private-dev/bin/run-application',
-                                   'deploy/private-dev/bin/run-migrations', 'tools/catalogue-localization/models.json'))
+    for directory in RUNTIME_DIRECTORIES:
+        base = ROOT / directory
+        require(not base.is_symlink(), 'Unsafe runtime source directory.')
+        for parent, directories, files in os.walk(base, followlinks=False):
+            require(not any((Path(parent) / name).is_symlink() for name in directories),
+                    'Unsafe runtime source directory.')
+            paths.update(Path(parent) / name for name in files)
+    paths.update(ROOT / p for p in RUNTIME_FILES)
     tree = {'truncated': False, 'tree': []}
     for path in sorted(paths):
         relative = path.relative_to(ROOT).as_posix()
         if not runtime_path(relative):
             continue
-        require(path.is_file() and not path.is_symlink(), 'Unsafe runtime source.')
+        require(path.is_file() and not path.is_symlink()
+                and all(not parent.is_symlink() for parent in path.parents if parent != ROOT and ROOT in parent.parents),
+                'Unsafe runtime source.')
         data = path.read_bytes()
         blob = hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest()
         tree['tree'].append({'path': relative, 'type': 'blob', 'sha': blob,

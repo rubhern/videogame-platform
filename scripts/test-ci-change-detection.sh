@@ -391,6 +391,10 @@ run_case shared-telemetry \
   $'deploy/private-dev/grafana/dashboards/vgp-runtime.json\ndeploy/private-dev/otel/collector.yaml' \
   'production_runtime,container,backend' 'frontend,ci'
 
+run_case production-cleanup-transport "deploy/public-production/bin/recovery-personal-data" "production_runtime" "frontend,backend,identity,browser"
+run_case production-cleanup-exercise "scripts/rehearse-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
+run_case production-cleanup-tests "scripts/test-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
+
 if ((failures > 0)); then
   printf 'CI change-detection tests failed with %d problem(s).\n' "$failures" >&2
   exit 1

@@ -1,0 +1,49 @@
+{
+  "hostBridge": {
+    "parentPeakKiB": 33652,
+    "childPeakKiB": 23892,
+    "conservativeCombinedMiB": 56.1953125,
+    "cpuSeconds": 0.08027199999999998,
+    "wallSeconds": 0.06935618999705184,
+    "records": 19999
+  },
+  "diskKiB": {
+    "prometheus": 60,
+    "grafana": 2124
+  },
+  "kind": "isolated-synthetic-telemetry",
+  "workload": {
+    "otlpSeries": 1207,
+    "dashboards": 6,
+    "promqlPanelsPerRefresh": 113,
+    "refreshes": 4,
+    "sqlPanels": 33,
+    "scrapeSeconds": 30,
+    "resourceObservations": 120,
+    "resourceSampling": "during queries and refreshes"
+  },
+  "maxima": {
+    "blackbox": {
+      "memoryMiB": 20.57,
+      "cpuPercent": 0.18
+    },
+    "grafana": {
+      "memoryMiB": 320.0,
+      "cpuPercent": 38.14
+    },
+    "node-exporter": {
+      "memoryMiB": 7.508,
+      "cpuPercent": 0
+    },
+    "prometheus": {
+      "memoryMiB": 95.13,
+      "cpuPercent": 15.12
+    },
+    "telemetry": {
+      "memoryMiB": 67.06,
+      "cpuPercent": 1.17
+    }
+  },
+  "headSeries": 1566.0,
+  "realHostCapacityAccepted": false
+}

@@ -1,0 +1,631 @@
+{
+  "requestedHosts": [
+    "auth.gameometro.com",
+    "gameometro.com"
+  ],
+  "identityActionRequests": 15,
+  "rateRefusals": [],
+  "inventory": [
+    {
+      "stage": "anonymous catalogue visit",
+      "cookies": [],
+      "storage": {
+        "origin": "https://gameometro.com",
+        "documentCookie": [],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "Keycloak registration form",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "60s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://auth.gameometro.com",
+        "documentCookie": [
+          "KC_AUTH_SESSION_HASH"
+        ],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "registration submitted, verification pending",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "59s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://auth.gameometro.com",
+        "documentCookie": [
+          "KC_AUTH_SESSION_HASH"
+        ],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "email verification link, password step",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "59s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://auth.gameometro.com",
+        "documentCookie": [
+          "KC_AUTH_SESSION_HASH"
+        ],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "signed in after verification",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "56s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_IDENTITY",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 585,
+          "jwtClaims": [
+            "exp",
+            "iat",
+            "iss",
+            "jti",
+            "sid",
+            "state_checker",
+            "sub",
+            "typ"
+          ]
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_SESSION",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "28798s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 64
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://gameometro.com",
+        "documentCookie": [],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "after logout",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "55s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        }
+      ],
+      "storage": {
+        "origin": "https://gameometro.com",
+        "documentCookie": [],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "password login after logout",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "60s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_IDENTITY",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 585,
+          "jwtClaims": [
+            "exp",
+            "iat",
+            "iss",
+            "jti",
+            "sid",
+            "state_checker",
+            "sub",
+            "typ"
+          ]
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_SESSION",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "28800s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 64
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://gameometro.com",
+        "documentCookie": [],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "recovery request form",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "60s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_RESTART",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 1355
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://auth.gameometro.com",
+        "documentCookie": [
+          "KC_AUTH_SESSION_HASH"
+        ],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "recovery link, new password step",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "60s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_RESTART",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 1355
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://auth.gameometro.com",
+        "documentCookie": [
+          "KC_AUTH_SESSION_HASH"
+        ],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    },
+    {
+      "stage": "signed in after recovery",
+      "cookies": [
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "AUTH_SESSION_ID",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 148
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_AUTH_SESSION_HASH",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "59s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 66
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KC_RESTART",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 1355
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_LOCALE",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 2
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_IDENTITY",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 585,
+          "jwtClaims": [
+            "exp",
+            "iat",
+            "iss",
+            "jti",
+            "sid",
+            "state_checker",
+            "sub",
+            "typ"
+          ]
+        },
+        {
+          "origin": "https://auth.gameometro.com",
+          "name": "KEYCLOAK_SESSION",
+          "domain": "auth.gameometro.com",
+          "path": "/realms/gameometro/",
+          "lifetime": "28800s",
+          "httpOnly": false,
+          "secure": true,
+          "sameSite": "None",
+          "valueBytes": 64
+        },
+        {
+          "origin": "https://gameometro.com",
+          "name": "__Host-vgp_session",
+          "domain": "gameometro.com",
+          "path": "/",
+          "lifetime": "session",
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax",
+          "valueBytes": 32
+        }
+      ],
+      "storage": {
+        "origin": "https://gameometro.com",
+        "documentCookie": [],
+        "localStorage": 0,
+        "sessionStorage": 0,
+        "indexedDb": 0
+      }
+    }
+  ]
+}

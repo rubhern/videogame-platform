@@ -394,5 +394,8 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 10.203.3.0/28
-          ip_range: 10.203.3.8/29
+        # Combined runtime: seven dynamic consumers plus bounded operator probes.
+        # Keep allocation away from the edge's fixed metrics address.
+        - subnet: 10.203.3.0/27
+          gateway: 10.203.3.1
+          ip_range: 10.203.3.16/28

@@ -208,7 +208,7 @@ gameometro.com {
 				}
 				import source_zone
 				window 30s
-				events 10
+				events 20
 			}
 			zone application-read-source {
 				match {
@@ -312,7 +312,7 @@ auth.gameometro.com {
 					}
 					import source_zone
 					window 5s
-					events 30
+					events 60
 				}
 				zone identity-login-source {
 					match {

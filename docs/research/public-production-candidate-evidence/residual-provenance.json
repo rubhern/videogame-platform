@@ -1,0 +1,14 @@
+{
+  "selectedImageSource": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "workingTreeBase": "bf488970c4d103608f16891715abc033dae5b8d8",
+  "currentRuntimeFingerprint": "d3502c1bd084aeb297f947e64513cc17664abd7e0aa854019693979980437469",
+  "trustedRuntimeInventoryFingerprint": "55b44bfa85ca0607570796f81562e11581c4f06093016ce251573c333b182350",
+  "unpublishedConfigurationRefused": true,
+  "inventoriesUseSamePredicate": true,
+  "additionalExplicitFiles": [
+    "scripts/provision-grafana-reader.sh",
+    "scripts/test-public-production-runtime.py",
+    "scripts/probe-public-production-edge.py"
+  ],
+  "scope": "Actual trusted GitHub source tree vs current local inventory; not current-change CI or rollout authorization"
+}

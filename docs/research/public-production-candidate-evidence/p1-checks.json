@@ -1,0 +1,127 @@
+{
+  "sourceRevision": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "scope": "local reviewed uncommitted P1 corrections; no current-change PR/main CI claim",
+  "currentChangeCI": "not-run-uncommitted",
+  "projectStatus": "In progress; focused independent re-review required before PR",
+  "preservation": "Original staged index retained; all 53 original changed/untracked files backed up before clean rebase, recoverable owner backup and stash retained",
+  "runtimeSourceFingerprint": "cb34289d975ea434932072ae839305a6169538fa099cb50f4abd27d273bf476b",
+  "sourceSha256": {
+    "scripts/test-production-observability.py": "f898e9db0c88f1abb57cbd776901ff7f97ba9a5a14158169680fd3d525bf74fc",
+    "scripts/test-ci-change-detection.sh": "d7b14d61b7dc6c4e62d5276628355ffff0ae9536f8ab3c9dc12d9684e37361c3",
+    "scripts/test-public-production-runtime.py": "6fdc15135cbbdf61965274c5e8c625dfbc5c70f78016476bf116283f6dcd4f00",
+    "scripts/test-public-production-deployment.py": "354855420dffcde1ef1ad2b9b4739eb893593a4737fa6dac4eca398f23cb49d2",
+    "deploy/public-production/caddy/Caddyfile": "a63ed1a334dffa36a1c75ce77a878bef4f2515ee21b9d6bbf6380dc6541eb042",
+    "scripts/test-production-cleanup.py": "628db5206f3eab125a8786be65b2c871571fb060657fcf74c75761d9579ac590",
+    "scripts/rehearse-production-cleanup.py": "9468ee5e2b64b88699c6768687b3e7751ddd41b9af60e1226516c4ee6c20f227",
+    "scripts/public_production_integration.py": "2245fba0005aa75853eea70ebf10b9e3bfbc97f0b7d36c11885ac68bfb1a1937",
+    "scripts/detect-ci-changes.sh": "ecf6d59535329f4c60aef1a0cb95abfe7213cb5386a86d81388db0bb8b148703",
+    "scripts/rehearse-production-recovery.py": "66e5fa33b78fece4c623b3b2b6a802d8e0a89cc527af52fe18364d0330a34f0a",
+    "scripts/probe-public-production-edge.py": "911a72ad99abab32c0968e8c5c1f46e08968afa64045a406067c76e78da2938b",
+    "documentation/content-map.mjs": "d6847f0ba3d843ea2cffb9cb20dece3de550ebcfb21a30b6a4e2592cf080136e",
+    "deploy/public-production/compose.yaml": "8d5d6c090505ced8a91a589eca3d168dc8746ae20df506e8eba1ad8ebc9547c7",
+    "deploy/public-production/bin/recovery-personal-data": "5321bfeee4b41efe60419ea81f949d1edcfda4ad32f8f679a1b1a3af73dc99fa",
+    "scripts/test-production-recovery.py": "2c977d46d3ec30623b46fd51e75b1a60ae201a3c08f297aba3163cef9a9b21dd",
+    "deploy/public-production/bin/recovery": "2b796d9531ffe07f5b455f3f321d26a2edf4d237114d667a603e32da0e792e50",
+    "scripts/run-production-runtime-browser.sh": "e2ac8482ebe1998315e9dea4a9d0e40fb046d6829bde69be2c6a530a2d8ec12e",
+    "scripts/public_production_deployment.py": "d42a9bd5253f3528396b8b30dde6b8f6ad67380fdfa94c74acce09685df8ed26",
+    ".github/workflows/build-and-verify.yml": "b0deeb25824de3f211b0a20ae6fcb7f97fb412c8972b3abd38cf589e99321871",
+    "frontend/tests/production-identity.spec.ts": "13ffd199710f1bcdd5d11d0a17ea7f3d537a222c2e76fc966c22f8608e78cea4"
+  },
+  "ownedResourcesRemaining": [],
+  "unrelatedEngineWorkloads": "left untouched",
+  "checks": [
+    {
+      "command": "python3 scripts/test-production-recovery.py",
+      "result": "passed",
+      "tests": 39
+    },
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "result": "passed",
+      "tests": 21
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "result": "passed",
+      "tests": 13
+    },
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 scripts/test-personal-data-privacy.py",
+      "result": "passed",
+      "scope": "real GPG, privacy lifecycle and existing ledger seam"
+    },
+    {
+      "command": "python3 scripts/test-production-observability.py",
+      "result": "passed",
+      "dashboardQueries": 114,
+      "timingCases": 25
+    },
+    {
+      "command": "python3 scripts/test-public-production-runtime.py --static-only",
+      "result": "passed",
+      "composeMutations": 64,
+      "caddyMutations": 15
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "result": "passed"
+    },
+    {
+      "command": "bash scripts/validate-actions.sh",
+      "result": "passed"
+    },
+    {
+      "command": "python3 scripts/test-keycloak-theme.py",
+      "result": "passed",
+      "tests": 7
+    },
+    {
+      "command": "bash scripts/review-keycloak-email.sh after-public",
+      "result": "passed",
+      "tests": 1
+    }
+  ],
+  "reproduction": {
+    "recovery": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-recovery.py --revision c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916 --evidence NEW_RECOVERY_DIRECTORY",
+    "combined": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-cleanup.py --revision c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916 --evidence NEW_COMBINED_DIRECTORY --browser --model-dir ABSOLUTE_EXISTING_APPROVED_MODEL",
+    "scheduling": "Run recovery and combined serially; their fixed subnets cannot coexist. Verify local Docker Desktop first. All protected inputs are synthetic/local, no real schedule or provider sync."
+  },
+  "receiptSha256": {
+    "p1-backup.json": "f75d42a611e09a357206cbe70434201d635f9759be521645e2f7bcc38ad11acc",
+    "p1-combined-startup-failure.json": "ac7c1729f7423d52b4be1019eb74232f5e61ceecb80e933e15c398ed677cdc5f",
+    "p1-combined-stopped-for-required-role-guard.json": "a94271a0d0f778e644bf2d0583ac1d4067ace6d542fa1744a0d9ff082ca859b2",
+    "p1-combined.json": "6b44a0633d10d2857c6692ac695330ad2299874a5b8ef0a5a17bf0f31b665aea",
+    "p1-cookies.json": "1afa66d395e5fbe85ba53ba0abc32430eef62e42962aee3dd23d5695dcd8f5e9",
+    "p1-deletion-replay.json": "09c470b6bed1c01d834d728324fa61023b8ab9cf7afc5e0c8bb469d6b2a76d9e",
+    "p1-email.json": "aeacc1b86bc69ae900d5a9fdd914f9f12cfe5c4832127339bf5339821d8a6912",
+    "p1-migration-scheduler.json": "ebbe18cecff7a294a8c52abbf6c5e333d4469f301abecca80c78589468889d9c",
+    "p1-provenance.json": "c2dcc71f70e7bf86510cad70fa1619722d2580220b25146f6f8c1714fae5d6f8",
+    "p1-recovery-rehearsal.json": "6fa2299d89e98ace8825e4e153e3f2a40fd9cdb5f84566fe1a6114d9b9d674cd",
+    "p1-restore.json": "31088116e3d647d6fd84ee580da9287f3f3a289bd2a7d3bf9798ef5784369124",
+    "p1-scans.json": "fd2cedaef5e3b0215a225a6e6364d01c39df7cb10e988c75d274a735bc60dd0a",
+    "p1-upstream-blocker.json": "da0f428f12b97f9029afacf7ecfcb4602c01ee23ebab86faf30f5c9565affeb1",
+    "p1-verified-recovery.json": "dcff0d7bae76960a0463018c66b7d0e44970c7d7b99934f9f232c0a1dc28557f"
+  },
+  "workingTreeBaseAfterReconciliation": "bf488970c4d103608f16891715abc033dae5b8d8",
+  "validatedImageSource": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "sourceRevisionMeaning": "source revision of the executed immutable-image exercises; final branch base is separately identified",
+  "postFinalRebaseChecks": {
+    "recoveryTests": 39,
+    "deploymentAndProvenanceTests": 21,
+    "results": "passed",
+    "p1ExecutableHashesUnchanged": true
+  },
+  "latestCandidateImageQualification": "blocked by upstream Security failure; no old-image substitution",
+  "upstreamBlockerReceipt": "p1-upstream-blocker.json",
+  "finalDocumentationChecks": {
+    "documentationValidator": "passed on clean current-HEAD snapshot with complete working-tree overlay",
+    "portalBuild": "passed: 100 HTML pages, links, anchors, assets and search",
+    "portalBrowser": "passed: 3 focused navigation, search, keyboard, accessibility and responsive tests",
+    "preservation": "original staged binary diff unchanged; source and receipt hashes verified"
+  }
+}
