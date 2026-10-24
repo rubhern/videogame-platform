@@ -6,11 +6,30 @@ import re
 import secrets
 import subprocess
 import tempfile
+import time
 from importlib.machinery import SourceFileLoader
 
 alerts = SourceFileLoader('alerts', str(Path(__file__).with_name('check-alerts.py'))).load_module()
 run = alerts.run
 DEPLOY = alerts.DEPLOY
+
+
+def pull_base_image():
+    dockerfile = (DEPLOY / 'keycloak/Dockerfile').read_text()
+    image = re.search(r'^ARG KEYCLOAK_IMAGE=(\S+)$', dockerfile, re.MULTILINE)[1]
+    assert re.search(r'@sha256:[0-9a-f]{64}$', image), 'Keycloak base must stay digest-pinned'
+    for attempt in range(3):
+        result = subprocess.run(['docker', 'pull', '--quiet', image], text=True,
+                                capture_output=True, timeout=120)
+        if result.returncode == 0:
+            return
+        # Retry only registry throttling/server errors during acquisition, never builds or proofs.
+        if attempt == 2 or not re.search(r'\b(?:429|500|502|503|504)\b', result.stderr):
+            raise RuntimeError(result.stderr)
+        delay = 5 * (attempt + 1)
+        print(f'Temporary registry failure downloading pinned Keycloak base; retrying in {delay}s '
+              f'(attempt {attempt + 2}/3).', flush=True)
+        time.sleep(delay)
 
 
 def build_image(build_args, rebuild=False):
@@ -45,6 +64,7 @@ def main():
     assert build_args == {'KEYCLOAK_EVENT_METRICS_USER_ENABLED': 'true'}
     # Local development and the separate production-identity proof share this recipe.
     # Their default must remain disabled; there is still just one existing private image.
+    pull_base_image()
     default_image = build_image({})
     default_env = json.loads(run(['docker', 'image', 'inspect', default_image]))[0]['Config']['Env']
     assert 'KC_EVENT_METRICS_USER_ENABLED=false' in default_env

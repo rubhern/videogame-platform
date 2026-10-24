@@ -365,7 +365,9 @@ jobs:
       - name: Install locked browser-test dependencies
         run: npm ci --ignore-scripts
       - name: Prove optimized image, PostgreSQL identity persistence and registration metrics
-        run: python3 deploy/private-dev/grafana/check-product-growth.py
+        run: |
+          python3 -I deploy/private-dev/grafana/test-product-growth-download.py
+          python3 deploy/private-dev/grafana/check-product-growth.py
 
   runtime-notifications:
     name: Private-dev native Telegram routing against isolated mock
