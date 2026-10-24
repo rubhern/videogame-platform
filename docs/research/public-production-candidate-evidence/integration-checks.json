@@ -1,0 +1,93 @@
+{
+  "scope": "Final P3 and implementation integration; final immutable-image acceptance remains pending",
+  "integrationBase": "9cee33dfd2460213ea3e89711dd91bdc41405c81",
+  "earlierImageRehearsalSource": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+  "runtimeSourceFingerprint": "d3502c1bd084aeb297f947e64513cc17664abd7e0aa854019693979980437469",
+  "earlierImageEvidenceQualifiesNewImages": false,
+  "implementationCommitAndCI": "Exact head/merge SHA and applicable check results are recorded on the associated GitHub pull request; base runs below are not candidate CI",
+  "baseChecks": {
+    "security": {
+      "runId": 40081258664,
+      "conclusion": "success"
+    },
+    "build": {
+      "runId": 40081258697,
+      "conclusion": "success"
+    }
+  },
+  "historicalNpmAuditBlocker": "bf48897 failure superseded by cce0bbb/986f72e and successful 9cee33d base checks; historical receipts preserved unchanged",
+  "p3": "Existing relevant file path operands, including SQL/JSON, enter completeness candidates; only executable sources are recursively inspected. Resolve static path aliases; exclude production-validator negative-only fixtures. No runtime inventory expansion.",
+  "sourceSha256": {
+    "scripts/test-public-production-deployment.py": "8e03a1e9814c280b532525e4ace9258ecec85e2f6b07bf58984c97e3d1671978",
+    ".github/workflows/build-and-verify.yml": "41dbddf014a71cd40b241494a6558acf064966b5978f96a7248603fb94d235ef",
+    "scripts/public_production_deployment.py": "b71e56d67daa1f73a92c8974b96ae6e079bb2f86a2d028b541326e80ea35fe32",
+    "deploy/public-production/bin/recovery": "9c7da1b382c77c9914d1b8e653b150ac3f651587b1c5c603fb94b663647f29a3",
+    "deploy/private-dev/bin/personal-data-ledger": "7f841d31c82f7ca5ebe0a8a3118646f21f18d58f0367ad76cfceed4db1c16d4a"
+  },
+  "localChecks": [
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "outcome": "passed",
+      "tests": 25,
+      "logSha256": "9fb3709f46241dfc01f7b170f35d96f515665394de5fe7e0d17446cb3225bf14"
+    },
+    {
+      "command": "python3 scripts/test-production-recovery.py",
+      "outcome": "passed",
+      "tests": 41,
+      "logSha256": "181dd1044da6f43496296f5a49f83b978eb0b62df9860f1fbf3c5c272907bd1c"
+    },
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "outcome": "passed",
+      "tests": 10,
+      "logSha256": "40e6a3053d86436d6aa245501343227a2e81436f4f14da71a21257468605aff6"
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "outcome": "passed",
+      "tests": 13,
+      "logSha256": "ac023c0a6fff8d0080e9601dc95608d1e582a2fda612489d1d51892a68d02da0"
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "outcome": "passed",
+      "logSha256": "18ffb402c8c0edb92ba79f1998fd73a7b99c38c3547011d2e3ea4d956de27de5"
+    },
+    {
+      "command": "bash scripts/validate-actions.sh",
+      "outcome": "passed",
+      "logSha256": "c94b26c332341a7d9acff8fc4a66cd45e57d6af3d0f10a9be16cc78055a19860"
+    }
+  ],
+  "preservation": {
+    "stagedAndUnstagedBinaryPatchesRetained": true,
+    "fullFileBackupAndSafetyStashRetained": true,
+    "allPriorEvidenceBytesUnchanged": true,
+    "workflowReconciliation": "Upstream pinned acquisition retries/checks retained, with #275 cleanup test; clean three-way application"
+  },
+  "remaining": [
+    "Applicable PR Security/build/quality checks and final diff inspection before merge",
+    "Successful full trusted-main checks/publications for exact merge SHA",
+    "Final immutable-image combined browser/model/observability/deployment and backup/recovery/cleanup rehearsals with new receipts",
+    "Renewed inherited scan applicability/disposition and remaining pre-purchase prerequisites",
+    "Explicit owner acceptance before closing #275; #276 real-host qualification remains separate"
+  ],
+  "issueClosureAuthorizedByThisRecord": false,
+  "privateDevOrProductionDeploymentAuthorized": false,
+  "versionImpact": "Administrative runtime/test/documentation sources only; backend/frontend/OpenAPI/PoC release content unchanged by increment; no package version bump",
+  "prCorrections": [
+    {
+      "finding": "PR #371 Secret scan: gitleaks generic-api-key matched four recorded SHA-256 file digests (run-keycloak, password-reset.ftl)",
+      "disposition": "Digests recomputed from the tracked files and matched; exact commit/file/line fingerprints added to .gitleaksignore. No secret present"
+    },
+    {
+      "finding": "PR #371 Public-production runtime contract: 'safe reopening' still expected the pre-calibration identity budget (30 per 5 s)",
+      "disposition": "Scenario aligned with the reviewed Caddyfile budget (60 per 5 s), as the 'identity per-source' burst already was. Edge limits and gates unchanged",
+      "sourceSha256": {
+        "scripts/test-public-production-runtime.py": "f57e6e1ffb1bf6ad3177e8cb153a2834de27f6c3ad27ea394e6877dee3e768d7"
+      },
+      "runtimeSourceFingerprintAfterCorrection": "1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045"
+    }
+  ]
+}

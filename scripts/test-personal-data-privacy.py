@@ -218,9 +218,17 @@ if command == "archive-snapshot":
     print(json.dumps({"issuer":state["issuer"], "userId":uid,
                      "account":None if user is None else {**user,"keycloakUserId":subject,"eligibleHuman":True},
                      "ratingCount":len(state["ratings"].get(uid,[]))})); sys.exit(0)
+if command not in ("identify","archive-snapshot","archive-ratings","cleanup-candidates","enter","check","exit") and os.environ.get("REQUIRE_FENCE"):
+    fence=pathlib.Path(os.environ["FAKE_STATE"]+".maintenance")
+    if not fence.exists() or fence.read_text().splitlines()[-1] not in ("enter","check"):
+        print("mutating without maintenance",file=sys.stderr);sys.exit(1)
 if command in ("enter","check","exit"):
     path=pathlib.Path(os.environ["FAKE_STATE"]+".maintenance")
     with path.open("a") as output: output.write(command+"\n")
+    if command=="check" and os.environ.get("PAUSE_CHECK"):
+        import time
+        marker=pathlib.Path(os.environ["PAUSE_CHECK"]); marker.write_text("checking")
+        while not marker.with_suffix(".release").exists(): time.sleep(.05)
     if command=="enter" and os.environ.get("VERIFY_DURING_PROBE"):
         for user in state["accounts"].values(): user["emailVerified"]=True
         state_path.write_text(json.dumps(state))
@@ -359,6 +367,52 @@ assert "bearer-secret" not in result.stderr+result.stdout
 test=fixture();test.host.write_text(WRAPPER+"\nif command=='verify':\n print(json.dumps({'verified':False}));sys.exit(0)\n"+legacy["FAKE_HOST"])
 run(test,"erase","--request","REQ-NO-FALSE-COMPLETION","--keycloak-user-id",TARGET,expect=1)
 assert not any(event["event"]=="completed" for event in test.events())
+
+# A failed requested-account drain does not even append a requested mutation record.
+test=fixture();adapter=f"{sys.executable} -I {test.host}";before=test.read_state()
+run(test,"erase","--request","REQ-FAILED-DRAIN","--keycloak-user-id",TARGET,
+    "--maintenance-command",adapter,expect=1,extra={"BAD_DRAIN":"1","REQUIRE_FENCE":"1"})
+assert test.read_state()==before and not test.events()
+assert Path(str(test.state)+".maintenance").read_text().splitlines()==["enter","exit"]
+# Requested-account erasure and post-recovery retry use the configured same fence.
+test=fixture();adapter=f"{sys.executable} -I {test.host}"
+state=test.read_state();state["accounts"][TARGET]["emailVerified"]=True;test.write_state(state)
+run(test,"erase","--request","REQ-FENCED-REQUESTED","--keycloak-user-id",TARGET,
+    "--maintenance-command",adapter, fault="delete-ratings:before",expect=1,extra={"REQUIRE_FENCE":"1"})
+reference="REQ-FENCED-REQUESTED"
+assert test.events()[0]["archiveProfile"]=="requested-account-v1"
+original=(test.directory/"archive"/reference/"source.gpg").read_bytes()
+assert Path(str(test.state)+".maintenance").read_text().splitlines()==["enter","check","exit"]
+before=test.read_state()
+run(test,"retry","--maintenance-command",adapter,expect=1,extra={"BAD_DRAIN":"1","REQUIRE_FENCE":"1"})
+assert test.read_state()==before and test.events()[-1]["event"]!="completed"
+# A first retry owns the ledger while genuinely blocked inside maintenance check.
+marker=test.directory/"inflight-check"
+command=[sys.executable,"-I",str(legacy["driver"]),"--ledger",str(test.ledger),"--ledger-copy",str(test.copy),
+    "--host-command",f"{sys.executable} -I {test.host}","--archive-root",str(test.directory/"archive"),
+    "--archive-copy",str(test.directory/"archive-copy"),"--proof-root",str(test.directory/"proof"),
+    "--holds",str(test.directory/"holds"),"--gnupg-home",str(keydir),"--recipient",fingerprint,"--signer",fingerprint,
+    "retry","--maintenance-command",adapter]
+actor=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={**os.environ,
+    "FAKE_STATE":str(test.state),"FAKE_FAULT":str(test.fault),"REQUIRE_FENCE":"1","PAUSE_CHECK":str(marker)})
+try:
+    import time
+    deadline=time.monotonic()+20
+    while not marker.exists():
+        assert actor.poll() is None and time.monotonic()<deadline
+        time.sleep(.05)
+    ledger_before=test.ledger.read_bytes();state_before=test.read_state()
+    run(test,"retry","--maintenance-command",adapter,expect=1)
+    assert test.ledger.read_bytes()==ledger_before and test.read_state()==state_before
+finally:
+    marker.with_suffix(".release").write_text("release")
+    output,error=actor.communicate(timeout=60)
+assert actor.returncode==0,(output,error)
+assert test.events()[-1]["event"]=="completed" and test.ledger.read_bytes()==test.copy.read_bytes()
+proof=json.loads((test.directory/"proof"/(reference+".json")).read_text())
+assert proof["verifiedAbsent"] and proof["archiveSha256"]==__import__('hashlib').sha256(original).hexdigest()
+assert all((test.directory/name/reference/"source.gpg").read_bytes()==original for name in ("archive","archive-copy"))
+assert Path(str(test.state)+".maintenance").read_text().splitlines()[-3:]==["enter","check","exit"]
 
 # The ordinary verified-request profile is selected automatically; source ratings are excluded.
 test=fixture(); state=test.read_state(); state["accounts"][TARGET]["emailVerified"]=True; test.write_state(state)

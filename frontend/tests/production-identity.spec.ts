@@ -45,10 +45,22 @@ interface StorageRecord {
 const inventory: { stage: string; cookies: CookieRecord[]; storage?: StorageRecord }[] = [];
 const sensitive: string[] = [];
 const requestedHosts = new Set<string>();
+let identityActionRequests = 0;
+const rateRefusals: { origin: "identity" | "product"; retryAfterSeconds: number | null }[] = [];
 
 test.afterAll(() => {
-  if (inventoryFile) writeFileSync(inventoryFile, JSON.stringify({ requestedHosts: [...requestedHosts].sort(), inventory }, null, 2));
+  if (inventoryFile) writeFileSync(inventoryFile, JSON.stringify({ requestedHosts: [...requestedHosts].sort(), identityActionRequests, rateRefusals, inventory }, null, 2));
   if (sensitiveFile) writeFileSync(sensitiveFile, sensitive.map((value) => `${value}\n`).join(""), { flag: "a" });
+});
+
+test.afterEach(async ({ browser }, info) => {
+  if (info.status === info.expectedStatus || !inventoryFile) return;
+  const lines = [...new Set(info.errors.flatMap((error) =>
+    [...(error.stack ?? "").matchAll(/production-identity\.spec\.ts:(\d+)/g)].map((match) => Number(match[1])),
+  ))];
+  // Only fixed classifications/counts; diagnostics must also survive a closed page.
+  writeFileSync(inventoryFile + ".failure.json", JSON.stringify({ status: info.status, browserConnected: browser.isConnected(), lines, rateRefusals,
+    identityActionRequests, lastStage: inventory.at(-1)?.stage ?? null }));
 });
 
 test("registration, session, CSRF, ownership and logout keep tokens out of the browser on separate origins", async ({
@@ -77,12 +89,13 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(page.locator("body")).toContainText("Verifica tu email");
   await record(first, page, "registration submitted, verification pending");
 
-  await page.goto(await actionLink(request, email, 1));
+  await openEmailAction(page, request, email, 1);
   await expect(page.locator("#password-new")).toBeVisible();
   await record(first, page, "email verification link, password step");
   await page.locator("#password-new").fill(password);
   await page.locator("#password-confirm").fill(password);
   await page.locator("#kc-passwd-update-form [type=submit]").click();
+  await completeFirstSignIn(page);
 
   await expect(page).toHaveURL(`${applicationOrigin}/`);
   const signedIn = await sessionState(page);
@@ -132,11 +145,12 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await other.locator("#email").fill(otherEmail);
   await other.locator('input[name="termsAccepted"]').check();
   await other.locator("#kc-register-form [type=submit]").click();
-  await other.goto(await actionLink(request, otherEmail, 1));
+  await openEmailAction(other, request, otherEmail, 1);
   const otherPassword = syntheticPassword();
   await other.locator("#password-new").fill(otherPassword);
   await other.locator("#password-confirm").fill(otherPassword);
   await other.locator("#kc-passwd-update-form [type=submit]").click();
+  await completeFirstSignIn(other);
   await expect(other).toHaveURL(`${applicationOrigin}/`);
   expect(await other.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(404);
   expect(await page.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(200);
@@ -191,11 +205,12 @@ test("password recovery returns through the canonical issuer with the same cooki
   await page.locator("#email").fill(email);
   await page.locator('input[name="termsAccepted"]').check();
   await page.locator("#kc-register-form [type=submit]").click();
-  await page.goto(await actionLink(request, email, 1));
+  await openEmailAction(page, request, email, 1);
   const forgotten = syntheticPassword();
   await page.locator("#password-new").fill(forgotten);
   await page.locator("#password-confirm").fill(forgotten);
   await page.locator("#kc-passwd-update-form [type=submit]").click();
+  await completeFirstSignIn(page);
   await expect(page).toHaveURL(`${applicationOrigin}/`);
   await context.close();
 
@@ -208,7 +223,7 @@ test("password recovery returns through the canonical issuer with the same cooki
   await recovering.locator("#username").fill(email);
   await recovering.locator("#kc-reset-password-form [type=submit]").click();
   await expect(recovering.locator("#kc-form-login")).toBeVisible();
-  await recovering.goto(await actionLink(request, email, 2));
+  await openEmailAction(recovering, request, email, 2);
   await expect(recovering.locator("#password-new")).toBeVisible();
   await record(device, recovering, "recovery link, new password step");
   const renewed = syntheticPassword();
@@ -242,10 +257,31 @@ test("every stored cookie is first-party, Secure and host-only, and only known h
   expect([...requestedHosts].filter((host) => !allowed.has(host))).toEqual([]);
 });
 
+async function openEmailAction(page: Page, request: APIRequestContext, email: string, count: number) {
+  const response = await page.goto(await actionLink(request, email, count));
+  expect(response?.status(), "the native emailed action is admitted").toBe(200);
+}
+
+async function completeFirstSignIn(page: Page) {
+  await expect(page).toHaveURL(`${applicationOrigin}/bienvenida`);
+  await page.getByRole("button", { name: "Ahora no", exact: true }).click();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+}
+
 function observe(page: Page) {
+  page.on("response", (response) => {
+    const origin = new URL(response.url()).origin;
+    if (response.status() !== 429 || ![identityOrigin, applicationOrigin].includes(origin) || rateRefusals.length >= 16) return;
+    const retry = response.headers()["retry-after"] ?? "";
+    rateRefusals.push({ origin: origin === identityOrigin ? "identity" : "product",
+      retryAfterSeconds: /^\d{1,3}$/.test(retry) ? Number(retry) : null });
+  });
   page.on("request", (sent) => {
     const url = new URL(sent.url());
     if (url.protocol.startsWith("http")) requestedHosts.add(url.host);
+    if (url.origin === identityOrigin && ["action-token", "required-action"].some((action) => url.pathname === `/realms/gameometro/login-actions/${action}`)) {
+      identityActionRequests += 1;
+    }
   });
 }
 

@@ -1,0 +1,17 @@
+{
+  "manifestSha256": "c1f0f2c6f1b045cc712117d53ceee24c8de3dd9df4c8f7a8ed0548a04040b87f",
+  "revision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+  "model": {
+    "repository": "Helsinki-NLP/opus-mt-tc-big-en-es",
+    "url": "https://object.pouta.csc.fi/Tatoeba-MT-models/eng-spa/opusTCv20210807+bt_transformer-big_2022-03-13.zip",
+    "sha256": "cd49c94629c84c424b2c310552b9058bf95f531269c91e72fded668b0d5084cf",
+    "license": "CC-BY-4.0"
+  },
+  "files": {
+    "model.bin": "bd11ca371fb16da7e9a79602d472c16e339af94d8f71a9927a118a781726a11e",
+    "config.json": "152eb448f1020eb55f90971d7b95f61896abee8415d555ca51ae7897ac0a0e68",
+    "shared_vocabulary.json": "4bb5db1d9067fd2d8fe0b1ed843bc338ebcc0d1840ac58acaad25e90495a98c7",
+    "source.spm": "b1763341d3a71262ed5aacc3f8287d3c3c2f2ae82295e11d03aea80879c98009",
+    "target.spm": "c70086dcac73d9c759cca0b5f195a073033906dcd29433d6c5fe74e66b2cc8da"
+  }
+}

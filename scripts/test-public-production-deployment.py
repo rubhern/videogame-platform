@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Deployment trust, serialization, refusal and recovery tests; no registry or host."""
+import ast
 import contextlib
+import re
+import shutil
 import fcntl
 import hashlib
 import io
@@ -20,6 +23,102 @@ IMAGE = deploy.trust.IMAGE_REPOSITORY + '@' + DIGEST
 CONFIG = 'c' * 64
 SCHEMA = 'd' * 64
 HISTORY = 'e' * 32
+
+
+def discovered_dependencies(root):
+    """Independent reachability audit, not seeded from the fingerprint allowlist.
+
+    Compose owns mounts; operator sections own entry commands. Test/rehearsal-only
+    instructions and the provisioning script's --local branch are outside runtime.
+    No code is executed and no secret/host path is opened.
+    """
+    def executable(path):
+        return path.is_relative_to(root) and path.is_file() and (path.suffix in ('.py','.sh') or path.stat().st_mode & 0o111
+                                   or path.read_bytes().startswith(b'#!'))
+
+    production = root / 'deploy/public-production'
+    environment = dict(os.environ, PRODUCTION_SECRETS_DIR='/synthetic/secrets', PRODUCTION_SECRETS_GID='1000',
+                       KEYCLOAK_ADMIN_USERNAME='synthetic', PRODUCTION_SMTP_RELAY_HOST='mail.example.test',
+                       PRODUCTION_SMTP_RELAY_FROM='no-reply@example.test', PRODUCTION_SMTP_RELAY_PORT='587',
+                       APPLICATION_VERSION='0.51.0-SNAPSHOT', CATALOGUE_TRANSLATION_MODEL_DIR='/synthetic/model',
+                       APPLICATION_IMAGE='synthetic@sha256:'+'a'*64, KEYCLOAK_IMAGE='synthetic@sha256:'+'a'*64,
+                       CADDY_IMAGE='synthetic@sha256:'+'a'*64, CATALOGUE_LOCALIZER_IMAGE='synthetic@sha256:'+'a'*64)
+    rendered = subprocess.run(['docker','compose','--env-file','/dev/null','-f',str(production/'compose.yaml'),
+        '-f',str(production/'compose.observability.yaml'),'--profile','*','config','--format','json'],
+        env=environment, capture_output=True, text=True)
+    if rendered.returncode: raise AssertionError(rendered.stderr)
+    config = json.loads(rendered.stdout)
+    found, pending = set(), []
+    for service in config['services'].values():
+        for mount in service.get('volumes', []):
+            if mount['type'] == 'bind':
+                path = Path(mount['source'])
+                if path.is_relative_to(root):
+                    pending.extend(path.rglob('*') if path.is_dir() else [path])
+    section = ''
+    for line in (production/'README.md').read_text().splitlines():
+        if line.startswith('##'):
+            section = line.lower()
+        if any(word in section for word in ('validation','exercise','limiter memory','not yet validated')):
+            continue
+        for name in re.findall(r'^\s*(?:python3(?: -I)?|bash)\s+((?:scripts|deploy)/[a-zA-Z0-9_./-]+)', line):
+            pending.append(root/name)
+    # Include command entrypoints without relying on RUNTIME_FILES or RUNTIME_DIRECTORIES.
+    while pending:
+        path = pending.pop()
+        if path.is_dir() or path in found:
+            continue
+        if not path.is_file():
+            raise AssertionError('Missing reachable production source: '+str(path.relative_to(root)))
+        found.add(path)
+        if not executable(path):
+            continue
+        text = path.read_text()
+        if path.name == 'provision-grafana-reader.sh':
+            # --local's backend-artifact helper is never invoked by --production.
+            prefix, production_branch = text.split('elif [[ "$1" == --production ]]; then',1)
+            branch, rest = production_branch.split('\nfi\n',1)
+            text = prefix[:prefix.index('if [[ "$1" == --local ]]')] + branch.split('\nelse',1)[0] + rest
+        if path.suffix == '.py' or text.startswith('#!/usr/bin/env python'):
+            tree = ast.parse(text)
+            aliases={'ROOT':root,'repository_root':root}
+            def referenced_path(node):
+                if isinstance(node,ast.Name): return aliases.get(node.id)
+                if (isinstance(node,ast.BinOp) and isinstance(node.op,ast.Div)
+                        and isinstance(node.right,ast.Constant) and isinstance(node.right.value,str)):
+                    base=referenced_path(node.left)
+                    return base/node.right.value if base is not None else None
+                return None
+            for statement in tree.body:
+                if isinstance(statement,ast.Assign):
+                    value=referenced_path(statement.value)
+                    if value is not None:
+                        for target in statement.targets:
+                            if isinstance(target,ast.Name): aliases[target.id]=value
+            if path.name == 'test-public-production-runtime.py':
+                # --env-file returns before the deliberate negative-fixture mutations.
+                tree.body=[n for n in tree.body if not isinstance(n,ast.FunctionDef) or n.name!='compose_mutations']
+            for node in ast.walk(tree):
+                # File operands, not arbitrary string inventories/documentation examples.
+                if isinstance(node,ast.BinOp) and isinstance(node.op,ast.Div):
+                    candidate=referenced_path(node)
+                    if candidate is not None and candidate.is_relative_to(root) and candidate.is_file():
+                        pending.append(candidate)
+                if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr == 'with_name' and node.args and isinstance(node.args[0],ast.Constant):
+                    candidate=path.parent/node.args[0].value
+                    if candidate.is_file(): pending.append(candidate)
+            for node in tree.body:
+                if isinstance(node, (ast.Import,ast.ImportFrom)):
+                    modules = [a.name for a in node.names] if isinstance(node,ast.Import) else [node.module or '']
+                    for module in modules:
+                        candidate=path.parent/(module.split('.')[0]+'.py')
+                        if candidate.is_file(): pending.append(candidate)
+        else:
+            shell = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
+            for name in re.findall(r'(?:scripts|deploy|docker|tools)/[a-zA-Z0-9_./-]+',shell):
+                candidate=root/name
+                if candidate.is_file(): pending.append(candidate)
+    return {p.relative_to(root).as_posix() for p in found}
 
 
 class Runtime:
@@ -332,6 +431,109 @@ class Inputs(unittest.TestCase):
         self.assertRegex(fingerprint, r'^[0-9a-f]{64}$')
         with patch.object(deploy, 'inventory', return_value='0' * 64), self.assertRaisesRegex(deploy.trust.Refused, 'fingerprint'):
             deploy.verify_configuration(unittest.mock.Mock(), REV, fingerprint)
+
+    def test_independently_discovered_production_dependencies_are_fingerprinted(self):
+        required = discovered_dependencies(deploy.ROOT)
+        self.assertIn('scripts/provision-grafana-reader.sh', required)
+        self.assertIn('scripts/test-public-production-runtime.py', required)
+        self.assertNotIn('scripts/backend-artifact.sh', required)  # --local-only provisioning branch
+        self.assertNotIn('deploy/private-dev/compose.yaml', required)
+        self.assertFalse({p for p in required if not deploy.runtime_path(p)})
+
+    def test_new_untracked_executable_references_fail_completeness_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ('deploy/public-production','deploy/private-dev/bin','deploy/private-dev/lib',
+                         'deploy/private-dev/grafana','docker/postgres/init','scripts'):
+                shutil.copytree(deploy.ROOT/name,root/name,ignore=shutil.ignore_patterns('__pycache__'))
+            unknown = root/'scripts/new-production-dependency.py'; unknown.write_text('print("new")\n'); unknown.chmod(0o755)
+            (root/'scripts/new_production_dependency.py').write_text('print("new imported actor")\n')
+            actor=root/'scripts/new-production-actor'; actor.write_text('#!/bin/sh\nexit 0\n'); actor.chmod(0o755)
+            self.assertFalse(deploy.runtime_path(unknown.relative_to(root).as_posix()))
+            for source, addition in (
+                ('deploy/public-production/README.md','\n## Operator action\npython3 scripts/new-production-dependency.py\n'),
+                ('deploy/public-production/bin/recovery',"\nNEW_ACTOR = ROOT / 'scripts/new-production-dependency.py'\n"),
+                ('scripts/test-public-production-runtime.py','\nimport new_production_dependency\n'),
+                ('deploy/public-production/bin/recovery',"\nNEW_ACTOR = ROOT / 'scripts' / 'new-production-actor'\n"),
+                ('deploy/public-production/compose.yaml','\n# placeholder\n')):
+                path=root/source; old=path.read_text()
+                if source.endswith('compose.yaml'):
+                    # A new bind in the actual service graph, not a curated mutation list.
+                    changed=re.sub(r'(?m)^( +)volumes:\n',r'\1volumes:\n\1  - ../../scripts/new-production-dependency.py:/opt/new.py:ro\n',old,count=1)
+                else: changed=old+addition
+                path.write_text(changed)
+                missing={p for p in discovered_dependencies(root) if not deploy.runtime_path(p)}
+                expected='scripts/new_production_dependency.py' if source.startswith('scripts/') else ('scripts/new-production-actor' if 'new-production-actor' in addition else 'scripts/new-production-dependency.py')
+                self.assertIn(expected, missing)
+                path.write_text(old)
+
+    def test_new_nonexecutable_data_dependencies_fail_completeness_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for name in ('deploy/public-production','deploy/private-dev/bin','deploy/private-dev/lib',
+                         'deploy/private-dev/grafana','docker/postgres/init','scripts'):
+                shutil.copytree(deploy.ROOT/name,root/name,ignore=shutil.ignore_patterns('__pycache__'))
+            source=root/'deploy/public-production/bin/recovery'; original=source.read_text()
+            for extension in ('sql','json'):
+                with self.subTest(extension=extension):
+                    data=root/f'scripts/new-production-data.{extension}'
+                    # Non-executable data is discovered but must never be parsed as code.
+                    data.write_text('SELECT 1;' if extension=='sql' else '{"data":"not executable"}')
+                    data.chmod(0o644)
+                    source.write_text(original+f"\nDATA = ROOT / 'scripts/new-production-data.{extension}'\n")
+                    discovered=discovered_dependencies(root)
+                    missing={name for name in discovered if not deploy.runtime_path(name)}
+                    self.assertIn(data.relative_to(root).as_posix(),missing)
+                    source.write_text(original)
+
+    def test_symlink_directories_are_refused_not_skipped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for name in deploy.RUNTIME_DIRECTORIES: shutil.copytree(deploy.ROOT/name,root/name,dirs_exist_ok=True)
+            for name in deploy.RUNTIME_FILES:
+                target=root/name; target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(deploy.ROOT/name,target)
+            link=root/'deploy/public-production/hidden'; link.symlink_to(root/'deploy/private-dev/lib',target_is_directory=True)
+            with patch.object(deploy,'ROOT',root), self.assertRaisesRegex(deploy.trust.Refused,'directory'): deploy.local_configuration()
+            link.unlink()
+            # Explicit inputs can have a symlinked parent too.
+            shutil.rmtree(root/'deploy/private-dev/lib'); (root/'deploy/private-dev/lib').symlink_to(deploy.ROOT/'deploy/private-dev/lib',target_is_directory=True)
+            with patch.object(deploy,'ROOT',root), self.assertRaisesRegex(deploy.trust.Refused,'Unsafe runtime'): deploy.local_configuration()
+
+    def test_transitive_dependencies_mutations_invalidate_local_and_trusted_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for directory_name in deploy.RUNTIME_DIRECTORIES:
+                shutil.copytree(deploy.ROOT / directory_name, root / directory_name, dirs_exist_ok=True)
+            for name in deploy.RUNTIME_FILES:
+                destination = root / name; destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(deploy.ROOT / name, destination)
+            with patch.object(deploy, 'ROOT', root):
+                entries = []
+                for path in root.rglob('*'):
+                    if path.is_file() and deploy.runtime_path(path.relative_to(root).as_posix()):
+                        data = path.read_bytes(); entries.append({'path':path.relative_to(root).as_posix(), 'type':'blob',
+                            'mode':'100755' if path.stat().st_mode & 0o111 else '100644',
+                            'sha':hashlib.sha1(f'blob {len(data)}\0'.encode()+data).hexdigest()})
+                tree = {'truncated':False,'tree':entries}; api = unittest.mock.Mock(); api.request.return_value=tree
+                expected = deploy.local_configuration()
+                self.assertEqual(expected, deploy.inventory(tree, deploy.runtime_path))
+                paths = [*deploy.RUNTIME_FILES, 'deploy/private-dev/grafana/dashboards/vgp-runtime.json',
+                         'deploy/private-dev/grafana/bin/provision-notifications',
+                         'deploy/private-dev/grafana/provisioning/datasources/postgres.yaml']
+                for name in paths:
+                    with self.subTest(path=name):
+                        path=root/name; old=path.read_bytes(); path.write_bytes(old+b'\n# mutation')
+                        with self.assertRaisesRegex(deploy.trust.Refused,'fingerprint'):
+                            deploy.verify_configuration(api, REV, expected)
+                        # Supplying the changed local hash still cannot authorize stale trusted sources.
+                        with self.assertRaisesRegex(deploy.trust.Refused,'fingerprint'):
+                            deploy.verify_configuration(api, REV, deploy.local_configuration())
+                        path.write_bytes(old)
+                added=root/'deploy/private-dev/grafana/dashboards/new.json'; added.write_text('{}')
+                self.assertNotEqual(expected, deploy.local_configuration())
+                added.unlink()
+                (root/'deploy/private-dev/lib/personal_data_archive.py').unlink()
+                with self.assertRaises((FileNotFoundError, deploy.trust.Refused)): deploy.local_configuration()
 
     def test_fingerprint_includes_source_mode_and_inventory_rejects_unsafe_or_missing(self):
         entries = {'truncated': False, 'tree': [{'path': 'deploy/public-production/compose.yaml', 'type': 'blob',

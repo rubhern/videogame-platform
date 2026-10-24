@@ -12,3 +12,10 @@ c20e6360e340166d4a904dee5431498e20eaa552:docs/research/performance-baseline/remo
 
 # False positive: synthetic unsigned JWT in the #246 redaction test, assembled at run time since.
 37e28a81abdb303264069c62b1d4e26716952e1f:scripts/test-historical-sync-pilot.py:jwt:140
+
+# False positives: verified SHA-256 of unchanged deploy/public-production/bin/run-keycloak in #275 evidence.
+07390bdecf61fc9d3a536fac019cfda6274c4d89:docs/research/public-production-candidate-evidence/deployment-baseline.json:generic-api-key:98
+07390bdecf61fc9d3a536fac019cfda6274c4d89:docs/research/public-production-candidate-evidence/baseline-browser-rejection.json:generic-api-key:82
+07390bdecf61fc9d3a536fac019cfda6274c4d89:docs/research/public-production-candidate-evidence/reviewed-deployment-20261023.json:generic-api-key:98
+# False positive: verified SHA-256 of unchanged docker/keycloak/themes/gameometro/email/html/password-reset.ftl in #275 evidence.
+07390bdecf61fc9d3a536fac019cfda6274c4d89:docs/research/public-production-candidate-evidence/p1-email.json:generic-api-key:12

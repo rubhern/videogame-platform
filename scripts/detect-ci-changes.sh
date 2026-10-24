@@ -163,7 +163,7 @@ for path in "${changed_paths[@]}"; do
       enable production_runtime dependency_images
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
+    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/test-production-cleanup.py | scripts/rehearse-production-cleanup.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
       enable production_runtime
       matched=true
       ;;

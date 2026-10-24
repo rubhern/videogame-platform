@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Private recovery-only transport adapter for the existing privacy commands.
+"""Private production transport for existing privacy commands and fenced cleanup.
 
 Uses a disposable HTTP client on the identity-data network, without publishing a port.
 No legal archive is created here. Administrative credentials travel only over stdin.
 """
 import argparse
 import base64
+import contextlib
 import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -65,10 +67,18 @@ class DockerOpener:
         return response
 
 
-def runtime(config, project, state, username, password_file):
-    core = recovery.Runtime(config, project, state)
-    recovery.require(not core.compose('ps', '-q', '--status', 'running', 'application', 'migration', 'caddy').strip(), 'Recovery privacy requires closed consumers.')
-    recovery.require(not (state / 'READY').exists(), 'Recovery is already authorized.')
+def runtime(config, project, state, username, password_file, *, core=None, identity_cleanup=False):
+    core = core or recovery.Runtime(config, project, state)
+    recovery.require(password_file.is_file() and not password_file.is_symlink()
+                     and password_file.stat().st_uid == os.getuid()
+                     and not password_file.stat().st_mode & 0o027,
+                     'Administrative password file must be protected and owner-controlled.')
+    if identity_cleanup:
+        recovery.require(core.gate('check') == b'open', 'Cleanup requires open recovery authorization.')
+        recovery.require(not core.compose('ps', '-q', '--status', 'running', 'migration').strip(), 'Migration is active; cleanup refused.')
+    else:
+        recovery.require(not core.compose('ps', '-q', '--status', 'running', 'application', 'migration', 'caddy').strip(), 'Recovery privacy requires closed consumers.')
+        recovery.require(not (state / 'READY').exists(), 'Recovery is already authorized.')
     rendered = json.loads(core.compose('config', '--format', 'json'))
     network = rendered['networks']['identity-data']['name']
     admin = pd.provisioning.KeycloakAdmin('http://keycloak:8080')
@@ -79,7 +89,35 @@ def runtime(config, project, state, username, password_file):
     target.admin = admin
     target.postgres_container = core.compose('ps', '-q', '--status', 'running', 'postgres').decode().strip()
     target.application_container = core.compose('ps', '-aq', 'application').decode().strip() or None
+    recovery.require(target.postgres_container and (target.application_container or not identity_cleanup),
+                     'Live cleanup requires identifiable database and application containers.')
+    # Restore-time reads may precede creation of the application container. Existing
+    # mutation steps still require an inspectable named container via application_running().
     return target
+
+
+def dispatch(a, core, target):
+    if a.identity_cleanup and a.command in pd.STEPS:
+        # The ledger owns the durable fence across calls; this lease prevents its release
+        # or any recovery/deployment actor from racing this individual operation.
+        owner = core.gate('maintenance-check').decode()
+        recovery.require(owner != 'none', 'Cleanup mutation requires the identity fence.')
+        maintenance = load('production_cleanup_maintenance', Path(__file__).with_name('identity-maintenance'))
+        maintenance.Maintenance(core).check(owner)
+    if a.command == 'cleanup-candidates':
+        recovery.require(a.identity_cleanup and a.cutoff_ms is not None, 'Candidate reads require cleanup mode and cutoff.')
+        return pd.cleanup_candidates(target, a.cutoff_ms, a.max)
+    if a.command == 'recovery-logout-all':
+        recovery.require(not a.identity_cleanup, 'Global session revocation is restore-only.')
+        return logout_all(target, core)
+    subject = pd.canonical_uuid(a.keycloak_user_id or '', '--keycloak-user-id')
+    user = pd.require_identity(target, subject, a.user_id)
+    if a.command == 'identify': return pd.identify(target, subject)
+    if a.command == 'archive-snapshot': return pd.archive_snapshot(target, subject)
+    if a.command == 'archive-ratings':
+        return pd.archive_rating_page(target, subject, a.game_ids or '', a.after_game_id)
+    recovery.require(a.user_id is not None, 'Erasure requires the ledger UserId.')
+    return pd.STEPS[a.command](target, subject, user, a.application_must_be_stopped or not a.identity_cleanup)
 
 
 def logout_all(target, core):
@@ -118,26 +156,33 @@ def main():
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--admin-username', required=True)
     parser.add_argument('--admin-password-file', type=Path, required=True)
-    parser.add_argument('command', choices=['identify', 'archive-snapshot', 'recovery-logout-all', *pd.STEPS])
+    parser.add_argument('--identity-cleanup', action='store_true', help='Live cleanup; mutations require the existing deny/drain fence')
+    parser.add_argument('command', choices=['identify', 'cleanup-candidates', 'archive-snapshot', 'archive-ratings', 'recovery-logout-all', *pd.STEPS])
+    parser.add_argument('--cutoff-ms', type=int)
+    parser.add_argument('--max', type=int, default=100)
+    parser.add_argument('--game-ids')
+    parser.add_argument('--after-game-id', default='00000000-0000-0000-0000-000000000000')
     parser.add_argument('--keycloak-user-id')
     parser.add_argument('--user-id')
     parser.add_argument('--application-must-be-stopped', action='store_true')
     a = parser.parse_args()
-    target = runtime(a.config, a.project, a.state, a.admin_username, a.admin_password_file)
-    if a.command == 'recovery-logout-all':
-        result = logout_all(target, recovery.Runtime(a.config, a.project, a.state))
-    else:
-        subject = pd.canonical_uuid(a.keycloak_user_id or '', '--keycloak-user-id')
-        user = pd.require_identity(target, subject, a.user_id)
-        if a.command == 'identify': result = pd.identify(target, subject)
-        elif a.command == 'archive-snapshot': result = pd.archive_snapshot(target, subject)
-        else: result = pd.STEPS[a.command](target, subject, user, True)
+    core = recovery.Runtime(a.config, a.project, a.state)
+    # Restore replay already holds the recovery lease in its parent process. Only the
+    # independent live-cleanup calls acquire a new lease here.
+    with core.lock(maintenance=True) if a.identity_cleanup else contextlib.nullcontext():
+        target = runtime(a.config, a.project, a.state, a.admin_username, a.admin_password_file,
+                         core=core, identity_cleanup=a.identity_cleanup)
+        result = dispatch(a, core, target)
+        core.check_lease()
     print(json.dumps(result))
 
 
 if __name__ == '__main__':
     try:
         main()
+    except recovery.Refused as error:
+        print('Production privacy refused: ' + str(error), file=sys.stderr)
+        sys.exit(1)
     except Exception:
-        print('Recovery privacy operation failed; diagnostics withheld.', file=sys.stderr)
+        print('Production privacy operation failed; keep the ledger/fence and inspect protected runtime state.', file=sys.stderr)
         sys.exit(1)

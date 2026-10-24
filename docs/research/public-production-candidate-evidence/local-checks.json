@@ -1,0 +1,143 @@
+{
+  "scope": "local executable and focused browser validation; final documentation checks reported in acceptance record",
+  "sourceRevision": "39b57c5d0fe96a0b71d5bb79c02523c2b06534f4",
+  "currentWorkingTreeCi": "not-run-uncommitted-owner-review-required",
+  "checks": [
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "result": "passed",
+      "tests": 20
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "result": "passed",
+      "tests": 13
+    },
+    {
+      "command": "python3 scripts/test-production-recovery.py",
+      "result": "passed",
+      "tests": 34
+    },
+    {
+      "command": "python3 scripts/test-production-recovery-lock.py",
+      "result": "passed"
+    },
+    {
+      "command": "python3 scripts/test-production-identity-maintenance.py",
+      "result": "passed",
+      "tests": 12
+    },
+    {
+      "command": "python3 scripts/test-personal-data-privacy.py",
+      "result": "passed",
+      "runtime": "synthetic seam, real GPG and files"
+    },
+    {
+      "command": "python3 scripts/test-production-observability.py --smoke",
+      "result": "passed",
+      "dashboards": 6,
+      "sqlQueries": 33,
+      "dashboardQueries": 113,
+      "timingCases": 25,
+      "runtime": "separate isolated metric/Telegram fixture"
+    },
+    {
+      "command": "python3 scripts/test-production-observability.py",
+      "result": "passed",
+      "scope": "updated telemetry pool bounds and existing exact-rule cases"
+    },
+    {
+      "command": "python3 scripts/test-public-production-runtime.py --static-only",
+      "result": "passed",
+      "composeMutations": 64,
+      "caddyMutations": 15
+    },
+    {
+      "command": "focused existing Edge.run_scenario functions",
+      "result": "passed",
+      "receipt": "edge.json",
+      "reproduceFullSuperset": "python3 scripts/test-public-production-runtime.py"
+    },
+    {
+      "command": "eslint frontend/tests/production-identity.spec.ts",
+      "result": "passed"
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "result": "passed"
+    },
+    {
+      "command": "bash scripts/validate-actions.sh",
+      "result": "passed"
+    },
+    {
+      "command": "PORTAL_BASE_URL=<local preview> npm --prefix documentation run test:browser -- --grep \"landing, navigation|navigation and search reflow\"",
+      "result": "passed",
+      "tests": 3,
+      "note": "explicit URL used because Astro preview daemon exits after launch"
+    },
+    {
+      "command": "production-preview candidate page and search check",
+      "result": "passed",
+      "widths": [
+        1320,
+        390
+      ],
+      "note": "candidate heading/sidebar/search result; no horizontal overflow; screenshots visually inspected"
+    }
+  ],
+  "sourceSha256": {
+    ".github/workflows/build-and-verify.yml": "b0deeb25824de3f211b0a20ae6fcb7f97fb412c8972b3abd38cf589e99321871",
+    "deploy/public-production/bin/recovery-personal-data": "5321bfeee4b41efe60419ea81f949d1edcfda4ad32f8f679a1b1a3af73dc99fa",
+    "deploy/public-production/caddy/Caddyfile": "a63ed1a334dffa36a1c75ce77a878bef4f2515ee21b9d6bbf6380dc6541eb042",
+    "deploy/public-production/compose.yaml": "8d5d6c090505ced8a91a589eca3d168dc8746ae20df506e8eba1ad8ebc9547c7",
+    "documentation/content-map.mjs": "734d91eb29840c3d5d08795291257a5fe8d347f0eeab4ef623b8d3d33727f145",
+    "frontend/tests/production-identity.spec.ts": "13ffd199710f1bcdd5d11d0a17ea7f3d537a222c2e76fc966c22f8608e78cea4",
+    "scripts/detect-ci-changes.sh": "852559b60589c674098b8f6bdfb93bd51560fac6e750f2437b5371870b97d152",
+    "scripts/probe-public-production-edge.py": "911a72ad99abab32c0968e8c5c1f46e08968afa64045a406067c76e78da2938b",
+    "scripts/public_production_integration.py": "2245fba0005aa75853eea70ebf10b9e3bfbc97f0b7d36c11885ac68bfb1a1937",
+    "scripts/rehearse-production-cleanup.py": "9dd0f1b89e809c81cf564b708c8960b92afe4433ae10dc70c33ceb8419eb12e5",
+    "scripts/run-production-runtime-browser.sh": "e2ac8482ebe1998315e9dea4a9d0e40fb046d6829bde69be2c6a530a2d8ec12e",
+    "scripts/test-ci-change-detection.sh": "6adcd47feafb1b79e2238d3d01d7850a3d3ac7f9389749095379b3b8ba9adca5",
+    "scripts/test-production-cleanup.py": "628db5206f3eab125a8786be65b2c871571fb060657fcf74c75761d9579ac590",
+    "scripts/test-production-observability.py": "f898e9db0c88f1abb57cbd776901ff7f97ba9a5a14158169680fd3d525bf74fc",
+    "scripts/test-public-production-runtime.py": "6fdc15135cbbdf61965274c5e8c625dfbc5c70f78016476bf116283f6dcd4f00"
+  },
+  "focusedEdgeReproductionPython": "import importlib.util,json,tempfile,subprocess\nfrom pathlib import Path\nroot=Path.cwd()\nspec=importlib.util.spec_from_file_location('edge_acceptance',root/'scripts/test-public-production-runtime.py')\nr=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)\nchecked=[]\nr.build_edge_image()\ntry:\n with tempfile.TemporaryDirectory() as d:\n  env,_,_=r.synthetic_inputs(d)\n  config=r.edge_test_config(r.adapt(r.CADDYFILE.read_text(),d))\n  with r.Edge(d,env) as edge:\n   for label,clients in r.BURSTS:\n    if label not in ('BFF navigation per-source','identity per-source','emailed action per-source','shared household','registration per-source','recovery per-source','verification mail per-source'):continue\n    edge.load(config,gate=\"ready\")\n    errors=r.run_scenario(edge,config,label,clients)\n    assert not errors, errors\n    checked.append(label);print('Passed: '+label,flush=True)\n   text=r.CADDYFILE.read_text()\n   for old,new in r.AGGREGATE_SCALE:text=text.replace(old,new)\n   scaled=r.edge_test_config(r.adapt(text,d))\n   for label,clients in r.AGGREGATES:\n    edge.load(scaled,gate=\"ready\")\n    errors=r.run_scenario(edge,scaled,label,clients)\n    assert not errors, errors\n    checked.append(label);print('Passed: '+label,flush=True)\n Path('/tmp/vgp-increment8-edge.json').write_text(json.dumps({'kind':'focused-real-edge','outcome':'passed','scenarios':checked,'realHostCapacityAccepted':False},indent=2)+'\\n')\nfinally:\n subprocess.run(['docker','image','rm','--force',r.EDGE_TEST_IMAGE],capture_output=True)\n",
+  "rebasedRevision": "101ce2e17b2ec4c82a641964d2358329249205bf",
+  "postRebaseChecks": [
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "result": "environment-blocked",
+      "tests": 13,
+      "passed": 12,
+      "errors": 1,
+      "reason": "Docker Compose CLI unavailable in current WSL session; no Docker Unix socket"
+    },
+    {
+      "command": "rehearse-production-cleanup.py --browser --model-dir <approved-model> --revision 101ce2e17b2ec4c82a641964d2358329249205bf",
+      "result": "environment-blocked-before-runtime-start",
+      "reason": "Docker Desktop WSL integration unavailable; local Unix socket absent",
+      "receipt": "current-main-rehearsal-blocked.json"
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "result": "passed"
+    },
+    {
+      "command": "bash scripts/validate-actions.sh",
+      "result": "passed",
+      "actionlint": "1.7.12"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "backupId": "b7f9d52b5c1b4642a88a7c2370af93f9",
+  "deletionReplay": true,
+  "kind": "recovery-rehearsal",
+  "manifestSha256": "6bb943234149913afa0aa02079c74db076c55eaf23b0a624fee1bae6aabba4d0",
+  "outcome": "success",
+  "productionReady": false,
+  "readiness": true,
+  "scope": "isolated-local"
+}

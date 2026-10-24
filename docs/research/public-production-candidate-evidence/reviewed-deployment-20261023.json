@@ -1,0 +1,146 @@
+{
+  "outcome": "passed",
+  "phase": "E-deployment-transitions",
+  "provenance": {
+    "source_revision": "ec036c3b15167dfb44b8ffe8d8a071716426854f",
+    "image_digest": "sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+    "source_run_id": "39816921291",
+    "source_run_attempt": "1",
+    "securityRunId": 39816926731,
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:4d62ec17fc1683cafc2129b0e496ce226f4757f5585bae7470c4a5970fe4223d",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:071ab827baa601ff554fc0ea620bce24d1a09dd1d900c2bf70fa26278d43333f",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:e0e1bcf632a9f10e3ae02207c2eb29d18153ad0c71f674c6e7366ab2e620f291"
+    },
+    "applicationVersion": "0.50.0-SNAPSHOT"
+  },
+  "localizer": {
+    "outcome": "passed",
+    "sample": {
+      "text": "Explora un mundo misterioso y descubre tesoros ocultos.",
+      "revision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511"
+    }
+  },
+  "productionReady": false,
+  "stages": [
+    "A",
+    "B",
+    "D",
+    "E"
+  ],
+  "resources": {
+    "postgres": {
+      "peakBytes": 105067315,
+      "steadyBytes": 101281955,
+      "samples": 75,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 805306368
+    },
+    "migration": {
+      "peakBytes": 72634859,
+      "steadyBytes": 72634859,
+      "samples": 1,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 536870912
+    },
+    "caddy": {
+      "peakBytes": 16745758,
+      "steadyBytes": 13600030,
+      "samples": 71,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 134217728
+    },
+    "keycloak": {
+      "peakBytes": 543372083,
+      "steadyBytes": 525860864,
+      "samples": 71,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 805306368
+    },
+    "mailpit": {
+      "peakBytes": 10538188,
+      "steadyBytes": 7237271,
+      "samples": 71,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 134217728
+    },
+    "application": {
+      "peakBytes": 458961715,
+      "steadyBytes": 458961715,
+      "samples": 49,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 1610612736
+    },
+    "catalogue-localizer": {
+      "peakBytes": 319710822,
+      "steadyBytes": 308281344,
+      "samples": 51,
+      "restarts": 0,
+      "oomKilled": false,
+      "limitBytes": 805306368
+    }
+  },
+  "startedAtUnix": 1792757091,
+  "measurement": "Docker sampled working-set memory every >=2 seconds; steady is the final idle sample. No VPS capacity claim.",
+  "runtimeConfigurationFingerprint": "97e545a228085a0cc7beb8d7e14a72d9ead640b847fe47f5dea06a47e0b84fa3",
+  "requestedStage": "E",
+  "sourceFiles": {
+    "deploy/public-production/compose.yaml": "370af1b00fb32501bbd8dca92015b396628418cf7ecb4b7ae77e3af2c8bdcea4",
+    "deploy/public-production/caddy/Caddyfile": "4640f992ab5fefa750955736071f4ad0208a4205c8f166d5975584fc7787bbe0",
+    "deploy/public-production/bin/run-postgres": "b12b0d5f69b596e73ccf9613479fee8ca1d540a58000e40fc5322157c91b6ce6",
+    "deploy/public-production/bin/run-keycloak": "e93a340fb2060d819871b96cf46edf382472a2081a352797b5bf1bedd82200d7",
+    "scripts/public_production_integration.py": "2245fba0005aa75853eea70ebf10b9e3bfbc97f0b7d36c11885ac68bfb1a1937",
+    "scripts/run-production-runtime-browser.sh": "7d54971a6936278a98c03971183f65ca6e873c2e5ead16a2b0b2979329ee61cc",
+    "frontend/tests/production-identity.spec.ts": "15b6883c30918e714438488b33ca43f2788bb613a32c852f13e79865f7020df2"
+  },
+  "configurationSha256": "ea439c2011eb5c5b3f0727a85e50973543de3d81f936f60c0c405c98b8ee1c11",
+  "migrationVersion": "20261021.120000",
+  "browser": "not-exercised-operations-only",
+  "resourceSamplingFailure": true,
+  "deploymentTransitions": {
+    "outcome": "passed",
+    "attempts": 8,
+    "detectedFailures": [
+      "migration-failed-activation-prevented",
+      "readiness-failed",
+      "smoke-failed"
+    ],
+    "syntheticStatePreserved": true
+  },
+  "runtimeEvents": [
+    {
+      "service": "application",
+      "action": "die",
+      "exitCode": "143",
+      "expectedOperatorStop": true
+    },
+    {
+      "service": "migration",
+      "action": "die",
+      "exitCode": "0",
+      "expectedOperatorStop": false
+    },
+    {
+      "service": "application",
+      "action": "die",
+      "exitCode": "143",
+      "expectedOperatorStop": true
+    },
+    {
+      "service": "migration",
+      "action": "die",
+      "exitCode": "0",
+      "expectedOperatorStop": false
+    }
+  ],
+  "eventObservation": "passed",
+  "durationSeconds": 360,
+  "teardown": "passed"
+}

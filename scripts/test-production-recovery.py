@@ -65,6 +65,7 @@ class Recovery(unittest.TestCase):
         self.meta = {'postgresMajor': '18', 'applicationSchema': '1', 'keycloakSchema': 'abc'}
 
     def fake_sql(self, db, query, output=None):
+        if "rolname = 'videogame_grafana'" in query: return b'f\n'
         return b't\n'
 
     def backup(self, destination=None, fault=None):
@@ -93,6 +94,80 @@ class Recovery(unittest.TestCase):
         self.assertFalse(d.exists())
         self.assertFalse((self.state / 'READY').exists())
         self.assertNotIn('secret bytes', json.dumps(manifest))
+
+    def test_fence_and_thaw_include_optional_reader_without_allowing_unknown_logins(self):
+        with patch.object(self.runtime, 'sql', return_value=b't') as sql:
+            self.runtime.role_login(False)
+            self.assertIn("'videogame_grafana'", sql.call_args.args[1])
+            self.assertIn('NOLOGIN', sql.call_args.args[1])
+            for role in core.ROLES[:-1]: self.assertIn('ALTER ROLE '+role+' NOLOGIN;',sql.call_args.args[1])
+            self.runtime.role_login(True)
+            self.assertIn('LOGIN', sql.call_args.args[1])
+        with patch.object(self.runtime, 'sql', return_value=b'f') as sql:
+            with self.assertRaisesRegex(core.Refused, 'unknown login roles'): self.runtime.assert_fenced()
+            self.assertIn("rolname <> 'postgres'", sql.call_args.args[1])
+
+    def test_monitoring_consumer_stops_before_database_session_drain(self):
+        self.runtime.monitoring = True
+        with patch.object(self.runtime, 'compose') as compose:
+            self.runtime.stop_writers()
+            self.assertIn('grafana', compose.call_args.args)
+
+    def test_monitoring_restore_requires_protected_reconstruction_secret_before_mutation(self):
+        self.backup()
+        manifest = core.verify(self.work / 'pair'); manifest['monitoringReader'] = True
+        with patch.object(core, 'verify', return_value=manifest), patch.object(self.runtime, 'fresh') as fresh:
+            with self.assertRaisesRegex(core.Refused, 'Grafana password'): self.runtime.restore(self.work / 'pair', self.key)
+            fresh.assert_not_called()
+
+    def test_invalid_reader_password_refuses_before_any_restore_mutation(self):
+        self.backup()
+        manifest = core.verify(self.work / 'pair'); manifest['monitoringReader'] = True
+        password = self.work / 'reader-password'
+        for value in (b'', b'   \n', b'x' * 4097, b'a\nb', b'a\x00b', b'\xff'):
+            with self.subTest(value_length=len(value)):
+                password.write_bytes(value); password.chmod(0o600)
+                with patch.object(core, 'verify', return_value=manifest), patch.object(self.runtime, 'fresh') as fresh, \
+                     patch.object(self.runtime, 'closed') as closed, patch.object(self.runtime, 'compose') as compose:
+                    with self.assertRaises(core.Refused): self.runtime.restore(self.work / 'pair', self.key, password)
+                    fresh.assert_not_called(); closed.assert_not_called(); compose.assert_not_called()
+        password.write_text("valid-'quoted-password\n")
+        self.assertEqual(self.runtime.reader_password(password), b"valid-'quoted-password")
+
+    def test_reopen_unknown_login_refuses_before_enabling_any_consumer(self):
+        paths = self.evidence()
+        core.write(self.state/'REPLAY.json', {'backupId':'a'*32, 'ledgerSha256':core.digest(paths[0]),
+                                            'verifiedAt':core.utc().isoformat()})
+        core.write(self.state/'PENDING.json', {'phase':'deletion-replay-required', 'backupId':'a'*32})
+        with patch.object(self.runtime, 'sql', return_value=b'f') as sql, \
+             patch.object(self.runtime, 'identity'), patch.object(self.runtime, 'role_login') as login:
+            with self.assertRaisesRegex(core.Refused, 'Unexpected login roles'): self.runtime.reopen(*paths)
+            self.assertIn("'postgres','videogame_keycloak'", sql.call_args.args[1])
+            login.assert_not_called()
+            self.assertFalse((self.state/'READY').exists())
+        with patch.object(self.runtime, 'sql', return_value=b't'), \
+             patch.object(self.runtime, 'identity'), patch.object(self.runtime, 'role_login') as login:
+            self.runtime.reopen(*paths)
+            login.assert_called_once_with(True)
+
+    def test_cli_forwards_complete_protected_profile_inputs_to_existing_replay(self):
+        target = unittest.mock.MagicMock()
+        target.replay.return_value = {'kind':'deletion-replay','verified':True,'ready':False}
+        arguments=['recovery','replay','--config','/protected/compose.json','--project','vgp-production-test-unit',
+            '--state',str(self.state),'--ledger','/owner/ledger','--ledger-copy','/independent/ledger',
+            '--checkpoint','/owner/checkpoint','--host-command','protected-host-adapter',
+            '--receipt',str(self.work/'cli-replay.json')]
+        values={key:('A'*40 if key in ('signer','recipient') else '/protected/'+key) for key in core.ARCHIVE_INPUTS}
+        for key,value in values.items(): arguments.extend(['--'+key.replace('_','-'),value])
+        with patch.object(sys,'argv',arguments),patch.object(core,'Runtime',return_value=target):
+            self.assertEqual(core.main(),0)
+        actual=target.replay.call_args.kwargs['archive_inputs']
+        self.assertEqual(set(actual),set(core.ARCHIVE_INPUTS))
+        self.assertEqual({key:str(value) for key,value in actual.items()},values)
+
+    def test_profiled_replay_rejects_partial_or_unknown_archive_inputs(self):
+        for inputs in ({'archive_root': self.work}, {'unexpected': self.work}):
+            with self.assertRaises(core.Refused): self.runtime.replay(None, None, None, None, archive_inputs=inputs)
 
     def test_public_keyring_refuses_private_key(self):
         with self.assertRaises(core.Refused):

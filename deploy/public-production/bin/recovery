@@ -26,7 +26,8 @@ ROOT = Path(__file__).resolve().parents[3]
 COMMON = ROOT / 'deploy/private-dev/lib/backup-common.sh'
 ISSUER = 'https://auth.gameometro.com/realms/gameometro'
 DATABASES = ('videogame_platform', 'videogame_keycloak')
-ROLES = ('videogame_app', 'videogame_app_migrator', 'videogame_keycloak')
+ROLES = ('videogame_app', 'videogame_app_migrator', 'videogame_keycloak', 'videogame_grafana')
+ARCHIVE_INPUTS = ('archive_root', 'archive_copy', 'gnupg_home', 'recipient', 'signer', 'proof_root', 'holds')
 FILES = (*[d + '.dump.gpg' for d in DATABASES], 'manifest.json', 'SHA256SUMS')
 MAX_LEDGER = 128 * 1024 * 1024
 sys.dont_write_bytecode = True
@@ -113,6 +114,7 @@ def verify(backup):
     require(m['format'] == 1 and m['environment'] == 'production' and m['issuer'] == ISSUER
             and m['databases'] == list(DATABASES) and m['fence'] == 'roles-nologin-drained'
             and set(m['artifacts']) == {d + '.dump.gpg' for d in DATABASES}, 'Wrong backup identity or common-point evidence.')
+    require(type(m.get('monitoringReader', False)) is bool, 'Invalid monitoring reader inventory.')
     require(re.fullmatch(r'[0-9a-f]{32}', m['backupId']), 'Invalid backup identifier.')
     expected = ''.join(f'{digest(backup / n)}  {n}\n' for n in FILES[:-1])
     require((backup / 'SHA256SUMS').read_text() == expected, 'Backup checksum mismatch.')
@@ -183,6 +185,7 @@ class Runtime:
             require(services[service].get('entrypoint') == ['/opt/gameometro/bin/' + wrapper] and not services[service].get('command'), 'Recovery startup guard was bypassed.')
             mounts = services[service].get('volumes', [])
             require(any(v['target'] == '/run/recovery' and v['type'] == 'volume' and v['source'] == 'recovery-state' and v['read_only'] for v in mounts), 'Missing recovery startup guard.')
+        self.monitoring = 'grafana' in services
         self.volumes = rendered.get('volumes', {})
         require(all(not v.get('external') and re.fullmatch(re.escape(project) + r'[_-][a-z0-9_-]+', v.get('name', '')) for v in self.volumes.values()), 'Non-isolated durable volumes.')
         require(not any(v.get('type') == 'bind' and v['target'].startswith('/var/lib/postgresql') for v in services['postgres'].get('volumes', [])), 'Database host bind restoration is forbidden.')
@@ -330,21 +333,49 @@ os.close(fd)
         self.gate('close')
         write(self.state / 'PENDING.json', {'phase': phase, 'backupId': backup_id})
 
+    def role_login(self, enabled):
+        # Only known consumers; the optional reader may not have been provisioned yet.
+        command = 'LOGIN' if enabled else 'NOLOGIN'
+        required = ';'.join('ALTER ROLE ' + role + ' ' + command for role in ROLES if role != 'videogame_grafana') + ';\n'
+        self.sql('postgres', required + "SELECT format('ALTER ROLE %I " + command
+                 + "', rolname) FROM pg_roles WHERE rolname = 'videogame_grafana'\n\\gexec\n")
+
+    @staticmethod
+    def reader_password(password_file):
+        private(password_file)
+        require(0 < password_file.stat().st_size <= 4096, 'Missing or oversized Grafana reconstruction password.')
+        raw = password_file.read_bytes()
+        try:
+            password = raw.decode('utf-8').strip()
+        except UnicodeDecodeError:
+            raise Refused('Invalid Grafana reconstruction password.') from None
+        require(password and not any(c in password for c in ('\r', '\n', '\x00')),
+                'Invalid Grafana reconstruction password.')
+        return password.encode('utf-8')
+
+    def provision_reader(self, password_file):
+        # Reuse canonical grants/settings. The password crosses stdin only, with no SQL quoting ambiguity.
+        password = self.reader_password(password_file)
+        script = "SELECT convert_from(decode('" + password.hex() + "','hex'),'UTF8') AS reader_password\n\\gset\n"
+        script += (ROOT / 'deploy/private-dev/grafana/provision-reader.sql').read_text()
+        self.sql(DATABASES[0], script)
+
     def stop_writers(self):
-        self.compose('stop', '--timeout', '60', 'caddy', 'application', 'migration', 'keycloak')
+        self.compose('stop', '--timeout', '60', 'caddy', 'application', 'migration', 'keycloak',
+                     *(['grafana'] if getattr(self, 'monitoring', False) else []))
 
     def fence(self):
         self.closed('quiescing')
         # NOLOGIN is durable across PostgreSQL/container/host restarts. All sessions are then
         # terminated, rolling back in-flight transactions. COMMIT that won the race is included.
-        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' NOLOGIN' for r in ROLES) + ';')
+        self.role_login(False)
         self.stop_writers()
         self.sql('postgres', "SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity WHERE datname IN ('videogame_platform','videogame_keycloak') AND pid <> pg_backend_pid();")
         self.assert_fenced()
 
     def assert_fenced(self):
         query = """SELECT
-          NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('videogame_app','videogame_app_migrator','videogame_keycloak') AND rolcanlogin)
+          NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('videogame_app','videogame_app_migrator','videogame_keycloak','videogame_grafana') AND rolcanlogin)
           AND NOT EXISTS(SELECT FROM pg_stat_activity WHERE datname IN ('videogame_platform','videogame_keycloak'))
           AND NOT EXISTS(SELECT FROM pg_prepared_xacts)
           AND NOT EXISTS(SELECT FROM pg_subscription)
@@ -390,7 +421,8 @@ os.close(fd)
         m = {'format': 1, 'environment': 'production', 'backupId': uuid.uuid4().hex,
              'issuer': ISSUER, 'databases': list(DATABASES), 'fence': 'roles-nologin-drained',
              'recoveryPoint': recovery_point, 'recipient': recipient, 'artifacts': {},
-             'images': self.images, 'configurationSha256': self.config_hash, **self.metadata()}
+             'images': self.images, 'configurationSha256': self.config_hash,
+             'monitoringReader': self.sql('postgres', "SELECT EXISTS(SELECT FROM pg_roles WHERE rolname = 'videogame_grafana');").strip() == b't', **self.metadata()}
         self.identity()
         with staged(destination) as staging:
             with scratch() as d:
@@ -416,7 +448,7 @@ os.close(fd)
         pending = json.loads((self.state / 'PENDING.json').read_text())
         require(pending['phase'] == 'backup-complete-writers-still-fenced', 'Interrupted backup needs investigation; automatic thaw refused.')
         self.assert_fenced()
-        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' LOGIN' for r in ROLES) + ';')
+        self.role_login(True)
         self.gate('open')
         write(self.state / 'READY', {'kind': 'backup-thawed'})
         (self.state / 'PENDING.json').unlink()
@@ -432,7 +464,7 @@ os.close(fd)
         for kind, cmd in [('containers', ['docker', 'ps', '-aq'])]:
             require(not run([*cmd, '--filter', f'label=com.docker.compose.project={self.project}']).strip(), 'Restore target already has ' + kind + '; overwrite refused.')
 
-    def restore(self, backup, keyring):
+    def restore(self, backup, keyring, grafana_password_file=None):
         if self.project == 'gameometro-production':
             endpoint = os.environ.get('DOCKER_HOST')
             if not endpoint:
@@ -440,6 +472,9 @@ os.close(fd)
                 endpoint = context[0]['Endpoints']['docker']['Host']
             require(endpoint.startswith('ssh://'), 'Production decryption runs only on the owner machine through an SSH Docker context.')
         m = verify(backup)
+        if m.get('monitoringReader', False):
+            require(grafana_password_file is not None, 'Monitoring restore requires a protected Grafana password file.')
+            self.reader_password(grafana_password_file)
         self.fresh()
         require(self.images == m['images'], 'Restore requires the captured immutable image set; assess upgrades separately.')
         started = time.monotonic()
@@ -451,7 +486,9 @@ os.close(fd)
                 crypto('bc_decrypt_file', backup / name, d / database, keyring)
                 require(digest(d / database) == m['artifacts'][name]['plaintextSha256'], 'Decrypted backup checksum mismatch.')
             self.compose('up', '-d', '--no-deps', '--wait', '--wait-timeout', '180', 'postgres')
-            self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' NOLOGIN' for r in ROLES) + ';')
+            if m.get('monitoringReader', False):
+                self.sql('postgres', 'CREATE ROLE videogame_grafana NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION;')
+            self.role_login(False)
             require(self.sql('postgres', "SELECT current_setting('server_version_num')::int / 10000;").decode().strip() == m['postgresMajor'], 'PostgreSQL major differs.')
             for database in DATABASES:
                 # Fresh bootstrap reconstructs roles/passwords. No --clean, no roles/global dump.
@@ -460,13 +497,20 @@ os.close(fd)
                                              '--exit-on-error', '-d', database], stdin=stream, stdout=subprocess.DEVNULL,
                                             stderr=subprocess.PIPE, timeout=1800)
                 require(result.returncode == 0, 'Restore failed; target remains closed and requires deliberate disposal.')
+            if m.get('monitoringReader', False):
+                self.provision_reader(grafana_password_file)
+                self.role_login(False)
             require(self.metadata() == {k: m[k] for k in ('postgresMajor', 'applicationSchema', 'keycloakSchema')}, 'Restored schema identities differ.')
             self.identity()
         self.closed('deletion-replay-required', m['backupId'])
         write(self.state / 'SOURCE.json', {'recoveryPoint': m['recoveryPoint'], 'backupId': m['backupId'], 'manifestSha256': digest(backup / 'manifest.json')})
         return {'kind': 'isolated-restore', 'backupId': m['backupId'], 'durationSeconds': round(time.monotonic() - started, 3), 'ready': False}
 
-    def replay(self, ledger, ledger_copy, checkpoint, host_command):
+    def replay(self, ledger, ledger_copy, checkpoint, host_command, *, archive_inputs=None):
+        archive_inputs = archive_inputs or {}
+        require(not set(archive_inputs) - set(ARCHIVE_INPUTS), 'Unknown archive replay input.')
+        require(not archive_inputs or set(archive_inputs) == set(ARCHIVE_INPUTS), 'Archive replay requires all protected archive/key/proof/holds inputs.')
+        archive_args = [item for key, value in archive_inputs.items() for item in ('--' + key.replace('_', '-'), value)]
         pending = json.loads((self.state / 'PENDING.json').read_text())
         require(pending['phase'] == 'deletion-replay-required', 'Restore is incomplete; replay refused.')
         require(not self.compose('ps', '-q', '--status', 'running', 'application', 'migration', 'caddy').strip(), 'Application, migration and edge must stay stopped.')
@@ -480,7 +524,7 @@ os.close(fd)
         self.compose('up', '-d', '--no-deps', '--wait', '--wait-timeout', '300', 'keycloak')
         with scratch() as d:
             run(['python3', '-I', ROOT / 'deploy/private-dev/bin/personal-data-ledger', '--ledger', ledger,
-                 '--ledger-copy', ledger_copy, '--host-command', host_command, 'replay', '--receipt', d / 'replay.json'])
+                 '--ledger-copy', ledger_copy, '--host-command', host_command, *archive_args, 'replay', '--receipt', d / 'replay.json'])
             receipt = json.loads((d / 'replay.json').read_text())
             require(receipt['outcome'] == 'verified' and receipt['ledgerSha256'] == evidence
                     and receipt['entries'] == receipt['verified'] and receipt['runtime'] in (None, self.project), 'Deletion replay did not verify.')
@@ -498,8 +542,15 @@ os.close(fd)
         pending = json.loads((self.state / 'PENDING.json').read_text())
         require(pending['phase'] == 'deletion-replay-required' and replay['backupId'] == pending['backupId']
                 and replay['ledgerSha256'] == evidence and dt.timedelta(0) <= utc() - timestamp(replay['verifiedAt']) <= dt.timedelta(hours=1), 'Missing or stale replay evidence.')
+        # Replay deliberately leaves Keycloak online. Refuse all other login roles,
+        # prepared work and subscriptions before enabling any consumer, under the lease.
+        require(self.sql('postgres', """SELECT
+          NOT EXISTS(SELECT FROM pg_roles WHERE rolcanlogin AND rolname NOT IN ('postgres','videogame_keycloak'))
+          AND NOT EXISTS(SELECT FROM pg_prepared_xacts)
+          AND NOT EXISTS(SELECT FROM pg_subscription);""").strip() == b't',
+                'Unexpected login roles, prepared transactions or subscriptions before reopen.')
         self.identity()
-        self.sql('postgres', ';'.join('ALTER ROLE ' + r + ' LOGIN' for r in ROLES) + ';')
+        self.role_login(True)
         self.gate('open')
         write(self.state / 'READY', {'kind': 'deletion-replay-verified', 'backupId': pending['backupId']})
         (self.state / 'PENDING.json').unlink()
@@ -633,6 +684,10 @@ def main():
     parser.add_argument('--destination', type=Path)
     parser.add_argument('--keyring', type=Path)
     parser.add_argument('--recipient')
+    parser.add_argument('--grafana-password-file', type=Path)
+    for name in ARCHIVE_INPUTS:
+        if name != 'recipient':
+            parser.add_argument('--' + name.replace('_', '-'), type=str if name == 'signer' else Path)
     parser.add_argument('--ledger', type=Path)
     parser.add_argument('--ledger-copy', type=Path)
     parser.add_argument('--checkpoint', type=Path)
@@ -665,9 +720,9 @@ def main():
             with runtime.lock():
                 if a.command == 'initialize': result = runtime.initialize()
                 elif a.command == 'backup': result = runtime.backup(a.destination, a.keyring, a.recipient)
-                elif a.command == 'restore': result = runtime.restore(a.backup, a.keyring)
+                elif a.command == 'restore': result = runtime.restore(a.backup, a.keyring, a.grafana_password_file)
                 elif a.command == 'thaw': result = runtime.thaw()
-                elif a.command == 'replay': result = runtime.replay(a.ledger, a.ledger_copy, a.checkpoint, a.host_command)
+                elif a.command == 'replay': result = runtime.replay(a.ledger, a.ledger_copy, a.checkpoint, a.host_command, archive_inputs={k: getattr(a, k) for k in ARCHIVE_INPUTS if getattr(a, k) is not None})
                 elif a.command == 'reopen': result = runtime.reopen(a.ledger, a.ledger_copy, a.checkpoint)
                 elif a.command == 'record-recovery': result = runtime.record_recovery(a.backup, a.ledger, a.ledger_copy, a.checkpoint)
         result['outcome'] = 'success'

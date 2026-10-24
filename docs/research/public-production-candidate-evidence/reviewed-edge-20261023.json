@@ -1,0 +1,20 @@
+{
+  "kind": "focused-real-edge",
+  "outcome": "passed",
+  "scenarios": [
+    "BFF navigation per-source",
+    "identity per-source",
+    "registration per-source",
+    "recovery per-source",
+    "verification mail per-source",
+    "emailed action per-source",
+    "shared household",
+    "aggregate API capacity",
+    "aggregate identity mail"
+  ],
+  "realHostCapacityAccepted": false,
+  "sourceRevision": "ec036c3b15167dfb44b8ffe8d8a071716426854f",
+  "scope": "reviewed working-tree Caddy configuration, disposable stub upstreams, serial run after combined teardown",
+  "teardown": "passed",
+  "priorSchedulingFailure": "First concurrent attempt failed during fixed-subnet overlap; not counted as a passing run."
+}

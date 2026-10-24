@@ -24,7 +24,7 @@ what the repository checks and what only a real host can prove.
 | [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
-| [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private recovery transport for the existing privacy commands and session revocation |
+| [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
 | [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
@@ -87,7 +87,22 @@ falls back to a tag, failed run, expired publication or locally built image.
    an omitted model remains explicitly unexercised. Retain only these sanitized outputs.
 
 The source fingerprint includes runtime configuration, mounted wrappers/bootstrap and
-model policy, using actual file bytes and executable modes. It must match the selected
+model policy, using actual file bytes and executable modes. The same inventory also
+covers imported privacy/ledger/archive/admin code, backup-common, Grafana reader SQL,
+mounted dashboards/datasources, startup/notification scripts and alert templates,
+and the deployment verifier and its trust client. It also includes
+`scripts/provision-grafana-reader.sh`, its production validation prerequisite
+`scripts/test-public-production-runtime.py` and that validator's edge probe.
+The deployment tests independently discover repository bind sources from rendered
+base/monitoring Compose, operator-command entrypoints in this runbook and their
+static executable/imported file dependencies. New reachable files outside the
+inventory fail that completeness check, including untracked executables. Local-only
+provisioning branches and rehearsal-only runbook commands are outside the runtime
+inventory; their own evidence records source hashes. This is a bounded audit of the
+repository's static path/import conventions, not a parser for arbitrary generated
+commands. Review new dynamic loading explicitly. Symlinked directories and files
+are refused instead of skipped. Mounted directories include newly
+added files; secrets and approved external model bytes retain their separate input checks. It must match the selected
 image's trusted source inventory. The rendered synthetic configuration has a separate
 fingerprint, checked before every attempt. A different runtime configuration requires
 its own reviewed rollout; this command replaces only the application. Dependency
@@ -257,6 +272,11 @@ injection is available outside the isolated rehearsal. Focused offline tests als
 provenance, concurrent attempts and incompatible rollback; those refusals do not need
 real registry/runtime failures.
 
+For a focused deployment/localizer experiment, `--operations-only` explicitly omits
+stage C and records `browser: not-exercised-operations-only`; it still performs the
+trusted-source/configuration preflight and every selected operational check. Such a
+run is never complete candidate acceptance or a substitute for the browser journey.
+
 The evidence directory contains a sanitized JSON receipt: source/run/attempt/security
 provenance, all immutable image references, stages, migration version, configuration
 fingerprint, sampled peak/final idle working-set memory, restart/OOM observations and
@@ -332,8 +352,9 @@ python3 "$recovery" verify --backup /protected/backups/NEW_PAIR \
 
 The keyring used by `backup` must contain only the owner's public encryption key;
 secret keys and ambiguous recipients are refused. The actor closes the persistent
-startup gate, sets all three database consumer roles to `NOLOGIN`, stops the edge,
-application, migration and Keycloak, terminates and waits for existing database
+startup gate, sets the three application/identity roles and the optional provisioned
+`videogame_grafana` reader to `NOLOGIN`, stops the edge, application, migration,
+Keycloak and Grafana when configured, terminates and waits for existing database
 sessions to roll back, then refuses unknown login roles, remaining connections,
 prepared transactions or subscriptions. A runtime-volume lease excludes concurrent recovery actors even from different
 owner journals or machines, and every actor refuses while an
@@ -362,6 +383,11 @@ python3 "$recovery" thaw --config /protected/compose.json \
   --project gameometro-production --state /protected/recovery-journal \
   --receipt /protected/receipts/thaw.json
 ```
+
+After a successful `thaw` or evidence-checked `reopen`, explicitly restart the
+approved consumers through the reviewed host procedure, including Grafana when the
+overlay is configured. Neither command restarts it automatically. Confirm reader
+connectivity and monitoring recovery before ending maintenance.
 
 ### Independently secured copy and retention
 
@@ -440,6 +466,21 @@ python3 "$recovery" restore --config /protected/rebuilt-compose.json \
   --receipt /protected/receipts/restore.json
 ```
 
+When the pair records `monitoringReader: true`, `restore` also requires
+`--grafana-password-file /owner/protected/grafana-password`: an owner-only 0600
+reconstruction input, passed to PostgreSQL only over stdin. Its size, UTF-8 content,
+nonempty value and absence of embedded line/NUL separators are validated before
+any restore resource is created. Retain the same credential as the rendered
+Grafana datasource's `grafana_database_password` secret; after explicit reopen and
+Grafana restart, verify a query through Grafana's PostgreSQL datasource API.
+A direct reader-role SQL login alone does not establish that integration.
+Before `pg_restore`, the
+actor creates the missing reader as `NOLOGIN`; afterward it reapplies the canonical
+reader grants/settings with that credential. The role remains fenced until verified
+replay/reopening. `thaw` and `reopen` enable only the known consumer roles, including
+that optional reader; unknown login roles still cause refusal. No globals/password dump
+is introduced. Legacy pairs without the reader field retain their original contract.
+
 Both decryptions and plaintext checksums pass before creating a database. Restore
 checks the schema identities and every rating principal against Keycloak subjects
 using the application's exact issuer-derived UUID algorithm. This offline operation
@@ -467,7 +508,14 @@ The actor starts only Keycloak, reuses the existing revoke/delete-ratings/
 delete-identity/verify sequence and validates its receipt. It never recreates a legal
 archive as a substitute for the archive preserved with the request. Incomplete
 requests requiring legal sealing retain the existing ledger driver's refusal until
-that separate protected archive is reconciled.
+that separate protected archive is reconciled. Forward its complete inputs on the
+`recovery replay` invocation: `--archive-root`, `--archive-copy`, `--gnupg-home`,
+`--recipient`, `--signer`, `--proof-root` and `--holds`. These are the existing ledger's
+protected stores and full key fingerprints; partial sets are refused. `--keyring`
+for decrypting the backup and `--gnupg-home` for archive verification/signing have
+separate responsibilities. An incomplete profiled replay reuses the original sealed
+ciphertext; it must never take a fresh snapshot or replace the retained legal source.
+Absent, divergent, held or unusable source leaves `REPLAY`/`READY` unauthorized.
 
 After replay all restored realm sessions must be revoked, including offline sessions.
 The recovery adapter uses realm logout followed by bounded discovery and
@@ -477,7 +525,10 @@ A two-minute revocation budget leaves the gate closed on exhaustion; resume expl
 
 BFF sessions disappear with the stopped process. A failed replay leaves reopening
 blocked and is retryable. `reopen` takes the same ledger/checkpoint arguments,
-rechecks freshness, matching replay evidence and identity consistency, then authorizes
+rechecks freshness, matching replay evidence and identity consistency, and rejects
+unexpected login roles, prepared transactions and subscriptions before enabling
+any consumer. Only PostgreSQL and the replay's Keycloak role may already have
+LOGIN at this boundary. It then authorizes
 startup without starting services. Use the reviewed migration/readiness/smoke flow
 afterwards. A restore receipt alone is never permission to start the application. Once readiness
 passes, run `record-recovery` with the same runtime, backup and deletion-evidence
@@ -485,6 +536,26 @@ arguments. It binds the observed readiness, replay, startup gate, captured image
 manifest digest into the protected receipt accepted by retention. Keep that receipt
 independently with the verified pair; the synthetic rehearsal's receipt cannot pin a
 different real backup.
+
+Replay verifies absence without completing an interrupted owner-ledger request.
+After recording recovery readiness, finish each incomplete request using the same
+protected archive/key/proof/holds inputs and the ledger's `retry` command against
+`bin/recovery-personal-data --identity-cleanup`. Supply
+`retry --maintenance-command "python3 deploy/public-production/bin/identity-maintenance --config … --project … --state …"`.
+The same adapter is supported for `erase --maintenance-command …` when beginning a
+live owner-verified erasure. The ledger holds its exclusive lock across maintenance
+enter/check, mutation, suppression proof and completion; the production transport
+also rechecks the fence under its runtime lease for each mutation. A failed entry,
+drain, identity check or conflicting owner refuses mutation; the exit callback is
+registered before entry to handle lost acknowledgements. Cleanup retries retain
+their additional recorded-cutoff, eligibility and hold checks.
+
+Verify both ledger copies report completion, the suppression proof's
+`archiveSha256` matches the original sealed source, and both ciphertext copies
+remain unchanged. A completion appends to the ledger, so its digest advances:
+retain the pre-retry recovery receipt as point-in-time evidence and reconcile a
+fresh checkpoint for later recovery. Never relabel an older replay proof as a
+proof of the new ledger digest.
 
 ### Local exercise and remaining host checks
 
@@ -501,7 +572,12 @@ It captures/copies an encrypted pair, destroys the original runtime and source c
 reconstructs roles with new synthetic database credentials and separately retained
 configuration/secrets, restores from the simulated independent copy, verifies
 identity consistency, refuses early application startup, replays a post-backup
-request with only Keycloak running and checks application readiness. All containers,
+request with only Keycloak running and checks application readiness. It renders
+the real monitoring overlay, makes notification egress internal only in the
+isolated configuration, proves Grafana stops before session drain, then restarts
+Grafana and queries its actual PostgreSQL datasource after reopening. It completes
+the interrupted profiled request through fenced live retry, checking replicated
+ledger completion, suppression proof and unchanged original ciphertext. All containers,
 networks, volumes, keys and plaintext are disposed; only sanitized receipts remain.
 Local measurements describe that machine and tiny dataset, not future VPS RPO/RTO.
 The full exercise needs trusted publication/registry access and stays local; focused
@@ -578,10 +654,37 @@ it is released. A failed `exit` is an owner incident: inspect the run and Keyclo
 privately, then repeat `exit` with the same run ID. Never delete the file by hand to
 reopen identity; that bypasses the drain proof.
 
-No production host command exists yet for the cleanup's candidate reads and erasure
-steps; `bin/recovery-personal-data` serves restore replay only. The cleanup therefore
-stays unexecutable in production until that adapter and the real-host drain acceptance
-below exist.
+The prepared production transport is `bin/recovery-personal-data --identity-cleanup`.
+It reuses the existing privacy operations, ledger, protected archive and suppression
+proof. It acquires the recovery lease for each call, requires open recovery
+authorization and an identifiable application container, and refuses mutations
+without rechecking the identity fence and drain under that lease. Candidate reads
+retain the native server filter and 100-account bound. Omit `--identity-cleanup`
+for restore replay: its parent recovery actor owns the lease and all consumers must
+remain closed. Never use live cleanup mode as a restore adapter.
+
+Command shapes for protected owner administration, **not permission to operate a host**:
+
+```bash
+python3 deploy/private-dev/bin/personal-data-ledger \
+  --ledger /protected/ledger.jsonl --ledger-copy /independent/ledger.jsonl \
+  --host-command "python3 deploy/public-production/bin/recovery-personal-data --config /protected/compose.json --project gameometro-production --state /protected/recovery-journal --admin-username OPERATOR --admin-password-file /protected/admin-password --identity-cleanup" \
+  cleanup-unverified
+```
+
+The default is a read-only probe. For execution add the protected archive/key/proof/
+holds options from the [privacy procedure](../../docs/development/operations-runbook.md#privacy-phase-2-administration)
+and append `--execute --maintenance-command "python3 deploy/public-production/bin/identity-maintenance --config /protected/compose.json --project gameometro-production --state /protected/recovery-journal"`.
+Use the same global inputs and maintenance command for `retry`; inspect ledger status
+before admitting a new cleanup. Keep keys and both archive/ledger copies in their
+approved independent protection domains. No timer is installed. Actual host drain,
+backlog/cadence, archive access and second-copy independence remain #276 gates.
+
+Reproduce the synthetic transport exercise with
+`python3 scripts/rehearse-production-cleanup.py --revision FULL_TRUSTED_MAIN_SHA --evidence NEW_DIRECTORY --browser --model-dir EXISTING_APPROVED_MODEL`.
+Its receipt distinguishes the locally modified transport/configuration fingerprint
+from the trusted-main application and dependency images. This is working-tree
+integration evidence, never permission to promote an unpublished configuration.
 
 ### Limiter memory
 
@@ -743,3 +846,53 @@ missing-data and recovery notifications to the protected owner channel; and esta
 an independent-device cadence for complete host loss. Recheck pinned dependency scans,
 log-age enforcement and current trusted-source CI before the separate purchase/exposure
 gates. The short workstation sample does not pass those checks or authorize more RAM.
+
+
+## Host bootstrap and operating handoff to #276
+
+**Prepared sequence; real-host steps are not exercised or authorized.** Use the
+[release gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
+for purchase/exposure decisions and the [candidate audit](../../docs/research/public-production-candidate-acceptance.md)
+for exact evidence and remaining work. The current deployment command unconditionally
+refuses real-host operation; #276 must review any host adapter before using it.
+
+1. After separate purchase authorization, qualify the selected Linux/x86_64 host,
+   clock synchronization, Docker/Compose, private administration and provider console.
+   Keep ingress/registration closed; prove IPv4/IPv6 firewall and Docker port behaviour.
+   Record actual RAM/disk and the independent owner/storage access model before data.
+2. Stage the reviewed checkout and successful trusted-main publication records. Select
+   every image by its recorded digest, verify source/scans and configuration fingerprint,
+   and retain previous identities. Render base Compose **with the observability overlay**
+   into protected administration storage. Validate file consumers, model checksums,
+   private networks and the secret inventory above. A base-only receipt is insufficient.
+3. Generate independent production secrets outside Git; configure the realm, public-only
+   backup encryption keyring and separately protected off-VPS decryption/signing keys.
+   Prove archive/ledger isolation and independent second copies before opening accounts.
+   Do not clone local/private-dev identity, data, secrets or TLS state.
+4. For fresh empty state only, initialize the recovery gate, start PostgreSQL, complete
+   the same-image Flyway actor, then start identity, edge and application through the
+   reviewed host deployment procedure. Provision the Grafana reader after migrations,
+   start telemetry privately, and verify readiness, image/source identity, routing and
+   the complete synthetic browser journey. A failed phase keeps the candidate closed.
+5. Review daily paired-backup and independent pull/verification schedules against the
+   [recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery).
+   Serialize deployment, backup and heavy sync/localization. Backup deliberately leaves
+   writers closed: inspect its receipt and explicitly thaw before starting services.
+   Publish failed-attempt receipts too. Schedule no cleanup, copy, backup or sampler in
+   this change; #276 must prove duration, missed-run detection and owner coverage first.
+6. On the independent destination, verify the encrypted pair and isolated restore before
+   publishing an off-host attestation. Exercise source-host loss, reconstruction, ledger
+   replay, old-session revocation and evidence-checked reopening. Missing evidence keeps
+   the gate closed; checksums alone do not establish recovery.
+7. Activate the sampler/notifications only after #276 calibrates actual resources, quota,
+   certificate, missing-data and failed-backup alerts and delivers firing/recovery to
+   the protected owner channel. Verify complete host loss from an independent device.
+8. For incidents use [production monitoring](../../docs/development/operations-runbook.md#production-monitoring)
+   and the failure tables above. Stop background work first on capacity loss; close
+   identity or global writes as appropriate for integrity risk. Preserve journals,
+   source/configuration identities and sanitized receipts. Never delete a fence, create
+   `READY` manually, restore a live volume or implicitly roll back schema to recover.
+
+Public DNS/ACME, actual mail delivery, provider/legal checks and external acceptance
+remain separately authorized #276 work. Successful private qualification does not
+permit public signup or ingress. Private-dev retirement is a separate decision.

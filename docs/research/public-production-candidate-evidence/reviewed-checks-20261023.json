@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-23",
+  "sourceRevision": "ec036c3b15167dfb44b8ffe8d8a071716426854f",
+  "scope": "reviewed uncommitted increment; no current-change PR/main CI claim",
+  "docker": {
+    "context": "default",
+    "endpoint": "unix:///var/run/docker.sock",
+    "server": "Docker Desktop / docker-desktop / linux",
+    "dockerHostOverride": null,
+    "dockerContextOverride": null,
+    "initialRunningContainers": 0,
+    "hostConfigurationChanged": false
+  },
+  "upstreamBuildRun": 39816921291,
+  "upstreamSecurityRun": 39816926731,
+  "currentChangeCI": "not-run-uncommitted",
+  "independentReview": "pending; this receipt records author self-review only",
+  "authorReview": {
+    "correctness": "Existing ledger and protected archive orchestration retained; live calls serialize under recovery lease; mutation checks revalidate held fence/drain; restore uses parent lease and stopped-consumer guards.",
+    "security": "No real credentials/accounts or public test ports. Diagnostic fields bounded; original action/mail/registration/login/recovery/aggregate limits retained. Current scans are not risk-accepted.",
+    "boundedWork": "Native server candidate filter, max 100; existing ledger claim/race/exclusion checks; no new query or persistent collection path.",
+    "complexity": "One mode on existing transport and one isolated rehearsal; no new infrastructure, workflow or scheduler. operations-only remains explicitly incomplete acceptance.",
+    "privateDevCompatibility": "No private-dev paths changed by increment; shared privacy tools used read-only as existing libraries/commands.",
+    "versioning": "No application/API artefact changes in increment; no independent script version or version bump. Upstream main versions retained.",
+    "independence": "Author self-review only; independent review and current-change CI remain pending."
+  },
+  "validationScheduling": {
+    "failedConcurrentEdgeStart": true,
+    "diagnosis": "Combined runtime application-edge subnet 10.203.1.0/28 matches the edge fixture base subnet; Docker cannot allocate both simultaneously. Fixture teardown ran; run edge only after combined teardown.",
+    "classification": "test orchestration conflict; no policy relaxation"
+  },
+  "productionServiceImages": {
+    "application": "ghcr.io/rubhern/videogame-platform@sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+    "blackbox": "prom/blackbox-exporter:v0.29.0@sha256:9613f2884689b6fad9f1939f6a3b0388c93a022cfaededb19545b329b5c83dea",
+    "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:e0e1bcf632a9f10e3ae02207c2eb29d18153ad0c71f674c6e7366ab2e620f291",
+    "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:071ab827baa601ff554fc0ea620bce24d1a09dd1d900c2bf70fa26278d43333f",
+    "grafana": "grafana/grafana:13.2.2@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0",
+    "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:4d62ec17fc1683cafc2129b0e496ce226f4757f5585bae7470c4a5970fe4223d",
+    "migration": "ghcr.io/rubhern/videogame-platform@sha256:f386aadd752add0352947f79606d556a543951048535aaf822e3719734d72943",
+    "node-exporter": "prom/node-exporter:v1.12.1@sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0",
+    "postgres": "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+    "prometheus": "prom/prometheus:v3.13.3@sha256:6976aa8a60fec930796ce5772b8d12da7a318a5daa8d40d69c5c7819a05eeed7",
+    "telemetry": "otel/opentelemetry-collector:0.160.0@sha256:e495787f07dbe432ce763ebaf5bc3d113850e9eee2250ade7a3da6a882d0d69a"
+  },
+  "unpublishedConfigurationSafetyCheck": {
+    "outcome": "expected-refusal",
+    "reason": "Configuration fingerprint differs from the approved input or trusted image source; separate runtime rollout required.",
+    "runtimeSourceFingerprint": "a3f5192f1e8ee3fbcc0f1c80faaf70f9878ade9f9d3d79d1ec1356bd6965da28"
+  },
+  "reproduction": {
+    "combined": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-cleanup.py --revision ec036c3b15167dfb44b8ffe8d8a071716426854f --evidence NEW_COMBINED_DIRECTORY --browser --model-dir EXISTING_APPROVED_MODEL",
+    "trustedDeployment": "Extract git archive ec036c3b15167dfb44b8ffe8d8a071716426854f into a new source directory; copy only scripts/public_production_integration.py from reviewed working tree into its scripts directory; run it there with --operations-only --revision ec036c3b15167dfb44b8ffe8d8a071716426854f --model-dir ABSOLUTE_EXISTING_APPROVED_MODEL --evidence NEW_DEPLOYMENT_DIRECTORY. All runtime sources remain byte-for-byte trusted; no verifier change or local image substitution. Browser is covered independently by combined receipt.",
+    "recovery": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-recovery.py --revision ec036c3b15167dfb44b8ffe8d8a071716426854f --evidence NEW_RECOVERY_DIRECTORY",
+    "edge": "Run focusedEdgeReproductionPython from local-checks.json, from repository root, only after combined/deployment/recovery stack teardown; otherwise fixed subnets collide. Full superset: python3 scripts/test-public-production-runtime.py."
+  },
+  "checks": [
+    {
+      "command": "python3 scripts/test-production-cleanup.py",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 scripts/test-public-production-integration.py",
+      "result": "passed",
+      "tests": 13
+    },
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "result": "passed",
+      "tests": 20
+    },
+    {
+      "command": "python3 scripts/test-production-recovery.py",
+      "result": "passed",
+      "tests": 34
+    },
+    {
+      "command": "python3 scripts/test-production-recovery-lock.py",
+      "result": "passed",
+      "scope": "real local Docker lease/fence/release and cleanup"
+    },
+    {
+      "command": "python3 scripts/test-production-observability.py",
+      "result": "passed",
+      "dashboardQueries": 114,
+      "timingCases": 25
+    },
+    {
+      "command": "python3 scripts/test-public-production-runtime.py --static-only",
+      "result": "passed",
+      "composeMutations": 64,
+      "caddyMutations": 15
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "result": "passed"
+    },
+    {
+      "command": "bash scripts/validate-actions.sh",
+      "result": "passed"
+    },
+    {
+      "command": "eslint tests/production-identity.spec.ts",
+      "directory": "frontend",
+      "result": "passed"
+    }
+  ],
+  "allOwnedRuntimeResourcesRemoved": true,
+  "sourceSha256": {
+    ".github/workflows/build-and-verify.yml": "b0deeb25824de3f211b0a20ae6fcb7f97fb412c8972b3abd38cf589e99321871",
+    "deploy/public-production/bin/recovery-personal-data": "5321bfeee4b41efe60419ea81f949d1edcfda4ad32f8f679a1b1a3af73dc99fa",
+    "deploy/public-production/caddy/Caddyfile": "a63ed1a334dffa36a1c75ce77a878bef4f2515ee21b9d6bbf6380dc6541eb042",
+    "deploy/public-production/compose.yaml": "8d5d6c090505ced8a91a589eca3d168dc8746ae20df506e8eba1ad8ebc9547c7",
+    "documentation/content-map.mjs": "d818d93276f728f9fcd8918ae16c803ec32202e769c51f23bddf8e3a605b95eb",
+    "frontend/tests/production-identity.spec.ts": "13ffd199710f1bcdd5d11d0a17ea7f3d537a222c2e76fc966c22f8608e78cea4",
+    "scripts/detect-ci-changes.sh": "ecf6d59535329f4c60aef1a0cb95abfe7213cb5386a86d81388db0bb8b148703",
+    "scripts/probe-public-production-edge.py": "911a72ad99abab32c0968e8c5c1f46e08968afa64045a406067c76e78da2938b",
+    "scripts/public_production_integration.py": "2245fba0005aa75853eea70ebf10b9e3bfbc97f0b7d36c11885ac68bfb1a1937",
+    "scripts/rehearse-production-cleanup.py": "9dd0f1b89e809c81cf564b708c8960b92afe4433ae10dc70c33ceb8419eb12e5",
+    "scripts/run-production-runtime-browser.sh": "e2ac8482ebe1998315e9dea4a9d0e40fb046d6829bde69be2c6a530a2d8ec12e",
+    "scripts/test-ci-change-detection.sh": "d7b14d61b7dc6c4e62d5276628355ffff0ae9536f8ab3c9dc12d9684e37361c3",
+    "scripts/test-production-cleanup.py": "628db5206f3eab125a8786be65b2c871571fb060657fcf74c75761d9579ac590",
+    "scripts/test-production-observability.py": "f898e9db0c88f1abb57cbd776901ff7f97ba9a5a14158169680fd3d525bf74fc",
+    "scripts/test-public-production-runtime.py": "6fdc15135cbbdf61965274c5e8c625dfbc5c70f78016476bf116283f6dcd4f00"
+  },
+  "integrationOutcomes": {
+    "combined": "success",
+    "edge": "passed-nine-scenarios",
+    "deployment": "passed-ABDE-and-eight-transitions",
+    "recovery": "success",
+    "teardown": "passed"
+  },
+  "preexistingIndexPreserved": true,
+  "recommendation": {
+    "independentReview": "ready",
+    "merge": "conditional-on-independent-review-and-current-change-PR-CI",
+    "close275": "no-until-owner-acceptance-current-source-CI-and-prepurchase-gates",
+    "purchase": "no-authorization-and-open-gates",
+    "publicExposure": "no-qualification-and-owner-authorization-required-in-276"
+  },
+  "ownedRuntimeResourcesRemaining": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "receiptSha256": {
+    "reviewed-backup-20261023.json": "d3313a4f631b7e030e31677df68e5efa54a335878b07ba8a6d4d1f2aac9946ec",
+    "reviewed-candidate-20261023.json": "735929570b603bb1fb75a032c1cc7f8d1a96ca2e004d21b4ba9dbe60a360e850",
+    "reviewed-cookies-20261023.json": "d740ad28f16070c193947648fcfe02f2e677c36a1c1af5e01cc3cf0540170682",
+    "reviewed-deletion-replay-20261023.json": "09c470b6bed1c01d834d728324fa61023b8ab9cf7afc5e0c8bb469d6b2a76d9e",
+    "reviewed-deployment-20261023.json": "a65d6d0215a799e7da0e9c19b2e981a374ecf3c2f4e2ffd4da63e13a0c3bda22",
+    "reviewed-deployment-attempts-20261023.json": "70165d455d06d167ad02dd9de34ca03be6cdec867ba93811787f93f01dee4574",
+    "reviewed-edge-20261023.json": "a49afdef39c73b15cc05cc09c9ecc8a48c5423b6c1e1ba5090600bfa977bb85e",
+    "reviewed-recovery-rehearsal-20261023.json": "6c2943e59050bf86ddf0ba20e1f52caf695ec3ceb730997a193b5660e990ecc3",
+    "reviewed-restore-20261023.json": "9fa078bbb964c31a9feadaefa417dcc19795d93353568728e98dab9694912fb3",
+    "reviewed-scans-20261023.json": "70c4479d7066068a530b414557fa885b0f8615ac2f2c277e3e3367fe38300261",
+    "reviewed-verified-recovery-20261023.json": "d98e8b945e252aa2babb216c33922223cf8a5563075102a3e0d59f72570f2a7d"
+  }
+}

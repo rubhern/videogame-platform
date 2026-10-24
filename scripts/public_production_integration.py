@@ -191,7 +191,7 @@ class Exercise:
         tooling = d / 'tooling'
         tooling.mkdir()
         command(['docker', 'run', '--rm', '--label', f'vgp.production-test={self.project}', '-v', f'{tooling}:/tooling', PLAYWRIGHT, 'bash', '-ec',
-                 f'apt-get update -qq >/dev/null; cd /tooling; apt-get download libnss3-tools=2:3.98-1ubuntu0.2 >/dev/null 2>&1; printf \"e5b42390b02c21851bc04e9557ec48539a913f9b09637220c4b1db0d1386b3fb  %s\\n\" /tooling/*.deb | sha256sum -c - >/dev/null; dpkg-deb -x ./*.deb /tooling/nss; chown -R {os.getuid()}:{os.getgid()} /tooling'])
+                 f'apt-get update -qq >/dev/null; cd /tooling; apt-get download libnss3-tools=2:3.98-1ubuntu0.3 >/dev/null 2>&1; printf \"0bb7919188cb21d3bfba5d45b5aa45848aa61b92ced34ff3f8ecda7b92d788c0  %s\\n\" /tooling/*.deb | sha256sum -c - >/dev/null; dpkg-deb -x ./*.deb /tooling/nss; chown -R {os.getuid()}:{os.getgid()} /tooling'])
         app = self.selected['images']['application']
         command(['docker', 'run', '--rm', '--label', f'vgp.production-test={self.project}', '--network', 'none', '--user', f'{os.getuid()}:{os.getgid()}', '-v', f'{pki}:/run/pki', '--entrypoint', 'keytool', app,
                  '-importcert', '-noprompt', '-alias', 'runtime-ca', '-file', '/run/pki/ca.crt', '-keystore', '/run/pki/truststore.p12', '-storetype', 'PKCS12', '-storepass', 'disposable'])
@@ -355,7 +355,16 @@ class Exercise:
         if check and result.returncode:
             locations = sorted(set(re.findall(r'production-identity\.spec\.ts:\d+', result.stdout + result.stderr)))
             self.receipt['failedProbe'] = {'phase': self.phase, 'locations': locations,
-                                          'exitCode': result.returncode}
+                                          'exitCode': result.returncode,
+                                          'timeoutBudgetsMs': sorted(set(re.findall(r'Test timeout of (\d+)ms', result.stdout + result.stderr)))}
+            summary = self.directory / 'browser/cookie-inventory.json.failure.json'
+            if summary.exists():
+                self.receipt['failedProbe']['browser'] = json.loads(summary.read_text())
+            inventory = self.directory / 'browser/cookie-inventory.json'
+            if inventory.exists():
+                data = json.loads(inventory.read_text())
+                self.receipt['failedProbe']['rateRefusals'] = data.get('rateRefusals', [])
+                self.receipt['failedProbe']['identityActionRequests'] = data.get('identityActionRequests')
             raise trust.Refused('Integration probe failed; raw evidence withheld.')
         return result
 
@@ -525,6 +534,8 @@ def main(argv=None):
     parser.add_argument('--model-dir', type=Path, help='Existing approved checksum-verified tcbig directory; never downloaded')
     parser.add_argument('--evidence', required=True, type=Path, help='New output directory, sanitized receipts only')
     parser.add_argument('--stage', choices=['A', 'B', 'C', 'D', 'E'], default='E', help='Last stage to exercise')
+    parser.add_argument('--operations-only', action='store_true',
+                        help='Omit browser tests explicitly; this is never complete candidate acceptance')
     parser.add_argument('--digest', help='Expected immutable application digest; no fallback')
     parser.add_argument('--configuration-fingerprint', help='Owner-reviewed runtime source fingerprint')
     args = parser.parse_args(argv)
@@ -569,6 +580,12 @@ def main(argv=None):
                 exercise.thread = threading.Thread(target=exercise.monitor, daemon=True)
                 exercise.thread.start()
                 for stage in 'ABCDE'[:'ABCDE'.index(args.stage) + 1]:
+                    if stage == 'C' and args.operations_only:
+                        # Deployment state-preservation checks need the existing bounded fixture.
+                        fixture = ROOT / 'backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql'
+                        exercise.sql(fixture.read_text())
+                        receipt['browser'] = 'not-exercised-operations-only'
+                        continue
                     print(f'Running stage {stage}.', flush=True)
                     getattr(exercise, 'stage_' + stage.lower())()
                 receipt['outcome'] = 'passed'

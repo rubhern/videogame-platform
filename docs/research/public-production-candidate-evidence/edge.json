@@ -1,0 +1,16 @@
+{
+  "kind": "focused-real-edge",
+  "outcome": "passed",
+  "scenarios": [
+    "BFF navigation per-source",
+    "identity per-source",
+    "registration per-source",
+    "recovery per-source",
+    "verification mail per-source",
+    "emailed action per-source",
+    "shared household",
+    "aggregate API capacity",
+    "aggregate identity mail"
+  ],
+  "realHostCapacityAccepted": false
+}

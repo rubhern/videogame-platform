@@ -578,7 +578,26 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-No pool increase or search-index change is assumed by this topology.
+The monitoring allocation includes 576 MiB of steady services and a separate
+64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor
+allowance with backup work; it is not steady application capacity. Recovery lease and
+HTTP helper containers each have a 96 MiB ceiling and must be counted alongside
+owner-side volatile dump scratch and encryption/CLI processes. The lease serializes
+backup/deployment/cleanup; it does not automatically serialize catalogue work. Stop
+or drain acquisition/localization deliberately before those windows. Parallel test
+stacks on a workstation are not representative of this envelope.
+
+The nominal all-ceiling remainder (~1.45 GiB) is slightly below 20% of 7.45 GiB
+before helper overlap. This is conservative: deployment stops the application before
+running Flyway, and backup stops consumers before dumping. Assess each phase rather
+than assuming all actors coexist. Pausing translation requests saves CPU but leaves
+the loaded model resident; unloading it requires a deliberate stop and checked
+restart before candidate acceptance. Container ceilings cannot prove available RAM.
+Monitor actual host available memory and per-service peaks; stop background work and
+reject deployment if recovery margin, >=20% available RAM or >=25% free disk cannot
+be retained. Repeated ceiling contact, OOM, sustained swap, pool saturation, excessive
+CPU steal or growing WAL/telemetry age require bounded recalibration under #276,
+not an automatic larger VPS. No pool increase or search-index change is assumed.
 
 Storage budget covers PG data/indexes/WAL, identity, model, telemetry, rotated
 logs, two retained image generations and dump/restore scratch. Require >=25%

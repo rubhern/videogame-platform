@@ -8,6 +8,7 @@ import base64
 import copy
 import importlib.util
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
@@ -63,6 +64,14 @@ def static():
         config = rendered(temp)
     services = config['services']
     names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox'}
+    # The base-only topology cannot reveal exhaustion when the overlay starts.
+    ipam = config['networks']['telemetry']['ipam']['config'][0]
+    subnet, pool = (ipaddress.ip_network(ipam[k]) for k in ('subnet','ip_range'))
+    dynamic = sum('telemetry' in s.get('networks',{}) and not (s['networks']['telemetry'] or {}).get('ipv4_address') for s in services.values())
+    assert pool.subnet_of(subnet) and pool.num_addresses - 2 >= dynamic + 2
+    assert ipaddress.ip_address(ipam['gateway']) not in pool
+    assert ipaddress.ip_address('10.203.3.2') not in pool
+
     assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 640
     for name in names:
         service = services[name]

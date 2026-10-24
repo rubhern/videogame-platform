@@ -1,0 +1,60 @@
+{
+  "cleanup": true,
+  "deletionReplay": false,
+  "dockerEngine": "docker-desktop Docker Desktop",
+  "exerciseSeconds": 137.132,
+  "failedAt": [
+    {
+      "file": "rehearse-production-recovery.py",
+      "line": 198
+    },
+    {
+      "file": "rehearse-production-recovery.py",
+      "line": 60
+    },
+    {
+      "file": "recovery-personal-data",
+      "line": 58
+    },
+    {
+      "file": "recovery",
+      "line": 48
+    },
+    {
+      "file": "recovery",
+      "line": 42
+    }
+  ],
+  "failureType": "Refused",
+  "kind": "recovery-rehearsal",
+  "monitoringReaderProvisioned": true,
+  "notificationEgressIsolatedOnlyInRehearsal": true,
+  "offlineSessionCaptured": true,
+  "outcome": "failure",
+  "productionReady": false,
+  "provenance": {
+    "applicationVersion": "0.51.0-SNAPSHOT",
+    "image_digest": "sha256:67863cc7e2ba6280570d336aae133402521cef95930346634d1763847531dd1a",
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:67863cc7e2ba6280570d336aae133402521cef95930346634d1763847531dd1a",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:bab816310b35747dee6cce3a09a44a538a25ba59be63b4be58683858ba2af1c0",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:bd1e2f7cffdca1d4da1e8c39f14ac99a5ac720baab30c0f7e26f39ac23db157b",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:56014f025e391e5955e5540d5ad97c7d3535e8b3b268a3ca009a412979b70a00"
+    },
+    "securityRunId": 40009293777,
+    "source_revision": "c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916",
+    "source_run_attempt": "1",
+    "source_run_id": "40009293440"
+  },
+  "readiness": false,
+  "runtimeSourceFingerprint": "aadde93f82376e772131adc536b341ecd3817236ead27094a0447f9d74f9fd1e",
+  "scope": "isolated-local-synthetic-only",
+  "sourceFiles": {
+    "deploy/private-dev/bin/personal-data-ledger": "7f841d31c82f7ca5ebe0a8a3118646f21f18d58f0367ad76cfceed4db1c16d4a",
+    "deploy/public-production/bin/recovery": "9c7da1b382c77c9914d1b8e653b150ac3f651587b1c5c603fb94b663647f29a3",
+    "scripts/rehearse-production-cleanup.py": "9468ee5e2b64b88699c6768687b3e7751ddd41b9af60e1226516c4ee6c20f227",
+    "scripts/rehearse-production-recovery.py": "17c45469ca49123ddaafbd5a4eea8ac5acf03b77df8cfc7c54b297e9e9e912d1"
+  },
+  "sourceRenderedConfigurationSha256": "b94591d0f293afc3741bda6e1b7cf5bffc5e299f483a1f733f8c2fd0d5783d5f",
+  "workingTreeBase": "bf488970c4d103608f16891715abc033dae5b8d8"
+}
