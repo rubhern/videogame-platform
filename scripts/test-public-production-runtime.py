@@ -710,7 +710,7 @@ MAINTENANCE = [
                                            *IDENTITY_CHECKS.format("maintenance").split(), "identity-page:40:maintenance"),
                                           ("backchannel-prober", LIMIT, "token:1:maintenance", "certs:1:maintenance")]),
     ("identity maintenance survives an edge restart", "identity", [("source-a", "login:1:maintenance", "read:1:ok")]),
-    ("safe reopening", "ready", [("source-a", "identity-page:30:ok", "identity-page:1:limited", "read:1:ok"),
+    ("safe reopening", "ready", [("source-a", "identity-page:60:ok", "identity-page:1:limited", "read:1:ok"),
                                  ("backchannel-prober", LIMIT, "token:1:ok")]),
 ]
 # Each mutation must make one scenario fail with a named violation.

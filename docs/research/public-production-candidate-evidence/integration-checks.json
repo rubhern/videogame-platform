@@ -75,5 +75,19 @@
   ],
   "issueClosureAuthorizedByThisRecord": false,
   "privateDevOrProductionDeploymentAuthorized": false,
-  "versionImpact": "Administrative runtime/test/documentation sources only; backend/frontend/OpenAPI/PoC release content unchanged by increment; no package version bump"
+  "versionImpact": "Administrative runtime/test/documentation sources only; backend/frontend/OpenAPI/PoC release content unchanged by increment; no package version bump",
+  "prCorrections": [
+    {
+      "finding": "PR #371 Secret scan: gitleaks generic-api-key matched four recorded SHA-256 file digests (run-keycloak, password-reset.ftl)",
+      "disposition": "Digests recomputed from the tracked files and matched; exact commit/file/line fingerprints added to .gitleaksignore. No secret present"
+    },
+    {
+      "finding": "PR #371 Public-production runtime contract: 'safe reopening' still expected the pre-calibration identity budget (30 per 5 s)",
+      "disposition": "Scenario aligned with the reviewed Caddyfile budget (60 per 5 s), as the 'identity per-source' burst already was. Edge limits and gates unchanged",
+      "sourceSha256": {
+        "scripts/test-public-production-runtime.py": "f57e6e1ffb1bf6ad3177e8cb153a2834de27f6c3ad27ea394e6877dee3e768d7"
+      },
+      "runtimeSourceFingerprintAfterCorrection": "1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045"
+    }
+  ]
 }
