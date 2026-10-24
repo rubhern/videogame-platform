@@ -776,12 +776,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
+      contents: read
       packages: write
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository }}
       IMAGE_TAG: ${{ github.sha }}
       SKOPEO_IMAGE: quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4
     steps:
+      - name: Check out trusted image acquisition helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download pinned publication tool before registry authentication
+        run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
+
       - name: Download the exact scanned OCI archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -856,6 +865,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
+      contents: read
       packages: write
     strategy:
       fail-fast: false
@@ -867,6 +877,14 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
       SKOPEO_IMAGE: quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4
     steps:
+      - name: Check out trusted image acquisition helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download pinned publication tool before registry authentication
+        run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
+
       - name: Download the exact scanned OCI archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
