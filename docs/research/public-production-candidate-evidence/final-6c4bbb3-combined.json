@@ -1,0 +1,114 @@
+{
+  "checks": [
+    "browser-signup-welcome-ownership-csrf-recovery-cookie-inventory",
+    "dry-run-no-mutation",
+    "native-verification-inflight-deny-drain-wait-and-preservation",
+    "real-revocation-lost-acknowledgement-safe-exit",
+    "new-verification-race-refused",
+    "retry-archive-suppression-proof-and-safe-reopening",
+    "combined-candidate-app-otlp-keycloak-prometheus-six-dashboards",
+    "collector-loss-product-available"
+  ],
+  "component": "all",
+  "kind": "production-cleanup-rehearsal",
+  "localizer": "passed",
+  "outcome": "success",
+  "productionReady": false,
+  "provenance": {
+    "applicationVersion": "0.51.0-SNAPSHOT",
+    "image_digest": "sha256:9aaa2eef491553d7b47195c6c71e019d673fed9e3f7084ee13335d6317ea2192",
+    "images": {
+      "application": "ghcr.io/rubhern/videogame-platform@sha256:9aaa2eef491553d7b47195c6c71e019d673fed9e3f7084ee13335d6317ea2192",
+      "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:afa6fb48a44dcd3240389759eda0c6afc1117fc615b8eca509c49cd924b9590e",
+      "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:4e1c1ba3f5abde2906330123c731fd7da6660c3b5bddd50e04d2b47192322a76",
+      "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:5c01bf984a02a515b8601b19a8e0041c0ae0d393426778f1df9897a50499cf51"
+    },
+    "securityRunId": 40089216742,
+    "source_revision": "6c4bbb377d8aad85061cd99626864ad594ebb57d",
+    "source_run_attempt": "1",
+    "source_run_id": "40089217088"
+  },
+  "renderedConfigurationSha256": "08ee1fc7b69a5a48e4dec2a1e9e6aa25ed46694fc7298088b75d905709f61929",
+  "runtimeSourceFingerprint": "1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045",
+  "runtimeState": [
+    {
+      "limitBytes": 1610612736,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "application"
+    },
+    {
+      "limitBytes": 33554432,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "blackbox"
+    },
+    {
+      "limitBytes": 134217728,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "caddy"
+    },
+    {
+      "limitBytes": 805306368,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "catalogue-localizer"
+    },
+    {
+      "limitBytes": 335544320,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "grafana"
+    },
+    {
+      "limitBytes": 805306368,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "keycloak"
+    },
+    {
+      "limitBytes": 134217728,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "mailpit"
+    },
+    {
+      "limitBytes": 33554432,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "node-exporter"
+    },
+    {
+      "limitBytes": 805306368,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "postgres"
+    },
+    {
+      "limitBytes": 100663296,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "prometheus"
+    },
+    {
+      "limitBytes": 100663296,
+      "oomKilled": false,
+      "restarts": 0,
+      "service": "telemetry"
+    }
+  ],
+  "scope": "local-synthetic-working-tree-transport-with-trusted-main-images",
+  "sourceFiles": {
+    "deploy/public-production/bin/recovery-personal-data": "5321bfeee4b41efe60419ea81f949d1edcfda4ad32f8f679a1b1a3af73dc99fa",
+    "deploy/public-production/compose.observability.yaml": "43ec6234bc4f4e30272dc11ade6ee8b32a3d3001a4619712f1f1c044a0e5f932",
+    "deploy/public-production/compose.yaml": "8d5d6c090505ced8a91a589eca3d168dc8746ae20df506e8eba1ad8ebc9547c7",
+    "scripts/rehearse-production-cleanup.py": "9468ee5e2b64b88699c6768687b3e7751ddd41b9af60e1226516c4ee6c20f227"
+  },
+  "teardown": "passed",
+  "telemetryMilestones": [
+    "app-otlp",
+    "six-dashboards",
+    "keycloak-scrape"
+  ]
+}

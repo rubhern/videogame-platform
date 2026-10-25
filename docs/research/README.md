@@ -15,7 +15,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [IGDB PoC tool](../../tools/igdb-poc/README.md) | Reproducible capture/offline-validation procedure |
 | [Performance baseline](performance-baseline/README.md) | Measured catalogue, synthetic dataset profiles and first low-rate public HTTP baseline for #85 |
 | [Historical synchronization pilot](historical-sync-pilot.md) | #246 spike: method, measurements available from existing instrumentation, remaining gaps and how pilot evidence refines chunking, checkpointing, concurrency and limits; tooling prepared, no real pilot yet |
-| [Portable production candidate acceptance](public-production-candidate-acceptance.md) | #275 increment 8 frozen gate matrix, sanitized evidence, open owner decisions and #276 handoff; no purchase/exposure authorization |
+| [Portable production candidate acceptance](public-production-candidate-acceptance.md) | #275 increment 8 frozen gate matrix, final 6c4bbb3 campaign, sanitized evidence, owner acceptance record and #276 handoff; no purchase/exposure authorization |
 | [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 | [Public-release rights and privacy](public-release-rights-and-privacy.md) | #274: IGDB/Twitch terms per content type, verified personal-data inventory, GDPR/Spanish requirements, revocation comparison and deletion-ledger design, licence contingency, approved decisions, open uncertainties, launch blockers, and the phase 2 plan with the production-realm evidence and the transactional email provider comparison; no legal advice |
 

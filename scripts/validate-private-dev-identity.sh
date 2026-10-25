@@ -11,7 +11,7 @@ set -Eeuo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
 postgres_image="postgres:18.4-bookworm"
-keycloak_image="videogame-platform/keycloak-private-dev-identity:26.7.4"
+keycloak_image="videogame-platform/keycloak-private-dev-identity:26.7.5"
 mailpit_image="$(sed -n 's/^ *image: //p' "$repository_root/deploy/private-dev/compose.mail.yaml")"
 run_id="${RANDOM}-$$"
 network="videogame-platform-private-dev-identity-${run_id}"

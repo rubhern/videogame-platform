@@ -906,7 +906,7 @@ def compose_mutations(secrets_dir):
         ("application image from another registry", lambda c: c["services"]["application"].__setitem__(
             "image", "docker.io/example/app@sha256:" + "1" * 64), "CI-published GHCR digest of ghcr.io/rubhern/videogame-platform"),
         ("unthemed upstream Keycloak", lambda c: c["services"]["keycloak"].__setitem__(
-            "image", "quay.io/keycloak/keycloak:26.7.4@sha256:" + "2" * 64), "keycloak must run the CI-published GHCR digest"),
+            "image", "quay.io/keycloak/keycloak:26.7.5@sha256:" + "2" * 64), "keycloak must run the CI-published GHCR digest"),
         ("Keycloak tag on the trusted repository", lambda c: c["services"]["keycloak"].__setitem__(
             "image", "ghcr.io/rubhern/videogame-platform-keycloak:" + "a" * 40), "keycloak image must be referenced by sha256"),
         ("locally built localizer", lambda c: c["services"]["catalogue-localizer"].__setitem__(

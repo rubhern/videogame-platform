@@ -1,0 +1,341 @@
+{
+  "date": "2026-10-25",
+  "scope": "#275 security disposition of the 6c4bbb3 trusted-image findings; local rebuilds and runtime inspection only; no publication, deployment, purchase or DNS change",
+  "baseRevision": "6c4bbb377d8aad85061cd99626864ad594ebb57d",
+  "baselineScans": "final-6c4bbb3-scans.json (unchanged)",
+  "sourceChanges": {
+    "deploy/public-production/caddy/Dockerfile": "CADDY_IMAGE same tag 2.11.7-alpine rebuilt upstream (index d8542f48… -> eb4d35b7…, Alpine 3.23.6 -> 3.23.7); RUN apk del --no-cache curl in the final stage; builder, module, override unchanged",
+    "deploy/private-dev/keycloak/Dockerfile": "quay.io/keycloak/keycloak 26.7.4@82a77884… -> 26.7.5@37dbaf6f… (supported patch of the same minor)",
+    "imageTagReferences": [
+      "compose.yaml",
+      "deploy/private-dev/compose.yaml",
+      "scripts/local-dependencies.sh",
+      "scripts/validate-identity.sh",
+      "scripts/validate-personal-data.sh",
+      "scripts/validate-private-dev-identity.sh",
+      "scripts/validate-production-identity.sh",
+      "scripts/test-public-production-runtime.py (fixture)"
+    ],
+    "documentation": [
+      "docs/architecture/deployment/mvp-platform-and-delivery.md (edge recipe row)"
+    ]
+  },
+  "localBuilds": {
+    "note": "Built by scripts/validate-dependency-image.sh from the uncommitted working tree (dirty revision). Digests are local evidence only and are not trusted-main publications",
+    "caddy": {
+      "ociDigest": "sha256:8aecdb2face1c95d5c40160d11d8f31e83a311a06a22dab196cdcf5ca6fd431b",
+      "contentPolicy": "0 violations",
+      "modulePolicy": "0 violations; only caddy-ratelimit added; x/net v0.59.0 -> v0.60.0 override retained",
+      "goAdvisoryPolicy": "0 fixable; GO-2026-5932 unfixed, recorded",
+      "scanPolicy": "0 added; 0 HIGH/CRITICAL inherited",
+      "scan": {
+        "scanSha256": "72b9b33299cb6d56af9d646a01af26b39b15f3611da8888ee669e6cf7a3258c0",
+        "os": {
+          "Family": "alpine",
+          "Name": "3.23.7"
+        },
+        "rawHighCritical": 0,
+        "uniqueHighCritical": 0,
+        "findings": []
+      },
+      "goModulesIdenticalToOldBaseBuild": true,
+      "curlBrotliPathsInImage": 0
+    },
+    "keycloak": {
+      "ociDigest": "sha256:dd7b0b8b77ef21d3d378389a13c1d43b5fe9ce822fbac4985201418747017080",
+      "contentPolicy": "0 violations",
+      "scanPolicy": "0 added; 10 HIGH/CRITICAL inherited",
+      "scan": {
+        "scanSha256": "7dd3755f2431e1867fb5924528cf3cc13443fef61868576145829e28a0ce2170",
+        "os": {
+          "Family": "redhat",
+          "Name": "9.8"
+        },
+        "rawHighCritical": 10,
+        "uniqueHighCritical": 10,
+        "findings": [
+          {
+            "id": "CVE-2026-114406",
+            "package": "ca-certificates",
+            "installed": "2025.2.80_v9.0.305-91.el9",
+            "severity": "CRITICAL",
+            "fixed": "2026.2.92_v9.0.319-90.3.el9_8"
+          },
+          {
+            "id": "CVE-2025-59250",
+            "package": "com.microsoft.sqlserver:mssql-jdbc",
+            "installed": "13.2.1",
+            "severity": "HIGH",
+            "fixed": "10.2.4.jre11, 11.2.4.jre11, 12.2.1.jre11, 12.6.5.jre11, 12.8.2.jre11, 12.10.2.jre11, 13.2.1.jre11"
+          },
+          {
+            "id": "CVE-2026-91403",
+            "package": "java-21-openjdk-headless",
+            "installed": "1:21.0.12.1.1-1.2.el9",
+            "severity": "HIGH",
+            "fixed": ""
+          },
+          {
+            "id": "CVE-2026-91415",
+            "package": "java-21-openjdk-headless",
+            "installed": "1:21.0.12.1.1-1.2.el9",
+            "severity": "HIGH",
+            "fixed": ""
+          },
+          {
+            "id": "CVE-2026-103111",
+            "package": "pcre2",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          },
+          {
+            "id": "CVE-2026-86145",
+            "package": "pcre2",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          },
+          {
+            "id": "CVE-2026-89161",
+            "package": "pcre2",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          },
+          {
+            "id": "CVE-2026-103111",
+            "package": "pcre2-syntax",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          },
+          {
+            "id": "CVE-2026-86145",
+            "package": "pcre2-syntax",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          },
+          {
+            "id": "CVE-2026-89161",
+            "package": "pcre2-syntax",
+            "installed": "10.40-6.el9",
+            "severity": "HIGH",
+            "fixed": "10.40-7.el9_8"
+          }
+        ]
+      }
+    }
+  },
+  "trivy": "Version: 0.74.0 (local DB on 2026-10-25; CI scans of 6c4bbb3 used the DB of 2026-10-24)",
+  "runtimeEvidence": {
+    "catalogueLocalizer": {
+      "image": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:4e1c1ba3f5abde2906330123c731fd7da6660c3b5bddd50e04d2b47192322a76",
+      "method": "Production hardening (read-only, cap-drop ALL, no-new-privileges, no network, pids 64, 768m), approved model, one real /translate call, then /proc/1/maps and /proc/1/status",
+      "translation": "passed",
+      "processStatusAndLoadedLibraries": [
+        "uid=10001 gid=10001 groups=10001",
+        "CapPrm:\t0000000000000000",
+        "CapEff:\t0000000000000000",
+        "NoNewPrivs:\t1",
+        "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4",
+        "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+        "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+        "/usr/lib/x86_64-linux-gnu/libffi.so.8.1.2",
+        "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "/usr/lib/x86_64-linux-gnu/liblzma.so.5.4.1",
+        "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+        "/usr/lib/x86_64-linux-gnu/librt.so.1",
+        "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+        "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.30",
+        "/usr/lib/x86_64-linux-gnu/libuuid.so.1.3.0",
+        "/usr/lib/x86_64-linux-gnu/libz.so.1.2.13",
+        "/usr/local/lib/libpython3.12.so.1.0",
+        "/usr/local/lib/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_bisect.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_blake2.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_csv.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_datetime.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_decimal.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_heapq.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_multiprocessing.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_opcode.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_pickle.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_posixshmem.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_posixsubprocess.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_random.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_sha2.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_socket.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_struct.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/_uuid.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/array.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/binascii.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/fcntl.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/math.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/select.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/unicodedata.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/lib-dynload/zlib.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/site-packages/ctranslate2.libs/libctranslate2-fd146744.so.4.8.2",
+        "/usr/local/lib/python3.12/site-packages/ctranslate2.libs/libgomp-e985bcbb.so.1.0.0",
+        "/usr/local/lib/python3.12/site-packages/ctranslate2/_ext.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/site-packages/numpy.libs/libgfortran-83c28eba-468e71e5.so.5.0.0",
+        "/usr/local/lib/python3.12/site-packages/numpy.libs/libquadmath-2284e583-a9307bba.so.0.0.0",
+        "/usr/local/lib/python3.12/site-packages/numpy.libs/libscipy_openblas64_-f48b354e.so",
+        "/usr/local/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/site-packages/numpy/linalg/_umath_linalg.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/site-packages/regex/_regex.cpython-312-x86_64-linux-gnu.so",
+        "/usr/local/lib/python3.12/site-packages/sentencepiece/_sentencepiece.cpython-312-x86_64-linux-gnu.so"
+      ],
+      "setuidBinariesPresent": [
+        "/usr/bin/chsh",
+        "/usr/bin/mount",
+        "/usr/bin/umount",
+        "/usr/bin/chfn",
+        "/usr/bin/su",
+        "/usr/bin/newgrp",
+        "/usr/bin/gpasswd",
+        "/usr/bin/passwd"
+      ]
+    },
+    "keycloak": {
+      "image": "local 26.7.5 build sha256:dd7b0b8b77ef21d3d378389a13c1d43b5fe9ce822fbac4985201418747017080",
+      "method": "start-dev with dev-file, cap-drop ALL, no-new-privileges; rendered the login page with ui_locales=es; JVM selected by /proc/<pid>/exe",
+      "processStatusAndLoadedLibraries": [
+        "java_pid=1 exe=/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/bin/java",
+        "CapEff:\t0000000000000000",
+        "NoNewPrivs:\t1",
+        "/usr/lib64/ld-linux-x86-64.so.2",
+        "/usr/lib64/libc.so.6",
+        "/usr/lib64/libdl.so.2",
+        "/usr/lib64/libm.so.6",
+        "/usr/lib64/libnspr4.so",
+        "/usr/lib64/libnss3.so",
+        "/usr/lib64/libnssutil3.so",
+        "/usr/lib64/libplc4.so",
+        "/usr/lib64/libplds4.so",
+        "/usr/lib64/libpthread.so.0",
+        "/usr/lib64/librt.so.1",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libextnet.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libjava.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libjimage.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libjli.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libjsvml.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libmanagement_ext.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libmanagement.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libnet.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libnio.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libsystemconf.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libverify.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/libzip.so",
+        "/usr/lib/jvm/java-21-openjdk-21.0.12.1.1-1.2.el9.x86_64/lib/server/libjvm.so"
+      ]
+    },
+    "caddyOpenpgp": {
+      "method": "Same xcaddy command and builder digest as the Dockerfile; go list -deps / go mod why in the retained build environment",
+      "result": [
+        "deps total: 1030",
+        "x/crypto packages compiled:",
+        "golang.org/x/crypto/cryptobyte/asn1",
+        "golang.org/x/crypto/cryptobyte",
+        "golang.org/x/crypto/ocsp",
+        "golang.org/x/crypto/internal/alias",
+        "golang.org/x/crypto/chacha20",
+        "golang.org/x/crypto/internal/poly1305",
+        "golang.org/x/crypto/chacha20poly1305",
+        "golang.org/x/crypto/x509roots/fallback/bundle",
+        "golang.org/x/crypto/x509roots/fallback",
+        "golang.org/x/crypto/blake2b",
+        "golang.org/x/crypto/argon2",
+        "golang.org/x/crypto/curve25519",
+        "golang.org/x/crypto/ed25519",
+        "golang.org/x/crypto/blowfish",
+        "golang.org/x/crypto/bcrypt",
+        "golang.org/x/crypto/pbkdf2",
+        "golang.org/x/crypto/scrypt",
+        "golang.org/x/crypto/ssh/internal/bcrypt_pbkdf",
+        "golang.org/x/crypto/ssh",
+        "golang.org/x/crypto/salsa20/salsa",
+        "golang.org/x/crypto/nacl/secretbox",
+        "golang.org/x/crypto/hkdf",
+        "golang.org/x/crypto/ssh/agent",
+        "openpgp: 0",
+        "module-level users of openpgp:",
+        "# golang.org/x/crypto",
+        "caddy",
+        "github.com/caddyserver/caddy/v2/modules/standard",
+        "github.com/caddyserver/caddy/v2/modules/caddytls",
+        "golang.org/x/crypto/cryptobyte",
+        "who requires openpgp pkg:",
+        "# golang.org/x/crypto/openpgp",
+        "(main module does not need package golang.org/x/crypto/openpgp)"
+      ]
+    }
+  },
+  "productionReady": false,
+  "ownerRiskAcceptanceRecordedByThisAudit": false,
+  "runtimeSourceFingerprint": {
+    "before": "1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045",
+    "afterUncommitted": "f41aa6308c84873f069db01e34d7f2d3be92278365c7fb73c1cb074b3ee4bb3b"
+  },
+  "focusedValidation": [
+    {
+      "command": "bash scripts/validate-dependency-image.sh caddy",
+      "outcome": "passed",
+      "notes": "content 0, module policy 0, Go advisories 0 fixable, scan 0 added / 0 inherited HIGH/CRITICAL; rebuilt after the base-digest update"
+    },
+    {
+      "command": "bash scripts/validate-dependency-image.sh keycloak",
+      "outcome": "passed",
+      "notes": "content 0, scan 0 added / 10 inherited HIGH/CRITICAL"
+    },
+    {
+      "command": "python3 -I scripts/test-public-production-runtime.py",
+      "outcome": "passed",
+      "notes": "builds the disposable edge from the changed caddy/Dockerfile; 64 Compose and 15 Caddy violations, probe, limits, maintenance"
+    },
+    {
+      "command": "bash scripts/validate-production-identity.sh",
+      "outcome": "passed on second run",
+      "notes": "first run stopped in package-application at the known host-clock flake CatalogueReadTransactionTimeoutTest before Keycloak started; second run: 1070 backend tests, 3 browser scenarios, realm/issuer/cookie contract on Keycloak 26.7.5"
+    },
+    {
+      "command": "bash scripts/validate-identity.sh",
+      "outcome": "passed",
+      "notes": "25 real-Keycloak browser/BFF tests"
+    },
+    {
+      "command": "python3 scripts/test-public-production-deployment.py",
+      "outcome": "passed"
+    },
+    {
+      "command": "bash scripts/test-ci-change-detection.sh",
+      "outcome": "passed"
+    },
+    {
+      "command": "python3 -I scripts/check-dependency-image-content.py --self-test",
+      "outcome": "passed",
+      "notes": "35 deliberate violations"
+    },
+    {
+      "command": "bash scripts/validate-docs.sh; npm --prefix documentation run build (temporary index)",
+      "outcome": "passed",
+      "notes": "100 pages, links and anchors"
+    }
+  ],
+  "notRevalidated": "Combined, deployment and recovery campaign: requires trusted-main publications of these recipes; the harness refuses local images by design",
+  "gitleaks": "New record clean. final-6c4bbb3-deployment.json line 99 is the verified SHA-256 of the tracked deploy/public-production/bin/run-keycloak; .gitleaksignore pins it by file, rule and line (gitleaks 8.30.1 global fingerprint, matched for the PR commits and the merge commit). Local --no-git scan with that ignore file reports no finding for it",
+  "residualRiskScope": "Three ACCEPT groups proposed for owner acceptance for the prepared, non-deployed candidate only; renewed assessment required before public operation; not accepted by this record"
+}
