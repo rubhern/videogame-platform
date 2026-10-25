@@ -510,6 +510,18 @@ local harness:
 - Startup import applies only when the realm is absent. A later policy change needs a
   reviewed apply step against the live realm, never a re-import over accounts.
 
+**Approved target session policy, not implemented (owner decision 2026-10-25, #361;
+implementation and its ADR-0027 amendment in #374).** Production sign-in is to offer
+Keycloak's native Remember Me ("Seguir conectado"), unchecked by default. An ordinary
+sign-in keeps the current bounds: Keycloak SSO 30 minutes idle and 8 hours maximum, BFF
+session 30 minutes idle and 8 hours from the original authentication. A remembered
+sign-in has Keycloak SSO 7 days idle and 30 days maximum; each BFF session it opens
+ends after 30 minutes idle or 8 hours from its creation, and none outlives 30 days from
+the original authentication. Neither the prepared realm import nor the BFF implements
+it; local and private-dev keep their policy. The
+[#361 research](../../research/browser-session-lifetime.md) holds the evidence and the
+conditions #374 must meet.
+
 #### Canonical issuer contract
 
 **Implemented and proven with synthetic origins (#274 phase 2), and exercised locally

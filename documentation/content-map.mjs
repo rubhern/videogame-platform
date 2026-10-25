@@ -49,6 +49,7 @@ export const groups = [
   ]],
   ['Research & history', [
     ['docs/research/README.md', 'Research index & limitations'],
+    ['docs/research/browser-session-lifetime.md', 'Browser session lifetime · #361'],
     ['docs/research/historical-sync-pilot.md', 'Historical sync pilot · #246'],
     ['docs/research/public-production-candidate-acceptance.md', 'Production candidate acceptance · #275'],
     ['docs/research/reviews/user-facing-copy-audit-2026-10-19.md', 'User-facing copy audit · #286'],

@@ -18,6 +18,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [Portable production candidate acceptance](public-production-candidate-acceptance.md) | #275 increment 8 frozen gate matrix, final 9ffc05a candidate campaign, security disposition, sanitized evidence, owner acceptance record and #276 handoff; no purchase/exposure authorization |
 | [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 | [Public-release rights and privacy](public-release-rights-and-privacy.md) | #274: IGDB/Twitch terms per content type, verified personal-data inventory, GDPR/Spanish requirements, revocation comparison and deletion-ledger design, licence contingency, approved decisions, open uncertainties, launch blockers, and the phase 2 plan with the production-realm evidence and the transactional email provider comparison; no legal advice |
+| [Browser session lifetime and remember-me](browser-session-lifetime.md) | #361: effective BFF, cookie and Keycloak SSO lifetimes for local, private-dev and production, reproduced browser scenarios, option comparison and the owner's 2026-10-25 opt-in remember-me target policy, implementation delegated to #374; nothing configured |
 
 ## Point-in-time reviews
 
