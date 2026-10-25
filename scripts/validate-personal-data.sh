@@ -16,7 +16,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repository_root/scripts/backend-artifact.sh"
 playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
 postgres_image="postgres:18.4-bookworm"
-keycloak_image="videogame-platform/keycloak-identity:26.7.4"
+keycloak_image="videogame-platform/keycloak-identity:26.7.5"
 # The production runtime base, whose BusyBox wget the private management call uses.
 java_image="$(sed -n 's/^ARG JRE_IMAGE=//p' "$repository_root/Dockerfile")"
 run_id="${RANDOM}-$$"

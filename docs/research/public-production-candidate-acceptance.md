@@ -1,7 +1,7 @@
 # Portable production candidate acceptance — #275
 
 - **Status:** Point-in-time evidence; owner acceptance pending
-- **Scope:** Increment 8, implementation integration candidate; independent re-review confirmed resolved; immutable-image acceptance pending
+- **Scope:** Increment 8 merged; final integrated campaign passed on trusted-main `6c4bbb3`; security disposition prepared locally; acceptance record awaits the owner's decision
 
 This audit supports owner review of [#275](https://github.com/rubhern/videogame-platform/issues/275)
 and handoff to [#276](https://github.com/rubhern/videogame-platform/issues/276).
@@ -13,25 +13,24 @@ remain canonical.
 
 ## Recommendation and evidence boundary
 
-**NO-GO for purchase authorization at this handoff.** Technical preparation is
-reviewable, but final immutable-image rehearsals, inherited security disposition
-and owner acceptance remain open. Implementation merge requires successful
-applicable PR checks, as recorded on the associated pull request. Reconsider only when those conditions
+**NO-GO for purchase authorization at this handoff.** The implementation is merged
+and the [final integrated campaign](#final-integrated-campaign--6c4bbb3-2026-10-24)
+passed on the exact trusted-main images. The [security disposition](#security-disposition--2026-10-25)
+changes the edge and identity images, so their publication, a repeated campaign, the
+owner's approval of three residual-risk groups and the decision in the
+[acceptance record](#owner-acceptance-record) remain open.
+Reconsider only when those conditions
 and the contracting-gate commercial/storage prerequisites are evidenced. Public
 exposure is independently **NO-GO** until #276 qualification and owner authorization.
 Accepted ADR-0025/ADR-0030 and closed #274 do not waive either gate. Real-host
 capacity, TLS, mail, networking and storage proofs belong to #276; they are not
 requirements to demonstrate before buying the host.
 
-The executed image exercises selected `c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916`,
-application `0.51.0-SNAPSHOT`. Its
-[trusted-main build/publication](https://github.com/rubhern/videogame-platform/actions/runs/40009293440)
-and [security run](https://github.com/rubhern/videogame-platform/actions/runs/40009293777)
-passed. These establish the immutable image baseline, **not current-change CI for
-the newly integrated revision**. Historical local receipts below identify both that
-image source and the separately hashed operational sources used by those exercises.
-Final trusted-main publications and a new configuration comparison are required
-before rehearsing/accepting the merged candidate.
+The final campaign selects `6c4bbb377d8aad85061cd99626864ad594ebb57d`, application
+`0.51.0-SNAPSHOT`; its sections below are the current evidence. Earlier exercises
+selected `c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916` and older revisions. Their receipts
+remain historical for their recorded images and operational source hashes and do not
+qualify the `6c4bbb3` images.
 
 The database actually migrated through **`20261023.130000`**, including the historical
 backfill checkpoint and deferred scheduled-policy migrations introduced on main.
@@ -46,8 +45,134 @@ The former environment blocker is historical; no host configuration was changed.
 New Keycloak email content is covered by an **explicitly executed**, passing
 `bash scripts/review-keycloak-email.sh after-public` test, with four multipart flows,
 native actions, HTTPS resource URLs and accessibility checks. A separate filesystem
-hash comparison proves the current trusted Keycloak image contains those exact email
-assets; older image receipts are not evidence for changed content.
+hash comparison proved the c7bc5cd trusted Keycloak image contained those exact email
+assets; older image receipts are not evidence for changed content. The template
+digests are unchanged at `6c4bbb3`, whose browser journey exercised the email flows
+again on its own Keycloak image.
+
+## Final integrated campaign — 6c4bbb3, 2026-10-24
+
+One campaign ran sequentially from a clean checkout of trusted-main
+**`6c4bbb377d8aad85061cd99626864ad594ebb57d`**. That revision is the PR #371 merge plus
+a `.gitleaksignore`-only fix; its
+[build/publication](https://github.com/rubhern/videogame-platform/actions/runs/40089217088)
+and [Security](https://github.com/rubhern/videogame-platform/actions/runs/40089216742)
+runs passed. The merge revision's failed Security run (verified digest false positives)
+is superseded and was not used. Every exercise used the four publications of that
+run by digest, the reviewed runtime fingerprint `1ceeafde…2045`, and the approved
+checksum-verified model. No local image, earlier publication or modified configuration
+was substituted. The [campaign record](public-production-candidate-evidence/final-6c4bbb3-campaign.json)
+binds the source, runs, digests, fingerprint, commands, ordering and receipt hashes.
+
+| Exercise | Result | Receipts |
+|---|---|---|
+| Combined browser, model, cleanup and observability | **Passed:** browser signup/welcome/ownership/CSRF/recovery with 15 native identity actions and zero 429 refusals; approved-model translation; dry run, in-flight deny/drain, lost-acknowledgement revocation, new-verification race refusal, archive/suppression proof and reopening; application OTLP, Keycloak scrape and six dashboards; Collector loss kept the product available; no restart/OOM; teardown | [combined](public-production-candidate-evidence/final-6c4bbb3-combined.json), [cookies](public-production-candidate-evidence/final-6c4bbb3-combined-cookies.json) |
+| Manual deployment procedure (`--rehearsal`, stages A–E) | **Passed:** trusted configuration and digests, real migration to `20261023.130000`, TLS/issuer, browser stage C, model, and eight transitions after the initial boot. The injected migration, readiness and smoke failures were detected, activation was prevented, synthetic state was preserved, and teardown passed | [deployment](public-production-candidate-evidence/final-6c4bbb3-deployment.json), [attempts](public-production-candidate-evidence/final-6c4bbb3-deployment-attempts.json), [cookies](public-production-candidate-evidence/final-6c4bbb3-deployment-cookies.json) |
+| Paired backup and isolated host-loss recovery | **Passed:** encrypted pair, in-flight write rollback, source destruction, reconstruction with new credentials, Grafana datasource before backup and after reopening, unknown LOGIN role refused, missing-archive replay refused, deletion replay with only Keycloak, old offline token refused, fenced requested-account retry with original ciphertext and suppression proof, readiness and cleanup | [rehearsal](public-production-candidate-evidence/final-6c4bbb3-recovery-rehearsal.json), [backup](public-production-candidate-evidence/final-6c4bbb3-backup.json), [restore](public-production-candidate-evidence/final-6c4bbb3-restore.json), [replay](public-production-candidate-evidence/final-6c4bbb3-deletion-replay.json), [verified recovery](public-production-candidate-evidence/final-6c4bbb3-verified-recovery.json) |
+| Edge contract (after teardown) | **Passed:** 64 Compose and 15 Caddy deliberate violations, 88-check probe, route violations, 18 limit and 5 maintenance scenarios, and 6 limit/gate mutations | campaign record |
+
+The combined receipt's fixed scope label names working-tree transport. Here the
+working tree was the clean trusted-main revision. Sampled memory and durations
+describe this workstation and a tiny synthetic dataset, not VPS capacity, RPO or RTO.
+
+**Scans at `6c4bbb3`** ([findings](public-production-candidate-evidence/final-6c4bbb3-scans.json)):
+the application has none; the localizer's 63 and Keycloak's 19 unique (26 raw) inherited
+HIGH/CRITICAL findings are unchanged from c7bc5cd. **Caddy is new:** one inherited
+HIGH, `CVE-2026-111497` in Alpine `brotli-libs` 1.2.0-r0, fixed upstream in 1.2.1-r0.
+Its govulncheck also records unfixed `GO-2026-5932`, the unmaintained
+`golang.org/x/crypto/openpgp` package. None is risk-accepted here. Repository layers
+add zero findings.
+
+## Security disposition — 2026-10-25
+
+The `6c4bbb3` receipts and scans above stay unchanged. This disposition changes two
+image recipes. The resulting images are **local builds of an uncommitted tree**: the
+dependency-image validator passed every content, module, Go-advisory and scan gate
+for them, but they are not trusted-main publications and the campaign has not run on
+them. The [disposition record](public-production-candidate-evidence/security-disposition-20261025.json)
+holds the source changes, local digests, scans, loaded-library listings and module
+analysis.
+
+- **Edge:** the same Caddy release tag, rebuilt upstream on a newer Alpine point
+  release, and removal of the stock `curl` client, which neither Caddy (a static Go
+  binary) nor any edge procedure uses. Its removal takes `libcurl` and `brotli-libs` with
+  it. An in-place package upgrade would add versioned library paths, which the edge
+  content gate rightly refuses. The builder, the limiter module and the `x/net`
+  override are unchanged, and the Go module graph is identical. Gated findings drop to
+  zero. A MEDIUM `go-chi/chi` finding, already present at `6c4bbb3`, stays below the gate.
+- **Identity:** a supported Keycloak patch release of the same minor replaces the
+  vulnerable jackson, BouncyCastle, netty and FreeMarker jars. Gated findings drop from
+  19 to 10 unique. Its RPM layer is unchanged; no image of that minor ships the fixed
+  `ca-certificates` or `pcre2`.
+  The recipe is shared with private-dev, so the owner chose to change its deployment
+  contract: private-dev promotions refuse until a separately authorized host rollout.
+- **Localizer:** unchanged. Debian 12 publishes no fix for any of its 63 findings.
+  Moving to another distribution is out of scope.
+
+Runtime evidence: the trusted localizer ran with production hardening and served one
+real translation. Its process had no capabilities and `NoNewPrivs=1`, and it loaded
+`libssl`, `libcrypto`, `libz` and `libuuid`. It did **not** load `libsqlite3`,
+ncurses/tinfo, `libsystemd`/`libudev`, `libacl`, `libblkid`, `libmount` or
+`libsmartcols`. The patched Keycloak JVM rendered a Spanish login page without loading
+PCRE2, font or AWT libraries. A rebuild of the edge's exact module graph does not
+compile `golang.org/x/crypto/openpgp`.
+
+| Finding group | Image | Severity | Disposition | Basis | Owner action |
+|---|---|---|---|---|---|
+| `CVE-2026-111497` `brotli-libs` | Caddy | HIGH | **FIXED** | Package removed with unused `curl`; no brotli or curl path in the rebuilt image | None after publication |
+| jackson-core/databind (`CVE-2026-89407`, `-89425`, `-68497`, `-91776`, `-91777`), netty-handler `CVE-2026-75595`, bcprov `CVE-2026-8763`/`-13506`, FreeMarker `CVE-2026-84939` | Keycloak | 3 CRITICAL, 6 HIGH | **FIXED** | Patched jars; absent from the rebuilt scan | None after publication |
+| `GO-2026-5932` `x/crypto/openpgp` | Caddy | Unrated, no fix | **NOT APPLICABLE** | Package not in the 1,030 compiled packages; govulncheck is module-level on the stripped binary | None |
+| `CVE-2025-59250` mssql-jdbc | Keycloak | HIGH | **NOT APPLICABLE** | The installed `jre11` build is a listed fixed version (the scanner drops the classifier); the PostgreSQL driver is configured | None |
+| OpenJDK `CVE-2026-91415` font rendering | Keycloak | HIGH, no fix | **NOT APPLICABLE** | No font or AWT library loaded while rendering pages | Re-check if server-side imaging is introduced |
+| util-linux (`CVE-2026-53613`, `-53615`, `-76642`, `-78408`, `-78409`, `-78410`) across nine packages | Localizer | HIGH, no fix | **NOT APPLICABLE** | Vulnerable mount, nsenter and partition code is never run; `libblkid`/`libmount` are not loaded; setuid `mount` cannot elevate under `NoNewPrivs` with no capabilities. `libuuid` is loaded but outside these advisories | Depends on the enforced hardening |
+| sqlite `CVE-2025-7458`, `CVE-2026-11822`, `-11824`; ncurses `CVE-2025-69720`; systemd-homed `CVE-2026-16742`; libacl `CVE-2026-54369` | Localizer | 1 CRITICAL, HIGH, no fix | **NOT APPLICABLE** | Libraries not loaded by the serving process; systemd-homed absent | Re-check if helper imports change |
+| OpenSSL `CVE-2026-84782` DTLS; zlib `CVE-2023-45853` minizip | Localizer | HIGH, CRITICAL | **NOT APPLICABLE** | The helper serves plain HTTP with no DTLS; the minizip function is absent from `libz` | None |
+| gzip `CVE-2026-41992`, perl-base `CVE-2026-9538` | Localizer | HIGH, no fix | **ACCEPT RESIDUAL RISK** | Binaries are present and the helper never invokes them. Third-party code is not audited exhaustively, so reachability is unproven, not disproved. Internal-only network, non-root, read-only, no capabilities | Approve, or require removal |
+| `ca-certificates` `CVE-2026-114406` and OpenJDK `CVE-2026-91403` (eMudhra distrust) | Keycloak | CRITICAL, HIGH | **ACCEPT RESIDUAL RISK** | The vendor fix exists but no Keycloak image of this minor ships it. Outbound TLS is the SMTP relay only, so exploitation needs a network position and a certificate from a distrusted intermediate | Approve until a Keycloak image ships the fix |
+| `pcre2`/`pcre2-syntax` `CVE-2026-103111`, `-86145`, `-89161` | Keycloak | HIGH | **ACCEPT RESIDUAL RISK** | The vendor fix exists but no image of this minor ships it. The JVM does not load it and `grep` uses PCRE1. `sed`, linked via `libselinux`, runs once in `kc.sh` on operator arguments; reachability is unproven | Approve until a Keycloak image ships the fix |
+
+The three ACCEPT groups are **proposed** for owner acceptance, not accepted by this
+record. The proposed scope is only the prepared, non-deployed candidate. Before any
+public operation they need a renewed assessment against the then-current images,
+alongside the #276 qualification.
+
+No group is BLOCKED. Technical acceptance still needs the two recipe changes published
+by trusted main and the [integrated campaign](#final-integrated-campaign--6c4bbb3-2026-10-24)
+repeated on those publications. The harness deliberately refuses local images.
+
+## Owner acceptance record
+
+Prepared 2026-10-24 for the owner's decision; **not signed**. Signing accepts only the
+#275 local candidate at the identities below. It never authorizes purchase, DNS, public
+exposure, private-dev change or production deployment, which keep their separate
+[gates](../development/delivery-lifecycle.md#public-production-gates).
+
+| Identity | Value |
+|---|---|
+| Source revision | `6c4bbb377d8aad85061cd99626864ad594ebb57d` |
+| Application | `ghcr.io/rubhern/videogame-platform@sha256:9aaa2eef491553d7b47195c6c71e019d673fed9e3f7084ee13335d6317ea2192` |
+| Keycloak | `…-keycloak@sha256:5c01bf984a02a515b8601b19a8e0041c0ae0d393426778f1df9897a50499cf51` |
+| Caddy | `…-caddy@sha256:afa6fb48a44dcd3240389759eda0c6afc1117fc615b8eca509c49cd924b9590e` |
+| Catalogue localizer | `…-catalogue-localizer@sha256:4e1c1ba3f5abde2906330123c731fd7da6660c3b5bddd50e04d2b47192322a76` |
+| Runtime fingerprint | `1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045` |
+| Model manifest | `c1f0f2c6f1b045cc712117d53ceee24c8de3dd9df4c8f7a8ed0548a04040b87f` |
+
+| Acceptance item | Evidence state | Owner decision |
+|---|---|---|
+| Topology, BFF/identity, edge limits and maintenance | Passed in the final campaign | Accept / reject |
+| Trusted-image manual deployment and refusals | Passed, stages A–E and eight transitions | Accept / reject |
+| Paired backup, isolated recovery and deletion replay | Passed synthetically | Accept / reject |
+| Inherited image findings | [Dispositioned](#security-disposition--2026-10-25): FIXED or NOT APPLICABLE except three proposed ACCEPT groups | Approve or reject each ACCEPT group for the non-deployed candidate only; renewed assessment before public operation |
+| Edge and identity images after the disposition | Local gates passed; trusted-main publication and repeated campaign pending | Replace the Caddy and Keycloak identities above once they pass |
+| Resource envelope | Reviewed hypothesis; measured on #276 | Accept as hypothesis / reject |
+| Real-host qualification | Deliberately out of scope | Confirm it is assigned to #276 |
+
+- **Decision:** _pending_ (accepted / accepted with conditions / rejected)
+- **Conditions or dispositions:** _pending_
+- **Owner and date:** _pending_
+
+#275 may close only after this record holds an accepting decision on the republished
+identities and every ACCEPT group has an explicit owner approval.
 
 ## Integration into current main — 2026-10-24
 
@@ -79,17 +204,14 @@ new evidence; merge is conditional on the actual PR gates and final diff inspect
 
 **Image evidence remains revision-specific.** The c7bc5cd rehearsals demonstrate
 their recorded images and operational source hashes. They do not qualify the newer
-base, PR or merge revision's images. After implementation merge, obtain the exact
-merge SHA, successful complete trusted-main checks and fresh publication digests,
-then repeat the integrated browser/model/observability exercise and paired
-backup/isolated recovery/cleanup rehearsals against that exact image/configuration
-selection. Preserve new source/configuration/image identities and sanitized receipts;
-do not replace missing trusted publications with local or earlier images.
+base, PR or merge revision's images. PR #371 merged as `afcf81a`; the
+[final campaign](#final-integrated-campaign--6c4bbb3-2026-10-24) repeated every
+exercise on the `6c4bbb3` publications.
 
-#275 remains **open** for those final rehearsals, renewed scan applicability and
-explicit owner acceptance. The Project moves from `In review` during PR validation
-to `In validation` after merge, never automatically to `Done`. Purchase and public
-exposure remain separate owner authorizations; #276 retains the real-host work.
+#275 remains **open** in `In validation` for inherited-finding disposition and the
+owner's [acceptance record](#owner-acceptance-record), never automatically `Done`.
+Purchase and public exposure remain separate owner authorizations; #276 retains the
+real-host work.
 
 ## Residual independent review corrections — 2026-10-24
 
@@ -195,25 +317,23 @@ second completion mechanism.
 
 ## Review decision and remaining gates
 
-**GO for implementation integration after passing applicable PR Security/build/quality
-checks and final diff review. Independent re-review of the P1 and six residual
-corrections is owner-confirmed complete; the final P3 is covered by the focused
-regression. Final immutable-image rehearsals and owner acceptance remain pending.** The increment prepares local operations without enabling
-real-host deployment. The earlier self-review is superseded by the corrections above; author checks are
-not independent approval. Keep #275 **open** until trusted-main
-publication/current-source checks for the accepted configuration and explicit owner
-acceptance of deployment/recovery are recorded, inherited findings are fixed or
-risk-accepted after applicability review, and all pre-purchase inputs are evidenced.
-Publication/conditional merge is owner-authorized for this increment. Merge does
-not close #275 or authorize private-dev/production deployment, purchase or exposure.
+**Implementation merged (PR #371) and the final immutable-image campaign passed on
+`6c4bbb3`. Owner acceptance and inherited-finding disposition remain pending.** The
+increment prepares local operations without enabling real-host deployment. Author
+checks are not independent approval. Keep #275 **open** until the
+[acceptance record](#owner-acceptance-record) holds an accepting decision, inherited
+findings are fixed or risk-accepted after applicability review, and all pre-purchase
+inputs are evidenced. Neither merge nor campaign authorizes private-dev/production
+deployment, purchase or exposure.
 
 The [earlier focused check record](public-production-candidate-evidence/p1-checks.json)
 retains its original commands, source hashes and receipt hashes. The residual-review
 record remains authoritative for its historical operational source snapshot; the
 integration record above identifies the P3 correction and reconciled base. Keep these distinct from runtime-test failures:
 
-- **Dependency security:** 63 localizer and 19 Keycloak inherited HIGH/CRITICAL
-  findings need their own applicability/disposition. No new owner acceptance.
+- **Dependency security:** dispositioned in the
+  [security disposition](#security-disposition--2026-10-25); three residual-risk groups
+  await explicit owner approval. No owner acceptance is recorded here.
 - **Legal/provider:** preserve the accepted #274 decisions and R17 treatment;
   remaining processor/DPA, retention, transfer, public-claim and real supplier/media
   verification stay with their canonical owners. This audit approves none of them.
@@ -225,7 +345,7 @@ integration record above identifies the P3 correction and reconciled base. Keep 
   SMTP/quotas/alerts, DNS/ACME and external IPv4/IPv6/cookies/ownership/CSRF evidence.
   Those host-only tests are not moved into pre-purchase local acceptance.
 
-## Earlier receipts — not P1 acceptance evidence
+## Earlier receipts — historical, not final acceptance evidence
 
 | Receipt | What it establishes |
 |---|---|
@@ -248,19 +368,19 @@ integration record above identifies the P3 correction and reconciled base. Keep 
 
 | #275 criterion | Implementation and verified evidence | Incomplete / #276 boundary |
 |---|---|---|
-| Versioned, independent topology exercised without host exposure | **Verified locally:** production Compose, separate databases/roles, realm, secrets, volumes, approved model and combined monitoring; current combined receipt | Actual host filesystem, secret permissions, reboot and external isolation: #276 |
-| BFF, ownership, CSRF, redirects, proxy trust and management denial | **Verified locally:** c7bc5cd trusted identity/routing CI, unchanged edge contract and updated P1 browser flows; pre-P1 edge/TLS receipts remain explicitly historical | Real-domain cookie re-inventory, actual mail, external ownership/CSRF journey: #276 |
-| Exact trusted images, migration, smoke and manual promotion/refusals | **Verified locally:** c7bc5cd publication resolver and real migration; expanded trusted inventory positive/negative checks; 24 transition/refusal/provenance tests at residual review; 25 after the final P3 regression. The eight ec036c3 transitions are historical, not a promotion of corrected unpublished sources | Review working-tree diff; publish only on owner request; applicable PR checks required before merge; final trusted-main configuration/image proof and rehearsals pending. Real-host adapter remains refused |
-| Encrypted backups, isolated restore and reconstruction | **Verified synthetically:** residual-review real Grafana datasource backup/reconstruction, GPG/fault tests and profiled host-loss replay plus completed retry on c7bc5cd; in-flight writes rolled back, deletion replay and old offline-token rejection passed; missing replay evidence refuses reopening | Real independent destination/access, host-loss recovery, deletion replay, achieved RPO/RTO and schedule: #276 |
+| Versioned, independent topology exercised without host exposure | **Verified locally on `6c4bbb3`:** production Compose, separate databases/roles, realm, secrets, volumes, approved model and combined monitoring; final combined receipt | Actual host filesystem, secret permissions, reboot and external isolation: #276 |
+| BFF, ownership, CSRF, redirects, proxy trust and management denial | **Verified locally on `6c4bbb3`:** trusted identity/routing CI, final edge contract and browser flows in both the combined and deployment exercises; earlier edge/TLS receipts remain historical | Real-domain cookie re-inventory, actual mail, external ownership/CSRF journey: #276 |
+| Exact trusted images, migration, smoke and manual promotion/refusals | **Verified locally on `6c4bbb3`:** the manual `--rehearsal` procedure accepted the trusted configuration and publication digest, migrated, and passed stages A–E with eight transitions; 25 transition/refusal/provenance tests. Earlier ec036c3 transitions are historical | Owner acceptance. Real-host adapter remains refused |
+| Encrypted backups, isolated restore and reconstruction | **Verified synthetically on `6c4bbb3`:** real Grafana datasource backup/reconstruction, GPG/fault tests and profiled host-loss replay plus completed retry; in-flight writes rolled back, deletion replay and old offline-token rejection passed; missing replay evidence refuses reopening | Real independent destination/access, host-loss recovery, deletion replay, achieved RPO/RTO and schedule: #276 |
 | Explicit bounded resource/job envelope | **Reviewed hypothesis:** canonical envelope; 640 MiB monitoring contract; sampled monitoring receipt | Nominal headroom is insufficient to assert >=20% available memory. Helpers/scratch and workload overlap must be measured on #276; no automatic expansion |
-| Current-source CI, gates and owner review | **Implementation integration:** owner-confirmed independent re-review resolved all P1/residual findings; P3 regression and focused local checks pass; reconciled base Security/build passed | Applicable PR checks and final diff review gate merge. Final trusted-main image rehearsals, owner acceptance, inherited finding dispositions and contracting prerequisites still gate #275 acceptance |
-| No purchase/DNS/private-dev deployment | **Preserved:** no host deployment, real credentials/accounts, purchase, DNS, ingress or timer installation. The owner authorized only the narrow shared-ledger source correction and conditional Git publication/merge | Real-host work requires separate authorization; private-dev retirement remains separate |
+| Current-source CI, gates and owner review | **Merged and rehearsed:** PR #371 checks passed; trusted-main `6c4bbb3` build/publication and Security passed; final campaign passed on its images | Owner acceptance record, inherited finding dispositions and contracting prerequisites still gate #275 acceptance |
+| No purchase/DNS/private-dev deployment | **Preserved:** no host deployment, real credentials/accounts, purchase, DNS, ingress or timer installation; the final campaign ran only on local Docker beside untouched unrelated workloads | Real-host work requires separate authorization; private-dev retirement remains separate |
 
 ## Pre-purchase gate audit
 
 | Canonical gate | Local/CI evidence or implemented preparation | Remaining decision / host-only proof |
 |---|---|---|
-| Source/release | Trusted image resolver and scan/publication inventory; [current scan review](public-production-candidate-evidence/p1-scans.json) | Localizer: **63** unique HIGH/CRITICAL package/version findings; Keycloak: **19** (26 raw occurrences). Application/Caddy: zero in these retained scans. Dependency policy reports zero repository-layer additions. This does not risk-accept inherited findings: fix or obtain owner applicability/disposition before purchase. Recheck current scans for the finally selected source |
+| Source/release | Trusted image resolver and scan/publication inventory; [final `6c4bbb3` scans](public-production-candidate-evidence/final-6c4bbb3-scans.json) | Localizer: **63** unique HIGH/CRITICAL package/version findings; Keycloak: **19** (26 raw occurrences); Caddy: **1** (`brotli-libs`, fixed upstream) plus unfixed `GO-2026-5932`; application: zero. Dependency policy reports zero repository-layer additions. The [disposition](#security-disposition--2026-10-25) fixes or evidences all but three groups, which need explicit owner approval before purchase; the fixed images still need trusted-main publication |
 | Provider/media | #274 records and approved provider-independent local data path | Preserve pending provider/privacy obligations; actual permitted acquisition/CDN behaviour in #276; no load against IGDB |
 | Accounts/privacy | Existing protected ledger/archive; live transport, conditional identity deny/drain, role exclusion, 30-day filter and suppression proof; focused race/fault tests | Final legal/supplier/publication claims remain with their canonical owners. Actual protected storage, admin privilege, SMTP delivery/quotas, backlog and daily cadence: #276; no timer installed |
 | HTTPS/isolation | Synthetic CA, same-origin BFF, strict hosts/paths, private management; edge contract tests | Real DNS/ACME/renewal and IPv4/IPv6 external denial, forwarding/source identity, TLS persistence and cookie inventory: #276 |
@@ -307,8 +427,9 @@ Run the commands in the [runtime exercise](../../deploy/public-production/README
 [cleanup procedure](../../deploy/public-production/README.md#identity-maintenance)
 and [host-loss exercise](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
 with the intended exact trusted source and a new evidence directory each time.
-The corrected combined run selects `c7bc5cd6ac2efdb28c0f8406c11f37bb3c418916`;
-retained baseline receipts select `39b57c5` and remain historical evidence. Supply
+The final campaign selects `6c4bbb377d8aad85061cd99626864ad594ebb57d`; its record
+holds the exact commands. Earlier receipts (`c7bc5cd`, `ec036c3`, `39b57c5`) remain
+historical evidence. Supply
 the existing approved checksum-verified model; never download a substitute.
 The browser helper now pins the available Ubuntu trust-tool package and checksum;
 its former exact package had disappeared. The combined candidate exposed telemetry
@@ -330,10 +451,9 @@ backend and identity suites. The registry-authenticated rehearsals remain local,
 not another deployment workflow. Administrative scripts have no independent release
 version; backend, frontend, OpenAPI and PoC artefacts are unchanged, so no version bump.
 
-Do not close #275 or move it to Done from this record. The associated PR records
-implementation checks; final immutable-image rehearsals, security disposition and
-owner acceptance are still required. The retained local combined rehearsal passed
-on its recorded earlier images. Assign the real-host tests above to #276, retain the separation
+Do not close #275 or move it to Done from this record. Publication of the disposition
+images, a repeated campaign, approval of the residual-risk groups and the owner's
+signed [acceptance record](#owner-acceptance-record) are still required. Assign the real-host tests above to #276, retain the separation
 between authorization to purchase and authorization to expose, and keep private-dev
 untouched.
 

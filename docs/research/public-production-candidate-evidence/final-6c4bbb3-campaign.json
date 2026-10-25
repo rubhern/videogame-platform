@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-24",
+  "scope": "Single final integrated campaign for #275 on the trusted-main revision; local synthetic, no host, DNS, purchase or private-dev change",
+  "sourceRevision": "6c4bbb377d8aad85061cd99626864ad594ebb57d",
+  "checkout": "Clean Git worktree at the exact revision (git status empty before and after); runtime sources are therefore the trusted-main sources",
+  "trustedMainRuns": {
+    "build": {
+      "runId": 40089217088,
+      "conclusion": "success"
+    },
+    "security": {
+      "runId": 40089216742,
+      "conclusion": "success"
+    }
+  },
+  "supersededMergeSecurityRun": {
+    "revision": "afcf81afce8c828be9b43f74759d8ed22660ddce",
+    "runId": 40088908491,
+    "conclusion": "failure",
+    "reason": "gitleaks generic-api-key on verified file digests; fixed by 6c4bbb3 .gitleaksignore only"
+  },
+  "publications": {
+    "application": "ghcr.io/rubhern/videogame-platform@sha256:9aaa2eef491553d7b47195c6c71e019d673fed9e3f7084ee13335d6317ea2192",
+    "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:5c01bf984a02a515b8601b19a8e0041c0ae0d393426778f1df9897a50499cf51",
+    "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:afa6fb48a44dcd3240389759eda0c6afc1117fc615b8eca509c49cd924b9590e",
+    "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:4e1c1ba3f5abde2906330123c731fd7da6660c3b5bddd50e04d2b47192322a76"
+  },
+  "runtimeSourceFingerprint": "1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045",
+  "approvedModelManifestSha256": "c1f0f2c6f1b045cc712117d53ceee24c8de3dd9df4c8f7a8ed0548a04040b87f",
+  "docker": {
+    "context": "default",
+    "endpoint": "unix:///var/run/docker.sock",
+    "server": "Docker Desktop",
+    "unrelatedWorkloadsUntouched": true,
+    "subnetCollisions": false
+  },
+  "sequence": [
+    "2026-10-24T11:35:07Z START combined",
+    "2026-10-24T11:41:05Z END combined rc=0",
+    "2026-10-24T11:41:05Z START deployment",
+    "2026-10-24T11:47:03Z END deployment rc=0",
+    "2026-10-24T11:47:03Z START recovery",
+    "2026-10-24T11:52:39Z END recovery rc=0",
+    "2026-10-24T11:52:39Z START edge",
+    "2026-10-24T11:57:27Z END edge rc=0",
+    "DONE"
+  ],
+  "commands": {
+    "combined": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-cleanup.py --revision 6c4bbb377d8aad85061cd99626864ad594ebb57d --evidence NEW_DIRECTORY --browser --model-dir EXISTING_APPROVED_MODEL",
+    "deployment": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/public_production_deployment.py --rehearsal --revision 6c4bbb377d8aad85061cd99626864ad594ebb57d --digest sha256:9aaa2eef491553d7b47195c6c71e019d673fed9e3f7084ee13335d6317ea2192 --configuration-fingerprint 1ceeafde884fca0f3966486b6ffc2d75e100a7cd45bd73d554bc4830fafe2045 --evidence NEW_DIRECTORY --model-dir EXISTING_APPROVED_MODEL",
+    "recovery": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/rehearse-production-recovery.py --revision 6c4bbb377d8aad85061cd99626864ad594ebb57d --evidence NEW_DIRECTORY",
+    "edge": "python3 -I scripts/test-public-production-runtime.py (after the stacks above were torn down)"
+  },
+  "outcomes": {
+    "combined": "success",
+    "deployment": "passed-ABCDE-and-eight-transitions",
+    "recovery": "success",
+    "edge": "passed",
+    "teardown": "passed"
+  },
+  "edgeSummary": [
+    "Compose contract: 64 deliberate violations checked.",
+    "Caddy contract: 15 deliberate violations checked.",
+    "Private Caddy metrics and sanitized origin records distinguish 503s without client/limiter labels.",
+    "probe: 88 checks, 0 violation(s)",
+    "backchannel: 4 checks, 0 violation(s)",
+    "Edge behaviour: 7 deliberate route violations checked.",
+    "Edge limits: 18 limit and 5 maintenance scenarios checked.",
+    "Edge limits: 6 deliberate limit and gate violations checked.",
+    "Public-production runtime contract passed with synthetic inputs. This is static and local evidence only: no DNS, ACME issuance, real host, firewall, Docker NAT or credential was exercised."
+  ],
+  "logSha256": {
+    "combined": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "deployment": "5d5d0bfa41f5c9c42df4328658ad472293b3e078f70429f01975b977c64fd5b3",
+    "recovery": "f871053c8f42fc5e49758657ab7558665985c8057e9d0b3f73a272229067e812",
+    "edge": "f9e7819c109e1eb563356ac3887acaae6f5ad191143105151a5583ec0c3f7e81"
+  },
+  "logsRetained": false,
+  "receiptSourceSha256": {
+    "final-6c4bbb3-combined.json": "bc8bf27361a25930024b0605dd058262fbfc8aea087ac9a04d15563d20c2b2a8",
+    "final-6c4bbb3-combined-cookies.json": "03e4a582dca3967a60b5d5dd81195312844ea2f4b3bff1ef7c4ec07c264e06a1",
+    "final-6c4bbb3-deployment.json": "650233bffafefbd5cd3fce01d43641a8cc430333ba5b381544ce83f0fd0e5597",
+    "final-6c4bbb3-deployment-cookies.json": "f4a1b864998eba6039950c1aa93310ee0551b5bbe33c157cea85aeac5a81f47d",
+    "final-6c4bbb3-recovery-rehearsal.json": "1eb7ba99a5f9089053bea8f85dde6c31da86c85f1b65e4bf7274eb01c41611e1",
+    "final-6c4bbb3-backup.json": "ec362816b4343289c3b116900af38d085a4620efeeeacd1d96b29f51580f096e",
+    "final-6c4bbb3-restore.json": "ca6f8824f359f0ba4f806445a7ca25a8aba8a50b375e2e768f32755391c4a373",
+    "final-6c4bbb3-deletion-replay.json": "09c470b6bed1c01d834d728324fa61023b8ab9cf7afc5e0c8bb469d6b2a76d9e",
+    "final-6c4bbb3-verified-recovery.json": "a97c2312ad72ff0ebb936612eaa19a0cc24bc1b4bda0af147d386083013160b1"
+  },
+  "ownedRuntimeResourcesRemaining": 0,
+  "evidenceQualifies": "Only these exact images, this configuration fingerprint and this local synthetic environment; not VPS capacity, real host, DNS/ACME, mail delivery or independent storage",
+  "notes": [
+    "The combined receipt's fixed scope label says working-tree transport; here the working tree was the clean trusted-main revision",
+    "Caddy now reports one inherited HIGH (brotli-libs, fix available upstream) and one unfixed Go advisory (GO-2026-5932); both new since c7bc5cd and not risk-accepted"
+  ],
+  "productionReady": false,
+  "issueClosureAuthorizedByThisRecord": false
+}

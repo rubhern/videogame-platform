@@ -24,3 +24,6 @@ afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candida
 afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candidate-evidence/baseline-browser-rejection.json:generic-api-key:82
 afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candidate-evidence/reviewed-deployment-20261023.json:generic-api-key:98
 afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candidate-evidence/p1-email.json:generic-api-key:12
+# False positive: verified SHA-256 of unchanged deploy/public-production/bin/run-keycloak in the
+# immutable 6c4bbb3 campaign receipt. File-scoped (no commit) so the PR and its merge commit match.
+docs/research/public-production-candidate-evidence/final-6c4bbb3-deployment.json:generic-api-key:99

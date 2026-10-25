@@ -693,7 +693,7 @@ same retained-archive path as the application:
 | Application and migration actor | `ghcr.io/rubhern/videogame-platform` | Root `Dockerfile` |
 | Production Keycloak | `ghcr.io/rubhern/videogame-platform-keycloak` | The shared Keycloak recipe, with event metrics compiled in |
 | Catalogue localizer | `ghcr.io/rubhern/videogame-platform-catalogue-localizer` | The localizer Dockerfile, without a model |
-| HTTPS edge | `ghcr.io/rubhern/videogame-platform-caddy` | The edge recipe: stock Caddy plus the [ADR-0030](../../decisions/0030-limit-public-edge-requests-with-a-caddy-module.md) module, whose Go module graph must equal stock Caddy's plus that module and its reviewed security overrides; Trivy and govulncheck scan it, and any Go advisory with an available fix fails the build |
+| HTTPS edge | `ghcr.io/rubhern/videogame-platform-caddy` | The edge recipe: stock Caddy without its unused curl client, plus the [ADR-0030](../../decisions/0030-limit-public-edge-requests-with-a-caddy-module.md) module, whose Go module graph must equal stock Caddy's plus that module and its reviewed security overrides; Trivy and govulncheck scan it, and any Go advisory with an available fix fails the build |
 
 Each is built once per trusted-main commit for `linux/amd64`, labelled with source,
 revision and upstream version, inspected, scanned and given a CycloneDX SBOM; the

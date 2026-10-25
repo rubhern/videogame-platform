@@ -6,7 +6,7 @@
 # scripts/check-dependency-image-content.py owns the module policy, including the security
 # override below, which is removed as soon as stock Caddy ships the fixed version.
 ARG CADDY_BUILDER_IMAGE=caddy:2.11.7-builder-alpine@sha256:d718a1d1431403c4a46698f33ad1c0f9dd5dd7fe2bae654d1027d275b6fb5fd7
-ARG CADDY_IMAGE=caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+ARG CADDY_IMAGE=caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
 
 FROM ${CADDY_BUILDER_IMAGE} AS build
 ARG CADDY_VERSION=v2.11.7
@@ -25,5 +25,8 @@ RUN xcaddy build "$CADDY_VERSION" --output /out/caddy --with "$CADDY_RATELIMIT_M
     && /out/caddy list-modules | grep -qx 'http.handlers.rate_limit'
 
 FROM ${CADDY_IMAGE}
-# Only the binary changes; the stock image's user, paths and Caddyfile command are kept.
+# The stock image's user, paths and Caddyfile command are kept. Its curl client is unused
+# by Caddy (a static Go binary) and by every edge procedure, so it is removed with the
+# libraries only it needs, including brotli-libs (CVE-2026-111497 in 1.2.0-r0).
+RUN apk del --no-cache curl
 COPY --from=build /out/caddy /usr/bin/caddy
