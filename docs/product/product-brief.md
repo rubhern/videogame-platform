@@ -240,7 +240,10 @@ waive personal-data protection, account recovery, provider rights or security.
 
 **Owner-approved public account baseline (#274), prepared; public operation pending:** accounts are for adults
 (18+) by explicit declaration, without collecting a birth date or identity document;
-email is the sign-in identifier and names are not required. The owner, a natural
+email is the sign-in identifier and names are not required. Sign-in is to offer an
+optional, unchecked "Seguir conectado" (approved target, not implemented; #374); the
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)
+owns its session bounds. The owner, a natural
 person **Rubén Hernández López**, is the data controller and authorizes publication of
 his legal name and contact `hola@gameometro.com`. The initial project is personal and
 non-economic: no ads, affiliation, sponsorship, donations, sales or professional
