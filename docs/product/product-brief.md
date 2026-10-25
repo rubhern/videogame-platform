@@ -218,10 +218,15 @@ storage only.
 A public Gameómetro environment is the owner-approved next release direction:
 **open, non-commercial and best effort**, without a commercial SLA or staffed support.
 The deployed environment remains private `dev`; production is unbuilt and exposure
-is not authorized by this direction alone. The owner selected netcup VPS Lite 2
-(x86_64, 8 GB RAM), conditionally on availability, final price and measured capacity,
-with a **EUR 20/month ceiling for all recurring costs**. This replaces the former
-project-wide zero-recurring-cost restriction for the gated public environment.
+is not authorized by this direction alone. **Owner decision, 2026-10-25 (#276):**
+select netcup VPS Lite 3 instead of Lite 2, subject to final contractual quote and
+real-host qualification. The **total recurring ceiling is EUR 25/month**, including
+VAT, domain renewal, email, storage, administration and every recurring extra. This
+supersedes the prior EUR 20 ceiling and earlier zero-recurring-cost restriction for
+the gated public environment. The [#276 budget evidence](../research/public-production-backup-storage.md#complete-recurring-total-with-lite-3)
+includes the EUR 2 email contingency; estimated charges are not account-specific
+quotes or enforceable caps. Infrastructure/provider selection does not authorize
+uncapped PAYG, contracting or exposure; the spending-protection blocker remains open.
 The owner registered the domain `gameometro.com` for this release ahead of the VPS; the
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names)
 owns the approved public names.

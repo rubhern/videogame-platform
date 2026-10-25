@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md', 'Production host & immutable storage · accepted'],
     ['docs/decisions/0032-checkpoint-historical-synchronization-by-month.md', 'Historical month checkpoints · proposed'],
   ]],
   ['Development & quality', [
@@ -52,6 +53,7 @@ export const groups = [
     ['docs/research/browser-session-lifetime.md', 'Browser session lifetime · #361'],
     ['docs/research/historical-sync-pilot.md', 'Historical sync pilot · #246'],
     ['docs/research/public-production-candidate-acceptance.md', 'Production candidate acceptance · #275'],
+    ['docs/research/public-production-backup-storage.md', 'Off-host backup storage · #276 · contracting blocked'],
     ['docs/research/reviews/user-facing-copy-audit-2026-10-19.md', 'User-facing copy audit · #286'],
     ['tools/igdb-poc/README.md', 'IGDB proof of concept'],
   ]],

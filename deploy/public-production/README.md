@@ -8,6 +8,9 @@ Manual deployment and backup/recovery commands operate only within isolated synt
 rehearsals; real-host deployment remains blocked. [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
+[ADR-0033](../../docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md)
+records the superseding #276 host/storage direction. Its cloud integration is not
+implemented by this prepared candidate; #275 acceptance, digests and evidence remain unchanged.
 
 The [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 owns the topology, trust boundary, resource envelope and recovery policy. This page owns
@@ -391,6 +394,11 @@ connectivity and monitoring recovery before ending maintenance.
 
 ### Independently secured copy and retention
 
+**Existing #275 filesystem-copy capability, not the selected #276 cloud path.**
+The [current recovery target](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+requires direct automated encrypted S3 uploads; those adapters and cloud verification
+are not implemented here. The following documents the existing command contract.
+
 Run `pull` **on the independent destination under its backup administration account**.
 Use an owner-controlled 0600 SSH config, pinned source host key, a dedicated read-only
 source credential and no agent forwarding. The source has no credential able to
@@ -417,14 +425,12 @@ a compromised source or recoverability. Checksums detect corruption, not malicio
 replacement of all files. Protect independently retained manifests and successful
 rehearsal receipts against modification; compare them before recovery.
 
-The approved Lenovo destination is **not provisioned or contacted here**. Before
-using it, the owner must prove that private-dev, repositories, agents and ordinary
-development identities cannot read or modify the store or its administration inputs,
-including through root, sudo or Docker. If that privilege isolation cannot be
-established, refuse activation and resolve the owner storage decision. Keep rolling
-backups, the restricted legal archive, the deletion ledger and their independent
-copies in their distinct protected stores; backup pruning must never operate on the
-legal archive or ledger.
+The former mandatory Lenovo destination is superseded by the linked platform
+policy. An optional Lenovo copy is expendable and does not establish independent
+recovery or key isolation. Keep rolling backups, legal archives, deletion ledgers
+and independent copies in the separate protected stores required by that policy;
+backup pruning must never operate on the archive or ledger. Do not use a plain
+filesystem pull receipt as evidence of the unimplemented cloud guarantee.
 
 `retain --backup /protected/independent-backups --verified-receipt
 /protected/receipts/recovery-rehearsal.json --receipt NEW_RECEIPT` selects seven
@@ -583,10 +589,11 @@ Local measurements describe that machine and tiny dataset, not future VPS RPO/RT
 The full exercise needs trusted publication/registry access and stays local; focused
 encryption/refusal tests run in selective CI.
 
-Before public authorization, #276 must prove: actual storage and root/Docker privilege
-isolation on Lenovo; physical/account independence and second ledger/archive copies;
-pinned read-only transfer credentials, connectivity, capacity, interruption handling
-and destination integrity checks; encrypted/disabled swap and plaintext scratch limits;
+Before public authorization, #276 must prove: cloud version/credential isolation
+and independent administration/key custody, physical/account independence and second
+ledger/archive copies; least-privilege direct-upload/verification/expiry identities,
+connectivity, capacity, interruption handling and destination integrity checks;
+encrypted/disabled swap and plaintext scratch limits;
 protected secrets/config restoration and private-key custody; representative backup
 size, temporary space, transfer and recovery duration; a fresh-host reconstruction
 over the intended SSH context; real owner identity administration, offline-token
@@ -806,7 +813,9 @@ The timer expects three independent protected inputs under the observability dir
   including failed attempts. Publish it atomically after every attempt; do not retain
   only successes. Missing/corrupt input alerts.
 - `offhost.json`: a monitoring attestation generated **on the independent destination**
-  by `observability/verify-offhost.py`. Supply its verified encrypted pair directory,
+  by `observability/verify-offhost.py`. This is the existing filesystem/pull contract;
+  it cannot certify the new cloud target without an implemented, reviewed adapter
+  and evidence contract. Supply its verified encrypted pair directory,
   successful `pull` receipt, matching successful full recovery/deletion-replay receipt
   and an owner-protected isolation record. The latter has `environment: production`,
   `storageIsolationVerified: true` and a timezone-qualified `reviewedAt`; it attests a
@@ -874,7 +883,8 @@ refuses real-host operation; #276 must review any host adapter before using it.
    reviewed host deployment procedure. Provision the Grafana reader after migrations,
    start telemetry privately, and verify readiness, image/source identity, routing and
    the complete synthetic browser journey. A failed phase keeps the candidate closed.
-5. Review daily paired-backup and independent pull/verification schedules against the
+5. Implement and review automated paired-backup/direct-S3 and independent verification
+   schedules against the
    [recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery).
    Serialize deployment, backup and heavy sync/localization. Backup deliberately leaves
    writers closed: inspect its receipt and explicitly thaw before starting services.

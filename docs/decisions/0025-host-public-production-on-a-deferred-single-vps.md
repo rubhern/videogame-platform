@@ -4,6 +4,7 @@
 - **Date:** 2026-10-14; accepted by the owner on 2026-10-19
 - **Owner:** Ruben Hernandez
 - **Scope:** First public, non-commercial, best-effort release; #252 / #251
+- **Partially superseded:** [ADR-0033](0033-select-lite-3-and-immutable-offhost-storage.md), accepted 2026-10-25, replaces Lite 2 and the former budget input and records the new storage direction. This record retains the original rationale; other decisions and gates remain effective.
 
 ## Context
 
