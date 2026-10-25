@@ -128,12 +128,16 @@ to existing private-dev. Record the remaining real-host-only checks. Recheck the
 selected SKU/architecture/stock/region, tax-inclusive price, minimum term/billing/
 cancellation/renewal, traffic and processor terms. Sum recurring items at renewal
 prices with capped overages within the approved total budget; record cash commitment
-and contingency and workable backup/email routes. The #276 infrastructure and budget
-selection does not waive capped overages: OVHcloud's aggregate spending limit remains
-unverified. The [pending risk-acceptance draft](../research/public-production-backup-storage.md#pending-owner-risk-acceptance-if-no-hard-cap-is-available)
-is not an approved exception. Any exception needs an explicit owner decision and a
-matching gate update before contracting. Only then may the owner explicitly authorize
-purchase. This work does not grant that authorization.
+and contingency and workable backup/email routes. **Scoped exception (owner,
+2026-10-25, #276):** OVHcloud Object Storage may be contracted without a verified
+aggregate spending cap. The owner accepts that uncapped PAYG residual risk under the
+[ADR-0033 amendment](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md#amendment-2026-10-25-uncapped-ovhcloud-payg-risk),
+subject to bounded operation, consumption monitoring and alerts that are configured
+and tested before the first upload. EUR 25 stays the recurring ceiling, not a maximum
+bill. Every other service still needs capped overages, and any new uncapped service
+needs its own owner exception. Only after the remaining contracting evidence may the
+owner explicitly authorize purchase; this exception grants no purchase, account or
+deployment authorization.
 
 **Exposure gate:** after authorized purchase, establish private administration and
 qualify the candidate with synthetic data/restricted ingress. ACME/external tests may

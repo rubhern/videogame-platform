@@ -1,6 +1,6 @@
 # Automated off-host backup storage (#276)
 
-- **Status:** Provider/topology, Lite 3 and revised budget approved by owner on 2026-10-25; contracting blocked, implementation not authorized
+- **Status:** Provider/topology, Lite 3, revised budget and scoped uncapped OVHcloud PAYG risk approved by owner on 2026-10-25; Object Lock retention policy recommended, not approved; implementation not authorized
 - **Research date:** 2026-10-25
 - **Repository inspected:** `147f7f28c0b637f89314aa997303a0847f1617c3`
 - **Consumer:** Owner decision within [#276](https://github.com/rubhern/videogame-platform/issues/276)
@@ -23,11 +23,12 @@ the current total recurring ceiling.
 | Approved decision | Boundary |
 |---|---|
 | netcup VPS Lite 3 replaces Lite 2 | x86_64, advertised eight shared vCores, 16 GB RAM, 320 GB SSD; indicative EUR 16.95/month including VAT and two-month minimum. Actual quote/contract unverified |
-| Total recurring budget increased from EUR 20 to EUR 25/month | Includes VAT, renewal, email, storage, administration and recurring extras. Keep EUR 2 email contingency; no uncapped-overage exception follows |
+| Total recurring budget increased from EUR 20 to EUR 25/month | Includes VAT, renewal, email, storage, administration and recurring extras. Keep EUR 2 email contingency. A ceiling for normal operation, not a maximum bill |
 | OVHcloud S3 Object Storage Standard, 1-AZ Gravelines | Full region, not Local Zone/Swift. Documented single-zone durability limitation explicitly accepted for this topology |
 | Plan for 200 GiB actually retained | Approximately EUR 1.72/month including VAT, not purchased capacity, provider quota or enforceable spending cap |
 | Fully automated encrypted direct VPS-to-S3 uploads | Compliance retention, least privilege, independent integrity/missed-job verification and tested recovery; not implemented |
 | Lenovo optional and expendable | Removed from mandatory production recovery; no required unique copy, key or administrative dependency there |
+| Uncapped OVHcloud PAYG residual risk accepted | Scoped exception to the capped-overage gate for OVHcloud Object Storage only, subject to bounded operation, consumption monitoring and alerts. See [below](#owner-accepted-uncapped-payg-risk) |
 
 This supersedes the previous Lenovo pull-based destination decision without asserting
 that its prepared #275 commands implement S3. No provider account, paid service or
@@ -41,17 +42,16 @@ before use of the reserved contingency or unverified extras. Neither total is a
 maximum bill; full accounting must include auxiliary retained versions, mailbox,
 CI/administration charges and final tax/renewal terms.
 
-**Contracting blocker:** no enforceable aggregate OVHcloud spending cap is verified.
+**Spending protection:** no enforceable aggregate OVHcloud spending cap is verified.
 Public documentation establishes alerts, resource quotas and prepaid credit, not a
-hard aggregate charge limit. The existing capped-overage gate remains effective;
-provider/budget approval is not risk acceptance. The [specific draft below](#pending-owner-risk-acceptance-if-no-hard-cap-is-available)
-is **pending**, not a waiver or purchase authorization.
+hard aggregate charge limit. The owner has [accepted that residual risk](#owner-accepted-uncapped-payg-risk)
+as a scoped exception; it is not a purchase authorization.
 
-Only the decisions in the table are approved. The proposed 34-day lock, 12-hour
-capture interval, expanded retained-copy count, archive/ledger cloud placement,
-GitHub watchdog and weekly-restoration evidence semantics below remain unapproved
-operational parameters. Reconcile them with the canonical 35-day and privacy/recovery
-requirements before implementation; no implicit policy change is recorded here.
+Only the decisions in the table are approved. The [Object Lock retention recommendation](#object-lock-retention-recommendation)
+reconciles lock duration, capture cadence, copy count, expiry ownership and
+ledger/archive placement with the canonical 35-day and privacy/recovery requirements.
+It is **not approved**: its parameters, the GitHub watchdog and the restore-evidence
+semantics remain owner decisions, and no implicit policy change is recorded here.
 
 ## Evidence and current implementation
 
@@ -267,39 +267,28 @@ buckets, versions, multipart uploads and auxiliary stores; do not auto-delete
 protected history or a legal/ledger store to force the budget green. Limits in an
 uploader and notifications are compensating controls only, never a provider cap.
 
-### Pending owner risk acceptance if no hard cap is available
+### Owner-accepted uncapped PAYG risk
 
-**Status: draft only; NOT ACCEPTED.** Owner approval of provider and EUR 25 ceiling
-does not approve this exception. First establish whether the selected account can
-have a hard aggregate limit covering Standard storage, all versions/multipart objects,
-auxiliary buckets and all billable project services, with automatic increases disabled.
-Record scope, tax/currency, enforcement delay, limits and recovery/billing behaviour.
-A sales assurance or resource-count quota alone is insufficient.
+**Owner decision, 2026-10-25 (#276): accepted.** No hard aggregate cap covering
+Standard storage, all versions and multipart objects and auxiliary buckets is
+verified. The owner explicitly accepts the residual risk of uncapped OVHcloud PAYG
+charges as a scoped exception to the capped-overage contracting requirement. The
+[ADR-0033 amendment](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md#amendment-2026-10-25-uncapped-ovhcloud-payg-risk)
+records the decision and the [contracting gate](../development/delivery-lifecycle.md#public-production-gates)
+its effect.
 
-If that route is unavailable, the exact decision requiring a separate owner response is:
+| Boundary | Content |
+|---|---|
+| Scope | OVHcloud Public Cloud Object Storage for this project only: rolling, ledger, archive/proof and reconstruction buckets. No other paid OVHcloud resource |
+| Accepted | The 200 GiB target and EUR 25 ceiling are operating limits, not maximum liability. Credential compromise, retained versions, automation or expiry errors and delayed alerts can produce charges above EUR 25 with no verified upper bound. Compliance-locked bytes stay billable after uploads stop or keys are revoked |
+| Conditions | Bounded operation, consumption monitoring and alerts configured and tested before the first upload: local byte guard, least-privilege credentials, independent inventory, forecast alerts, key revocation and incident escalation |
+| Not changed | Recurring ceiling, other services' capped-overage requirement, purchase/account/exposure authorizations, retention policy |
 
-> I accept that this OVHcloud PAYG project has no verified hard aggregate spending
-> cap. The 200 GiB target and EUR 25 normal recurring budget are operating limits,
-> not maximum contractual liability. Credential compromise, retained versions,
-> automation/expiry errors or delayed alerts can create charges above EUR 25, with
-> no verified financial upper bound; Compliance-locked bytes can remain billable
-> after uploads are stopped or keys revoked. I explicitly authorize a scoped
-> exception to the capped-overage contracting requirement for this project only,
-> subject to the agreed alerts, independent inventory, least privilege, retention
-> review and incident response. This does not change the normal recurring ceiling,
-> authorize another paid resource, or grant purchase or public-exposure permission.
-
-Before signing, owner must record the actual project/service scope, which uncapped
-liability is acceptable (or reject the exception), selected warning/stop thresholds,
-incident contact/coverage, revocation procedure, retention-compatible exit plan and
-review date. Proposed review: after the first invoice or 30 days, whichever is first,
-and on pricing, credential, retention or architecture change. If the owner requires
-a guaranteed financial maximum, this uncapped exception cannot meet it. No finite
-incident-loss maximum is invented from notification timing.
-
-Only an explicit approval plus matching [contracting-gate](../development/delivery-lifecycle.md#public-production-gates)
-record/update could enable this exception. Until then **purchase remains NO-GO**;
-no accounts, support requests, payment commitments or project deletion are authorized.
+Proposed operating values, **not yet owner-set** ([D7](#owner-decisions-before-bucket-creation)):
+the thresholds above, review after the first invoice or 30 days (whichever is first),
+and on any pricing, credential, retention or architecture change. No finite
+incident-loss maximum is derived from notification timing. Deliberate non-payment or
+project deletion is never an automatic cost control for locked backups.
 
 ## Proposed topology and retention changes
 
@@ -328,9 +317,10 @@ thaw alerts/retries without falsely claiming off-host success.
   bypass, retention/hold changes, ACL/policy/bucket/configuration and key creation.
   Prove that explicit shorter/absent retention headers cannot defeat the default.
 - **Expiry worker:** separate scoped credential, only list/delete versions in the
-  rolling bucket, never bypass or configuration/retention rights. May run on VPS:
-  compromise can delete expired versions but cannot erase the Compliance window.
-  This residual last-day risk is explicit. It cannot touch archive/ledger buckets.
+  rolling bucket, never bypass or configuration/retention rights. Compromise can
+  delete only versions whose lock has ended. The
+  [recommendation](#credentials-verification-and-cleanup-ownership) places it off the
+  VPS so that expiry continues after host loss. It cannot touch archive/ledger buckets.
 - **Independent observer:** read-only list/GET/retention-inspection credential in a
   protected scheduled workflow on the existing GitHub Actions service, running trusted
   default-branch code only, never PR inputs; no GPG private key. Verify account minutes
@@ -345,46 +335,6 @@ object users/project reduce data-plane blast radius but do not isolate a stolen
 owner account from DNS/billing. Keep management sessions and automation keys separate,
 protect recovery email independently of the VPS, and verify MFA/break-glass access.
 
-### 35-day boundary and expiry
-
-**Unapproved operational proposal, not part of the 2026-10-25 selection:** keep every automated pair for the bounded rolling window,
-rather than applying the existing seven-daily/four-weekly filesystem selector to
-immutable objects. A uniform default is easier to enforce than tier-dependent lock
-extensions. Preserve the **35-day maximum from the recorded recovery point**.
-Do not configure a 35-day upload-relative lock and call it policy-compliant.
-
-Use **34-day Compliance default retention**, admit uploads only within 12 hours of
-the recovery point, and schedule version deletion at recovery point +34 days 12 hours,
-with hourly retries/alerts and a hard deadline at +35 days. Validate actual timestamps
-and provider behaviour before personal data. This gives at least 34 days protected
-from data-plane deletion and a bounded cleanup margin. Configure lifecycle expiry of
-current/noncurrent versions and abandoned multipart uploads as a safety net, not
-proof of exact-time erasure. No legal holds on rolling backups. Refuse late uploads
-rather than extending their privacy lifetime; generate a new pair.
-
-Retain exact-version receipts for as long as their pair exists; expire their personal
-metadata under the applicable policy. Cloud expiry must enumerate **all versions and
-markers**, not just hide current names; verify absence after deletion. Storage failures,
-clock errors, lock extension by an owner or delayed provider cleanup are incidents,
-not permission to retain indefinitely. Obtain documented handling of provider replicas,
-service backups, account closure and deletion completion; neither cloud's lifecycle
-provides a verified exact 35-day physical-erasure SLA here.
-
-Preserve the existing last-rehearsed-pair safeguard: require a newer successfully
-restored pair before pruning that proof's version set. Alert on day 28 if replacement
-is missing; at impending expiry stop normal operation and require the owner's
-recovery/privacy incident decision. Refusal must never silently extend storage past
-35 days or silently discard the only demonstrated recovery point.
-
-To leave transfer/verification margin under the existing proposed RPO, schedule a pair
-**every 12 hours** (satisfies daily capture), completion/remote verification within two
-hours, immediate failure notification. Retaining these means up to about **70 pairs**
-plus bounded in-flight/version overhead, not twelve. For the approved 200 GiB planning target, budget roughly
-2.8 GiB per encrypted pair **before** auxiliary stores/headroom; measure actual sizes.
-For constant pair size this is about 5.8× the previous twelve-pair upper bound. A
-single daily job would have an RPO of 24 hours **plus** capture/transfer delay; do not
-claim strict <=24 hours from a daily timer alone. Recalibrate cadence only with evidence.
-
 ### Separate recovery material
 
 The following is a proposed storage placement, not a replacement retention policy.
@@ -393,8 +343,8 @@ continues to govern field profiles, lawful access, review, holds, expiry and rep
 
 | Material | Proposed independent protection |
 |---|---|
-| Deletion ledger and current checkpoint | Trusted owner administration storage plus separate encrypted S3 ledger bucket with owner-only publisher. Durable remote version/receipt acknowledgement **before each destructive step**, maintaining current two-copy refusal semantics; daily async copying is insufficient. Use append-only encrypted checkpoints/events and bounded reconciliation, not repeated unbounded full-history uploads. Retention follows the ledger policy, not rolling-backup expiry |
-| Restricted legal archive and suppression/destruction/hold proofs | Trusted owner storage plus separate owner-only S3 archive/proof buckets. Preserve signed sealed two-copy acknowledgement before erasure. Choose locks per approved case expiry/review/hold; do not impose a blanket three-year Compliance lock that prevents lawful narrowing/purge. Automate transfer/verification, retain required owner authorization for legal review and destruction |
+| Deletion ledger and current checkpoint | Trusted owner administration storage plus separate encrypted S3 ledger bucket with owner-only publisher. Durable remote version/receipt acknowledgement **before each destructive step**, maintaining current two-copy refusal semantics; daily async copying is insufficient. Use append-only encrypted checkpoints/events and bounded reconciliation, not repeated unbounded full-history uploads. Retention follows the ledger policy, not rolling-backup expiry; [recommended lock](#separate-stores-and-replay) |
+| Restricted legal archive and suppression/destruction/hold proofs | Trusted owner storage plus separate owner-only S3 archive/proof buckets. Preserve signed sealed two-copy acknowledgement before erasure. No Object Lock retention: case-specific narrowing/purge must take effect when decided ([recommendation](#separate-stores-and-replay)). Automate transfer/verification, retain required owner authorization for legal review and destruction |
 | Pair manifests and verification/recovery receipts | Cloud locked exact versions plus independent observer receipts in protected owner storage, with monotonic checkpoint/version history. Never accept a mutable `latest.json` as sole evidence. Sanitized monitoring output must not include personal IDs/secrets |
 | Reconstruction bundle | Independently encrypted production config/secrets, trusted source and OCI digest/provenance receipts, bootstrap inputs and remote-access recovery instructions; off both runtime hosts. Protected owner copy plus separate S3 prefix inaccessible to uploader/pruner; test image availability or a bounded retained image copy |
 | Decryption/signing/reconstruction-unlock keys | Owner-controlled independent recovery storage separate from ciphertext and provider login; protected second key/recovery copy and tested passphrase/MFA recovery. No private key on VPS, Lenovo, Actions or in the bundle it unlocks |
@@ -410,8 +360,8 @@ independent ledger/archive copy cannot be acknowledged.
 
 ### Detection and recovery
 
-The independent workflow should check hourly for a complete remote pair <=18 hours
-old, verify expected versions/size/digest/retention and compare the observer's previous
+The independent workflow should check hourly for a complete remote pair within the
+[recommended age thresholds](#monitoring-and-failure-handling), verify expected versions/size/digest/retention and compare the observer's previous
 checkpoint. Alert immediately on failed attempts, unexpected versions/permissions,
 lock changes, cap pressure or expiry backlog; missing uploads are detected without
 trusting a VPS-provided success flag. Escalate at age 24 hours. Keep the runtime's
@@ -434,7 +384,7 @@ distinguish recent remote integrity from the latest matching **actually restored
 pair; rehearse a replacement before its 35-day expiry.
 
 Propose a weekly owner-side full restore and an additional restore after capture,
-schema, key or recovery-tool changes. The existing attestation requires the **same**
+schema, key or recovery-tool changes ([D5](#owner-decisions-before-bucket-creation)). The existing attestation requires the **same**
 pair to have a successful full rehearsal: it cannot continuously report a fresh
 RPO from new uploads with only last week's restore receipt. Owner must approve the
 separate integrity-age and full-restore-age evidence contract before implementation.
@@ -463,10 +413,288 @@ times at measured production-sized byte counts. A two-hour transfer budget for a
 not necessarily one pair. Include provision time, bandwidth limits, owner availability,
 key recovery and restart fencing in the timed RTO.
 
+## Object Lock retention recommendation
+
+**Recommendation for owner approval, 2026-10-25; not approved, not implemented.**
+Until approval, the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+and the [data-protection record](../development/data-protection.md#b-restricted-legal-archive)
+keep their current wording. This section supersedes the earlier 34-day-lock,
+12-hour-admission proposal. Repository facts come from `deploy/public-production/bin/recovery`
+(`backup` records `recoveryPoint` after the write fence; `retain` is a filesystem
+selector) and `verify-offhost.py` (accepts only an `encrypted-pull` receipt).
+
+### Provider semantics
+
+Verified means stated in current OVHcloud documentation, read 2026-10-25 without
+account access. The S3 API reference is AWS's documentation, used only where
+OVHcloud is silent; it is never evidence of OVHcloud behaviour.
+
+| Topic | OVHcloud documentation (verified) | Undocumented; provider test |
+|---|---|---|
+| Enablement | Object Lock is enabled at bucket creation only, irreversibly, and needs versioning | None |
+| Compliance | No user, including administrators, can delete or modify the protected version during retention; "its retention mode and duration cannot be changed" | Whether a later retain-until date (extension) is accepted. The S3 reference lets any `s3:PutObjectRetention` holder extend it, so assume extension is possible ([P3](#tests-that-validate-the-semantics)) |
+| Default vs per-object | A bucket default in days or years applies to every new object; per-object retention is an absolute `RetainUntilDate`; minimum one day, no maximum | When the default starts and whether it rounds. The S3 reference adds the duration to the version's creation timestamp; for multipart, initiation or completion is unknown ([P1](#tests-that-validate-the-semantics)) |
+| Deletes | A simple DELETE returns 200 and adds a delete marker; the version stays protected. DELETE by version ID during retention returns 403. A version-ID delete is permanent and irreversible, with no marker | Physical reclamation time after a permanent delete; time until the version leaves listings ([P4](#tests-that-validate-the-semantics)) |
+| Legal hold | Same protection without an expiry, until removed by an `s3:PutObjectLegalHold` holder; independent of retention | None |
+| Lifecycle | In a versioned bucket, Expiration adds a delete marker; `NoncurrentDays` counts from when a version stopped being current; `ExpiredObjectDeleteMarker` and `AbortIncompleteMultipartUpload` exist. "Most rules are applied within 24 hours", sometimes later, and billing continues meanwhile | Lifecycle on locked versions. The S3 reference never deletes a locked version ([P6](#tests-that-validate-the-semantics)) |
+| Billing | Each version is a full billed object; no Object Lock surcharge is shown | Locked, noncurrent and incomplete-multipart bytes in actual usage ([P7](#tests-that-validate-the-semantics)) |
+| IAM | User policies only (no bucket policies); explicit Deny wins; the bucket owner falls back to a FULL_CONTROL ACL. Listed actions include `PutObjectRetention`, `PutObjectLegalHold`, `BypassGovernanceRetention`, `ListBucketVersions`, `AbortMultipartUpload`, lock and lifecycle configuration. Only `aws:SourceIp` is a documented condition key | Version-level delete/read actions are not listed separately; whether a PUT carrying retention or legal-hold headers needs those permissions ([P2](#tests-that-validate-the-semantics), [P5](#tests-that-validate-the-semantics)) |
+
+Sources: [Object Lock](https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-managing-object-lock),
+[versioning](https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-versioning),
+[lifecycle](https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-bucket-lifecycle),
+[IAM](https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-identity-and-access-management),
+[compatibility](https://docs.ovhcloud.com/en/guides/storage-and-backup/object-storage/s3-s3-compliancy);
+S3 reference: [AWS Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html).
+
+### Can a strict 35-day maximum be guaranteed?
+
+**Not unconditionally, and not by any storage design.**
+
+1. Object Lock sets a minimum lifetime, never a maximum. Nothing deletes a version
+   when its lock ends; a separate request must succeed, and a provider outage, a
+   revoked credential or a lost worker host can stop it.
+2. Lifecycle cannot enforce the ceiling. It is asynchronous ("within 24 hours", or
+   later) and, for versioned objects, needs two steps: a marker, then noncurrent expiry.
+3. After an accepted version-ID delete, physical reclamation is internal to the
+   provider. The client can verify only logical absence. This is the same limit
+   the data-protection record already accepts for SSD unlink.
+4. Compliance makes an error permanent. A version locked past recovery point plus
+   35 days cannot be removed by anyone until its lock ends. Late uploads, date
+   rounding, an extension, a legal hold or a wrong default all cause this.
+
+What design **can** guarantee: every version's lock ends at least 18 hours before
+recovery point plus 35 days, and no automation credential can lengthen it. What only
+operation can guarantee: the deletion request succeeds inside that window. The
+filesystem selector has the same property today, because `retain` deletes only
+when it runs.
+
+The real contradiction is therefore narrow. Compliance retention and the ceiling are
+compatible only if lock + maximum upload lag + date rounding + cleanup window fits
+inside 35 days. A literal "no byte exists anywhere after 35 days" requirement cannot
+be met by any third-party storage, with or without a lock.
+
+**Smallest defensible adjustment ([D1](#owner-decisions-before-bucket-creation)):**
+define how the existing ceiling is measured for provider storage. Every version is
+deleted by exact version ID, and its absence verified, no later than recovery point
+plus 35 days. Provider-internal reclamation follows the processor's deletion terms.
+A missed deadline is a recorded retention incident with continued deletion attempts,
+never permission to keep. The 35-day figure and its recovery-point anchor are unchanged.
+
+### Recommended policy
+
+| Parameter | Value | Reason |
+|---|---|---|
+| Anchor | Manifest `recoveryPoint` (VPS clock, after the fence) | Already recorded; the ceiling is measured from it |
+| Capture cadence | Every 12 hours at two fixed UTC slots; the owner picks low-traffic slots (proposal: 02:30 and 14:30 UTC) | The newest verified pair is normally at most 14 hours old; one missed run is detectable before the proposed 24-hour RPO lapses |
+| Upload admission | All objects of a pair, receipt last, complete within **6 hours** of `recoveryPoint`. The uploader refuses to start or continue after that. An abandoned pair is never re-uploaded; the next capture replaces it | Bounds every lock start. Shorter than the cadence, so attempts never overlap |
+| Immutable protection | Bucket default **COMPLIANCE, 33 days**; no per-object retention, no legal holds, no retention rights for any automation | At least 33 days of protection from upload. Lock ends by `recoveryPoint` + 33 d 6 h (+24 h if P1 shows next-day rounding) |
+| Cleanup window | From lock end to `recoveryPoint` + 35 d: **at least 42 hours**, or **at least 18 hours** with next-day rounding | Covers a worker or provider outage of roughly a day |
+| Deletion | Hourly: delete every version and delete marker whose provider-reported retain-until has passed and that has no legal hold, by version ID, then verify absence | Exact-version, idempotent; never the bypass header |
+| Lifecycle (backstop only) | `AbortIncompleteMultipartUpload` 1 day; `ExpiredObjectDeleteMarker`; current-version Expiration 34 days plus `NoncurrentDays` 1 | Cleans orphans and bounds a dead worker. It is not the ceiling mechanism and may finish after day 35 |
+| Copies | Keep every pair until its lock ends: about **67 pairs**, plus at most one in flight. No 7-daily/4-weekly selection in the cloud | A uniform Compliance lock cannot prune early. Same ceiling, more copies. Budget about 2.9 GiB per pair before auxiliary stores |
+| Clock | NTP-synchronised VPS. The uploader refuses when VPS and provider `Date` differ by more than 60 s. The worker decides from the provider's retain-until and `Date` | Margins are hours, skew is bounded to seconds |
+
+**34 days rejected.** With a 6-hour admission window, the lock ends by `recoveryPoint`
++ 34 d 6 h. That leaves 18 hours if timestamps are exact, and **minus 6 hours**
+(a ceiling breach) under next-day rounding. With the earlier 12-hour admission window
+the margins are 12 hours and minus 12 hours. One extra day of protection is not worth
+a weekend-outage margin of hours. Keep 33 days even if P1 proves exact timestamps.
+
+### Timeline
+
+```text
+Normal (D = day of capture, times UTC)
+D0  02:30  fence, capture; recoveryPoint = D0 02:30
+D0  02:45  last object + receipt uploaded (LastModified); thaw
+D0 ~04:30  observer streams exact versions once, SHA-256 matches manifest
+D0  14:30  next capture
+D33 02:45  provider retain-until (upload + 33 d) passes
+D33 03:00  worker deletes every version of the pair by version ID; absence verified
+D35 02:30  ceiling. Unused margin: 47.5 h
+
+Captured yesterday, uploaded today
+D0  14:30  capture; upload stalls
+D0  20:30  admission window closes: abort multipart, record failure, alert
+D1  02:30  next capture replaces it; the stalled pair is never uploaded.
+           Uploading it on D1 would lock it until D34 + upload time, so it is refused
+Latest admissible: complete at D0 20:29 -> lock ends D33 20:29 -> 42 h margin
+
+Retry inside the window
+Each attempt writes new keys pairs/<recoveryPoint>/<backupId>/<attempt>/...
+Completed objects of a failed attempt are ordinary locked versions inside the
+same bounds; the worker deletes them by enumerating all versions, not by receipt.
+The observer alerts on any key with more than one version.
+
+Interrupted cleanup
+D33 03:00  worker fails (host or provider down)
+D33 05:00  warning: due version not deleted for 2 h
+D34 14:30  critical: recoveryPoint + 34 d 12 h; owner runs the same delete-only
+           command manually from the owner context
+D35 02:30  deadline missed: retention incident recorded; hourly retries continue
+
+Lock longer than expected (rounding, extension, legal hold, wrong default)
+Observer sees retain-until > LastModified + 33 d + 5 min, mode != COMPLIANCE,
+hold ON or a changed default -> critical immediately: revoke the uploader, record a
+retention incident. The version cannot be removed until its lock ends, which is
+why P1-P3 must pass before any personal data.
+```
+
+### Credentials, verification and cleanup ownership
+
+This replaces the expiry-worker placement in [identity separation](#identity-separation).
+
+| Actor | Location | Allowed | Explicitly denied |
+|---|---|---|---|
+| Uploader | VPS backup actor | PUT and multipart create/part/complete/abort under `pairs/` in the rolling bucket | Every read, list and delete; retention, legal hold, bypass; lock, lifecycle, ACL and versioning configuration; other buckets |
+| Observer | Independent protected scheduled workflow, trusted default-branch code | List versions; read exact versions, retention and holds; read lock and lifecycle configuration | Every write and delete |
+| Expiry worker | Same independent environment as the observer, separate job and secret; the owner can run it manually | List versions, read retention and holds, delete by version ID in the rolling bucket only | PUT, retention, legal hold, bypass, configuration, other buckets |
+| Owner administration | Trusted owner context | Bucket creation, lock and lifecycle configuration, credential issuance, recovery reads | Routine use; any legal hold on the rolling bucket |
+
+The VPS keeps at most the last uploaded pair locally and removes it after the next
+pair uploads. The uploader cannot read, so a compromised VPS cannot re-upload history
+it no longer holds. It can upload garbage or fresh data, but only with the default
+lock, which expires normally. A compromised worker can delete only versions whose
+lock has already ended. The worker runs off the VPS because host loss is precisely
+when expiry must continue. A worker on the VPS would stop while the host is rebuilt.
+
+### Monitoring and failure handling
+
+| Signal | Warning | Critical / action |
+|---|---|---|
+| Newest integrity-verified pair age | > 14 h | > 24 h; owner triggers a manual capture |
+| Upload attempt failed or window closed | Immediately | Second consecutive failure |
+| Due version not deleted | Due + 2 h | `recoveryPoint` + 34 d 12 h: manual deletion. At + 35 d: retention incident under the [incident procedure](../development/data-protection.md#security-incident-and-personal-data-breach-procedure); retries continue |
+| Lock invariant (mode, retain-until window, hold, upload lag, versions per key, unknown prefix, changed default or lifecycle) | None | Immediately; revoke the uploader |
+| Newest fully restored pair age | > 8 d | > 14 d; rehearse before day 28 |
+| Retained bytes and forecast cost | 180 GiB; forecast EUR 2 | Refuse a new pair projected above 200 GiB (alert, never delete); forecast EUR 3 |
+| Observer heartbeat | Daily | Missing heartbeat |
+
+A missed expiry deadline is a retention incident: the data stays encrypted to the
+owner's key and its confidentiality is unchanged. The owner assesses notification
+duties under the incident procedure; this research does not presume the outcome.
+
+**Expiry never waits for a rehearsal ([D3](#owner-decisions-before-bucket-creation)).**
+Today `retain` refuses all pruning when the pinned rehearsed pair is missing or
+35 days old. Under Compliance storage, that refusal would breach the ceiling. In the
+cloud, the pinned pair is deleted on schedule, and the full-restore-age alerts leave
+about three weeks to rehearse a newer one. If none exists at deletion, record a
+recovery-evidence incident and rehearse at once. Integrity-verified pairs remain
+recoverable, but unproven.
+
+**Recovery point.** Normally, the newest integrity-verified pair is at most 12 h +
+capture/upload/verify time (target 2 h) = 14 h old. One missed run raises that to
+about 26 h, until a manual capture or the next slot. The proposed RPO of 24 hours
+holds only with a manual capture within about 10 h of the alert. Point-in-time
+history spans about 33 days at 12-hour granularity. RTO is unaffected: recovery
+reads exact version IDs.
+
+### Separate stores and replay
+
+| Store | Object Lock | Compatibility with the existing policy |
+|---|---|---|
+| Rolling pairs and receipts | COMPLIANCE default, 33 days | As above |
+| Deletion-ledger cloud copy (append-only events and checkpoints) | Separate bucket and owner-only publisher; COMPLIANCE default **36 days**. The driver waits for PUT success and a version ID before each destructive step | The ledger must live while any restorable copy exists and at least 35 days after completion. A lock is a minimum, so 36 days fits, and incomplete entries can be kept longer. Superseded checkpoint versions can outlive a purged entry by up to 36 days ([D6](#owner-decisions-before-bucket-creation)) |
+| Legal archive payloads, manifests, suppression/destruction/hold proofs | Separate bucket(s) created **without** Object Lock; versioning; owner-only credentials; signed sealing; independent owner-storage copy | Review can narrow fields and destruction must take effect when its lawful term ends. Any Compliance term would block that, and Governance mode is not approved. A bucket created without a lock can never gain one |
+| Reconstruction bundle | Separate bucket without Object Lock, inaccessible to uploader and worker; no personal data | Secrets rotate; the owner copy is primary |
+| Decryption, signing and unlock keys | Never stored in OVHcloud | Owner-held independent storage with a tested second copy, unchanged |
+
+**Replay check.** Take a backup with recovery point `t0` and an erasure completed at
+`t1 > t0`. The backup exists until at most `t0 + 35 d`; the erasure's ledger entry
+exists until at least `t1 + 35 d`. Every restorable backup therefore meets a ledger
+that contains each later erasure, and incomplete entries are never purged. Two buckets
+in one account are still not two independent copies: owner storage remains copy one
+for the ledger and the archive.
+
+### Compatibility assessment
+
+| Existing contract | Owner | Result |
+|---|---|---|
+| Rolling copies at most 35 days from the recovery point | Data protection, platform | Compatible under D1 |
+| Upload-relative lock leaves room for lag and deletion; expiry is not deletion | Data protection | Satisfied: 33 d + 6 h + rounding leaves an 18–42 h window; the worker deletes and verifies |
+| No indefinite legal holds; no clock reset by re-upload | Data protection | Satisfied: no automation holds hold rights; re-upload is refused and the observer detects it |
+| Ledger while any restorable copy exists, at least 35 days after completion | Data protection | Compatible (36-day minimum lock) |
+| Synchronous pre-mutation ledger/archive durability, two independent copies | Data protection | Compatible only if the adapter waits for the version-ID acknowledgement. Asynchronous sync stays forbidden |
+| Case-specific archive narrowing, holds and destruction | Data protection | Compatible only without Object Lock on archive and proof buckets |
+| Seven daily plus four weekly copies, at most twelve pairs | Runtime `retain` | **Incompatible** with a uniform lock. Replaced in the cloud by about 67 pairs (D2); kept for optional filesystem copies |
+| Keep the last rehearsed pair before pruning | Runtime `retain` | **Conflicts** with the ceiling under Compliance; resolved by D3 |
+| Proposed RPO <=24 h for the last verified pair; RTO <=48 h | Platform (proposal) | Achievable with 12-hour cadence and the D5 evidence contract; RTO unaffected |
+| Off-host attestation from an `encrypted-pull` receipt | `verify-offhost.py` | Needs a cloud receipt kind and separate integrity and full-restore ages |
+
+### Tests that validate the semantics
+
+**Local, after implementation approval.** Use an in-process fake S3 client in the
+existing `scripts/test-production-recovery.py` style. Emulator behaviour never
+substitutes for the provider tests.
+
+| Test | Proves |
+|---|---|
+| L1 | Admission refuses to start or continue after `recoveryPoint` + 6 h and on more than 60 s clock skew |
+| L2 | Unique attempt keys; a second version on one key fails the observer |
+| L3 | An interrupted multipart upload is aborted; partial is never success; the receipt is last and lists every version ID, size and SHA-256 |
+| L4 | The worker selects only expired, unheld versions and markers; deletes by version ID; verifies absence; never sends the bypass header; bounded pagination alerts on overflow |
+| L5 | Alert ladder at due + 2 h, + 34 d 12 h and + 35 d with a frozen clock |
+| L6 | Observer invariants: mode, retain-until window, hold, upload lag, unknown prefix, configuration drift |
+| L7 | Deletion does not wait for the rehearsal pin; full-restore-age alerts fire |
+| L8 | A ledger destructive step refuses on a missing or timed-out version acknowledgement, with crashes at each boundary |
+| L9 | A new pair projected above 200 GiB is refused without deleting anything |
+
+**Provider tests.** Use a disposable lock-enabled test bucket in Gravelines, synthetic
+non-personal bytes and a 1-day default, after the separately authorized account setup.
+P1–P5 block activation.
+
+| Test | Proves |
+|---|---|
+| P1 | Default retention start and rounding for single PUT and for multipart (initiate, wait, complete) |
+| P2 | Uploader PUTs carrying retain-until (later and earlier) or legal-hold headers are refused or ignored; effective retain-until equals the default; `PutObjectRetention` on an existing version is refused |
+| P3 | Owner shortening of Compliance retention is refused; extension behaviour recorded |
+| P4 | Version-ID DELETE returns 403 before expiry; a simple DELETE adds a marker; after expiry the version-ID DELETE succeeds and listing and GET show absence, with the time taken |
+| P5 | Effective denies for the uploader, observer and worker, including ACL fallback, the bypass header and configuration writes |
+| P6 | Lifecycle never removes a locked version; measured delay afterwards; incomplete multipart abort |
+| P7 | Locked, noncurrent and multipart bytes appear in usage; the forecast alert fires |
+| P8 | Provider `Date` against NTP time |
+
+If P2 fails (the uploader can set a lock or a hold), this bucket design is **NO-GO**.
+A compromised VPS could then lock personal data past the ceiling.
+
+### Minimal implementation changes (not made)
+
+- `deploy/public-production/bin/recovery`: add `publish` (upload the existing
+  four-file pair plus a receipt under the admission window and unique attempt
+  keys), `fetch` (exact-version download into the existing `verify`/`restore`
+  path) and `expire` (delete-only worker). Keep `retain` unchanged for filesystem
+  copies; it is not used on the cloud store. Pin the S3 client through the existing
+  dependency manifests at implementation review.
+- `deploy/public-production/observability/verify-offhost.py`: accept the cloud and
+  observer receipts, and report integrity age and full-restore age separately (D5).
+- `deploy/private-dev/bin/personal-data-ledger` and `personal_data_archive.py`: an S3
+  durable-copy barrier that waits for the version ID, and a lock-free archive adapter.
+- Later slice: the observer/worker scheduled workflow and the host capture timer.
+  No OpenAPI, Postman, migration or image change.
+
+### Owner decisions before bucket creation
+
+Object Lock is fixed when a bucket is created, so these decisions precede creation.
+
+| ID | Decision | Recommendation |
+|---|---|---|
+| D1 | How the 35-day ceiling is measured for provider storage | Exact-version deletion verified by recovery point + 35 d; provider reclamation per processor terms; a missed deadline is an incident |
+| D2 | Retention parameters | 12-hour cadence, 6-hour admission, 33-day Compliance default, keep all pairs (about 67); no cloud daily/weekly selection |
+| D3 | Expiry versus the rehearsed-pair pin | Expiry wins; alert ladder on full-restore age |
+| D4 | Expiry-worker location | Independent scheduled environment with a delete-only credential, plus a manual owner fallback; not the VPS |
+| D5 | Restore-evidence contract | Integrity-verified pair at most 24 h old, plus a full restore at most 8 days old with the same tooling, format and key |
+| D6 | Ledger and archive locks | Ledger bucket COMPLIANCE 36 days; archive, proof and reconstruction buckets created without Object Lock |
+| D7 | PAYG operating values | 180/200 GiB, forecast EUR 2/3, review after the first invoice or 30 days |
+
+**Verdict: CONDITIONAL GO.** Approve D1–D7 as the target policy. Activation stays
+blocked until P1–P5 pass on a test bucket. If P1 shows rounding beyond one day, or
+P2 or P5 fail, the policy returns for revision before any personal data.
+
 ## Decision alignment and next bounded slice
 
 **Approved now:** only the infrastructure, total budget, 200 GiB planning target,
-Compliance/direct-upload direction and expendable Lenovo boundary recorded above.
+Compliance/direct-upload direction, expendable Lenovo boundary and scoped uncapped
+OVHcloud PAYG risk recorded above.
 ADR-0033 partially supersedes ADR-0025 without rewriting its rationale. Canonical
 Product Brief/platform/privacy records are aligned in this documentation change;
 #275 acceptance, source/image identities and historical evidence remain unchanged.
@@ -479,18 +707,17 @@ Product Brief/platform/privacy records are aligned in this documentation change;
 - OVHcloud Spanish contracting entity, exact full-region Gravelines endpoint/Standard
   offer, VAT/GiB-hour rounding/minimum/account charges, applicable DPA/service terms,
   remote support/subprocessors/transfers, closure/deletion/retrieval and lock-related
-  billing. A hard aggregate cap, or a separately owner-accepted risk exception, is
-  mandatory under the unchanged gate. Do not treat a selected region as an accepted DPA.
+  billing. The accepted PAYG exception replaces the hard-cap requirement for this
+  service only. Do not treat a selected region as an accepted DPA.
 - Actual domain/DNS renewal and contact-mailbox charges, Mailjet Free/account terms,
   CI/monitor/administration extras and final combined recurring/initial cash quote.
   The EUR 2 email contingency stays reserved; no fallback service purchase is approved.
-- Compatibility of Compliance retention with the 35-day ceiling, all-version expiry,
-  ledger durability/replay and legal-archive review/holds; exact cadence, copy counts,
-  private storage/key locations and integrity-versus-full-restore evidence parameters
-  remain to approve. No silent widening of retention or weakening of two-copy barriers.
+- Owner decisions [D1–D7](#owner-decisions-before-bucket-creation) on the retention
+  recommendation, before any bucket is created; private storage and key locations.
+  No silent widening of retention or weakening of two-copy barriers.
 
-**Actions requiring separate owner authorization:** a scoped uncapped-spend exception
-and gate revision if needed; then any account/project/credential setup or purchase;
+**Actions requiring separate owner authorization:** any account/project/credential
+setup or purchase, including the provider-test bucket;
 then host installation/deployment/DNS changes and restricted real-host exercises;
 and finally public exposure. Documentation approval is none of these authorizations.
 
@@ -498,14 +725,12 @@ and finally public exposure. Documentation approval is none of these authorizati
 one bounded S3 publish/exact-version retrieval/integrity/expiry adapter around the
 existing four-file encrypted pair, with an independent receipt and missed-run check.
 Keep endpoints, buckets and keys as private inputs; do not provision them. Use focused
-fake-S3 tests for partial uploads, retries, version masking, denied privileges, byte
-bounds and expiry timestamps; do not repeat #275 rehearsals. No new backup engine,
+fake-S3 tests [L1–L9](#tests-that-validate-the-semantics); do not repeat #275 rehearsals. No new backup engine,
 S3 mount, infrastructure or resource-limit increase is needed. Durable ledger/archive
 remote-copy barriers and the reviewed scheduler/attestation integration must follow
 before any real destructive cleanup or production automation uses the cloud target.
 
-After authorized provider setup, prove effective non-owner permissions, Compliance
-shortening/deletion refusal, metadata/default behaviour, old versions and expiry;
+After authorized provider setup, run provider tests [P1–P8](#tests-that-validate-the-semantics);
 then measure capture/upload/verification age and a clean cloud-only empty-host restore
 with Lenovo unavailable. Include reconstruction/key recovery, latest ledger replay,
 old-session revocation and owner notification. Real-host RPO/RTO remain unmeasured;

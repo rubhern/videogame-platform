@@ -72,12 +72,11 @@ constitute an enforceable aggregate spending cap.
 
 ## Contracting and evidence boundary
 
-The owner raises the recurring ceiling through the Product Brief but has **not**
-accepted uncapped PAYG liability or authorized a capped-overage gate exception.
-The [delivery lifecycle](../development/delivery-lifecycle.md#public-production-gates)
-continues to block purchase until a hard spending bound is verified or a separate
-explicit risk decision and matching gate revision are accepted. A pending risk draft
-is not that decision. Netcup cancellation/renewal/quote, both providers' applicable
+The owner raises the recurring ceiling through the Product Brief. At acceptance
+this ADR did not accept uncapped PAYG liability; the
+[amendment below](#amendment-2026-10-25-uncapped-ovhcloud-payg-risk) now records that
+scoped exception. The [delivery lifecycle](../development/delivery-lifecycle.md#public-production-gates)
+owns the resulting gate. Netcup cancellation/renewal/quote, both providers' applicable
 processor terms and all final recurring charges remain to verify.
 
 No purchase, account/credential creation, host/DNS change, implementation, deployment,
@@ -92,3 +91,20 @@ bytes, unresolved spending risk, inability to reconcile Compliance expiry with t
 35-day ceiling or legal/ledger duties, failed independent recovery, or measured
 single-zone/capacity risk. No automatic paid upgrade, provider substitution or
 Lenovo fallback is authorized.
+
+## Amendment 2026-10-25: uncapped OVHcloud PAYG risk
+
+Owner decision (#276): **accept the residual risk of uncapped OVHcloud pay-as-you-go
+charges** for the selected Object Storage project, because no enforceable aggregate
+spending cap is verified. This is a scoped exception to the capped-overage contracting
+requirement, not a guarantee that costs stay within EUR 25/month and not a finite
+liability bound. It is conditional on bounded operation (local upload/byte guards,
+least privilege, no other paid OVHcloud resource), consumption monitoring and alerts,
+configured and tested before the first upload. Compliance-locked bytes can remain
+billable after uploads stop or keys are revoked; that is inside the accepted risk.
+
+The exception covers OVHcloud Object Storage only. It changes neither the EUR 25
+recurring ceiling, the netcup or email terms, nor any other gate, and it authorizes
+no purchase, account, credential, bucket, deployment or exposure. The
+[#276 research](../research/public-production-backup-storage.md#owner-accepted-uncapped-payg-risk)
+holds the proposed thresholds and the open operating parameters.
