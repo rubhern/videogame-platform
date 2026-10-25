@@ -666,7 +666,7 @@ This explicitly permits a restricted upload credential on the VPS, replacing the
 old rule that the source has no destination credential. It does not permit application
 or identity runtime credentials to read/delete history, change retention/ACLs or
 manage provider credentials. Separate expiry-worker privileges/location remain to review.
-Keep cloud management/recovery access, decryption/signing keys and reconstruction
+Keep cloud management/recovery access, decryption and signing material, and reconstruction
 unlock material independent of VPS, Lenovo and agents. Provider-enforced protection
 of existing versions, independent detection and clean-context cloud-only restore
 must be proved before operation. Direct uploads cannot authenticate future captures
