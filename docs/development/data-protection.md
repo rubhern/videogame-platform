@@ -44,7 +44,7 @@ minimization and review, rather than routine ID collection.
 | Preferred platforms / account holders | Derived UserId, chosen platform IDs, whether and when a choice was last saved (#295); narrow release discovery at the user's request | Contract; operator/VPS; never sent to Keycloak, telemetry, logs or public reads, only to the user's own browser | Until the user clears or replaces them, or account erasure, which deletes them with the ratings; included in exports |
 | Transactional delivery / account holders, including pending accounts | Email, verification/recovery message and action link, delivery/bounce/routing metadata | Contract for requested mail; security under legitimate interest; Mailjet Free selected, receiving mailbox providers | Free statistics/campaigns: 90 days; contacts/templates: account lifetime according to the [current help page](https://documentation.mailjet.com/hc/en-us/articles/360042755094-How-long-are-my-statistics-kept). SMTP content/recipient/bounce/routing retention still requires verification; link expiry is not message erasure. No marketing/tracking purpose authorized; verify actual messages do not add tracking |
 | Support and rights / correspondents | Address, necessary correspondence, request reference, identity-check outcome, response proof | Ordinary service support: contract or legitimate interest for non-account queries; rights: legal obligation 6(1)(c) | Export files deleted after verified delivery; support closed then minimized; suppression proof, blocked source data and deletion ledger remain separate; blocked-data initial term 3 years with 12-month review and case-specific legal holds; no indefinite mailbox retention |
-| Recovery and deletion replay / account holders | Encrypted paired PostgreSQL dumps, live identity-session IPs at capture, credentials/SMTP secret; minimal deletion ledger with issuer/subject/UserId, times/outcomes | Legitimate interest in recovery; rights-compliance evidence under legal obligation; operator and approved future off-host storage on Lenovo vgpdev, isolated from private-dev | All backup copies ≤35 days; ledger while any restorable copy exists, at least 35 days after completion; incomplete entries never purged; resolve rather than indefinitely neglect them |
+| Recovery and deletion replay / account holders | Encrypted paired PostgreSQL dumps, live identity-session IPs at capture, credentials/SMTP secret; minimal deletion ledger with issuer/subject/UserId, times/outcomes | Legitimate interest in recovery; rights-compliance evidence under legal obligation; operator and owner-selected future OVHcloud off-host storage, subject to processor terms and independent access/keys | All backup copies ≤35 days; ledger while any restorable copy exists, at least 35 days after completion; incomplete entries never purged; resolve rather than indefinitely neglect them |
 | Operation and incident response / visitors and accounts | Necessary route/status/timing/error diagnostics and aggregate metrics; exceptional incident evidence | Legitimate interest in security; breach records/notifications under legal obligation; operator, relevant processors, AEPD/affected people when required | Routine logs ≤7 days; bounded aggregate telemetry under observability policy; incident evidence separate and restricted; reasoned legal schedule/holds, not an automatic extension of routine logs |
 | External image delivery / visitors | IP, browser headers/user agent, origin referrer to images.igdb.com / CloudFront to display catalogue artwork | Legitimate interest proposed, **not established**; Twitch/CDN roles and applicable transfer mechanism unresolved | Third-party retention unknown; no false 7-day/35-day promise. Complete necessity/balancing and role/transfer assessment before privacy acceptance |
 
@@ -101,11 +101,11 @@ are concluded by this document.
 | Service | Role and data boundary | Evidence required before public data |
 |---|---|---|
 | Keycloak and PostgreSQL | Self-hosted software under the controller; neither project receives data simply because the software runs | Verify no additional managed support/telemetry/export recipients. Host access belongs in the VPS agreement |
-| netcup VPS (not purchased) | Proposed processor for DBs, memory, disk, host diagnostics and provider support | Correct entity, selected region, signed/generated DPA and subprocessor/access locations, deletion/backup/support terms, transfer safeguards if any. No assumed EU-only processing from advertised server location |
+| netcup VPS Lite 3 (selected, not purchased) | Proposed processor for DBs, memory, disk, host diagnostics and provider support | Correct entity, selected region, signed/generated DPA and subprocessor/access locations, deletion/backup/support terms, transfer safeguards if any. No assumed EU-only processing from advertised server location |
 | OVHcloud domain/DNS | Registrar/provider can be independent controller for owner registration/billing data; not automatically processor for every visitor | Review actual registration/DNS service and roles, public registration-data exposure and international registrar/registry flows. Do not publish owner billing data in this repo |
 | OVHcloud receiving mailbox, if confirmed | Processor for rights/support correspondence, attachments and delivered exports; also provider's own account/security purposes | Owner confirms mailbox product/entity, DPA, region/subprocessors/remote access, mailbox/deleted-item/backup retention and MFA/access. DNS MX observations alone do not identify the contract. Forwarding to personal mail adds another recipient requiring review |
 | Mailjet / Sinch transactional SMTP | Processor for message content/recipient and delivery; potentially independent purposes for routing/account data | Owner keeps Mailjet Free for transactional mail and accepts the professional-use contractual uncertainty without further clarification requests (superseding E1's written-acceptance condition). This is not vendor permission. Actual contracting entity/incorporated DPA, content/event/recipient retention and deletion controls, US support/group subprocessors and applicable safeguards remain to be verified; no automatic fallback purchase |
-| Independent backups and ledger copies | Owner-managed Lenovo vgpdev selected for encrypted off-VPS backups and restricted legal archive, isolated from private-dev/development/agents; mandatory independent second copies for legal archive and deletion ledger | No host change now. #275/#276 prove location/access/isolation, separate protected keys off VPS, copy/expiry/recovery. Owner-managed storage is not automatically a third-party processor; verify any transit, cloud or remote-access provider and actual transfer. Backups ≤35 days; archive has its distinct legal schedule |
+| OVHcloud Object Storage and independent recovery material (selected, not contracted) | Processor for encrypted paired backups and their minimal metadata: Standard, 1-AZ Gravelines, direct automated uploads under the [platform decision](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery). Lenovo removed from the mandatory path; independent ledger/archive copies and keys remain required | Verify actual entity, incorporated DPA/service terms, region, subprocessors/remote access/transfers, retention/deletion/account-closure behaviour and MFA. #276 must prove cloud-only recovery and effective isolation. Encryption does not remove processor duties. Separate ledger/archive placement remains a protected operating input, not an automatic extension of rolling backup storage |
 | IGDB/Twitch and image CDN/CloudFront | Recipient of browser IP/headers and origin; do not assume a controller's own CDN is Gameómetro's direct processor | Determine legal roles for collection/transmission, any joint-controller allocation, applicable privacy terms, recipient/retention and Chapter V assessment. EU edge location, a no-cookie sample and owner IP-rights risk acceptance prove none of these |
 
 Check GDPR Chapter V for each transfer or remote access outside the EEA. Record an
@@ -275,7 +275,7 @@ No consent banner is justified by the current necessary-cookie inventory alone.
 | Final text/design approval, field-level blocking schedule and remaining legal-basis assessment | **#274 phase 1:** owner name and initial LSSI interpretation decided; do not ask for address/NIF on the same unchanged facts. Three-year default and annual review decided, longer applicable claims assessed per case |
 | Mailjet actual DPA/entity, processing retention/transfers; OVHcloud receiving-mail product; CDN legal roles/basis/safeguards | **#274:** material legal/provider work remains. No further Mailjet eligibility or IGDB permission inquiry; accepted contractual/content risks are not open clarification tasks |
 | Review-copy effective version/date and A/B/C implementation | **#274 phase 2:** A/B/C design and initial minimum profiles approved; implementation prepared locally. Final public copy and effective date still await owner approval |
-| Real VPS/Lenovo isolation, encrypted backup/legal archive and independent ledger/archive copies, separate keys and recovery | **#275** prepares configuration/local tests; **#276** proves actual host access, locations, transfers, retention, recovery and no agent/private-dev exposure. Lenovo chosen; no host modification now |
+| Real VPS/cloud isolation, encrypted backup/legal archive and independent ledger/archive copies, separate keys and recovery | **#275** accepted candidate/evidence unchanged; **#276** implements the superseding cloud target and proves actual access, locations, transfers, retention, recovery and no agent/private-dev key exposure. Provider selection is approved; no provisioning or purchase authorized |
 | Production identity/proxy/abuse/mail/security channels, actual cookies/storage/CDN and contracts attached to the selected account/order | **#275/#276:** local preparation versus real-contract/host evidence; no production compliance claim from a document |
 | Purchase/opening | Separate owner authorizations under the [public gates](delivery-lifecycle.md#public-production-gates); #274 remains In progress through these decisions |
 
@@ -557,19 +557,33 @@ Explicit legacy entries predating archive rollout are replayable without inventi
 an unavailable pre-deletion snapshot. Existing pending operations are reviewed before
 enabling the new pre-delete requirement.
 
-**Storage/isolation:** the selected VPS holds live production state. Lenovo `vgpdev`
-is the chosen off-VPS encrypted-backup and restricted-legal-archive destination;
-those stores must be separate from private-dev volumes, repositories, developer
-workspaces, agents, CI, mounts and ordinary credentials. Dedicated owner-only OS
-account/filesystem access and no Docker/developer/agent root-equivalent access to the
-protected store are required; `0700` is insufficient against root or Docker-group
-actors. If that separation cannot be demonstrated on Lenovo, storage acceptance
-fails pending an owner-reviewed isolation adjustment; do not silently use an ordinary
-workspace directory. Mandatory second copies of the legal archive and deletion ledger
-live on independent owner storage, not two folders on Lenovo. Their concrete medium,
-physical location, access and independent failure domain must be recorded privately.
-Keys are protected off VPS, separate from encrypted archives and available only to
-the owner; ordinary agents/processes cannot decrypt. No real host changes in this increment.
+**Storage/isolation:** the [platform recovery decision](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+and [ADR-0033](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md) supersede
+the 2026-10-17 Lenovo destination decision. Lenovo is optional/expendable and cannot
+hold a required unique copy, key or administrative dependency. Rolling cloud backups,
+restricted legal archives, deletion ledgers and suppression/destruction/hold proofs
+remain distinct stores and access scopes. Their mandatory independent copies and
+private locations must be established before destructive operations; two directories
+or buckets sharing one failure/administration domain do not suffice.
+
+The no-agent/root-equivalent-access requirement remains for protected owner-side
+administration and keys. `0700` alone does not protect against root/Docker access.
+Private decryption/signing keys stay off VPS and Lenovo, separate from ciphertext;
+ordinary agents/processes cannot decrypt. Provider selection does not approve the
+research's particular owner-storage/S3 archive placement or an asynchronous-copy
+substitute for the existing synchronous pre-delete ledger/archive barriers.
+
+**Object Lock compatibility gate:** rolling copies remain limited to 35 days from
+the recovery point. Upload-relative Compliance retention must leave room for actual
+upload lag and deletion of every version; expiry is not deletion. Do not enable
+indefinite legal holds on rolling data or reset the clock by reuploading old backups.
+Legal archives have case-specific review/hold/purge duties: a blanket immutable term
+may prevent lawful narrowing/destruction and is not approved here. Ledger copies must
+remain available/current while any restorable data exists and obey their own schedule;
+rolling expiry must never prune them. Retention duration/cleanup mechanics, missed
+expiry handling and evidence of provider-side deletion remain unresolved launch gates.
+No 34-day lock, expanded copy count or altered rehearsal cadence is approved merely
+by accepting the provider and direct-upload topology. No real host change is made.
 
 **Review, expiry and destruction:** each sealed case has its own signed expiry,
 next-review date and field-level schedule. The operator reviews at least every twelve
@@ -638,7 +652,7 @@ The static links are reviewed deployment constants, never request Host/header in
 | Product notices | React route/footer keyboard/direct navigation and approved Spanish text only; no internal checklist, missing fields or added cookies; Keycloak basic information/links and existing adult validation, register/verify/recover/return journey remain intact |
 
 The following section records focused phase-2 evidence and its limits; full
-affected-area CI and actual proxy/VPS/Lenovo qualification remain separate gates.
+affected-area CI and actual proxy/VPS/cloud qualification remain separate gates.
 
 ## Local implementation and acceptance
 
@@ -723,7 +737,7 @@ acceptance, not proven by the development preview.
 | Work | #274 local result | Remaining gate |
 |---|---|---|
 | A: 30-day pending signup cleanup | Bounded probe, conditional maintenance protocol, fresh verification guard, existing deletion/ledger and failure recovery | CI real native filters; #275 [prepared production transport and local evidence](../../deploy/public-production/README.md#identity-maintenance), pending final acceptance; #276 measured deployed race/drain/backlog and scheduling acceptance before any real timer |
-| B: minimum blocked archive | Automatic profiles, scoped claims, encrypted signed two-copy sealing, separate proof, review/hold/expiry/purge and restored-copy refusal | #275 protected storage/keys and independent copies; #276 Lenovo isolation, actual recovery/snapshot/media disposal and longer applicable obligations |
+| B: minimum blocked archive | Automatic profiles, scoped claims, encrypted signed two-copy sealing, separate proof, review/hold/expiry/purge and restored-copy refusal | #275 protected storage/keys and independent copies; #276 cloud/owner-storage isolation, actual recovery/snapshot/media disposal and longer applicable obligations |
 | C: public information | Four review pages/footer, generated staged Keycloak basic layer, publication withheld | Owner final copy approval; #274 supplier/legal review; #275 integration configuration; #276 actual realm/mail/storage/cookie/CDN evidence |
 | Rights and incidents | Register, rights/breach procedures and existing export/deletion/replay retained | #276 actual contacts, channels, backup replay and response exercise |
 

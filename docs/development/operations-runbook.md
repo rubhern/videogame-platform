@@ -855,7 +855,9 @@ now have administrative implementations and draft product review pages. Existing
 private-dev erasure/replay behavior remains available. Production cleanup execution
 requires the [#275 deny/drain adapter](../../deploy/public-production/README.md#identity-maintenance),
 its real-host drain acceptance (#276) and protected archive/proof/holds stores; no real
-timer is installed. Real-VPS/Lenovo qualification remains #276. No host changes
+timer is installed. Real-VPS/cloud-only qualification remains #276 under the superseding
+[storage decision](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery);
+Lenovo is no longer mandatory. No host changes
 or legal publication are authorized by local success.
 
 Policy: the [data-protection procedure](data-protection.md#rights-request-procedure)

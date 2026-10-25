@@ -339,14 +339,18 @@ preserve portability. Hosting reconsideration triggers belong to ADR-0019.
 
 ## Public production target
 
-**Owner-approved direction, unbuilt:** netcup VPS Lite 2, x86_64 / 8 GB RAM,
-subject to availability, final price and qualification; open, non-commercial,
-best-effort launch; EUR 20/month ceiling for all recurring costs. Purchase waits
-for a production candidate. Local/CI development continues with temporary private-dev.
-The [Product Brief](../../product/product-brief.md#public-release-and-sustainability)
-owns that release mode, [ADR-0025](../../decisions/0025-host-public-production-on-a-deferred-single-vps.md)
-records the accepted durable topology, and the
-[investigation](../../research/public-production-topology.md) records price/capacity evidence.
+**Owner-approved direction, unbuilt (#276, 2026-10-25):** netcup VPS Lite 3,
+x86_64, advertised eight shared vCores / 16 GB RAM / 320 GB SSD, replaces Lite 2.
+Indicative EUR 16.95/month including VAT and a two-month minimum term are planning
+inputs; actual quote, terms, cancellation/renewal, availability and capacity are
+unverified. Open, non-commercial, best-effort operation and the total recurring
+budget are owned by the [Product Brief](../../product/product-brief.md#public-release-and-sustainability).
+The accepted single-VPS design in [ADR-0025](../../decisions/0025-host-public-production-on-a-deferred-single-vps.md)
+is amended by [ADR-0033](../../decisions/0033-select-lite-3-and-immutable-offhost-storage.md).
+The [#276 research](../../research/public-production-backup-storage.md) owns the revised
+cost estimate and spending-protection evidence; the [#252 investigation](../../research/public-production-topology.md)
+remains historical. Purchase remains separately gated despite #275's accepted candidate.
+Local/CI development continues with temporary private-dev.
 
 **Accepted technical design (ADR-0025):** one Linux VPS, Docker Engine/Compose,
 one application replica and one PostgreSQL server. **Runtime configuration prepared,
@@ -367,7 +371,7 @@ receipts keep the remaining validation boundary explicit.
 | Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
 | Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through private administration/tunnel only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
 | Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
-| Recovery | Independent encrypted off-host copies of both databases, protected config/secrets reconstruction and immutable source/image receipts; no paid managed backup assumed |
+| Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Approved target, not implemented; Lenovo is optional and expendable |
 
 Use separate edge, data/acquisition and telemetry networks with only required
 membership; the proxy never joins the database network. Network names alone are
@@ -567,7 +571,10 @@ it never controls a product request or automatically resizes the host.
 
 Begin qualification with explicit memory/CPU/PID/connection/request/log/storage
 bounds. This initial envelope is a local/CI hypothesis, not a claim that these
-values work on netcup; executable Compose will own the final limits.
+values work on netcup; executable Compose owns the prepared limits. The accepted
+#275 candidate used the former 8 GB class as its hypothesis. Lite 3 selection does
+not change those executable ceilings or revalidate them: retain that evidence and
+qualify the unchanged candidate on the selected 16 GB host before any recalibration.
 
 | Memory allocation for qualification | GiB |
 |---|---:|
@@ -580,7 +587,8 @@ values work on netcup; executable Compose will own the final limits.
 | Steady service ceilings total | **4.50** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
-| Unassigned nominal remainder at 8 decimal GB (~7.45 GiB) | **~1.45** |
+| Historical #275 remainder at 8 decimal GB (~7.45 GiB) | **~1.45** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), same allocations | **~8.90** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -599,8 +607,10 @@ backup/deployment/cleanup; it does not automatically serialize catalogue work. S
 or drain acquisition/localization deliberately before those windows. Parallel test
 stacks on a workstation are not representative of this envelope.
 
-The nominal all-ceiling remainder (~1.45 GiB) is slightly below 20% of 7.45 GiB
-before helper overlap. This is conservative: deployment stops the application before
+The former 8 GB hypothesis left a nominal all-ceiling remainder (~1.45 GiB),
+slightly below 20% of 7.45 GiB before helper overlap. That arithmetic is historical;
+the selected Lite 3 still needs actual reported RAM and workload evidence.
+Assess phase overlap conservatively: deployment stops the application before
 running Flyway, and backup stops consumers before dumping. Assess each phase rather
 than assuming all actors coexist. Pausing translation requests saves CPU but leaves
 the loaded model resident; unloading it requires a deliberate stop and checked
@@ -641,20 +651,43 @@ Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
 bounded retention and isolated restore. Proposed initial recovery objectives for
 owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
 **RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
-**Owner storage decision (#274 phase 1, 2026-10-17), not deployed:** use the future
-VPS for live production state and owner-managed Lenovo `vgpdev` for encrypted
-production backups and a restricted legal archive, isolated from private-dev,
-repositories, agents and ordinary development processes. Legal archive and deletion
-ledger each require an independent second copy; the concrete medium/location remain
-private operating inputs. Protected keys stay off VPS and separate from encrypted
-files. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
-owns field/retention/sealing requirements and refusal when privilege isolation cannot
-be proved (including root/Docker access). #275 prepares that separation; #276 proves
-actual access, transfer/location, copy/expiry and recovery. No Lenovo mutation or
-storage provisioning is authorized here. Legal archives are not rolling backups.
+**Owner storage decision (#276, 2026-10-25), approved target, not implemented:**
+upload encrypted paired backups directly from the production VPS to OVHcloud Object
+Storage Standard, full 1-AZ region Gravelines, using Object Lock Compliance retention,
+least-privilege upload credentials, independent integrity verification and missed-job
+alerts. The owner accepts the documented single-zone limitation; no multi-AZ or
+cross-region redundancy is implied. Budget for 200 GiB actually retained, not a
+provisioned capacity or enforceable spending limit. [ADR-0033](../../decisions/0033-select-lite-3-and-immutable-offhost-storage.md)
+records why this supersedes the #274 Lenovo storage and destination-pull selection.
+Lenovo root/Docker/agent access cannot provide the required privilege independence;
+Lenovo may hold an optional expendable copy but no required recovery material.
+
+This explicitly permits a restricted upload credential on the VPS, replacing the
+old rule that the source has no destination credential. It does not permit application
+or identity runtime credentials to read/delete history, change retention/ACLs or
+manage provider credentials. Separate expiry-worker privileges/location remain to review.
+Keep cloud management/recovery access, decryption/signing keys and reconstruction
+unlock material independent of VPS, Lenovo and agents. Provider-enforced protection
+of existing versions, independent detection and clean-context cloud-only restore
+must be proved before operation. Direct uploads cannot authenticate future captures
+from a compromised source. Do not treat a mutable success receipt as independent proof.
+
+Legal archive, deletion ledger and proofs remain separately protected, with mandatory
+independent copies and synchronous pre-mutation durability. Their concrete locations
+and cloud adapters are still to be approved/proved; two buckets in one account are
+not independent copies. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
+owns their retention, sealing and access requirements. No host/storage provisioning
+is authorized by recording this direction. Legal archives are not rolling backups.
 
 Backup history, off-host copies included, is owner-limited to **35 days** (#274);
-propose seven daily copies plus one weekly copy for four weeks. Size the independent
+the prepared filesystem selector uses seven daily copies plus four weekly copies.
+It is not a cloud version/lock policy. Exact Compliance duration, cadence, version
+selection/expiry and verification evidence remain design decisions: the #276 research
+proposes alternatives but the owner's provider/topology approval does not approve
+those parameters. A 35-day lock starting at upload can exceed the ceiling measured
+from capture; indefinite legal holds or an unexpired last-rehearsed pair cannot
+silently extend it. Resolve and test these conflicts, including deletion-ledger replay
+and archive-specific duties, before cloud activation. Size the independent
 destination and prove the scheduled copy/check cadence; a dump left on the VPS is
 not a backup against host/account loss. Failure/age must reach the owner through a
 tested private channel. If this cannot operate within the budget, do not open accounts.
@@ -677,7 +710,9 @@ verified. **Prepared production candidate (#275 increment 5), not operated on a 
 add durable role fences and a startup authorization volume, paired encrypted dumps,
 owner-side SSH-context restoration, destination-side bounded pull/retention and the
 same Keycloak-only deletion replay gate. Local rehearsal is synthetic evidence only;
-Lenovo isolation, physical independence, transfer cadence and VPS recovery remain #276 gates. The
+cloud access/version isolation, physical/account independence, transfer cadence,
+expiry and cloud-only VPS recovery remain #276 gates. The prepared pull-based
+commands do not implement the superseding direct-S3 target. The
 [data-protection record](../../development/data-protection.md#phase-1-design-for-approval)
 owns the future cleanup/archive design; the existing ledger design evidence remains
 in [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion), and the

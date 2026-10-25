@@ -36,11 +36,13 @@ historical decision.
 
 - [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md)
 - [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
-- [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; single VPS, Docker Compose and a static Caddy edge accepted 2026-10-19; no purchase, exposure or deployment authorization.
+- [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; single VPS, Docker Compose and static Caddy edge accepted 2026-10-19; Lite 2/former budget input partially superseded by ADR-0033, other rationale/gates preserved; no purchase/exposure authorization.
 
 - [ADR-0026: Defer ARM64 runtime support](0026-defer-arm64-runtime-support.md) — amends ADR-0008/ADR-0019; AMD64-only with a pre-deployment restoration gate.
 - [ADR-0027: Revoke and end BFF sessions in the application](0027-revoke-and-end-bff-sessions-in-the-application.md) — #274; direct session invalidation, eight-hour absolute lifetime and OIDC logout; implemented in #274 phase 2 increment 2.
 - [ADR-0030: Limit public-edge requests with a Caddy module](0030-limit-public-edge-requests-with-a-caddy-module.md) — #275; one commit-pinned module on the accepted Caddy edge, per-source and aggregate limits keyed on the TCP peer; owner-approved 2026-10-21, implemented locally, real-host evidence in #276.
+
+- [ADR-0033: Select Lite 3 and immutable off-host production storage](0033-select-lite-3-and-immutable-offhost-storage.md) — #276, owner-approved direction 2026-10-25; direct encrypted S3/Compliance uploads to OVHcloud 1-AZ Gravelines, Lenovo optional; contracting/spending and real-host gates unresolved.
 
 ## Proposed
 
