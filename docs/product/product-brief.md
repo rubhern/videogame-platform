@@ -225,8 +225,11 @@ VAT, domain renewal, email, storage, administration and every recurring extra. T
 supersedes the prior EUR 20 ceiling and earlier zero-recurring-cost restriction for
 the gated public environment. The [#276 budget evidence](../research/public-production-backup-storage.md#complete-recurring-total-with-lite-3)
 includes the EUR 2 email contingency; estimated charges are not account-specific
-quotes or enforceable caps. Infrastructure/provider selection does not authorize
-uncapped PAYG, contracting or exposure; the spending-protection blocker remains open.
+quotes or enforceable caps. The owner accepts the residual risk of uncapped OVHcloud
+Object Storage PAYG charges as a scoped exception to the capped-overage gate
+(2026-10-25), so costs above EUR 25 remain possible. This authorizes no contracting
+or exposure; the [contracting gate](../development/delivery-lifecycle.md#public-production-gates)
+owns its conditions.
 The owner registered the domain `gameometro.com` for this release ahead of the VPS; the
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names)
 owns the approved public names.
