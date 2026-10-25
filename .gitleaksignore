@@ -29,3 +29,5 @@ afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candida
 docs/research/public-production-candidate-evidence/final-6c4bbb3-deployment.json:generic-api-key:99
 # False positive: the same verified run-keycloak SHA-256 in the immutable 9ffc05a campaign receipt.
 docs/research/public-production-candidate-evidence/final-9ffc05a-deployment.json:generic-api-key:99
+# False positive: prose "signing keys and reconstruction" in the #276 PR commit, reworded in a9a3a5d.
+ab61b8fbb79c7e15c2118da0b10d3fcd9552fb49:docs/architecture/deployment/mvp-platform-and-delivery.md:generic-api-key:669
