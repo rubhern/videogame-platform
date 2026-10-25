@@ -27,3 +27,5 @@ afcf81afce8c828be9b43f74759d8ed22660ddce:docs/research/public-production-candida
 # False positive: verified SHA-256 of unchanged deploy/public-production/bin/run-keycloak in the
 # immutable 6c4bbb3 campaign receipt. File-scoped (no commit) so the PR and its merge commit match.
 docs/research/public-production-candidate-evidence/final-6c4bbb3-deployment.json:generic-api-key:99
+# False positive: the same verified run-keycloak SHA-256 in the immutable 9ffc05a campaign receipt.
+docs/research/public-production-candidate-evidence/final-9ffc05a-deployment.json:generic-api-key:99

@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-25",
+  "scope": "Final four-part integrated campaign for #275 on trusted-main 9ffc05a, run by the owner; receipts verified and copied unchanged",
+  "sourceRevision": "9ffc05a2ff30e261564ddbfd412826cdec504137",
+  "pullRequest": 372,
+  "trustedMainRuns": {
+    "build": {
+      "runId": 40192338489,
+      "conclusion": "success"
+    },
+    "security": {
+      "runId": 40192338507,
+      "conclusion": "success"
+    }
+  },
+  "publications": {
+    "keycloak": "ghcr.io/rubhern/videogame-platform-keycloak@sha256:8c245495fa2a8634d09a96158ac59a00b446076b1d65095305d7d710d32699b9",
+    "caddy": "ghcr.io/rubhern/videogame-platform-caddy@sha256:12b1fae2d8aa9243c69e17c2ea427b4ee27fbd6ed7ceee5cb09ce85f272ce3ef",
+    "application": "ghcr.io/rubhern/videogame-platform@sha256:16e393264891ffa69e27effe6b7064598830438507f4bc6466a6b73276a22eb7",
+    "catalogue-localizer": "ghcr.io/rubhern/videogame-platform-catalogue-localizer@sha256:6c56f5397df604849d65eaa601a4581fdc191ad0388388946334be632cb60a9d"
+  },
+  "publicationScanPolicy": {
+    "keycloak": "Scan policy: 0 finding(s) added by this repository's layers; 10 HIGH/CRITICAL or secret finding(s) inherited from the pinned base, recorded for review.",
+    "caddy": "Scan policy: 0 finding(s) added by this repository's layers; 0 HIGH/CRITICAL or secret finding(s) inherited from the pinned base, recorded for review.",
+    "application": "no dependency scan policy line (application image)",
+    "catalogue-localizer": "Scan policy: 0 finding(s) added by this repository's layers; 63 HIGH/CRITICAL or secret finding(s) inherited from the pinned base, recorded for review."
+  },
+  "runtimeSourceFingerprint": "f41aa6308c84873f069db01e34d7f2d3be92278365c7fb73c1cb074b3ee4bb3b",
+  "approvedModelManifestSha256": "c1f0f2c6f1b045cc712117d53ceee24c8de3dd9df4c8f7a8ed0548a04040b87f",
+  "outcomes": {
+    "combined": "success",
+    "deployment": "passed-ABCDE-and-eight-transitions",
+    "recovery": "success",
+    "edge": "owner-reported pass; reproduced on the same tree, see edgeReproduction",
+    "teardown": "passed"
+  },
+  "verification": {
+    "everyReceiptRevision": "9ffc05a2ff30e261564ddbfd412826cdec504137",
+    "everyReceiptImageMatchesPublication": true,
+    "everyReceiptFingerprint": "f41aa6308c84873f069db01e34d7f2d3be92278365c7fb73c1cb074b3ee4bb3b",
+    "browserRateRefusals": 0,
+    "nativeIdentityActions": 15,
+    "deploymentAttempts": 9,
+    "injectedFailuresDetected": [
+      "migration-failed-activation-prevented",
+      "readiness-failed",
+      "smoke-failed"
+    ],
+    "recoveryFalseFlags": 0,
+    "personalDataOrTokensInReceipts": false
+  },
+  "receiptSourceSha256": {
+    "01-combined/cleanup-rehearsal.json": "6e0bd44fd6acf83cf234e2d70b9e578ac32b49300579020e52cc0ab38a11a522",
+    "01-combined/cookie-inventory.json": "b7a9e78d0f96f27d22a1eee34c74ae122db672efbad6ac8e83b6040f60b15318",
+    "02-deployment/receipt.json": "68add5bea9376a7c3fafe4ecc4a9b1f29335c63a244136130d3451b43557a611",
+    "02-deployment/cookie-inventory.json": "f4a30bda843acce704170f727f1ae1a81049a423de5bd7aedbfa13f683a32dc2",
+    "03-recovery/recovery-rehearsal.json": "eef687683ed02665c3ee87c64631d8d97d4c0c7f7a8aa10c29e7999dfa4d9a3f",
+    "03-recovery/backup.json": "60a58ba3df40f4b3642269cec4bd176c63d638b303c0338027beb3320562edda",
+    "03-recovery/restore.json": "538ec8d836170bc7b721e607bc769b74a9762d6f40216e4c06d3a34282dd707e",
+    "03-recovery/deletion-replay.json": "09c470b6bed1c01d834d728324fa61023b8ab9cf7afc5e0c8bb469d6b2a76d9e",
+    "03-recovery/verified-recovery.json": "7851a0fb85b1c56a148227467f2b12f9a44b465008c807553015e543ea203160"
+  },
+  "productionReady": false,
+  "issueClosureAuthorizedByThisRecord": false,
+  "edgeReproduction": {
+    "command": "python3 -I scripts/test-public-production-runtime.py",
+    "tree": "9ffc05a2ff30e261564ddbfd412826cdec504137 (clean checkout of the merge)",
+    "outcome": "passed",
+    "summary": [
+      "Compose contract: 64 deliberate violations checked.",
+      "Caddy contract: 15 deliberate violations checked.",
+      "Private Caddy metrics and sanitized origin records distinguish 503s without client/limiter labels.",
+      "probe: 88 checks, 0 violation(s)",
+      "backchannel: 4 checks, 0 violation(s)",
+      "Edge behaviour: 7 deliberate route violations checked.",
+      "Edge limits: 18 limit and 5 maintenance scenarios checked.",
+      "Edge limits: 6 deliberate limit and gate violations checked.",
+      "Public-production runtime contract passed with synthetic inputs. This is static and local evidence only: no DNS, ACME issuance, real host, firewall, Docker NAT or credential was exercised."
+    ],
+    "logSha256": "f9e7819c109e1eb563356ac3887acaae6f5ad191143105151a5583ec0c3f7e81",
+    "logRetained": false
+  }
+}
