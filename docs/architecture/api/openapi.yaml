@@ -2424,7 +2424,7 @@ components:
         day of its known period (the day itself for an exact date), an exact day before a month,
         quarter or year period ending the same day, then the case-insensitive canonical title.
         `hype` puts the highest locally stored IGDB Hypes first, the popularity signal
-        TOPómetro ranks with, whose value is never exposed. `rating` puts the highest
+        Destacados ranks with, whose value is never exposed. `rating` puts the highest
         Gameómetro community mean, at the one decimal shown, first, then the larger number of
         ratings. `externalPlayerScore` puts the highest locally stored external player score
         (currently IGDB players), at the one decimal of its /10 `ExternalPlayerScore` value,

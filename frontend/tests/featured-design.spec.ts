@@ -1,3 +1,4 @@
+import { gameDetailsFixture } from "../src/test/game-details-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
@@ -99,6 +100,14 @@ async function scriptFeatured(
       : route.fulfill({ contentType: "image/svg+xml", body: fixtureImage(id) });
   });
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
+  await page.route("**/api/v1/games/*", route => {
+    const gameId = new URL(route.request().url()).pathname.split("/").at(-1);
+    const item = featuredReleases().items.find(candidate => candidate.gameId === gameId);
+    return route.fulfill({ json: { ...gameDetailsFixture(), ...(item ? {
+      gameId: item.gameId, slug: item.slug, canonicalTitle: item.canonicalTitle,
+      primaryCover: item.primaryCover, releases: item.releases,
+    } : {}) } });
+  });
   await page.route("**/api/v1/featured-releases*", (route) => {
     const params = new URL(route.request().url()).searchParams;
     const week = params.get("week");
@@ -159,9 +168,9 @@ for (const width of [320, 390, 834, 1320]) {
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Destacados del mes" })).toBeVisible();
     await expect(hero.getByText("Lanzamiento del mes")).toBeVisible();
-    const others = page.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
+    const others = page.getByRole("region", { name: "Más lanzamientos destacados" });
     await expect(others.getByRole("article")).toHaveCount(5);
     // An unrecognized platform keeps its name beside the generic mark; known ones are marks.
     // Phones keep the compact marks instead, and every name stays announced.
@@ -328,7 +337,9 @@ for (const width of [320, 390, 834, 1320]) {
       const destination = await action.getAttribute("href");
       await page.keyboard.press("Enter");
       await expect(page).toHaveURL(new RegExp(`${destination}$`));
-      await page.goBack();
+      const wayBack = page.getByRole("link", { name: "Volver a Destacados" });
+      await expect(wayBack).toHaveAttribute("href", "/lanzamientos/destacados?granularity=month");
+      await wayBack.click();
       await expect(action).toBeVisible();
       // Clicking the image side, away from all text, navigates through the same link.
       const box = await action.boundingBox();
@@ -351,14 +362,14 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(next).toBeFocused();
     await expect(next).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/\?month=2026-09$/);
+    await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-09$/);
     await expect(
       page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Septiembre 2026"),
     ).toBeVisible();
-    await expect(page.getByRole("status")).toHaveText("TOPómetro de septiembre de 2026");
-    await expect(page.getByRole("link", { name: "TOPómetro", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("status")).toHaveText("Destacados de septiembre de 2026");
+    await expect(page.getByRole("button", { name: "Lanzamientos", exact: true })).toHaveAttribute(
       "aria-current",
-      "page",
+      "true",
     );
   });
 }
@@ -378,10 +389,10 @@ for (const width of [320, 390, 834, 1320]) {
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
-    const title = page.getByRole("heading", { level: 1, name: "TOPómetro de la semana" });
+    const title = page.getByRole("heading", { level: 1, name: "Destacados de la semana" });
     await expect(title).toBeVisible();
     await expect(hero.getByText("Lanzamiento de la semana")).toBeVisible();
-    const switcher = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
+    const switcher = page.getByRole("navigation", { name: "Periodo de Destacados" });
     await expect(switcher.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "true");
     await expect(switcher.getByRole("link", { name: "Mes" })).not.toHaveAttribute("aria-current");
     // Ice marks the selection; nothing in the heading takes fire.
@@ -442,7 +453,7 @@ for (const width of [320, 390, 834, 1320]) {
 
     // Another week adds the way back to the current one without crowding the opening.
     await weeks.getByRole("link", { name: /^Semana siguiente/ }).click();
-    await expect(page).toHaveURL(/\/\?week=2026-W34$/);
+    await expect(page).toHaveURL(/\/lanzamientos\/destacados\?week=2026-W34$/);
     await expect(weeks.getByText("17–23 ago 2026")).toBeVisible();
     await expect(hero).toBeVisible();
     const current = page.getByRole("link", { name: "Semana actual" });
@@ -466,7 +477,7 @@ test("weeks step through the URL across months, back to the current week and thr
   await next.focus();
   await expect(next).toHaveCSS("outline-style", "solid");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/\?week=2026-W34$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?week=2026-W34$/);
   await expect(weeks.getByText("17–23 ago 2026")).toBeVisible();
   // A future week shows no elapsed progress and no today.
   await expect(dial).toHaveClass(/month-dial-future/);
@@ -485,20 +496,20 @@ test("weeks step through the URL across months, back to the current week and thr
   await expect(dial).toHaveClass(/month-dial-past/);
   await expect(dial.locator(".month-dial-progress")).toHaveCount(1);
   await page.getByRole("link", { name: "Semana actual" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
   await expect(weeks.getByText("10–16 ago 2026")).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL(/\/\?week=2026-W30$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?week=2026-W30$/);
   await expect(weeks.getByText("20–26 jul 2026")).toBeVisible();
   await page.goForward();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
 
   // Switching granularity opens the other one's current period.
-  const switcher = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
+  const switcher = page.getByRole("navigation", { name: "Periodo de Destacados" });
   await switcher.getByRole("link", { name: "Mes" }).focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/\?granularity=month$/);
-  await expect(page.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?granularity=month$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Destacados del mes" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Agosto 2026")).toBeVisible();
   await expect(page.getByRole("link", { name: "Mes actual" })).toHaveCount(0);
   await expect(page.locator(".featured-dial-g .month-dial-numeral").first()).toHaveText("1");
@@ -591,7 +602,7 @@ test("a provider image that cannot load steps down to the product fallback", asy
   await expect(hero.locator(".featured-art")).toHaveAttribute("data-art-kind", "fallback");
   // The canonical hero title survives every media fallback.
   await expect(hero.getByRole("heading", { level: 2, name: LEAD })).toHaveText(LEAD);
-  const others = page.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
+  const others = page.getByRole("region", { name: "Más lanzamientos destacados" });
   await expect(
     others.getByRole("article").filter({ hasText: "Ghost of Yōtei" }).locator(".featured-art"),
   ).toHaveAttribute("data-art-kind", "fallback");
@@ -626,7 +637,7 @@ test("period steps stop at the API's navigation bounds", async ({ page }) => {
     "true",
   );
   await months.getByRole("link", { name: "Mes anterior: diciembre de 2026" }).click();
-  await expect(page).toHaveURL(/\/\?month=2026-12$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-12$/);
   await expect(months.getByRole("link", { name: "Mes siguiente: enero de 2027" })).toBeVisible();
 
   const weeks = page.getByRole("navigation", { name: "Semana de la selección" });
@@ -647,9 +658,9 @@ test("period steps stop at the API's navigation bounds", async ({ page }) => {
 
   // A period outside the bounds typed into the URL returns to the current one, never its content.
   for (const [path, expected, label] of [
-    ["/?month=2019-03", /\/\?granularity=month$/, "Agosto 2026"],
-    ["/?month=2027-02", /\/\?granularity=month$/, "Agosto 2026"],
-    ["/?week=2027-W30", /\/$/, "10–16 ago 2026"],
+    ["/?month=2019-03", /\/lanzamientos\/destacados\?granularity=month$/, "Agosto 2026"],
+    ["/?month=2027-02", /\/lanzamientos\/destacados\?granularity=month$/, "Agosto 2026"],
+    ["/?week=2027-W30", /\/lanzamientos\/destacados$/, "10–16 ago 2026"],
   ] as const) {
     await page.goto(path);
     await expect(page).toHaveURL(expected);
@@ -705,12 +716,12 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
     await page.goto("/");
 
     if (state === "loading") {
-      await expect(page.getByRole("status")).toHaveText("Cargando el TOPómetro…");
+      await expect(page.getByRole("status")).toHaveText("Cargando Destacados…");
       await expect(page.getByRole("article")).toHaveCount(0);
     } else if (state === "unranked") {
       await expect(
         page.getByRole("heading", {
-          name: "Aún no hay TOPómetro de la semana del 10 al 16 de agosto de 2026",
+          name: "Aún no hay Destacados de la semana del 10 al 16 de agosto de 2026",
         }),
       ).toBeVisible();
     } else if (state === "empty") {

@@ -116,10 +116,8 @@ for (const width of [320, 390, 834, 1320]) {
     if (width < 620) {
       const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
       const primary = page.getByRole("navigation", { name: "Principal" });
-      const featured = await primary.getByRole("link", { name: "TOPómetro", exact: true }).boundingBox();
-      const recent = await primary.getByRole("link", { name: "Lanzamientos", exact: true }).boundingBox();
+      const recent = await primary.getByRole("button", { name: "Lanzamientos", exact: true }).boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();
-      expect(featured?.y).toBe(recent?.y);
       expect(logo?.y).toBe(search?.y);
       // The two release entries share the identity's row from 360px; narrower phones give
       // them a full-width row of their own under the identity and both icons.
@@ -372,7 +370,7 @@ for (const width of [320, 390, 834, 1320]) {
     } }));
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Ups, parece que TOPómetro se ha tomado unas vacaciones. Prueba de nuevo más tarde" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ups, parece que Destacados se han tomado unas vacaciones. Prueba de nuevo más tarde" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reintentar" })).toBeEnabled();
     await expectAccessibleLayout(page);
     await page.screenshot({ path: test.info().outputPath(`copy-error-${width}.png`) });

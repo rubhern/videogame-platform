@@ -24,7 +24,7 @@ owns terminology, including rating values, controls and accessible announcements
 
 ## Brand identity
 
-- **Status:** Approved by the owner on 2026-10-16 and implemented on TOPómetro, the shared
+- **Status:** Approved by the owner on 2026-10-16 and implemented on Destacados, the shared
   header and the footer. Post-MVP (#318, implemented; awaiting owner acceptance), both release
   windows, search, the game page and `Mis puntuaciones` adopt it with their states.
 
@@ -136,7 +136,7 @@ known only to a month, quarter or year take no needle; the bar never invents a d
 decorative: the readout beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
-where they carry meaning, and each keeps its own composition: TOPómetro is the period's stage,
+where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
 the release explorer a cover wall under its day bar, search a catalogue index, the game page
 its own cover's stage and `Mis puntuaciones` a thermal ledger. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
@@ -149,10 +149,16 @@ work never brings them back.
   navigation, integrated catalogue search and the server-owned account control. It floats
   over the page's stage on a soft scrim rather than a solid bar, in the
   [brand identity](#brand-identity): the current section carries a short fire rule, and search
-  and account sit on night with ice edges. Post-MVP (#341, superseding #151's three sections), the primary
-  navigation holds two entries, **Lanzamientos** and **TOPómetro**, named in the
-  [product glossary](../product/glossary.md#user-facing-terms); TOPómetro is the landing route
-  and Lanzamientos is current on the release explorer, `/lanzamientos` (#285). The account
+  and account sit on night with ice edges. Post-MVP (#385), the primary
+  navigation is one **Lanzamientos** disclosure containing **Destacados**, **Explorar** and
+  **Calendario**, in that order, named in the
+  [product glossary](../product/glossary.md#user-facing-terms). The active release section keeps
+  the short fire rule; the active destination is highlighted and announced as the current page.
+  The native button exposes its expanded state and controlled panel; native links use Tab,
+  Enter and normal browser navigation. Escape closes and returns focus to the button; leaving
+  the disclosure, pressing outside or navigating closes it. Preserve the account panel’s
+  surface, spacing and focus language. TOPómetro is reserved for the approved future player-score
+  ranking (#386) and is absent from the header until delivered. The account
   control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
   ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
@@ -162,8 +168,8 @@ work never brings them back.
   discovery stays anonymous and the inline rating authentication boundary remains available.
   Keep catalogue search prominent within the
   header and omit the explanatory context strip. On phones below 620px, the compact mark,
-  the two release entries, search and account icons share one row from 360px; below
-  360px the entries take a full-width row of their own under that row. Search opens the
+  the release disclosure, search and account icons share one row from 360px; below
+  360px the disclosure takes a full-width row of its own under that row. Search opens the
   existing catalogue search in a keyboard-accessible dialog; the account icon opens
   either the two anonymous entry links or the authenticated account actions in a
   keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
@@ -178,13 +184,13 @@ work never brings them back.
   semana**) with **Incluir fechas aproximadas**, then **Ordenar por** and the facets — then the
   cover grid and a closing row. The closing row places the result total on the left and the
   pager on the right, with both pager links on one row on phones; it omits a repeated page
-  position and is absent without results. Switching between TOPómetro and Lanzamientos belongs
-  to the main navigation; there is no recent/upcoming switch (#285). Inside **Lanzamientos**, a
-  **Lista | Calendario** switch in TOPómetro's **Semana | Mes** voice closes the title's row and
+  position and is absent without results. Moving between Destacados, the explorer and the calendar belongs
+  to the Lanzamientos disclosure; there is no recent/upcoming switch (#285). Inside **Lanzamientos**, a
+  **Lista | Calendario** switch in Destacados's **Semana | Mes** voice closes the title's row and
   moves between the explorer and the [release calendar](#release-calendar) (#250), carrying the
   filters and the month; **Lanzamientos** stays current in the navigation on both.
 - Keep the current screen's title as the only `h1`: **Explorar lanzamientos**, or
-  **TOPómetro de la semana** / **TOPómetro del mes** on TOPómetro. The explorer has no context
+  **Destacados de la semana** / **Destacados del mes** on Destacados. The explorer has no context
   line. The API-evaluated range follows the title as the instrument's readout in ice, at the
   precision the API states (`10–16 ago 2026`, `28 sep – 25 oct 2026`, `14 ago 2026` for one
   day), while assistive technology reads it in full (`Del 10 de agosto de 2026 al 16 de agosto
@@ -205,7 +211,7 @@ work never brings them back.
   covers fill the column in the standard frame so the artwork leads the card. Under the cover,
   the first relevant release's date follows the fire needle in its compact form at the same
   precision (`25 sep 2026`, `sep 2026`, `T3 2026`, `2026`, `Por confirmar`), in the ember the
-  period scale gives a release's date on TOPómetro; the full wording stays in the release row
+  period scale gives a release's date on Destacados; the full wording stays in the release row
   for assistive technology. Then the title, which is the game link, the score readings, and one
   compact release row: the platforms sharing that date and region as their marks (the first
   three drawn, every name announced and the exact `+N` of the rest), then the region. Up to two
@@ -232,7 +238,7 @@ work never brings them back.
   belongs to the art and to fire's events alone; `warning` stays reserved for review and
   lifecycle states.
 - Typography: Mona Sans is the only interface and display family. Its wide, heavy cut sets page
-  titles as one phrase at TOPómetro's compact size and a game's canonical title as Gameómetro's
+  titles as one phrase at Destacados's compact size and a game's canonical title as Gameómetro's
   wordmark; its condensed cut sets the instrument's readouts — context lines, periods, dates,
   labels and the reading of a temperature in words — and its regular width sets everything else.
   Titles carry no lit accent word. The Gameómetro wordmark is outlined from Mona Sans' wide heavy
@@ -240,7 +246,7 @@ work never brings them back.
   licences live under [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
 - Covers carry the catalogue rhythm. The standard cover frame has a 4px radius, a quiet inner
   edge and a restrained shadow; pointing at a card lights that edge in ice and underlines its
-  title, as TOPómetro's cards do, and keyboard focus outlines the frame. Its ratio is the one
+  title, as Destacados's cards do, and keyboard focus outlines the frame. Its ratio is the one
   the approved provider actually delivers, so `object-fit: cover` crops nothing off real
   artwork. Global styles own the executable value. Release and search result cards show no
   status, provenance, cover attribution or **Ver ficha** action: the game page owns those,
@@ -397,7 +403,7 @@ the executable values; these constraints hold wherever they are used:
   Do not implement it as a viewport-sized fixed translucent layer: deep scrolling and the
   mobile browser toolbar must not invalidate the header or page content.
 - Featured, search, personal ratings and game details open on a stage lit by art they already
-  show, anchored to the top of the document so it runs behind the header: TOPómetro by its
+  show, anchored to the top of the document so it runs behind the header: Destacados by its
   featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
   three of the covers the page presents; a game's page by its own cover. The release explorer
   keeps the plain night canvas under its opening and cover wall. Each image's hue, not
@@ -410,7 +416,7 @@ the executable values; these constraints hold wherever they are used:
   overlays that carry controls are opaque night with a hairline and an ice or thermal top edge,
   and there is one easing curve, one overshoot for presses and three durations. Do not add a
   per-component shadow scale, a backdrop blur or a halo.
-- Motion is purposeful and limited to transform, opacity and clip: TOPómetro's orchestrated
+- Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
   entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
   release a visitor points at; a cover easing a little closer on hover; feedback on press and
@@ -537,10 +543,12 @@ named element. Browser Back/Forward restores each history entry's reading positi
 including query-driven pages. Release range, day, order and filter changes and Featured
 week/month changes preserve context; switching discovery sections or submitting another
 catalogue search starts at the top. Shorter results may naturally clamp the viewport to the
-available height.
+available height. The main-content landmark remains focusable for route changes and the
+skip link, but never draws a page-sized focus outline; visible keyboard-focus indicators
+remain on interactive controls.
 
 Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
-was opened from — **Volver al TOPómetro**, **Volver a lanzamientos**, **Volver al calendario**
+was opened from — **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
 (#250), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
 and returns to it with the same period, range, order, filters,
 search and page, restoring that screen's reading position while the document keeps it. Every
@@ -549,7 +557,7 @@ the origin in the history entry's React Router state, never in the URL, so a sha
 stays clean; the origin survives a reload and browser history and is validated on every read, so
 only a same-origin path to one of those screens is ever followed
 ([`return-context.ts`](../../frontend/src/shared/navigation/return-context.ts)). A direct link or
-any other state returns to TOPómetro. The way back is a new history entry that restores the
+any other state returns to Destacados. The way back is a new history entry that restores the
 origin entry's offset; Back and Forward keep their own behaviour.
 
 React Router owns restoration after the destination's bounded TanStack Query read is
@@ -664,11 +672,11 @@ chosen day in system colours.
 
 ## Featured releases
 
-Post-MVP (#151; weeks #329, implemented and awaiting owner review; named in #341), **TOPómetro**
-is the landing route and implements the [brand identity](#brand-identity). It opens on the current
+Post-MVP (#151; weeks #329, implemented and awaiting owner review; named in #341), **Destacados**
+is the featured route and implements the [brand identity](#brand-identity). It opens on the current
 week; `DEFAULT_FEATURED_GRANULARITY` in
 [`featured-search.ts`](../../frontend/src/features/releases/featured-search.ts) is the only place
-that decides it. The heading is the only `h1`, **TOPómetro de la semana** or **TOPómetro
+that decides it. The heading is the only `h1`, **Destacados de la semana** or **Destacados
 del mes**, beside the period selector, with no caption and no selection note. The selector is
 the instrument's readout. First comes a compact **Semana | Mes** switch: two links in the
 condensed voice, parted by a fine upright, the selected one in ice over a short ice bar, without
@@ -726,7 +734,7 @@ Developer, publisher and game modes stay absent from featured discovery.
 Score readings (#255 phase 2) are set as the instrument's readouts, without boxes: the G-meter
 or IGDB's [locally served official mark](../../frontend/public/assets/providers/README.md), the
 value with its /10 scale and the count beneath, the two sources side by side in the hero and
-beneath the title on cards. Only **Más lanzamientos del TOPómetro** shows counts from 1000 as
+beneath the title on cards. Only **Más lanzamientos destacados** shows counts from 1000 as
 `+XK`, using whole thousands rounded down (`3548` becomes `+3K`); the exact count remains in the
 tooltip and accessible text. Sources wrap whole onto a second line only when they cannot fit
 legibly, never shrinking or truncating text. Omit each unavailable source and the whole block
@@ -735,7 +743,7 @@ reuses the G-meter, thermal bands and labels, while IGDB keeps neutral ink. Both
 /10 value and their own vote count, including one vote. IGDB attribution links to that Game's
 source work and is named **Jugadores IGDB**. An external score has no Gameómetro temperature.
 
-**Más lanzamientos del TOPómetro** follows, with **Ver todos los lanzamientos** (the release
+**Más lanzamientos destacados** follows, with **Ver todos los lanzamientos** (the release
 explorer on exactly the represented week or month, #285) and up
 to five wide artwork cards straight on the stage. Each card's landscape frame carries the
 context-selected media under `FEAT-003` in the
@@ -777,7 +785,7 @@ their own room.
 The game page is a premium, editorial game hub built only from the contract's data (#233), set
 on a stage lit by the cover it already displays ([depth and motion](#depth-and-motion)). It adds
 no request, no asset and no licence surface beyond that cover. The canonical title is set as
-Gameómetro's wordmark, as TOPómetro sets its featured release: Mona Sans' widest heavy cut in
+Gameómetro's wordmark, as Destacados sets its featured release: Mona Sans' widest heavy cut in
 capitals, cast in moonlit silver, with a subtitle that the title introduces with a colon or a
 spaced dash following on its own line in ice; the lockup drops that delimiter visually, while the
 heading's text and accessible name keep the canonical title exactly. The name's size steps down
@@ -1064,7 +1072,7 @@ one **Volver a Gameómetro** link to the landing page at its foot. Actions take 
 the [server-backed states](#server-backed-states); a failed save keeps the selection.
 
 **The offer.** The welcome is product UI after Keycloak, never a registration step. A signed-in
-player who has never chosen is sent to it once per document on the way into TOPómetro, the
+player who has never chosen is sent to it once per document on the way into Destacados, the
 explorer or the calendar, carrying the destination, which it restores after saving or skipping; a rating return
 or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
@@ -1072,7 +1080,7 @@ or any other page never redirects. Skipping records an empty choice and never bl
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
-never in the URL, history or browser storage, so TOPómetro, the explorer and the calendar always
+never in the URL, history or browser storage, so Destacados, the explorer and the calendar always
 agree and a shared link resolves with the reader's own preferences. Discovery screens carry no
 control or shortcut of their own, and no screen prints the list of applied platforms: only the
 explorer's and the calendar's **Plataforma** summarize them as `Mis plataformas` (and the
@@ -1280,7 +1288,7 @@ identity's instruments and the absence of the retired language. For material vis
 1. render representative current data at 1320px, 834px and 390px, with reflow at 320px;
 2. include long titles, varied date precision, review status, provider artwork and the
    product fallback;
-3. compare the captures with TOPómetro and with the screen's previous captures;
+3. compare the captures with Destacados and with the screen's previous captures;
 4. check all affected loading, empty, catalogue-not-ready and failure states; and
 5. run only the focused component, browser and documentation gates justified by the change.
 

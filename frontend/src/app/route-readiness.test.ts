@@ -45,6 +45,15 @@ describe("first-run platform choice", () => {
     await expect(load(loader, "/")).resolves.toBeNull();
   });
 
+  it("offers the first-run choice at the canonical featured period and does not read legacy aliases twice", async () => {
+    const fetchMock = stub({ authenticated: true }, { configured: false, platforms: [] });
+    const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
+    await expect(load(loader, "/?month=2026-10")).resolves.toBeNull();
+    expect(paths(fetchMock)).toEqual([]);
+    const offer = await load(loader, "/lanzamientos/destacados?month=2026-10") as Response;
+    expect(offer.headers.get("Location")).toBe("/bienvenida?returnTo=%2Flanzamientos%2Fdestacados%3Fmonth%3D2026-10");
+  });
+
   it("never interrupts a rating return or a personal page", async () => {
     const fetchMock = stub({ authenticated: true }, { configured: false, platforms: [] });
     const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
@@ -61,7 +70,7 @@ describe("first-run platform choice", () => {
     );
     const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
 
-    await expect(load(loader, "/?week=2026-W40")).resolves.toBeNull();
+    await expect(load(loader, "/lanzamientos/destacados?week=2026-W40")).resolves.toBeNull();
     expect(paths(fetchMock)).toContain("/api/v1/featured-releases?week=2026-W40&platformIds=ps5");
   });
 

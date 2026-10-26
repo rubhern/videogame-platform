@@ -1,12 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
-import {
-  readReleasesSearch,
-  RELEASES_PATH,
-  releasesSearchPath,
-} from "../features/releases/releases-search";
-import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
+import { ReleasesNavigation } from "./releases-navigation";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
@@ -16,15 +11,8 @@ export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const navigation = useNavigation();
-  const onReleases = location.pathname === RELEASES_PATH;
-  // The calendar is a view of Lanzamientos (#250), so the entry stays current there too.
-  const inReleases = onReleases || location.pathname === CALENDAR_PATH;
   const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
-  // On the explorer itself the entry returns to its first page and keeps the rest of the choice.
-  const releasesPath = onReleases
-    ? releasesSearchPath(readReleasesSearch(new URLSearchParams(location.search)), { page: 1 })
-    : RELEASES_PATH;
 
   useEffect(() => {
     if (previousPage.current === pageIdentity) {
@@ -60,24 +48,7 @@ export function AppShell() {
             <BrandLogo className="brand-logo" />
           </Link>
 
-          {/* Two release entries (#341): Lanzamientos opens the release explorer (#285) and
-              TOPómetro is the landing selection. */}
-          <nav aria-label="Principal" className="primary-nav">
-            <Link
-              aria-current={inReleases ? "page" : undefined}
-              className="nav-link"
-              to={releasesPath}
-            >
-              Lanzamientos
-            </Link>
-            <Link
-              aria-current={location.pathname === "/" ? "page" : undefined}
-              className="nav-link"
-              to="/"
-            >
-              TOPómetro
-            </Link>
-          </nav>
+          <ReleasesNavigation />
 
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 

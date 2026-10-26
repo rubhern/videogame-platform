@@ -9,8 +9,9 @@ const at = (path: string, state: unknown = null, key = "entry-1") => {
 
 describe("game page return context", () => {
   it.each([
-    ["/", "Volver al TOPómetro"],
-    ["/?month=2026-12", "Volver al TOPómetro"],
+    ["/", "Volver a Destacados"],
+    ["/lanzamientos/destacados?week=2026-W42", "Volver a Destacados"],
+    ["/?month=2026-12", "Volver a Destacados"],
     ["/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&page=2", "Volver a lanzamientos"],
     ["/lanzamientos/calendario?month=2026-11&day=2026-11-13", "Volver al calendario"],
     ["/search?q=zelda&page=3", "Volver a resultados"],
@@ -20,8 +21,17 @@ describe("game page return context", () => {
     const context = readReturnContext(gameLinkState(at(path)));
 
     expect(context?.label).toBe(label);
-    expect(context?.path).toBe(path);
+    expect(context?.path).toBe(path.replace(/^\/(?=\?|$)/, "/lanzamientos/destacados"));
     expect(context?.state).toEqual({ restoreEntry: "entry-1" });
+  });
+
+  it("migrates a stored legacy release-list origin with its filters to the explorer", () => {
+    expect(readReturnContext({ returnTo: {
+      path: "/?view=upcoming&weeks=4&platformIds=pc&regionIds=europe&pageSize=6", entry: "old-entry",
+    } })).toEqual({
+      origin: "releases", path: "/lanzamientos?platformIds=pc&regionIds=europe&pageSize=6",
+      label: "Volver a lanzamientos", state: { restoreEntry: "old-entry" },
+    });
   });
 
   it("carries no origin from screens without a way back", () => {
@@ -40,9 +50,9 @@ describe("game page return context", () => {
     ["a non-string path", { returnTo: { path: 7, entry: "entry-1" } }],
     ["no origin at all", null],
     ["a foreign shape", "returnTo"],
-  ])("rejects %s and lets the page fall back to TOPómetro", (_, state) => {
+  ])("rejects %s and lets the page fall back to Destacados", (_, state) => {
     expect(readReturnContext(state)).toBeNull();
-    expect(DEFAULT_RETURN).toEqual({ path: "/", label: "Volver al TOPómetro" });
+    expect(DEFAULT_RETURN).toEqual({ path: "/lanzamientos/destacados", label: "Volver a Destacados" });
   });
 
   it("drops a fragment and keeps only the path and query", () => {

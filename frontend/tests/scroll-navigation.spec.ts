@@ -182,8 +182,9 @@ for (const width of [390, 412, 1320]) {
       await expect(page).toHaveURL(/platformIds=windows-pc/);
       await at(page, before);
       await page.keyboard.press("Escape");
-      await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "TOPómetro" }).click();
-      await expect(page).toHaveURL(/\/$/);
+      await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
+      await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
       await at(page, 0);
       await expect(page.getByRole("main")).toBeFocused();
     });
@@ -248,9 +249,9 @@ for (const width of [390, 412, 1320]) {
     test("Featured title and selectors are painted on their first upward reentry", async ({ page }) => {
       await fixtures(page);
       await page.goto("/");
-      const selector = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
+      const selector = page.getByRole("navigation", { name: "Periodo de Destacados" });
       await expect(selector).toBeVisible();
-      const title = page.getByRole("heading", { name: "TOPómetro de la semana", exact: true });
+      const title = page.getByRole("heading", { name: "Destacados de la semana", exact: true });
       await expect(title).toBeVisible();
       // The heading of the loaded week can mount after the selector and starts its own fade-in,
       // so collect animations only once both are present.
@@ -342,7 +343,7 @@ test.describe("shared shell on a high-density touch screen", () => {
       const header = page.getByRole("banner");
       const title = page.getByRole("heading", { level: 1 });
       const controls = path === "/"
-        ? page.getByRole("navigation", { name: "Periodo del TOPómetro" })
+        ? page.getByRole("navigation", { name: "Periodo de Destacados" })
         // Phones fold the explorer's controls, so their toggle is what must paint there.
         : path.startsWith("/lanzamientos") ? page.locator(".releases-controls-toggle") : null;
       await expect(title).toBeVisible();

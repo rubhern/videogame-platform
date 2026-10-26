@@ -11,7 +11,7 @@ public final class AuthenticationReturnTarget {
     private static final int MAX_LENGTH = 2048;
     private static final Pattern GAME_PATH =
             Pattern.compile("/games/[a-z0-9-]{1,100}(?:/[a-z0-9-]{1,200})?");
-    // TOPómetro's periods, plus the former release-list parameters the SPA still redirects.
+    // Destacados' periods, plus the former release-list parameters the SPA still redirects.
     private static final Set<String> LANDING_QUERY =
             Set.of(
                     "granularity",
@@ -54,6 +54,8 @@ public final class AuthenticationReturnTarget {
             Set<String> allowed;
             if ("/".equals(path)) {
                 allowed = LANDING_QUERY;
+            } else if ("/lanzamientos/destacados".equals(path)) {
+                allowed = Set.of("granularity", "week", "month");
             } else if ("/lanzamientos".equals(path)) {
                 allowed = RELEASES_QUERY;
             } else if ("/lanzamientos/calendario".equals(path)) {

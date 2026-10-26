@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -17,7 +18,12 @@ import { useInterestsSwitch } from "../features/platform-preferences/interests-s
 export function FeaturedReleasesPage() {
   const [searchParams] = useSearchParams();
   const search = readFeaturedSearch(searchParams);
-  // TOPómetro has no manual platform choice: preferences are on or off in Mi cuenta (#295). The
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = `Destacados ${search.granularity === "week" ? "de la semana" : "del mes"} · Gameómetro`;
+    return () => { document.title = previousTitle; };
+  }, [search.granularity]);
+  // Destacados has no manual platform choice: preferences are on or off in Mi cuenta (#295). The
   // restriction reaches the API, which ranks the restricted candidates; nothing filters the six.
   const interests = useInterests();
   const { enabled } = useInterestsSwitch();

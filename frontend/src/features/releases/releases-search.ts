@@ -10,7 +10,7 @@ export const releaseSortLabels: Record<ReleaseSort, string> = {
   externalPlayerScore: "Jugadores IGDB",
 };
 
-/** The release explorer's own route (#285); TOPómetro keeps the landing route. */
+/** The release explorer's own route (#285); Destacados has its own canonical route. */
 export const RELEASES_PATH = "/lanzamientos";
 
 /** The longest inclusive range the API explores in one request. */

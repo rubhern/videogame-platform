@@ -36,6 +36,9 @@ class FrontendRouteControllerTest {
                                 .param("sort", "hype"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/lanzamientos/destacados").param("week", "2026-W42"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         // The release calendar reloads with its month, chosen day and filters.
         mockMvc.perform(
                         get("/lanzamientos/calendario")

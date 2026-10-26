@@ -5,7 +5,7 @@ import { analyzeAccessibility } from "./fixtures/accessibility";
 /**
  * Preferred platforms (#295) in the real browser against the packaged application.
  *
- * <p>The public reads — the selectable platforms, TOPómetro and the explorer — come from the
+ * <p>The public reads — the selectable platforms, Destacados and the explorer — come from the
  * packaged catalogue with its development seed. Only the BFF session and the personal preference
  * resource are scripted at the network boundary, as `my-ratings.spec.ts` does, so the journey runs
  * without Keycloak. This spec owns what a component test cannot prove: the first-run offer reached
@@ -107,9 +107,10 @@ test.describe("first-run platform choice", () => {
     await expect(page).toHaveURL(/\/bienvenida$/);
     await page.getByRole("button", { name: "Ahora no" }).click();
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
     expect(account.commands).toEqual([{ platformIds: [] }]);
-    await page.getByRole("link", { name: "Lanzamientos", exact: true }).click();
+    await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+    await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();
     await expect(page).toHaveURL(/\/lanzamientos$/);
     await expect(page.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeVisible();
   });
@@ -140,7 +141,8 @@ test.describe("Mis plataformas in Mi cuenta", () => {
 
       // The same document-wide choice holds in the explorer.
       await page.keyboard.press("Escape");
-      await page.getByRole("link", { name: "Lanzamientos", exact: true }).click();
+      await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+    await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();
       await expect(page).toHaveURL(/\/lanzamientos$/);
       await expect
         .poll(() => account.discoveryReads.at(-1)?.pathname)

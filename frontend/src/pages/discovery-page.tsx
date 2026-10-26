@@ -1,14 +1,11 @@
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
+import { FEATURED_PATH } from "../features/releases/featured-search";
 import { legacyReleasesPath } from "../features/releases/releases-search";
-import { FeaturedReleasesPage } from "./featured-releases-page";
 
-/**
- * The landing route is TOPómetro (#151, #341). A link from before #285 that named a recent or
- * upcoming list lands on the release explorer instead, keeping the filters it carried.
- */
+/** Compatibility entry until #382 supplies the home. Never reuse a featured link for a ranking. */
 export function DiscoveryPage() {
-  const [searchParams] = useSearchParams();
-  const legacy = legacyReleasesPath(searchParams);
-  return legacy === null ? <FeaturedReleasesPage /> : <Navigate replace to={legacy} />;
+  const location = useLocation();
+  const legacy = legacyReleasesPath(new URLSearchParams(location.search));
+  return <Navigate replace to={legacy ?? `${FEATURED_PATH}${location.search}${location.hash}`} state={location.state} />;
 }

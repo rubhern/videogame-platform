@@ -312,6 +312,6 @@ describe("release calendar page", () => {
       "href",
       "/lanzamientos?from=2026-11-01&to=2026-11-30&platformIds=playstation-5",
     );
-    expect(screen.getByRole("link", { name: "Lanzamientos" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Lanzamientos" })).toHaveAttribute("aria-current", "true");
   });
 });

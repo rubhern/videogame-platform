@@ -2,7 +2,7 @@
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
 BFF/API. It implements the complete MVP journey: `UC-001` release discovery, `UC-010` monthly
-featured releases on the landing route,
+featured releases,
 `UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
 same-origin authentication boundary (direct BFF/OIDC navigation to hosted identity screens,
 anonymous account entry,
@@ -12,7 +12,7 @@ Keycloak), the
 `/mis-puntuaciones`, the post-MVP `UC-015` personal statistics at
 `/mis-puntuaciones/estadisticas`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
-TOPómetro, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
+Destacados, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
 `/lanzamientos/calendario`, and
 the operator-only `UC-011`–`UC-013` and historical `UC-017` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
@@ -105,8 +105,15 @@ transport types do not spread through components. Follow the
 React Router owns navigation. TanStack Query owns server state, caching, loading, and
 invalidation. Component state owns transient interaction state; URL parameters own
 navigable/shareable state when safe (the featured week or month, release view and filters,
-search query and page). The landing route
-`/` shows the featured releases; the release lists always name their `view`. Values outside the contract shape
+search query and page). The canonical featured destination is `/lanzamientos/destacados`; `week`, `month` and
+`granularity` keep the existing weekly/monthly URL state. Until #382 supplies a dedicated
+home, `/` replaces its history entry with that destination and carries its query; former
+`view=recent|upcoming` links retain their existing explorer migration. Saved game-return
+state for the old landing also resolves to Destacados, preserving the query and scroll-entry
+identity. A future home must retain migration of explicit legacy featured-period links;
+no former featured link may become a player-score ranking. The **Lanzamientos** disclosure
+links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
+(`/lanzamientos/calendario`). The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
 tokens and personal responses are never stored in browser storage; same-origin
