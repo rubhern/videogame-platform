@@ -117,7 +117,7 @@ test("logout ends this browser's Keycloak session so the next sign-in asks for c
   await returned;
   await shared.page.waitForLoadState("load");
 
-  await expect(shared.page).toHaveURL(`${applicationOrigin}/`);
+  await expect(shared.page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   await expect(shared.page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
   expect(await sessionState(shared.page)).toEqual({ authenticated: false });
   expect(await shared.page.context().cookies(applicationOrigin)).toEqual([]);
@@ -141,7 +141,7 @@ async function signIn(browser: Browser, player: Player): Promise<Device> {
   const page = await context.newPage();
   await page.goto("/auth/login/keycloak");
   await submitCredentials(page, player);
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   return { page, close: () => context.close() };
 }

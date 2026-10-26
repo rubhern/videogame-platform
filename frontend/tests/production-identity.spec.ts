@@ -97,7 +97,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await page.locator("#kc-passwd-update-form [type=submit]").click();
   await completeFirstSignIn(page);
 
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   const signedIn = await sessionState(page);
   expect(signedIn).toEqual({ authenticated: true, csrfToken: expect.any(String) });
   await record(first, page, "signed in after verification");
@@ -151,7 +151,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await other.locator("#password-confirm").fill(otherPassword);
   await other.locator("#kc-passwd-update-form [type=submit]").click();
   await completeFirstSignIn(other);
-  await expect(other).toHaveURL(`${applicationOrigin}/`);
+  await expect(other).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   expect(await other.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(404);
   expect(await page.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(200);
   const otherSession = await sessionState(other);
@@ -175,7 +175,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await returned;
   await page.waitForLoadState("load");
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
   await record(first, page, "after logout");
   expect(await first.cookies(applicationOrigin)).toEqual([]);
@@ -192,7 +192,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(page.locator("#rememberMe")).not.toBeChecked();
   await page.locator("#rememberMe").check();
   await page.locator("#kc-login").click();
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   await record(first, page, "remembered password login after logout");
   const rememberedCookies = await first.cookies();
@@ -211,14 +211,14 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await resumed.goto(applicationOrigin);
   expect(await sessionState(resumed)).toEqual({ authenticated: false });
   await resumed.goto(`${applicationOrigin}/auth/login/keycloak`);
-  await expect(resumed).toHaveURL(`${applicationOrigin}/`);
+  await expect(resumed).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   expect(await sessionState(resumed)).toMatchObject({ authenticated: true });
   await record(restarted, resumed, "remembered HTTPS re-entry after simulated restart");
   await restarted.clearCookies({ name: sessionCookie });
   await resumed.goto(`${applicationOrigin}/auth/logout`);
   await expect(resumed.locator("#kc-logout")).toBeVisible();
   await resumed.locator("#kc-logout").click();
-  await expect(resumed).toHaveURL(`${applicationOrigin}/`);
+  await expect(resumed).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   await record(restarted, resumed, "remembered HTTPS logout without BFF cookie");
   expect((await restarted.cookies()).filter(cookie => ["KEYCLOAK_IDENTITY", "KEYCLOAK_SESSION", "KEYCLOAK_REMEMBER_ME"].includes(cookie.name))).toEqual([]);
   await restarted.close();
@@ -239,7 +239,7 @@ test("password recovery returns through the canonical issuer with the same cooki
   await page.locator("#password-confirm").fill(forgotten);
   await page.locator("#kc-passwd-update-form [type=submit]").click();
   await completeFirstSignIn(page);
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   await context.close();
 
   const device = await browser.newContext();
@@ -258,7 +258,7 @@ test("password recovery returns through the canonical issuer with the same cooki
   await recovering.locator("#password-new").fill(renewed);
   await recovering.locator("#password-confirm").fill(renewed);
   await recovering.locator("#kc-passwd-update-form [type=submit]").click();
-  await expect(recovering).toHaveURL(`${applicationOrigin}/`);
+  await expect(recovering).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   expect(await sessionState(recovering)).toMatchObject({ authenticated: true });
   await record(device, recovering, "signed in after recovery");
   expect(await browserState(recovering)).toMatchObject({ documentCookie: [], localStorage: 0, sessionStorage: 0, indexedDb: 0 });
@@ -293,7 +293,7 @@ async function openEmailAction(page: Page, request: APIRequestContext, email: st
 async function completeFirstSignIn(page: Page) {
   await expect(page).toHaveURL(`${applicationOrigin}/bienvenida`);
   await page.getByRole("button", { name: "Ahora no", exact: true }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
 }
 
 function observe(page: Page) {

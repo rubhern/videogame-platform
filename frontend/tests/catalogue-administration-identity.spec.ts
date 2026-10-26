@@ -90,7 +90,7 @@ async function signIn(browser: Browser, account: Account): Promise<Page> {
   await page.getByLabel("Usuario", { exact: true }).fill(account.username);
   await page.locator("#password").fill(account.password);
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
   return page;
 }
 
