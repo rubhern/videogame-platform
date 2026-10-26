@@ -200,6 +200,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Run the pinned browser smoke test without retries
         env:
@@ -216,27 +217,30 @@ jobs:
           retention-days: 7
 
   identity-compatibility:
-    name: Real Keycloak 26.7 OIDC BFF compatibility
+    name: Real Keycloak 26.7 OIDC BFF compatibility (${{ matrix.leg }})
     if: ${{ needs.detect-changes.outputs.identity == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
+    strategy:
+      # Every leg is part of one required result; one failure must not hide another.
+      fail-fast: false
+      matrix:
+        leg: [private-dev, core, renewal, idle, production, personal-data]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Prove the private-dev identity alignment and mail transports without retries
-        run: bash scripts/validate-private-dev-identity.sh
-
       - name: Set up Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
+          # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
+          cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
@@ -244,31 +248,33 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-          cache: maven
+          cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
-      - name: Prove real OIDC login and opaque BFF session without retries
+      # Each leg owns a disposable Keycloak, PostgreSQL, Mailpit and BFF on its own runner;
+      # the timed legs mutate realm and client state that must not be shared.
+      - name: Prove the ${{ matrix.leg }} identity leg without retries
         env:
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
-        run: bash scripts/validate-identity.sh
-
-      - name: Prove the public-production realm and BFF issuer/cookie contract without retries
-        env:
-          PRODUCTION_IDENTITY_REUSE_PACKAGE: "true"
-        run: bash scripts/validate-production-identity.sh
-
-      - name: Prove personal-data export, erasure, deletion ledger and restore replay without retries
-        env:
-          PERSONAL_DATA_REUSE_PACKAGE: "true"
-        run: bash scripts/validate-personal-data.sh
+          IDENTITY_LEG: ${{ matrix.leg }}
+          # Without the separate backend gate, exactly one packaging leg keeps the Maven tests.
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.leg != 'personal-data' }}
+        run: |
+          case "$IDENTITY_LEG" in
+            private-dev) bash scripts/validate-private-dev-identity.sh ;;
+            core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
+            production) bash scripts/validate-production-identity.sh ;;
+            personal-data) bash scripts/validate-personal-data.sh ;;
+            *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
+          esac
 
       - name: Preserve sanitized identity-browser diagnostics
         if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: identity-browser-diagnostics
+          name: identity-browser-diagnostics-${{ matrix.leg }}
           path: frontend/test-results/
           if-no-files-found: ignore
           retention-days: 7
@@ -555,6 +561,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Test catalogue localization helper and operator boundaries
         run: python3 -m unittest discover -s tools/catalogue-localization -p 'test_*.py'
@@ -593,6 +600,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Bootstrap roles without exposing passwords in process arguments or logs
         run: python3 -I scripts/test-postgres-bootstrap.py
@@ -668,6 +676,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Set up Node.js 24 for JavaScript and TypeScript analysis
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}

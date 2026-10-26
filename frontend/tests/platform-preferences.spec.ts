@@ -54,6 +54,13 @@ class ScriptedAccount {
   }
 }
 
+/** "/" redirects to Destacados, whose page change moves focus to main and would close an open menu. */
+async function landOnFeatured(page: Page, search = "") {
+  await page.goto(`/${search}`);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados(\?|$)/);
+  await expect(page.getByRole("main")).toBeFocused();
+}
+
 async function expectNoPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
@@ -123,7 +130,7 @@ test.describe("Mis plataformas in Mi cuenta", () => {
       const account = new ScriptedAccount(page, { configured: true, platforms: [PS5] });
       await account.install();
 
-      await page.goto("/?granularity=month");
+      await landOnFeatured(page, "?granularity=month");
       await page.getByRole("button", { name: "Mi cuenta" }).click();
       const check = page.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
       await expect(check).toBeChecked();
@@ -156,7 +163,7 @@ test.describe("Mis plataformas in Mi cuenta", () => {
     const account = new ScriptedAccount(page, { configured: true, platforms: [PS5] });
     await account.install();
 
-    await page.goto("/");
+    await landOnFeatured(page);
     await page.getByRole("button", { name: "Mi cuenta" }).click();
     await page.getByRole("link", { name: "Mis plataformas", exact: true }).click();
 

@@ -43,8 +43,7 @@ class DeliveryTests(unittest.TestCase):
                 checked = subprocess.run(['bash', str(ROOT / 'scripts/verify-ci-results.sh'), job,
                                           applicable, result], capture_output=True)
                 self.assertNotEqual(checked.returncode, 0, (job, applicable, result))
-        for job in ('browser-smoke', 'identity-compatibility'):
-            self.assertIn('PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}', jobs[job])
+        self.assertIn('PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}', jobs['browser-smoke'])
         self.assertIn('backend "$BACKEND_EXPECTED" "$BACKEND"', gate)
         self.assertIn('./mvnw -Dsource.revision="${GITHUB_SHA}" clean verify', jobs['backend'])
         self.assertNotIn('setup-qemu', workflow)
@@ -52,6 +51,74 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn("github.event_name == 'push'", jobs['publish-container-image'])
         self.assertIn('--preserve-digests', jobs['publish-container-image'])
         self.assertIn('"$actual_digest" != "$expected_digest"', jobs['publish-container-image'])
+
+    def test_identity_legs_are_isolated_required_and_complete(self):
+        workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()
+        starts = list(re.finditer(r'^  ([a-z][a-z-]+):\n', workflow, re.M))
+        jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
+                for i, match in enumerate(starts)}
+        job, gate = jobs['identity-compatibility'], jobs['required-quality-gate']
+        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data']
+        self.assertIn("if: ${{ needs.detect-changes.outputs.identity == 'true' }}", job)
+        self.assertIn('    needs: detect-changes\n', job)
+        self.assertIn('      fail-fast: false\n', job)
+        self.assertIn(f"        leg: [{', '.join(legs)}]\n", job)
+        self.assertEqual(job.count('leg: ['), 1, 'one matrix dimension, no include/exclude legs')
+        for forbidden in ('include:', 'exclude:', 'continue-on-error', 'REUSE_PACKAGE', '--retries', 'max-parallel'):
+            self.assertNotIn(forbidden, job)
+        # Only the diagnostics upload is conditional; no leg can skip its proof and pass.
+        self.assertEqual(re.findall(r'^        if: (.+)$', job, re.M), ['${{ failure() && !cancelled() }}'])
+        self.assertIn('name: identity-browser-diagnostics-${{ matrix.leg }}', job)
+        # The private-dev leg runs neither npm nor Maven and must not save an empty cache.
+        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}", job)
+        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}", job)
+        self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
+                      "|| matrix.leg != 'personal-data' }}", job)
+        self.assertIn('      - identity-compatibility\n', gate)
+        self.assertIn('IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}', gate)
+        self.assertIn('identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY"', gate)
+
+        # Execute the leg dispatch with a recording stand-in for bash.
+        dispatch = re.search(r'^        run: \|\n((?:          .*\n)+)', job, re.M)[1]
+        dispatch = re.sub(r'^          ', '', dispatch, flags=re.M)
+        recorder = 'bash() { printf "%s %s\\n" "$*" "${IDENTITY_REMEMBER_ME_PHASE:-}"; }\n'
+        expected = {
+            'private-dev': 'scripts/validate-private-dev-identity.sh',
+            'core': 'scripts/validate-identity.sh core',
+            'renewal': 'scripts/validate-identity.sh renewal',
+            'idle': 'scripts/validate-identity.sh idle',
+            'production': 'scripts/validate-production-identity.sh',
+            'personal-data': 'scripts/validate-personal-data.sh',
+        }
+        self.assertEqual(sorted(expected), sorted(legs))
+        for leg, command in expected.items():
+            ran = subprocess.run(['bash', '-c', recorder + dispatch], env={**os.environ, 'IDENTITY_LEG': leg},
+                                 capture_output=True, text=True)
+            self.assertEqual((ran.returncode, ran.stdout.strip()), (0, command), leg)
+        unknown = subprocess.run(['bash', '-c', recorder + dispatch], env={**os.environ, 'IDENTITY_LEG': 'all'},
+                                 capture_output=True, text=True)
+        self.assertEqual((unknown.returncode, unknown.stdout), (2, ''))
+
+        # core + renewal + idle together run every journey of the complete local phase.
+        script = (ROOT / 'scripts/validate-identity.sh').read_text()
+        self.assertIn('all|core|continuity|renewal|idle) ;;', script)
+        self.assertIn('if [[ "$identity_phase" =~ ^(all|core)$ && "${IDENTITY_REMEMBER_ME_ONLY:-false}" != "true" ]]; then', script)
+        self.assertIn('if [[ "$identity_phase" =~ ^(core|continuity)$ ]]; then', script)
+        refused = subprocess.run(['bash', str(ROOT / 'scripts/validate-identity.sh')],
+                                 env={**os.environ, 'IDENTITY_REMEMBER_ME_PHASE': 'timed'}, capture_output=True, text=True)
+        self.assertEqual(refused.returncode, 2, refused.stderr)
+
+    def test_build_jobs_never_restore_a_partial_maven_repository(self):
+        workflows = ROOT / '.github/workflows'
+        build = (workflows / 'build-and-verify.yml').read_text()
+        # A POM-only graph saved first under the build key left every build downloading
+        # nearly all dependencies again; the submission graph therefore keeps no cache.
+        submission = (workflows / 'dependency-submission.yml').read_text()
+        self.assertNotIn('cache: maven', submission)
+        self.assertNotIn('cache-dependency-path', submission)
+        reactor = 'cache-dependency-path: |\n            pom.xml\n            backend/pom.xml\n'
+        self.assertEqual(build.count(reactor), 5)
+        self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 5)
 
     def test_dependency_images_publish_only_scanned_digests_from_trusted_main(self):
         workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()
