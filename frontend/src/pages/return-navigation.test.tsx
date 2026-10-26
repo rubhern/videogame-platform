@@ -162,17 +162,17 @@ describe("the game page's way back", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Página 2 de 3");
   });
 
-  it("returns to the TOPómetro period it was opened from", async () => {
+  it("returns to the Destacados period it was opened from", async () => {
     serve();
-    const { router } = renderApp("/?month=2026-12");
+    const { router } = renderApp("/lanzamientos/destacados?month=2026-12");
     const hero = await screen.findByRole("article", { name: TITLE });
 
     const user = await openGameFrom(hero);
-    const back = screen.getAllByRole("link", { name: /Volver al TOPómetro/ })[0] as HTMLElement;
-    expect(back).toHaveAttribute("href", "/?month=2026-12");
+    const back = screen.getAllByRole("link", { name: /Volver a Destacados/ })[0] as HTMLElement;
+    expect(back).toHaveAttribute("href", "/lanzamientos/destacados?month=2026-12");
 
     await user.click(back);
-    await screen.findByRole("heading", { level: 1, name: "TOPómetro del mes" });
+    await screen.findByRole("heading", { level: 1, name: "Destacados del mes" });
     expect(router.state.location.search).toBe("?month=2026-12");
   });
 
@@ -219,12 +219,12 @@ describe("the game page's way back", () => {
     expect(sessionStorage.length).toBe(0);
   });
 
-  it("falls back to TOPómetro for a direct link", async () => {
+  it("falls back to Destacados for a direct link", async () => {
     serve();
     renderApp(`/games/${GAME_ID}/${SLUG}`);
 
     await screen.findByRole("heading", { level: 1, name: TITLE });
-    expect(screen.getAllByRole("link", { name: /Volver al TOPómetro/ })[0]).toHaveAttribute("href", "/");
+    expect(screen.getAllByRole("link", { name: /Volver a Destacados/ })[0]).toHaveAttribute("href", "/lanzamientos/destacados");
   });
 
   it("never follows a forged origin outside the product", async () => {
@@ -236,7 +236,7 @@ describe("the game page's way back", () => {
 
     await screen.findByRole("heading", { level: 1, name: TITLE });
     for (const back of screen.getAllByRole("link", { name: /Volver/ })) {
-      expect(back).toHaveAttribute("href", "/");
+      expect(back).toHaveAttribute("href", "/lanzamientos/destacados");
     }
   });
 });

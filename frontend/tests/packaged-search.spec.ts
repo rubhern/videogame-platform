@@ -53,8 +53,11 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
+  // The legacy entry replaces its route and search form; interact with the settled destination.
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
   await page.getByRole("combobox", { name: "Buscar juegos" }).press("Enter");
 
+  await expect(page).toHaveURL(/\/search$/);
   await expect(page.getByRole("heading", { level: 1, name: "Buscar juegos" })).toBeVisible();
 
   await test.step("no search runs until the visitor asks for one", async () => {

@@ -13,7 +13,7 @@ import { DEFAULT_RETURN, readReturnContext } from "../shared/navigation/return-c
  * The game page's way back names the screen it was opened from and returns to it with the same
  * period, filters, order, search and page (#285). The origin is the history entry's validated
  * state; a direct link, a reload after leaving the product or any unexpected state returns to
- * TOPómetro. The return restores the origin entry's reading position.
+ * Destacados. The return restores the origin entry's reading position.
  */
 export function BackToOrigin() {
   const origin = readReturnContext(useLocation().state);

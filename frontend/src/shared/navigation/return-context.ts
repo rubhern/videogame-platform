@@ -1,3 +1,5 @@
+import { FEATURED_PATH } from "../../features/releases/featured-search";
+import { legacyReleasesPath } from "../../features/releases/releases-search";
 import type { Location } from "react-router-dom";
 
 /**
@@ -5,7 +7,7 @@ import type { Location } from "react-router-dom";
  *
  * The origin travels in the history entry's React Router state, never in the URL: a shared game
  * link stays clean and a personal search never leaks into it. A reload or browser history keeps
- * the entry's state; a direct link has none and falls back to TOPómetro. State is browser input,
+ * the entry's state; a direct link has none and falls back to Destacados. State is browser input,
  * so it is validated on every read and only ever names one of the product's own list routes.
  */
 export type ReturnOrigin =
@@ -37,6 +39,7 @@ export type ReturnContext = {
 
 const ORIGINS: Record<string, ReturnOrigin> = {
   "/": "featured",
+  [FEATURED_PATH]: "featured",
   "/lanzamientos": "releases",
   "/lanzamientos/calendario": "release-calendar",
   "/search": "search",
@@ -45,7 +48,7 @@ const ORIGINS: Record<string, ReturnOrigin> = {
 };
 
 const LABELS: Record<ReturnOrigin, string> = {
-  featured: "Volver al TOPómetro",
+  featured: "Volver a Destacados",
   releases: "Volver a lanzamientos",
   "release-calendar": "Volver al calendario",
   search: "Volver a resultados",
@@ -53,9 +56,9 @@ const LABELS: Record<ReturnOrigin, string> = {
   "rating-insights": "Volver a tus estadísticas",
 };
 
-/** Without a known origin the game page returns to the landing route. */
+/** Without a known origin the game page returns to Destacados. */
 export const DEFAULT_RETURN: Pick<ReturnContext, "path" | "label"> = {
-  path: "/",
+  path: FEATURED_PATH,
   label: LABELS.featured,
 };
 
@@ -100,8 +103,11 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
   } catch {
     return null;
   }
-  const origin = url.origin === BASE ? ORIGINS[url.pathname] : undefined;
-  return origin === undefined ? null : { origin, path: `${url.pathname}${url.search}` };
+  if (url.origin !== BASE) return null;
+  const legacy = url.pathname === "/" ? legacyReleasesPath(url.searchParams) : null;
+  if (legacy !== null) return { origin: "releases", path: legacy };
+  const origin = ORIGINS[url.pathname];
+  return origin === undefined ? null : { origin, path: `${url.pathname === "/" ? FEATURED_PATH : url.pathname}${url.search}` };
 }
 
 /** The state a link into a game page carries from `location`, or none from any other screen. */

@@ -139,7 +139,8 @@ The calendar never shows numeric Hype.
 The API owns the bounds and the evaluation date; the browser never decides "today".
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
-the landing view of release discovery, **TOPómetro** (named in #341), beside the release explorer under **Lanzamientos** (#285). It
+the featured view of release discovery, **Destacados** (#385), alongside **Explorar** (#285)
+and **Calendario** (#250) in the **Lanzamientos** navigation disclosure. It
 represents one calendar period, an ISO week from Monday to Sunday or a calendar month, both
 evaluated in `Europe/Madrid`; the URL carries the selection. The frontend opens on the
 current week (owner decision, #329), while a request naming no period still reads the
@@ -353,7 +354,7 @@ rather than truncating beyond 500 platforms.
 
 The browser resolves the preferences into the explicit platform filter of the public
 `UC-001`, `UC-010` and `UC-016` reads, so those reads stay publicly cacheable and identical for
-every session. They apply by default on TOPómetro, Explorar lanzamientos and the release
+every session. They apply by default on Destacados, Explorar lanzamientos and the release
 calendar; one document-wide switch in **Mi cuenta** turns them off for those screens without
 changing the saved set, and a manual platform selection in the explorer or the calendar sets
 them aside rather than intersecting with them.

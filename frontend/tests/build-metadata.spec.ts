@@ -30,8 +30,9 @@ test("browser startup identifies the artifact once and client navigation does no
   await expect(page.locator("h1")).toBeVisible();
   expect(messages).toEqual([expectedMessage]);
 
-  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "TOPómetro" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
   expect(messages).toEqual([expectedMessage]);
   await page.reload();
   await expect(page.locator("h1")).toBeVisible();

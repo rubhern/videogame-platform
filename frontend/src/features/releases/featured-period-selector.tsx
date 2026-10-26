@@ -91,7 +91,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
 
   return (
     <div className="featured-period">
-      <nav aria-label="Periodo del TOPómetro" className="featured-granularity">
+      <nav aria-label="Periodo de Destacados" className="featured-granularity">
         <ul>
           {granularities.map((option) => (
             <li key={option.value}>

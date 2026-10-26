@@ -559,7 +559,7 @@
 
   /* ---------------------------------------------------------------- Catalogue cards */
 
-  /* The cover leads; pointing at the card lights its frame and its title in ice, as TOPómetro'
+  /* The cover leads; pointing at the card lights its frame and its title in ice, as Destacados'
      cards do. The title link's target covers the card, so the card is one pointer target while
      the title stays its only keyboard stop. */
   .catalogue-card {
@@ -632,7 +632,7 @@
     text-underline-offset: 3px;
   }
 
-  /* The release's date under the fire needle, as the month scale labels it on TOPómetro. */
+  /* The release's date under the fire needle, as the month scale labels it on Destacados. */
   .card-date {
     display: flex;
     align-items: center;

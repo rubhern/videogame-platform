@@ -91,55 +91,50 @@ describe("application routing", () => {
     renderApp();
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" }),
+      await screen.findByRole("heading", { level: 1, name: "Destacados de la semana" }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { level: 2, name: "Pragmata" }),
     ).toBeInTheDocument();
     const primary = screen.getByRole("navigation", { name: "Principal" });
-    expect(within(primary).getByRole("link", { name: "TOPómetro" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(within(primary).getByRole("button", { name: "Lanzamientos" })).toHaveAttribute("aria-current", "true");
   });
 
-  it("opens Explorar lanzamientos from the Lanzamientos entry and returns to TOPómetro", async () => {
+  it("opens the existing explorer through Lanzamientos and returns to Destacados", async () => {
     const user = userEvent.setup();
     const { router } = renderApp();
-    const primary = screen.getByRole("navigation", { name: "Principal" });
-
-    expect(within(primary).getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Lanzamientos",
-      "TOPómetro",
+    await screen.findByRole("heading", { name: "Destacados de la semana" });
+    const primary = () => screen.getByRole("navigation", { name: "Principal" });
+    await user.click(within(primary()).getByRole("button", { name: "Lanzamientos" }));
+    expect(within(primary()).getAllByRole("link").map(link => link.textContent)).toEqual([
+      "Destacados", "Explorar", "Calendario",
     ]);
-    await user.click(within(primary).getByRole("link", { name: "Lanzamientos" }));
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" }),
-    ).toBeInTheDocument();
+    await user.click(within(primary()).getByRole("link", { name: "Explorar" }));
+    await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" });
     expect(router.state.location.pathname).toBe("/lanzamientos");
-    expect(router.state.location.search).toBe("");
-    expect(within(primary).getByRole("link", { name: "Lanzamientos" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(within(primary).getByRole("link", { name: "TOPómetro" })).not.toHaveAttribute(
-      "aria-current",
-    );
-    // One explorer replaces the former recent and upcoming windows.
-    expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
-
-    await user.click(within(primary).getByRole("link", { name: "TOPómetro" }));
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" }),
-    ).toBeInTheDocument();
+    expect(within(primary()).getByRole("button", { name: "Lanzamientos" })).toHaveAttribute("aria-expanded", "false");
+    await user.click(within(primary()).getByRole("button", { name: "Lanzamientos" }));
+    expect(within(primary()).getByRole("link", { name: "Explorar" })).toHaveAttribute("aria-current", "page");
+    await user.click(within(primary()).getByRole("link", { name: "Destacados" }));
+    await screen.findByRole("heading", { level: 1, name: "Destacados de la semana" });
+    expect(router.state.location.pathname).toBe("/lanzamientos/destacados");
     expect(router.state.location.search).toBe("");
   });
+
+  it.each(["", "?week=2026-W33", "?granularity=month", "?month=2026-08"])(
+    "replaces legacy featured URLs without losing their period: /%s", async query => {
+      const { router } = renderApp(`/${query}`);
+      await screen.findByRole("heading", { level: 2, name: "Pragmata" });
+      expect(router.state.location.pathname + router.state.location.search).toBe(`/lanzamientos/destacados${query}`);
+      expect(router.state.historyAction).toBe("REPLACE");
+      expect(document.title).toContain("Destacados");
+    },
+  );
 
   it("presents the product as Gameómetro in the shell", async () => {
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
+    await screen.findByRole("heading", { level: 1, name: "Destacados de la semana" });
     expect(screen.getByRole("link", { name: "Gameómetro · Inicio" })).toHaveAttribute("href", "/");
     expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro", { selector: ".sr-only" })).toBeInTheDocument();
   });
@@ -148,7 +143,7 @@ describe("application routing", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
+    await screen.findByRole("heading", { level: 1, name: "Destacados de la semana" });
     const sections = screen.getByRole("navigation", { name: "Principal" });
     expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
     expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
@@ -174,7 +169,7 @@ describe("application routing", () => {
     homeLink.focus();
     await user.keyboard("{Enter}");
 
-    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
+    await screen.findByRole("heading", { level: 1, name: "Destacados de la semana" });
     expect(screen.getByRole("main")).toHaveFocus();
   });
 

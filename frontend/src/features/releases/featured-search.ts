@@ -8,9 +8,12 @@
  */
 export type FeaturedGranularity = "week" | "month";
 
+/** Stable release-attention destination, independent of the home and future TOPómetro. */
+export const FEATURED_PATH = "/lanzamientos/destacados";
+
 /**
- * The granularity TOPómetro opens on (owner decision, #329). It is the only place that decides
- * it: the landing route, the switch and the URL canonical form all follow this value.
+ * The granularity Destacados opens on (owner decision, #329). It is the only place that decides
+ * it: the featured route, the switch and the URL canonical form all follow this value.
  */
 export const DEFAULT_FEATURED_GRANULARITY: FeaturedGranularity = "week";
 
@@ -48,7 +51,7 @@ export function readFeaturedSearch(params: URLSearchParams): FeaturedSearch {
 }
 
 /**
- * The canonical route of a featured state: the landing route for the current period of the
+ * The canonical route of a featured state: the Destacados route for the current period of the
  * default granularity, `?granularity=` for the other one, and the period alone otherwise.
  */
 export function featuredSearchPath(search: FeaturedSearch): string {
@@ -59,12 +62,12 @@ export function featuredSearchPath(search: FeaturedSearch): string {
     params.set("granularity", search.granularity);
   }
   const query = params.toString();
-  return query === "" ? "/" : `/?${query}`;
+  return query === "" ? FEATURED_PATH : `${FEATURED_PATH}?${query}`;
 }
 
 /** Whether the URL already is the canonical route of what it reads as. */
 export function isCanonicalFeaturedSearch(params: URLSearchParams): boolean {
   const canonical = featuredSearchPath(readFeaturedSearch(params));
   const current = params.toString();
-  return canonical === (current === "" ? "/" : `/?${current}`);
+  return canonical === (current === "" ? FEATURED_PATH : `${FEATURED_PATH}?${current}`);
 }

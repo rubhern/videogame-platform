@@ -135,7 +135,7 @@ async function platformsCheck(user: ReturnType<typeof userEvent.setup>) {
   return screen.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
 }
 
-describe("Mis plataformas on TOPómetro", () => {
+describe("Mis plataformas on Destacados", () => {
   it("ranks only the preferred platforms by default, asking the API before ranking", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
@@ -152,7 +152,7 @@ describe("Mis plataformas on TOPómetro", () => {
     const check = await platformsCheck(user);
     expect(check).toBeChecked();
     expect(check).toHaveAccessibleDescription(
-      "En TOPómetro, Explorar lanzamientos y el calendario: Nintendo Switch 2, PlayStation 5",
+      "En Destacados, Explorar lanzamientos y el calendario: Nintendo Switch 2, PlayStation 5",
     );
     expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
   });
@@ -198,7 +198,7 @@ describe("Mis plataformas on TOPómetro", () => {
     );
   });
 
-  it("keeps the general TOPómetro for an anonymous visitor", async () => {
+  it("keeps the general Destacados for an anonymous visitor", async () => {
     const fetchMock = stubBff({ kind: "anonymous" });
     renderApp("/");
 

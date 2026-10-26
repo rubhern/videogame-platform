@@ -15,7 +15,7 @@ describe("featured releases navigable state", () => {
   it("opens on the current week, the single default granularity", () => {
     expect(DEFAULT_FEATURED_GRANULARITY).toBe("week");
     expect(read("")).toEqual({ granularity: "week", period: null });
-    expect(featuredSearchPath({ granularity: "week", period: null })).toBe("/");
+    expect(featuredSearchPath({ granularity: "week", period: null })).toBe("/lanzamientos/destacados");
   });
 
   it("reads a named week or month, or the current period of a named granularity", () => {
@@ -46,9 +46,9 @@ describe("featured releases navigable state", () => {
   });
 
   it("keeps one canonical route for every state", () => {
-    expect(featuredSearchPath({ granularity: "month", period: null })).toBe("/?granularity=month");
-    expect(featuredSearchPath({ granularity: "month", period: "2026-09" })).toBe("/?month=2026-09");
-    expect(featuredSearchPath({ granularity: "week", period: "2027-W01" })).toBe("/?week=2027-W01");
+    expect(featuredSearchPath({ granularity: "month", period: null })).toBe("/lanzamientos/destacados?granularity=month");
+    expect(featuredSearchPath({ granularity: "month", period: "2026-09" })).toBe("/lanzamientos/destacados?month=2026-09");
+    expect(featuredSearchPath({ granularity: "week", period: "2027-W01" })).toBe("/lanzamientos/destacados?week=2027-W01");
 
     for (const canonical of ["", "week=2026-W42", "month=2026-09", "granularity=month"]) {
       expect(isCanonicalFeaturedSearch(new URLSearchParams(canonical))).toBe(true);

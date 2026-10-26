@@ -11,7 +11,7 @@ export function explorerRequestSearch(
   return { ...search, platformIds: [...filter.platformIds] };
 }
 
-/** TOPómetro's explicit platform restriction; it has no manual platform choice. */
+/** Destacados's explicit platform restriction; it has no manual platform choice. */
 export function featuredRequestPlatforms(interestsEnabled: boolean, interests: Interests): readonly string[] {
   return resolvePlatformFilter([], interestsEnabled, interests).platformIds;
 }

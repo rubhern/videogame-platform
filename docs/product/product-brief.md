@@ -158,7 +158,7 @@ owns the selected statistics and calculation guarantees; the accepted MVP cut is
 ## Personal discovery preferences
 
 **Approved; implemented, awaiting owner review (#295):** a signed-in player may choose the
-platforms they play on and have TOPómetro and Explorar lanzamientos show those first; the
+platforms they play on and have Destacados and Explorar lanzamientos show those first; the
 **Mis plataformas** checkbox in **Mi cuenta** sets them aside for both screens at once. The choice is explicit, optional,
 skippable and editable in **Mis plataformas**; it narrows release discovery only, never search,
 game pages or `Mis puntuaciones`. It is not a recommendation engine, an inference from ratings,

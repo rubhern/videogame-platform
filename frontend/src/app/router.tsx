@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
+import { FeaturedReleasesPage } from "../pages/featured-releases-page";
 import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
@@ -26,6 +27,7 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { index: true, element: <DiscoveryPage /> },
+      { path: "lanzamientos/destacados", element: <FeaturedReleasesPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
       { path: "search", element: <SearchPage /> },

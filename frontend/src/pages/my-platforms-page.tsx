@@ -20,7 +20,7 @@ function sameSet(left: readonly string[], right: readonly string[]): boolean {
 
 /**
  * **Mis plataformas** (#295): where a signed-in visitor manages the preferred platforms that
- * **Según mis intereses** applies to TOPómetro and Explorar lanzamientos. Changes are a draft until
+ * **Según mis intereses** applies to Destacados and Explorar lanzamientos. Changes are a draft until
  * saved, so browsing the tiles never sends a command; saving replaces the whole set, and an empty
  * set clears it. Turning interests off on a discovery screen never changes what is saved here.
  */

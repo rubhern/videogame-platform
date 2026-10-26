@@ -1,6 +1,6 @@
-/* Page openings outside TOPómetro: the night stage lit by the art the page already shows, the
+/* Page openings outside Destacados: the night stage lit by the art the page already shows, the
    context line, the one-phrase title and, on the release windows, the period readout beside it.
-   TOPómetro owns its own hero (featured.css); docs/development/frontend-design.md owns the rules. */
+   Destacados owns its own hero (featured.css); docs/development/frontend-design.md owns the rules. */
 
 @layer components {
   /* ---------------------------------------------------------------- Stage */
@@ -117,7 +117,7 @@
     gap: 2px 24px;
   }
 
-  /* Page titles read as one phrase, at TOPómetro's size and voice. */
+  /* Page titles read as one phrase, at Destacados's size and voice. */
   .hero-title {
     max-width: 100%;
     font-size: clamp(1.5rem, 2.2vw, 1.875rem);
@@ -130,7 +130,7 @@
     font-size: clamp(1.25rem, 1.9vw, 1.625rem);
   }
 
-  /* The window as the instrument's own readout, as TOPómetro names its month. */
+  /* The window as the instrument's own readout, as Destacados names its month. */
   .release-period {
     margin: 0;
     color: var(--g-ice);

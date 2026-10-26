@@ -8,7 +8,7 @@ type ReleaseViewSwitchProps = {
 };
 
 /**
- * **Lista | Calendario** (#250): the two views of **Lanzamientos**, as TOPómetro's
+ * **Lista | Calendario** (#250): the two views of **Lanzamientos**, as Destacados's
  * **Semana | Mes** switch reads. Both are native links, so the view lives in the URL and the main
  * navigation keeps its two entries.
  */

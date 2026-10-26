@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
-import { releasePage } from "./fixtures/releases";
+import { featuredWeekReleases, releasePage } from "./fixtures/releases";
 
 /** The vertical centre of a header control, which tells the row it sits on. */
 async function rowCentre(control: Locator) {
@@ -34,7 +34,10 @@ for (const width of [320, 390, 834, 1320]) {
         ? { authenticated: true, csrfToken: "header-csrf" }
         : { authenticated: false } });
     });
+    // A fixture browser follows the BFF logout completion back into the anonymous shell.
+    await page.route("**/auth/logout", route => route.fulfill({ status: 302, headers: { location: "/" } }));
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
+    await page.route("**/api/v1/featured-releases?*", route => route.fulfill({ json: featuredWeekReleases({ items: [] }) }));
     await page.goto("/lanzamientos");
 
     const trigger = page.getByRole("button", { name: "Mi cuenta" });

@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { redirect, type LoaderFunctionArgs } from "react-router-dom";
+import { redirect, replace, type LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
 import { getRatingInsights } from "../features/ratings/rating-insights-api";
 import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
-import { readFeaturedSearch } from "../features/releases/featured-search";
+import { FEATURED_PATH, readFeaturedSearch } from "../features/releases/featured-search";
 import {
   legacyReleasesPath,
   readReleasesSearch,
@@ -47,24 +47,26 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
   let welcomeOffered = false;
   return async ({ request, params }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
-    if (url.pathname === "/" || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
+    // Resolve the compatibility entry before hydration, so a pending destination keeps its
+    // loading surface instead of mounting a redirect-only page with an empty outlet.
+    if (url.pathname === "/") {
+      return replace(legacyReleasesPath(url.searchParams) ?? `${FEATURED_PATH}${url.search}`);
+    }
+    if (url.pathname === FEATURED_PATH || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
       const interests = await loadInterests(queryClient);
       const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
       if (!welcomeOffered && preferences?.configured === false) {
         welcomeOffered = true;
         return redirect(welcomePath(url.pathname + url.search));
       }
-      if (url.pathname === "/") {
-        // A legacy release-list link only redirects; its destination reads on arrival.
-        if (legacyReleasesPath(url.searchParams) === null) {
-          const search = readFeaturedSearch(url.searchParams);
-          await queryClient.prefetchQuery(
-            featuredReleasesQueryOptions(
-              search,
-              featuredRequestPlatforms(interestsSwitch.enabled(), interests),
-            ),
-          );
-        }
+      if (url.pathname === FEATURED_PATH) {
+        const search = readFeaturedSearch(url.searchParams);
+        await queryClient.prefetchQuery(
+          featuredReleasesQueryOptions(
+            search,
+            featuredRequestPlatforms(interestsSwitch.enabled(), interests),
+          ),
+        );
       } else if (url.pathname === CALENDAR_PATH) {
         const search = readCalendarSearch(url.searchParams);
         const { platformIds } = resolvePlatformFilter(

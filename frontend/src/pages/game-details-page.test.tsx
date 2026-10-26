@@ -676,7 +676,7 @@ describe("public game details", () => {
     expect(await screen.findByRole("heading", { name: title })).toBeVisible();
     expect(screen.getByText(message)).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Volver al TOPómetro" }),
+      screen.getByRole("link", { name: "Volver a Destacados" }),
     ).toBeVisible();
   });
   it("offers a deliberate keyboard retry for network failures", async () => {

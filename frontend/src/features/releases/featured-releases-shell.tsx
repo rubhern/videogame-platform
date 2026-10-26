@@ -39,12 +39,12 @@ type FeaturedReleasesShellProps = {
 const OTHER_PLACEHOLDERS = 5;
 
 /**
- * The page title names TOPómetro and the granularity the URL requests, before any response
+ * The page title names Destacados and the granularity the URL requests, before any response
  * arrives. The name never states the ranking criterion (#341).
  */
 const titles: Record<FeaturedGranularity, string> = {
-  week: "TOPómetro de la semana",
-  month: "TOPómetro del mes",
+  week: "Destacados de la semana",
+  month: "Destacados del mes",
 };
 
 function liveStatus(state: FeaturedShellState, search: FeaturedSearch): string {
@@ -54,18 +54,18 @@ function liveStatus(state: FeaturedShellState, search: FeaturedSearch): string {
         ? null
         : formatRequestedPeriodPhrase(search.granularity, search.period);
     return phrase === null
-      ? "Cargando el TOPómetro…"
-      : `Cargando el TOPómetro de ${phrase}…`;
+      ? "Cargando Destacados…"
+      : `Cargando Destacados de ${phrase}…`;
   }
   if (state.status === "ready") {
     if (state.isRefreshing) {
-      return "Actualizando el TOPómetro…";
+      return "Actualizando Destacados…";
     }
     switch (state.model.selection.status) {
       case "ranked":
-        return `TOPómetro de ${state.model.periodPhrase}`;
+        return `Destacados de ${state.model.periodPhrase}`;
       case "popularity-unavailable":
-        return `Aún no hay TOPómetro de ${state.model.periodPhrase}`;
+        return `Aún no hay Destacados de ${state.model.periodPhrase}`;
       case "no-qualifying-releases":
         return `No hay lanzamientos en ${state.model.periodPhrase}`;
     }
@@ -127,7 +127,7 @@ function UnrankedNotice({
       <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
-          ? `Aún no hay TOPómetro de ${model.periodPhrase}`
+          ? `Aún no hay Destacados de ${model.periodPhrase}`
           : interestsOn
             ? `Tus plataformas no tienen lanzamientos en ${model.periodPhrase}`
             : `No hay lanzamientos en ${model.periodPhrase}`}
@@ -205,7 +205,7 @@ export function FeaturedReleasesShell({
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
             <p className="notice-kicker">Error de carga</p>
-            <h2>Ups, parece que TOPómetro se ha tomado unas vacaciones. Prueba de nuevo más tarde</h2>
+            <h2>Ups, parece que Destacados se han tomado unas vacaciones. Prueba de nuevo más tarde</h2>
             <p>{state.message}</p>
             <button className="button button-danger" onClick={onRetry} type="button">
               Reintentar
@@ -233,7 +233,7 @@ export function FeaturedReleasesShell({
               <section aria-labelledby="featured-others-title" className="featured-others">
                 <div className="featured-others-heading">
                   <h2 className="featured-others-title" id="featured-others-title">
-                    Más lanzamientos del TOPómetro
+                    Más lanzamientos destacados
                   </h2>
                   {/* The explorer opens on exactly the represented week or month (#285). */}
                   <Link

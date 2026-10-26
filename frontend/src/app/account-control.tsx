@@ -134,7 +134,7 @@ export function AccountControl() {
 
 /**
  * **Mis plataformas** in Mi cuenta (#295): a native checkbox that applies or sets aside the
- * preferred platforms on TOPómetro, Explorar lanzamientos and the release calendar for the whole document, never in the
+ * preferred platforms on Destacados, Explorar lanzamientos and the release calendar for the whole document, never in the
  * saved choice, beside the link that manages them. It mounts only with the open panel, so the
  * preferences are read when they are needed. Without preferences only the link remains.
  */
@@ -155,7 +155,7 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
   const platformsApplied = interestsSwitch.enabled && !manualPlatforms;
 
   /**
-   * Applies or sets aside the preferred platforms on TOPómetro, the explorer and the calendar, for the
+   * Applies or sets aside the preferred platforms on Destacados, the explorer and the calendar, for the
    * whole document and never in the saved choice. On the explorer, applying them replaces a manual
    * platform choice and either change returns to its first page; on the calendar, applying them
    * replaces a manual platform choice too.
@@ -198,7 +198,7 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
       </Link>
       {interests.status === "ready" ? (
         <span className="sr-only" id={platformsHintId}>
-          En TOPómetro, Explorar lanzamientos y el calendario: {interests.platforms.map((platform) => platform.name).join(", ")}
+          En Destacados, Explorar lanzamientos y el calendario: {interests.platforms.map((platform) => platform.name).join(", ")}
         </span>
       ) : null}
     </div>

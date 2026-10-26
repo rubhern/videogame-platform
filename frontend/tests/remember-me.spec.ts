@@ -1,3 +1,4 @@
+import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
@@ -42,8 +43,7 @@ async function state(page: Page): Promise<{ authenticated: boolean; csrfToken?: 
 }
 
 async function entered(page: Page) {
-  // New synthetic accounts can enter the approved first-run platform welcome route.
-  await expect(page).toHaveURL(url => url.origin === new URL(app).origin && ["/", "/bienvenida"].includes(url.pathname));
+  await reachFeaturedAfterSignIn(page, new URL(app).origin);
 }
 
 async function signIn(browser: Browser, request: APIRequestContext, remembered: boolean) {
@@ -153,7 +153,7 @@ test("remembered logout isolates devices and owner revocation still ends every r
   await first.page.locator("#password").fill(other.account.password);
   await first.page.locator("#rememberMe").check();
   await first.page.locator("#kc-login").click();
-  await expect(first.page).toHaveURL(`${app}/`);
+  await expect(first.page).toHaveURL(`${app}/lanzamientos/destacados`);
   const headers = await admin(request);
   expect((await request.put(`${adminRealm}/users/${other.account.id}`, { headers, data: { enabled: false } })).status()).toBe(204);
   expect((await request.post(`${adminRealm}/users/${other.account.id}/logout`, { headers })).status()).toBe(204);
@@ -221,7 +221,7 @@ test("timed idle expiry permits logout confirmation without a persistent 403", a
   expect((await rejectedLogout).status()).toBe(403);
   await expect(device.page.locator("#kc-logout")).toBeVisible();
   await device.page.locator("#kc-logout").click();
-  await expect(device.page).toHaveURL(`${app}/`);
+  await expect(device.page).toHaveURL(`${app}/lanzamientos/destacados`);
   await device.page.goto(`${app}/auth/login/keycloak`);
   await expect(device.page.locator("#username")).toBeVisible();
   await device.context.close();

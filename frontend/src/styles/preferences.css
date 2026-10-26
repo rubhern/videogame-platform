@@ -1,5 +1,5 @@
 /* Preferred platforms (#295): the first-run welcome and Mis plataformas share one choice of
-   platform tiles, and TOPómetro and Explorar lanzamientos share the Según mis intereses control.
+   platform tiles, and Destacados and Explorar lanzamientos share the Según mis intereses control.
    Night controls with hairlines; ice marks the selection and focus, never fire.
    docs/development/frontend-design.md owns the rules. */
 
@@ -386,7 +386,7 @@
       center / contain no-repeat;
   }
 
-  /* TOPómetro keeps the control at the end of its heading row, out of the instrument's readout. */
+  /* Destacados keeps the control at the end of its heading row, out of the instrument's readout. */
   .featured-heading .interests-control,
   .featured-heading .interests-invite {
     margin-left: auto;
