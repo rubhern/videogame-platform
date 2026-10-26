@@ -301,6 +301,11 @@ def unique(purpose: str, domain: str = "example.test") -> str:
 
 
 # 1. Private-dev before the change: username sign-in, optional verification, names, short passwords.
+[legacy_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
+for mapper in legacy_client["protocolMappers"]:
+    if mapper["protocolMapper"] == "gameometro-remember-me":
+        assert admin("DELETE", f"{ADMIN_REALM}/clients/{legacy_client['id']}/protocol-mappers/models/{mapper['id']}")[0] == 204
+assert admin("PUT", ADMIN_REALM, {"rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
 legacy_password = "legacy-1"
 verified_name, verified_email = "legacy-verified", unique("legacy-verified", "gameometro.com")
 reserved_name, reserved_email = "legacy-reserved", unique("legacy-reserved")
@@ -324,6 +329,57 @@ before_credentials = {user_id: stored_credentials(user_id) for user_id in before
 [bff_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
 before_realm = get(ADMIN_REALM)
 
+# Local startup uses the same command in session-only mode. Preserve every other realm
+# field, client setting, credential and account; prove apply/check/no-op/restore on real Keycloak.
+checked = command(identity_command, "--sessions-only", "--check")
+assert checked.returncode == 1 and "rememberMeMapper" in checked.stderr, checked.stderr
+assert command(identity_command, "--sessions-only").returncode == 2
+session_directory = EVIDENCE / "sessions"
+session_directory.mkdir(mode=0o700)
+aligned = command(identity_command, "--sessions-only", "--snapshot-dir", str(session_directory))
+assert aligned.returncode == 0, aligned.stdout + aligned.stderr
+[session_snapshot] = session_directory.glob("keycloak-identity-before-*.json")
+assert session_snapshot.stat().st_mode & 0o777 == 0o600
+assert command(identity_command, "--sessions-only", "--check").returncode == 0
+repeated = command(identity_command, "--sessions-only", "--snapshot-dir", str(session_directory))
+assert repeated.returncode == 0 and "nothing changed" in repeated.stdout
+assert len(list(session_directory.glob("*.json"))) == 1
+session_realm = get(ADMIN_REALM)
+for name in identity.SESSION_SETTINGS:
+    assert session_realm[name] == identity.desired_policy()["settings"][name]
+for name, value in before_realm.items():
+    if name not in identity.SESSION_SETTINGS:
+        assert session_realm.get(name) == value, f"session alignment changed unrelated setting: {name}"
+[session_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
+assert {key: value for key, value in session_client.items() if key != "protocolMappers"} == {
+    key: value for key, value in bff_client.items() if key != "protocolMappers"}
+assert [mapper for mapper in session_client["protocolMappers"] if mapper["name"] != "native remember me"] == bff_client["protocolMappers"]
+assert accounts() == before_accounts
+assert {user_id: stored_credentials(user_id) for user_id in before_accounts} == before_credentials
+assert command(identity_command, "--restore", str(session_snapshot)).returncode == 1
+assert command(identity_command, "--sessions-only", "--restore", str(session_snapshot)).returncode == 0
+assert command(identity_command, "--sessions-only", "--check").returncode == 1
+assert get(ADMIN_REALM) == before_realm
+[restored_session_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
+assert restored_session_client == bff_client
+
+# The prepared production realm has a different name. Prove explicit targeting on a
+# second disposable realm without touching private-dev's full identity settings.
+assert admin("POST", "/admin/realms", {"realm": "gameometro", "enabled": True,
+    "clients": [{"clientId": CLIENT_ID, "enabled": True, "protocol": "openid-connect"}]})[0] == 201
+production_directory = EVIDENCE / "production-sessions"
+production_directory.mkdir(mode=0o700)
+configured = command(identity_command, "--realm", "gameometro", "--sessions-only", "--snapshot-dir", str(production_directory))
+assert configured.returncode == 0, configured.stdout + configured.stderr
+assert command(identity_command, "--realm", "gameometro", "--sessions-only", "--check").returncode == 0
+for name in identity.SESSION_SETTINGS:
+    assert get("/admin/realms/gameometro")[name] == identity.desired_policy()["settings"][name]
+assert get(ADMIN_REALM) == before_realm
+[production_snapshot] = production_directory.glob("*.json")
+assert command(identity_command, "--realm", "gameometro", "--sessions-only", "--restore", str(production_snapshot)).returncode == 0
+assert command(identity_command, "--realm", "gameometro", "--sessions-only", "--check").returncode == 1
+assert admin("DELETE", "/admin/realms/gameometro")[0] == 204
+
 # 2. The check reports drift and the account inventory; apply snapshots, then aligns; repeats are no-ops.
 checked = command(identity_command, "--check")
 assert checked.returncode == 1 and "verifyEmail" in checked.stderr and "registrationFlow" in checked.stderr, checked.stderr
@@ -343,7 +399,8 @@ repeated = command(identity_command, "--snapshot-dir", str(EVIDENCE))
 assert repeated.returncode == 0 and "nothing changed" in repeated.stdout and len(list(EVIDENCE.glob("keycloak-*.json"))) == 1
 
 # 3. Accounts keep their identity: the same IDs (so ratings stay attached), credentials and
-#    addresses; only reserved addresses were marked verified. The BFF client is untouched.
+#    addresses; only reserved addresses were marked verified. Only the native mode mapper is
+#    added to the BFF; its identity, secret, redirects and other mappers are untouched.
 after_accounts = accounts()
 assert set(after_accounts) == set(before_accounts)
 for user_id, before in before_accounts.items():
@@ -353,7 +410,8 @@ for user_id, before in before_accounts.items():
     assert after["emailVerified"] is (user_id != pending_id), (before["email"], after["emailVerified"])
     assert "firstName" not in after and "lastName" not in after, "names are no longer part of the profile"
 [bff_client_after] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
-assert bff_client_after == bff_client
+assert {k:v for k,v in bff_client_after.items() if k != "protocolMappers"} == {k:v for k,v in bff_client.items() if k != "protocolMappers"}
+assert any(m["protocolMapper"] == "gameometro-remember-me" for m in bff_client_after["protocolMappers"])
 after_realm = get(ADMIN_REALM)
 managed = {"registrationFlow", *identity.MANAGED_REALM_SETTINGS}
 for name in set(before_realm) | set(after_realm):
@@ -389,7 +447,7 @@ assert not code(answer) and INVALID_CREDENTIALS in page_text(answer.body)
 # 5. Registration asks only for email and the mandatory 18+ declaration; mail stays in Mailpit.
 device = Browser()
 login, _ = device.authorize()
-assert form_fields(login.body, "kc-form-login") == {"username", "password"}
+assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}
 registration = device.open(page_link(login.body, "/login-actions/registration"))
 assert form_fields(registration.body, "kc-register-form") == {"email", "termsAccepted"}, form_fields(registration.body, "kc-register-form")
 player = unique("player")
@@ -484,6 +542,9 @@ assert realm["verifyEmail"] is False and realm["registrationEmailAsUsername"] is
 assert "passwordPolicy" not in realm or not realm["passwordPolicy"]
 assert "gameometro registration" not in {flow["alias"] for flow in get(f"{ADMIN_REALM}/authentication/flows")}
 assert get(f"{ADMIN_REALM}/localization/es") == {}
+[restored_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
+assert restored_client == bff_client, "rollback restores the absent mapper without touching the client"
+assert realm["rememberMe"] is False and realm["ssoSessionMaxLifespanRememberMe"] == 0
 restored_accounts = accounts()
 for user_id, before in before_accounts.items():
     after = restored_accounts[user_id]
@@ -491,6 +552,19 @@ for user_id, before in before_accounts.items():
     # The pending account verified its address by email during the journey; that stays.
     assert after["emailVerified"] is (before["emailVerified"] or user_id == pending_id)
 assert signs_in(reserved_name, legacy_password)
+
+# New snapshots include the mapper resource; old tooling must reject their new version.
+# Current tooling also restores a genuine pre-mapper v1 shape without that field.
+saved = json.loads(snapshot.read_text(encoding="utf-8"))
+assert saved["version"] == 2 and saved["rememberMeMapper"] is None
+legacy = {key: value for key, value in saved.items() if key != "rememberMeMapper"}
+legacy["version"] = 1
+legacy_snapshot = EVIDENCE / "legacy-identity-v1.json"
+legacy_snapshot.write_text(json.dumps(legacy), encoding="utf-8")
+legacy_snapshot.chmod(0o600)
+assert command(identity_command, "--restore", str(legacy_snapshot)).returncode == 0
+[legacy_restored_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
+assert legacy_restored_client == bff_client
 
 EVIDENCE.joinpath("sensitive-values.txt").write_text("\n".join(sensitive) + "\n", encoding="utf-8")
 print(

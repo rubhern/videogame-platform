@@ -64,6 +64,22 @@ management port only on host loopback (`127.0.0.1:8081`). The root environment a
 selects the immutable model mount; `--localization` overrides only the packaged
 backend's helper address, preserving the host endpoint and the owner's files.
 
+### Existing administrator credentials
+
+The local session-policy alignment authenticates against the `master` realm with
+`KEYCLOAK_ADMIN_USERNAME` and `KEYCLOAK_ADMIN_PASSWORD` from the root `.env`.
+These must match the current administrator account in the persisted Keycloak database.
+Bootstrap variables create an administrator only during initial setup; changing or
+regenerating `.env` never changes that account's stored password.
+
+If startup reports rejected master-realm credentials, verify access at
+`http://localhost:8180/admin/` in the **master** realm (not the application's realm),
+then update only those two local `.env` values with the working credentials. Do not
+paste the password into a command, issue or chat. Rerun `configure-identity` followed
+by `application` using the commands below. Recreating containers or changing a
+bootstrap password cannot repair a credential mismatch; retain all data and use
+Keycloak's administrator recovery procedure if the current credentials are unavailable.
+
 ## Start, verify, and stop
 
 ```bash
@@ -97,6 +113,76 @@ synthetic account; additional self-registered accounts do not invalidate that ch
 For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
+
+## Remember Me verification
+
+#374 prepares **Seguir conectado** using one shared provider and BFF policy in all
+environments. [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+owns its limits and trust model. Start the real packaged application with
+`bash scripts/local-dependencies.sh application`; open `http://localhost:8080`.
+
+The import configures a fresh realm. Keycloak's startup import never updates an
+existing realm. Both `up` and `application` now run the shared Admin API alignment
+command after Keycloak is ready, before starting the packaged BFF. It reconciles
+only the five session settings and the native BFF mapper from the reviewed import;
+accounts, credentials, client secrets, redirects, SMTP and local registration policy
+stay intact. The local ordinary SSO maximum intentionally changes from ten to eight
+hours. No Admin Console edits or data reset are needed.
+
+For an already running matching BFF/Keycloak image, reconcile or inspect explicitly:
+
+```bash
+bash scripts/local-dependencies.sh configure-identity
+bash scripts/local-dependencies.sh check-identity
+```
+
+Each changed apply saves a mode-0600 session-policy snapshot outside the checkout,
+under `${XDG_STATE_HOME:-$HOME/.local/state}/videogame-platform/keycloak-identity`.
+Repeated applies with no drift do nothing. The command refuses to extend SSO if
+the native mapper provider is absent: rebuild the shared Keycloak image first.
+Restore a session snapshot with `configure-keycloak-identity --sessions-only --restore
+<snapshot>`, using its explicit `--origin`, `--admin-username` and protected
+`--admin-password-file` inputs. The full private-dev identity policy is a separate
+operator action; local startup never changes local sign-in identifiers or email
+verification. Avoid direct `docker compose up` for setup: it bypasses this alignment.
+
+1. In a clean normal browser profile, disable **restore previous session**, select
+   **Iniciar sesión**, verify **Seguir conectado** starts unchecked, select it and
+   sign in with the configured synthetic account.
+2. Close every window and fully quit the browser process. Reopen the same profile
+   and application. Anonymous display is expected until **Iniciar sesión** is
+   selected; valid remembered SSO must then return without credentials. Closing
+   only a tab does not test browser restart.
+3. Repeat in a fresh profile without opting in: a full restart must require
+   credentials. A private/new profile must also require them. Browser session
+   restoration can retain ordinary cookies but cannot extend server bounds.
+4. After BFF inactivity, sign in again and verify remembered re-entry works.
+   **Cerrar sesión** appears only in an authenticated account menu. Logging out
+   ends both that BFF and the browser's Keycloak session. If the BFF expires between
+   displaying that menu and processing the logout click, complete Keycloak's
+   confirmation when offered; no persistent 403 must remain. Once the application
+   displays anonymous entry, it offers only **Iniciar sesión** and **Crear cuenta**.
+   The next sign-in after explicit logout and browser restart must require
+   credentials; another browser/account must remain signed in.
+
+Inspect only cookie names/flags: the application cookie remains `HttpOnly`,
+`SameSite=Lax` and session-only. Record browser, restore setting, prompts and result;
+never collect cookies or tokens. Long boundaries use controlled-clock tests and
+shortened disposable equivalents, never changes to a shared realm's clock:
+
+```bash
+PROBE_NATIVE_MAPPER=true bash scripts/probe-remember-me-trust.sh
+bash scripts/validate-identity.sh
+```
+
+The first command checks signed claims. The second exercises the packaged BFF with
+PostgreSQL, Keycloak, simulated browser restart and actual container restarts.
+CI runs the complete gate. For focused local iteration after packaging the current
+combined JAR with affected backend tests, use
+`IDENTITY_REUSE_PACKAGE=true IDENTITY_REMEMBER_ME_ONLY=true bash scripts/validate-identity.sh`.
+Never reuse a stale package after code or asset edits. For narrower diagnosis,
+`IDENTITY_REMEMBER_ME_PHASE=continuity`, `renewal` or `idle` selects only that
+remembered-session phase; the default runs them all.
 
 ## Password recovery and Mailpit
 

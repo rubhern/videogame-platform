@@ -70,6 +70,16 @@ run_case frontend-identity-journey \
   'frontend,browser,identity,codeql_javascript' \
   'backend,migrations,provider_fixtures,container,sonar'
 
+run_case remember-me-provider \
+  'docker/keycloak/remember-me-mapper/src/com/videogameplatform/keycloak/RememberMeMapper.java' \
+  'identity,browser,backend,dependency_images' \
+  'frontend,migrations'
+
+run_case remember-me-journey \
+  'frontend/tests/remember-me.spec.ts' \
+  'frontend,browser,identity' \
+  'backend,migrations'
+
 run_case production-identity-journey \
   'frontend/tests/production-identity.spec.ts' \
   'frontend,browser,identity,codeql_javascript' \

@@ -45,9 +45,9 @@ server:
 
 identity:
   session:
-    # Absolute BFF session lifetime from the OIDC authentication (ID token auth_time); requests
-    # never extend it, unlike the idle server.servlet.session.timeout above. ADR-0027.
+    # Ordinary: from auth_time. Remembered: from BFF creation, capped from auth_time below.
     absolute-timeout: ${APPLICATION_SESSION_ABSOLUTE_TIMEOUT:8h}
+    remembered-maximum: ${APPLICATION_SESSION_REMEMBERED_MAXIMUM:30d}
     # How long administrative revocation waits for running personal writes before it reports an
     # unsettled outcome; personal writes pause meanwhile. It bounds availability, not safety.
     revocation-settle-timeout: 30s

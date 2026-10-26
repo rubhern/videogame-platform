@@ -75,11 +75,27 @@ describe("session API", () => {
   it("raises a logout error when the session cannot be terminated", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(null, { status: 403 }));
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ authenticated: true, csrfToken: "fresh-token" }));
 
     await expect(logout("stale-token", client(fetchMock))).rejects.toBeInstanceOf(
       LogoutError,
     );
+  });
+
+  it("allows native logout confirmation after CSRF rejection only when a fresh read proves expiry", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ authenticated: false }));
+    await expect(logout("expired-token", client(fetchMock))).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not infer expiry when the session recheck is unavailable", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(logout("expired-token", client(fetchMock))).rejects.toThrow();
   });
 
   it("completes logout through the BFF navigation route, never with a token", () => {

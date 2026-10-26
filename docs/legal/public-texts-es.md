@@ -240,13 +240,27 @@ se revisarán antes de activarlos.
 
 | Cookie | Host | Finalidad | Duración |
 |---|---|---|---|
-| `__Host-vgp_session` | `gameometro.com` | Sesión del BFF; identificador opaco | Sesión del navegador; servidor: 30 min de inactividad, máximo 8 h |
+| `__Host-vgp_session` | `gameometro.com` | Sesión del BFF; identificador opaco | Sesión del navegador; límites del servidor según el modo de acceso explicado debajo |
 | `AUTH_SESSION_ID` | `auth.gameometro.com` | Inicio de autenticación | Sesión del navegador |
 | `KC_AUTH_SESSION_HASH` | `auth.gameometro.com` | Coordinación segura de la autenticación | 60 segundos |
 | `KC_RESTART` | `auth.gameometro.com` | Reanudar autenticación o recuperación interrumpida | Sesión del navegador |
 | `KEYCLOAK_LOCALE` | `auth.gameometro.com` | Idioma de los formularios | Sesión del navegador |
-| `KEYCLOAK_IDENTITY` | `auth.gameometro.com` | Identidad de la sesión de acceso único | Sesión del navegador |
-| `KEYCLOAK_SESSION` | `auth.gameometro.com` | Estado de la sesión de acceso único | Persistente: máximo 8 horas |
+| `KEYCLOAK_IDENTITY` | `auth.gameometro.com` | Identidad de la sesión de acceso único | Sesión del navegador; con «Seguir conectado», persistente hasta 30 días |
+| `KEYCLOAK_SESSION` | `auth.gameometro.com` | Estado de la sesión de acceso único | Persistente: máximo 8 horas; con «Seguir conectado», hasta 30 días |
+| `KEYCLOAK_REMEMBER_ME` | `auth.gameometro.com` | Recordar el identificador de acceso tras elegir «Seguir conectado»; no autentica por sí sola | Persistente: 365 días |
+
+«Seguir conectado» es voluntario y empieza desmarcado. El acceso normal termina
+tras 30 minutos de inactividad o, como máximo, 8 horas desde la autenticación.
+Con esa opción, la sesión de acceso único termina tras 7 días sin visitar el
+proveedor o, como máximo, 30 días desde la autenticación original. Cada sesión del
+BFF dura 30 minutos sin actividad y como máximo 8 horas desde su creación, sin
+superar esos 30 días. Tras reiniciar el navegador puedes seleccionar «Iniciar sesión»
+y volver sin credenciales mientras el acceso recordado siga vigente. En un equipo
+compartido, deja la opción desmarcada y cierra sesión al terminar. Si la sesión del
+BFF ya ha caducado, «Cerrar sesión» solicita confirmación en el proveedor.
+La cookie de recordatorio de identificador puede durar más que el acceso recordado;
+esa duración no amplía la autenticación. Estos cambios están preparados, sin activar
+un servicio público ni aprobar estos textos para publicación.
 
 Todas utilizan `Secure` y sin atributo `Domain`. Las cookies de Keycloak
 se limitan a `/realms/gameometro/`; la del BFF, a `/`.

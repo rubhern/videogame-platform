@@ -13,7 +13,7 @@ const identityHost = identityOrigin ? new URL(identityOrigin).hostname : "";
 const sessionCookie = "__Host-vgp_session";
 const ratedGame = "30000000-0000-4000-8000-000000000005";
 // Keycloak 26.7's browser-flow cookies; an unknown name fails the journey until it is reviewed.
-const keycloakCookies = new Set(["AUTH_SESSION_ID", "KC_AUTH_SESSION_HASH", "KC_RESTART", "KEYCLOAK_IDENTITY", "KEYCLOAK_LOCALE", "KEYCLOAK_SESSION"]);
+const keycloakCookies = new Set(["AUTH_SESSION_ID", "KC_AUTH_SESSION_HASH", "KC_RESTART", "KEYCLOAK_IDENTITY", "KEYCLOAK_LOCALE", "KEYCLOAK_SESSION", "KEYCLOAK_REMEMBER_ME"]);
 
 test.skip(!identityOrigin || !mailpitOrigin, "The production identity topology is not active.");
 // The runtime exercise installs its disposable CA in the browser trust store.
@@ -189,11 +189,39 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(await oldSession.json()).toMatchObject({ authenticated: false });
   await page.locator("#username").fill(email);
   await page.locator("#password").fill(password);
+  await expect(page.locator("#rememberMe")).not.toBeChecked();
+  await page.locator("#rememberMe").check();
   await page.locator("#kc-login").click();
   await expect(page).toHaveURL(`${applicationOrigin}/`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
-  await record(first, page, "password login after logout");
+  await record(first, page, "remembered password login after logout");
+  const rememberedCookies = await first.cookies();
+  const identity = rememberedCookies.find(cookie => cookie.name === "KEYCLOAK_IDENTITY");
+  const hint = rememberedCookies.find(cookie => cookie.name === "KEYCLOAK_REMEMBER_ME");
+  expect(identity).toMatchObject({ secure: true, httpOnly: true, sameSite: "None" });
+  expect(identity?.expires).toBeGreaterThan(Date.now() / 1000);
+  expect(hint).toMatchObject({ secure: true, httpOnly: true, sameSite: "None" });
+  expect((hint?.expires ?? 0) - Date.now() / 1000).toBeGreaterThan(364 * 24 * 60 * 60);
+  expect((await first.cookies(applicationOrigin))[0]?.expires).toBe(-1);
   await first.close();
+  const restarted = await browser.newContext();
+  await restarted.addCookies(rememberedCookies.filter(cookie => cookie.expires > 0));
+  const resumed = await restarted.newPage();
+  observe(resumed);
+  await resumed.goto(applicationOrigin);
+  expect(await sessionState(resumed)).toEqual({ authenticated: false });
+  await resumed.goto(`${applicationOrigin}/auth/login/keycloak`);
+  await expect(resumed).toHaveURL(`${applicationOrigin}/`);
+  expect(await sessionState(resumed)).toMatchObject({ authenticated: true });
+  await record(restarted, resumed, "remembered HTTPS re-entry after simulated restart");
+  await restarted.clearCookies({ name: sessionCookie });
+  await resumed.goto(`${applicationOrigin}/auth/logout`);
+  await expect(resumed.locator("#kc-logout")).toBeVisible();
+  await resumed.locator("#kc-logout").click();
+  await expect(resumed).toHaveURL(`${applicationOrigin}/`);
+  await record(restarted, resumed, "remembered HTTPS logout without BFF cookie");
+  expect((await restarted.cookies()).filter(cookie => ["KEYCLOAK_IDENTITY", "KEYCLOAK_SESSION", "KEYCLOAK_REMEMBER_ME"].includes(cookie.name))).toEqual([]);
+  await restarted.close();
 });
 
 test("password recovery returns through the canonical issuer with the same cookie rules", async ({ browser, request }) => {

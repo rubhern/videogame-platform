@@ -2,7 +2,8 @@
 
 - **Status:** Investigation complete; owner decision recorded on 2026-10-25 (section 5);
   implementation delegated to [#374](https://github.com/rubhern/videogame-platform/issues/374).
-  Nothing configured, implemented or deployed
+  Section 7 records the design gate and the subsequent owner approval of a narrow SPI.
+  #374 prepares implementation in source; no deployment or live-realm change
 - **Research date:** 2026-10-24
 - **Source revision:** `9cee33dfd2460213ea3e89711dd91bdc41405c81` (`main`), the revision
   private-dev was running on the research date
@@ -243,3 +244,170 @@ record that it must answer:
 
 Not delegated and left as observed: the local import keeps its 10-hour SSO maximum, the
 only configuration in which scenario 11 can appear without remember-me.
+
+## 7. #374 mode-distinction design gate
+
+**Point-in-time follow-up, 2026-10-25, source `147f7f2`.** The owner subsequently
+extended #374 to one implementation for local, private-dev and prepared production,
+including aligning the local ordinary SSO maximum to eight hours. That supersedes
+the environment exclusions in sections 5–6; it does not authorize changing a live
+realm or deployment. The [platform target](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)
+owns the updated approved scope. Implementation remains conditional on a trusted
+mode distinction. ADR-0027's accepted implementation remains in force.
+
+### Source findings
+
+- **[V]** In Keycloak's pinned source,
+  [`AuthenticationProcessor.attachSession`](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/authentication/AuthenticationProcessor.java)
+  reads an *authentication-session* note and passes a boolean to user-session
+  creation. [`UserSessionModel`](https://www.keycloak.org/docs-api/26.7.5/javadocs/org/keycloak/models/UserSessionModel.html)
+  exposes that state through `isRememberMe()`, separately from `getNote(name)`.
+- **[V]** The built-in
+  [`UserSessionNoteMapper`](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/protocol/oidc/mappers/UserSessionNoteMapper.java)
+  calls only `userSession.getNote(noteName)`. Configuring a note named `rememberMe`
+  or `remember_me` does not map `isRememberMe()`. User-property mappers read the
+  account, not the authentication's mode; a hardcoded claim cannot distinguish it.
+- **[V]** The built-in
+  [`AmrProtocolMapper`](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/protocol/oidc/mappers/AmrProtocolMapper.java)
+  maps completed authenticator references. A password authentication uses the same
+  execution whether its Remember Me checkbox is selected or not. Neither `amr`,
+  `acr`, `sid`, nor `auth_time` supplies the required mode bit.
+- **[V]** The repository's Spring OIDC decoder validates issuer, audience and token
+  lifetime; Spring verifies signatures and the authorization-request nonce. The
+  existing `OidcIdTokenValidationTest` covers those protections. They can establish
+  trust in a claim Keycloak emits, but cannot recover a missing claim. A future
+  policy must read the ID token itself, not merged userinfo or request parameters.
+- **[V]** `KEYCLOAK_REMEMBER_ME` is a username hint, not proof of a valid remembered
+  authentication. Keycloak's
+  [`UsernamePasswordForm`](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/authentication/authenticators/browser/UsernamePasswordForm.java)
+  also uses that hint to preselect the checkbox on a later credential form. The
+  native fresh form is unchecked; an always-unchecked credential form needs a
+  deliberate theme change and testing of the returning-hint case.
+
+### Reproducible probe and evidence boundary
+
+Run from the repository with Docker available:
+
+```bash
+npm ci --ignore-scripts
+bash scripts/probe-remember-me-trust.sh
+```
+
+The [launcher](../../scripts/probe-remember-me-trust.sh) takes the pinned upstream
+image from the maintained Keycloak Dockerfile and the pinned Chromium runner from
+the identity gate. It creates an internal network, an ephemeral Keycloak dev-file
+database and synthetic realm/account/client, with no host ports or persistent
+volumes. Cleanup removes the containers and network. This is mapper evidence, not
+PostgreSQL persistence or packaged-BFF evidence. It never contacts existing realms.
+
+The [probe](../../scripts/probe-remember-me-trust.cjs) uses code flow with state,
+nonce and PKCE; Node exchanges the code and verifies the ID token's RS256 signature,
+issuer, audience, nonce and expiry. Tokens remain in Node, never browser storage or
+output. A control mapper proves that client mappers are active. It compares ordinary
+and remembered credentials, silent entry and browser-restart simulation (a fresh
+context retaining only persistent cookies). Browser query flags are supplied even
+for ordinary entry to check they do not become a trusted mode signal.
+
+**Observed [V], Keycloak 26.7.5 and Chromium:**
+
+| Check | Result |
+|---|---|
+| Fresh ordinary and remembered form | Checkbox initially unchecked |
+| Remember Me session notes (`rememberMe`, `remember_me`, `REMEMBER_ME`) | Absent in signed ID tokens in both modes, including silent entry |
+| Control claim / AMR | Control claim present; AMR identical in both modes |
+| Persistent identity cookie | Only the remembered authentication has one |
+| Silent entry | Same `auth_time` and `sid` in both modes |
+| Restart simulation | Ordinary mode needs the form; remembered mode returns silently with original `auth_time` and `sid` |
+| Logout without an ID token hint | Native confirmation required; confirmation clears remembered SSO cookies; next sign-in needs credentials |
+
+The probe uses an intercepted callback on the synthetic Keycloak origin so it needs
+no external callback host. Separate application/identity origins, the themed image,
+HTTPS and a packaged BFF are outside this experiment. Existing BFF tests were also
+run unchanged: six `BffSessionLifecycleIntegrationTest` cases and five
+`OidcIdTokenValidationTest` cases passed. They preserve baseline evidence, not proof
+of remembered BFF renewal or expired-BFF logout integration.
+
+This probe is an opt-in negative feasibility experiment: it asserts the absence of
+the candidate note claims and equivalence of AMR. A future native mapper or changed
+Keycloak version requires reassessment, not adjusting assertions until green. It
+does not replace #374's BFF lifetime, adversarial-claim, CSRF, revocation, restart,
+boundary and HTTPS acceptance suite.
+
+### Alternatives and subsequent owner decision
+
+**Original proposal, subsequently approved by the owner on 2026-10-25:** preserve the exact approved
+policy with one narrowly scoped Keycloak protocol mapper, implemented through its
+provider SPI, emitting a boolean `gameometro_remember_me` **only in the ID token**
+from `UserSessionModel.isRememberMe()`. No user attribute, browser flag, refresh,
+offline token or second credential system would participate. The same mapper and
+BFF policy would serve all three environments; realm names, endpoints and secure
+cookies would remain environment configuration.
+
+The BFF would consume only the validated ID-token boolean. Ordinary or absent
+claims retain the original bound; the owner also requires malformed or unrecognized
+claims to use the ordinary policy. Remembered
+authentication requires a valid original `auth_time` and uses the earlier of BFF
+creation plus eight hours and original authentication plus thirty days. Expired
+original authentication must return to explicit credential entry rather than
+accepting another immediately expired silent login. Missing mapper/configuration
+must never silently expand ordinary bounds.
+
+Trade-off: this adds a provider JAR, build/image packaging and a security-sensitive
+claim contract. Every Keycloak upgrade needs compatibility and real-browser tests
+of fresh, silent and restarted sessions. It avoids admin API permissions or calls
+on login/request paths. **The owner explicitly approved this narrow extension**, with no authentication,
+session or renewal logic in it. The amended [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+owns that decision and its upgrade obligations.
+
+The standard-only alternative is to keep the original eight-hour bound for both
+modes and require credential entry when it is reached, using a server-selected
+`prompt=login`/`max_age` flow. Remembered SSO could ease browser restarts only inside
+that window. This reduces maintenance but changes the approved thirty-day
+password-free experience and needs an explicit owner policy decision. Simply
+resetting every BFF to eight hours from creation is rejected: it extends ordinary
+sessions too. Admin-session lookups or script mappers add permissions, coupling or
+deployed security code without a clear advantage over a narrow compiled mapper.
+
+For logout after loss of the BFF session, the proposed standard fallback is a
+navigation to Keycloak's fixed logout endpoint with `client_id` and the exact
+registered `post_logout_redirect_uri`, without retaining an expired ID token.
+[`LogoutEndpoint`](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/protocol/oidc/endpoints/LogoutEndpoint.java)
+requires a native confirmation while a browser SSO session exists. Its confirmation
+form carries Keycloak's session code. Existing authenticated BFF logout retains
+same-origin and CSRF checks; a GET must never invalidate a live BFF session.
+The BFF contract/UI integration and security tests remain pending, rather than
+making anonymous POST logout bypass CSRF or restarting authentication for logout.
+
+### Manual acceptance boundary
+
+#374 now prepares the capability for all environments. Executable/operator details
+and the manual browser-restart recipe are owned by
+[local setup](../development/local-setup.md#remember-me-verification) and the
+[private-dev rehearsal](../../deploy/private-dev/README.md#remember-me-rehearsal).
+Private-dev HTTPS and real browser shutdown remain pending an owner-reviewed
+rollout; production remains gated. The original experiment's limits above still
+apply: a simulated browser restart is not evidence of every browser's shutdown or
+session-restore behavior.
+
+The probe's default mode preserves the negative built-in-mapper experiment.
+`PROBE_NATIVE_MAPPER=true bash scripts/probe-remember-me-trust.sh` instead builds the
+shared image and verifies the approved provider's signed false/true values across
+silent entry and restart simulation, absence from access tokens/userinfo, and
+missing-mapper behavior. The identity gate also runs that proof on PostgreSQL-backed
+Keycloak. BFF tests use exact controlled-clock boundaries and shortened disposable
+browser scenarios; those are not measurements of thirty real elapsed days.
+
+The disposable harness separates servlet idle testing from second-scale absolute
+bounds: Tomcat applies a minimum whole-minute servlet idle timeout, so an override
+such as eight seconds cannot establish idle expiry. That scenario uses one real
+idle minute with a longer absolute bound. Keycloak's remembered idle calculation
+also takes at least the ordinary idle bound; its shortened idle proof scales both
+realm fields rather than setting remembered idle below an unchanged normal value.
+These are test-design constraints, not changes to the approved production policy.
+
+The follow-up reproduced a two-second backward wall-clock correction between a
+successful sign-in and its next request. An extra lower-bound check against the
+current clock incorrectly invalidated fresh authentication. The policy therefore
+keeps its original absolute deadlines from trusted ID-token/server timestamps and
+does not reset them or add expiry grace; Spring retains token validation. A
+controlled-clock regression covers that correction and exact expiry of both modes.

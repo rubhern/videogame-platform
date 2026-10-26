@@ -446,9 +446,10 @@ selects direct invalidation of BFF sessions. **Implemented in the application (#
 and running in private-dev; no revocation procedure has been operated on a host:**
 
 - Every OIDC sign-in registers its session in Spring Security's in-memory session
-  registry. An authenticated session that is missing from it, or that is eight hours
-  past the ID token's authentication time, ends on its next request; requests never
-  extend that bound, and the 30-minute idle timeout is unchanged.
+  registry. An authenticated session that is missing from it, or that exceeds the
+  lifetime selected by [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md),
+  ends on its next request. The #374 remembered-policy amendment is prepared, not
+  deployed; ordinary sessions retain their original authentication-time bound.
 - The private `sessionrevocation` management operation expires every active session of
   one derived `UserId`, on every device, and answers only the count; a repeat answers
   zero. A revoked session reads as anonymous: personal APIs answer `401`, public reads
@@ -514,17 +515,19 @@ local harness:
 - Startup import applies only when the realm is absent. A later policy change needs a
   reviewed apply step against the live realm, never a re-import over accounts.
 
-**Approved target session policy, not implemented (owner decision 2026-10-25, #361;
-implementation and its ADR-0027 amendment in #374).** Production sign-in is to offer
-Keycloak's native Remember Me ("Seguir conectado"), unchecked by default. An ordinary
-sign-in keeps the current bounds: Keycloak SSO 30 minutes idle and 8 hours maximum, BFF
-session 30 minutes idle and 8 hours from the original authentication. A remembered
-sign-in has Keycloak SSO 7 days idle and 30 days maximum; each BFF session it opens
-ends after 30 minutes idle or 8 hours from its creation, and none outlives 30 days from
-the original authentication. Neither the prepared realm import nor the BFF implements
-it; local and private-dev keep their policy. The
-[#361 research](../../research/browser-session-lifetime.md) holds the evidence and the
-conditions #374 must meet.
+**Remember Me prepared in source (#374), not deployed:** the same native opt-in
+flow, mapper and BFF policy serve local, private-dev and prepared production.
+[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+owns the approved ordinary and remembered bounds and the signed mode distinction.
+Both imports now prepare that policy, including aligning the local ordinary SSO
+maximum from ten to eight hours. Startup import still ignores existing realms;
+private-dev needs a reviewed image/application rollout and snapshotted identity
+alignment. Its live policy has not changed. Production remains unbuilt and gated.
+The [research](../../research/browser-session-lifetime.md#7-374-mode-distinction-design-gate)
+records why a narrow provider was approved rather than a browser flag or a built-in
+note mapper. [Local setup](../../development/local-setup.md#remember-me-verification)
+and the [private-dev rehearsal](../../../deploy/private-dev/README.md#remember-me-rehearsal)
+own manual validation and rollout boundaries.
 
 #### Canonical issuer contract
 

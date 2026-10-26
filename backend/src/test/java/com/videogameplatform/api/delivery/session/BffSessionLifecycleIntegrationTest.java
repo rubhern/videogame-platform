@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.videogameplatform.identity.adapter.session.PendingIdentityProviderLogout;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.adapter.web.LogoutCompletionController;
 import com.videogameplatform.identity.adapter.web.SessionRevocation;
@@ -235,7 +236,10 @@ class BffSessionLifecycleIntegrationTest {
         // The pending logout is single-use and other sessions, also of the same user, continue.
         mockMvc.perform(get("/auth/logout").session(carrier))
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("/"));
+                .andExpect(
+                        redirectedUrl(
+                                END_SESSION
+                                        + "?client_id=test-bff&post_logout_redirect_uri=http://localhost/"));
         assertAuthenticated(aliceOtherDevice, true);
         assertAuthenticated(bobBrowser, true);
     }
@@ -251,9 +255,70 @@ class BffSessionLifecycleIntegrationTest {
                 .andExpect(header().doesNotExist("Set-Cookie"));
         mockMvc.perform(get("/auth/logout"))
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("/"));
+                .andExpect(
+                        redirectedUrl(
+                                END_SESSION
+                                        + "?client_id=test-bff&post_logout_redirect_uri=http://localhost/"));
 
         assertAuthenticated(aliceBrowser, true);
+    }
+
+    @Test
+    void expiredBffCanRequestNativeConfirmationWithoutCsrfOrRetainingAnIdToken() throws Exception {
+        MockHttpSession expired = signIn(alice, SIGN_IN);
+        clock.set(SIGN_IN.plus(Duration.ofHours(8)));
+        mockMvc.perform(
+                        get("/auth/logout")
+                                .session(expired)
+                                .param("returnTo", "https://attacker.example"))
+                .andExpect(status().isFound())
+                .andExpect(
+                        redirectedUrl(
+                                END_SESSION
+                                        + "?client_id=test-bff&post_logout_redirect_uri=http://localhost/"));
+        assertThat(expired.isInvalid()).isTrue();
+    }
+
+    @Test
+    void browserModeFlagsCannotExtendAnOrdinaryAuthentication() throws Exception {
+        clock.set(SIGN_IN.plus(Duration.ofHours(9)));
+        mockMvc.perform(
+                        get("/api/v1/session")
+                                .param("gameometro_remember_me", "true")
+                                .header("gameometro_remember_me", "true")
+                                .cookie(
+                                        new jakarta.servlet.http.Cookie(
+                                                "gameometro_remember_me", "true"))
+                                .with(
+                                        oidcSession(
+                                                token ->
+                                                        token.issuer(ISSUER)
+                                                                .subject(alice)
+                                                                .authTime(SIGN_IN)
+                                                                .claim(
+                                                                        "gameometro_remember_me",
+                                                                        false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(false));
+    }
+
+    @Test
+    void anOldPendingLogoutCannotEndANewAuthenticationThroughGet() throws Exception {
+        MockHttpSession session = signIn(alice, SIGN_IN);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setSession(session);
+        // A logout carrier may be reused by a different tab's new OIDC sign-in before
+        // the first tab follows /auth/logout. That GET must not end the new authentication.
+        new PendingIdentityProviderLogout()
+                .sendRedirect(
+                        request,
+                        new org.springframework.mock.web.MockHttpServletResponse(),
+                        END_SESSION + "?id_token_hint=old-token");
+        mockMvc.perform(get("/auth/logout").session(session))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/"));
+        assertThat(session.isInvalid()).isFalse();
+        assertAuthenticated(session, true);
     }
 
     private MockHttpSession signIn(String subject, Instant authenticatedAt) throws Exception {

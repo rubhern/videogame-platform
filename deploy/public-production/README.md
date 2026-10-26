@@ -35,6 +35,34 @@ what the repository checks and what only a real host can prove.
 The application and migration actor reuse the environment-neutral private-dev secret
 wrappers and the shared PostgreSQL bootstrap read-only; production changes neither.
 
+## Remember Me provider compatibility
+
+#374 prepares the same native Remember Me implementation as local/private-dev.
+[ADR-0027](../../docs/decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+owns the policy and claim trust boundary. The shared
+[Keycloak Dockerfile](../private-dev/keycloak/Dockerfile) compiles a small provider
+against that exact pinned runtime's existing API JARs, targets its Java baseline,
+and copies only the reproducible provider JAR into the final image before augmentation.
+It downloads and bundles no new library and creates no second authentication mechanism.
+
+Every Keycloak image update must rebuild the provider and pass real-Keycloak signed
+false/true, silent-entry, missing-mapper, logout and BFF tests. The provider API does
+not guarantee binary compatibility across upgrades; Keycloak labels it an internal SPI. Use matching reviewed image,
+BFF and realm configuration; never activate the realm switch alone. Startup import
+applies only to an absent realm. For an existing production realm, the shared
+[alignment command](../private-dev/bin/configure-keycloak-identity) supports an explicit
+`--origin <identity-origin> --realm gameometro --sessions-only`, with protected
+`--admin-username` / `--admin-password-file` inputs. Run `--check`, review drift,
+apply with `--snapshot-dir <protected-directory-outside-checkout>` and recheck during
+an authorized rollout. It changes only the shared session fields and BFF mapper;
+repeated applies without drift do nothing. Restore with the same target and scope
+plus `--restore <session-snapshot>`. The command's full private-dev identity policy
+must never be applied to production. Rollback must account for remembered SSO and
+BFF revocation, not just restoring an older image.
+
+This is prepared configuration, never deployed or publicly enabled. Actual HTTPS,
+cookie and manual restart/renewal acceptance remains a real-host gate.
+
 ## Runtime inputs
 
 Copy `runtime.env.example` to the protected production configuration directory and

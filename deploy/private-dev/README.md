@@ -328,14 +328,17 @@ is the single policy source; the
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
 owns the boundary; `bin/configure-keycloak-identity` and `bin/configure-keycloak-mail`
 own the mechanics, and `scripts/validate-private-dev-identity.sh` proves both against a
-disposable copy of the realm. No container, image or Compose service changes.
+disposable copy of the realm. #374's Remember Me addition requires the matching
+shared provider image and BFF; its rollout is [reviewed separately below](#remember-me-rehearsal).
 
 The identity command applies, through the Admin API, the production settings for
 email sign-in, the email-only user profile, the mandatory 18+ registration
 declaration, email verification, the password policy, temporary brute-force lockout,
 session and link lifetimes, the Spanish messages, no self-deletion or email change, and
-no stored or logged user events. It never touches the realm name, the issuer, the BFF
-client, `sslRequired` or any account's ID, credentials or address, so ratings stay
+no stored or logged user events. For #374 it also snapshots and aligns only the BFF's
+**native remember me** mapper, refusing apply if the provider is absent from the image.
+It never touches the realm name, issuer, client secrets/redirects/other mappers,
+`sslRequired` or any account's ID, credentials or address, so ratings stay
 attached. Startup import still ignores the existing realm, and local development and
 CI keep the shared import's policy.
 
@@ -352,11 +355,43 @@ Effects on existing accounts, all reported by `--check` before anything changes:
   verified, and the snapshot records their IDs. Any other unverified account receives
   a verification email at its next sign-in: list those first.
 - The deployment-smoke account signs in by `vgp-deployment-smoke@example.invalid`.
-- Keycloak sessions end after 8 hours instead of 10, matching the BFF limit.
+- Ordinary sessions retain the approved bound; remembered sessions follow
+  [ADR-0027](../../docs/decisions/0027-revoke-and-end-bff-sessions-in-the-application.md).
 - Review any account the check reports without an email before the rollout; the
   validation gate does not exercise that case.
 - Failed sign-ins no longer write the username and client IP to Keycloak's log; the
   registration metrics come from a global listener and continue.
+
+### Remember Me rehearsal
+
+**Prepared in #374, not applied to the existing environment.** After owner review,
+deploy the matching BFF and shared Keycloak image through the existing
+[deployment flow](#owner-triggered-deployment). The image contains the same provider
+used locally and by prepared production. Application restart ends existing BFF
+sessions; recreating Keycloak never updates an imported realm.
+
+Using the protected `identity` command and snapshot directory in the
+[identity rollout](#reviewed-rollout-1), run `--check`, review drift, apply with
+`--snapshot-dir` and recheck. The switch, session fields and one BFF mapper are
+aligned automatically through the Admin API, without console edits or replacing the
+realm. The same command's `--sessions-only` mode reconciles only session fields and
+the mapper; local startup uses that mode to preserve its different registration and
+verification settings. Repeated applies without drift do nothing. New snapshots use format v2 so old tooling cannot silently omit
+the mapper on restore. `--restore <snapshot>` restores them together; the current
+tool also reads v1 snapshots and restores without the new mapper. Keep the matching BFF/provider
+until the realm settings are rolled back. Disabling Remember Me alone does not
+immediately revoke BFF sessions: use the existing revocation procedure or the
+documented application restart when invalidation cannot be guaranteed.
+
+Open the existing private HTTPS application address and follow the
+[browser verification steps](../../docs/development/local-setup.md#remember-me-verification)
+there: checked/unchecked entry, fully quit and reopen without session restoration,
+silent remembered return after selecting **Iniciar sesión**, private profile,
+logout before/after BFF expiry, account switching and a separate account/device.
+Record browser/settings and prompts; inspect only cookie names/flags, including
+the secure `__Host-` application session cookie. Never capture values or tokens.
+This real-HTTPS rehearsal remains pending owner-authorized rollout; disposable
+evidence does not establish deployed acceptance.
 
 ### Protected relay inputs
 

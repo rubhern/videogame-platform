@@ -28,10 +28,12 @@ describe("legal publication boundary", () => {
     expect(screen.getByText(/Rubén Hernández López/)).toBeVisible();
     expect(screen.queryByText(/Internal editorial|professional.use|DPA approval/)).not.toBeInTheDocument();
   });
-  it("retains the seven-cookie inventory in a labelled accessible table", () => {
+  it("includes the opt-in username hint in the labelled cookie inventory", () => {
     wrap(<LegalPage document="cookies" />);
     expect(screen.getByRole("table")).toHaveAccessibleName("Cookies de autenticación, seguridad e idioma");
-    expect(screen.getAllByRole("row")).toHaveLength(8);
+    expect(screen.getAllByRole("row")).toHaveLength(9);
     expect(screen.getByRole("cell", { name: "KEYCLOAK_SESSION" })).toBeVisible();
+    expect(screen.getByRole("cell", { name: "KEYCLOAK_REMEMBER_ME" })).toBeVisible();
+    expect(screen.getByRole("cell", { name: "Persistente: 365 días" })).toBeVisible();
   });
 });

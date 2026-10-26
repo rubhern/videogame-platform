@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import io
 import json
 import pathlib
 import sys
@@ -178,3 +179,32 @@ for unsafe in (
     assert unsafe.reset is None
 
 print("Private-dev OIDC smoke-user provisioning validation passed.")
+
+
+# Administrative failures must explain persisted bootstrap credentials without echoing
+# arbitrary provider payloads. Exercise the real HTTP boundary, not an auth stub.
+class RejectedToken:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def open(self, request, timeout):
+        raise module.urllib.error.HTTPError(request.full_url, 400, "Bad Request", {}, io.BytesIO(self.payload))
+
+
+for payload, expected in (
+    ({"error": "invalid_grant", "error_description": "Invalid user credentials"}, "changing it does not update a persisted account"),
+    ({"error": "invalid_grant", "error_description": "Account is not fully set up"}, "required actions"),
+    ({"error": "invalid_grant", "error_description": "secret-provider-echo"}, "with HTTP 400"),
+    (["secret-provider-echo"], "with HTTP 400"),
+):
+    admin = module.KeycloakAdmin("https://keycloak.invalid")
+    admin.opener = RejectedToken(json.dumps(payload).encode())
+    try:
+        admin.authenticate("synthetic-admin", "secret-admin-password")
+    except module.ProvisioningError as error:
+        assert expected in str(error), str(error)
+        assert "secret-provider-echo" not in str(error) and "secret-admin-password" not in str(error)
+        assert not admin.access_token
+    else:
+        raise AssertionError("Rejected administrator credentials were accepted")
+print("Administrative authentication diagnostics and redaction passed.")

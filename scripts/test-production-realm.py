@@ -92,7 +92,7 @@ expected_policy = {
     "editUsernameAllowed": False,
     "verifyEmail": True,
     "resetPasswordAllowed": True,
-    "rememberMe": False,
+    "rememberMe": True,
     "registrationFlow": "gameometro registration",
 }
 for name, value in expected_policy.items():
@@ -137,7 +137,7 @@ assert 3 <= realm["failureFactor"] <= 10
 assert 0 < realm["waitIncrementSeconds"] <= realm["maxFailureWaitSeconds"] <= 900
 assert realm["maxDeltaTimeSeconds"] >= 3600
 assert realm["ssoSessionIdleTimeout"] == 1800 and realm["ssoSessionMaxLifespan"] == 28800
-assert realm["ssoSessionIdleTimeoutRememberMe"] == 0 and realm["ssoSessionMaxLifespanRememberMe"] == 0
+assert realm["ssoSessionIdleTimeoutRememberMe"] == 604800 and realm["ssoSessionMaxLifespanRememberMe"] == 2592000
 assert realm["clientSessionIdleTimeout"] == 0 and realm["clientSessionMaxLifespan"] == 0, "client sessions inherit SSO"
 assert realm["offlineSessionMaxLifespanEnabled"] is True
 assert realm["offlineSessionMaxLifespan"] <= realm["ssoSessionMaxLifespan"]
@@ -229,7 +229,8 @@ assert client["protocolMappers"] == [
             "introspection.token.claim": "false",
             "lightweight.claim": "false",
         },
-    }
+    },
+    {"name": "native remember me", "protocol": "openid-connect", "protocolMapper": "gameometro-remember-me", "consentRequired": False, "config": {}},
 ]
 # Private-dev and local realms are aligned from their own import, which must declare the same
 # role and mapper as production (configure-keycloak-operator reads it, never this file).

@@ -524,6 +524,14 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
   text-decoration: none;
 }
 
+/* Native v2 puts Remember Me and password recovery in one helper row. Keep each
+   action on its own row so neither label competes for half the form width. */
+#kc-form-login .pf-v5-c-helper-text:has(#rememberMe) {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 #kc-form-options {
   text-align: left;
 }
