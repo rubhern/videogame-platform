@@ -60,7 +60,9 @@ class GameRankingServiceTest {
     @Test
     void reportsACatalogueThatWasNeverPublished() {
         GameRankingReadPort none = criteria -> Optional.empty();
-        assertThatThrownBy(() -> service(none).rank(new Query(Source.IGDB_PLAYERS, 1, 20)))
+        var service = service(none);
+        var query = new Query(Source.IGDB_PLAYERS, 1, 20);
+        assertThatThrownBy(() -> service.rank(query))
                 .isInstanceOf(CatalogueNotReadyException.class);
     }
 

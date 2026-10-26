@@ -96,6 +96,7 @@ class JdbcGameRankingReadAdapterIntegrationTest {
         var ranked = titles(adapter.findRankedGames(criteria(IGDB_PLAYERS, 1, 100)).orElseThrow());
 
         assertThat(ranked)
+                .isNotEmpty()
                 .doesNotContain(
                         "Future day",
                         "Current month",

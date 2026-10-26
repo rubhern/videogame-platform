@@ -2,6 +2,8 @@ package com.videogameplatform.api.delivery.catalogue.ranking;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -13,18 +15,17 @@ import org.springframework.stereotype.Component;
 final class GameRankingApiMetrics {
 
     private static final String METER = "catalogue.rankings.page.outcome";
+    private static final List<String> SOURCES = List.of("igdb_players", "gameometro_community");
 
     private final Map<String, Counter> counters;
 
     GameRankingApiMetrics(MeterRegistry registry) {
-        this.counters =
-                Map.of(
-                        key("igdb_players", true), counter(registry, "igdb_players", "items"),
-                        key("igdb_players", false), counter(registry, "igdb_players", "empty"),
-                        key("gameometro_community", true),
-                                counter(registry, "gameometro_community", "items"),
-                        key("gameometro_community", false),
-                                counter(registry, "gameometro_community", "empty"));
+        Map<String, Counter> bySourceAndOutcome = new HashMap<>();
+        for (String source : SOURCES) {
+            bySourceAndOutcome.put(key(source, true), counter(registry, source, "items"));
+            bySourceAndOutcome.put(key(source, false), counter(registry, source, "empty"));
+        }
+        this.counters = Map.copyOf(bySourceAndOutcome);
     }
 
     void recordPage(String source, int itemCount) {

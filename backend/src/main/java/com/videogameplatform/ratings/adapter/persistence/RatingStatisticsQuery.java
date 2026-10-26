@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
  * per rating, and one row per platform someone scored. Callers run both inside one snapshot.
  */
 final class RatingStatisticsQuery {
+    private static final String CONTRIBUTION = "contribution";
     static final String COMMUNITY =
             """
             WITH scoped AS MATERIALIZED (
@@ -30,9 +31,9 @@ final class RatingStatisticsQuery {
             ORDER BY series.score
             """
                     .formatted(
-                            ContributionMean.bucket("contribution"),
-                            ContributionMean.exposed("contribution"),
-                            ContributionMean.exact("contribution"));
+                            ContributionMean.bucket(CONTRIBUTION),
+                            ContributionMean.exposed(CONTRIBUTION),
+                            ContributionMean.exact(CONTRIBUTION));
     // Integer means are exact at a half-way decimal, so they round directly.
     static final String PLATFORMS =
             """

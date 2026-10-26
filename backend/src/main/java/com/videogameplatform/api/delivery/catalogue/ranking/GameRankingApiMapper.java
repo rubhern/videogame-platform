@@ -63,15 +63,11 @@ final class GameRankingApiMapper {
 
     private static RankingScore toScore(GameRanking.Score score) {
         return switch (score) {
-            case GameRanking.Score.IgdbPlayers igdb ->
-                    ExternalPlayerScoreMapper.toResponse(igdb.score());
-            case GameRanking.Score.Community community ->
+            case GameRanking.Score.IgdbPlayers(var igdb) ->
+                    ExternalPlayerScoreMapper.toResponse(igdb);
+            case GameRanking.Score.Community(var mean, var ratingCount) ->
                     new CommunityRankingScore(
-                            "gameometro",
-                            "community",
-                            community.mean(),
-                            DISPLAY_SCALE,
-                            community.ratingCount());
+                            "gameometro", "community", mean, DISPLAY_SCALE, ratingCount);
         };
     }
 
