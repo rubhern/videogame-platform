@@ -83,6 +83,7 @@ for (const width of [620, 667, 834]) {
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
     await page.goto("/lanzamientos");
 
+    await expect(page.getByRole("link", { name: "Cerrar sesión", exact: true })).toHaveCount(0);
     const signin = page.getByRole("link", { name: "Iniciar sesión", exact: true });
     await expect(signin).toBeVisible();
     await expectOnFirstRow(page, [

@@ -50,6 +50,12 @@ export async function logout(
     params: { header: { "X-CSRF-Token": csrfToken } },
   });
   if (!response.ok) {
+    if (response.status === 403) {
+      // Idle expiry can remove the session-bound CSRF proof before the click arrives.
+      // Only a successful, fresh anonymous read permits the provider confirmation fallback.
+      const current = await getSession(client);
+      if (!current.authenticated) return;
+    }
     throw new LogoutError();
   }
 }

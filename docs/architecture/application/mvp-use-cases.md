@@ -427,8 +427,13 @@ logout ends the application session and then that browser's Keycloak session thr
 standard OIDC, so the next sign-in on the device asks for credentials again; other
 devices and users keep their sessions. Keycloak returns only to the realm's exact
 post-logout URI, so logout always lands on the landing page instead of preserving the
-previous public page. A session revoked by the owner, or older than eight hours since
-authentication, acts as anonymous from its next request, and a personal command that
+previous public page. Prepared in #374: opt-in remembered sign-in and renewal follow
+[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md).
+Logout appears only with authenticated account actions. If the BFF expires before
+that logout click is processed, provider confirmation completes the requested logout;
+anonymous entry offers sign-in and registration. A session revoked
+by the owner or beyond its applicable lifetime acts as anonymous from its next request,
+and a personal command that
 would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 
 ### Personal rating statistics (UC-015, post-MVP #254)

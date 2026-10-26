@@ -31,6 +31,10 @@ final class AccountEntryAuthorizationRequestResolver implements OAuth2Authorizat
                             parameters.put("ui_locales", "es");
                             if ("register".equals(request.getParameter("intent"))) {
                                 parameters.put("prompt", "create");
+                            } else if ("true".equals(request.getParameter("reauthenticate"))) {
+                                // This parameter can only tighten authentication, never select a
+                                // longer session.
+                                parameters.put("prompt", "login");
                             }
                         })
                 .build();

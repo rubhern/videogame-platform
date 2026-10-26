@@ -87,6 +87,7 @@ public class IdentitySecurityConfiguration {
             SessionRegistry sessionRegistry,
             Clock clock,
             @Value("${identity.session.absolute-timeout}") Duration absoluteSessionTimeout,
+            @Value("${identity.session.remembered-maximum:30d}") Duration rememberedMaximum,
             @Value("${identity.oidc.issuer-uri}") String issuer,
             @Value("${identity.oidc.end-session-uri}") String endSessionUri,
             @Value("${identity.oidc.post-logout-redirect-uri}") String postLogoutRedirectUri,
@@ -96,6 +97,11 @@ public class IdentitySecurityConfiguration {
             throws Exception {
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
         csrfTokens.setHeaderName("X-CSRF-Token");
+        CompositeLogoutHandler endSession =
+                new CompositeLogoutHandler(
+                        new CookieClearingLogoutHandler(sessionCookieName),
+                        new CsrfLogoutHandler(csrfTokens),
+                        new SecurityContextLogoutHandler());
         ClientRegistrationRepository repository = registrations.getIfAvailable();
         if (repository != null) {
             ClientRegistration keycloak = repository.findByRegistrationId("keycloak");
@@ -169,10 +175,8 @@ public class IdentitySecurityConfiguration {
                                 sessionRegistry,
                                 clock,
                                 absoluteSessionTimeout,
-                                new CompositeLogoutHandler(
-                                        new CookieClearingLogoutHandler(sessionCookieName),
-                                        new CsrfLogoutHandler(csrfTokens),
-                                        new SecurityContextLogoutHandler())),
+                                rememberedMaximum,
+                                endSession),
                         ConcurrentSessionFilter.class)
                 .headers(
                         headers -> {
@@ -221,7 +225,35 @@ public class IdentitySecurityConfiguration {
                                                     endpoint.authorizationRequestResolver(
                                                             new AccountEntryAuthorizationRequestResolver(
                                                                     authorizationRequests)))
-                                    .successHandler(ratingResumeSuccessHandler)
+                                    .successHandler(
+                                            (request, response, authentication) -> {
+                                                var session = request.getSession();
+                                                SessionLifetimeFilter.created(
+                                                        session, clock.instant());
+                                                var user =
+                                                        (org.springframework.security.oauth2.core
+                                                                        .oidc.user.OidcUser)
+                                                                authentication.getPrincipal();
+                                                if (!SessionLifetimeFilter.withinLifetime(
+                                                        session,
+                                                        user,
+                                                        clock.instant(),
+                                                        absoluteSessionTimeout,
+                                                        rememberedMaximum)) {
+                                                    // Late SSO or a missing mapper must lead to
+                                                    // credentials, not an
+                                                    // immediately expired BFF followed by another
+                                                    // silent-login loop.
+                                                    endSession.logout(
+                                                            request, response, authentication);
+                                                    response.setHeader("Cache-Control", "no-store");
+                                                    response.sendRedirect(
+                                                            "/auth/login/keycloak?reauthenticate=true");
+                                                    return;
+                                                }
+                                                ratingResumeSuccessHandler.onAuthenticationSuccess(
+                                                        request, response, authentication);
+                                            })
                                     .failureHandler(ratingIntentFailureHandler));
         }
 

@@ -19,7 +19,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [Automated off-host backup storage](public-production-backup-storage.md) | #276: owner-approved Lite 3, OVHcloud/direct-S3 and revised budget; retained provider evidence, 200 GiB planning estimate, spending controls/pending risk decision and retention/cloud-host gates; no account, purchase or implementation |
 | [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 | [Public-release rights and privacy](public-release-rights-and-privacy.md) | #274: IGDB/Twitch terms per content type, verified personal-data inventory, GDPR/Spanish requirements, revocation comparison and deletion-ledger design, licence contingency, approved decisions, open uncertainties, launch blockers, and the phase 2 plan with the production-realm evidence and the transactional email provider comparison; no legal advice |
-| [Browser session lifetime and remember-me](browser-session-lifetime.md) | #361: effective BFF, cookie and Keycloak SSO lifetimes for local, private-dev and production, reproduced browser scenarios, option comparison and the owner's 2026-10-25 opt-in remember-me target policy, implementation delegated to #374; nothing configured |
+| [Browser session lifetime and remember-me](browser-session-lifetime.md) | #361 lifetime evidence; #374 native-mapper limits, owner-approved narrow SPI, reproducible signed-claim probe and all-environment implementation boundary; nothing deployed |
 
 ## Point-in-time reviews
 

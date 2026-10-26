@@ -204,6 +204,7 @@ class OidcIdTokenValidationTest {
                         .issuer(ISSUER)
                         .subject("test-subject")
                         .audience(CLIENT_ID)
+                        .claim("gameometro_remember_me", true)
                         .issueTime(Date.from(now.minusSeconds(5)))
                         .expirationTime(Date.from(now.plusSeconds(300)))
                         .build();

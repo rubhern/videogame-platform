@@ -19,7 +19,7 @@ CURL = 'curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bb
 
 
 def run(command, **kwargs):
-    result = subprocess.run(command, text=True, capture_output=True, timeout=90, **kwargs)
+    result = subprocess.run(command, text=True, capture_output=True, timeout=kwargs.pop("timeout", 90), **kwargs)
     if result.returncode:
         raise RuntimeError(result.stderr.strip())
     return result.stdout
@@ -150,7 +150,9 @@ def smoke():
             return [value for stream in query(expression) for value in stream['values']]
 
         try:
-            run(compose + ['up', '--detach', 'loki', 'alloy', 'grafana'])
+            # Download pinned fixtures separately; keep the 90-second startup bound.
+            run(compose + ['pull', 'loki', 'alloy', 'grafana', 'log-generator'], timeout=300)
+            run(compose + ['up', '--detach', '--pull', 'never', 'loki', 'alloy', 'grafana'])
             eventually(lambda: request('http://loki:3100/ready') == 'ready\n', 'Loki not ready')
             eventually(lambda: request('http://grafana:3000/api/health')['database'] == 'ok', 'Grafana not ready')
             # Native binary checks exercise exactly the pinned configurations.
@@ -161,8 +163,14 @@ def smoke():
             eventually(lambda: len(entries(expression)) == 3, 'Docker → Alloy logs missing')
             # Query results also carry detected_level structured metadata; the series
             # endpoint is the source of truth for indexed labels.
-            series = request(proxy + '/loki/api/v1/series?' + urllib.parse.urlencode({'match[]': expression}), authenticated=True)['data']
-            assert series == [{'environment': 'private-dev', 'service_name': 'application'}]
+            def indexed_series():
+                return request(proxy + '/loki/api/v1/series?' + urllib.parse.urlencode({'match[]': expression}), authenticated=True)['data']
+
+            # Entry queries and indexed-series metadata have separate readiness boundaries.
+            # Wait only for presence; unexpected labels must still fail the exact assertion.
+            eventually(lambda: bool(indexed_series()), 'Indexed log series missing')
+            series = indexed_series()
+            assert series == [{'environment': 'private-dev', 'service_name': 'application'}], f'Unexpected indexed log series: {series!r}'
             actual = [json.loads(value[1]) for value in entries(expression)]
             assert sorted(actual, key=lambda x: x['log.level']) == sorted(events, key=lambda x: x['log.level']), 'ECS payload changed'
             for field, value in [('correlationId', 'issue159-synthetic'), ('traceId', '1' * 32),

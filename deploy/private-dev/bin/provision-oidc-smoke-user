@@ -247,8 +247,29 @@ class KeycloakAdmin:
                 payload = response.read()
                 response_headers = response.headers
         except urllib.error.HTTPError as error:
+            detail = ""
+            if method == "POST" and path == "/realms/master/protocol/openid-connect/token":
+                # Only fixed diagnostics for known OAuth errors: never echo a provider body,
+                # which could contain credentials, tokens or other operator input.
+                try:
+                    failure = json.loads(error.read(4096))
+                except (ValueError, UnicodeError):
+                    failure = {}
+                if not isinstance(failure, dict):
+                    failure = {}
+                if failure.get("error") == "invalid_grant":
+                    if failure.get("error_description") == "Invalid user credentials":
+                        detail = (
+                            ": the master-realm administrator credentials were rejected. "
+                            "Use the current administrator username/password in the protected inputs "
+                            "(KEYCLOAK_ADMIN_USERNAME/KEYCLOAK_ADMIN_PASSWORD in local .env). "
+                            "KC_BOOTSTRAP_ADMIN_PASSWORD only initializes a new administrator; "
+                            "changing it does not update a persisted account. Do not reset the realm or volumes"
+                        )
+                    elif failure.get("error_description") == "Account is not fully set up":
+                        detail = ": complete the administrator's required actions in the master-realm Admin Console"
             raise ProvisioningError(
-                f"Keycloak rejected {method} {path.split('?', 1)[0]} with HTTP {error.code}"
+                f"Keycloak rejected {method} {path.split('?', 1)[0]} with HTTP {error.code}{detail}"
             ) from None
         except urllib.error.URLError as error:
             raise ProvisioningError(

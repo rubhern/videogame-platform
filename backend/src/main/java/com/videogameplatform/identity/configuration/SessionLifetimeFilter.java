@@ -20,30 +20,34 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Ends an OIDC session that outlived its absolute lifetime or that revocation could not reach.
  *
- * <p>The lifetime runs from the ID token's {@code auth_time} (its {@code iat} when absent), so
- * requests never extend it and no BFF session outlives the identity provider's own maximum session
- * counted from the same authentication. A session absent from the registry could not be revoked,
- * so it is ended as well. The request then continues anonymously, exactly like a session Spring
- * Security's concurrent-session filter found revoked.
+ * <p>Only a boolean true in the validated ID token selects remembered bounds. All other values
+ * preserve the ordinary authentication-time bound. No request, userinfo or cookie can select it.
  */
 final class SessionLifetimeFilter extends OncePerRequestFilter {
 
+    private static final String CREATED_AT = SessionLifetimeFilter.class.getName() + ".createdAt";
     private final SessionRegistry sessions;
     private final Clock clock;
     private final Duration absoluteTimeout;
+    private final Duration rememberedMaximum;
     private final LogoutHandler endSession;
 
     SessionLifetimeFilter(
             SessionRegistry sessions,
             Clock clock,
             Duration absoluteTimeout,
+            Duration rememberedMaximum,
             LogoutHandler endSession) {
-        if (absoluteTimeout.isNegative() || absoluteTimeout.isZero()) {
-            throw new IllegalArgumentException("absoluteTimeout must be positive");
+        if (absoluteTimeout.isNegative()
+                || absoluteTimeout.isZero()
+                || rememberedMaximum.isNegative()
+                || rememberedMaximum.isZero()) {
+            throw new IllegalArgumentException("Session timeouts must be positive");
         }
         this.sessions = sessions;
         this.clock = clock;
         this.absoluteTimeout = absoluteTimeout;
+        this.rememberedMaximum = rememberedMaximum;
         this.endSession = endSession;
     }
 
@@ -60,12 +64,35 @@ final class SessionLifetimeFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    static void created(HttpSession session, Instant now) {
+        session.setAttribute(CREATED_AT, now);
+    }
+
     private boolean isWithinLifetime(HttpSession session, OidcUser user) {
-        Instant authenticatedAt =
-                user.getAuthenticatedAt() != null ? user.getAuthenticatedAt() : user.getIssuedAt();
         return session != null
                 && sessions.getSessionInformation(session.getId()) != null
-                && authenticatedAt != null
-                && clock.instant().isBefore(authenticatedAt.plus(absoluteTimeout));
+                && withinLifetime(
+                        session, user, clock.instant(), absoluteTimeout, rememberedMaximum);
+    }
+
+    static boolean withinLifetime(
+            HttpSession session,
+            OidcUser user,
+            Instant now,
+            Duration absoluteTimeout,
+            Duration rememberedMaximum) {
+        var idToken = user.getIdToken();
+        Instant authenticatedAt =
+                idToken.getAuthenticatedAt() != null
+                        ? idToken.getAuthenticatedAt()
+                        : idToken.getIssuedAt();
+        if (Boolean.TRUE.equals(idToken.getClaims().get("gameometro_remember_me"))) {
+            return session != null
+                    && session.getAttribute(CREATED_AT) instanceof Instant createdAt
+                    && idToken.getAuthenticatedAt() != null
+                    && now.isBefore(createdAt.plus(absoluteTimeout))
+                    && now.isBefore(idToken.getAuthenticatedAt().plus(rememberedMaximum));
+        }
+        return authenticatedAt != null && now.isBefore(authenticatedAt.plus(absoluteTimeout));
     }
 }

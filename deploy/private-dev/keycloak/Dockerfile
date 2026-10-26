@@ -2,8 +2,20 @@
 # check=error=true
 
 ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85
+ARG JDK_IMAGE=eclipse-temurin:25.0.4_7-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3
 
-FROM ${KEYCLOAK_IMAGE}
+FROM ${KEYCLOAK_IMAGE} AS keycloak-base
+
+FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS mapper-build
+WORKDIR /mapper
+# Compile against the exact runtime's APIs; no downloaded or bundled dependencies.
+COPY --from=keycloak-base /opt/keycloak/lib/lib/main /keycloak-libs
+COPY docker/keycloak/remember-me-mapper/ ./
+RUN mkdir classes \
+    && javac --release 21 -cp '/keycloak-libs/*' -d classes src/com/videogameplatform/keycloak/RememberMeMapper.java \
+    && jar --create --file remember-me-mapper.jar --date=2026-10-25T00:00:00Z -C classes . -C resources .
+
+FROM keycloak-base
 
 ARG KEYCLOAK_EVENT_METRICS_USER_ENABLED=false
 
@@ -15,6 +27,7 @@ ENV KC_CACHE=local \
     KC_METRICS_ENABLED=true \
     KC_EVENT_METRICS_USER_ENABLED=${KEYCLOAK_EVENT_METRICS_USER_ENABLED}
 
+COPY --from=mapper-build --chown=keycloak:keycloak /mapper/remember-me-mapper.jar /opt/keycloak/providers/
 RUN /opt/keycloak/bin/kc.sh build
 
 # One theme source, with brand and font assets copied from their canonical frontend owners.

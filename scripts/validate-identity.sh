@@ -17,6 +17,11 @@ mailpit_container="videogame-platform-identity-mailpit-${identity_run_id}"
 application_container="videogame-platform-identity-application-${identity_run_id}"
 identity_tmp_dir="$(mktemp -d)"
 test_failed=false
+identity_phase="${IDENTITY_REMEMBER_ME_PHASE:-all}"
+case "$identity_phase" in
+  all|continuity|renewal|idle) ;;
+  *) echo 'IDENTITY_REMEMBER_ME_PHASE must be all, continuity, renewal or idle' >&2; exit 2 ;;
+esac
 
 cleanup() {
   if [[ "$test_failed" == "true" ]]; then
@@ -59,7 +64,9 @@ test_user_username="local-user"
 smoke_user_username="integration-deployment-smoke"
 
 python3 -I scripts/test-keycloak-theme.py
-bash scripts/package-application.sh
+if [[ "${IDENTITY_REUSE_PACKAGE:-false}" != "true" ]]; then
+  bash scripts/package-application.sh
+fi
 docker build --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_image" .
 application_jar="$(resolve_backend_jar)"
 
@@ -145,6 +152,13 @@ docker run --rm --network "$identity_network" "$playwright_image" \
   exit 1
 }
 
+# Prove the provider's signed contract on the same PostgreSQL-backed Keycloak image.
+docker run --rm --network "$identity_network" \
+  --env PROBE_NATIVE_MAPPER=true --env PROBE_ADMIN_USERNAME=local-admin \
+  --env PROBE_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --volume "$repository_root:/work:ro" \
+  "$playwright_image" node /work/scripts/probe-remember-me-trust.cjs
+
 docker run --rm \
   --network "$identity_network" \
   --read-only \
@@ -183,6 +197,7 @@ docker run --rm \
   "$playwright_image" \
   python3 scripts/test-keycloak-operator-role.py
 
+start_application() {
 docker run --detach \
   --name "$application_container" \
   --network "$identity_network" \
@@ -202,12 +217,18 @@ docker run --detach \
   --env OIDC_TOKEN_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token \
   --env OIDC_JWK_SET_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs \
   --env OIDC_USER_INFO_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo \
+  --env APPLICATION_SESSION_TIMEOUT="${identity_idle:-30m}" \
+  --env APPLICATION_SESSION_ABSOLUTE_TIMEOUT="${identity_absolute:-8h}" \
+  --env APPLICATION_SESSION_REMEMBERED_MAXIMUM="${identity_remembered:-30d}" \
   --env APPLICATION_SESSION_COOKIE_NAME=vgp_session \
   --env APPLICATION_SESSION_COOKIE_SECURE=false \
   --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
   --volume "$application_jar:/application.jar:ro" \
   "$java_image" java -jar /application.jar >/dev/null
 
+}
+
+wait_application() {
 for _ in $(seq 1 90); do
   if docker run --rm --network "$identity_network" "$playwright_image" \
       node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
@@ -226,6 +247,25 @@ docker run --rm --network "$identity_network" "$playwright_image" \
   exit 1
 }
 
+}
+
+if [[ "$identity_phase" == "renewal" ]]; then
+  identity_idle=1m
+  identity_absolute=15s
+  identity_remembered=45s
+  identity_timed=true
+fi
+if [[ "$identity_phase" == "idle" ]]; then
+  identity_idle=1m
+  identity_absolute=3m
+  identity_remembered=5m
+  identity_timed=true
+  identity_idle_test=true
+fi
+start_application
+wait_application
+
+run_browser_tests() {
 docker run --rm \
   --ipc=host \
   --network "$identity_network" \
@@ -238,17 +278,70 @@ docker run --rm \
   --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
   --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
   --env MAILPIT_API_ORIGIN=http://mailpit:8025 \
+  --env REMEMBER_ME_TIMED="${identity_timed:-false}" \
+  --env REMEMBER_ME_IDLE="${identity_idle_test:-false}" \
+  --env REMEMBER_ME_RESTART_PHASE="${identity_restart:-}" \
+  --volume "$identity_tmp_dir:/evidence" \
   --volume "$repository_root:/work" \
   --workdir /work \
   "$playwright_image" \
-  npm --prefix frontend run test:e2e -- \
-    tests/oidc-session.spec.ts \
-    tests/rating-boundary.spec.ts \
-    tests/password-recovery.spec.ts \
-    tests/session-revocation.spec.ts \
-    tests/catalogue-administration-identity.spec.ts \
-    --reporter=line \
-    --trace=off
+  npm --prefix frontend run test:e2e -- "$@" --workers=1 --reporter=line --trace=off
+}
+
+if [[ "$identity_phase" == "idle" ]]; then
+  run_browser_tests tests/remember-me.spec.ts --grep 'timed idle expiry'
+  test_failed=false
+  exit 0
+fi
+if [[ "$identity_phase" == "renewal" ]]; then
+  run_browser_tests tests/remember-me.spec.ts
+  test_failed=false
+  exit 0
+fi
+if [[ "$identity_phase" == "all" && "${IDENTITY_REMEMBER_ME_ONLY:-false}" != "true" ]]; then
+  run_browser_tests tests/oidc-session.spec.ts tests/rating-boundary.spec.ts tests/password-recovery.spec.ts tests/session-revocation.spec.ts tests/catalogue-administration-identity.spec.ts
+fi
+run_browser_tests tests/remember-me.spec.ts
+
+identity_restart=before
+run_browser_tests tests/remember-me.spec.ts --grep 'restart continuity'
+docker restart "$application_container" >/dev/null
+wait_application
+identity_restart=application
+run_browser_tests tests/remember-me.spec.ts --grep 'restart continuity'
+docker restart "$keycloak_container" >/dev/null
+for _ in $(seq 1 90); do
+  if docker run --rm --network "$identity_network" "$playwright_image" node -e 'fetch("http://keycloak:8080/realms/videogame-platform/.well-known/openid-configuration").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'; then break; fi
+  sleep 1
+done
+identity_restart=keycloak
+run_browser_tests tests/remember-me.spec.ts --grep 'restart continuity'
+unset identity_restart
+if [[ "$identity_phase" == "continuity" ]]; then
+  test_failed=false
+  exit 0
+fi
+
+# A second packaged BFF invocation uses shortened equivalent bounds only in this disposable topology.
+docker rm --force "$application_container" >/dev/null
+identity_idle=1m
+identity_absolute=15s
+identity_remembered=45s
+identity_timed=true
+start_application
+wait_application
+run_browser_tests tests/remember-me.spec.ts
+
+# Tomcat's minimum servlet idle unit is one minute. Isolate this proof from the
+# second-scale absolute/global tests, whose limits would otherwise expire first.
+docker rm --force "$application_container" >/dev/null
+identity_idle=1m
+identity_absolute=3m
+identity_remembered=5m
+identity_idle_test=true
+start_application
+wait_application
+run_browser_tests tests/remember-me.spec.ts --grep 'timed idle expiry'
 
 test_failed=false
 printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session, revocation/logout, catalogue operator authority and Mailpit password-recovery proof passed.'

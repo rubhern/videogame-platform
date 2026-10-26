@@ -4,19 +4,21 @@
   "loginTheme": "gameometro",
   "emailTheme": "gameometro",
   "internationalizationEnabled": true,
-  "supportedLocales": ["es"],
+  "supportedLocales": [
+    "es"
+  ],
   "defaultLocale": "es",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
   "resetPasswordAllowed": true,
-  "rememberMe": false,
+  "rememberMe": true,
   "loginWithEmailAllowed": false,
   "duplicateEmailsAllowed": false,
   "verifyEmail": false,
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
-  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionMaxLifespan": 28800,
   "smtpServer": {
     "host": "mailpit",
     "port": "1025",
@@ -100,8 +102,17 @@
             "introspection.token.claim": "false",
             "lightweight.claim": "false"
           }
+        },
+        {
+          "name": "native remember me",
+          "protocol": "openid-connect",
+          "protocolMapper": "gameometro-remember-me",
+          "consentRequired": false,
+          "config": {}
         }
       ]
     }
-  ]
+  ],
+  "ssoSessionIdleTimeoutRememberMe": 604800,
+  "ssoSessionMaxLifespanRememberMe": 2592000
 }

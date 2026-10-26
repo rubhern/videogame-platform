@@ -38,6 +38,8 @@
 !/docker/keycloak/
 !/docker/keycloak/themes/
 !/docker/keycloak/themes/**
+!/docker/keycloak/remember-me-mapper/
+!/docker/keycloak/remember-me-mapper/**
 
 !/package.json
 !/package-lock.json

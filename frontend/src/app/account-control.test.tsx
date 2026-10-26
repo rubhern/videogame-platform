@@ -67,6 +67,7 @@ describe("header account control", () => {
 
     expect(await screen.findByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/auth/start?returnTo=%2F");
     expect(screen.getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", "/auth/start?returnTo=%2F&intent=register");
+    expect(screen.queryByRole("link", { name: "Cerrar sesión" })).not.toBeInTheDocument();
     expect(screen.queryByText("Mi cuenta")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Cerrar sesión" }),

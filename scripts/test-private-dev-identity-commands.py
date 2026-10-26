@@ -36,6 +36,12 @@ assert desired["settings"]["verifyEmail"] is True and desired["settings"]["regis
 assert list(identity.MANAGED_REALM_SETTINGS)[-2:] == ["registrationEmailAsUsername", "verifyEmail"]
 for excluded in ("realm", "sslRequired", "smtpServer", "clients", "registrationFlow"):
     assert excluded not in identity.MANAGED_REALM_SETTINGS, excluded
+# Local and private/production session semantics come from the same reviewed values.
+local = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text())
+assert {name: local[name] for name in identity.SESSION_SETTINGS} == {
+    name: production[name] for name in identity.SESSION_SETTINGS}
+assert next(mapper for client in local["clients"] if client["clientId"] == "videogame-platform-bff"
+    for mapper in client["protocolMappers"] if mapper["protocolMapper"] == "gameometro-remember-me") == desired["rememberMeMapper"]
 assert [attribute["name"] for attribute in desired["profileAttributes"]] == ["username", "email"]
 assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-user-creation", "REQUIRED"),
@@ -43,6 +49,30 @@ assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-terms-and-conditions", "REQUIRED"),
 ]
 assert "18 años" in desired["localization"]["acceptTerms"]
+
+# Session-only production reconciliation must target the explicit realm, not private-dev.
+class RealmAdmin:
+    def _request(self, method, path, **kwargs):
+        assert method == "GET" and path == "/admin/realms/gameometro"
+        return json.dumps({"realm": "gameometro"}), {}
+
+assert identity.Realm(RealmAdmin(), "gameometro").representation() == {"realm": "gameometro"}
+
+# Longer SSO must not be enabled before the running image supplies the trusted mapper.
+class MissingProviderAdmin:
+    def _request(self, method, path, **kwargs):
+        assert method == "GET" and path == "/admin/serverinfo"
+        return json.dumps({"protocolMapperTypes": {"openid-connect": []}}), {}
+
+class MissingProviderRealm:
+    admin = MissingProviderAdmin()
+
+try:
+    identity.apply(MissingProviderRealm(), desired, [])
+except identity.ProvisioningError as error:
+    assert "provider first" in str(error)
+else:
+    raise AssertionError("identity alignment accepted an image without the mode mapper")
 
 for address in (
     "player@example.test",

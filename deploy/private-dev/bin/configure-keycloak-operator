@@ -44,7 +44,7 @@ def desired() -> tuple[dict[str, object], dict[str, object]]:
     realm = json.loads(realm_import.read_text(encoding="utf-8"))
     [role] = [role for role in realm["roles"]["client"][CLIENT_ID] if role["name"] == ROLE]
     [client] = [client for client in realm["clients"] if client["clientId"] == CLIENT_ID]
-    [mapper] = [mapper for mapper in client["protocolMappers"] if mapper["config"]["claim.name"] == "product_roles"]
+    [mapper] = [mapper for mapper in client["protocolMappers"] if mapper.get("config", {}).get("claim.name") == "product_roles"]
     return role, mapper
 
 

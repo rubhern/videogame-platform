@@ -37,7 +37,7 @@ provisioning = mail.provisioning
 ProvisioningError = provisioning.ProvisioningError
 REALM = provisioning.REALM
 ADMIN_REALM = f"/admin/realms/{REALM}"
-SNAPSHOT_VERSION = 1
+SNAPSHOT_VERSION = 2
 
 # Production behaviour reproduced in private-dev. Left out on purpose: realm name, issuer and
 # sslRequired (Tailscale terminates HTTPS), the BFF client and its scopes, and the SMTP target,
@@ -94,6 +94,10 @@ MANAGED_REALM_SETTINGS = (
     "registrationEmailAsUsername",
     "verifyEmail",
 )
+SESSION_SETTINGS = (
+    "rememberMe", "ssoSessionIdleTimeout", "ssoSessionMaxLifespan",
+    "ssoSessionIdleTimeoutRememberMe", "ssoSessionMaxLifespanRememberMe",
+)
 PROFILE_ATTRIBUTES = ("username", "email")
 DISABLED_REQUIRED_ACTIONS = ("delete_account", "UPDATE_EMAIL")
 BUILT_IN_REGISTRATION_FLOW = "registration"
@@ -124,6 +128,9 @@ def desired_policy() -> dict[str, object]:
     [form_step] = top["authenticationExecutions"]
     form = flows[form_step["flowAlias"]]
     return {
+        "rememberMeMapper": next(mapper for client in realm["clients"]
+            if client["clientId"] == "videogame-platform-bff" for mapper in client["protocolMappers"]
+            if mapper["protocolMapper"] == "gameometro-remember-me"),
         "settings": {name: realm[name] for name in MANAGED_REALM_SETTINGS},
         # Keycloak returns every attribute with its multivalued default made explicit.
         "profileAttributes": [{"multivalued": False, **attributes[name]} for name in PROFILE_ATTRIBUTES],
@@ -147,18 +154,45 @@ def desired_policy() -> dict[str, object]:
 class Realm:
     """Admin API reads and writes for the managed parts of one realm."""
 
-    def __init__(self, admin: object) -> None:
+    def __init__(self, admin: object, name: str = REALM) -> None:
         self.admin = admin
+        self.name = name
+        self.admin_path = f"/admin/realms/{urllib.parse.quote(name, safe='')}"
 
     def get(self, path: str) -> object:
-        payload, _ = self.admin._request("GET", f"{ADMIN_REALM}{path}", expected={200})
+        payload, _ = self.admin._request("GET", f"{self.admin_path}{path}", expected={200})
         return json.loads(payload) if payload else None
 
     def send(self, method: str, path: str, body: object, expected: set[int] = frozenset({200, 201, 204})) -> None:
-        self.admin._request(method, f"{ADMIN_REALM}{path}", body=body, expected=set(expected))
+        self.admin._request(method, f"{self.admin_path}{path}", body=body, expected=set(expected))
 
     def representation(self) -> dict[str, object]:
-        return mail.realm_representation(self.admin)
+        realm = self.get("")
+        if not isinstance(realm, dict) or realm.get("realm") != self.name:
+            raise ProvisioningError("Keycloak returned an invalid realm representation")
+        return realm
+
+    def mapper_path(self) -> str:
+        [client] = self.get("/clients?clientId=videogame-platform-bff")
+        return f"/clients/{client['id']}/protocol-mappers/models"
+
+    def remember_mapper(self) -> dict[str, object] | None:
+        mappers = [mapper for mapper in self.get(self.mapper_path()) if mapper["name"] == "native remember me"]
+        if len(mappers) > 1:
+            raise ProvisioningError("Duplicate Remember Me mapper; review the client configuration")
+        return mappers[0] if mappers else None
+
+    def set_remember_mapper(self, desired: dict[str, object] | None) -> None:
+        current = self.remember_mapper()
+        path = self.mapper_path()
+        if current is not None:
+            path += f"/{current['id']}"
+            if desired is None:
+                self.send("DELETE", path, None)
+            else:
+                self.send("PUT", path, {**desired, "id": current["id"]})
+        elif desired is not None:
+            self.send("POST", path, {key: value for key, value in desired.items() if key != "id"})
 
     def profile(self) -> dict[str, object]:
         profile = self.get("/users/profile")
@@ -173,7 +207,7 @@ class Realm:
         return texts
 
     def set_localization(self, key: str, value: str | None) -> None:
-        path = f"{ADMIN_REALM}/localization/es/{urllib.parse.quote(key, safe='')}"
+        path = f"{self.admin_path}/localization/es/{urllib.parse.quote(key, safe='')}"
         if value is None:
             self.admin._request("DELETE", path, expected={204})
             return
@@ -252,6 +286,9 @@ def expected_flow_shape(desired: dict[str, object]) -> dict[str, object]:
 def drift(realm: Realm, desired: dict[str, object]) -> list[str]:
     differing: list[str] = []
     current = realm.representation()
+    mapper = realm.remember_mapper()
+    if mapper is None or any(mapper.get(key) != value for key, value in desired["rememberMeMapper"].items()):
+        differing.append("rememberMeMapper")
     differing += [name for name, value in desired["settings"].items() if current.get(name) != value]
     attributes = {attribute.get("name"): attribute for attribute in realm.profile()["attributes"]}
     managed = {attribute["name"]: attribute for attribute in desired["profileAttributes"]}
@@ -313,6 +350,7 @@ def snapshot(realm: Realm, desired: dict[str, object], reserved_ids: list[str]) 
     actions = realm.required_actions()
     return {
         "version": SNAPSHOT_VERSION,
+        "rememberMeMapper": realm.remember_mapper(),
         "realm": REALM,
         "takenAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "settings": {name: current.get(name) for name in MANAGED_REALM_SETTINGS},
@@ -369,7 +407,62 @@ def ensure_registration_flow(realm: Realm, desired: dict[str, object]) -> None:
         raise ProvisioningError(f"Keycloak did not build flow '{flow['alias']}' as reviewed")
 
 
+def require_remember_provider(realm: Realm) -> None:
+    # Install the claim contract before enabling the longer SSO lifetime. No client secrets,
+    # redirect URIs, other mappers or accounts are part of this addition.
+    payload, _ = realm.admin._request("GET", "/admin/serverinfo", expected={200})
+    mappers = json.loads(payload)["protocolMapperTypes"]["openid-connect"]
+    if not any(mapper["id"] == "gameometro-remember-me" for mapper in mappers):
+        raise ProvisioningError("Deploy the reviewed Keycloak image with the Remember Me provider first")
+
+
+def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argparse.Namespace) -> int:
+    """Reconcile only shared session bounds and the BFF mapper, preserving local identity policy."""
+    settings = {name: desired["settings"][name] for name in SESSION_SETTINGS}
+    current = realm.representation()
+    mapper = realm.remember_mapper()
+    if arguments.restore:
+        saved = json.loads(arguments.restore.read_text(encoding="utf-8"))
+        if (saved.get("version") != SNAPSHOT_VERSION or saved.get("scope") != "sessions"
+                or saved.get("realm") != realm.name or set(saved.get("settings", {})) != set(SESSION_SETTINGS)):
+            raise ProvisioningError("The snapshot is not a session-policy snapshot for this realm")
+        realm.send("PUT", "", saved["settings"], {204})
+        realm.set_remember_mapper(saved["rememberMeMapper"])
+        print(f"Realm {realm.name} session policy restored from {arguments.restore.name}.")
+        return 0
+    require_remember_provider(realm)
+    differing = [name for name, value in settings.items() if current.get(name) != value]
+    expected_mapper = desired["rememberMeMapper"]
+    if mapper is None or any(mapper.get(key) != value for key, value in expected_mapper.items()):
+        differing.append("rememberMeMapper")
+    if not differing:
+        print(f"Realm {realm.name} session policy is aligned; nothing changed.")
+        return 0
+    if arguments.check:
+        print(f"Realm {realm.name} session policy differs: {', '.join(differing)}", file=sys.stderr)
+        return 1
+    path = write_snapshot(arguments.snapshot_dir, {
+        "version": SNAPSHOT_VERSION, "scope": "sessions", "realm": realm.name,
+        "takenAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
+        "settings": {name: current.get(name) for name in SESSION_SETTINGS},
+        "rememberMeMapper": mapper,
+    })
+    print(f"Snapshot written to {path}.")
+    # Trust contract first, then the longer SSO bounds. Never replace the client or realm.
+    realm.set_remember_mapper(expected_mapper)
+    realm.send("PUT", "", settings, {204})
+    actual_mapper = realm.remember_mapper()
+    actual = realm.representation()
+    if (any(actual.get(key) != value for key, value in settings.items()) or actual_mapper is None
+            or any(actual_mapper.get(key) != value for key, value in expected_mapper.items())):
+        raise ProvisioningError(f"Keycloak did not retain the session policy; restore {path}")
+    print(f"Realm {realm.name} session policy updated: {', '.join(differing)}.")
+    return 0
+
+
 def apply(realm: Realm, desired: dict[str, object], reserved_ids: list[str]) -> None:
+    require_remember_provider(realm)
+    realm.set_remember_mapper(desired["rememberMeMapper"])
     # Reserved addresses can never verify by email; marking them verified before email sign-in
     # starts keeps their stored username, which a profile write would otherwise replace.
     for user_id in reserved_ids:
@@ -391,7 +484,7 @@ def apply(realm: Realm, desired: dict[str, object], reserved_ids: list[str]) -> 
 
 
 def restore(realm: Realm, desired: dict[str, object], saved: dict[str, object]) -> None:
-    if saved.get("version") != SNAPSHOT_VERSION or saved.get("realm") != REALM:
+    if saved.get("version") not in (1, SNAPSHOT_VERSION) or saved.get("realm") != REALM or saved.get("scope") is not None:
         raise ProvisioningError("The snapshot was not written by this command for this realm")
     # Email sign-in goes first, so the account writes below cannot rewrite stored usernames.
     settings = dict(saved["settings"])
@@ -399,6 +492,8 @@ def restore(realm: Realm, desired: dict[str, object], saved: dict[str, object]) 
     if settings.get("passwordPolicy") is None:
         settings["passwordPolicy"] = ""
     realm.send("PUT", "", {**settings, "registrationFlow": saved["registrationFlow"]}, {204})
+    # Old snapshots predate this capability. Removing its mapper is fail closed for the BFF.
+    realm.set_remember_mapper(saved.get("rememberMeMapper"))
     for user_id in saved["markedVerified"]:
         realm.send("PUT", f"/users/{user_id}", {"emailVerified": False})
     realm.send("PUT", "/users/profile", saved["userProfile"])
@@ -428,8 +523,14 @@ def main() -> int:
     mode.add_argument("--check", action="store_true", help="Report alignment and the account inventory without changes")
     mode.add_argument("--list-unverified", action="store_true", help="Print unverified accounts with a deliverable address")
     mode.add_argument("--restore", type=pathlib.Path, help="Revert to a snapshot written by an earlier apply")
+    parser.add_argument("--realm", default=REALM, help="Realm name; another realm is permitted only with --origin --sessions-only")
+    parser.add_argument("--sessions-only", action="store_true", help="Reconcile only shared session settings and the native BFF mapper; keep environment-specific identity settings")
     parser.add_argument("--snapshot-dir", type=pathlib.Path, help="Protected directory for the pre-apply snapshot")
     arguments = parser.parse_args()
+    if not arguments.realm or (arguments.realm != REALM and not (arguments.origin and arguments.sessions_only)):
+        parser.error("another --realm requires --origin --sessions-only")
+    if arguments.sessions_only and arguments.list_unverified:
+        parser.error("--sessions-only does not inspect accounts")
 
     if arguments.origin:
         if not arguments.admin_username or not arguments.admin_password_file:
@@ -446,7 +547,9 @@ def main() -> int:
     desired = desired_policy()
     admin = provisioning.KeycloakAdmin(origin)
     admin.authenticate(username, password)
-    realm = Realm(admin)
+    realm = Realm(admin, arguments.realm)
+    if arguments.sessions_only:
+        return configure_sessions(realm, desired, arguments)
 
     if arguments.list_unverified:
         for account_username, email in inventory(realm)["otherUnverified"]:

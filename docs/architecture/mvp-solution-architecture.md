@@ -177,8 +177,9 @@ The BFF is a confidential OAuth client using Authorization Code, PKCE, and OIDC.
 keeps tokens server-side and gives the browser an opaque HttpOnly session cookie.
 State changes require CSRF proof; redirects are allowlisted; return context is short
 lived and replay-safe. Public catalogue and personal resources remain separate.
-Sessions are registered per derived `UserId`, bounded to eight hours from
-authentication, revocable by a private management operation that personal writes
+Sessions are registered per derived `UserId`, bounded by the ordinary/remembered
+policy in ADR-0027 (the remembered amendment is prepared, not deployed),
+revocable by a private management operation that personal writes
 cannot outrun, and ended in Keycloak too on logout
 ([ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md),
 [platform design](deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)).

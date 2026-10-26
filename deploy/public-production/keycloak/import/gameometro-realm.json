@@ -6,7 +6,9 @@
   "loginTheme": "gameometro",
   "emailTheme": "gameometro",
   "internationalizationEnabled": true,
-  "supportedLocales": ["es"],
+  "supportedLocales": [
+    "es"
+  ],
   "defaultLocale": "es",
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
@@ -15,7 +17,7 @@
   "editUsernameAllowed": false,
   "verifyEmail": true,
   "resetPasswordAllowed": true,
-  "rememberMe": false,
+  "rememberMe": true,
   "passwordPolicy": "length(12) and maxLength(128) and notEmail and notContainsUsername",
   "bruteForceProtected": true,
   "bruteForceStrategy": "MULTIPLE",
@@ -29,8 +31,8 @@
   "minimumQuickLoginWaitSeconds": 60,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 28800,
-  "ssoSessionIdleTimeoutRememberMe": 0,
-  "ssoSessionMaxLifespanRememberMe": 0,
+  "ssoSessionIdleTimeoutRememberMe": 604800,
+  "ssoSessionMaxLifespanRememberMe": 2592000,
   "clientSessionIdleTimeout": 0,
   "clientSessionMaxLifespan": 0,
   "offlineSessionIdleTimeout": 1800,
@@ -160,7 +162,9 @@
         "https://${APPLICATION_PUBLIC_HOST}/login/oauth2/code/keycloak"
       ],
       "webOrigins": [],
-      "defaultClientScopes": ["basic"],
+      "defaultClientScopes": [
+        "basic"
+      ],
       "optionalClientScopes": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
@@ -186,6 +190,13 @@
             "introspection.token.claim": "false",
             "lightweight.claim": "false"
           }
+        },
+        {
+          "name": "native remember me",
+          "protocol": "openid-connect",
+          "protocolMapper": "gameometro-remember-me",
+          "consentRequired": false,
+          "config": {}
         }
       ]
     }
