@@ -1,3 +1,4 @@
+import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
@@ -42,8 +43,7 @@ async function state(page: Page): Promise<{ authenticated: boolean; csrfToken?: 
 }
 
 async function entered(page: Page) {
-  // New synthetic accounts can enter the approved first-run platform welcome route.
-  await expect(page).toHaveURL(url => url.origin === new URL(app).origin && ["/lanzamientos/destacados", "/bienvenida"].includes(url.pathname));
+  await reachFeaturedAfterSignIn(page, new URL(app).origin);
 }
 
 async function signIn(browser: Browser, request: APIRequestContext, remembered: boolean) {

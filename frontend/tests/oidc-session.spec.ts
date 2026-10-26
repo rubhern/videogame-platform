@@ -1,3 +1,4 @@
+import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
 
@@ -25,7 +26,7 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await reachFeaturedAfterSignIn(page, applicationOrigin);
   expect(browserRequests).not.toContainEqual(
     expect.stringMatching(/\/login-actions\/required-action(?:\?|$)/),
   );
@@ -211,7 +212,7 @@ test("an external return target falls back to the landing page after real authen
   await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await reachFeaturedAfterSignIn(page, applicationOrigin);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   const unicodeReturn = await page.request.get(
     "/auth/start?returnTo=" + encodeURIComponent("/search?q=Pokémon"),

@@ -1,3 +1,4 @@
+import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
 import { createHash } from "node:crypto";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
@@ -141,7 +142,7 @@ async function signIn(browser: Browser, player: Player): Promise<Device> {
   const page = await context.newPage();
   await page.goto("/auth/login/keycloak");
   await submitCredentials(page, player);
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await reachFeaturedAfterSignIn(page, applicationOrigin);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   return { page, close: () => context.close() };
 }

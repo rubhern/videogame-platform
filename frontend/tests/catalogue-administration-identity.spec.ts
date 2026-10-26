@@ -1,3 +1,4 @@
+import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
 // Real Keycloak and BFF (#247): the operator authority comes only from the BFF client's
@@ -90,7 +91,7 @@ async function signIn(browser: Browser, account: Account): Promise<Page> {
   await page.getByLabel("Usuario", { exact: true }).fill(account.username);
   await page.locator("#password").fill(account.password);
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await reachFeaturedAfterSignIn(page, applicationOrigin);
   return page;
 }
 
