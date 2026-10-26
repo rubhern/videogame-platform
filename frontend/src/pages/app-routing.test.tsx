@@ -141,7 +141,7 @@ describe("application routing", () => {
 
     await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
     expect(screen.getByRole("link", { name: "Gameómetro · Inicio" })).toHaveAttribute("href", "/");
-    expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro")).toBeVisible();
+    expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro", { selector: ".sr-only" })).toBeInTheDocument();
   });
 
   it("uses the integrated search instead of a duplicate navigation link", async () => {

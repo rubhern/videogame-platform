@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -12,13 +12,23 @@ describe("legal publication boundary", () => {
   it("withholds draft routes and links from production", () => {
     expect(legalRoutes(false)).toEqual([]);
     wrap(<LegalLinks review={false} />);
-    expect(screen.queryByRole("navigation", { name: "Información legal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Legal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Contacto" })).not.toBeInTheDocument();
   });
   it("provides the four review routes and contact without a consent control", () => {
     expect(legalRoutes(true).map((route) => route.path)).toEqual(["privacidad", "condiciones", "aviso-legal", "cookies"]);
     wrap(<LegalLinks review />);
-    expect(screen.getByRole("link", { name: "Privacidad" })).toHaveAttribute("href", "/privacidad");
-    expect(screen.getByRole("link", { name: "Contacto" })).toHaveAttribute("href", "mailto:hola@gameometro.com");
+    const legal = screen.getByRole("navigation", { name: "Legal" });
+    expect(within(legal).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Aviso legal", "/aviso-legal"], ["Privacidad", "/privacidad"], ["Cookies", "/cookies"], ["Condiciones de uso", "/condiciones"],
+    ]);
+    // Every legal destination is a declared route.
+    const routes = legalRoutes(true).map((route) => `/${route.path}`);
+    for (const link of within(legal).getAllByRole("link")) expect(routes).toContain(link.getAttribute("href"));
+    const product = screen.getByRole("navigation", { name: "Gameómetro" });
+    expect(within(product).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Sobre Gameómetro", "/sobre-gameometro"], ["Contacto", "mailto:hola@gameometro.com"],
+    ]);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
   it("renders the proposed identity and rights without the editorial checklist or supplier eligibility debate", () => {

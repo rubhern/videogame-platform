@@ -8,9 +8,9 @@ import {
 } from "../features/releases/releases-search";
 import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
-import { LegalLinks } from "../shared/legal/legal-links";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
+import { SiteFooter } from "./site-footer";
 
 export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
@@ -92,15 +92,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <footer className="site-footer">
-        <div className="page-container">
-          <span className="site-footer-brand">
-            <BrandLogo className="site-footer-logo" />
-            <span className="sr-only">Gameómetro</span>
-          </span>
-          <LegalLinks />
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
