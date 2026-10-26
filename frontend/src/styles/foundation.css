@@ -279,6 +279,25 @@
     transform: translateX(-50%);
   }
 
+  /* TOPómetro is named by its lockup at the label's cap height: dimmed like a muted label, lit
+     when hovered or current. */
+  .nav-topometro-logo {
+    display: block;
+    opacity: 0.78;
+  }
+
+  .nav-topometro-logo svg {
+    display: block;
+    width: auto;
+    height: 15px;
+    overflow: visible;
+  }
+
+  .nav-topometro:hover .nav-topometro-logo,
+  .nav-topometro[aria-current] .nav-topometro-logo {
+    opacity: 1;
+  }
+
   .releases-navigation {
     position: relative;
     overflow: visible;

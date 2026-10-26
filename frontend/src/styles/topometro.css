@@ -13,12 +13,6 @@
     align-items: end;
   }
 
-  .topometro-identity {
-    display: grid;
-    gap: 10px;
-    min-width: 0;
-  }
-
   .topometro-title {
     margin: 0;
     line-height: 0;
@@ -35,28 +29,11 @@
     overflow: visible;
   }
 
-  .topometro-claim {
-    margin: 0;
-    color: color-mix(in srgb, var(--color-ink) 86%, var(--color-muted));
-    font-size: 1rem;
-    font-stretch: 108%;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: -0.005em;
-  }
-
   /* ---------------------------------------------------------------- Source instrument */
 
   /* Two sources, one selected: a night control parted in two, the chosen half lit in ice. */
   .ranking-sources {
-    display: grid;
-    gap: 10px;
-    justify-items: start;
     min-width: 0;
-  }
-
-  .ranking-sources > nav {
-    width: 100%;
   }
 
   .ranking-source-list {
@@ -121,42 +98,6 @@
     width: 26px;
     height: 26px;
     margin: -4px -3px;
-  }
-
-  .ranking-source-note {
-    max-width: 44ch;
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-  }
-
-  .ranking-source-note strong {
-    color: var(--color-ink);
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .ranking-method {
-    max-width: 52ch;
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    line-height: 1.55;
-  }
-
-  .ranking-method summary {
-    display: inline-flex;
-    min-height: 32px;
-    align-items: center;
-    color: var(--color-ice-light);
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--color-ice) 40%, transparent);
-    text-underline-offset: 3px;
-  }
-
-  .ranking-method p {
-    margin: 4px 0 0;
   }
 
   /* ---------------------------------------------------------------- Podium */
@@ -509,16 +450,6 @@
     margin-top: 40px;
   }
 
-  .ranking-ledger-title {
-    margin: 0 0 12px;
-    color: var(--color-ink);
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-stretch: 118%;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-  }
-
   .ranking-list,
   .ranking-placeholders {
     margin: 0;
@@ -665,15 +596,66 @@
     text-align: left;
   }
 
-  .ranking-progress {
-    margin: 0;
+  /* The ledger's own continuation: one wide control that says which places it brings, its
+     chevron pointing to where they will appear. */
+  .ranking-load-more {
+    display: inline-flex;
+    width: min(100%, 520px);
+    min-height: 52px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 1px solid var(--line-ice);
+    border-radius: 8px;
+    padding: 10px 18px;
+    color: var(--color-ink);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-ice) 9%, transparent), transparent 70%),
+      var(--control);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .ranking-load-more:hover {
+    border-color: var(--line-ice-strong);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-ice) 15%, transparent), transparent 70%),
+      var(--control-hover);
+  }
+
+  .ranking-load-more:disabled {
+    cursor: progress;
+    opacity: 0.64;
+  }
+
+  .ranking-load-more-label {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-stretch: 112%;
+    font-weight: 750;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+  }
+
+  .ranking-load-more-places {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     color: var(--color-muted);
     font-size: 0.8125rem;
     font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .ranking-load-more {
-    min-width: 232px;
+  .ranking-load-more-chevron {
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-right: 1.5px solid var(--color-ice-light);
+    border-bottom: 1.5px solid var(--color-ice-light);
+    transform: rotate(45deg);
   }
 
   .ranking-end {
@@ -682,11 +664,6 @@
     font-size: 0.875rem;
     font-stretch: 92%;
     font-weight: 650;
-  }
-
-  .ranking-sentinel {
-    width: 100%;
-    height: 1px;
   }
 
   .ranking-notice {
@@ -739,12 +716,15 @@
       width: min(100%, 440px);
     }
 
-    .topometro-claim {
-      font-size: 1.125rem;
+    /* From tablets the label and the places it brings share one line. */
+    .ranking-load-more {
+      flex-direction: row;
+      gap: 12px;
     }
 
-    .ranking-sources > nav {
-      width: auto;
+    .ranking-load-more-places {
+      border-left: 1px solid var(--color-line);
+      padding-left: 12px;
     }
 
     .ranking-source-list {
@@ -883,15 +863,6 @@
     }
 
     .ranking-sources {
-      justify-items: end;
-      text-align: right;
-    }
-
-    .ranking-method {
-      text-align: left;
-    }
-
-    .ranking-method summary {
       justify-self: end;
     }
 
@@ -965,6 +936,18 @@
   /* ---------------------------------------------------------------- Motion */
 
   @media (prefers-reduced-motion: no-preference) {
+    .ranking-load-more,
+    .ranking-load-more-chevron {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .ranking-load-more:hover:not(:disabled) .ranking-load-more-chevron {
+      transform: translateY(2px) rotate(45deg);
+    }
+
     /* One orchestrated entrance: third, then second, then the winner, each rising onto a step
        that grows from the floor, and each G-meter sweeping to its reading. */
     .ranking-podium:not(.ranking-podium-loading) .podium-place {
@@ -1037,6 +1020,16 @@
     .ranking-source[aria-current] {
       outline: 2px solid Highlight;
       outline-offset: -2px;
+    }
+
+    .ranking-load-more {
+      border-color: ButtonText;
+      color: ButtonText;
+      background: ButtonFace;
+    }
+
+    .ranking-load-more-chevron {
+      border-color: ButtonText;
     }
 
     .ranking-reading-value strong,
