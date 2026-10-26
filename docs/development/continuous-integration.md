@@ -95,8 +95,11 @@ must be investigated separately. Keep run links, timing evidence, cache limitati
 risks and rollback in the issue/PR, rather than copying a changing baseline here.
 
 Independent container/runtime checks may run in parallel; every applicable result
-remains required. Packaged browser/identity journeys may omit duplicate Maven tests
-only when the separate backend gate is required for that revision. Otherwise packaging
-retains tests, including local runs. Cross-job build reuse must not introduce stale
-artifacts, mix source revisions, expose trusted credentials to PRs, or lengthen the
-critical path without measured benefit.
+remains required. The identity gate runs its independent topologies as parallel legs
+of one required check, each with its own disposable Keycloak, PostgreSQL and BFF, because
+the timed journeys mutate realm and client state. Packaged browser/identity journeys may
+omit duplicate Maven tests only when the separate backend gate is required for that
+revision; otherwise exactly one packaging leg of the identity gate, and every other
+packaging run, retains tests, including local runs. Cross-job build reuse must not
+introduce stale artifacts, mix source revisions, expose trusted credentials to PRs, or
+lengthen the critical path without measured benefit.
