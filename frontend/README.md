@@ -13,7 +13,8 @@ Keycloak), the
 `/mis-puntuaciones/estadisticas`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
 Destacados, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
-`/lanzamientos/calendario`, and
+`/lanzamientos/calendario`, the post-MVP `UC-018` player-rating ranking **TOPómetro** at
+`/topometro`, and
 the operator-only `UC-011`–`UC-013` and historical `UC-017` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
 [frontend design guidelines](../docs/development/frontend-design.md); this README
@@ -113,7 +114,9 @@ state for the old landing also resolves to Destacados, preserving the query and 
 identity. A future home must retain migration of explicit legacy featured-period links;
 no former featured link may become a player-score ranking. The **Lanzamientos** disclosure
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
-(`/lanzamientos/calendario`). The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
+(`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
+only its source (`source=gameometro`), while its loaded pages stay in the document's query
+cache for Back and the game page's way back. The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
 tokens and personal responses are never stored in browser storage; same-origin

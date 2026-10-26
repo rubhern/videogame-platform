@@ -11,8 +11,8 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * Startup backfill of the community score projection for games rated before it existed
- * (ADR-0029). It walks rated games in keyset batches, asks Catalogue which of them hold no score,
- * and projects each missing one under the same per-game lock a rating write takes. Rating writes
+ * (ADR-0029) or projected before it carried the unrounded mean (ADR-0034). It walks rated games in
+ * keyset batches, asks Catalogue which of them hold no complete score, and projects each one under the same per-game lock a rating write takes. Rating writes
  * keep every projected score current afterwards, so a later startup only reads the batches. A
  * failure fails startup rather than serving a silently incomplete rating order.
  */
@@ -57,11 +57,8 @@ public final class CommunityScoreBackfill implements ApplicationRunner {
         transaction.executeWithoutResult(
                 status -> {
                     CommunityScoreLock.acquire(jdbc, gameId);
-                    var statistics = RatingStatisticsQuery.read(jdbc, gameId);
                     scores.replace(
-                            gameId,
-                            new RecordCommunityScoresUseCase.CommunityScore(
-                                    statistics.mean(), statistics.count()));
+                            gameId, RatingStatisticsQuery.readProjected(jdbc, gameId).score());
                 });
     }
 }

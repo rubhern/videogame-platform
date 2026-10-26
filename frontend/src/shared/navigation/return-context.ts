@@ -12,6 +12,7 @@ import type { Location } from "react-router-dom";
  */
 export type ReturnOrigin =
   | "featured"
+  | "topometro"
   | "releases"
   | "release-calendar"
   | "search"
@@ -42,6 +43,7 @@ const ORIGINS: Record<string, ReturnOrigin> = {
   [FEATURED_PATH]: "featured",
   "/lanzamientos": "releases",
   "/lanzamientos/calendario": "release-calendar",
+  "/topometro": "topometro",
   "/search": "search",
   "/mis-puntuaciones": "my-ratings",
   "/mis-puntuaciones/estadisticas": "rating-insights",
@@ -51,6 +53,7 @@ const LABELS: Record<ReturnOrigin, string> = {
   featured: "Volver a Destacados",
   releases: "Volver a lanzamientos",
   "release-calendar": "Volver al calendario",
+  topometro: "Volver al TOPómetro",
   search: "Volver a resultados",
   "my-ratings": "Volver a mis puntuaciones",
   "rating-insights": "Volver a tus estadísticas",

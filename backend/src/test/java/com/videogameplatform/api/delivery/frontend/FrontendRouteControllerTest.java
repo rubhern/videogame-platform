@@ -46,6 +46,10 @@ class FrontendRouteControllerTest {
                                 .param("day", "2026-11-13"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        // TOPómetro reloads with its chosen ranking source.
+        mockMvc.perform(get("/topometro").param("source", "gameometro"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));

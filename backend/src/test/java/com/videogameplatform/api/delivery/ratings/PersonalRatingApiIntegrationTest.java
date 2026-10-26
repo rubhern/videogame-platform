@@ -750,11 +750,11 @@ class PersonalRatingApiIntegrationTest {
     @Test
     void projectsEveryRatingWriteIntoTheCatalogueScoreTheReleaseOrderReads() throws Exception {
         String aliceTag = create(ALICE, 6).getResponse().getHeader(HttpHeaders.ETAG);
-        assertThat(projectedScore()).containsExactly("6.0", "1");
+        assertThat(projectedScore()).containsExactly("6.0", "6.000000000000000000", "1");
         String bobTag = create(BOB, 9).getResponse().getHeader(HttpHeaders.ETAG);
-        assertThat(projectedScore()).containsExactly("7.5", "2");
+        assertThat(projectedScore()).containsExactly("7.5", "7.500000000000000000", "2");
         update(ALICE, 7, aliceTag);
-        assertThat(projectedScore()).containsExactly("8.0", "2");
+        assertThat(projectedScore()).containsExactly("8.0", "8.000000000000000000", "2");
 
         // The rated game leads the rating order of its day; an unrated game never counts as zero.
         var page =
@@ -775,7 +775,7 @@ class PersonalRatingApiIntegrationTest {
                                 .with(csrf().asHeader())
                                 .header(HttpHeaders.IF_MATCH, bobTag))
                 .andExpect(status().isOk());
-        assertThat(projectedScore()).containsExactly("7.0", "1");
+        assertThat(projectedScore()).containsExactly("7.0", "7.000000000000000000", "1");
         String currentAlice =
                 admin.queryForObject(
                         "SELECT version_token::text FROM ratings.rating WHERE game_id = ?",
@@ -802,21 +802,45 @@ class PersonalRatingApiIntegrationTest {
         admin.update("DELETE FROM catalogue.game_community_score WHERE game_id = ?", game);
 
         backfill.run(null);
-        assertThat(projectedScore()).containsExactly("6.0", "2");
+        assertThat(projectedScore()).containsExactly("6.0", "6.000000000000000000", "2");
 
         // A projected game is left as its writes keep it, so a later startup only reads batches.
         admin.update(
                 "UPDATE catalogue.game_community_score SET rating_count = 99 WHERE game_id = ?",
                 game);
         backfill.run(null);
-        assertThat(projectedScore()).containsExactly("6.0", "99");
+        assertThat(projectedScore()).containsExactly("6.0", "6.000000000000000000", "99");
+
+        // A row projected before TOPómetro has no unrounded mean, so it is projected again.
+        admin.update(
+                "UPDATE catalogue.game_community_score SET exact_mean = NULL WHERE game_id = ?",
+                game);
+        backfill.run(null);
+        assertThat(projectedScore()).containsExactly("6.0", "6.000000000000000000", "2");
+    }
+
+    @Test
+    void projectsTheUnroundedMeanThatRanksGamesShowingTheSameDecimal() throws Exception {
+        create(ALICE, 8);
+        create(BOB, 8);
+        admin.update(
+                "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 9)",
+                UUID.randomUUID(),
+                game);
+        admin.update("DELETE FROM catalogue.game_community_score WHERE game_id = ?", game);
+        backfill.run(null);
+
+        // Two eights and a nine show 8.3 and rank by 8.333…, not by the rounded value.
+        assertThat(projectedScore()).containsExactly("8.3", "8.333333333333333333", "3");
     }
 
     private java.util.List<String> projectedScore() {
         return admin
                 .query(
-                        "SELECT mean::text, rating_count::text FROM catalogue.game_community_score WHERE game_id = ?",
-                        (row, index) -> java.util.List.of(row.getString(1), row.getString(2)),
+                        "SELECT mean::text, exact_mean::text, rating_count::text FROM catalogue.game_community_score WHERE game_id = ?",
+                        (row, index) ->
+                                java.util.List.of(
+                                        row.getString(1), row.getString(2), row.getString(3)),
                         game)
                 .stream()
                 .flatMap(java.util.List::stream)

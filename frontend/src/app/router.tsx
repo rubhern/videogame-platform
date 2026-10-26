@@ -9,6 +9,7 @@ import { NotFoundPage } from "../pages/not-found-page";
 import { ReleaseCalendarPage } from "../pages/release-calendar-page";
 import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
+import { TopometroPage } from "../pages/topometro-page";
 import { MyPlatformsPage } from "../pages/my-platforms-page";
 import { RatingInsightsPage } from "../pages/rating-insights-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
@@ -30,6 +31,7 @@ export const appRoutes: RouteObject[] = [
       { path: "lanzamientos/destacados", element: <FeaturedReleasesPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
+      { path: "topometro", element: <TopometroPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },

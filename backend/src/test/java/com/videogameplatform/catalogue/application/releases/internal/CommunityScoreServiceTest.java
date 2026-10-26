@@ -19,15 +19,19 @@ class CommunityScoreServiceTest {
     private static final String GAME = "30000000-0000-4000-8000-00000000000a";
 
     @Test
-    void acceptsOnlyAMeanAtTheShownDecimalWithItsRatingCount() {
-        assertThat(new CommunityScore(new BigDecimal("7.5"), 2).mean()).isEqualByComparingTo("7.5");
+    void acceptsAnUnroundedMeanWithItsRatingCountAndShowsItAtOneDecimal() {
+        assertThat(new CommunityScore(new BigDecimal("8.250000000000000000"), 4).mean())
+                .isEqualByComparingTo("8.3");
+        assertThat(new CommunityScore(new BigDecimal("8.333333333333333333"), 3).mean())
+                .isEqualByComparingTo("8.3");
+        assertThat(new CommunityScore(null, 0).mean()).isNull();
         assertThat(new CommunityScore(null, 0).ratingCount()).isZero();
 
         assertThatIllegalArgumentException().isThrownBy(() -> new CommunityScore(null, 3));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> new CommunityScore(new BigDecimal("7.0"), 0));
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new CommunityScore(new BigDecimal("7.25"), 2));
+                .isThrownBy(() -> new CommunityScore(new BigDecimal("7.1234567890123456789"), 2));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> new CommunityScore(new BigDecimal("0.9"), 1));
         assertThatIllegalArgumentException()

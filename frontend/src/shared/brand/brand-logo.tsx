@@ -2,6 +2,7 @@ import { useId } from "react";
 
 import markSource from "./gameometro-mark.svg?raw";
 import logoSource from "./gameometro-logo.svg?raw";
+import topometroSource from "./topometro-logo.svg?raw";
 
 /**
  * Inlines a canonical brand file so CSS can light its parts (the needle reacts to the brand
@@ -13,6 +14,7 @@ function useInlineBrandSvg(source: string) {
   const prefix = `gm${useId().replace(/[^\w-]/g, "")}`;
   return {
     __html: source
+      .trim()
       .replace(/<title>[^<]*<\/title>/, "")
       .replace(/ role="img" aria-label="[^"]*"/, ' aria-hidden="true" focusable="false"')
       .replaceAll("gmx-", `${prefix}-`),
@@ -27,4 +29,12 @@ export function BrandMark({ className }: { className?: string }) {
 /** The shared lockup: the Tilde mark supplies the G in Gameómetro. */
 export function BrandLogo({ className }: { className?: string }) {
   return <span className={className} dangerouslySetInnerHTML={useInlineBrandSvg(logoSource)} />;
+}
+
+/**
+ * TOPómetro's lockup (#386): the wordmark's ice, its `ó` needle and an O read beyond its top, the
+ * needle leaving through the ring's mouth as it leaves the G's.
+ */
+export function TopometroLogo({ className }: { className?: string }) {
+  return <span className={className} dangerouslySetInnerHTML={useInlineBrandSvg(topometroSource)} />;
 }

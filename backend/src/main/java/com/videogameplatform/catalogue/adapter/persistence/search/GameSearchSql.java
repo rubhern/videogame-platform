@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.adapter.persistence.search;
 
+import com.videogameplatform.catalogue.adapter.persistence.CompactReleaseSummarySql;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import java.util.List;
 import java.util.Map;
@@ -99,11 +100,7 @@ final class GameSearchSql {
                            page.cover_usage_mode,
                            page.cover_alternative_text,
                            page.cover_source_url,
-                           summary.total_platforms,
-                           summary.earliest_known_year,
-                           summary.latest_known_year,
-                           summary_head.platform_ids AS summary_platform_ids,
-                           summary_head.platform_names AS summary_platform_names,
+                           %s,
                            context.platform_id::text AS platform_id,
                            context.platform_name,
                            context.region_id::text AS region_id,
@@ -115,37 +112,7 @@ final class GameSearchSql {
                            context.release_quarter,
                            context.release_status
                     FROM page
-                    CROSS JOIN LATERAL (
-                        SELECT count(DISTINCT rs.platform_id)::integer AS total_platforms,
-                               extract(YEAR FROM min(rs.period_start))::integer
-                                   AS earliest_known_year,
-                               extract(YEAR FROM max(rs.period_start))::integer
-                                   AS latest_known_year
-                        FROM catalogue.release_snapshot rs
-                        WHERE rs.publication_id = CAST(:publicationId AS uuid)
-                          AND rs.game_id = page.game_id
-                    ) summary
-                    CROSS JOIN LATERAL (
-                        SELECT array_agg(head.platform_id::text
-                                         ORDER BY head.sort_name, head.platform_id)
-                                   AS platform_ids,
-                               array_agg(head.display_name
-                                         ORDER BY head.sort_name, head.platform_id)
-                                   AS platform_names
-                        FROM (
-                            SELECT p.platform_id,
-                                   p.display_name,
-                                   lower(p.display_name) AS sort_name
-                            FROM catalogue.platform p
-                            WHERE p.platform_id IN (
-                                SELECT rs.platform_id
-                                FROM catalogue.release_snapshot rs
-                                WHERE rs.publication_id = CAST(:publicationId AS uuid)
-                                  AND rs.game_id = page.game_id)
-                            ORDER BY lower(p.display_name), p.platform_id
-                            LIMIT :summaryPlatformLimit
-                        ) head
-                    ) summary_head
+                    %s
                     LEFT JOIN LATERAL (
                         SELECT p.platform_id,
                                p.display_name AS platform_name,
@@ -184,7 +151,10 @@ final class GameSearchSql {
                              page.game_id,
                              context.period_start ASC NULLS LAST,
                              context.release_id
-                    """;
+                    """
+                            .formatted(
+                                    CompactReleaseSummarySql.COLUMNS,
+                                    CompactReleaseSummarySql.laterals("page.game_id"));
 
     private static final Pattern SAFE_TOKEN = Pattern.compile("[\\p{IsAlphabetic}\\p{IsDigit}]+");
 

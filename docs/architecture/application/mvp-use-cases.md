@@ -17,6 +17,7 @@
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
+| `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 100 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -199,6 +200,18 @@ invalid media keep the last valid selection. Featured evidence and media do not 
 the catalogue revision. Explicit repair has no logo lookup.
 [ADR-0021](../../decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
 records the decision.
+
+Post-MVP (#386, implemented; awaiting owner review), `UC-018` is TOPómetro. It reads only
+Catalogue-owned state: the stored IGDB player score and the community score projection that
+Ratings maintains inside every rating write, which also carries the unrounded mean
+([ADR-0034](../../decisions/0034-rank-topometro-from-catalogue-score-projections.md)). A game is
+ranked while one current release proves global rating eligibility under the
+[rating policies](../domain/mvp-domain-model.md#rating-policies), so every ranked game can be
+rated; release stage does not participate, as in that policy. Positions are consecutive across
+pages of one source, so the first three are the podium; ties never share a place. Scores change
+independently of the catalogue, so a game can move between two page reads, and a client keeps
+its first occurrence. The ranked source's reading is the same value its order used, rounded for
+display only. Platform-scoped rankings (#387) are a separate follow-up.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.

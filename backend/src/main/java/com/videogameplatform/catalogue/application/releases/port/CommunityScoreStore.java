@@ -10,6 +10,6 @@ public interface CommunityScoreStore {
     /** Upserts the score of a game with ratings, or deletes it for a game without any. */
     void replace(UUID gameId, CommunityScore score);
 
-    /** The given games that hold no projected score. */
+    /** The given games that hold no complete projected score, unrounded mean included. */
     List<UUID> unprojected(List<UUID> gameIds);
 }
