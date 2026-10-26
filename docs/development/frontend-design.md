@@ -39,7 +39,7 @@ roles stay alongside them. [Global styles](../../frontend/src/styles/index.css) 
 |---|---|---|---|
 | Night (`night`) | Depth and stage | Canvas, reading shades, transitions between art and interface, the instrument's channel | Flattening art under one uniform dark layer |
 | Ice (`ice`, `ice-light`) | Measure, progress, reading | Elapsed time, scales and their numerals, the selected state and focus where it measures, primary entry actions | Decorative fills, every link, a score's temperature |
-| Fire (`fire`, `fire-light`) | A reading or an event | Needles, a release's date marker, the current section's short rule | Buttons, backgrounds, a "hot" score, warnings |
+| Fire (`fire`, `fire-light`) | A reading or an event | Needles, a release's date marker, the current section's short rule; in the [site footer](#site-footer), its column rules and the slogan's last line | Buttons, backgrounds, a "hot" score, warnings |
 
 `canvas` is night and `accent` is ice; `warning`, `danger` and the five thermal roles keep
 their meanings and never borrow a brand family. The mark keeps its own gradients.
@@ -578,6 +578,25 @@ order and page from document memory only, as saved offsets are; a new visit, a r
 other entry reads the default collection.
 The initial default collection read is fresh while mounted and still refreshes on
 mutation invalidation; leaving the page immediately discards its query cache.
+
+## Site footer
+
+Post-MVP ([#283](https://github.com/rubhern/videogame-platform/issues/283), owner-approved mockup;
+implemented, awaiting owner review), the shared shell closes every product route with one compact
+footer. The lockup leads, closely followed by the slogan on three short lines (**Un hombre
+elige.**, **Un esclavo obedece.**, **Nosotros te ayudamos a elegir.**), set below a section title's
+size so it never outweighs the logo, the last line in fire. Two navigation columns, **Gameómetro**
+and **Legal**, each named by its title over a short fire rule, sit to the right from 720px wide,
+with the identity a little below their titles, and beneath the identity on narrower screens. The
+closing lines stand on a deeper night floor instead of behind a divider, with a faint ice glint
+along its top edge: `© <current year> Gameómetro` beside **Datos de videojuegos: IGDB**, whose
+underlined link opens IGDB, and then the signature *Ideado, desarrollado y mantenido por Rubén
+Hernández* as the last line. Those are the footer's only fire and its only ornament. The legal
+documents and **Contacto** follow the
+[legal publication gate](data-protection.md#publication-and-product-integration), so production
+shows the identity and the closing lines alone until then. **Sobre Gameómetro** links to
+`/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
+not found.
 
 ## Release calendar
 

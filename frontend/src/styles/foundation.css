@@ -1034,28 +1034,173 @@
     content: "";
   }
 
-  .site-footer .page-container {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 18px;
-    padding-block: 26px;
-    color: var(--color-subtle);
-    font-size: 0.8125rem;
-    font-weight: 600;
+  /* One compact grid: identity on the left, link columns to its right from 720px, stacked
+     beneath it below that. Copyright, data source and signature close it on a darker floor. */
+  .site-footer-main {
+    display: grid;
+    gap: 28px;
+    padding-block: 20px 24px;
   }
 
   .site-footer-brand {
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
   }
 
   .site-footer-logo svg {
     display: block;
     width: auto;
-    height: 24px;
+    height: 28px;
+  }
+
+  /* The slogan stays below the logo's weight: three short lines, the last lit in fire (owner
+     decision, #283). */
+  .site-footer-slogan {
+    margin-top: 12px;
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .site-footer-slogan span {
+    display: block;
+  }
+
+  .site-footer-slogan-accent {
+    color: var(--color-fire);
+  }
+
+  /* The signature is the footer's last line, below copyright and data source. */
+  .site-footer-signature {
+    flex-basis: 100%;
+  }
+
+  .site-footer-signature span {
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .site-footer-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    gap: 24px;
+    align-content: start;
+  }
+
+  .site-footer-heading {
+    position: relative;
+    padding-bottom: 10px;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  /* The short fire rule under each column title, as the current section carries one. */
+  .site-footer-heading::after {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, var(--color-fire), var(--color-fire-light));
+    content: "";
+  }
+
+  .site-footer-column ul {
+    display: grid;
+    gap: 2px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Each link keeps a 28px target without changing the list's rhythm. */
+  .site-footer-column a {
+    display: inline-block;
+    padding-block: 4px;
+    white-space: nowrap;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .site-footer-column a:hover {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* The closing lines stand on a deeper night floor instead of behind a divider; a faint ice
+     glint along its top edge, strongest at the centre, marks where the floor begins. */
+  .site-footer-base {
+    position: relative;
+    background: color-mix(in srgb, #000 40%, var(--color-night));
+  }
+
+  .site-footer-base::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-ice) 18%, transparent) 50%,
+      transparent
+    );
+    content: "";
+  }
+
+  .site-footer-base .page-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 24px;
+    padding-block: 18px 24px;
+    color: var(--color-subtle);
+    font-size: 0.8125rem;
+  }
+
+  /* An inline source link keeps its underline; colour alone would not mark it. */
+  .site-footer-base a {
+    color: var(--color-muted);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  .site-footer-base a:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
+  }
+
+  /* Side by side only once the slogan keeps its lines beside both columns. */
+  @media (min-width: 720px) {
+    .site-footer-main {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 40px;
+      padding-block: 24px 28px;
+    }
+
+    /* Beside the columns, the identity sits a little below their titles. */
+    .site-footer-identity {
+      padding-top: 12px;
+    }
+
+    .site-footer-logo svg {
+      height: 30px;
+    }
+
+    .site-footer-links {
+      column-gap: 56px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .site-footer-links {
+      grid-template-columns: repeat(2, minmax(160px, max-content));
+      column-gap: 80px;
+    }
   }
 
   /* ---------------------------------------------------------------- Utilities */

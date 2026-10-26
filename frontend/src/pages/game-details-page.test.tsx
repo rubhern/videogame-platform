@@ -620,14 +620,16 @@ describe("public game details", () => {
     expect(within(summary).getByText(/Fuente: Publisher$/)).toHaveTextContent(
       "Texto original en inglés · Fuente: Publisher",
     );
-    expect(screen.getByRole("link", { name: "IGDB" })).toBeVisible();
+    // The cover's own attribution, not the footer's site-wide data source.
+    const page = screen.getByRole("main");
+    expect(within(page).getByRole("link", { name: "IGDB" })).toBeVisible();
     fireEvent.error(screen.getByRole("img"));
     expect(screen.getByRole("img")).toHaveAttribute(
       "src",
       "/assets/covers/fallback.svg",
     );
     expect(
-      screen.queryByRole("link", { name: "IGDB" }),
+      within(page).queryByRole("link", { name: "IGDB" }),
     ).not.toBeInTheDocument();
   });
   it.each([true, false])("credits a product translation with literal source text (current=%s)", async (current) => {

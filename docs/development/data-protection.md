@@ -245,8 +245,8 @@ erasure replay. This exercise and host response channels are not yet proven.
 
 ## Publication and product integration
 
-Production publication remains disabled: the shipped React footer has only branding
-and no active legal destinations; development now has the four review pages. Keycloak's production realm has the native required adult/terms checkbox
+Production publication remains disabled: the shipped React footer has branding, its
+signature and the IGDB data credit but no legal or contact destinations; development now has the four review pages. Keycloak's production realm has the native required adult/terms checkbox
 and a short draft registration paragraph, with no final privacy/terms links. Its
 shared theme footer only links back to the catalogue. Native enforcement is prepared;
 D19 accepts no per-account accepted-text record. Reuse it, never move credentials
