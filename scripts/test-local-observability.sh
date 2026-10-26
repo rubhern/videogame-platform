@@ -15,6 +15,17 @@ fixture="$temporary_directory/repository"
 mkdir -p "$fixture/scripts" "$fixture/backend" "$temporary_directory/bin"
 cp "$repository_root/scripts/"{local-dependencies.sh,backend-artifact.sh} "$fixture/scripts/"
 cp "$repository_root/pom.xml" "$fixture/"
+# The lifecycle fixture mocks Docker; keep Admin API reconciliation inside that same
+# fixture boundary rather than reaching a real realm or the owner's state directory.
+mkdir -p "$fixture/deploy/private-dev/bin"
+cat >"$fixture/deploy/private-dev/bin/configure-keycloak-identity" <<'IDENTITY'
+import os
+import sys
+assert "--sessions-only" in sys.argv and "--admin-password-file" in sys.argv
+assert sys.stdin.read().strip()
+with open(os.environ["LOCAL_METRICS_COMMAND_LOG"], "a") as log:
+    log.write("identity --sessions-only\n")
+IDENTITY
 cat >"$temporary_directory/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$LOCAL_METRICS_COMMAND_LOG"
@@ -22,10 +33,11 @@ DOCKER
 chmod +x "$temporary_directory/bin/docker"
 export LOCAL_METRICS_COMMAND_LOG="$temporary_directory/commands"
 run() {
-  PATH="$temporary_directory/bin:$PATH" bash "$fixture/scripts/local-dependencies.sh" "$@" >/dev/null
+  XDG_STATE_HOME="$temporary_directory/state" PATH="$temporary_directory/bin:$PATH" bash "$fixture/scripts/local-dependencies.sh" "$@" >/dev/null
 }
 run up
 run application
+[[ "$(grep -c '^identity --sessions-only$' "$LOCAL_METRICS_COMMAND_LOG")" == 2 ]]
 [[ ! -e "$fixture/.local-secrets" ]]
 ! grep -q 'compose.observability.yaml' "$LOCAL_METRICS_COMMAND_LOG"
 initial_env="$(sha256sum "$fixture/.env" "$fixture/backend/.env")"

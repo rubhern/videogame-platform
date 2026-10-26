@@ -21,7 +21,7 @@ PROVISIONING = DEPLOY / 'grafana/provisioning/alerting/private-dev.json'
 
 
 def run(command, **kwargs):
-    result = subprocess.run(command, text=True, capture_output=True, timeout=90, **kwargs)
+    result = subprocess.run(command, text=True, capture_output=True, timeout=kwargs.pop("timeout", 90), **kwargs)
     if result.returncode:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
     return result.stdout

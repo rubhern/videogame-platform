@@ -39,6 +39,11 @@ def main(smoke):
     alerts.local_engine()
     image = re.search(r'image: (grafana/grafana:\S+)', (DEPLOY/'compose.observability.yaml').read_text())[1]
     runner = re.search(r'playwright_image="([^\"]+)"', (alerts.ROOT/'scripts/validate-identity.sh').read_text())[1]
+    # A cold runner may need more than the 90-second runtime budget to download layers.
+    # Pull explicitly so network acquisition and actual renderer execution have separate limits.
+    run(['docker', 'pull', image], timeout=300)
+    if smoke:
+        run(['docker', 'pull', runner], timeout=300)
     with tempfile.TemporaryDirectory(prefix='vgp-telegram-mock-') as directory:
         temp = Path(directory)
         temp.chmod(0o755)

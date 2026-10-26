@@ -39,15 +39,27 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.json.JsonCompareMode;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
@@ -81,6 +93,9 @@ class BffSessionLifecycleIntegrationTest {
     private final ObjectMapper objectMapper;
     private final MutableClock clock;
     private final SessionRevocation revocation;
+
+    @Autowired private SecurityFilterChain securityFilterChain;
+    @Autowired private SessionRegistry sessionRegistry;
 
     @Autowired
     BffSessionLifecycleIntegrationTest(
@@ -319,6 +334,94 @@ class BffSessionLifecycleIntegrationTest {
                 .andExpect(redirectedUrl("/"));
         assertThat(session.isInvalid()).isFalse();
         assertAuthenticated(session, true);
+    }
+
+    @Test
+    void validatedRememberedCallbackStartsAFreshBoundedBffAfterEightHours() throws Exception {
+        clock.set(SIGN_IN.plus(Duration.ofDays(2)));
+        var result = completeValidatedCallback(true, SIGN_IN);
+        assertThat(result.response().getRedirectedUrl()).isEqualTo("/");
+        assertThat(result.response().getHeader("Cache-Control")).isEqualTo("no-store");
+        assertAuthenticated(result.session(), true);
+        clock.set(SIGN_IN.plus(Duration.ofDays(2)).plus(Duration.ofHours(8)).minusSeconds(1));
+        assertAuthenticated(result.session(), true);
+        clock.set(SIGN_IN.plus(Duration.ofDays(2)).plus(Duration.ofHours(8)));
+        assertAuthenticated(result.session(), false);
+    }
+
+    @Test
+    void staleOrdinaryOrMissingModeCallbackRequiresCredentialsInsteadOfRepeatingSilentLogin()
+            throws Exception {
+        clock.set(SIGN_IN.plus(Duration.ofHours(9)));
+        for (var mode : new Boolean[] {false, null}) {
+            var result = completeValidatedCallback(mode, SIGN_IN);
+            assertThat(result.session().isInvalid()).isTrue();
+            assertThat(result.response().getRedirectedUrl())
+                    .isEqualTo("/auth/login/keycloak?reauthenticate=true");
+            assertThat(result.response().getHeader("Cache-Control")).isEqualTo("no-store");
+        }
+        MvcResult start =
+                mockMvc.perform(get("/auth/login/keycloak").param("reauthenticate", "true"))
+                        .andExpect(status().isFound())
+                        .andReturn();
+        assertThat(
+                        UriComponentsBuilder.fromUriString(start.getResponse().getRedirectedUrl())
+                                .build()
+                                .getQueryParams()
+                                .getFirst("prompt"))
+                .isEqualTo("login");
+    }
+
+    @Test
+    void rememberedCallbackCannotRenewBeyondOriginalThirtyDays() throws Exception {
+        clock.set(SIGN_IN.plus(Duration.ofDays(30)));
+        var result = completeValidatedCallback(true, SIGN_IN);
+        assertThat(result.session().isInvalid()).isTrue();
+        assertThat(result.response().getRedirectedUrl())
+                .isEqualTo("/auth/login/keycloak?reauthenticate=true");
+    }
+
+    private record CallbackResult(MockHttpSession session, MockHttpServletResponse response) {}
+
+    /** Exercise the configured success handler after Spring has validated and stored OIDC auth. */
+    private CallbackResult completeValidatedCallback(Boolean mode, Instant authenticatedAt)
+            throws Exception {
+        var token =
+                OidcIdToken.withTokenValue("validated-token")
+                        .issuer(ISSUER)
+                        .subject(alice)
+                        .authTime(authenticatedAt)
+                        .issuedAt(clock.instant())
+                        .expiresAt(clock.instant().plusSeconds(300));
+        if (mode != null) token.claim("gameometro_remember_me", mode);
+        var user = new DefaultOidcUser(List.of(), token.build());
+        var authentication = new OAuth2AuthenticationToken(user, user.getAuthorities(), "keycloak");
+        var session = new MockHttpSession();
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        session.setAttribute("SPRING_SECURITY_CONTEXT", context);
+        sessionRegistry.registerNewSession(session.getId(), user);
+        var request = new MockHttpServletRequest("GET", "/login/oauth2/code/keycloak");
+        request.setSession(session);
+        var response = new MockHttpServletResponse();
+        var filter =
+                securityFilterChain.getFilters().stream()
+                        .filter(OAuth2LoginAuthenticationFilter.class::isInstance)
+                        .findFirst()
+                        .orElseThrow();
+        var handler =
+                (AuthenticationSuccessHandler)
+                        ReflectionTestUtils.getField(filter, "successHandler");
+        assertThat(handler).isNotNull();
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        SecurityContextHolder.setContext(context);
+        try {
+            handler.onAuthenticationSuccess(request, response, authentication);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            SecurityContextHolder.clearContext();
+        }
+        return new CallbackResult(session, response);
     }
 
     private MockHttpSession signIn(String subject, Instant authenticatedAt) throws Exception {
