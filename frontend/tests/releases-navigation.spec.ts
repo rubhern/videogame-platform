@@ -24,10 +24,11 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page).toHaveTitle("Destacados del mes · Gameómetro");
     const nav = page.getByRole("navigation", { name: "Principal" });
     const trigger = nav.getByRole("button", { name: "Lanzamientos" });
-    await expect(nav.getByRole("link", { name: "TOPómetro" })).toHaveCount(0);
+    // TOPómetro (#386) stands beside the disclosure as its own destination.
+    await expect(nav.getByRole("link", { name: "TOPómetro" })).toHaveAttribute("href", "/topometro");
     await trigger.tap();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario"]);
+    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro"]);
     await expect(nav.getByRole("link", { name: "Destacados", exact: true })).toHaveAttribute("aria-current", "page");
     const panel = page.locator(".releases-panel");
     const box = await panel.boundingBox();

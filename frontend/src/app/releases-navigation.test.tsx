@@ -14,22 +14,31 @@ function renderNavigation(path: string) {
   return { router };
 }
 
-it("exposes exactly three ordered destinations with the active page and no TOPómetro", async () => {
+it("exposes the three release destinations in the disclosure and TOPómetro beside it", async () => {
   const user = userEvent.setup();
   renderNavigation("/lanzamientos/destacados");
   const nav = screen.getByRole("navigation", { name: "Principal" });
   const trigger = within(nav).getByRole("button", { name: "Lanzamientos" });
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(trigger).toHaveAttribute("aria-current", "true");
-  expect(within(nav).queryByRole("link")).toBeNull();
+  const topometro = within(nav).getByRole("link", { name: "TOPómetro" });
+  expect(topometro).toHaveAttribute("href", "/topometro");
+  expect(topometro).not.toHaveAttribute("aria-current");
+  expect(within(nav).getAllByRole("link")).toEqual([topometro]);
   await user.click(trigger);
-  const links = within(nav).getAllByRole("link");
+  const links = within(nav).getAllByRole("link").filter(link => link !== topometro);
   expect(links.map(link => link.textContent)).toEqual(["Destacados", "Explorar", "Calendario"]);
   expect(links.map(link => link.getAttribute("href"))).toEqual([
     "/lanzamientos/destacados", "/lanzamientos", "/lanzamientos/calendario",
   ]);
   expect(links[0]).toHaveAttribute("aria-current", "page");
-  expect(within(nav).queryByText("TOPómetro")).toBeNull();
+});
+
+it("marks TOPómetro as the current page without making Lanzamientos current", () => {
+  renderNavigation("/topometro?source=gameometro");
+  const nav = screen.getByRole("navigation", { name: "Principal" });
+  expect(within(nav).getByRole("link", { name: "TOPómetro" })).toHaveAttribute("aria-current", "page");
+  expect(within(nav).getByRole("button", { name: "Lanzamientos" })).not.toHaveAttribute("aria-current");
 });
 
 it("supports Enter, Space, Tab, Escape with focus return, blur and outside dismissal", async () => {

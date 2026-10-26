@@ -139,6 +139,15 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.rankings.RankGamesUseCase rankGamesUseCase(
+            com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort readPort,
+            CatalogueCoverPolicy coverPolicy,
+            Clock clock) {
+        return new com.videogameplatform.catalogue.application.rankings.internal.GameRankingService(
+                readPort, coverPolicy, clock);
+    }
+
+    @Bean
     com.videogameplatform.catalogue.application.preferences.ListPlatformsUseCase
             listPlatformsUseCase(
                     com.videogameplatform.catalogue.application.preferences.port

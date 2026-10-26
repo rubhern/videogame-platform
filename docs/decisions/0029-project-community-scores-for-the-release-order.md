@@ -36,8 +36,10 @@ are already Catalogue's own evidence.
   hold no row and projects each missing one under the same lock; an incomplete backfill
   fails startup. No migration reads Ratings tables, as in
   [ADR-0018](0018-project-personal-ratings-listing-in-ratings.md).
-- The displayed community summary still comes from Ratings for the returned page; the
-  projection is only an ordering key.
+- On the release explorer the displayed community summary still comes from Ratings for the
+  returned page; the projection is only an ordering key there.
+  [ADR-0034](0034-rank-topometro-from-catalogue-score-projections.md) extends the projection
+  with the unrounded mean for TOPómetro, which shows the projected reading itself.
 
 ## Alternatives considered
 
@@ -66,6 +68,6 @@ version still writing during a rollout; the next write for that game corrects it
 `JdbcReleaseBrowseReadAdapterIntegrationTest` and `PersonalRatingApiIntegrationTest` prove
 the order, ties, missing scores and that create, update and delete keep the projection
 exact; the opt-in `ReleaseBrowseScalabilityIT` records the query plans. Revisit when a
-measured rating-write latency or lock contention problem appears, when the startup batches
-become measurably slow, or when a second consumer needs the community score inside
-Catalogue.
+measured rating-write latency or lock contention problem appears or when the startup batches
+become measurably slow. TOPómetro became the second Catalogue consumer of the community score
+([ADR-0034](0034-rank-topometro-from-catalogue-score-projections.md)).

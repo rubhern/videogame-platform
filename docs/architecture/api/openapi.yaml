@@ -1,15 +1,16 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.2.0
+  version: 5.3.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
-    calendar, weekly and monthly featured releases, bounded-catalogue search, public game
-    details, the selectable platform taxonomy, BFF session discovery, the authenticated user's
-    ratings, rating statistics and preferred platforms, and the catalogue operator's
-    synchronization status, coverage, bounded synchronization request and the stop or
-    abandonment of one run. It contains only the twenty approved method/path operations.
+    calendar, weekly and monthly featured releases, the player-rating game ranking,
+    bounded-catalogue search, public game details, the selectable platform taxonomy, BFF
+    session discovery, the authenticated user's ratings, rating statistics and preferred
+    platforms, and the catalogue operator's synchronization status, coverage, bounded and
+    historical synchronization requests and the stop or abandonment of one run. It contains
+    only the twenty-five approved method/path operations.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -32,6 +33,10 @@ tags:
     description: Public reads from the bounded local catalogue.
   - name: Ratings
     description: Current-user personal-rating reads and commands.
+  - name: Rankings
+    description: |
+      Public player-rating rankings of the released games in the local catalogue (TOPómetro),
+      one source at a time.
   - name: Platform preferences
     description: |
       The current user's preferred platforms, which the client applies to release discovery as
@@ -672,6 +677,116 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/FeaturedReleaseValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /game-rankings:
+    get:
+      tags: [Rankings]
+      operationId: rankGames
+      summary: Rank released games by one source of player ratings
+      description: |
+        TOPómetro (`UC-018`): one position per game, ranked by the player ratings of exactly
+        one `source`, never a blend of sources. PostgreSQL selects the games that hold a usable
+        score from that source and a release that has effectively occurred under the rating
+        eligibility rules, then orders them by the unrounded mean descending, the number of
+        ratings behind it descending and the unique `gameId` ascending, counts them and pages
+        them. A game without a score from the source is not ranked and never counts as zero. An
+        IGDB players' score is ranked only from 100 ratings on; a community score from one
+        rating is ranked like any other and states its count. `position` is the
+        game's place in that one sequence, so the first page's first three items are the
+        podium and later pages continue it. Scores change independently of the catalogue, so a
+        game may move between two page reads; a client that reads several pages keeps the first
+        occurrence of a `gameId`. It never varies on the session or preferred platforms and
+        never calls a provider.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/RankingSourceQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: One page of the ranking of the requested source.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameRankingPage' }
+              examples:
+                igdbPlayers:
+                  summary: The podium of the IGDB players ranking
+                  value:
+                    source: igdb_players
+                    items:
+                      - position: 1
+                        gameId: game_example_one
+                        slug: example-one
+                        canonicalTitle: Example One
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample1.webp
+                          alternativeText: Portada de Example One
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/example-one
+                        genres:
+                          - { genreId: genre_rpg, name: Rol }
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_ps4, name: PlayStation 4 }
+                            - { platformId: platform_windows, name: Windows PC }
+                          totalPlatforms: 2
+                          earliestKnownYear: 2015
+                          latestKnownYear: 2015
+                        score:
+                          source: igdb
+                          kind: player
+                          value: 9.4
+                          scale: 10
+                          count: 5494
+                          attribution:
+                            label: Jugadores IGDB
+                            sourceUrl: https://www.igdb.com/games/example-one
+                          observedAt: '2026-10-20T08:00:00Z'
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                gameometroCommunity:
+                  summary: A one-rating community score keeps its count
+                  value:
+                    source: gameometro_community
+                    items:
+                      - position: 1
+                        gameId: game_example_two
+                        slug: example-two
+                        canonicalTitle: Example Two
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Portada oficial no disponible
+                          attribution: null
+                        genres: []
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_switch, name: Nintendo Switch }
+                          totalPlatforms: 1
+                          earliestKnownYear: 2023
+                          latestKnownYear: 2023
+                        score: { source: gameometro, kind: community, value: 9.0, scale: 10, count: 1 }
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                empty:
+                  summary: No game holds a score from the source yet
+                  value:
+                    source: gameometro_community
+                    items: []
+                    page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/RankingValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
@@ -2235,6 +2350,12 @@ components:
         uniqueItems: true
         items: { $ref: '#/components/schemas/PlatformId' }
       example: [platform_ps5, platform_switch]
+    RankingSourceQuery:
+      name: source
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/RankingSource' }
+      example: gameometro_community
     FeaturedPlatformIdsQuery:
       name: platformIds
       in: query
@@ -2431,6 +2552,21 @@ components:
         first, then the larger number of that source's ratings. A game without the chosen
         signal follows every game with one and is never treated as zero; ties continue with the
         `releaseDate` order.
+
+    RankingSource:
+      type: string
+      enum: [igdb_players, gameometro_community]
+      default: igdb_players
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [igdb_players, gameometro_community]
+      description: |
+        The one population whose ratings rank the games. `igdb_players` is the IGDB players'
+        rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
+        when at least 100 ratings stand behind it; it is the default because it covers most
+        games. `gameometro_community` is the Gameómetro community mean of one contribution per
+        rating and its number of ratings, ranked from the first rating. Sources are never
+        combined, and
+        critic or combined provider scores are never used.
 
     GameId:
       type: string
@@ -3129,6 +3265,63 @@ components:
           minimum: 10
           description: Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
       unevaluatedProperties: false
+    GameRankingPage:
+      type: object
+      required: [source, items, page]
+      properties:
+        source: { $ref: '#/components/schemas/RankingSource' }
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/GameRankingItem' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+      additionalProperties: false
+      description: |
+        One page of one source's ranking. Items follow their `position`, consecutive from
+        `(page.number - 1) * page.size + 1`; a page beyond the last is empty.
+    GameRankingItem:
+      type: object
+      required: [position, gameId, slug, canonicalTitle, primaryCover, genres, releaseSummary, score]
+      properties:
+        position:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The game's one place in the source's ranking; ties never share a place.
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
+        releaseSummary: { $ref: '#/components/schemas/CompactReleaseSummary' }
+        score: { $ref: '#/components/schemas/RankingScore' }
+      additionalProperties: false
+    RankingScore:
+      description: |
+        The ranked source's reading of the game, the same values its order used, rounded half
+        up to one decimal only for display; the order itself uses the unrounded mean. It is
+        always the requested source's reading, never another source's.
+      oneOf:
+        - $ref: '#/components/schemas/ExternalPlayerScore'
+        - $ref: '#/components/schemas/CommunityRankingScore'
+    CommunityRankingScore:
+      type: object
+      required: [source, kind, value, scale, count]
+      properties:
+        source: { type: string, pattern: '^gameometro$' }
+        kind: { type: string, pattern: '^community$' }
+        value: { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+        scale: { type: integer, minimum: 10, maximum: 10 }
+        count: { type: integer, format: int32, minimum: 1 }
+      additionalProperties: false
+      description: |
+        The Gameómetro community mean of one contribution per rating, half up to one decimal,
+        and the positive number of ratings behind it, including one.
     GameSearchPage:
       type: object
       required: [items, page]
@@ -4214,6 +4407,18 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             searchQueryInvalid: { $ref: '#/components/examples/SearchQueryInvalid' }
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    RankingValidationFailed:
+      description: The ranking source, the pagination or a request parameter is invalid.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            sortInvalid: { $ref: '#/components/examples/SortInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     PersonalRatingsValidationFailed:

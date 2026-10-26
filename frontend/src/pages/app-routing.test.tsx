@@ -107,7 +107,7 @@ describe("application routing", () => {
     const primary = () => screen.getByRole("navigation", { name: "Principal" });
     await user.click(within(primary()).getByRole("button", { name: "Lanzamientos" }));
     expect(within(primary()).getAllByRole("link").map(link => link.textContent)).toEqual([
-      "Destacados", "Explorar", "Calendario",
+      "Destacados", "Explorar", "Calendario", "TOPómetro",
     ]);
     await user.click(within(primary()).getByRole("link", { name: "Explorar" }));
     await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" });

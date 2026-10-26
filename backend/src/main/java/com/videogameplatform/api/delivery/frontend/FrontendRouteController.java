@@ -20,6 +20,7 @@ class FrontendRouteController {
         "/lanzamientos",
         "/lanzamientos/destacados",
         "/lanzamientos/calendario",
+        "/topometro",
         "/search",
         "/mis-puntuaciones",
         "/mis-puntuaciones/estadisticas",

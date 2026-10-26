@@ -138,7 +138,8 @@ decorative: the readout beside the title and each card state the same dates in w
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
 where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
 the release explorer a cover wall under its day bar, search a catalogue index, the game page
-its own cover's stage and `Mis puntuaciones` a thermal ledger. No screen repeats the temporal G or
+its own cover's stage, `Mis puntuaciones` a thermal ledger and TOPómetro a podium over a
+ledger. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React or hosted identity screen uses them, and new
 work never brings them back.
@@ -157,8 +158,11 @@ work never brings them back.
   The native button exposes its expanded state and controlled panel; native links use Tab,
   Enter and normal browser navigation. Escape closes and returns focus to the button; leaving
   the disclosure, pressing outside or navigating closes it. Preserve the account panel’s
-  surface, spacing and focus language. TOPómetro is reserved for the approved future player-score
-  ranking (#386) and is absent from the header until delivered. The account
+  surface, spacing and focus language. Post-MVP (#386), **TOPómetro** follows the disclosure as
+  a native link of its own, outside it, so leaving the disclosure for it closes the disclosure;
+  it is named by the TOPómetro lockup at the labels' cap height, dimmed like a muted label and
+  lit when hovered or current, and carries the same fire rule and `aria-current` while its page
+  is shown. The account
   control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
   ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
@@ -168,8 +172,8 @@ work never brings them back.
   discovery stays anonymous and the inline rating authentication boundary remains available.
   Keep catalogue search prominent within the
   header and omit the explanatory context strip. On phones below 620px, the compact mark,
-  the release disclosure, search and account icons share one row from 360px; below
-  360px the disclosure takes a full-width row of its own under that row. Search opens the
+  the release disclosure with TOPómetro, search and account icons share one row from 360px;
+  below 360px the two entries take a full-width row of their own under that row. Search opens the
   existing catalogue search in a keyboard-accessible dialog; the account icon opens
   either the two anonymous entry links or the authenticated account actions in a
   keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
@@ -201,7 +205,8 @@ work never brings them back.
   from 320px. The release explorer's cover grid uses six compact columns at desktop, about four at
   tablet and two at phone widths; search's index uses three, two and one. Do not allow page-level horizontal overflow; the filter and navigation
   rails may scroll horizontally on narrow screens.
-- Beyond the approved featured releases ([below](#featured-releases)), do not add a ranking,
+- Beyond the approved featured releases ([below](#featured-releases)) and
+  [TOPómetro](#topómetro), do not add a ranking,
   editorial description, publisher, studio, new release window or destination solely
   because it appears in a reference.
 - The release explorer uses the plain night canvas, without decorative artwork behind the
@@ -405,7 +410,7 @@ the executable values; these constraints hold wherever they are used:
 - Featured, search, personal ratings and game details open on a stage lit by art they already
   show, anchored to the top of the document so it runs behind the header: Destacados by its
   featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
-  three of the covers the page presents; a game's page by its own cover. The release explorer
+  three of the covers the page presents; TOPómetro by its podium's covers; a game's page by its own cover. The release explorer
   keeps the plain night canvas under its opening and cover wall. Each image's hue, not
   its luminance, is blown up, blurred and capped in brightness, the copy's side stays in shade,
   and the light falls away into night before the content. It adds no request, stores and
@@ -419,7 +424,8 @@ the executable values; these constraints hold wherever they are used:
 - Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
   entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
-  release a visitor points at; a cover easing a little closer on hover; feedback on press and
+  release a visitor points at; TOPómetro's podium rising onto its steps; a cover easing a little
+  closer on hover; feedback on press and
   selection; a G-meter needle sweeping to its reading and the brand needle's twitch on hover and
   focus. Declare it inside `@media (prefers-reduced-motion: no-preference)` instead of disabling
   it afterwards, so reduced motion is the default and nothing animates or transitions there.
@@ -549,7 +555,7 @@ remain on interactive controls.
 
 Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
 was opened from — **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
-(#250), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
+(#250), **Volver al TOPómetro** (#386), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
 and returns to it with the same period, range, order, filters,
 search and page, restoring that screen's reading position while the document keeps it. Every
 link into a game page from those screens, including a header suggestion opened on them, carries
@@ -779,6 +785,70 @@ facts, a fact starting a line drops its separator, and nothing is spread apart, 
 truncated to hold one line. A period the G cannot draw keeps the date in the row. Below 480px each card takes the full column. Forced colours keep the art
 beside or above the copy, never behind it: the page opening, the art and the seal each keep
 their own room.
+
+## TOPómetro
+
+Post-MVP (#386, implemented; awaiting owner review), **TOPómetro** (`/topometro`) ranks the best
+released games by one source of player ratings, under
+[`UC-018`](../architecture/application/mvp-use-cases.md) and `RNK-001`–`RNK-004` in the
+[domain model](../architecture/domain/mvp-domain-model.md). The owner's mockup is a reference,
+not a specification.
+
+**Opening.** The `h1` is the [TOPómetro lockup](../../frontend/src/shared/brand/topometro-logo.svg),
+named `TOPómetro` for assistive technology: `TOP` in the mark's ice with an O read beyond its
+top, the ring opening where the fire needle leaves, as it leaves the G, then `ómetro` from the
+Gameómetro wordmark with its needle accent. It is outlined from the bundled Mona Sans at the
+wordmark's width and weight; it is never restated in CSS. No claim, source note, ranked-games
+count or method disclosure accompanies it (owner decision, 2026-10-26). The source selector stands
+opposite on wide screens and beneath on phones: one night control parted in two native links,
+**Jugadores IGDB** (the default) and **Comunidad Gameómetro**, each with its own untinted mark,
+the chosen one lit in ice and announced as current. Only the URL's `source=gameometro` names the
+community; any other value reads as the default. The stage is lit by the podium's covers.
+
+**Podium.** Places 1–3 are an ordered list in reading order 1, 2, 3; from the phone up the
+winner stands between second and third. Each place stands its cover on a step of night with an
+ice lip over one shared floor, its number engraved in the step's face: the winner's step is the
+tallest with the brightest lip and a numeral in the lockup's moonlit silver, the others outlined
+in ice. Places differ by scale, height and light only, never by a gold, silver, bronze or any
+colour that could read as a score, and no crown, medal or needle marks a place. Beneath the cover
+come the title (the game link, its pointer target stretched over the place), the known years and
+the platform marks, then the reading. Fewer ranked games show fewer places; nothing is filled.
+
+**Readings.** The reading that placed a game is the page's protagonist: the value with `/10`, the
+source and the exact count, never abbreviated, in the source's own word (`1 puntuación`,
+`5.494 valoraciones`). A Gameómetro reading keeps the G-meter, its temperature in words and its
+value in the band's own thermal colour; an IGDB reading keeps neutral ink and its white mark as
+the attribution link. Phone podium columns stack the mark over the numbers so nothing is cut.
+
+**Ledger.** Places from the fourth on follow the podium without a visible heading (`Clasificación`
+for assistive technology): an ordered list of lines between
+hairlines, each line the place's number in the wide heavy cut, the cover, the title as its only
+keyboard stop besides the IGDB attribution, the known years and up to two genres, the platform
+marks and the reading. As in `Mis puntuaciones`, a Gameómetro line's left edge takes its score's
+temperature, so the column reads as a thermometer; an IGDB line keeps a neutral edge. From
+1024px the platforms take a column of their own; phones stack the facts beside the cover.
+
+**Continuation.** Each page holds twenty places, the first being the podium. Only **Cargar más
+juegos** reads the next page; scrolling never does (owner decision, 2026-10-26). It is one wide
+native button closing the ledger, in the control surface with an ice line, that also shows the
+places it brings (`Puestos 21–40`) beside a chevron pointing down, on one line from 620px and
+stacked beneath its label on phones; the places are visual only, so its accessible name stays
+`Cargar más juegos`. The batch it brings receives focus at its first game, and a visually hidden
+live status states `Mostrando N de T juegos`. The end reads **Has llegado al final del
+TOPómetro**. A game that moved between page reads keeps its first place and is never listed
+twice. A failed further page keeps every loaded place and offers its own retry. Switching source
+starts again at that source's podium and never shows the other ranking meanwhile. Loaded pages
+stay in the document's memory, so Back and **Volver al TOPómetro** return to the same places and
+reading position, while a reload or a shared link opens at the podium.
+
+**States.** Loading keeps the podium's frame and four ledger lines as placeholders under one live
+status. An empty source is the empty notice with a way to the other source; a catalogue not yet
+ready and a technical failure use the [server-backed states](#server-backed-states). The ranking
+is public: it never varies on the session or `Mis plataformas`.
+
+**Motion.** The podium enters once: third, second, then the winner rising onto steps that grow
+from the floor, each G-meter sweeping to its reading; newly read lines fade in. Reduced motion
+shows the settled page; forced colours keep the steps, numerals and edges in system colours.
 
 ## Public game details
 

@@ -52,7 +52,10 @@ external-score read for its one Game beside the existing Ratings context, and ca
 search delivery (#279 phase 4, implemented; awaiting review) reuses the discovery
 composition for its returned page. `Mis puntuaciones` delivery (#279, implemented; awaiting
 review) adds the same external-score read for its user-scoped page beside the Ratings-owned
-summary it already returns. Wire shapes
+summary it already returns. TOPómetro (#386, implemented; awaiting review) needs no such
+composition: it is one Catalogue read that ranks and shows each source's reading from
+Catalogue-owned tables, the community score being the projection Ratings maintains
+([ADR-0034](../decisions/0034-rank-topometro-from-catalogue-score-projections.md)). Wire shapes
 remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 [frontend guide](../development/frontend-design.md).
 

@@ -8,6 +8,7 @@
             "catalogue::cover",
             "catalogue::releases",
             "catalogue::search",
+            "catalogue::rankings",
             "catalogue::details",
             "catalogue::preferences",
             "identity::application",
