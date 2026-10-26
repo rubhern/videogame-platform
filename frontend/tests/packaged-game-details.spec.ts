@@ -147,7 +147,7 @@ for (const state of [
     ).toBe(true);
     await page.getByRole("link", { name: "Volver a Destacados" }).focus();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
   });
 }
 

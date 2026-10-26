@@ -125,3 +125,15 @@ for (const forcedColors of ["none", "active"] as const) {
     await expect(main).toHaveCSS("outline-style", "none");
   });
 }
+
+for (const path of ["/", "/lanzamientos/destacados", "/lanzamientos/destacados?granularity=month"]) {
+  test(`cold navigation keeps the featured loading surface while its read is pending: ${path}`, async ({ page }) => {
+    await page.route("**/api/v1/featured-releases*", () => undefined);
+    await page.goto(path);
+    await expect(page.getByRole("status")).toHaveText("Cargando Destacados…");
+    await expect(page.getByRole("heading", {
+      level: 1, name: path.includes("month") ? "Destacados del mes" : "Destacados de la semana",
+    })).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(0);
+  });
+}

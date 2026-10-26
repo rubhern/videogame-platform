@@ -2,7 +2,7 @@ import { useLocation } from "react-router-dom";
 
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
 import { FeaturedReleasesShell } from "../features/releases/featured-releases-shell";
-import { readFeaturedSearch } from "../features/releases/featured-search";
+import { FEATURED_PATH, readFeaturedSearch } from "../features/releases/featured-search";
 import { readReleasesSearch, RELEASES_PATH } from "../features/releases/releases-search";
 import { ReleasesShell } from "../features/releases/releases-shell";
 import { readGameSearchParams } from "../features/search/game-search-params";
@@ -16,7 +16,7 @@ export function RouteLoading() {
   const state = { status: "loading" } as const;
   const onRetry = () => undefined; // Loading surfaces do not expose a retry action.
 
-  if (location.pathname === "/") {
+  if (location.pathname === "/" || location.pathname === FEATURED_PATH) {
     return <FeaturedReleasesShell search={readFeaturedSearch(params)} state={state} onRetry={onRetry} />;
   }
   if (location.pathname === RELEASES_PATH) {

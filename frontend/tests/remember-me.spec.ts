@@ -43,7 +43,7 @@ async function state(page: Page): Promise<{ authenticated: boolean; csrfToken?: 
 
 async function entered(page: Page) {
   // New synthetic accounts can enter the approved first-run platform welcome route.
-  await expect(page).toHaveURL(url => url.origin === new URL(app).origin && ["/", "/bienvenida"].includes(url.pathname));
+  await expect(page).toHaveURL(url => url.origin === new URL(app).origin && ["/lanzamientos/destacados", "/bienvenida"].includes(url.pathname));
 }
 
 async function signIn(browser: Browser, request: APIRequestContext, remembered: boolean) {

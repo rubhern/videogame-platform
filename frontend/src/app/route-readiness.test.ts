@@ -33,6 +33,21 @@ function paths(fetchMock: ReturnType<typeof stub>): string[] {
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe("legacy landing migration before hydration", () => {
+  it.each([
+    ["/", "/lanzamientos/destacados"],
+    ["/?week=2026-W42", "/lanzamientos/destacados?week=2026-W42"],
+    ["/?view=recent&platformIds=pc", "/lanzamientos?platformIds=pc"],
+  ])("replaces %s with %s without reading discovery twice", async (path, destination) => {
+    const fetchMock = stub({ authenticated: false }, { configured: false, platforms: [] });
+    const loader = routeReadiness(new QueryClient(), createInterestsSwitch());
+    const result = await load(loader, path) as Response;
+    expect(result.headers.get("Location")).toBe(destination);
+    expect(result.headers.get("X-Remix-Replace")).toBe("true");
+    expect(paths(fetchMock)).toEqual([]);
+  });
+});
+
 describe("first-run platform choice", () => {
   it("is offered once, on the way into discovery, keeping the destination", async () => {
     stub({ authenticated: true }, { configured: false, platforms: [] });
@@ -42,13 +57,15 @@ describe("first-run platform choice", () => {
     expect(offer.status).toBe(302);
     expect(offer.headers.get("Location")).toBe("/bienvenida?returnTo=%2Flanzamientos%3Fsort%3Dhype");
     // Leaving the welcome without choosing never bounces the visitor back in this document.
-    await expect(load(loader, "/")).resolves.toBeNull();
+    await expect(load(loader, "/lanzamientos/destacados")).resolves.toBeNull();
   });
 
   it("offers the first-run choice at the canonical featured period and does not read legacy aliases twice", async () => {
     const fetchMock = stub({ authenticated: true }, { configured: false, platforms: [] });
     const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
-    await expect(load(loader, "/?month=2026-10")).resolves.toBeNull();
+    const migration = await load(loader, "/?month=2026-10") as Response;
+    expect(migration.headers.get("Location")).toBe("/lanzamientos/destacados?month=2026-10");
+    expect(migration.headers.get("X-Remix-Replace")).toBe("true");
     expect(paths(fetchMock)).toEqual([]);
     const offer = await load(loader, "/lanzamientos/destacados?month=2026-10") as Response;
     expect(offer.headers.get("Location")).toBe("/bienvenida?returnTo=%2Flanzamientos%2Fdestacados%3Fmonth%3D2026-10");
