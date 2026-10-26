@@ -69,6 +69,9 @@ class DeliveryTests(unittest.TestCase):
         # Only the diagnostics upload is conditional; no leg can skip its proof and pass.
         self.assertEqual(re.findall(r'^        if: (.+)$', job, re.M), ['${{ failure() && !cancelled() }}'])
         self.assertIn('name: identity-browser-diagnostics-${{ matrix.leg }}', job)
+        # The private-dev leg runs neither npm nor Maven and must not save an empty cache.
+        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}", job)
+        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}", job)
         self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
                       "|| matrix.leg != 'personal-data' }}", job)
         self.assertIn('      - identity-compatibility\n', gate)
@@ -104,6 +107,18 @@ class DeliveryTests(unittest.TestCase):
         refused = subprocess.run(['bash', str(ROOT / 'scripts/validate-identity.sh')],
                                  env={**os.environ, 'IDENTITY_REMEMBER_ME_PHASE': 'timed'}, capture_output=True, text=True)
         self.assertEqual(refused.returncode, 2, refused.stderr)
+
+    def test_build_jobs_never_restore_a_partial_maven_repository(self):
+        workflows = ROOT / '.github/workflows'
+        build = (workflows / 'build-and-verify.yml').read_text()
+        # A POM-only graph saved first under the build key left every build downloading
+        # nearly all dependencies again; the submission graph therefore keeps no cache.
+        submission = (workflows / 'dependency-submission.yml').read_text()
+        self.assertNotIn('cache: maven', submission)
+        self.assertNotIn('cache-dependency-path', submission)
+        reactor = 'cache-dependency-path: |\n            pom.xml\n            backend/pom.xml\n'
+        self.assertEqual(build.count(reactor), 5)
+        self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 5)
 
     def test_dependency_images_publish_only_scanned_digests_from_trusted_main(self):
         workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()

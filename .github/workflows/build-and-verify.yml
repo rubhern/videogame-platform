@@ -200,6 +200,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Run the pinned browser smoke test without retries
         env:
@@ -238,7 +239,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
+          # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
+          cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
@@ -246,10 +248,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-          cache: maven
+          cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       # Each leg owns a disposable Keycloak, PostgreSQL, Mailpit and BFF on its own runner;
       # the timed legs mutate realm and client state that must not be shared.
@@ -558,6 +561,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Test catalogue localization helper and operator boundaries
         run: python3 -m unittest discover -s tools/catalogue-localization -p 'test_*.py'
@@ -596,6 +600,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Bootstrap roles without exposing passwords in process arguments or logs
         run: python3 -I scripts/test-postgres-bootstrap.py
@@ -671,6 +676,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Set up Node.js 24 for JavaScript and TypeScript analysis
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}

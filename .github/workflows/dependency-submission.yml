@@ -31,13 +31,9 @@ jobs:
       matrix:
         include:
           - graph: backend-reactor
-            cache_dependency_path: |
-              pom.xml
-              backend/pom.xml
             correlator: maven-backend-reactor
             directory: .
           - graph: igdb-poc
-            cache_dependency_path: tools/igdb-poc/pom.xml
             correlator: maven-igdb-poc
             directory: tools/igdb-poc
     steps:
@@ -46,13 +42,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # No Maven cache: this graph resolves only POMs, and saving that first would leave the
+      # build jobs restoring an almost empty repository under the same key.
       - name: Set up Java 25
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 25
-          cache: maven
-          cache-dependency-path: ${{ matrix.cache_dependency_path }}
 
       - name: Resolve and submit the complete Maven dependency graph
         uses: advanced-security/maven-dependency-submission-action@b275d12641ac2d2108b2cbb7598b154ad2f2cee8 # v5.0.0
