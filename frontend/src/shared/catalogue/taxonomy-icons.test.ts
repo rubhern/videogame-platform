@@ -32,6 +32,9 @@ describe("taxonomy icons", () => {
 
   it("falls back to a generic platform marker for an unknown or newly acquired platform", () => {
     expect(platformIcon("99999999-9999-4999-8999-999999999999", "Unknown")).toBe("platform");
+    // A storefront is not Windows, Linux or the SteamVR platform. Do not invent a product ID.
+    expect(platformIcon("storefront-id", "Steam")).toBe("platform");
+    expect(platformIcon("other-id", "PlayStation 5 Pro")).toBe("platform");
   });
 
   it("gives the seeded region identities semantically appropriate icons without assuming a flag", () => {

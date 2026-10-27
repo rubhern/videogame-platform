@@ -3,7 +3,10 @@
 - **Status:** Prepared runtime, manual deployment and recovery candidate (#275), pending real-host validation; never deployed
 
 This directory holds the versioned runtime configuration for the future public
-production host. No host, DNS record, public certificate or telemetry stack is operated for it.
+production runtime. The owner has prepared a host; the
+[host qualification record](../../docs/development/operations-runbook.md#production-host-foundation)
+distinguishes observed foundation from outstanding privileged/network checks.
+No Gameómetro deployment or public exposure is accepted.
 Manual deployment and backup/recovery commands operate only within isolated synthetic
 rehearsals; real-host deployment remains blocked. [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
@@ -887,7 +890,8 @@ gates. The short workstation sample does not pass those checks or authorize more
 
 ## Host bootstrap and operating handoff to #276
 
-**Prepared sequence; real-host steps are not exercised or authorized.** Use the
+**Prepared runtime sequence; host foundation is observed, runtime steps remain
+unexercised and unauthorized.** Use the
 [release gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 for purchase/exposure decisions and the [candidate audit](../../docs/research/public-production-candidate-acceptance.md)
 for exact evidence and remaining work. The current deployment command unconditionally
@@ -934,3 +938,132 @@ refuses real-host operation; #276 must review any host adapter before using it.
 Public DNS/ACME, actual mail delivery, provider/legal checks and external acceptance
 remain separately authorized #276 work. Successful private qualification does not
 permit public signup or ingress. Private-dev retirement is a separate decision.
+
+## Next private implementation stages
+
+**Proposed for owner review under #276; no real-host adapter is enabled.** Host
+foundation does not approve a product release. Start from the
+[signed #275 candidate](../../docs/research/public-production-candidate-acceptance.md#owner-acceptance-record)
+and preserve its identities and receipts. Do not repeat its accepted local campaign.
+The staged checkout is an administration source, not a production selection. Compare
+its runtime inventory, identity implementation, migration inventory and publications
+with the signed candidate before selecting any image. Reusing the accepted images
+requires matching reviewed operational sources; newer realm/wrappers must not be
+mounted into older images by convenience. Changed runtime sources need a separate
+reviewed rollout, as the deployment verifier already requires.
+
+| Stage | Concrete deliverable | Evidence or approval before the next action |
+|---|---|---|
+| 1. Read-only preflight | Host inventory, candidate comparison and a sanitized refusal report; no Docker mutation | Resolve clock state, privileged Docker inventory, effective firewall/SSH and protected-input checks in the linked host record |
+| 2. Private adapter preparation | Separate private Compose overlay, rendered-config validator and a host adapter around existing trust/deployment/recovery seams; fake-runtime tests first | Owner reviews the implementation, exact candidate/digests, fingerprints, private TLS strategy and fresh-state bootstrap procedure; execution remains disabled until prerequisites pass |
+| 3. Cloud recovery preparation | Bounded S3 transport for the existing encrypted pair, independent observer and durable ledger/archive copy adapters | Retention decisions, provider setup authorization and effective cloud permissions/semantics; no bucket or credential is provisioned by repository work |
+| 4. Authorized private qualification | Explicit fresh-host bootstrap, migration/activation, synthetic journeys, paired backup and cloud-only reconstruction with deletion replay | Separate authorization to run the reviewed procedure; failures preserve closed gates, journals and receipts |
+| 5. Exposure decision | Real-host capacity, privacy/relay/provider, network/abuse, observability and recovery acceptance | Separate owner public go/no-go under the delivery lifecycle; private qualification alone grants no public access |
+
+Stages 2 and 3 can be prepared locally after their implementation scope is reviewed.
+This proposal changes documentation only. It schedules nothing and supplies no flag,
+approval file or environment override to bypass the current real-host refusal.
+
+### Read-only preflight boundary
+
+The next executable increment should accept a fixed local checkout and local Docker
+Unix socket, exact trusted-main source/digest/run identities, reviewed runtime-source
+and rendered-configuration fingerprints, and a new protected evidence directory.
+Its default operation must only inspect; incomplete/unknown evidence produces a
+sanitized refusal, never a partial bootstrap. Keep source, image and host identity
+distinct. Record timestamps and checks, including unknowns, without secret values,
+raw environment/inspect output or user data. A current successful CI run proves its
+own source only; retained publication records and registry availability still need
+verification. Preserve the previous candidate identities for assessed recovery.
+
+Check effective secret consumer ownership/modes and nonempty required inputs from the
+inventory above, the separately approved model checksums, registry pull permission,
+archive/ledger/reconstruction independence, backup public keys and recovery journals.
+Secrets remain owner-generated. Missing permissions must produce an unknown/refusal,
+not an instruction to add the agent to the Docker group, loosen files, create
+`READY`, remove a fence or globally trust a root-owned checkout.
+
+The existing runtime validator's `--env-file` path renders the **base Compose only**.
+It neither certifies the observability overlay nor supplies the proposed private
+overlay. The new validator must inspect the complete rendered combination and test
+unsafe overrides. A successful `compose config --quiet` is syntax evidence only.
+
+### Private host adapter boundary
+
+Reuse trusted-publication verification, exact image identity checks, configuration
+inventory, deployment lock, recovery lease, same-image Flyway actor, readiness,
+bounded anonymous smoke and sanitized atomic receipts. The existing `Deployment`
+object is coupled to a disposable `Exercise`: its project regex, synthetic secret
+ownership, internal-only networks, probe CA and dependency-first preflight cannot
+be made host-safe by removing one guard or renaming the Compose project.
+
+The new overlay/adapter changes the runtime-source inventory. First retain the
+expected mismatch refusal against the signed candidate. Before execution, review a
+rollout contract binding an explicitly published operational revision to the selected
+image revisions, or select a newly reviewed candidate with matching sources. This
+compatibility/trust decision remains open; disabling `verify_configuration` to reuse
+an older image is not an implementation option. Local preparations can test the new
+seams without claiming the signed fingerprint covers them.
+
+Prepare an explicit first-install operation separately from application replacement.
+First install must prove empty/unclaimed volumes and no conflicting project, model,
+network or journal; initialize recovery authorization only through the reviewed
+fresh-state procedure; then start PostgreSQL, run the same-image migration actor,
+provision the Grafana reader after migrations and start dependencies privately before
+application activation. Bootstrap is an operation requiring authorization, not a
+preflight side effect. Existing/ambiguous volumes or interrupted state must refuse.
+The current deployment path expects dependencies already running and cannot bootstrap
+an empty host. Failed phases stay closed; do not erase volumes or revert Flyway.
+
+The private overlay must remove **all** published ports from the final rendered
+configuration, including inherited Caddy bindings. Keep private administration over
+the existing tailnet/SSH route. Review private TLS and canonical-host resolution for
+both `gameometro.com` and `auth.gameometro.com`, including the BFF issuer backchannel;
+retain certificate verification and exact forwarded-header trust. A private test CA
+needs an explicit reviewed test configuration and cannot count as public ACME proof.
+No public DNS change, ACME reachability workaround or registration opening is implied.
+
+Preserve data-network isolation, fixed proxy addresses, denied management routes,
+secret mounts, resource limits and hardened containers. Check route/subnet collisions
+against host, Docker and tailnet routes. Deny host networking, unexpected mounts,
+privileges and publish additions in the private validator. Egress needed for SMTP,
+registry and later approved acquisition differs from public ingress: internalising
+every network blindly would break the issuer/relay contract. The netcup firewall
+alone does not prove Docker forwarding or independent IPv4/IPv6 denial. Preserve
+effective host/provider controls and qualify actual packet paths only in an
+authorized later exercise.
+
+Focused tests must cover no mutation on preflight refusal, combined-overlay port
+reintroduction, wrong socket/source/digest/fingerprint, unsafe/missing inputs,
+conflicting existing resources, concurrent backup/deploy, closed recovery/identity
+fences, failed migration/readiness/smoke and interrupted receipt/state writes. Reuse
+the accepted transition tests; add coverage only for the new host/bootstrap seams.
+
+### Cloud transport dependency
+
+Implement only the missing S3 seams around `bin/recovery`, not another backup engine.
+The [storage investigation](../../docs/research/public-production-backup-storage.md#minimal-implementation-changes-not-made)
+owns the proposed transport, local tests and provider experiments. Its
+[D1–D7 decisions](../../docs/research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
+are still proposals; do not turn the proposed lock/cadence/expiry values into defaults
+or apply the filesystem daily/weekly selector to immutable cloud versions.
+
+Stream the existing four-file encrypted pair; bound object/byte counts, multipart
+concurrency, timeouts, retries and version-list pages. Persist resumable progress and
+refuse overflow instead of loading all history. Publish the receipt last with exact
+version IDs, sizes and SHA-256; fetch those versions for existing integrity/restore
+checks. An independent observer verifies storage/lock state and missed/failed jobs;
+the VPS uploader must not hold decryption, administration or expiry authority.
+The separately reviewed off-VPS expiry worker deletes exact eligible versions and
+verifies absence; delete markers or lifecycle configuration alone prove no erasure.
+
+Keep restricted legal archives, deletion ledgers, proofs and reconstruction material
+under their own protection/copy requirements. Destructive privacy steps must wait for
+the existing synchronous independent durability barrier; a queued upload is not an
+acknowledgement. Update cloud attestation semantics only after D5 is resolved: the
+current filesystem verifier requires a matching full recovery receipt and cannot be
+relabelled as S3 evidence. Add fake-S3 failure tests before authorized provider tests
+P1–P8; P1–P5 block activation. Install no capture/upload/expiry/observer timer until
+cloud-only loss-of-host recovery, ledger replay, independent missed-job alerts and
+bounded spending monitoring have been proved. Lenovo must be unavailable for that
+proof. New cloud credentials stay outside the application containers.

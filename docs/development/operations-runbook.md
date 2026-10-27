@@ -65,6 +65,66 @@ Common local symptom: every login returns to the game as "not completed". Cause 
 fix are documented in [local setup](local-setup.md#disposable-reset) (the stored
 Keycloak client secret no longer matches `.env`; `verify` reports it).
 
+## Production host foundation
+
+**Read-only foundation observation under #276; runtime not exercised.** On
+2026-10-27 the owner supplied the production tailnet SSH route and loaded its key into
+the existing workstation agent. The agent inspected the host without `sudo`, changed
+no host configuration and started no container. Private addresses, provider identifiers
+and SSH material are deliberately omitted here.
+
+| Area | Observed evidence and limit |
+|---|---|
+| Foundation | Debian 13, x86_64, 8 visible CPUs, about 16 GiB RAM, 320 GiB virtual disk, cgroup v2; ample idle memory/disk. This is not workload/capacity acceptance |
+| Installed tooling | Docker client/daemon binary and Compose match the owner's reported installations; daemon/SSH/tailnet services active. Docker API access is denied to the ordinary administrator; server inventory and running containers remain unverified |
+| Checkout | `/srv/gameometro/repo/.git/HEAD` contains `77fb089f9b8f046be5d2c0720084183043290831`; checkout is root-owned. Git refused ordinary-user status inspection; tracked/untracked drift remains unverified. No global `safe.directory` exception was added |
+| Clock | NTP enabled and timesyncd active with received packets, but `NTPSynchronized=no` on both observations. Resolve or explain the kernel/service state and prove clock accuracy before timestamp/lock-sensitive operation; no time settings were changed |
+| Network | No TCP 80/443 listener observed; SSH listens on all IPv4/IPv6 interfaces. Host routes showed no collision with the prepared fixed edge/telemetry subnets. Docker configuration explicitly selects bounded-runtime-compatible `local` logging; effective forwarding/NAT, IPv6, UDP listeners, provider firewall and external denial remain unverified |
+| Protected inputs | Production configuration/state parent directories are root-only. Their contents could not be inspected; secrets, model, metrics, recovery material and journals are unknown, not absent |
+
+The GitHub source comparison shows the checkout is 24 commits ahead of the
+[signed candidate](../research/public-production-candidate-acceptance.md#owner-acceptance-record),
+including changed realm/Remember Me integration and a new ranking migration. The
+checkout's [main build](https://github.com/rubhern/videogame-platform/actions/runs/40481303443)
+and [Security](https://github.com/rubhern/videogame-platform/actions/runs/40481303535)
+were successful. Neither source ancestry nor green CI transfers #275 acceptance or
+selects a production version. Exact publications/digests, retained artefacts, current
+scans, model and runtime fingerprints still need selection/review. The accepted
+candidate's eMudhra mitigation/positive-negative TLS condition remains a pre-opening
+gate. Its signed evidence is unchanged.
+
+The owner must run these **read-only** commands manually where privilege is needed;
+the agent must not request the sudo password, join the Docker group or loosen files:
+
+```bash
+sudo docker version --format '{{.Server.Version}}'
+sudo docker ps -a --format '{{.Names}} {{.State}} {{.Ports}}'
+sudo docker volume ls
+sudo docker network ls
+sudo docker info --format '{{.CgroupVersion}} {{.Driver}} {{.LoggingDriver}}'
+sudo git --no-optional-locks -C /srv/gameometro/repo status --porcelain
+sudo nft list ruleset
+sudo /usr/sbin/sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|pubkeyauthentication|listenaddress|allowusers|allowgroups) '
+sudo ss -H -lntup
+sudo journalctl -u systemd-timesyncd --no-pager -n 30
+sudo stat -c '%U:%G %a %n' /etc/gameometro/production /etc/gameometro/production/runtime.env /etc/gameometro/production/secrets /var/lib/gameometro/production /var/lib/gameometro/production/catalogue-models/tcbig-initial /var/lib/gameometro/production/metrics
+sudo find /etc/gameometro/production/secrets -maxdepth 1 -printf '%f %u:%g %m %y\n'
+```
+
+Keep raw firewall/socket/daemon metadata private and return sanitized findings.
+Network names alone do not prove subnet isolation: inspect each relevant Docker
+network privately, check every published binding and compare effective IPv4/IPv6
+rules with the netcup firewall and tailnet access policy. Review applicable SSH
+`Match` blocks with the actual connection context; `sshd -T` alone is insufficient.
+No listener is not proof of firewall enforcement. Independent external denial tests
+and Docker packet-path qualification remain pending. Metadata checks never read
+secret values; effective per-consumer access and independent reconstruction still
+need authorized qualification.
+
+The [next private stages](../../deploy/public-production/README.md#next-private-implementation-stages)
+own the proposed operator/adapter work. No purchase terms, bucket, backup, deployment,
+public exposure or production version is accepted by this foundation observation.
+
 ## Public-production manual deployment
 
 **Prepared for local synthetic rehearsal; not exercised on a real host.** The

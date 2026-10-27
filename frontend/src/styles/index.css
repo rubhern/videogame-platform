@@ -17,6 +17,7 @@
 @import "./app-select.css";
 @import "./search-suggestions.css";
 @import "./administration.css";
+@import "./platform-logos.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

@@ -37,6 +37,7 @@ export const groups = [
     ['docs/development/continuous-integration.md', 'Continuous integration'],
     ['docs/development/database-migrations.md', 'Database migrations'],
     ['docs/development/frontend-design.md', 'Frontend design'],
+    ['frontend/public/assets/platforms/README.md', 'Platform logos · sources & permissions'],
     ['docs/development/ai-assistance.md', 'AI assistance'],
   ]],
   ['Platform & operations', [
