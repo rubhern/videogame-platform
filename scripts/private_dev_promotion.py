@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -50,6 +51,22 @@ class GitHub:
         self.token = token
 
     def request(self, path, archive=False):
+        # Retry only transient read failures, never rejected or invalid evidence.
+        for attempt in range(3):
+            try:
+                return self._request_once(path, archive)
+            except urllib.error.HTTPError as error:
+                status = error.code
+                error.close()
+                if status not in (500, 502, 503, 504) or attempt == 2:
+                    raise Refused(f"GitHub evidence is unavailable (HTTP {status}); promotion refused.") from None
+            except (urllib.error.URLError, TimeoutError):
+                if attempt == 2:
+                    raise Refused("GitHub evidence is unavailable (network failure); promotion refused.") from None
+            print("Transient evidence read failure; retrying bounded read.", file=sys.stderr)
+            time.sleep(2 ** attempt)
+
+    def _request_once(self, path, archive=False):
         headers = {
             "Accept": "application/vnd.github+json", "User-Agent": "vgp-private-dev-promotion",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -61,8 +78,9 @@ class GitHub:
             response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
         except urllib.error.HTTPError as error:
             if not archive or error.code != 302:
-                raise Refused(f"GitHub evidence is unavailable (HTTP {error.code}); promotion refused.") from None
+                raise
             location = error.headers.get("Location", "")
+            error.close()
             require(location.startswith("https://"), "Artifact redirect must use HTTPS.")
             # Signed storage requests never receive the GitHub credential.
             response = urllib.request.urlopen(location, timeout=30)

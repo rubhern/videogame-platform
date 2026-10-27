@@ -83,6 +83,61 @@ def api_fixture():
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_transient_reads_recover_with_bounded_backoff(self):
+        for failure in (502, 503, 504, 500, "network", "timeout"):
+            with self.subTest(failure=failure):
+                error = (urllib.error.URLError("private detail") if failure == "network" else
+                         TimeoutError("private detail") if failure == "timeout" else
+                         urllib.error.HTTPError(policy.API_ROOT, failure, "private detail", {}, None))
+                opener = Mock()
+                opener.open.side_effect = [error, io.BytesIO(b'{"id":123}')]
+                with patch.object(policy.urllib.request, "build_opener", return_value=opener), \
+                        patch.object(policy.time, "sleep") as sleep:
+                    self.assertEqual(policy.GitHub().request("/actions/runs/123"), {"id": 123})
+                self.assertEqual(opener.open.call_count, 2)
+                sleep.assert_called_once_with(1)
+
+    def test_persistent_failure_is_bounded_and_sanitized(self):
+        opener = Mock()
+        opener.open.side_effect = [urllib.error.HTTPError(
+            policy.API_ROOT, 502, "private detail", {}, None) for _ in range(3)]
+        with patch.object(policy.urllib.request, "build_opener", return_value=opener), \
+                patch.object(policy.time, "sleep") as sleep:
+            with self.assertRaisesRegex(policy.Refused, r"HTTP 502") as caught:
+                policy.GitHub().request("/actions/runs/123")
+        self.assertNotIn("private detail", str(caught.exception))
+        self.assertEqual(opener.open.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+
+    def test_permanent_http_failures_are_not_retried(self):
+        for status in (401, 403, 404, 429):
+            with self.subTest(status=status):
+                opener = Mock()
+                opener.open.side_effect = urllib.error.HTTPError(policy.API_ROOT, status, "", {}, None)
+                with patch.object(policy.urllib.request, "build_opener", return_value=opener), \
+                        patch.object(policy.time, "sleep") as sleep:
+                    with self.assertRaisesRegex(policy.Refused, f"HTTP {status}"):
+                        policy.GitHub().request("/actions/runs/123")
+                self.assertEqual(opener.open.call_count, 1)
+                sleep.assert_not_called()
+
+    def test_storage_retry_reacquires_redirect_without_forwarding_token(self):
+        opener = Mock()
+        opener.open.side_effect = [urllib.error.HTTPError(
+            policy.API_ROOT, 302, "", {"Location": "https://storage.example/signed"}, None)
+            for _ in range(2)]
+        with patch.object(policy.urllib.request, "build_opener", return_value=opener), \
+                patch.object(policy.time, "sleep"), \
+                patch.object(policy.urllib.request, "urlopen", side_effect=[
+                    urllib.error.HTTPError("https://storage.example/signed", 502, "", {}, None),
+                    io.BytesIO(b"publication"),
+                ]) as storage:
+            self.assertEqual(policy.GitHub("test-only-token").request(
+                "/actions/artifacts/1/zip", archive=True), b"publication")
+        self.assertEqual(opener.open.call_count, 2)
+        self.assertTrue(all(call.args == ("https://storage.example/signed",)
+                            for call in storage.call_args_list))
+
     def test_receipt_summary_preserves_failure_and_refuses_forged_metadata(self):
         receipt = {
             "sourceRevision": REVISION, "image": f"{policy.IMAGE_REPOSITORY}@{DIGEST}",
