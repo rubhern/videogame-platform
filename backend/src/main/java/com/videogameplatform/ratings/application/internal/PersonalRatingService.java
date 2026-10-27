@@ -38,7 +38,8 @@ import java.util.stream.Collectors;
  * one of the game's current release platforms, while one already saved stays valid whatever the
  * catalogue now holds.
  */
-public final class PersonalRatingService
+// Modulith observability uses a class proxy for this bean, which exposes multiple use cases.
+public class PersonalRatingService
         implements GetPersonalRatingUseCase, PutPersonalRatingUseCase, DeletePersonalRatingUseCase {
     private final PersonalRatingStore ratings;
     private final GetGameDetailsUseCase games;

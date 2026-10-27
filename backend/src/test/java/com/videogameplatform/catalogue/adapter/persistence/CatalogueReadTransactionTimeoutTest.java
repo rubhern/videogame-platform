@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -31,9 +32,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.stubbing.Answer;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.ConnectionHolder;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionTimedOutException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -44,7 +47,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 class CatalogueReadTransactionTimeoutTest {
 
     private static final int DEADLINE_SECONDS = 1;
-    private static final long SLOWER_THAN_DEADLINE_MILLIS = 1_100;
 
     @ParameterizedTest
     @MethodSource("catalogueReads")
@@ -53,16 +55,22 @@ class CatalogueReadTransactionTimeoutTest {
         Connection connection = mock(Connection.class);
         DataSource dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenReturn(connection);
-        // Preparing the first statement outlasts the deadline, so Spring's statement-timeout
-        // application finds no remaining transaction time and refuses to execute it.
-        Answer<PreparedStatement> slowPreparation =
+        // Expire the real transaction resource before Spring applies the statement timeout.
+        // A sleep depends on wall-clock progress and can fail when the host clock moves back.
+        Answer<PreparedStatement> expiredPreparation =
                 invocation -> {
-                    Thread.sleep(SLOWER_THAN_DEADLINE_MILLIS);
+                    var holder =
+                            (ConnectionHolder)
+                                    TransactionSynchronizationManager.getResource(dataSource);
+                    assertThat(holder).isNotNull();
+                    var deadline = holder.getDeadline();
+                    assertThat(deadline).isNotNull();
+                    deadline.setTime(0);
                     return mock(PreparedStatement.class);
                 };
-        when(connection.prepareStatement(anyString())).thenAnswer(slowPreparation);
+        when(connection.prepareStatement(anyString())).thenAnswer(expiredPreparation);
         when(connection.prepareStatement(anyString(), anyInt(), anyInt()))
-                .thenAnswer(slowPreparation);
+                .thenAnswer(expiredPreparation);
 
         assertThatThrownBy(() -> read.accept(jdbc(dataSource), readTransaction(dataSource)))
                 .isInstanceOf(CatalogueReadException.class)

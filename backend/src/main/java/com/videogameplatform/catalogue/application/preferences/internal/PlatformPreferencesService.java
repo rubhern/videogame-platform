@@ -15,7 +15,8 @@ import java.util.Set;
  * Framework-independent preferred-platform use cases. Every operation is scoped to the user the
  * caller derived from the authenticated session; no identifier from the request selects a user.
  */
-public final class PlatformPreferencesService
+// Modulith observability uses a class proxy for this bean, which exposes two use cases.
+public class PlatformPreferencesService
         implements GetPlatformPreferencesUseCase, ReplacePlatformPreferencesUseCase {
     private final PlatformPreferenceStore store;
     private final Clock clock;
