@@ -32,7 +32,9 @@ import {
 import {
   loadInterests,
   PLATFORM_PREFERENCES_QUERY_KEY,
+  platformListQueryOptions,
 } from "../features/platform-preferences/use-platform-preferences";
+import { PLATFORMS_PATH } from "../features/platforms/platform-context";
 import type { PlatformPreferences } from "../features/platform-preferences/platform-preferences-api";
 import { welcomePath } from "../features/platform-preferences/welcome-return";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
@@ -94,6 +96,9 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
       await queryClient
         .ensureInfiniteQueryData(gameRankingQueryOptions(readRankingSource(url.searchParams)))
         .catch(() => undefined);
+    } else if (url.pathname === PLATFORMS_PATH) {
+      // The public directory (#287): Otras and its chosen card restore their height on Back.
+      await queryClient.prefetchQuery(platformListQueryOptions());
     } else if (url.pathname === "/search") {
       const search = readGameSearchParams(url.searchParams);
       if (hasSearchableQuery(search)) await queryClient.prefetchQuery(gameSearchQueryOptions(search));

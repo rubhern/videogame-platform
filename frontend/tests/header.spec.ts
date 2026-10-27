@@ -27,6 +27,7 @@ async function mockDiscovery(page: Page, session: () => object) {
   });
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
   await page.route("**/api/v1/featured-releases?*", route => route.fulfill({ json: featuredWeekReleases({ items: [] }) }));
+  await page.route("**/api/v1/platforms", route => route.fulfill({ json: { items: [] } }));
 }
 
 const brand = (page: Page) => page.getByRole("link", { name: "Gameómetro · Inicio" });
@@ -123,9 +124,8 @@ test("the compact menu works by touch: the scrim dismisses without acting and li
 
   await menu.tap();
   await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Plataformas" }).tap();
-  // The Plataformas index (#287) is not built yet: the path is reachable and unresolved.
   await expect(page).toHaveURL(/\/plataformas$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Página no encontrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("main")).toBeFocused();
   await menu.tap();
@@ -218,14 +218,14 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
   }
 }
 
-test("Plataformas is a visible section whose path stays unresolved until its index exists", async ({ page }) => {
+test("Plataformas is a visible section that opens its index", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await mockDiscovery(page, () => ({ authenticated: false }));
   await page.goto("/lanzamientos");
   const nav = page.getByRole("navigation", { name: "Principal" });
   await nav.getByRole("link", { name: "Plataformas" }).click();
   await expect(page).toHaveURL(/\/plataformas$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Página no encontrada" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("button", { name: "Lanzamientos", exact: true })).not.toHaveAttribute("aria-current");
   expect((await analyzeAccessibility(page)).violations).toEqual([]);

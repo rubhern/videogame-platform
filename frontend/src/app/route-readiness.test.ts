@@ -120,3 +120,14 @@ describe("personal statistics readiness", () => {
     expect(paths(fetchMock)).toEqual(["/api/v1/session"]);
   });
 });
+
+describe("Plataformas", () => {
+  it("reads the public platform directory before mounting, without the session or preferences", async () => {
+    const fetchMock = stub({ authenticated: true }, { configured: false, platforms: [] });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const loader = routeReadiness(queryClient, createInterestsSwitch());
+
+    await expect(load(loader, "/plataformas?plataforma=ps4-id")).resolves.toBeNull();
+    expect(paths(fetchMock)).toEqual(["/api/v1/platforms"]);
+  });
+});
