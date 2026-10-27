@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repository_root/scripts/backend-artifact.sh"
-playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
+playwright_image="mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea"
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
 keycloak_image="videogame-platform/keycloak-identity:26.7.5"
@@ -19,8 +19,8 @@ identity_tmp_dir="$(mktemp -d)"
 test_failed=false
 identity_phase="${IDENTITY_REMEMBER_ME_PHASE:-all}"
 case "$identity_phase" in
-  all|continuity|renewal|idle) ;;
-  *) echo 'IDENTITY_REMEMBER_ME_PHASE must be all, continuity, renewal or idle' >&2; exit 2 ;;
+  all|core|continuity|renewal|idle) ;;
+  *) echo 'IDENTITY_REMEMBER_ME_PHASE must be all, core, continuity, renewal or idle' >&2; exit 2 ;;
 esac
 
 cleanup() {
@@ -298,7 +298,8 @@ if [[ "$identity_phase" == "renewal" ]]; then
   test_failed=false
   exit 0
 fi
-if [[ "$identity_phase" == "all" && "${IDENTITY_REMEMBER_ME_ONLY:-false}" != "true" ]]; then
+# core is all without the timed renewal and idle topologies, which CI runs as separate legs.
+if [[ "$identity_phase" =~ ^(all|core)$ && "${IDENTITY_REMEMBER_ME_ONLY:-false}" != "true" ]]; then
   run_browser_tests tests/oidc-session.spec.ts tests/rating-boundary.spec.ts tests/password-recovery.spec.ts tests/session-revocation.spec.ts tests/catalogue-administration-identity.spec.ts
 fi
 run_browser_tests tests/remember-me.spec.ts
@@ -317,7 +318,7 @@ done
 identity_restart=keycloak
 run_browser_tests tests/remember-me.spec.ts --grep 'restart continuity'
 unset identity_restart
-if [[ "$identity_phase" == "continuity" ]]; then
+if [[ "$identity_phase" =~ ^(core|continuity)$ ]]; then
   test_failed=false
   exit 0
 fi

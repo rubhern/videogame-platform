@@ -4,6 +4,7 @@ import com.videogameplatform.api.generated.CatalogueAdministrationApi;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.PlatformPreferencesApi;
+import com.videogameplatform.api.generated.RankingsApi;
 import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.ReleaseCalendarApi;
 import com.videogameplatform.api.generated.ReleasesApi;
@@ -28,6 +29,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
 
     private static final String SEARCH_PARAMETER = "q";
+
+    /** Parameters that choose an order: a sort, or the source whose ratings rank games. */
+    private static final Set<String> ORDER_PARAMETERS = Set.of("sort", "source");
 
     @Override
     public boolean preHandle(
@@ -76,7 +80,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                     && !parameter.acceptedValues().contains(values[0])) {
                 ApiRequestException exception =
                         new ApiRequestException(
-                                "sort".equals(parameter.name())
+                                ORDER_PARAMETERS.contains(parameter.name())
                                         ? ProblemCode.SORT_INVALID
                                         : ProblemCode.FILTER_INVALID,
                                 "/query/" + parameter.name());
@@ -95,6 +99,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         return com.videogameplatform.api.generated.HistoricalSynchronizationApi.class
                         .isAssignableFrom(beanType)
                 || ReleasesApi.class.isAssignableFrom(beanType)
+                || RankingsApi.class.isAssignableFrom(beanType)
                 || ReleaseCalendarApi.class.isAssignableFrom(beanType)
                 || FeaturedReleasesApi.class.isAssignableFrom(beanType)
                 || CatalogueApi.class.isAssignableFrom(beanType)
@@ -116,7 +121,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         if (parameter.pagination()) {
             return ProblemCode.PAGINATION_INVALID;
         }
-        if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
+        if (ORDER_PARAMETERS.contains(parameter.name()) || "direction".equals(parameter.name()))
+            return ProblemCode.SORT_INVALID;
         if (Set.of("from", "to").contains(parameter.name())) {
             // The release range is a filter; only the coverage read names its own range code.
             return ReleasesApi.class.isAssignableFrom(method.getBeanType())

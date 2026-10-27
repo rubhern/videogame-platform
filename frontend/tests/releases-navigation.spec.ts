@@ -16,7 +16,8 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/release-calendar**", route => route.fulfill({ status: 503, json: { code: "CATALOGUE_NOT_READY" } }));
 });
 
-for (const width of [320, 390, 834, 1320]) {
+// From tablet width the sections are visible; phones carry them in the Menú sheet (header spec).
+for (const width of [720, 834, 1320]) {
   test(`release disclosure supports touch, keyboard, active routes and history at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/?month=2026-08");
@@ -24,10 +25,11 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page).toHaveTitle("Destacados del mes · Gameómetro");
     const nav = page.getByRole("navigation", { name: "Principal" });
     const trigger = nav.getByRole("button", { name: "Lanzamientos" });
-    await expect(nav.getByRole("link", { name: "TOPómetro" })).toHaveCount(0);
+    // TOPómetro (#386) stands beside the disclosure as its own destination.
+    await expect(nav.getByRole("link", { name: "TOPómetro" })).toHaveAttribute("href", "/topometro");
     await trigger.tap();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario"]);
+    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Plataformas"]);
     await expect(nav.getByRole("link", { name: "Destacados", exact: true })).toHaveAttribute("aria-current", "page");
     const panel = page.locator(".releases-panel");
     const box = await panel.boundingBox();

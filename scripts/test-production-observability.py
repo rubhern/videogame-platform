@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import secrets
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -116,6 +117,40 @@ def static():
 
 class HostSignals(unittest.TestCase):
     NOW = 1800000000
+    @unittest.skipUnless(sys.platform == 'linux', 'The host bridge measures Linux processes')
+    def test_bridge_memory_does_not_inherit_the_harness_peak(self):
+        smoke = module(ROOT / 'scripts/production_observability_smoke.py', 'host_bridge_smoke')
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / 'sampler.py'
+            fixture_code = '''import subprocess, sys
+def snapshot(project):
+    assert project == 'vgp-telemetry-instrumentation-fixture'
+    subprocess.run([sys.executable, '-I', '-c', 'pass'], check=True)
+def edge_observations(text):
+    assert len(text.splitlines()) == 19999
+    workload = bytearray(PROBE_MIB * 1024 * 1024)
+    del workload
+'''
+            # Keep a large harness alive while exec starts the much smaller probe.
+            # ru_maxrss falsely charges this allocation to the probe on Linux.
+            harness = bytearray(96 * 1024 * 1024)
+            for own_mib in (0, 96):
+                with self.subTest(own_allocation_mib=own_mib):
+                    fixture.write_text(fixture_code.replace('PROBE_MIB', str(own_mib)))
+                    result = subprocess.run([sys.executable, '-I', '-c', smoke.HOST_BRIDGE_PROBE, str(fixture)],
+                                            capture_output=True, text=True, check=True, timeout=10)
+                    self.assertEqual(len(harness), 96 * 1024 * 1024)
+                    measured = json.loads(result.stdout)
+                    if own_mib:
+                        # A real peak must remain visible even after memory is freed.
+                        self.assertGreaterEqual(measured['parentPeakKiB'], own_mib * 1024)
+                        self.assertGreater(measured['conservativeCombinedMiB'], 64)
+                    else:
+                        self.assertLess(measured['parentPeakKiB'], 64 * 1024)
+                        self.assertLess(measured['conservativeCombinedMiB'], 64)
+                    self.assertGreater(measured['childPeakKiB'], 0)
+                    self.assertEqual(measured['records'], 19999)
+
     def test_unknown_is_not_zero_health(self):
         text = sampler.render([], now=self.NOW)
         self.assertIn('production_offhost_verified 0', text)

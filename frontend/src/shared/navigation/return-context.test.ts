@@ -17,6 +17,8 @@ describe("game page return context", () => {
     ["/search?q=zelda&page=3", "Volver a resultados"],
     ["/mis-puntuaciones", "Volver a mis puntuaciones"],
     ["/mis-puntuaciones/estadisticas", "Volver a tus estadísticas"],
+    ["/topometro", "Volver al TOPómetro"],
+    ["/topometro?source=gameometro", "Volver al TOPómetro"],
   ])("names and keeps the whole origin %s", (path, label) => {
     const context = readReturnContext(gameLinkState(at(path)));
 

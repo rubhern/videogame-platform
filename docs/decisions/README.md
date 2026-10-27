@@ -50,6 +50,7 @@ historical decision.
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.
 - [ADR-0029: Project community scores into Catalogue for the release order](0029-project-community-scores-for-the-release-order.md) — #285; a Catalogue-owned projection of each rated game's community mean, replaced by Ratings through a Catalogue contract inside every rating write, so the release explorer orders by community score in PostgreSQL before pagination; awaiting owner review.
+- [ADR-0034: Rank TOPómetro from Catalogue's score projections](0034-rank-topometro-from-catalogue-score-projections.md) — #386; TOPómetro ranks and shows each source's reading from Catalogue-owned tables in one PostgreSQL snapshot, and the ADR-0029 projection gains the unrounded community mean; awaiting owner review.
 - [ADR-0031: Count one community vote per rating across platform scores](0031-count-one-community-vote-per-rating-across-platforms.md) — #359; a rating's one contribution is its direct score or the mean of its scored platforms, platform readings are separate per-platform means, and stored contributions keep the community count as players; awaiting owner review.
 
 

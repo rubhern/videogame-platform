@@ -155,18 +155,17 @@
     );
   }
 
+  /* Phones first: the lockup, the search entry and the Menú button share one row; tablet and
+     desktop widths lay the visible navigation out on a grid below. */
   .header-layout {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: space-between;
-    padding-block: 12px;
+    gap: 8px;
+    padding-block: 8px;
   }
 
   /* The shared integrated lockup and its compact mark keep the needle interactive. */
   .brand {
-    order: 1;
     display: inline-flex;
     min-height: 44px;
     align-items: center;
@@ -199,7 +198,7 @@
 
   .brand-logo svg {
     width: auto;
-    height: 36px;
+    height: 30px;
   }
 
   .brand .gm-needle {
@@ -220,16 +219,12 @@
     }
   }
 
+  /* The visible navigation, from tablet width; phones carry the same sections in the menu. */
   .primary-nav {
-    order: 4;
     display: flex;
     min-width: 0;
-    flex: 1 1 100%;
-    gap: 4px;
-    margin-inline: -16px;
-    padding: 2px 16px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    align-items: center;
+    gap: 2px;
   }
 
   .nav-link {
@@ -239,7 +234,7 @@
     align-items: center;
     flex: none;
     border-radius: 4px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     color: var(--color-muted);
     font-size: 0.875rem;
     font-weight: 600;
@@ -277,6 +272,25 @@
     background: linear-gradient(90deg, var(--color-fire), var(--color-fire-light));
     content: "";
     transform: translateX(-50%);
+  }
+
+  /* TOPómetro is named by its lockup at the label's cap height: dimmed like a muted label, lit
+     when hovered or current. */
+  .nav-topometro-logo {
+    display: block;
+    opacity: 0.78;
+  }
+
+  .nav-topometro-logo svg {
+    display: block;
+    width: auto;
+    height: 15px;
+    overflow: visible;
+  }
+
+  .nav-topometro:hover .nav-topometro-logo,
+  .nav-topometro[aria-current] .nav-topometro-logo {
+    opacity: 1;
   }
 
   .releases-navigation {
@@ -332,9 +346,7 @@
   }
 
   .catalogue-search-control {
-    order: 3;
     min-width: 0;
-    flex: 1 1 100%;
   }
 
   .mobile-search-trigger,
@@ -444,9 +456,6 @@
 
   .account-control {
     position: relative;
-    order: 2;
-    flex: none;
-    margin-left: auto;
   }
 
   .account-entry-links {
@@ -506,8 +515,6 @@
     font-weight: 600;
     white-space: nowrap;
   }
-
-  .account-anonymous-trigger { display: none; }
 
   @media (prefers-reduced-motion: no-preference) {
     .account-trigger {
@@ -619,6 +626,343 @@
     height: 18px;
     flex: none;
     color: var(--color-accent);
+  }
+
+  /* ---------------------------------------------------------------- Navigation menu */
+
+  /* Below tablet width (#358) one Menú button opens a night sheet under the header row: the
+     primary sections set large in the title voice, then the account in a dock of its own. The
+     two bars are a long and a short tick of a scale that cross into a close mark while open. */
+  .navigation-menu {
+    flex: none;
+  }
+
+  .navigation-menu-trigger {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    padding: 0;
+    color: var(--color-ink);
+    background: var(--control);
+  }
+
+  .navigation-menu-trigger:hover,
+  .navigation-menu-trigger[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+    background: var(--control-hover);
+  }
+
+  .navigation-menu-glyph {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 10px;
+  }
+
+  .navigation-menu-glyph > span {
+    position: absolute;
+    left: 0;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+  }
+
+  .navigation-menu-glyph > span:first-child {
+    top: 0;
+  }
+
+  /* The short tick keeps to the right, as a scale's minor division under its major one. */
+  .navigation-menu-glyph > span:last-child {
+    top: 8px;
+    transform: translateX(3.6px) scaleX(0.6);
+  }
+
+  .navigation-menu-trigger[aria-expanded="true"] .navigation-menu-glyph > span:first-child {
+    transform: translateY(4px) rotate(45deg);
+  }
+
+  .navigation-menu-trigger[aria-expanded="true"] .navigation-menu-glyph > span:last-child {
+    transform: translateY(-4px) rotate(-45deg);
+  }
+
+  /* A signed-in session lights a small ice point on the button; the menu names the account. */
+  .navigation-menu-session {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-ice-light);
+    box-shadow: 0 0 0 2px var(--control);
+  }
+
+  .navigation-menu-scrim {
+    position: fixed;
+    z-index: 1;
+    inset: 0;
+    background: color-mix(in srgb, var(--color-canvas) 74%, transparent);
+    touch-action: none;
+  }
+
+  .navigation-menu-panel {
+    position: absolute;
+    z-index: 2;
+    top: 100%;
+    inset-inline: 0;
+    max-height: calc(100dvh - 60px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 2px solid var(--color-ice);
+    border-bottom: 1px solid var(--color-line);
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .navigation-menu-sheet {
+    padding-block: 4px 20px;
+  }
+
+  .navigation-menu-sections,
+  .navigation-menu-releases {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .navigation-menu-section {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  /* Sections read in the page titles' wide voice: a section is a place, not a label. */
+  .navigation-menu-heading,
+  .navigation-menu-link {
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .navigation-menu-heading {
+    display: block;
+    padding-top: 18px;
+  }
+
+  /* Lanzamientos keeps its three destinations in Destacados's Semana | Mes voice. */
+  .navigation-menu-releases {
+    display: flex;
+    flex-wrap: wrap;
+    padding-block: 4px 6px;
+  }
+
+  .navigation-menu-releases li + li {
+    display: flex;
+    align-items: center;
+  }
+
+  .navigation-menu-releases li + li::before {
+    width: 1px;
+    height: 16px;
+    background: var(--color-line);
+    content: "";
+  }
+
+  .navigation-menu-release {
+    position: relative;
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    border-radius: 6px;
+    padding-inline: 14px;
+    color: var(--color-muted);
+    font-size: 1rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* The first destination's text aligns with the heading; its focus ring keeps some room. */
+  .navigation-menu-releases li:first-child .navigation-menu-release {
+    margin-inline-start: -8px;
+    padding-inline-start: 8px;
+  }
+
+  .navigation-menu-release:hover,
+  .navigation-menu-release[aria-current] {
+    color: var(--color-ink);
+  }
+
+  .navigation-menu-release:focus-visible {
+    outline-offset: 0;
+  }
+
+  .navigation-menu-link {
+    position: relative;
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    text-decoration: none;
+  }
+
+  .navigation-menu-link:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* TOPómetro is named by its lockup, at the sections' cap height. */
+  .navigation-menu-topometro svg {
+    display: block;
+    width: auto;
+    height: 21px;
+    overflow: visible;
+  }
+
+  .navigation-menu-arrow {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    margin-right: 5px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    color: var(--color-subtle);
+    transform: rotate(45deg);
+  }
+
+  .navigation-menu-link:hover .navigation-menu-arrow {
+    color: var(--color-ink);
+  }
+
+  /* The current page carries the navigation's short fire rule, under its own name. */
+  .navigation-menu-release[aria-current]::after,
+  .navigation-menu-link[aria-current]::after {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, var(--color-fire), var(--color-fire-light));
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  .navigation-menu-releases li:first-child .navigation-menu-release[aria-current]::after {
+    left: calc(50% - 3px);
+  }
+
+  .navigation-menu-link[aria-current]::after {
+    bottom: 12px;
+    left: 0;
+    transform: none;
+  }
+
+  /* The account is a dock apart from discovery: its own surface, label and actions. */
+  .navigation-menu-account {
+    margin-top: 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 10px;
+    padding: 14px 14px 16px;
+    background: var(--color-surface);
+  }
+
+  .navigation-menu-account-title {
+    display: flex;
+    min-height: 28px;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .navigation-menu-account .account-entry-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .navigation-menu-account .account-entry-links a {
+    min-height: 48px;
+    padding-inline: 10px;
+    font-size: 0.9375rem;
+  }
+
+  .navigation-menu-account .account-register {
+    border-color: var(--color-line);
+    color: var(--color-ink);
+  }
+
+  .navigation-menu-account-actions {
+    display: grid;
+    gap: 2px;
+    margin-inline: -8px;
+  }
+
+  .navigation-menu-account .account-option {
+    min-height: 46px;
+    padding-inline: 8px;
+    font-size: 0.9375rem;
+  }
+
+  .navigation-menu-account .account-logout {
+    margin-top: 9px;
+    box-shadow: 0 -5px 0 -4px var(--color-line);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .navigation-menu-trigger {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+
+    .navigation-menu-glyph > span {
+      transition: transform var(--duration-normal) var(--ease-out);
+    }
+
+    .navigation-menu-scrim {
+      animation: fade-in var(--duration-normal) var(--ease-out) both;
+    }
+
+    /* The sheet unrolls from the header row; its sections follow in reading order. */
+    .navigation-menu-panel {
+      animation: menu-unroll var(--duration-normal) var(--ease-out) both;
+    }
+
+    .navigation-menu-sections > li,
+    .navigation-menu-account {
+      animation: menu-item-in var(--duration-normal) var(--ease-out) both;
+      animation-delay: calc(70ms + var(--menu-step, 0) * 45ms);
+    }
+
+    .navigation-menu-release,
+    .navigation-menu-arrow {
+      transition:
+        color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .navigation-menu-link:hover .navigation-menu-arrow {
+      transform: translateX(3px) rotate(45deg);
+    }
   }
 
   /* ---------------------------------------------------------------- Type */
@@ -1276,103 +1620,70 @@
       padding-inline: 24px;
     }
 
-    /* Tablet: identity, navigation and account share the first row; search spans the next. */
-    .header-layout {
-      justify-content: flex-start;
-      gap: 14px;
-    }
-
-    .primary-nav {
-      order: 2;
-      flex: none;
-      margin: 0;
-      padding: 0;
-      overflow: visible;
-    }
-
-    .nav-link {
-      min-height: 44px;
-      padding: 8px 14px;
-    }
-
-    .account-control {
-      order: 3;
-    }
-
-    .catalogue-search-control {
-      order: 4;
-      flex: 1 1 100%;
-    }
-
     .header-search kbd {
       display: inline-block;
     }
-
-
-
   }
 
-  /* Narrow tablets and phones held sideways: the compact mark keeps the identity, navigation and
-     account entry on the first row, so the anonymous entry links never wrap onto a row of their
-     own. */
-  @media (min-width: 620px) and (max-width: 719px) {
-    .brand {
-      min-width: 44px;
-      justify-content: center;
+  /* The compact header (#358): the lockup leads, search follows as an icon on phones and as a
+     field from 620px, and the Menú button closes the row. The navigation and the account live
+     in the menu, so nothing shrinks to fit. */
+  @media (max-width: 719px) {
+    .brand,
+    .catalogue-search-control {
+      position: relative;
+      z-index: 3;
     }
 
-    .brand-logo { display: none; }
-    .brand-mark { display: block; }
+    .catalogue-search-control {
+      flex: 1 1 auto;
+      display: flex;
+      justify-content: flex-end;
+    }
 
-    /* The release disclosure and both entry links still share the first row. */
+    .catalogue-search-control .header-search-desktop {
+      flex: 1 1 auto;
+    }
+  }
+
+  /* Tablet: identity and account on the first row; the sections and search, discovery's two
+     ways in, share the second, where search takes the remaining width. */
+  @media (min-width: 720px) {
     .header-layout {
-      column-gap: 10px;
+      display: grid;
+      grid-template-areas:
+        "brand . account"
+        "nav search search";
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px 18px;
+      padding-block: 12px 10px;
     }
 
-    .nav-link {
-      padding-inline: 10px;
-    }
+    .brand { grid-area: brand; justify-self: start; }
+    .primary-nav { grid-area: nav; margin-inline-start: -14px; }
+    .catalogue-search-control { grid-area: search; }
+    .account-control { grid-area: account; }
 
-    .account-entry-links {
-      gap: 6px;
-    }
-
-    .account-entry-links a {
-      padding-inline: 10px;
+    .brand-logo svg {
+      height: 36px;
     }
   }
 
+  /* Desktop: one row. The sections keep their size; search gives way first, from 680px down. */
   @media (min-width: 1024px) {
     .page-container {
       padding-inline: 28px;
     }
 
     .header-layout {
-      display: grid;
-      grid-template-columns: auto max-content minmax(240px, 680px) minmax(0, 1fr) auto;
-      gap: 22px;
+      grid-template-areas: "brand nav search . account";
+      grid-template-columns: auto max-content minmax(200px, 680px) minmax(0, 1fr) auto;
+      gap: 20px;
       padding-block: 16px;
     }
 
-    .header-layout > * {
-      order: 0;
-    }
-
-    .brand {
-      grid-column: 1;
-    }
-
     .primary-nav {
-      grid-column: 2;
-    }
-
-    .catalogue-search-control {
-      grid-column: 3;
-    }
-
-    .account-control {
-      grid-column: 5;
-      margin-left: 0;
+      margin-inline-start: 0;
     }
 
     .header-search {
@@ -1384,82 +1695,9 @@
     .header-search input {
       font-size: 0.875rem;
     }
-
-
   }
 
   @media (max-width: 619px) {
-    .header-layout {
-      flex-wrap: nowrap;
-      column-gap: 4px;
-      row-gap: 4px;
-      padding-block: 8px;
-    }
-
-    .brand {
-      gap: 1px;
-      min-width: 44px;
-      justify-content: center;
-    }
-
-    .brand-mark svg {
-      width: 40px;
-      height: 40px;
-      margin: 0 -2px 0 -6px;
-    }
-
-    .brand-logo { display: none; }
-    .brand-mark { display: block; }
-
-    .account-trigger {
-      width: 44px;
-      height: 44px;
-      padding: 0;
-      border-radius: 8px;
-    }
-
-    .account-label, .account-chevron { display: none; }
-    .account-anonymous-trigger { display: inline-flex; }
-    .account-anonymous-trigger svg { width: 21px; height: 21px; }
-    .account-entry-links { display: none; }
-    .account-entry[data-open="true"] .account-entry-links {
-      position: absolute;
-      z-index: 5;
-      top: calc(100% + 10px);
-      right: 0;
-      display: grid;
-      min-width: 210px;
-      gap: 6px;
-      padding: 8px;
-      border: 1px solid var(--color-line);
-      border-radius: 10px;
-      background: var(--color-surface);
-      box-shadow: var(--elevation-lift);
-    }
-
-    .primary-nav {
-      order: 2;
-      flex: none;
-      gap: 0;
-      margin: 0 0 0 auto;
-      padding: 0;
-      overflow: visible;
-    }
-
-    /* The narrower width axis keeps identity, the release disclosure and the search icon
-       on one row down to 360px. */
-    .nav-link {
-      min-height: 44px;
-      padding: 10px 5px;
-      font-size: 0.6875rem;
-      font-stretch: 90%;
-    }
-
-    .catalogue-search-control {
-      order: 3;
-      flex: none;
-    }
-
     .header-search-desktop {
       display: none;
     }
@@ -1531,40 +1769,10 @@
       font-size: 1.5rem;
       line-height: 1;
     }
-
-    .account-control {
-      order: 4;
-    }
   }
 
-  /* Below 360px the release disclosure no longer fit beside the identity and both icons:
-     they take a full-width row of their own under them. */
-  @media (max-width: 359px) {
-    .header-layout {
-      flex-wrap: wrap;
-    }
-
-    .catalogue-search-control {
-      margin-left: auto;
-    }
-
-    .primary-nav {
-      order: 5;
-      flex: 1 1 100%;
-      margin: 0;
-      border-top: 1px solid var(--color-line);
-      padding: 0;
-    }
-
-    .nav-link {
-      min-height: 44px;
-      flex: 1 1 0;
-      justify-content: center;
-    }
-  }
-
-  /* With the release disclosure the single desktop row is tight until 1180px: the compact mark
-     keeps the identity there, so the account entry never overflows. */
+  /* With three sections the single desktop row keeps the compact mark until the lockup fits
+     beside them, so search never drops under its minimum. */
   @media (min-width: 1024px) and (max-width: 1179px) {
     .brand {
       min-width: 44px;
@@ -1584,7 +1792,9 @@
 
     .account-entry-links a { background: Canvas; color: CanvasText; border-color: ButtonText; box-shadow: none; }
     .nav-link[aria-current],
-    .releases-panel .account-option[aria-current="page"] {
+    .releases-panel .account-option[aria-current="page"],
+    .navigation-menu-release[aria-current],
+    .navigation-menu-link[aria-current] {
       outline: 2px solid Highlight;
       outline-offset: -2px;
     }
@@ -1597,7 +1807,10 @@
     .mobile-search-dialog,
     .mobile-search-close,
     .account-trigger,
-    .account-panel {
+    .account-panel,
+    .navigation-menu-trigger,
+    .navigation-menu-panel,
+    .navigation-menu-account {
       border-color: ButtonText;
     }
 
@@ -1624,7 +1837,10 @@
     .account-panel,
     .mobile-search-trigger,
     .mobile-search-dialog,
-    .mobile-search-close {
+    .mobile-search-close,
+    .navigation-menu-trigger,
+    .navigation-menu-panel,
+    .navigation-menu-account {
       color: ButtonText;
       background: Canvas;
       box-shadow: none;
@@ -1645,8 +1861,14 @@
       stroke: CanvasText;
     }
 
-    .mobile-search-dialog::backdrop {
+    .mobile-search-dialog::backdrop,
+    .navigation-menu-scrim {
       background: Canvas;
+    }
+
+    .navigation-menu-glyph > span,
+    .navigation-menu-session {
+      background: ButtonText;
     }
   }
 }
@@ -1687,6 +1909,28 @@
   from {
     opacity: 0;
     transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes menu-unroll {
+  from {
+    clip-path: inset(0 -80px 100% -80px);
+  }
+
+  to {
+    clip-path: inset(0 -80px -80px -80px);
+  }
+}
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
 
   to {

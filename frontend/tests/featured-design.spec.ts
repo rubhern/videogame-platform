@@ -367,10 +367,19 @@ for (const width of [320, 390, 834, 1320]) {
       page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Septiembre 2026"),
     ).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("Destacados de septiembre de 2026");
-    await expect(page.getByRole("button", { name: "Lanzamientos", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    if (width < 720) {
+      // Phones name the current destination inside the Menú sheet (#358).
+      await page.getByRole("button", { name: "Menú" }).click();
+      await expect(
+        page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }),
+      ).toHaveAttribute("aria-current", "page");
+      await page.keyboard.press("Escape");
+    } else {
+      await expect(page.getByRole("button", { name: "Lanzamientos", exact: true })).toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+    }
   });
 }
 

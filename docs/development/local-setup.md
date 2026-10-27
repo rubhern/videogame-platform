@@ -182,7 +182,9 @@ combined JAR with affected backend tests, use
 `IDENTITY_REUSE_PACKAGE=true IDENTITY_REMEMBER_ME_ONLY=true bash scripts/validate-identity.sh`.
 Never reuse a stale package after code or asset edits. For narrower diagnosis,
 `IDENTITY_REMEMBER_ME_PHASE=continuity`, `renewal` or `idle` selects only that
-remembered-session phase; the default runs them all.
+remembered-session phase, and `core` runs the session, rating, recovery, revocation and
+operator journeys with continuity but without the timed phases; the default runs them
+all. CI runs `core`, `renewal` and `idle` as separate legs.
 
 ## Password recovery and Mailpit
 

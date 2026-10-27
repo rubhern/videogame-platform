@@ -244,14 +244,15 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
         return new RatingCommandResult(rating, project(gameId));
     }
 
-    /** Reads the game's aggregate after the write and projects it for the release order. */
+    /**
+     * Reads the game's aggregate after the write and projects it for the release order and
+     * TOPómetro.
+     */
     private RatingStatistics.Available project(String gameId) {
-        RatingStatistics.Available statistics = RatingStatisticsQuery.read(jdbc, gameId);
-        scores.replace(
-                gameId,
-                new RecordCommunityScoresUseCase.CommunityScore(
-                        statistics.mean(), statistics.count()));
-        return statistics;
+        RatingStatisticsQuery.Projected aggregate =
+                RatingStatisticsQuery.readProjected(jdbc, gameId);
+        scores.replace(gameId, aggregate.score());
+        return aggregate.statistics();
     }
 
     private void requireCurrentVersion(UUID userId, UUID gameId, String expectedVersion) {

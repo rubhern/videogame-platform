@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repository_root/scripts/backend-artifact.sh"
-playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
+playwright_image="mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea"
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
 browser_run_id="${RANDOM}-$$"
@@ -12,6 +12,16 @@ browser_network="videogame-platform-browser-${browser_run_id}"
 postgres_container="videogame-platform-browser-postgres-${browser_run_id}"
 application_container="videogame-platform-browser-application-${browser_run_id}"
 browser_test_instant="2026-08-13T10:00:00Z"
+browser_test_arguments=()
+if [[ -n "${BROWSER_SHARD:-}" ]]; then
+  if [[ ! "$BROWSER_SHARD" =~ ^([1-9][0-9]?)/([1-9][0-9]?)$ ]] ||
+      ((BASH_REMATCH[1] > BASH_REMATCH[2])); then
+    printf 'BROWSER_SHARD must be index/total with 1 <= index <= total <= 99.\n' >&2
+    exit 2
+  fi
+  # Match the measured hosted-runner worker count; each shard has its own stack.
+  browser_test_arguments+=(--shard="$BROWSER_SHARD" --workers=2)
+fi
 browser_tmp_dir="$(mktemp -d)"
 application_log="$browser_tmp_dir/application.log"
 
@@ -125,4 +135,4 @@ docker run --rm \
   --volume "$repository_root:/work" \
   --workdir /work \
   "$playwright_image" \
-  npm run frontend:test:e2e
+  npm --prefix frontend run test:e2e -- "${browser_test_arguments[@]}"

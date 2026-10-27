@@ -14,23 +14,36 @@ function renderNavigation(path: string) {
   return { router };
 }
 
-it("exposes exactly three ordered destinations with the active page and no TOPómetro", async () => {
+it("exposes the three release destinations in the disclosure, then TOPómetro and Plataformas", async () => {
   const user = userEvent.setup();
   renderNavigation("/lanzamientos/destacados");
   const nav = screen.getByRole("navigation", { name: "Principal" });
   const trigger = within(nav).getByRole("button", { name: "Lanzamientos" });
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   expect(trigger).toHaveAttribute("aria-current", "true");
-  expect(within(nav).queryByRole("link")).toBeNull();
+  const topometro = within(nav).getByRole("link", { name: "TOPómetro" });
+  expect(topometro).toHaveAttribute("href", "/topometro");
+  expect(topometro).not.toHaveAttribute("aria-current");
+  const platforms = within(nav).getByRole("link", { name: "Plataformas" });
+  expect(platforms).toHaveAttribute("href", "/plataformas");
+  expect(within(nav).getAllByRole("link")).toEqual([topometro, platforms]);
   await user.click(trigger);
-  const links = within(nav).getAllByRole("link");
+  const links = within(nav).getAllByRole("link").filter(link => link !== topometro && link !== platforms);
   expect(links.map(link => link.textContent)).toEqual(["Destacados", "Explorar", "Calendario"]);
   expect(links.map(link => link.getAttribute("href"))).toEqual([
     "/lanzamientos/destacados", "/lanzamientos", "/lanzamientos/calendario",
   ]);
   expect(links[0]).toHaveAttribute("aria-current", "page");
-  expect(within(nav).queryByText("TOPómetro")).toBeNull();
 });
+
+it.each([["/topometro?source=gameometro", "TOPómetro"], ["/plataformas", "Plataformas"]])(
+  "marks %s as the current page without making Lanzamientos current", (path, name) => {
+    renderNavigation(path);
+    const nav = screen.getByRole("navigation", { name: "Principal" });
+    expect(within(nav).getByRole("link", { name })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getAllByRole("link").filter(link => link.hasAttribute("aria-current"))).toHaveLength(1);
+    expect(within(nav).getByRole("button", { name: "Lanzamientos" })).not.toHaveAttribute("aria-current");
+  });
 
 it("supports Enter, Space, Tab, Escape with focus return, blur and outside dismissal", async () => {
   const user = userEvent.setup();

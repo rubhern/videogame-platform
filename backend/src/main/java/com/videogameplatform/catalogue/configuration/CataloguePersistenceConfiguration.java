@@ -92,6 +92,14 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort
+            gameRankingReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.rankings
+                .JdbcGameRankingReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     GameDetailsReadPort gameDetailsReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.details
                 .JdbcGameDetailsReadAdapter(

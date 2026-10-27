@@ -84,6 +84,13 @@ class CatalogueModuleConfigurationTest {
                     assertThat(context).hasSingleBean(SearchCatalogueUseCase.class);
                     assertThat(
                                     context.getBean(
+                                            com.videogameplatform.catalogue.application.rankings
+                                                    .RankGamesUseCase.class))
+                            .isInstanceOf(
+                                    com.videogameplatform.catalogue.application.rankings.internal
+                                            .GameRankingService.class);
+                    assertThat(
+                                    context.getBean(
                                             com.videogameplatform.catalogue.application.preferences
                                                     .ListPlatformsUseCase.class))
                             .isNotNull();
@@ -193,6 +200,12 @@ class CatalogueModuleConfigurationTest {
         @Bean
         com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort
                 releaseCalendarReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort
+                gameRankingReadPort() {
             return criteria -> Optional.empty();
         }
 

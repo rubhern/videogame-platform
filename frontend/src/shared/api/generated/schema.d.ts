@@ -168,6 +168,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game-rankings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rank released games by one source of player ratings
+         * @description TOPómetro (`UC-018`): one position per game, ranked by the player ratings of exactly
+         *     one `source`, never a blend of sources. PostgreSQL selects the games that hold a usable
+         *     score from that source and a release that has effectively occurred under the rating
+         *     eligibility rules, then orders them by the unrounded mean descending, the number of
+         *     ratings behind it descending and the unique `gameId` ascending, counts them and pages
+         *     them. A game without a score from the source is not ranked and never counts as zero. An
+         *     IGDB players' score is ranked only from 100 ratings on; a community score from one
+         *     rating is ranked like any other and states its count. `position` is the
+         *     game's place in that one sequence, so the first page's first three items are the
+         *     podium and later pages continue it. Scores change independently of the catalogue, so a
+         *     game may move between two page reads; a client that reads several pages keeps the first
+         *     occurrence of a `gameId`. It never varies on the session or preferred platforms and
+         *     never calls a provider.
+         */
+        get: operations["rankGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/games": {
         parameters: {
             query?: never;
@@ -711,6 +743,18 @@ export interface components {
          */
         ReleaseSort: "releaseDate" | "hype" | "rating" | "externalPlayerScore";
         /**
+         * @description The one population whose ratings rank the games. `igdb_players` is the IGDB players'
+         *     rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
+         *     when at least 100 ratings stand behind it; it is the default because it covers most
+         *     games. `gameometro_community` is the Gameómetro community mean of one contribution per
+         *     rating and its number of ratings, ranked from the first rating. Sources are never
+         *     combined, and
+         *     critic or combined provider scores are never used.
+         * @default igdb_players
+         * @enum {string}
+         */
+        RankingSource: "igdb_players" | "gameometro_community";
+        /**
          * @description Opaque, provider-independent product identifier.
          * @example game_example
          */
@@ -1230,6 +1274,48 @@ export interface components {
              * @description Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
              */
             totalHype: number;
+        };
+        /**
+         * @description One page of one source's ranking. Items follow their `position`, consecutive from
+         *     `(page.number - 1) * page.size + 1`; a page beyond the last is empty.
+         */
+        GameRankingPage: {
+            source: components["schemas"]["RankingSource"];
+            items: components["schemas"]["GameRankingItem"][];
+            page: components["schemas"]["PageMetadata"];
+        };
+        GameRankingItem: {
+            /**
+             * Format: int64
+             * @description The game's one place in the source's ranking; ties never share a place.
+             */
+            position: number;
+            gameId: components["schemas"]["GameId"];
+            slug: string;
+            canonicalTitle: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
+            genres: components["schemas"]["Genre"][];
+            releaseSummary: components["schemas"]["CompactReleaseSummary"];
+            score: components["schemas"]["RankingScore"];
+        };
+        /**
+         * @description The ranked source's reading of the game, the same values its order used, rounded half
+         *     up to one decimal only for display; the order itself uses the unrounded mean. It is
+         *     always the requested source's reading, never another source's.
+         */
+        RankingScore: components["schemas"]["ExternalPlayerScore"] | components["schemas"]["CommunityRankingScore"];
+        /**
+         * @description The Gameómetro community mean of one contribution per rating, half up to one decimal,
+         *     and the positive number of ratings behind it, including one.
+         */
+        CommunityRankingScore: {
+            source: string;
+            kind: string;
+            value: number;
+            scale: number;
+            /** Format: int32 */
+            count: number;
         };
         GameSearchPage: {
             items: components["schemas"]["GameSummary"][];
@@ -2124,6 +2210,17 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The ranking source, the pagination or a request parameter is invalid. */
+        RankingValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Personal-rating search, sort, pagination, or parameters are invalid. */
         PersonalRatingsValidationFailed: {
             headers: {
@@ -2348,6 +2445,8 @@ export interface components {
          *     ]
          */
         PlatformIdsQuery: components["schemas"]["PlatformId"][];
+        /** @example gameometro_community */
+        RankingSourceQuery: components["schemas"]["RankingSource"];
         /**
          * @description Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
          *     values combine with OR. Omit it for every platform. Values are trimmed and
@@ -2708,6 +2807,53 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["FeaturedReleaseValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    rankGames: {
+        parameters: {
+            query?: {
+                /** @example gameometro_community */
+                source?: components["parameters"]["RankingSourceQuery"];
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the ranking of the requested source. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameRankingPage"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["RankingValidationFailed"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];

@@ -96,11 +96,13 @@ jobs:
         run: bash scripts/validate-actions.sh
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            documentation/package-lock.json
 
       - name: Install locked npm dependencies
         if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
@@ -117,7 +119,10 @@ jobs:
 
       - name: Install portal browser
         working-directory: documentation
-        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+        # The hosted Ubuntu image already supplies Chromium's shared libraries and
+        # Latin/emoji fonts. Avoid redundant apt updates, font installs and upgrades.
+        # Keep the lockfile-selected browser and Playwright's host validation.
+        run: node node_modules/@playwright/test/cli.js install chromium
 
       - name: Validate static portal, links, search and diagrams
         working-directory: documentation
@@ -153,7 +158,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -171,13 +176,17 @@ jobs:
         run: npm run frontend:verify
 
   browser-smoke:
-    name: Packaged application Chromium smoke and accessibility check
+    name: Packaged application Chromium smoke and accessibility check (${{ matrix.shard }}/2)
     if: ${{ needs.detect-changes.outputs.browser == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -185,14 +194,14 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -200,75 +209,83 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Run the pinned browser smoke test without retries
         env:
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
+          # When no backend gate applies, shard 1 retains the packaging tests.
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.shard != 1 }}
+          BROWSER_SHARD: ${{ matrix.shard }}/2
         run: bash scripts/validate-browser.sh
 
       - name: Preserve browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
 
   identity-compatibility:
-    name: Real Keycloak 26.7 OIDC BFF compatibility
+    name: Real Keycloak 26.7 OIDC BFF compatibility (${{ matrix.leg }})
     if: ${{ needs.detect-changes.outputs.identity == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
+    strategy:
+      # Every leg is part of one required result; one failure must not hide another.
+      fail-fast: false
+      matrix:
+        leg: [private-dev, core, renewal, idle, production, personal-data]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Prove the private-dev identity alignment and mail transports without retries
-        run: bash scripts/validate-private-dev-identity.sh
-
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
+          # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
+          cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
-          cache: maven
+          cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
-      - name: Prove real OIDC login and opaque BFF session without retries
+      # Each leg owns a disposable Keycloak, PostgreSQL, Mailpit and BFF on its own runner;
+      # the timed legs mutate realm and client state that must not be shared.
+      - name: Prove the ${{ matrix.leg }} identity leg without retries
         env:
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
-        run: bash scripts/validate-identity.sh
-
-      - name: Prove the public-production realm and BFF issuer/cookie contract without retries
-        env:
-          PRODUCTION_IDENTITY_REUSE_PACKAGE: "true"
-        run: bash scripts/validate-production-identity.sh
-
-      - name: Prove personal-data export, erasure, deletion ledger and restore replay without retries
-        env:
-          PERSONAL_DATA_REUSE_PACKAGE: "true"
-        run: bash scripts/validate-personal-data.sh
+          IDENTITY_LEG: ${{ matrix.leg }}
+          # Without the separate backend gate, exactly one packaging leg keeps the Maven tests.
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.leg != 'personal-data' }}
+        run: |
+          case "$IDENTITY_LEG" in
+            private-dev) bash scripts/validate-private-dev-identity.sh ;;
+            core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
+            production) bash scripts/validate-production-identity.sh ;;
+            personal-data) bash scripts/validate-personal-data.sh ;;
+            *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
+          esac
 
       - name: Preserve sanitized identity-browser diagnostics
         if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: identity-browser-diagnostics
+          name: identity-browser-diagnostics-${{ matrix.leg }}
           path: frontend/test-results/
           if-no-files-found: ignore
           retention-days: 7
@@ -306,27 +323,34 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check manual production deployment transitions and refusals
-        run: python3 scripts/test-public-production-deployment.py
-
-      - name: Check integration publication refusals and isolation without registry credentials
-        run: python3 scripts/test-public-production-integration.py
-
-      - name: Prove paired backup encryption, recovery and refusal contracts
+      - name: Prove independent runtime contracts in parallel without retries
         run: |
-          python3 scripts/test-production-recovery.py
-          python3 scripts/test-production-recovery-lock.py
+          # Each branch owns disposable containers/networks and synthetic inputs.
+          # Keep one runner: recent runs already show substantial runner queueing.
+          (
+            python3 scripts/test-public-production-deployment.py
+            python3 scripts/test-public-production-integration.py
+            python3 scripts/test-production-recovery.py
+            python3 scripts/test-production-recovery-lock.py
+            python3 scripts/test-production-identity-maintenance.py
+            python3 scripts/test-production-cleanup.py
+          ) &
+          operations_pid=$!
+          python3 scripts/test-production-observability.py --smoke &
+          observability_pid=$!
+          python3 -I scripts/test-public-production-runtime.py &
+          edge_pid=$!
 
-      - name: Prove the identity-maintenance fence and its Keycloak drain evidence
-        run: |
-          python3 scripts/test-production-identity-maintenance.py
-          python3 scripts/test-production-cleanup.py
-
-      - name: Prove production dashboards, PromQL, privacy, Telegram mock and bounded overhead
-        run: python3 scripts/test-production-observability.py --smoke
-
-      - name: Check topology, exposure, secrets, edge routes, limits and maintenance with synthetic inputs
-        run: python3 -I scripts/test-public-production-runtime.py
+          # Wait for all proofs, even after a failure; a bare wait loses failures.
+          status=0
+          for pid in "$operations_pid" "$observability_pid" "$edge_pid"; do
+            if wait "$pid"; then
+              continue
+            else
+              status=1
+            fi
+          done
+          exit "$status"
 
   runtime-alerts:
     name: Private-dev alert rules and Grafana lifecycle
@@ -359,7 +383,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -441,7 +465,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pinned Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           version: v0.36.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
@@ -495,7 +519,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pinned Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           version: v0.36.1
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
@@ -547,7 +571,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -555,6 +579,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Test catalogue localization helper and operator boundaries
         run: python3 -m unittest discover -s tools/catalogue-localization -p 'test_*.py'
@@ -585,7 +610,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -593,6 +618,7 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Bootstrap roles without exposing passwords in process arguments or logs
         run: python3 -I scripts/test-postgres-bootstrap.py
@@ -615,7 +641,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -660,7 +686,7 @@ jobs:
 
       - name: Set up Java 25
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: 25
@@ -668,10 +694,11 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            .mvn/wrapper/maven-wrapper.properties
 
       - name: Set up Node.js 24 for JavaScript and TypeScript analysis
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
 
@@ -794,7 +821,7 @@ jobs:
         run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
 
       - name: Download the exact scanned OCI archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: application-image-oci-${{ github.sha }}
           path: target/container-evidence
@@ -804,7 +831,7 @@ jobs:
         run: sha256sum --check SHA256SUMS
 
       - name: Authenticate to GHCR with the workflow token
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -888,7 +915,7 @@ jobs:
         run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
 
       - name: Download the exact scanned OCI archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dependency-image-oci-${{ matrix.image }}-${{ github.sha }}
           path: target/dependency-image-evidence
@@ -898,7 +925,7 @@ jobs:
         run: sha256sum --check SHA256SUMS
 
       - name: Authenticate to GHCR with the workflow token
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

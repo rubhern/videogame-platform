@@ -21,6 +21,8 @@ import { releaseCalendarQueryOptions } from "../features/releases/use-release-ca
 import { resolvePlatformFilter } from "../features/platform-preferences/interests";
 import { hasSearchableQuery, readGameSearchParams } from "../features/search/game-search-params";
 import { gameSearchQueryOptions } from "../features/search/use-game-search-query";
+import { readRankingSource, TOPOMETRO_PATH } from "../features/rankings/ranking-search";
+import { gameRankingQueryOptions } from "../features/rankings/use-game-ranking-query";
 import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
 import {
@@ -86,6 +88,12 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
           ),
         );
       }
+    } else if (url.pathname === TOPOMETRO_PATH) {
+      // The global ranking never reads preferences or the session (#386). Pages already loaded in
+      // this document are kept, so Back and the game page's way back restore their height.
+      await queryClient
+        .ensureInfiniteQueryData(gameRankingQueryOptions(readRankingSource(url.searchParams)))
+        .catch(() => undefined);
     } else if (url.pathname === "/search") {
       const search = readGameSearchParams(url.searchParams);
       if (hasSearchableQuery(search)) await queryClient.prefetchQuery(gameSearchQueryOptions(search));

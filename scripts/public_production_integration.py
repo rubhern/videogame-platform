@@ -24,7 +24,7 @@ import public_production_deployment as deployment
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / 'deploy/public-production/compose.yaml'
-PLAYWRIGHT = 'mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e'
+PLAYWRIGHT = 'mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea'
 REPOSITORIES = {
     'application': trust.IMAGE_REPOSITORY,
     'keycloak': trust.IMAGE_REPOSITORY + '-keycloak',

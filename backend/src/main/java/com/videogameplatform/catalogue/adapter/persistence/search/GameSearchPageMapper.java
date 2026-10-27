@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.persistence.search;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
+import com.videogameplatform.catalogue.adapter.persistence.CompactReleaseSummarySql;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
@@ -9,7 +10,6 @@ import com.videogameplatform.catalogue.application.search.port.GameSearchReadPor
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort.ReleaseSummary;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort.Taxonomy;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
-import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -66,32 +66,14 @@ final class GameSearchPageMapper {
 
     /** The summary columns repeat on every context row of a game; only the first is read. */
     private static ReleaseSummary releaseSummary(ResultSet resultSet) throws SQLException {
-        List<String> ids = strings(resultSet, "summary_platform_ids");
-        List<String> names = strings(resultSet, "summary_platform_names");
-        if (ids.size() != names.size()) {
-            throw new IllegalStateException("Summary platform columns are misaligned");
-        }
-        List<Taxonomy> platforms = new ArrayList<>(ids.size());
-        for (int index = 0; index < ids.size(); index++) {
-            platforms.add(new Taxonomy(ids.get(index), names.get(index)));
+        CompactReleaseSummarySql.Row row = CompactReleaseSummarySql.read(resultSet);
+        List<Taxonomy> platforms = new ArrayList<>(row.platformIds().size());
+        for (int index = 0; index < row.platformIds().size(); index++) {
+            platforms.add(
+                    new Taxonomy(row.platformIds().get(index), row.platformNames().get(index)));
         }
         return new ReleaseSummary(
-                platforms,
-                resultSet.getInt("total_platforms"),
-                resultSet.getObject("earliest_known_year", Integer.class),
-                resultSet.getObject("latest_known_year", Integer.class));
-    }
-
-    private static List<String> strings(ResultSet resultSet, String column) throws SQLException {
-        Array array = resultSet.getArray(column);
-        if (array == null) {
-            return List.of();
-        }
-        try {
-            return List.of((String[]) array.getArray());
-        } finally {
-            array.free();
-        }
+                platforms, row.totalPlatforms(), row.earliestKnownYear(), row.latestKnownYear());
     }
 
     private static final class MutableItem {

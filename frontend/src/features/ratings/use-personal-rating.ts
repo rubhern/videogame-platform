@@ -7,6 +7,7 @@ import {
 import { SESSION_QUERY_KEY } from "../session/use-session";
 import { RATING_INSIGHTS_KEY } from "./rating-insights-api";
 import { MY_RATINGS_KEY } from "./my-ratings-api";
+import { GAME_RANKING_KEY } from "../rankings/game-ranking-api";
 import {
   deleteMyRating,
   getMyRating,
@@ -96,6 +97,7 @@ export function useRatingCommand(gameId: string) {
       void queryClient.invalidateQueries({ queryKey: ["releases"] });
       void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
       void queryClient.invalidateQueries({ queryKey: ["game-search"] });
+      void queryClient.invalidateQueries({ queryKey: GAME_RANKING_KEY });
     },
     onError: (error) => {
       // The local view of the personal rating or session is stale: re-read it (a read, never a
@@ -110,6 +112,7 @@ export function useRatingCommand(gameId: string) {
         void queryClient.invalidateQueries({ queryKey: ["releases"] });
         void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
         void queryClient.invalidateQueries({ queryKey: ["game-search"] });
+        void queryClient.invalidateQueries({ queryKey: GAME_RANKING_KEY });
       }
       if (error.kind === "authentication" || error.kind === "csrf") {
         void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });

@@ -233,19 +233,22 @@ test("direct personal-ratings account entry and logout return to sensible produc
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 950 });
+  // Phones carry the account actions in the Menú sheet (#358).
+  await page.getByRole("button", { name: "Menú" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.getByRole("group", { name: "Mi cuenta" }).getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(page.getByRole("button", { name: "Acceder a tu cuenta" })).toBeVisible();
+  await page.getByRole("button", { name: "Menú" }).click();
+  await expect(page.getByRole("group", { name: "Tu cuenta" }).getByRole("link", { name: "Iniciar sesión" })).toBeVisible();
 });
 
 for (const width of [1320, 390]) {
   test(`create account opens Keycloak registration directly at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem");
-    if (width < 620) await page.getByRole("button", { name: "Acceder a tu cuenta" }).click();
+    if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
     await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Empieza tu historia." })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("prompt")).toBe("create");

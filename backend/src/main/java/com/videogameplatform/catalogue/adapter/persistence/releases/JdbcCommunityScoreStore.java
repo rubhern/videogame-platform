@@ -30,16 +30,21 @@ public final class JdbcCommunityScoreStore implements CommunityScoreStore {
         }
         jdbc.update(
                 """
-                INSERT INTO catalogue.game_community_score (game_id, mean, rating_count)
-                VALUES (:game, :mean, :count)
+                INSERT INTO catalogue.game_community_score
+                    (game_id, mean, exact_mean, rating_count)
+                VALUES (:game, :mean, :exactMean, :count)
                 ON CONFLICT (game_id) DO UPDATE
-                SET mean = EXCLUDED.mean, rating_count = EXCLUDED.rating_count
+                SET mean = EXCLUDED.mean,
+                    exact_mean = EXCLUDED.exact_mean,
+                    rating_count = EXCLUDED.rating_count
                 WHERE (catalogue.game_community_score.mean,
+                       catalogue.game_community_score.exact_mean,
                        catalogue.game_community_score.rating_count)
-                      IS DISTINCT FROM (EXCLUDED.mean, EXCLUDED.rating_count)
+                      IS DISTINCT FROM (EXCLUDED.mean, EXCLUDED.exact_mean, EXCLUDED.rating_count)
                 """,
                 new MapSqlParameterSource("game", gameId)
                         .addValue("mean", score.mean())
+                        .addValue("exactMean", score.exactMean())
                         .addValue("count", score.ratingCount()));
     }
 
@@ -51,7 +56,7 @@ public final class JdbcCommunityScoreStore implements CommunityScoreStore {
                 FROM unnest(CAST(:games AS uuid[])) AS requested(game_id)
                 WHERE NOT EXISTS (
                     SELECT 1 FROM catalogue.game_community_score score
-                    WHERE score.game_id = requested.game_id)
+                    WHERE score.game_id = requested.game_id AND score.exact_mean IS NOT NULL)
                 ORDER BY requested.game_id
                 """,
                 Map.of("games", gameIds.toArray(UUID[]::new)),
