@@ -67,7 +67,7 @@ Keycloak client secret no longer matches `.env`; `verify` reports it).
 
 ## Production host foundation
 
-**Read-only foundation observation under #276; runtime not exercised.** On
+**Foundation observed under #276; runtime not exercised.** On
 2026-10-27 the owner supplied the production tailnet SSH route and loaded its key into
 the existing workstation agent. The agent inspected the host without `sudo`, changed
 no host configuration and started no container. Private addresses, provider identifiers
@@ -76,9 +76,9 @@ and SSH material are deliberately omitted here.
 | Area | Observed evidence and limit |
 |---|---|
 | Foundation | Debian 13, x86_64, 8 visible CPUs, about 16 GiB RAM, 320 GiB virtual disk, cgroup v2; ample idle memory/disk. This is not workload/capacity acceptance |
-| Installed tooling | Docker client/daemon binary and Compose match the owner's reported installations; daemon/SSH/tailnet services active. Docker API access is denied to the ordinary administrator; server inventory and running containers remain unverified |
-| Checkout | `/srv/gameometro/repo/.git/HEAD` contains `77fb089f9b8f046be5d2c0720084183043290831`; checkout is root-owned. Git refused ordinary-user status inspection; tracked/untracked drift remains unverified. No global `safe.directory` exception was added |
-| Clock | NTP enabled and timesyncd active with received packets, but `NTPSynchronized=no` on both observations. Resolve or explain the kernel/service state and prove clock accuracy before timestamp/lock-sensitive operation; no time settings were changed |
+| Installed tooling | Owner confirms working Docker/Compose and no production containers/data. The initial unprivileged Docker API refusal does not contradict that confirmation; effective privileged configuration, isolation and workload qualification remain pending |
+| Checkout | Owner confirms a clean root-owned `/srv/gameometro/repo` at `77fb089f9b8f046be5d2c0720084183043290831`. This is an administration checkout, not the accepted product candidate. No global `safe.directory` exception was added |
+| Clock | Owner confirms NTP recovered after permitting provider-firewall UDP/123 replies. This supersedes the initial `NTPSynchronized=no` blocker. Recheck synchronization before timestamp/lease-sensitive operation; the installer agent changed no host time settings |
 | Network | No TCP 80/443 listener observed; SSH listens on all IPv4/IPv6 interfaces. Host routes showed no collision with the prepared fixed edge/telemetry subnets. Docker configuration explicitly selects bounded-runtime-compatible `local` logging; effective forwarding/NAT, IPv6, UDP listeners, provider firewall and external denial remain unverified |
 | Protected inputs | Production configuration/state parent directories are root-only. Their contents could not be inspected; secrets, model, metrics, recovery material and journals are unknown, not absent |
 
@@ -122,10 +122,14 @@ secret values; effective per-consumer access and independent reconstruction stil
 need authorized qualification.
 
 The [next private stages](../../deploy/public-production/README.md#next-private-implementation-stages)
-own the proposed operator/adapter work. No purchase terms, bucket, backup, deployment,
+own prepared operator work and the remaining proposed cloud/release stages. No purchase terms, bucket, backup, deployment,
 public exposure or production version is accepted by this foundation observation.
 
 ## Public-production manual deployment
+
+The [host foundation record](#production-host-foundation) owns observed and owner-confirmed prerequisites.
+The [private first-install procedure](../../deploy/public-production/README.md#private-first-installation-and-validation)
+owns the separate prepared adapter; it has not run on the VPS.
 
 **Prepared for local synthetic rehearsal; not exercised on a real host.** The
 [production operator procedure](../../deploy/public-production/README.md#manual-deployment-procedure)
