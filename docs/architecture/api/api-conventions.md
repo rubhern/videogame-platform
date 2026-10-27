@@ -55,6 +55,9 @@ usefully expressed once in the contract.
 - A platform's catalogue (#389) requires an explicit platform scope of product platform IDs; a
   family travels as the IDs it groups. Its optional `q` follows the catalogue search rules as a
   filter inside the scope, never as a ranking, and an absent `q` browses the whole scope.
+- A platform's TOPómetro (#387) names the same kind of scope through the ranking's optional
+  `platformIds`; without it the ranking is global. The scope narrows the candidates before
+  ranking and paging and never changes the scale, the source or the reading.
 
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions

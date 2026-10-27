@@ -1,4 +1,5 @@
 import { isPlatformCataloguePath } from "../../features/platform-catalogue/platform-catalogue-search";
+import { readPlatformRankingKey } from "../../features/rankings/ranking-search";
 import { FEATURED_PATH } from "../../features/releases/featured-search";
 import { legacyReleasesPath } from "../../features/releases/releases-search";
 import type { Location } from "react-router-dom";
@@ -112,8 +113,12 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
   if (url.origin !== BASE) return null;
   const legacy = url.pathname === "/" ? legacyReleasesPath(url.searchParams) : null;
   if (legacy !== null) return { origin: "releases", path: legacy };
-  // A platform's catalogue (#389) names its platform in the path rather than the query.
-  const origin = isPlatformCataloguePath(url.pathname) ? "platform-catalogue" : ORIGINS[url.pathname];
+  // A platform's catalogue (#389) and TOPómetro (#387) name their platform in the path.
+  const origin = isPlatformCataloguePath(url.pathname)
+    ? "platform-catalogue"
+    : readPlatformRankingKey(url.pathname) !== null
+      ? "topometro"
+      : ORIGINS[url.pathname];
   return origin === undefined ? null : { origin, path: `${url.pathname === "/" ? FEATURED_PATH : url.pathname}${url.search}` };
 }
 

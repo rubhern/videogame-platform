@@ -33,8 +33,14 @@ class FrontendRouteController {
         return frontendEntryPoint();
     }
 
-    /** A platform's catalogue (#389): a featured family's key or a platform's own identifier. */
-    @GetMapping("/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/catalogo")
+    /**
+     * A platform's catalogue (#389) or TOPómetro (#387): a featured family's key or a platform's
+     * own identifier.
+     */
+    @GetMapping({
+        "/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/catalogo",
+        "/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/topometro"
+    })
     String platformCatalogueFrontendEntryPoint(@PathVariable String platformKey) {
         Objects.requireNonNull(platformKey, "platformKey");
         return frontendEntryPoint();

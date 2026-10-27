@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.4.0
+  version: 5.5.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -697,16 +697,27 @@ paths:
         eligibility rules, then orders them by the unrounded mean descending, the number of
         ratings behind it descending and the unique `gameId` ascending, counts them and pages
         them. A game without a score from the source is not ranked and never counts as zero. An
-        IGDB players' score is ranked only from 100 ratings on; a community score from one
+        IGDB players' score is ranked only from 50 ratings on; a community score from one
         rating is ranked like any other and states its count. `position` is the
         game's place in that one sequence, so the first page's first three items are the
         podium and later pages continue it. Scores change independently of the catalogue, so a
         game may move between two page reads; a client that reads several pages keeps the first
         occurrence of a `gameId`. It never varies on the session or preferred platforms and
         never calls a provider.
+
+        Since 5.5.0, `platformIds` scopes the ranking to games released on those platforms
+        (`RNK-005`): only a release on one of them that proves rating eligibility at the
+        evaluation date makes a game a candidate, so a game released elsewhere years before is
+        not ranked on a platform until it has effectively come out there. The scope is applied
+        before ordering, counting and paging, never to a page of the global ranking. Each game
+        still appears once and keeps its global score from the source: no per-platform score
+        or mean is ranked or shown. Each scoped item adds `platformRelease`, the release that
+        presents the game on the scope at its own date precision. Without `platformIds` the
+        ranking and its items are unchanged.
       security: []
       parameters:
         - $ref: '#/components/parameters/RankingSourceQuery'
+        - $ref: '#/components/parameters/FeaturedPlatformIdsQuery'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -779,6 +790,44 @@ paths:
                           earliestKnownYear: 2023
                           latestKnownYear: 2023
                         score: { source: gameometro, kind: community, value: 9.0, scale: 10, count: 1 }
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                platformScoped:
+                  summary: Requested with `platformIds=platform_ps5`; the global score, the PS5 release
+                  value:
+                    source: igdb_players
+                    items:
+                      - position: 1
+                        gameId: game_example_one
+                        slug: example-one
+                        canonicalTitle: Example One
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Portada oficial no disponible
+                          attribution: null
+                        genres: []
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_ps4, name: PlayStation 4 }
+                            - { platformId: platform_ps5, name: PlayStation 5 }
+                          totalPlatforms: 2
+                          earliestKnownYear: 2015
+                          latestKnownYear: 2021
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_worldwide, name: Worldwide }
+                          releaseDate: { precision: day, value: '2021-06-11' }
+                          status: released
+                        score:
+                          source: igdb
+                          kind: player
+                          value: 9.4
+                          scale: 10
+                          count: 5494
+                          attribution:
+                            label: Jugadores IGDB
+                            sourceUrl: https://www.igdb.com/games/example-one
+                          observedAt: '2026-10-20T08:00:00Z'
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   summary: No game holds a score from the source yet
@@ -2809,7 +2858,7 @@ components:
       description: |
         The one population whose ratings rank the games. `igdb_players` is the IGDB players'
         rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
-        when at least 100 ratings stand behind it; it is the default because it covers most
+        when at least 50 ratings stand behind it; it is the default because it covers most
         games. `gameometro_community` is the Gameómetro community mean of one contribution per
         rating and its number of ratings, ranked from the first rating. Sources are never
         combined, and
@@ -3546,6 +3595,12 @@ components:
           items: { $ref: '#/components/schemas/Genre' }
           description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
         releaseSummary: { $ref: '#/components/schemas/CompactReleaseSummary' }
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            Present exactly when the request names `platformIds`: the eligible release that
+            presents the game on that scope (`RNK-005`), with its own platform, region and date
+            precision; its status is the effective one, always `released`.
         score: { $ref: '#/components/schemas/RankingScore' }
       additionalProperties: false
     RankingScore:
@@ -4737,7 +4792,7 @@ components:
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     RankingValidationFailed:
-      description: The ranking source, the pagination or a request parameter is invalid.
+      description: The ranking source, the platform scope, the pagination or a request parameter is invalid.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -4746,6 +4801,7 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             sortInvalid: { $ref: '#/components/examples/SortInvalid' }
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     PersonalRatingsValidationFailed:

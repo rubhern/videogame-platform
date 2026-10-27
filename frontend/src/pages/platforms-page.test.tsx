@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe("Plataformas", () => {
-  it("presents the four featured platforms with three destinations each, linking only the live one", async () => {
+  it("presents the four featured platforms with three destinations each, linking only the live ones", async () => {
     stubPlatforms(() => Response.json({ items: directory }));
     renderApp("/plataformas");
 
@@ -58,18 +58,25 @@ describe("Plataformas", () => {
       const name = within(card).getByRole("heading", { level: 2 }).textContent ?? "";
       const destinations = within(card).getByRole("list", { name: `Destinos de ${name}` });
       expect(within(destinations).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-        "Próximos destacadosPróximamente", "TOPómetroPróximamente", "Explorar catálogo",
+        "Próximos destacadosPróximamente", "TOPómetro", "Explorar catálogo",
       ]);
-      // Explorar catálogo (#389) is live for every platform, by its own shareable path.
+      // TOPómetro (#387) and Explorar catálogo (#389) are live for every platform, by their own
+      // shareable paths.
+      expect(within(destinations).getByRole("link", { name: "TOPómetro" }).getAttribute("href"))
+        .toMatch(/^\/plataformas\/[a-z0-9-]+\/topometro$/);
       expect(within(destinations).getByRole("link", { name: "Explorar catálogo" }).getAttribute("href"))
         .toMatch(/^\/plataformas\/[a-z0-9-]+\/catalogo$/);
       // Logos are decorative: the heading alone names the platform.
       expect(within(card).queryAllByRole("img")).toHaveLength(0);
     }
     expect(within(featuredList()).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/plataformas/nintendo-switch-2/topometro",
       "/plataformas/nintendo-switch-2/catalogo",
+      "/plataformas/playstation-5/topometro",
       "/plataformas/playstation-5/catalogo",
+      "/plataformas/xbox-series-x-s/topometro",
       "/plataformas/xbox-series-x-s/catalogo",
+      "/plataformas/windows-pc/topometro",
       "/plataformas/windows-pc/catalogo",
     ]);
     // The header's Plataformas entry is the current page.
@@ -112,8 +119,10 @@ describe("Plataformas", () => {
     // The destinations open inside the chosen platform's own item.
     expect(ps4.closest("li")).toContainElement(destinations);
     expect(destinations).toHaveTextContent(
-      "Próximos destacadosPróximamenteTOPómetroPróximamenteExplorar catálogo",
+      "Próximos destacadosPróximamenteTOPómetroExplorar catálogo",
     );
+    expect(within(destinations).getByRole("link", { name: "TOPómetro" }))
+      .toHaveAttribute("href", "/plataformas/ps4-id/topometro");
     expect(within(destinations).getByRole("link", { name: "Explorar catálogo" }))
       .toHaveAttribute("href", "/plataformas/ps4-id/catalogo");
 
@@ -200,10 +209,7 @@ describe("PlatformDestinations", () => {
     const pc: PlatformContext = {
       key: "windows-pc", name: "Windows PC", platformIds: ["10000000-0000-4000-8000-000000000003"], logo: "windows",
     };
-    const destinations = platformDestinations.map((destination) =>
-      destination.key === "topometro"
-        ? { ...destination, to: (context: PlatformContext) => `/topometro?plataforma=${context.key}` }
-        : destination);
+    const destinations = platformDestinations;
     const router = createMemoryRouter([{
       path: "/",
       element: <PlatformDestinations context={pc} destinations={destinations} />,
@@ -211,7 +217,7 @@ describe("PlatformDestinations", () => {
     render(<RouterProvider router={router} />);
 
     const list = screen.getByRole("list", { name: "Destinos de Windows PC" });
-    expect(within(list).getByRole("link", { name: "TOPómetro" })).toHaveAttribute("href", "/topometro?plataforma=windows-pc");
+    expect(within(list).getByRole("link", { name: "TOPómetro" })).toHaveAttribute("href", "/plataformas/windows-pc/topometro");
     expect(within(list).getByRole("link", { name: "Explorar catálogo" })).toHaveAttribute("href", "/plataformas/windows-pc/catalogo");
     expect(within(list).getAllByRole("link")).toHaveLength(2);
     expect(within(list).getAllByText("Próximamente")).toHaveLength(1);

@@ -183,13 +183,23 @@ export interface paths {
          *     eligibility rules, then orders them by the unrounded mean descending, the number of
          *     ratings behind it descending and the unique `gameId` ascending, counts them and pages
          *     them. A game without a score from the source is not ranked and never counts as zero. An
-         *     IGDB players' score is ranked only from 100 ratings on; a community score from one
+         *     IGDB players' score is ranked only from 50 ratings on; a community score from one
          *     rating is ranked like any other and states its count. `position` is the
          *     game's place in that one sequence, so the first page's first three items are the
          *     podium and later pages continue it. Scores change independently of the catalogue, so a
          *     game may move between two page reads; a client that reads several pages keeps the first
          *     occurrence of a `gameId`. It never varies on the session or preferred platforms and
          *     never calls a provider.
+         *
+         *     Since 5.5.0, `platformIds` scopes the ranking to games released on those platforms
+         *     (`RNK-005`): only a release on one of them that proves rating eligibility at the
+         *     evaluation date makes a game a candidate, so a game released elsewhere years before is
+         *     not ranked on a platform until it has effectively come out there. The scope is applied
+         *     before ordering, counting and paging, never to a page of the global ranking. Each game
+         *     still appears once and keeps its global score from the source: no per-platform score
+         *     or mean is ranked or shown. Each scoped item adds `platformRelease`, the release that
+         *     presents the game on the scope at its own date precision. Without `platformIds` the
+         *     ranking and its items are unchanged.
          */
         get: operations["rankGames"];
         put?: never;
@@ -821,7 +831,7 @@ export interface components {
         /**
          * @description The one population whose ratings rank the games. `igdb_players` is the IGDB players'
          *     rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
-         *     when at least 100 ratings stand behind it; it is the default because it covers most
+         *     when at least 50 ratings stand behind it; it is the default because it covers most
          *     games. `gameometro_community` is the Gameómetro community mean of one contribution per
          *     rating and its number of ratings, ranked from the first rating. Sources are never
          *     combined, and
@@ -1373,6 +1383,12 @@ export interface components {
             /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
             genres: components["schemas"]["Genre"][];
             releaseSummary: components["schemas"]["CompactReleaseSummary"];
+            /**
+             * @description Present exactly when the request names `platformIds`: the eligible release that
+             *     presents the game on that scope (`RNK-005`), with its own platform, region and date
+             *     precision; its status is the effective one, always `released`.
+             */
+            platformRelease?: components["schemas"]["ReleaseSummary"];
             score: components["schemas"]["RankingScore"];
         };
         /**
@@ -2341,7 +2357,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description The ranking source, the pagination or a request parameter is invalid. */
+        /** @description The ranking source, the platform scope, the pagination or a request parameter is invalid. */
         RankingValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -2993,6 +3009,16 @@ export interface operations {
             query?: {
                 /** @example gameometro_community */
                 source?: components["parameters"]["RankingSourceQuery"];
+                /**
+                 * @description Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
+                 *     values combine with OR. Omit it for every platform. Values are trimmed and
+                 *     de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["FeaturedPlatformIdsQuery"];
                 /**
                  * @description One-based page; a page beyond the last returns an empty page.
                  * @example 1

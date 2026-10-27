@@ -8,41 +8,49 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * Bounded-cardinality telemetry for TOPómetro: served pages per closed source and outcome. Game
- * identifiers, positions and page numbers never become dimensions.
+ * Bounded-cardinality telemetry for TOPómetro: served pages per closed source, scope kind and
+ * outcome. Game and platform identifiers, positions and page numbers never become dimensions.
  */
 @Component
 final class GameRankingApiMetrics {
 
     private static final String METER = "catalogue.rankings.page.outcome";
     private static final List<String> SOURCES = List.of("igdb_players", "gameometro_community");
+    private static final List<String> SCOPES = List.of("global", "platform");
 
     private final Map<String, Counter> counters;
 
     GameRankingApiMetrics(MeterRegistry registry) {
         Map<String, Counter> bySourceAndOutcome = new HashMap<>();
         for (String source : SOURCES) {
-            bySourceAndOutcome.put(key(source, true), counter(registry, source, "items"));
-            bySourceAndOutcome.put(key(source, false), counter(registry, source, "empty"));
+            for (String scope : SCOPES) {
+                bySourceAndOutcome.put(
+                        key(source, scope, true), counter(registry, source, scope, "items"));
+                bySourceAndOutcome.put(
+                        key(source, scope, false), counter(registry, source, scope, "empty"));
+            }
         }
         this.counters = Map.copyOf(bySourceAndOutcome);
     }
 
-    void recordPage(String source, int itemCount) {
-        Counter counter = counters.get(key(source, itemCount > 0));
+    void recordPage(String source, boolean platformScoped, int itemCount) {
+        Counter counter =
+                counters.get(key(source, platformScoped ? "platform" : "global", itemCount > 0));
         if (counter != null) {
             counter.increment();
         }
     }
 
-    private static String key(String source, boolean items) {
-        return source + (items ? ":items" : ":empty");
+    private static String key(String source, String scope, boolean items) {
+        return source + ":" + scope + (items ? ":items" : ":empty");
     }
 
-    private static Counter counter(MeterRegistry registry, String source, String outcome) {
+    private static Counter counter(
+            MeterRegistry registry, String source, String scope, String outcome) {
         return Counter.builder(METER)
-                .description("TOPómetro pages served by ranking source and bounded outcome")
+                .description("TOPómetro pages served by ranking source, scope and bounded outcome")
                 .tag("source", source)
+                .tag("scope", scope)
                 .tag("outcome", outcome)
                 .register(registry);
     }

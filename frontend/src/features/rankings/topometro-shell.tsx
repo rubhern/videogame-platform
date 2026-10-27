@@ -2,8 +2,13 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { TopometroLogo } from "../../shared/brand/brand-logo";
+import { PlatformLogo } from "../../shared/catalogue/platform-logo";
+import { isPlatformLogoName } from "../../shared/catalogue/platform-logo-assets";
 import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
+import { SelectIcon } from "../../shared/ui/select-icon";
 import { StageLight } from "../../shared/ui/stage-light";
+import { PlatformSwitcher } from "../platform-catalogue/platform-switcher";
+import { PLATFORMS_PATH, platformsPath, type PlatformContext } from "../platforms/platform-context";
 import type { RankingView } from "./game-ranking-view-model";
 import { RankingPodium } from "./ranking-podium";
 import { RankingRow } from "./ranking-row";
@@ -24,8 +29,17 @@ export type TopometroState =
       moreFailed: { correlationId: string | null } | null;
     };
 
+/** A platform's TOPómetro (#387): its context and the other platforms on offer to switch to. */
+export type TopometroPlatform = {
+  context: PlatformContext;
+  /** The other platforms the directory holds games for; null while it is read or unavailable. */
+  others: readonly PlatformContext[] | null;
+};
+
 type TopometroShellProps = {
   source: RankingSource;
+  /** Absent for the global TOPómetro. */
+  platform?: TopometroPlatform | undefined;
   state: TopometroState;
   onRetry: () => void;
   onLoadMore: () => void;
@@ -33,7 +47,8 @@ type TopometroShellProps = {
 
 const count = new Intl.NumberFormat("es-ES", { useGrouping: "always" });
 
-function EmptyRanking({ source }: { source: RankingSource }) {
+function EmptyRanking({ source, platform }: { source: RankingSource; platform: PlatformContext | undefined }) {
+  if (platform !== undefined) return <EmptyPlatformRanking platform={platform} source={source} />;
   return source === "gameometro" ? (
     <div className="notice notice-empty ranking-notice">
       <p className="notice-kicker">TOPómetro de la comunidad</p>
@@ -55,6 +70,52 @@ function EmptyRanking({ source }: { source: RankingSource }) {
         Ver el TOPómetro de la comunidad
       </Link>
     </div>
+  );
+}
+
+/**
+ * No game out on the platform holds a score from the source yet. The other source of the same
+ * platform and the global TOPómetro remain one step away; nothing else fills the podium.
+ */
+function EmptyPlatformRanking({ source, platform }: { source: RankingSource; platform: PlatformContext }) {
+  const other: RankingSource = source === "gameometro" ? "igdb" : "gameometro";
+  return (
+    <div className="notice notice-empty ranking-notice">
+      <p className="notice-kicker">
+        {source === "gameometro" ? "TOPómetro de la comunidad" : "TOPómetro de Jugadores IGDB"}
+      </p>
+      <h2>
+        {source === "gameometro"
+          ? `Aún no hay juegos de ${platform.name} puntuados`
+          : `Aún no hay juegos de ${platform.name} con valoraciones de IGDB`}
+      </h2>
+      <p>
+        {source === "gameometro"
+          ? `La comunidad todavía no ha puntuado ningún juego lanzado en ${platform.name}.`
+          : `Ningún juego lanzado en ${platform.name} tiene todavía suficientes valoraciones de jugadores en IGDB.`}
+      </p>
+      <div className="ranking-notice-links">
+        <Link className="text-link" preventScrollReset to={rankingPath(other, platform.key)}>
+          {other === "gameometro" ? "Ver la Comunidad Gameómetro" : "Ver Jugadores IGDB"} en {platform.name}
+        </Link>
+        <Link className="text-link" to={rankingPath(source)}>
+          Ver el TOPómetro de todas las plataformas
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/** The platform's mark in its optical box, or its compact mark when it has no large artwork. */
+function PlatformPlateMark({ platform }: { platform: PlatformContext }) {
+  return (
+    <span className="topometro-platform-mark">
+      {isPlatformLogoName(platform.logo) ? (
+        <PlatformLogo name={platform.logo} size="large" />
+      ) : (
+        <SelectIcon name={platform.logo} />
+      )}
+    </span>
   );
 }
 
@@ -104,8 +165,12 @@ function RowPlaceholders({ count: rows }: { count: number }) {
  * TOPómetro (#386): the best released games by one source of player ratings. The podium and the
  * ledger below are one ranked sequence read page by page; only **Cargar más juegos** reads the
  * next page, never scrolling, and focus moves to the first game of the batch it brought.
+ *
+ * A platform's TOPómetro (#387) is the same page under the platform's own plate: a trail back to
+ * the platform with **Cambiar plataforma**, the platform's mark and name answering the lockup in
+ * the heading, and every source and further page kept on the platform.
  */
-export function TopometroShell({ source, state, onRetry, onLoadMore }: TopometroShellProps) {
+export function TopometroShell({ source, platform, state, onRetry, onLoadMore }: TopometroShellProps) {
   const linkState = useGameLinkState();
   const rowLinks = useRef<(HTMLAnchorElement | null)[]>([]);
   // The index of the first line of a batch the visitor asked for, focused once it arrives.
@@ -128,16 +193,53 @@ export function TopometroShell({ source, state, onRetry, onLoadMore }: Topometro
       : ready.view.podium.flatMap((game) => (game.cover.kind === "fallback" ? [] : [game.cover.url]));
 
   return (
-    <section aria-labelledby="topometro-title" className="hero-page topometro-page" data-source={source}>
+    <section
+      aria-labelledby="topometro-title"
+      className="hero-page topometro-page"
+      data-scope={platform === undefined ? undefined : "platform"}
+      data-source={source}
+    >
       <StageLight images={lights} />
       <div className="page-container topometro-section">
-        <header className="topometro-head">
-          <h1 className="topometro-title" id="topometro-title">
-            <span className="sr-only">TOPómetro</span>
-            <TopometroLogo className="topometro-logo" />
-          </h1>
-          <RankingSourceSwitch source={source} />
-        </header>
+        {platform === undefined ? (
+          <header className="topometro-head">
+            <h1 className="topometro-title" id="topometro-title">
+              <span className="sr-only">TOPómetro</span>
+              <TopometroLogo className="topometro-logo" />
+            </h1>
+            <RankingSourceSwitch source={source} />
+          </header>
+        ) : (
+          <header className="topometro-head topometro-head-platform platform-identity-box" data-logo={platform.context.logo}>
+            <div className="topometro-trail">
+              <nav aria-label="Ruta de navegación" className="catalogue-breadcrumbs">
+                <ol>
+                  <li>
+                    <Link to={PLATFORMS_PATH}>Plataformas</Link>
+                  </li>
+                  <li>
+                    <Link to={platformsPath(platform.context)}>{platform.context.name}</Link>
+                  </li>
+                  <li aria-current="page">TOPómetro</li>
+                </ol>
+              </nav>
+              <PlatformSwitcher
+                current={platform.context}
+                others={platform.others}
+                pathFor={(context) => rankingPath(source, context.key)}
+              />
+            </div>
+            <h1 className="topometro-title topometro-identity" id="topometro-title">
+              <span className="sr-only">{`TOPómetro de ${platform.context.name}`}</span>
+              <TopometroLogo className="topometro-logo" />
+              <span aria-hidden="true" className="topometro-platform">
+                <PlatformPlateMark platform={platform.context} />
+                <span className="topometro-platform-name">{platform.context.name}</span>
+              </span>
+            </h1>
+            <RankingSourceSwitch platformKey={platform.context.key} source={source} />
+          </header>
+        )}
 
         {state.status === "loading" ? <RankingLoading /> : null}
 
@@ -166,7 +268,9 @@ export function TopometroShell({ source, state, onRetry, onLoadMore }: Topometro
           </div>
         ) : null}
 
-        {ready !== null && ready.view.loaded === 0 ? <EmptyRanking source={source} /> : null}
+        {ready !== null && ready.view.loaded === 0 ? (
+          <EmptyRanking platform={platform?.context} source={source} />
+        ) : null}
 
         {ready !== null && ready.view.loaded > 0 ? (
           <>

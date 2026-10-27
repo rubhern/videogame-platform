@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
+import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
+import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
@@ -12,6 +14,9 @@ import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Query;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Source;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
+import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -58,6 +63,55 @@ class GameRankingServiceTest {
     }
 
     @Test
+    void asksTheStoreForTheNormalizedPlatformScopeAndPresentsItsEffectiveRelease() {
+        var port = new RecordingPort(1, 1, true);
+        var ranking =
+                service(port)
+                        .rank(
+                                new Query(
+                                        Source.IGDB_PLAYERS,
+                                        List.of(" ps5 ", "pc", "ps5", " "),
+                                        1,
+                                        20));
+
+        assertThat(port.asked.getFirst().platformIds()).containsExactly("pc", "ps5");
+        // Stored as merely announced, but its exact day has passed in Madrid: released.
+        assertThat(ranking.items().getFirst().platformRelease())
+                .contains(
+                        new GameRanking.PlatformRelease(
+                                new GameRanking.Taxonomy("ps5", "PlayStation 5"),
+                                new GameRanking.Taxonomy("eu", "Europa"),
+                                new CatalogueReleaseDate(
+                                        CatalogueReleaseDate.Precision.DAY, "2026-08-13"),
+                                CatalogueReleaseStatus.RELEASED));
+    }
+
+    @Test
+    void theGlobalRankingAsksForNoScopeAndPresentsNoPlatformRelease() {
+        var port = new RecordingPort(1, 1);
+        var ranking = service(port).rank(new Query(Source.IGDB_PLAYERS, 1, 20));
+
+        assertThat(port.asked.getFirst().platformIds()).isEmpty();
+        assertThat(ranking.items().getFirst().platformRelease()).isEmpty();
+    }
+
+    @Test
+    void rejectsAScopePlatformOutsideTheTaxonomy() {
+        GameRankingReadPort unknown =
+                criteria -> Optional.of(new GameRankingReadPort.Result("v1", false, List.of(), 0));
+        var service = service(unknown);
+        var query = new Query(Source.IGDB_PLAYERS, List.of("nope"), 1, 20);
+        assertThatThrownBy(() -> service.rank(query))
+                .isInstanceOfSatisfying(
+                        ReleaseQueryValidationException.class,
+                        exception ->
+                                assertThat(exception.code())
+                                        .isEqualTo(
+                                                ReleaseQueryValidationException.Code
+                                                        .PLATFORM_NOT_SUPPORTED));
+    }
+
+    @Test
     void reportsACatalogueThatWasNeverPublished() {
         GameRankingReadPort none = criteria -> Optional.empty();
         var service = service(none);
@@ -92,11 +146,17 @@ class GameRankingServiceTest {
     private static final class RecordingPort implements GameRankingReadPort {
         private final int pageItems;
         private final long total;
+        private final boolean scoped;
         private final List<Criteria> asked = new ArrayList<>();
 
         private RecordingPort(int pageItems, long total) {
+            this(pageItems, total, false);
+        }
+
+        private RecordingPort(int pageItems, long total, boolean scoped) {
             this.pageItems = pageItems;
             this.total = total;
+            this.scoped = scoped;
         }
 
         @Override
@@ -118,10 +178,21 @@ class GameRankingServiceTest {
                                                             List.of(),
                                                             new GameRanking.ReleaseSummary(
                                                                     List.of(), 0, null, null),
+                                                            scoped
+                                                                    ? Optional.of(platformRelease())
+                                                                    : Optional.empty(),
                                                             new GameRanking.Score.Community(
                                                                     new BigDecimal("9.0"), 1)))
                                     .toList(),
                             total));
+        }
+
+        private static PlatformRelease platformRelease() {
+            return new PlatformRelease(
+                    new GameRanking.Taxonomy("ps5", "PlayStation 5"),
+                    new GameRanking.Taxonomy("eu", "Europa"),
+                    new ReleaseDate.Day(LocalDate.of(2026, 8, 13)),
+                    ReleaseStatus.ANNOUNCED);
         }
     }
 }
