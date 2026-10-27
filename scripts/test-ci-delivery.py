@@ -244,6 +244,50 @@ python3() {
         self.assertEqual(build.count(reactor), 5)
         self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 5)
 
+    def test_dependency_submission_uses_the_pinned_wrapper_for_both_graphs(self):
+        workflow = (ROOT / '.github/workflows/dependency-submission.yml').read_text()
+        self.assertIn('            pom: pom.xml\n', workflow)
+        self.assertIn('            pom: tools/igdb-poc/pom.xml\n', workflow)
+        self.assertIn('          directory: ${{ github.workspace }}\n', workflow)
+        self.assertIn('          maven-args: -f ${{ matrix.pom }}\n', workflow)
+        self.assertNotIn('ignore-maven-wrapper: true', workflow)
+        self.assertIn('correlator: maven-backend-reactor', workflow)
+        self.assertIn('correlator: maven-igdb-poc', workflow)
+        self.assertLess(workflow.index('name: Bootstrap the pinned Maven Wrapper'),
+                        workflow.index('name: Resolve and submit the complete Maven dependency graph'))
+
+    def test_maven_bootstrap_bounds_transient_download_recovery_and_fails_closed(self):
+        workflow = (ROOT / '.github/workflows/dependency-submission.yml').read_text()
+        bootstrap = workflow.split('      - name: Bootstrap the pinned Maven Wrapper\n', 1)[1]
+        body = bootstrap.split('        run: |\n', 1)[1].split('\n      - name:', 1)[0]
+        script = '\n'.join(line[10:] if line.startswith('          ') else line
+                           for line in body.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'bin').mkdir()
+            (root / 'bin/sleep').write_text('#!/bin/sh\nexit 0\n')
+            (root / 'bin/sleep').chmod(0o755)
+            (root / 'mvnw').write_text(
+                '#!/usr/bin/env python3\n'
+                'import json, os, pathlib, sys\n'
+                'p = pathlib.Path("attempts.json")\n'
+                'calls = json.loads(p.read_text()) if p.exists() else []\n'
+                'calls.append(sys.argv[1:])\n'
+                'p.write_text(json.dumps(calls))\n'
+                'sys.exit(1 if len(calls) <= int(os.environ["BOOTSTRAP_FAILURES"]) else 0)\n')
+            (root / 'mvnw').chmod(0o755)
+            env = {**os.environ, 'PATH': str(root / 'bin') + ':' + os.environ['PATH']}
+            for failures, expected_attempts, succeeds in [(0, 1, True), (2, 3, True), (99, 3, False)]:
+                (root / 'attempts.json').unlink(missing_ok=True)
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root,
+                                        env={**env, 'BOOTSTRAP_FAILURES': str(failures)},
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode == 0, succeeds, result.stdout + result.stderr)
+                calls = json.loads((root / 'attempts.json').read_text())
+                self.assertEqual(len(calls), expected_attempts)
+                self.assertTrue(all(call == ['--batch-mode', '--no-transfer-progress', '--version']
+                                    for call in calls))
+
     def test_dependency_images_publish_only_scanned_digests_from_trusted_main(self):
         workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()
         starts = list(re.finditer(r'^  ([a-z][a-z-]+):\n', workflow, re.M))

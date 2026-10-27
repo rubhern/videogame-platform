@@ -32,10 +32,10 @@ jobs:
         include:
           - graph: backend-reactor
             correlator: maven-backend-reactor
-            directory: .
+            pom: pom.xml
           - graph: igdb-poc
             correlator: maven-igdb-poc
-            directory: tools/igdb-poc
+            pom: tools/igdb-poc/pom.xml
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,10 +50,25 @@ jobs:
           distribution: temurin
           java-version: 25
 
+      - name: Bootstrap the pinned Maven Wrapper
+        env:
+          MVNW_VERBOSE: "true"
+        run: |
+          for attempt in 1 2 3; do
+            if ./mvnw --batch-mode --no-transfer-progress --version; then
+              exit 0
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              echo "::error::Unable to bootstrap the pinned Maven distribution."
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
+
       - name: Resolve and submit the complete Maven dependency graph
         uses: advanced-security/maven-dependency-submission-action@a64327a7329c9939cf675e458452febe1894a70c # v6.0.1
         with:
           correlator: ${{ matrix.correlator }}
-          # The action needs an absolute root path so it executes ./mvnw rather
-          # than looking for a bare mvnw command on PATH.
-          directory: ${{ matrix.directory == '.' && github.workspace || matrix.directory }}
+          # Resolve the root wrapper for both graphs, including the standalone PoC.
+          directory: ${{ github.workspace }}
+          maven-args: -f ${{ matrix.pom }}
