@@ -763,7 +763,9 @@ retention/compaction and the diagnostic-log seven-day age procedure on the real 
 The [isolated proof](../../scripts/test-production-observability.py) checks exact
 PromQL and alert timing, complete dashboard provisioning and SQL compatibility,
 sensitive-label rejection, production Telegram firing/recovery against HTTPS mock,
-and a bounded synthetic overhead sample. Its sanitized receipt is disposable evidence,
+and a bounded synthetic overhead sample. Host-bridge memory measurements cover the
+measured executable and its CLI children, excluding the test harness's prior memory
+use. Its sanitized receipt is disposable evidence,
 not production capacity acceptance. The separate backend isolation test proves reads
 and readiness during rejected/unavailable metric exports. The
 [operator procedure](../../deploy/public-production/README.md#production-observability-candidate)

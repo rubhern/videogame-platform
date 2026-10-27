@@ -12,6 +12,16 @@ browser_network="videogame-platform-browser-${browser_run_id}"
 postgres_container="videogame-platform-browser-postgres-${browser_run_id}"
 application_container="videogame-platform-browser-application-${browser_run_id}"
 browser_test_instant="2026-08-13T10:00:00Z"
+browser_test_arguments=()
+if [[ -n "${BROWSER_SHARD:-}" ]]; then
+  if [[ ! "$BROWSER_SHARD" =~ ^([1-9][0-9]?)/([1-9][0-9]?)$ ]] ||
+      ((BASH_REMATCH[1] > BASH_REMATCH[2])); then
+    printf 'BROWSER_SHARD must be index/total with 1 <= index <= total <= 99.\n' >&2
+    exit 2
+  fi
+  # Match the measured hosted-runner worker count; each shard has its own stack.
+  browser_test_arguments+=(--shard="$BROWSER_SHARD" --workers=2)
+fi
 browser_tmp_dir="$(mktemp -d)"
 application_log="$browser_tmp_dir/application.log"
 
@@ -125,4 +135,4 @@ docker run --rm \
   --volume "$repository_root:/work" \
   --workdir /work \
   "$playwright_image" \
-  npm run frontend:test:e2e
+  npm --prefix frontend run test:e2e -- "${browser_test_arguments[@]}"

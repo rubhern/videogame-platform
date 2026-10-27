@@ -65,6 +65,12 @@ owns deferred ARM64 support and its restoration gate. Image scanning,
 SBOM generation, dependency submission, CodeQL, and Sonar configuration remain
 defined by their workflows rather than duplicated here.
 
+Portal validation uses the lockfile-selected Playwright Chromium with the hosted
+Ubuntu runner's browser libraries and Latin/emoji fonts. Host dependency validation,
+diagram rendering and the browser journeys under the production server remain
+required; runner-image drift must fail visibly. A bare workstation still needs the
+system dependency setup in the [portal workflow](../../documentation/README.md#local-workflow).
+
 ## Local parity
 
 Do not run all gates routinely. Follow the risk-based selection policy in the
@@ -95,11 +101,17 @@ must be investigated separately. Keep run links, timing evidence, cache limitati
 risks and rollback in the issue/PR, rather than copying a changing baseline here.
 
 Independent container/runtime checks may run in parallel; every applicable result
-remains required. The identity gate runs its independent topologies as parallel legs
+remains required. Production runtime operations, observability and edge exercises run
+concurrently on one runner with separate disposable topologies; every branch result
+is checked. The packaged browser suite is sharded over independent disposable
+application/database stacks; the complete suite still runs locally by default. Every
+matrix leg remains required, including cancellation and unexpected-skip handling.
+The identity gate runs its independent topologies as parallel legs
 of one required check, each with its own disposable Keycloak, PostgreSQL and BFF, because
 the timed journeys mutate realm and client state. Packaged browser/identity journeys may
 omit duplicate Maven tests only when the separate backend gate is required for that
-revision; otherwise exactly one packaging leg of the identity gate, and every other
-packaging run, retains tests, including local runs. Cross-job build reuse must not
+revision or another required leg of the same matrix retains them; otherwise exactly
+one packaging leg of each matrix retains tests. Local packaging retains tests by
+default. Cross-job build reuse must not
 introduce stale artifacts, mix source revisions, expose trusted credentials to PRs, or
 lengthen the critical path without measured benefit.
