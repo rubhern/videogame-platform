@@ -131,7 +131,7 @@ nor third-party permission. No IGDB evaluation binary is bundled here.
 
 ## Provenance fingerprints and notices
 
-Original new files were retrieved on 2026-10-27, unmodified. Their fingerprints:
+The SVG originals were retrieved on 2026-10-27, unmodified. Their fingerprints:
 
 - `android.svg`: `5f05dae657da9f31e5d4a09b7976f39881617f6b3e4d4562d9ee16295d250bdb`
 - `linux.svg`: `a31038faddfc457ada7948ab18c5cd8bad68863f5520144d5cbed5acb84f7b33`
@@ -141,7 +141,8 @@ Android robot credit is reproduced in the shared footer with the
 [CC BY 3.0 licence](https://creativecommons.org/licenses/by/3.0/). Android is a trademark
 of Google LLC. Tux remains credited to its three artists. No asset is represented as
 Gameómetro-owned. The PNGs superseded by the two sourced SVGs, and the misidentified
-Steam symbol formerly named `steamvr.png`, were removed.
+Steam symbol formerly named `steamvr.png`, were removed. `COPYING-linux.txt` retains
+the upstream notice text with trailing whitespace normalized for the CI check.
 
 Before public exposure or distributing provisional artwork, resolve exact source,
 hosting/redistribution permission, required notices, clear space/minimum size and any
