@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regressions for parallel required checks, packaging coverage and OCI identity."""
 import hashlib
+import fnmatch
 import importlib.util
 import io
 import json
@@ -243,6 +244,23 @@ python3() {
         reactor = 'cache-dependency-path: |\n            pom.xml\n            backend/pom.xml\n'
         self.assertEqual(build.count(reactor), 5)
         self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 5)
+
+    def test_codeql_init_and_analyze_keep_one_revision_and_one_update_group(self):
+        workflow = (ROOT / '.github/workflows/security.yml').read_text()
+        uses = re.findall(r'uses: (github/codeql-action/(?:init|analyze))@([0-9a-f]{40})', workflow)
+        self.assertEqual({action for action, _ in uses},
+                         {'github/codeql-action/init', 'github/codeql-action/analyze'})
+        self.assertEqual(len({revision for _, revision in uses}), 1,
+                         'CodeQL init and analyze reject mismatched action revisions')
+        config = (ROOT / '.github/dependabot.yml').read_text()
+        actions = config.split('  - package-ecosystem: github-actions\n', 1)[1]
+        actions = actions.split('  - package-ecosystem:', 1)[0]
+        group = re.search(r'    groups:\n      codeql:\n        patterns:\n((?:          - .+\n)+)', actions)
+        self.assertIsNotNone(group, 'Keep the coupled CodeQL actions in one Dependabot PR')
+        patterns = [line.strip().removeprefix('- ').strip('"\'')
+                    for line in group[1].splitlines()]
+        for action, _ in uses:
+            self.assertTrue(any(fnmatch.fnmatchcase(action, pattern) for pattern in patterns), action)
 
     def test_dependency_submission_uses_the_pinned_wrapper_for_both_graphs(self):
         workflow = (ROOT / '.github/workflows/dependency-submission.yml').read_text()
