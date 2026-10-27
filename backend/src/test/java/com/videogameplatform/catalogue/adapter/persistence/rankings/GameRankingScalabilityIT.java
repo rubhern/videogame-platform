@@ -77,14 +77,15 @@ class GameRankingScalabilityIT {
             assertThat(deep.items()).hasSizeLessThanOrEqualTo(20);
 
             Map<String, Object> parameters =
-                    GameRankingSql.parameters(PUBLICATION_ID, criteria(source, 1));
-            JsonNode page = explain(jdbc, GameRankingSql.page(source), parameters);
+                    GameRankingSql.parameters(PUBLICATION_ID, criteria(source, 1), List.of());
+            JsonNode page = explain(jdbc, GameRankingSql.page(source, false), parameters);
             JsonNode deepPage =
                     explain(
                             jdbc,
-                            GameRankingSql.page(source),
-                            GameRankingSql.parameters(PUBLICATION_ID, criteria(source, 200)));
-            JsonNode count = explain(jdbc, GameRankingSql.count(source), parameters);
+                            GameRankingSql.page(source, false),
+                            GameRankingSql.parameters(
+                                    PUBLICATION_ID, criteria(source, 200), List.of()));
+            JsonNode count = explain(jdbc, GameRankingSql.count(source, false), parameters);
             String name = source.name().toLowerCase();
             recordPlan(games, name + "-page", page);
             recordPlan(games, name + "-page-200", deepPage);
@@ -95,20 +96,52 @@ class GameRankingScalabilityIT {
                             ? "ix_game_external_score_player_rank"
                             : "ix_game_community_score_rank");
             assertUsesIndex(page, "ix_release_snapshot_publication_game_period");
+
+            // A platform scope (RNK-005): one platform holding every game, and a sparse one
+            // holding one game in a hundred, whose page has to look further down the rank.
+            for (var scope :
+                    Map.of("broad", BROAD_PLATFORM, "sparse", SPARSE_PLATFORM).entrySet()) {
+                var scoped = criteria(source, List.of(scope.getValue()), 1);
+                var result = adapter.findRankedGames(scoped).orElseThrow();
+                assertThat(result.items()).hasSizeLessThanOrEqualTo(20);
+                assertThat(result.items())
+                        .allSatisfy(item -> assertThat(item.platformRelease()).isPresent());
+                Map<String, Object> scopedParameters =
+                        GameRankingSql.parameters(
+                                PUBLICATION_ID, scoped, List.of(scope.getValue()));
+                recordPlan(
+                        games,
+                        name + "-" + scope.getKey() + "-page",
+                        explain(jdbc, GameRankingSql.page(source, true), scopedParameters));
+                recordPlan(
+                        games,
+                        name + "-" + scope.getKey() + "-count",
+                        explain(jdbc, GameRankingSql.count(source, true), scopedParameters));
+            }
         }
     }
 
+    private static final String BROAD_PLATFORM = "91000000-0000-4000-8000-000000000001";
+    private static final String SPARSE_PLATFORM = "91000000-0000-4000-8000-000000000004";
+
     private static GameRankingReadPort.Criteria criteria(Source source, int page) {
+        return criteria(source, List.of(), page);
+    }
+
+    private static GameRankingReadPort.Criteria criteria(
+            Source source, List<String> platformIds, int page) {
         return new GameRankingReadPort.Criteria(
                 source,
+                platformIds,
                 TODAY,
                 new GameRankingReadPort.Pagination(page, 20, (long) (page - 1) * 20),
                 3);
     }
 
     /**
-     * Every game has three releases; one in ten has only a future release, one in fifty only a
-     * cancelled one. Four in five carry an IGDB score drawn from a narrow band, so ties on the
+     * Every game has three releases, one on each of the first three platforms; one in ten has only
+     * future releases, one in fifty a cancelled one. One game in a hundred also came out on the
+     * sparse fourth platform. Four in five carry an IGDB score drawn from a narrow band, so ties on the
      * mean are common; one in ten holds a community score.
      */
     private static void seed(JdbcTemplate jdbc, int games) {
@@ -117,7 +150,7 @@ class GameRankingScalabilityIT {
                 PUBLICATION_ID,
                 "ranking-scale-" + games);
         jdbc.update(
-                "INSERT INTO catalogue.platform (platform_id, code, display_name) SELECT md5('ranking-platform-' || p)::uuid, 'ranking-scale-' || p, 'Ranking Platform ' || p FROM generate_series(1, 3) p");
+                "INSERT INTO catalogue.platform (platform_id, code, display_name) SELECT ('91000000-0000-4000-8000-00000000000' || p)::uuid, 'ranking-scale-' || p, 'Ranking Platform ' || p FROM generate_series(1, 4) p");
         jdbc.update(
                 "INSERT INTO catalogue.region (region_id, code, display_name) VALUES ('92000000-0000-4000-8000-000000000386', 'ranking-scale-region', 'Mundial')");
         jdbc.update(
@@ -134,13 +167,25 @@ class GameRankingScalabilityIT {
                 """
                 INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status)
                 SELECT ?::uuid, md5('ranking-release-' || n || '-' || r)::uuid, md5('ranking-game-' || n)::uuid,
-                       md5('ranking-platform-' || r)::uuid, '92000000-0000-4000-8000-000000000386', 'day',
+                       ('91000000-0000-4000-8000-00000000000' || r)::uuid, '92000000-0000-4000-8000-000000000386', 'day',
                        CASE WHEN n % 10 = 0 THEN DATE '2027-01-01' + r ELSE DATE '2005-01-01' + ((n * 3 + r) % 7000) END,
                        CASE WHEN n % 50 = 1 THEN 'cancelled' ELSE 'announced' END,
                        'external_provider', 'IGDB', 'release_date', now(), 'provider_only', 'not_required'
                 FROM generate_series(1, ?) n, generate_series(1, 3) r
                 """,
                 PUBLICATION_ID, games);
+        jdbc.update(
+                "INSERT INTO catalogue.game_release (release_id, game_id, created_at) SELECT md5('ranking-release-' || n || '-4')::uuid, md5('ranking-game-' || n)::uuid, now() FROM generate_series(1, ?) n WHERE n % 100 = 7",
+                games);
+        jdbc.update(
+                """
+                INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status)
+                SELECT ?::uuid, md5('ranking-release-' || n || '-4')::uuid, md5('ranking-game-' || n)::uuid,
+                       ?::uuid, '92000000-0000-4000-8000-000000000386', 'day', DATE '2025-01-01' + n % 300,
+                       'announced', 'external_provider', 'IGDB', 'release_date', now(), 'provider_only', 'not_required'
+                FROM generate_series(1, ?) n WHERE n % 100 = 7
+                """,
+                PUBLICATION_ID, SPARSE_PLATFORM, games);
         jdbc.update(
                 """
                 INSERT INTO catalogue.game_external_score (game_id, source_name, score_kind, score, score_count, source_url, observed_at, changed_at)

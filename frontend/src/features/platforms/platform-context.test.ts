@@ -20,6 +20,7 @@ const directory = [
   { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
   { platformId: "playdate-id", name: "Playdate" },
   { platformId: "steamvr-id", name: "SteamVR" },
+  { platformId: "psvr2-id", name: "PlayStation VR2" },
 ];
 
 describe("platform context", () => {
@@ -66,6 +67,8 @@ describe("platform context", () => {
     expect(resolvePlatformContext("ps4-id", directory)?.name).toBe("PlayStation 4");
     expect(resolvePlatformContext("PlayStation 4", directory)).toBeNull();
     expect(resolvePlatformContext("steamvr-id", directory)).toBeNull();
+    // PlayStation VR2 is not offered anywhere in Plataformas (owner decision, 2026-10-27).
+    expect(resolvePlatformContext("psvr2-id", directory)).toBeNull();
     expect(resolvePlatformContext("unknown", directory)).toBeNull();
   });
 

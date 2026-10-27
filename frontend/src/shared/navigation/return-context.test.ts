@@ -21,6 +21,8 @@ describe("game page return context", () => {
     ["/topometro?source=gameometro", "Volver al TOPómetro"],
     ["/plataformas/nintendo-switch-2/catalogo?releaseState=upcoming&genreIds=adventure&page=2", "Volver al catálogo"],
     ["/plataformas/14700e95-9202-420b-9a03-2ec2ce6250c7/catalogo?q=final", "Volver al catálogo"],
+    ["/plataformas/playstation-5/topometro", "Volver al TOPómetro"],
+    ["/plataformas/ps4-id/topometro?source=gameometro", "Volver al TOPómetro"],
   ])("names and keeps the whole origin %s", (path, label) => {
     const context = readReturnContext(gameLinkState(at(path)));
 
@@ -42,7 +44,7 @@ describe("game page return context", () => {
     expect(gameLinkState(at("/games/game-1/a-game"))).toBeUndefined();
     expect(gameLinkState(at("/administracion/catalogo"))).toBeUndefined();
     expect(gameLinkState(at("/aviso-legal"))).toBeUndefined();
-    // The Plataformas index has no way back of its own; only a platform's catalogue does.
+    // The Plataformas index has no way back of its own; only a platform's destinations do.
     expect(gameLinkState(at("/plataformas?plataforma=ps4-id"))).toBeUndefined();
     expect(gameLinkState(at("/plataformas/ps4-id/otra-cosa"))).toBeUndefined();
   });

@@ -938,6 +938,27 @@ is public: it never varies on the session or `Mis plataformas`.
 from the floor, each G-meter sweeping to its reading; newly read lines fade in. Reduced motion
 shows the settled page; forced colours keep the steps, numerals and edges in system colours.
 
+**Per platform.** Post-MVP (#387, implemented; awaiting owner review), every platform of
+[Plataformas](#plataformas) has the same TOPómetro at `/plataformas/<plataforma>/topometro`,
+ranking only the games released there by their global score (`RNK-005`). The path names a
+featured family by its key or another platform by its own ID, as
+[Explorar catálogo](#explorar-catálogo) does, and a key not on offer reads **Esa plataforma no
+tiene juegos en Gameómetro ahora mismo** with **Ver todas las plataformas**. Everything above
+holds unchanged; only the opening and the dates differ. A trail — **Plataformas / <plataforma> /
+TOPómetro** — leads with **Cambiar plataforma** opposite, which lists the featured and other
+platforms as links to their own TOPómetro keeping the source; phones keep only the trail's way
+back to the platform. The `h1` reads `TOPómetro de <plataforma>`: the lockup, a step smaller than
+the global opening's, over the platform's plate — a fine ice rule as wide as the lockup, then the
+platform's own mark in its optical box with a quiet cool pool of light and its catalogue name in
+the title voice. The source selector keeps its place and keeps the platform. Because the platform
+is the page's context, no place repeats its platform marks; a family of several platforms marks
+the platform each game came out on. Each place reads its platform release's compact date at its
+own precision instead of the known years (`Lanzado en PlayStation 5: 11 de junio de 2021` for
+assistive technology). An empty source says no game released on the platform has a score from
+it yet and offers the other source on the same platform and the global TOPómetro. **Volver al
+TOPómetro** returns to the same platform, source and places. The plate settles once before the
+podium; forced colours keep its rule.
+
 ## Plataformas
 
 Post-MVP (#287, implemented; awaiting owner review), **Plataformas** (`/plataformas`) is a
@@ -965,7 +986,8 @@ the stage keeps the logo large.
 
 **Destinations.** Every platform offers exactly three, in this order: **Próximos destacados**
 (#388, attention by Hypes), **TOPómetro** (#387, player scores, named by its lockup as in the
-header) and **Explorar catálogo** (#389, live for every platform, [below](#explorar-catálogo)). [`platform-destinations.ts`](../../frontend/src/features/platforms/platform-destinations.ts)
+header, live for every platform, [per platform](#topómetro)) and **Explorar catálogo** (#389, live
+for every platform, [below](#explorar-catálogo)). [`platform-destinations.ts`](../../frontend/src/features/platforms/platform-destinations.ts)
 holds them; a destination becomes a native link only when its feature supplies a path for the
 platform's context, and otherwise reads **Próximamente** without being a link or a tab stop.
 Activating one changes nothing else on the index. From 560px they are full-width rows between
@@ -977,7 +999,7 @@ its logo a little closer. TOPómetro never leads to Destacados.
 **Otras plataformas.** Below a hairline, quieter than the featured cards: its `h2` alone, without a
 lead, then only the owner's other platforms (owner decision, 2026-10-27), in this order, when the
 directory holds games for them: Android, iOS, Linux, Mac, PlayStation 4, Meta Quest 3, Nintendo
-Switch, Xbox One and PlayStation VR2. These are acquired per environment, so the presentation
+Switch and Xbox One; PlayStation VR2 is not offered in the section, so it has no index entry, TOPómetro or catalogue (owner decision, 2026-10-27). These are acquired per environment, so the presentation
 mapping recognizes them by their catalogue name, as it does their marks; two platforms sharing a
 name stay two, and the catalogue's own name is shown. Each is a native disclosure button with its
 compact mark, its name and a chevron that points down while closed and up while open, announced

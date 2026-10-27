@@ -73,7 +73,6 @@ const otherPlatformNames: readonly (readonly string[])[] = [
   ["meta quest 3"],
   ["nintendo switch"],
   ["xbox one"],
-  ["playstation vr2"],
 ];
 
 /** The curated other platforms the directory holds games for, in the owner's order. */

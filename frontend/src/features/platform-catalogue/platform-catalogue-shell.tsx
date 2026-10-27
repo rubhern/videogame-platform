@@ -130,7 +130,7 @@ export function PlatformCatalogueShell({
   return (
     <section aria-labelledby="platform-catalogue-title" className="platform-catalogue-page">
       <div className="page-container platform-catalogue">
-        <header className="platform-catalogue-head" data-logo={context.logo}>
+        <header className="platform-catalogue-head platform-identity-box" data-logo={context.logo}>
           <nav aria-label="Ruta de navegación" className="catalogue-breadcrumbs">
             <ol>
               <li>

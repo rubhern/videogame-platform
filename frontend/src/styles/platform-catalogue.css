@@ -119,16 +119,16 @@
     font-size: 1.25rem;
   }
 
-  .platform-catalogue-head[data-logo="nintendo-switch-2"] { --logo-width: 112px; --logo-height: 60px; }
-  .platform-catalogue-head[data-logo="playstation-5"] { --logo-width: 160px; --logo-height: 48px; }
-  .platform-catalogue-head[data-logo="xbox-series-x-s"] { --logo-width: 124px; --logo-height: 60px; }
-  .platform-catalogue-head[data-logo="windows"] { --logo-width: 56px; --logo-height: 56px; }
-  .platform-catalogue-head:is([data-logo="android"], [data-logo="linux"], [data-logo="ios"], [data-logo="macos"]) {
+  /* Each identity's optical box, shared with a platform's TOPómetro (#387). */
+  .platform-identity-box[data-logo="nintendo-switch-2"] { --logo-width: 112px; --logo-height: 60px; }
+  .platform-identity-box[data-logo="playstation-5"] { --logo-width: 160px; --logo-height: 48px; }
+  .platform-identity-box[data-logo="xbox-series-x-s"] { --logo-width: 124px; --logo-height: 60px; }
+  .platform-identity-box[data-logo="windows"] { --logo-width: 56px; --logo-height: 56px; }
+  .platform-identity-box:is([data-logo="android"], [data-logo="linux"], [data-logo="ios"], [data-logo="macos"]) {
     --logo-width: 52px;
     --logo-height: 52px;
   }
-  .platform-catalogue-head[data-logo="playstation-vr2"] { --logo-width: 96px; --logo-height: 52px; }
-  .platform-catalogue-head[data-logo="meta-quest"] { --logo-width: 112px; --logo-height: 48px; }
+  .platform-identity-box[data-logo="meta-quest"] { --logo-width: 112px; --logo-height: 48px; }
 
   .platform-catalogue-missing {
     margin-top: 24px;

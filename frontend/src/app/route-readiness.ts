@@ -21,7 +21,7 @@ import { releaseCalendarQueryOptions } from "../features/releases/use-release-ca
 import { resolvePlatformFilter } from "../features/platform-preferences/interests";
 import { hasSearchableQuery, readGameSearchParams } from "../features/search/game-search-params";
 import { gameSearchQueryOptions } from "../features/search/use-game-search-query";
-import { readRankingSource, TOPOMETRO_PATH } from "../features/rankings/ranking-search";
+import { readPlatformRankingKey, readRankingSource, TOPOMETRO_PATH } from "../features/rankings/ranking-search";
 import { gameRankingQueryOptions } from "../features/rankings/use-game-ranking-query";
 import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
@@ -47,6 +47,18 @@ import { platformGamesQueryOptions } from "../features/platform-catalogue/use-pl
 import type { PlatformPreferences } from "../features/platform-preferences/platform-preferences-api";
 import { welcomePath } from "../features/platform-preferences/welcome-return";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
+
+/**
+ * A platform destination's context: a featured family by its key, any other platform through the
+ * public directory, which is read either way for **Cambiar plataforma**.
+ */
+async function readPlatformContext(queryClient: QueryClient, key: string) {
+  const directory = await queryClient.fetchQuery(platformListQueryOptions()).catch(() => undefined);
+  const featured = featuredPlatforms.find(
+    (platform) => platform.key === key || platform.platformIds.includes(key),
+  );
+  return featured ?? (directory === undefined ? null : resolvePlatformContext(key, directory));
+}
 
 /** Complete the destination's read before the router restores its entry's scroll offset.
  * TanStack Query still owns data/errors; scroll offsets stay in memory; browser storage stays empty.
@@ -108,19 +120,22 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
     } else if (readPlatformCatalogueKey(url.pathname) !== null) {
       // A platform's catalogue (#389) reads the directory to resolve a platform outside the
       // featured four, then the page the URL names, so Back restores its height.
-      const key = readPlatformCatalogueKey(url.pathname) ?? "";
-      const directory = await queryClient
-        .fetchQuery(platformListQueryOptions())
-        .catch(() => undefined);
-      const featured = featuredPlatforms.find(
-        (platform) => platform.key === key || platform.platformIds.includes(key),
-      );
-      const context =
-        featured ?? (directory === undefined ? null : resolvePlatformContext(key, directory));
+      const context = await readPlatformContext(queryClient, readPlatformCatalogueKey(url.pathname) ?? "");
       if (context !== null) {
         await queryClient
           .prefetchQuery(
             platformGamesQueryOptions(readPlatformCatalogueSearch(url.searchParams), context),
+          )
+          .catch(() => undefined);
+      }
+    } else if (readPlatformRankingKey(url.pathname) !== null) {
+      // A platform's TOPómetro (#387) resolves its platform the same way; loaded pages are kept,
+      // as on the global ranking, so Back and the game page's way back restore their height.
+      const context = await readPlatformContext(queryClient, readPlatformRankingKey(url.pathname) ?? "");
+      if (context !== null) {
+        await queryClient
+          .ensureInfiniteQueryData(
+            gameRankingQueryOptions(readRankingSource(url.searchParams), context.platformIds),
           )
           .catch(() => undefined);
       }

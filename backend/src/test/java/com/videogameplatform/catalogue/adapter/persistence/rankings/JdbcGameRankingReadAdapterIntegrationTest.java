@@ -7,8 +7,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Source;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
+import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
@@ -24,7 +27,10 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** UC-018 against real PostgreSQL: selection, eligibility, order, ties, count and pages. */
+/**
+ * UC-018 against real PostgreSQL: selection, eligibility, order, ties, count and pages, globally
+ * and on a platform scope (RNK-005).
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 class JdbcGameRankingReadAdapterIntegrationTest {
 
@@ -33,7 +39,9 @@ class JdbcGameRankingReadAdapterIntegrationTest {
     private static final String PUBLICATION = "00000000-0000-4000-8000-0000000000aa";
     private static final String PLATFORM_A = "10000000-0000-4000-8000-0000000000a1";
     private static final String PLATFORM_B = "10000000-0000-4000-8000-0000000000a2";
+    private static final String PLATFORM_C = "10000000-0000-4000-8000-0000000000a3";
     private static final String REGION = "20000000-0000-4000-8000-0000000000a1";
+    private static final String REGION_2 = "20000000-0000-4000-8000-0000000000a2";
     private static final LocalDate TODAY = LocalDate.of(2026, 8, 13);
 
     private static JdbcTemplate admin;
@@ -75,7 +83,9 @@ class JdbcGameRankingReadAdapterIntegrationTest {
         assertThat(result.publicationVersion()).isEqualTo("ranking-fixture");
         assertThat(titles(result))
                 .containsExactly(
-                        // 93 from exactly the one hundred ratings IGDB players need.
+                        "Old game ported later",
+                        "Ported last year",
+                        // 93 from exactly the fifty ratings IGDB players need.
                         "Multi platform",
                         // 92 three times: more ratings first, then the smaller game id.
                         "Tied many votes small id",
@@ -86,9 +96,10 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                         "Released today",
                         "Last month",
                         "Unknown date verified",
+                        "Only on Gamma",
                         // A real zero with ratings is a score, ranked last.
                         "Real zero");
-        assertThat(result.totalItems()).isEqualTo(9);
+        assertThat(result.totalItems()).isEqualTo(12);
     }
 
     @Test
@@ -106,13 +117,13 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                         "Unknown date unverified",
                         "Checked without score",
                         "Without releases",
-                        "Ninety-nine ratings");
+                        "Forty-nine ratings");
     }
 
     @Test
     void placesAGameOnceWhateverItsPlatformsAndSummarisesAllOfThem() {
         var item =
-                adapter.findRankedGames(criteria(IGDB_PLAYERS, 1, 1))
+                adapter.findRankedGames(criteria(IGDB_PLAYERS, 3, 1))
                         .orElseThrow()
                         .items()
                         .getFirst();
@@ -123,12 +134,13 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                 .extracting(GameRanking.Taxonomy::name)
                 .containsExactly("Alpha Station", "Beta Box");
         assertThat(item.releaseSummary().earliestKnownYear()).isEqualTo(2019);
+        assertThat(item.platformRelease()).isEmpty();
         assertThat(item.score())
                 .isInstanceOfSatisfying(
                         GameRanking.Score.IgdbPlayers.class,
                         igdb -> {
                             assertThat(igdb.score().value()).isEqualByComparingTo("93");
-                            assertThat(igdb.score().count()).isEqualTo(100);
+                            assertThat(igdb.score().count()).isEqualTo(50);
                             assertThat(igdb.score().attribution())
                                     .hasToString("https://www.igdb.com/games/multi-platform");
                         });
@@ -137,21 +149,21 @@ class JdbcGameRankingReadAdapterIntegrationTest {
     @Test
     void pagesOneSequenceWithoutGapsOrRepeats() {
         List<String> paged = new ArrayList<>();
-        for (int page = 1; page <= 4; page++) {
+        for (int page = 1; page <= 6; page++) {
             var result = adapter.findRankedGames(criteria(IGDB_PLAYERS, page, 2)).orElseThrow();
-            assertThat(result.totalItems()).isEqualTo(9);
+            assertThat(result.totalItems()).isEqualTo(12);
             paged.addAll(gameIds(result));
         }
-        var beyond = adapter.findRankedGames(criteria(IGDB_PLAYERS, 6, 2)).orElseThrow();
+        var beyond = adapter.findRankedGames(criteria(IGDB_PLAYERS, 7, 2)).orElseThrow();
 
         assertThat(paged)
                 .doesNotHaveDuplicates()
                 .containsExactlyElementsOf(
                         gameIds(
-                                adapter.findRankedGames(criteria(IGDB_PLAYERS, 1, 8))
+                                adapter.findRankedGames(criteria(IGDB_PLAYERS, 1, 12))
                                         .orElseThrow()));
         assertThat(beyond.items()).isEmpty();
-        assertThat(beyond.totalItems()).isEqualTo(9);
+        assertThat(beyond.totalItems()).isEqualTo(12);
     }
 
     @Test
@@ -162,14 +174,104 @@ class JdbcGameRankingReadAdapterIntegrationTest {
         // leads although it has fewer ratings. A row projected before the unrounded mean existed
         // and an ineligible game stay out, as does every game the community has not rated.
         assertThat(titles(result))
-                .containsExactly("Tied few votes", "Tied many votes large id", "Real zero");
-        assertThat(result.totalItems()).isEqualTo(3);
+                .containsExactly(
+                        "Tied few votes", "Tied many votes large id", "Real zero", "Only on Gamma");
+        assertThat(result.totalItems()).isEqualTo(4);
         assertThat(result.items())
                 .extracting(GameRankingReadPort.Item::score)
                 .containsExactly(
                         new GameRanking.Score.Community(new java.math.BigDecimal("9.0"), 1),
                         new GameRanking.Score.Community(new java.math.BigDecimal("8.3"), 3),
-                        new GameRanking.Score.Community(new java.math.BigDecimal("8.3"), 4));
+                        new GameRanking.Score.Community(new java.math.BigDecimal("8.3"), 4),
+                        new GameRanking.Score.Community(new java.math.BigDecimal("7.0"), 1));
+    }
+
+    @Test
+    void ranksAPlatformOnlyByGamesThatHaveEffectivelyComeOutThere() {
+        var result =
+                adapter.findRankedGames(criteria(IGDB_PLAYERS, List.of(PLATFORM_C), 1, 100))
+                        .orElseThrow();
+
+        // Out on Alpha since 2015, but its Gamma port is still to come: not on Gamma yet.
+        assertThat(titles(result)).containsExactly("Ported last year", "Only on Gamma");
+        assertThat(result.totalItems()).isEqualTo(2);
+        assertThat(result.platformsSupported()).isTrue();
+    }
+
+    @Test
+    void keepsTheGlobalScoreAndPresentsTheScopeReleaseAtItsOwnPrecision() {
+        var items =
+                adapter.findRankedGames(criteria(IGDB_PLAYERS, List.of(PLATFORM_C), 1, 100))
+                        .orElseThrow()
+                        .items();
+
+        // Two regions and two precisions on Gamma: one place, presented by the exact day.
+        assertThat(items.getFirst().platformRelease())
+                .contains(
+                        new GameRankingReadPort.PlatformRelease(
+                                new GameRanking.Taxonomy(PLATFORM_C, "Gamma Deck"),
+                                new GameRanking.Taxonomy(REGION_2, "Japón"),
+                                new ReleaseDate.Day(LocalDate.of(2025, 3, 1)),
+                                // Persisted evidence; the application derives the effective one.
+                                ReleaseStatus.ANNOUNCED));
+        assertThat(items.getFirst().score())
+                .isInstanceOfSatisfying(
+                        GameRanking.Score.IgdbPlayers.class,
+                        igdb -> assertThat(igdb.score().value()).isEqualByComparingTo("94"));
+        assertThat(items.get(1).platformRelease().orElseThrow().releaseDate())
+                .isEqualTo(new ReleaseDate.Month(YearMonth.of(2026, 7)));
+        // The summary still describes every platform of the game.
+        assertThat(items.getFirst().releaseSummary().totalPlatforms()).isEqualTo(3);
+    }
+
+    @Test
+    void ranksAFamilyOnceAndPagesItsOwnSequence() {
+        var family = List.of(PLATFORM_B, PLATFORM_C);
+        var all = adapter.findRankedGames(criteria(IGDB_PLAYERS, family, 1, 100)).orElseThrow();
+        var first = adapter.findRankedGames(criteria(IGDB_PLAYERS, family, 1, 2)).orElseThrow();
+        var second = adapter.findRankedGames(criteria(IGDB_PLAYERS, family, 2, 2)).orElseThrow();
+
+        // On both Beta and Gamma, still one place; a cancelled Beta release presents nothing.
+        assertThat(titles(all))
+                .containsExactly("Ported last year", "Multi platform", "Only on Gamma");
+        assertThat(all.totalItems()).isEqualTo(3);
+        assertThat(gameIds(first)).hasSize(2);
+        assertThat(first.totalItems()).isEqualTo(3);
+        assertThat(concat(gameIds(first), gameIds(second))).containsExactlyElementsOf(gameIds(all));
+        assertThat(all.items().get(1).platformRelease().orElseThrow().releaseDate())
+                .isEqualTo(new ReleaseDate.Day(LocalDate.of(2020, 5, 1)));
+        assertThat(all.items().getFirst().platformRelease().orElseThrow().platform().id())
+                .isEqualTo(PLATFORM_C);
+    }
+
+    @Test
+    void ranksTheCommunityOnAPlatformByTheSameGlobalMean() {
+        var result =
+                adapter.findRankedGames(criteria(GAMEOMETRO_COMMUNITY, List.of(PLATFORM_C), 1, 100))
+                        .orElseThrow();
+
+        assertThat(titles(result)).containsExactly("Only on Gamma");
+        assertThat(result.items().getFirst().score())
+                .isEqualTo(new GameRanking.Score.Community(new java.math.BigDecimal("7.0"), 1));
+    }
+
+    @Test
+    void ranksNothingForAPlatformOutsideTheTaxonomy() {
+        var unknown =
+                adapter.findRankedGames(
+                                criteria(
+                                        IGDB_PLAYERS,
+                                        List.of(PLATFORM_A, "10000000-0000-4000-8000-0000000000ff"),
+                                        1,
+                                        20))
+                        .orElseThrow();
+        var malformed =
+                adapter.findRankedGames(criteria(IGDB_PLAYERS, List.of("not-a-uuid"), 1, 20))
+                        .orElseThrow();
+
+        assertThat(unknown.platformsSupported()).isFalse();
+        assertThat(unknown.items()).isEmpty();
+        assertThat(malformed.platformsSupported()).isFalse();
     }
 
     @Test
@@ -185,8 +287,14 @@ class JdbcGameRankingReadAdapterIntegrationTest {
     }
 
     private static GameRankingReadPort.Criteria criteria(Source source, int page, int size) {
+        return criteria(source, List.of(), page, size);
+    }
+
+    private static GameRankingReadPort.Criteria criteria(
+            Source source, List<String> platformIds, int page, int size) {
         return new GameRankingReadPort.Criteria(
                 source,
+                platformIds,
                 TODAY,
                 new GameRankingReadPort.Pagination(page, size, (long) (page - 1) * size),
                 3);
@@ -200,17 +308,25 @@ class JdbcGameRankingReadAdapterIntegrationTest {
         return result.items().stream().map(GameRankingReadPort.Item::gameId).toList();
     }
 
+    private static List<String> concat(List<String> first, List<String> second) {
+        List<String> all = new ArrayList<>(first);
+        all.addAll(second);
+        return all;
+    }
+
     private static void seed() {
         admin.update(
                 "INSERT INTO catalogue.catalogue_publication (publication_id, catalogue_version, published_at, last_synchronized_at, source_kind, source_name, is_current) VALUES (?::uuid, 'ranking-fixture', now(), now(), 'product_curated', 'ranking fixture', true)",
                 PUBLICATION);
         admin.update(
-                "INSERT INTO catalogue.platform (platform_id, code, display_name) VALUES (?::uuid, 'ranking-b', 'Beta Box'), (?::uuid, 'ranking-a', 'Alpha Station')",
+                "INSERT INTO catalogue.platform (platform_id, code, display_name) VALUES (?::uuid, 'ranking-b', 'Beta Box'), (?::uuid, 'ranking-a', 'Alpha Station'), (?::uuid, 'ranking-c', 'Gamma Deck')",
                 PLATFORM_B,
-                PLATFORM_A);
+                PLATFORM_A,
+                PLATFORM_C);
         admin.update(
-                "INSERT INTO catalogue.region (region_id, code, display_name) VALUES (?::uuid, 'ranking-region', 'Mundial')",
-                REGION);
+                "INSERT INTO catalogue.region (region_id, code, display_name) VALUES (?::uuid, 'ranking-region', 'Mundial'), (?::uuid, 'ranking-region-2', 'Japón')",
+                REGION,
+                REGION_2);
 
         String multi = game(1, "Multi platform");
         release(
@@ -237,7 +353,7 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                 "cancelled",
                 "provider_only",
                 "not_required");
-        igdb(multi, "93", 100);
+        igdb(multi, "93", 50);
 
         String tiedLarge = eligible(game(3, "Tied many votes large id"));
         String tiedSmall = eligible(game(2, "Tied many votes small id"));
@@ -331,8 +447,8 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                 "INSERT INTO catalogue.game_external_score (game_id, source_name, score_kind, score, score_count, source_url, observed_at, changed_at) VALUES (?::uuid, 'IGDB', 'player', NULL, NULL, NULL, now(), now())",
                 checked);
         igdb(game(17, "Without releases"), "99", 500);
-        // Ninety-nine IGDB ratings are one short of a place, however high their mean.
-        igdb(eligible(game(18, "Ninety-nine ratings")), "99", 99);
+        // Forty-nine IGDB ratings are one short of a place, however high their mean.
+        igdb(eligible(game(18, "Forty-nine ratings")), "99", 49);
 
         community(tiedFew, "9.000000000000000000", "9.0", 1);
         community(tiedLarge, "8.333333333333333333", "8.3", 3);
@@ -342,6 +458,31 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                 "INSERT INTO catalogue.game_community_score (game_id, mean, rating_count) VALUES (?::uuid, 9.9, 7)",
                 tiedSmall);
         community(cancelled, "10.000000000000000000", "10.0", 2);
+
+        // Platform scopes (RNK-005).
+        String oldGame = game(19, "Old game ported later");
+        release(oldGame, PLATFORM_A, "day", "2015-03-01", "released", "verified", "not_required");
+        release(oldGame, PLATFORM_C, "day", "2026-09-01", "announced", "verified", "not_required");
+        igdb(oldGame, "95", 200);
+        String ported = game(20, "Ported last year");
+        release(ported, PLATFORM_A, "day", "2010-01-01", "released", "verified", "not_required");
+        releaseIn(
+                ported, PLATFORM_C, REGION, "year", "2024", "released", "verified", "not_required");
+        releaseIn(
+                ported,
+                PLATFORM_C,
+                REGION_2,
+                "day",
+                "2025-03-01",
+                "announced",
+                "verified",
+                "not_required");
+        release(ported, PLATFORM_B, "day", "2026-01-01", "released", "verified", "not_required");
+        igdb(ported, "94", 200);
+        String gamma = game(21, "Only on Gamma");
+        release(gamma, PLATFORM_C, "month", "2026-07", "announced", "verified", "not_required");
+        igdb(gamma, "89", 200);
+        community(gamma, "7.000000000000000000", "7.0", 1);
     }
 
     private static String gameId(int number) {
@@ -380,12 +521,27 @@ class JdbcGameRankingReadAdapterIntegrationTest {
             String status,
             String verification,
             String review) {
+        releaseIn(game, platform, REGION, precision, value, status, verification, review);
+    }
+
+    private static void releaseIn(
+            String game,
+            String platform,
+            String region,
+            String precision,
+            String value,
+            String status,
+            String verification,
+            String review) {
         String releaseId = "40000000-0000-4000-8000-%012d".formatted(++releaseSequence);
         admin.update(
                 "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, ?::uuid, now())",
                 releaseId,
                 game);
-        Integer year = "month".equals(precision) ? Integer.valueOf(value.substring(0, 4)) : null;
+        Integer year =
+                "month".equals(precision) || "year".equals(precision)
+                        ? Integer.valueOf(value.substring(0, 4))
+                        : null;
         Integer month = "month".equals(precision) ? Integer.valueOf(value.substring(5)) : null;
         admin.update(
                 "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_year, release_month, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?::date, ?, ?, ?, 'external_provider', 'IGDB', 'release_date', now(), ?, ?)",
@@ -393,7 +549,7 @@ class JdbcGameRankingReadAdapterIntegrationTest {
                 releaseId,
                 game,
                 platform,
-                REGION,
+                region,
                 precision,
                 "day".equals(precision) ? value : null,
                 year,

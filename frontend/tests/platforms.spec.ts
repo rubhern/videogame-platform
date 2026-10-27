@@ -22,7 +22,7 @@ const directory = [
 
 const featured = ["Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC"];
 const offered = [
-  "Android", "iOS", "Linux", "Mac", "PlayStation 4", "Meta Quest 3", "Nintendo Switch", "Xbox One", "PlayStation VR2",
+  "Android", "iOS", "Linux", "Mac", "PlayStation 4", "Meta Quest 3", "Nintendo Switch", "Xbox One",
 ];
 
 async function mockApi(page: Page) {
@@ -79,7 +79,7 @@ test("a platform opens its destinations in place by keyboard, keeps the reading 
   const destinations = others(page).getByRole("list", { name: "Destinos de PlayStation 4" });
   await expect(destinations).toBeInViewport();
   await expect(destinations.getByRole("listitem"))
-    .toHaveText([/Próximos destacados\s*Próximamente/, /TOPómetro\s*Próximamente/, /^Explorar catálogo$/]);
+    .toHaveText([/Próximos destacados\s*Próximamente/, /^TOPómetro$/, /^Explorar catálogo$/]);
 
   await page.keyboard.press("Space");
   await expect(page).toHaveURL(/\/plataformas$/);
@@ -94,7 +94,7 @@ test("a platform opens its destinations in place by keyboard, keeps the reading 
 for (const width of [320, 360, 390, 834, 1320]) {
   test(`reflows the showcase and Otras without overflow at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });
-    await page.goto("/plataformas?plataforma=psvr2-id");
+    await page.goto("/plataformas?plataforma=xone-id");
     await expect(cards(page).getByRole("heading", { level: 2 })).toHaveText(featured);
 
     const boxes = await cards(page).evaluateAll((elements) =>
@@ -131,6 +131,6 @@ for (const width of [320, 360, 390, 834, 1320]) {
 
     await page.emulateMedia({ forcedColors: "active" });
     await expect(cards(page).first().getByRole("heading", { level: 2 })).toBeVisible();
-    await expect(others(page).getByRole("button", { name: "PlayStation VR2" })).toBeVisible();
+    await expect(others(page).getByRole("button", { name: "Xbox One" })).toBeVisible();
   });
 }

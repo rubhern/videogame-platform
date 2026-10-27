@@ -13,7 +13,7 @@ type PlatformSwitcherProps = {
 
 /**
  * **Cambiar plataforma**: a disclosure listing the featured platforms, then the other platforms
- * on offer, as native links to the same catalogue that keep the search, state, order and filters.
+ * on offer, as native links to the same destination on that platform, keeping its own state.
  * Escape and a press outside close it; the current platform is announced as current.
  */
 export function PlatformSwitcher({ current, others, pathFor }: PlatformSwitcherProps) {
