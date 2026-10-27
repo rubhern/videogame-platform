@@ -18,6 +18,7 @@
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
 | `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 100 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
+| `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -212,6 +213,27 @@ pages of one source, so the first three are the podium; ties never share a place
 independently of the catalogue, so a game can move between two page reads, and a client keeps
 its first occurrence. The ranked source's reading is the same value its order used, rounded for
 display only. Platform-scoped rankings (#387) are a separate follow-up.
+
+Post-MVP (#389, implemented; awaiting owner review), `UC-019` is **Explorar catálogo**, the
+platform destination of the Plataformas section. A game belongs to a scope while one of its current
+releases on a scope platform is not cancelled; the release that presents it follows `PCAT-002`, so
+a game that is out is always shown by a release that is out, and its status is the effective status
+of that release, never a stored one. The optional search reuses the `UC-002` normalization and
+text-search vectors as a filter inside the scope and never reorders. Genres and the known years are
+contextual facets: each leaves out its own dimension and keeps a selected genre representable.
+Scores are composed by API delivery for the returned page only, as on discovery pages; the two
+score orders read the Catalogue-owned stored external score and community projection
+([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), never
+Ratings tables. One statement derives the presented releases once and returns the page, the total
+and both facets in one repeatable-read snapshot, so request memory is `O(pageSize)` plus the bounded
+genre taxonomy; the statement runs without PostgreSQL JIT compilation, which measured 15–700 ms of
+compile time for no gain. Evidence (2026-10-27): on a copy of the real local catalogue (21,839
+games, 40,681 releases) a page reads in about 90–105 ms for Windows PC (18,735 games) and 7–23 ms
+for Nintendo Switch 2 and PlayStation 5; the opt-in `PlatformGamesScalabilityIT` measures about
+0.5–0.7 s for one platform holding 100,000 games and 198,000 releases, dominated by deriving every
+game's presented release. That cost grows with the platform's own releases, not the page; a
+per-publication projection of each game's presented release per platform is the remedy when a
+measured platform scope makes the page read exceed its budget.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.

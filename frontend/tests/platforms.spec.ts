@@ -79,7 +79,7 @@ test("a platform opens its destinations in place by keyboard, keeps the reading 
   const destinations = others(page).getByRole("list", { name: "Destinos de PlayStation 4" });
   await expect(destinations).toBeInViewport();
   await expect(destinations.getByRole("listitem"))
-    .toHaveText([/Próximos destacados\s*Próximamente/, /TOPómetro\s*Próximamente/, /Explorar catálogo\s*Próximamente/]);
+    .toHaveText([/Próximos destacados\s*Próximamente/, /TOPómetro\s*Próximamente/, /^Explorar catálogo$/]);
 
   await page.keyboard.press("Space");
   await expect(page).toHaveURL(/\/plataformas$/);

@@ -6,6 +6,7 @@ import { FeaturedReleasesPage } from "../pages/featured-releases-page";
 import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { PlatformCataloguePage } from "../pages/platform-catalogue-page";
 import { PlatformsPage } from "../pages/platforms-page";
 import { ReleaseCalendarPage } from "../pages/release-calendar-page";
 import { ReleasesPage } from "../pages/releases-page";
@@ -15,6 +16,7 @@ import { MyPlatformsPage } from "../pages/my-platforms-page";
 import { RatingInsightsPage } from "../pages/rating-insights-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { WelcomePage } from "../pages/welcome-page";
+import { PLATFORM_CATALOGUE_ROUTE } from "../features/platform-catalogue/platform-catalogue-search";
 import { legalPublicationApproved } from "../shared/legal/publication";
 import { legalRoutes } from "../shared/legal/legal-routes";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
@@ -34,6 +36,7 @@ export const appRoutes: RouteObject[] = [
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
       { path: "topometro", element: <TopometroPage /> },
       { path: "plataformas", element: <PlatformsPage /> },
+      { path: PLATFORM_CATALOGUE_ROUTE, element: <PlatformCataloguePage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },

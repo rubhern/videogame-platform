@@ -148,6 +148,18 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.platformgames.BrowsePlatformGamesUseCase
+            browsePlatformGamesUseCase(
+                    com.videogameplatform.catalogue.application.platformgames.port
+                                    .PlatformGamesReadPort
+                            readPort,
+                    CatalogueCoverPolicy coverPolicy,
+                    Clock clock) {
+        return new com.videogameplatform.catalogue.application.platformgames.internal
+                .PlatformGamesService(readPort, coverPolicy, clock);
+    }
+
+    @Bean
     com.videogameplatform.catalogue.application.preferences.ListPlatformsUseCase
             listPlatformsUseCase(
                     com.videogameplatform.catalogue.application.preferences.port

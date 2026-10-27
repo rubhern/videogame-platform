@@ -3,9 +3,10 @@ import { useLocation } from "react-router-dom";
 import { FEATURED_PATH } from "../features/releases/featured-search";
 import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
 import { readReleasesSearch, RELEASES_PATH, releasesSearchPath } from "../features/releases/releases-search";
+import { PLATFORMS_PATH } from "../features/platforms/platform-context";
 
 /** The Plataformas index (#287); a selected platform stays on the same path. */
-export { PLATFORMS_PATH } from "../features/platforms/platform-context";
+export { PLATFORMS_PATH };
 
 export type ReleaseDestination = { label: string; path: string; to: string };
 
@@ -27,7 +28,13 @@ export function usePrimaryDestinations() {
     },
     { label: "Calendario", path: CALENDAR_PATH, to: CALENDAR_PATH },
   ];
-  const current = (path: string) => (location.pathname === path ? ("page" as const) : undefined);
+  // A section is current on its own page and, for Plataformas, on a platform's destinations too.
+  const current = (path: string) => {
+    if (location.pathname === path) return "page" as const;
+    return path === PLATFORMS_PATH && location.pathname.startsWith(`${path}/`)
+      ? ("true" as const)
+      : undefined;
+  };
   return {
     releases,
     releasesActive: releases.some(destination => destination.path === location.pathname),

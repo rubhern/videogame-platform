@@ -1,16 +1,16 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.3.0
+  version: 5.4.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
     calendar, weekly and monthly featured releases, the player-rating game ranking,
-    bounded-catalogue search, public game details, the selectable platform taxonomy, BFF
+    bounded-catalogue search, the catalogue of one platform, public game details, the selectable platform taxonomy, BFF
     session discovery, the authenticated user's ratings, rating statistics and preferred
     platforms, and the catalogue operator's synchronization status, coverage, bounded and
     historical synchronization requests and the stop or abandonment of one run. It contains
-    only the twenty-five approved method/path operations.
+    only the twenty-six approved method/path operations.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -37,6 +37,10 @@ tags:
     description: |
       Public player-rating rankings of the released games in the local catalogue (TOPómetro),
       one source at a time.
+  - name: Platform catalogue
+    description: |
+      Public browsing of every locally known game of one platform or platform family, without a
+      search query.
   - name: Platform preferences
     description: |
       The current user's preferred platforms, which the client applies to release discovery as
@@ -787,6 +791,145 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/RankingValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /platform-games:
+    get:
+      tags: [Platform catalogue]
+      operationId: browsePlatformGames
+      summary: Browse the local catalogue of one platform
+      description: |
+        Explorar catálogo (`UC-019`): a bounded page of the games of the last valid local catalogue
+        publication that hold a release on any of the requested platforms, without a search
+        query. A platform family such as Xbox Series X|S or a featured platform is sent as the
+        product platform identifiers it groups; no platform entity is invented for it. Cancelled
+        releases never associate a game with a platform.
+
+        Each game appears once, whatever its releases and regions on those platforms, and carries
+        one `platformRelease`: the release of the platform scope that presents it. A game with a
+        release that has effectively occurred at the evaluation date (`Europe/Madrid`) is presented
+        by one of those releases; otherwise by an expected release with a known date, otherwise by a
+        delayed or undated one. Occurrence derives from the effective date under the same rule as
+        game details (an exact day from that day on, a month, quarter or year once it has ended, an
+        unknown date only with explicit released evidence), never from a stored status, and delayed
+        evidence never occurs. Within that class the presentation precedence of `ReleaseItem`
+        chooses, ending with the earliest date and `releaseId`. Its `status` is therefore
+        `released` exactly for the games `releaseState=released` selects; `scheduled`, `announced`
+        (unknown date) and `delayed` are the games still to come, and `cancelled` never appears.
+        The date keeps its real precision and is never narrowed to an invented day.
+
+        `q` optionally narrows the scope to games whose canonical title or an approved alias
+        matches under the `searchGames` rules (normalized, all tokens, word prefixes, non-fuzzy);
+        it filters and never reorders. `releaseState`, the inclusive year range on the presented
+        release's known year and `genreIds` (OR within the dimension) combine with AND. A year
+        range excludes a presented release with an unknown date. `availableFilters` is faceted:
+        its genres are those of the games matching every other active filter, never narrowed by
+        the active genre selection, and a selected genre always stays representable; its years
+        span the presented releases matching every filter except the year range.
+
+        PostgreSQL selects, deduplicates, presents, filters, counts, orders and pages the games
+        before the page reaches the application. Scores, genres and the matched alias are read
+        for the returned page only. The total counts games, not releases, and makes no claim of
+        exhaustive historical coverage. It never varies on the session or preferred platforms and
+        never calls a provider.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlatformScopeQuery'
+        - $ref: '#/components/parameters/PlatformGamesQuery'
+        - $ref: '#/components/parameters/PlatformGamesReleaseState'
+        - $ref: '#/components/parameters/PlatformGamesFromYear'
+        - $ref: '#/components/parameters/PlatformGamesToYear'
+        - $ref: '#/components/parameters/GenreIdsQuery'
+        - $ref: '#/components/parameters/PlatformGamesSortQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: A deterministic page of the platform scope's games, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformGamesPage' }
+              examples:
+                browse:
+                  summary: A platform's games without a query, latest first
+                  value:
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                    availableFilters:
+                      genres:
+                        - { genreId: genre_adventure, name: Aventura }
+                        - { genreId: genre_platform, name: Plataformas }
+                      earliestYear: 2025
+                      latestYear: 2027
+                    items:
+                      - gameId: game_example_upcoming
+                        slug: example-upcoming
+                        canonicalTitle: Example Upcoming
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample2.webp
+                          alternativeText: Portada de Example Upcoming
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/example-upcoming
+                        genres:
+                          - { genreId: genre_adventure, name: Aventura }
+                        platformRelease:
+                          platform: { platformId: platform_switch2, name: Nintendo Switch 2 }
+                          region: { regionId: region_worldwide, name: Mundial }
+                          releaseDate: { precision: quarter, value: 2027-Q1 }
+                          status: scheduled
+                        scores:
+                          community: { status: available, mean: null, count: 0 }
+                      - gameId: game_example_released
+                        slug: example-released
+                        canonicalTitle: Example Released
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Portada oficial no disponible
+                          attribution: null
+                        genres: []
+                        platformRelease:
+                          platform: { platformId: platform_switch2, name: Nintendo Switch 2 }
+                          region: { regionId: region_europe, name: Europa }
+                          releaseDate: { precision: day, value: '2026-06-05' }
+                          status: released
+                        scores:
+                          community: { status: available, mean: 8.5, count: 3 }
+                          external:
+                            source: igdb
+                            kind: player
+                            value: 8.4
+                            scale: 10
+                            count: 212
+                            attribution:
+                              label: Jugadores IGDB
+                              sourceUrl: https://www.igdb.com/games/example-released
+                            observedAt: '2026-10-20T08:00:00Z'
+                    page: { number: 1, size: 24, totalItems: 2, totalPages: 1 }
+                empty:
+                  summary: No game of the scope matches the filters
+                  value:
+                    platforms:
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                    availableFilters:
+                      genres:
+                        - { genreId: genre_pinball, name: Pinball }
+                    items: []
+                    page: { number: 1, size: 24, totalItems: 0, totalPages: 0 }
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/PlatformGamesValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
@@ -2372,6 +2515,81 @@ components:
         maxItems: 50
         items: { $ref: '#/components/schemas/PlatformId' }
       example: [platform_ps5, platform_switch2]
+    PlatformScopeQuery:
+      name: platformIds
+      in: query
+      required: true
+      description: |
+        Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+        identifiers of one platform or one platform family, combined with OR. At least one is
+        required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+        trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 20
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/PlatformId' }
+      example: [platform_switch2]
+    PlatformGamesQuery:
+      name: q
+      in: query
+      required: false
+      description: |
+        Optional title search inside the platform scope, trimmed, with 1 to 100 Unicode code
+        points. A query whose normalized form holds no token yields 422 `SEARCH_QUERY_INVALID`.
+      schema: { type: string, minLength: 1, maxLength: 100, pattern: '.*\S.*' }
+      example: zelda
+    PlatformGamesReleaseState:
+      name: releaseState
+      in: query
+      required: false
+      description: |
+        Omit it for every game of the scope. `released` keeps the games whose presented release
+        has effectively occurred at the evaluation date; `upcoming` keeps the others: expected,
+        delayed or still undated.
+      schema: { $ref: '#/components/schemas/PlatformGameReleaseState' }
+      example: upcoming
+    PlatformGamesFromYear:
+      name: fromYear
+      in: query
+      required: false
+      description: |
+        First calendar year, inclusive, of the presented release's known date. Either bound may be
+        sent alone; a `fromYear` after `toYear` yields 422 `FILTER_INVALID` for `/query/toYear`.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      example: 2026
+    PlatformGamesToYear:
+      name: toYear
+      in: query
+      required: false
+      description: Last calendar year, inclusive, of the presented release's known date.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      example: 2027
+    GenreIdsQuery:
+      name: genreIds
+      in: query
+      required: false
+      description: |
+        Repeatable multi-select genre filter (`genreIds=a&genreIds=b`) over the existing
+        localized product genres; values combine with OR. Values are trimmed and de-duplicated; an
+        unknown value yields 422 `FILTER_INVALID` for `/query/genreIds`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        maxItems: 30
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/GenreId' }
+      example: [genre_adventure]
+    PlatformGamesSortQuery:
+      name: sort
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/PlatformGamesSort' }
+      example: release_date_asc
     RegionIdsQuery:
       name: regionIds
       in: query
@@ -2552,6 +2770,35 @@ components:
         first, then the larger number of that source's ratings. A game without the chosen
         signal follows every game with one and is never treated as zero; ties continue with the
         `releaseDate` order.
+
+    PlatformGamesSort:
+      type: string
+      enum: [release_date_desc, release_date_asc, title_asc, title_desc, community_score, external_player_score]
+      default: release_date_desc
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [release_date_desc, release_date_asc, title_asc, title_desc, community_score, external_player_score]
+      description: |
+        The order of the games, applied before pagination; every order ends in the unique
+        `gameId`. The date orders position each game by its presented release: the last day of
+        its known period (the day itself for an exact date), then an exact day before a month,
+        quarter or year ending the same day, then the normalized canonical title. A presented
+        release with an unknown date follows every dated one in both directions and is never
+        treated as a date. `release_date_desc` (the default) puts the latest first,
+        `release_date_asc` the earliest. The title orders use the normalized canonical title.
+        `community_score` puts the highest Gameómetro community mean, at the one decimal shown,
+        first, then more ratings; `external_player_score` the highest stored external player
+        score (currently IGDB players) at the one decimal of its /10 value, then more of that
+        source's ratings. A game without the chosen score follows every game with one and is
+        never treated as zero; ties continue with `release_date_desc`.
+    PlatformGameReleaseState:
+      type: string
+      enum: [released, upcoming]
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [released, upcoming]
+      description: |
+        Whether a game's presented release on the platform scope has effectively occurred at the
+        evaluation date (`released`) or not yet (`upcoming`), derived from its effective date,
+        never from a stored status.
 
     RankingSource:
       type: string
@@ -3322,6 +3569,67 @@ components:
       description: |
         The Gameómetro community mean of one contribution per rating, half up to one decimal,
         and the positive number of ratings behind it, including one.
+    PlatformGamesPage:
+      type: object
+      required: [platforms, availableFilters, items, page]
+      properties:
+        platforms:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Platform' }
+          description: The requested platform scope, ordered by case-insensitive name then `platformId`.
+        availableFilters: { $ref: '#/components/schemas/PlatformGamesFilters' }
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PlatformGameItem' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+      additionalProperties: false
+    PlatformGamesFilters:
+      type: object
+      required: [genres]
+      properties:
+        genres:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: |
+            The genres of the games matching every other active filter, ordered by case-insensitive
+            name then `genreId`, always including a selected genre.
+        earliestYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+        latestYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      additionalProperties: false
+      description: |
+        Contextual choices for the platform scope. The years are the earliest and latest known
+        years of the presented releases matching every filter except the year range; both are
+        omitted when none has a known date.
+    PlatformGameItem:
+      type: object
+      required: [gameId, slug, canonicalTitle, primaryCover, genres, platformRelease, scores]
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        canonicalTitle: { type: string, minLength: 1 }
+        matchedAlias:
+          type: string
+          minLength: 1
+          description: Present only when `q` matched an approved alias and not the canonical title.
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            The release that presents the game on the platform scope, with its own platform,
+            region, date precision and effective status; never `cancelled`.
+        scores: { $ref: '#/components/schemas/DiscoveryScores' }
+      additionalProperties: false
     GameSearchPage:
       type: object
       required: [items, page]
@@ -4407,6 +4715,25 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             searchQueryInvalid: { $ref: '#/components/examples/SearchQueryInvalid' }
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    PlatformGamesValidationFailed:
+      description: |
+        The platform scope, search query, year range, genres, order, pagination or request
+        parameters are invalid: an unknown platform, a query without a token, a
+        `fromYear` after `toYear`, an unknown genre, an unsupported sort or release state, or an
+        unknown parameter.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
+            searchQueryInvalid: { $ref: '#/components/examples/SearchQueryInvalid' }
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+            sortInvalid: { $ref: '#/components/examples/SortInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     RankingValidationFailed:

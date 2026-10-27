@@ -34,7 +34,16 @@ import {
   PLATFORM_PREFERENCES_QUERY_KEY,
   platformListQueryOptions,
 } from "../features/platform-preferences/use-platform-preferences";
-import { PLATFORMS_PATH } from "../features/platforms/platform-context";
+import {
+  featuredPlatforms,
+  PLATFORMS_PATH,
+  resolvePlatformContext,
+} from "../features/platforms/platform-context";
+import {
+  readPlatformCatalogueKey,
+  readPlatformCatalogueSearch,
+} from "../features/platform-catalogue/platform-catalogue-search";
+import { platformGamesQueryOptions } from "../features/platform-catalogue/use-platform-games-query";
 import type { PlatformPreferences } from "../features/platform-preferences/platform-preferences-api";
 import { welcomePath } from "../features/platform-preferences/welcome-return";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
@@ -96,6 +105,25 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
       await queryClient
         .ensureInfiniteQueryData(gameRankingQueryOptions(readRankingSource(url.searchParams)))
         .catch(() => undefined);
+    } else if (readPlatformCatalogueKey(url.pathname) !== null) {
+      // A platform's catalogue (#389) reads the directory to resolve a platform outside the
+      // featured four, then the page the URL names, so Back restores its height.
+      const key = readPlatformCatalogueKey(url.pathname) ?? "";
+      const directory = await queryClient
+        .fetchQuery(platformListQueryOptions())
+        .catch(() => undefined);
+      const featured = featuredPlatforms.find(
+        (platform) => platform.key === key || platform.platformIds.includes(key),
+      );
+      const context =
+        featured ?? (directory === undefined ? null : resolvePlatformContext(key, directory));
+      if (context !== null) {
+        await queryClient
+          .prefetchQuery(
+            platformGamesQueryOptions(readPlatformCatalogueSearch(url.searchParams), context),
+          )
+          .catch(() => undefined);
+      }
     } else if (url.pathname === PLATFORMS_PATH) {
       // The public directory (#287): Otras and its chosen card restore their height on Back.
       await queryClient.prefetchQuery(platformListQueryOptions());
