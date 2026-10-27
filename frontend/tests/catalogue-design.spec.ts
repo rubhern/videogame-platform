@@ -114,18 +114,13 @@ for (const width of [320, 390, 834, 1320]) {
     ).toHaveCount(28);
     await expectAccessibleLayout(page);
     if (width < 620) {
+      // Phones keep one header row: the lockup, the search icon and the Menú button (#358).
       const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
-      const primary = page.getByRole("navigation", { name: "Principal" });
-      const recent = await primary.getByRole("button", { name: "Lanzamientos", exact: true }).boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();
-      expect(logo?.y).toBe(search?.y);
-      // The two release entries share the identity's row from 360px; narrower phones give
-      // them a full-width row of their own under the identity and both icons.
-      if (width >= 360) {
-        expect(logo?.y).toBe(recent?.y);
-      } else {
-        expect(recent?.y ?? 0).toBeGreaterThan((logo?.y ?? 0) + (logo?.height ?? 0));
-      }
+      const menu = await page.getByRole("button", { name: "Menú" }).boundingBox();
+      const centre = (box: typeof logo) => (box?.y ?? 0) + (box?.height ?? 0) / 2;
+      expect(Math.abs(centre(logo) - centre(search))).toBeLessThanOrEqual(2);
+      expect(Math.abs(centre(menu) - centre(search))).toBeLessThanOrEqual(2);
       await page.getByRole("button", { name: "Buscar juegos" }).click();
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
       await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toBeFocused();

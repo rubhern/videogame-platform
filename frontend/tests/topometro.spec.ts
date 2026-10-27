@@ -92,8 +92,11 @@ for (const width of [320, 390, 834, 1320]) {
         .filter(child => child.left < box.left - 1 || child.right > box.right + 1);
     }));
     expect(spills).toEqual([]);
+    // Phones name the current section inside the Menú sheet (#358).
+    if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
     await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "TOPómetro" }))
       .toHaveAttribute("aria-current", "page");
+    if (width < 720) await page.keyboard.press("Escape");
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`topometro-${width}.png`), fullPage: true });
   });

@@ -146,41 +146,10 @@ work never brings them back.
 
 ## Mandatory composition
 
-- Use the full-width header with the Gameómetro mark and wordmark, primary
-  navigation, integrated catalogue search and the server-owned account control. It floats
-  over the page's stage on a soft scrim rather than a solid bar, in the
-  [brand identity](#brand-identity): the current section carries a short fire rule, and search
-  and account sit on night with ice edges. Post-MVP (#385), the primary
-  navigation is one **Lanzamientos** disclosure containing **Destacados**, **Explorar** and
-  **Calendario**, in that order, named in the
-  [product glossary](../product/glossary.md#user-facing-terms). The active release section keeps
-  the short fire rule; the active destination is highlighted and announced as the current page.
-  The native button exposes its expanded state and controlled panel; native links use Tab,
-  Enter and normal browser navigation. Escape closes and returns focus to the button; leaving
-  the disclosure, pressing outside or navigating closes it. Preserve the account panel’s
-  surface, spacing and focus language. Post-MVP (#386), **TOPómetro** follows the disclosure as
-  a native link of its own, outside it, so leaving the disclosure for it closes the disclosure;
-  it is named by the TOPómetro lockup at the labels' cap height, dimmed like a muted label and
-  lit when hovered or current, and carries the same fire rule and `aria-current` while its page
-  is shown. The account
-  control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
-  ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
-  authenticated session, and **Panel de administrador** only when the session names
-  that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
-  `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
-  directly to the hosted Gameómetro identity screens;
-  discovery stays anonymous and the inline rating authentication boundary remains available.
-  Keep catalogue search prominent within the
-  header and omit the explanatory context strip. On phones below 620px, the compact mark,
-  the release disclosure with TOPómetro, search and account icons share one row from 360px;
-  below 360px the two entries take a full-width row of their own under that row. Search opens the
-  existing catalogue search in a keyboard-accessible dialog; the account icon opens
-  either the two anonymous entry links or the authenticated account actions in a
-  keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
-  the account control share the first row, with navigation beside the identity, and search
-  spans the next row; below 720px the identity is the compact mark and the sections and
-  entry links tighten, so the account control never wraps onto a row of its own. The
-  single desktop row keeps the compact mark until 1180px for the same reason.
+- Use the full-width header with the Gameómetro identity, primary navigation, integrated
+  catalogue search and the server-owned account control, under the
+  [header and navigation](#header-and-navigation) rules. Keep catalogue search prominent within
+  the header and omit the explanatory context strip.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
   desktop, 24px tablet and 16px phone gutters. The release explorer opens with the title and
   the API's evaluated range as its readout, the [day bar](#brand-identity), then its controls in
@@ -228,6 +197,80 @@ work never brings them back.
   accessible popover preserving each hidden release's date, platform and region. The API
   presents at most one release per platform, so a platform never repeats on a card. The card
   height never grows with the number of releases.
+
+## Header and navigation
+
+- **Status:** Post-MVP (#358, owner-requested; implemented, awaiting owner review). These
+  responsive rules supersede the earlier phone and tablet header layouts.
+
+**Surface.** The header floats over the page's stage on a soft scrim rather than a solid bar, in
+the [brand identity](#brand-identity): the current section carries a short fire rule, and search
+and account sit on night with ice edges. Its labels keep their size at every width; when space
+runs out the layout changes, never the type.
+
+**Sections.** The primary navigation holds three sections, in this order on every width and named
+in the [product glossary](../product/glossary.md#user-facing-terms):
+
+1. **Lanzamientos** (#385), one disclosure containing **Destacados**, **Explorar** and
+   **Calendario**, in that order. The native button exposes its expanded state and controlled
+   panel; native links use Tab, Enter and normal browser navigation. Escape closes it and returns
+   focus to the button; leaving it, pressing outside or navigating closes it. The active release
+   section keeps the short fire rule and is announced as current; its active destination is
+   highlighted and announced as the current page. Preserve the account panel's surface, spacing
+   and focus language.
+2. **TOPómetro** (#386), a native link of its own outside the disclosure, so leaving the
+   disclosure for it closes the disclosure. It is named by the TOPómetro lockup at the labels'
+   cap height, dimmed like a muted label and lit when hovered or current.
+3. **Plataformas** (#358), a native link to `/plataformas`. Until the Plataformas index (#287)
+   exists, that path resolves to the not-found page: an owner-accepted intermediate state. Never
+   invent platform content to fill it.
+
+A section whose page is shown carries the fire rule and `aria-current="page"`.
+
+**Account.** For an authenticated session the account control provides `Mi cuenta`,
+`Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
+([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout, and
+**Panel de administrador** only when the session names that capability (#247). Post-MVP (#162),
+anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
+BFF/OIDC navigation directly to the hosted Gameómetro identity screens; discovery stays anonymous
+and the inline rating authentication boundary remains available.
+
+**Desktop, from 1024px.** One row: identity, the three sections, search and account. Search
+gives way first, from 680px down to 200px, before the sections lose anything; the compact mark
+replaces the lockup until 1180px so the row keeps that minimum.
+
+**Tablet, 720–1023px.** Two rows: the lockup and the account control above, the sections and
+search below, where search takes the remaining width. The anonymous entry links stay visible.
+
+**Compact, below 720px.** One row: the lockup, never the lone mark, then search and the **Menú**
+button. Below 620px search is an icon that opens the existing catalogue search in a
+keyboard-accessible dialog; from 620px it is the field itself. The visible sections and the
+account control are absent: the menu carries both.
+
+**The menu.** A disclosure, not a modal: a native button named **Menú** with its expanded state
+and controlled sheet. Its glyph is a long and a short tick of a scale that cross into a close
+mark while it is open; a small ice point on it shows a signed-in session. It opens an opaque night
+sheet under the header row, with an ice top edge, over a scrim that dims the page and takes the
+tap that closes it, so nothing beneath acts; the header row stays usable above the scrim. The
+sheet holds, in reading order:
+
+- the `Principal` navigation: **Lanzamientos** in the page titles' wide voice with its three
+  destinations beneath in Destacados's **Semana | Mes** voice, then **TOPómetro**, by its lockup,
+  and **Plataformas** as full-width rows in that voice, each with a chevron;
+- the account, apart from discovery in a dock on its own surface: **Tu cuenta** with
+  `Iniciar sesión` and `Crear cuenta` side by side, or **Mi cuenta** with its avatar and the
+  account actions, logout last after a hairline.
+
+Focus stays on the button when the sheet opens, and the sheet follows it in the tab order.
+Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
+or showing another page closes it, and a link to the page already shown returns focus to the
+button. A query change on the same page, such as the **Mis plataformas** checkbox on the
+explorer, keeps it open. A sheet taller than the viewport scrolls inside itself.
+
+**Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
+reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);
+nothing moves under reduced motion. Forced colours outline the current page in `Highlight` and
+return every header surface to system colours.
 
 ## Visual language and tokens
 

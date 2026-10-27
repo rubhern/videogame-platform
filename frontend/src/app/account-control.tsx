@@ -11,12 +11,14 @@ import {
 } from "../features/releases/release-calendar-search";
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
+import type { SessionCapability } from "../features/session/session-api";
 
-/** The session-derived header account entry; session and logout remain owned by the BFF hooks. */
+/**
+ * The session-derived header account entry from tablet width; the compact navigation menu carries
+ * the same entry below it. Session and logout remain owned by the BFF hooks.
+ */
 export function AccountControl() {
   const session = useSession();
-  const logout = useLogout();
-  const location = useLocation();
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -51,23 +53,12 @@ export function AccountControl() {
 
   if (session.data?.authenticated !== true) {
     if (!session.data) return null;
-    const returnTo = location.pathname + location.search;
     return (
-      <div className="account-control account-entry" data-open={open} ref={controlRef} onBlur={closeOnBlur}>
-        <button className="account-trigger account-anonymous-trigger" type="button"
-          aria-label="Acceder a tu cuenta" aria-controls={panelId} aria-expanded={open}
-          ref={triggerRef} onClick={() => setOpen(current => !current)}>
-          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" /><path d="M5 20v-1a7 7 0 0 1 14 0v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-        </button>
-        <nav className="account-entry-links" id={panelId} aria-label="Acceso a tu cuenta">
-          <a className="account-signin" href={authenticationStartUrl(returnTo)}>Iniciar sesión</a>
-          <a className="account-register" href={authenticationStartUrl(returnTo, true)}>Crear cuenta</a>
-        </nav>
+      <div className="account-control account-entry">
+        <AccountEntryLinks />
       </div>
     );
   }
-
-  const csrfToken = session.data.csrfToken;
 
   return (
     <div
@@ -90,45 +81,81 @@ export function AccountControl() {
       </button>
       {open ? (
         <div className="account-panel" id={panelId}>
-          <Link className="account-option" onClick={() => setOpen(false)} to="/mis-puntuaciones">
-            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-              <path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
-            </svg>
-            Mis puntuaciones
-          </Link>
-          <Link className="account-option" onClick={() => setOpen(false)} to="/mis-puntuaciones/estadisticas">
-            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20"><path d="M3 16V10m7 6V4m7 12V7" stroke="currentColor" strokeWidth="2" /></svg>
-            Tus estadísticas
-          </Link>
-          {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
-          <PlatformsMenuRow onNavigate={() => setOpen(false)} />
-          {/* Navigation only: the server authorizes every administration read itself. */}
-          {session.data.capabilities.includes("catalogue_administration") ? (
-            <Link className="account-option" onClick={() => setOpen(false)} to="/administracion/catalogo">
-              <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-                <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-                <circle cx="7" cy="5" r="1.6" fill="currentColor" />
-                <circle cx="13" cy="10" r="1.6" fill="currentColor" />
-                <circle cx="9" cy="15" r="1.6" fill="currentColor" />
-              </svg>
-              Panel de administrador
-            </Link>
-          ) : null}
-          <button
-            className="account-option"
-            disabled={logout.isPending}
-            onClick={() => logout.mutate(csrfToken)}
-            type="button"
-          >
-            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-              <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4m-7-4h11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-            </svg>
-            {logout.isPending ? "Cerrando…" : "Cerrar sesión"}
-          </button>
-          {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
+          <AccountActions
+            capabilities={session.data.capabilities}
+            csrfToken={session.data.csrfToken}
+            onNavigate={() => setOpen(false)}
+          />
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The anonymous entry: BFF/OIDC navigation that returns to the current page. */
+export function AccountEntryLinks() {
+  const location = useLocation();
+  const returnTo = location.pathname + location.search;
+  return (
+    <nav className="account-entry-links" aria-label="Acceso a tu cuenta">
+      <a className="account-signin" href={authenticationStartUrl(returnTo)}>Iniciar sesión</a>
+      <a className="account-register" href={authenticationStartUrl(returnTo, true)}>Crear cuenta</a>
+    </nav>
+  );
+}
+
+type AccountActionsProps = {
+  capabilities: readonly SessionCapability[];
+  csrfToken: string;
+  /** Dismisses the surface that holds the actions when one of them navigates. */
+  onNavigate: () => void;
+};
+
+/**
+ * The authenticated account actions, shared by the header's Mi cuenta panel and the compact
+ * navigation menu. They mount only with the surface that shows them.
+ */
+export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountActionsProps) {
+  const logout = useLogout();
+  return (
+    <>
+      <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+          <path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+        </svg>
+        Mis puntuaciones
+      </Link>
+      <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones/estadisticas">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20"><path d="M3 16V10m7 6V4m7 12V7" stroke="currentColor" strokeWidth="2" /></svg>
+        Tus estadísticas
+      </Link>
+      {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
+      <PlatformsMenuRow onNavigate={onNavigate} />
+      {/* Navigation only: the server authorizes every administration read itself. */}
+      {capabilities.includes("catalogue_administration") ? (
+        <Link className="account-option" onClick={onNavigate} to="/administracion/catalogo">
+          <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+            <circle cx="7" cy="5" r="1.6" fill="currentColor" />
+            <circle cx="13" cy="10" r="1.6" fill="currentColor" />
+            <circle cx="9" cy="15" r="1.6" fill="currentColor" />
+          </svg>
+          Panel de administrador
+        </Link>
+      ) : null}
+      <button
+        className="account-option account-logout"
+        disabled={logout.isPending}
+        onClick={() => logout.mutate(csrfToken)}
+        type="button"
+      >
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+          <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4m-7-4h11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </svg>
+        {logout.isPending ? "Cerrando…" : "Cerrar sesión"}
+      </button>
+      {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
+    </>
   );
 }
 

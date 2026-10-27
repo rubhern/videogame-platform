@@ -6,20 +6,22 @@ for (const width of [1320, 1024, 834, 390, 320]) {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem");
     await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
-    if (width < 620) {
-      const trigger = page.getByRole("button", { name: "Acceder a tu cuenta" });
-      await expect(trigger).toBeVisible();
-      const account = await trigger.boundingBox();
+    if (width < 720) {
+      // The compact header carries the anonymous entry in the Menú sheet's account dock (#358).
+      const menu = page.getByRole("button", { name: "Menú" });
+      await expect(menu).toBeVisible();
+      const account = await menu.boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();
       expect(Math.abs((account?.y ?? -100) - (search?.y ?? 100))).toBeLessThanOrEqual(2);
       await page.screenshot({ path: testInfo.outputPath(`product-anonymous-${width}.png`), fullPage: true });
-      await trigger.focus();
+      await menu.focus();
       await page.keyboard.press("Enter");
-      await expect(trigger).toHaveAttribute("aria-expanded", "true");
-      await page.keyboard.press("Tab");
+      await expect(menu).toHaveAttribute("aria-expanded", "true");
+      // Destacados, Explorar, Calendario, TOPómetro and Plataformas come before the account.
+      for (let step = 0; step < 6; step++) await page.keyboard.press("Tab");
       await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeFocused();
     } else {
-      await expect(page.getByRole("button", { name: "Acceder a tu cuenta" })).toBeHidden();
+      await expect(page.getByRole("button", { name: "Menú" })).toHaveCount(0);
       await page.getByRole("link", { name: "Iniciar sesión", exact: true }).focus();
       if (width >= 1200) {
         const account = await page.getByRole("link", { name: "Iniciar sesión", exact: true }).boundingBox();
@@ -36,11 +38,11 @@ for (const width of [1320, 1024, 834, 390, 320]) {
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`product-entry-${width}.png`), fullPage: true });
-    if (width < 620) {
+    if (width < 720) {
       await page.keyboard.press("Escape");
-      await expect(page.getByRole("button", { name: "Acceder a tu cuenta" })).toBeFocused();
+      await expect(page.getByRole("button", { name: "Menú" })).toBeFocused();
     }
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-    await expect(width < 620 ? page.getByRole("button", { name: "Acceder a tu cuenta" }) : signin).toBeVisible();
+    await expect(width < 720 ? page.getByRole("button", { name: "Menú" }) : signin).toBeVisible();
   });
 }
