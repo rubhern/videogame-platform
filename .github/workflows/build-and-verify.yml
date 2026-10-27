@@ -100,7 +100,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            documentation/package-lock.json
 
       - name: Install locked npm dependencies
         if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
@@ -117,7 +119,10 @@ jobs:
 
       - name: Install portal browser
         working-directory: documentation
-        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+        # The hosted Ubuntu image already supplies Chromium's shared libraries and
+        # Latin/emoji fonts. Avoid redundant apt updates, font installs and upgrades.
+        # Keep the lockfile-selected browser and Playwright's host validation.
+        run: node node_modules/@playwright/test/cli.js install chromium
 
       - name: Validate static portal, links, search and diagrams
         working-directory: documentation
@@ -171,13 +176,17 @@ jobs:
         run: npm run frontend:verify
 
   browser-smoke:
-    name: Packaged application Chromium smoke and accessibility check
+    name: Packaged application Chromium smoke and accessibility check (${{ matrix.shard }}/2)
     if: ${{ needs.detect-changes.outputs.browser == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -204,14 +213,16 @@ jobs:
 
       - name: Run the pinned browser smoke test without retries
         env:
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
+          # When no backend gate applies, shard 1 retains the packaging tests.
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.shard != 1 }}
+          BROWSER_SHARD: ${{ matrix.shard }}/2
         run: bash scripts/validate-browser.sh
 
       - name: Preserve browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
@@ -312,27 +323,34 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check manual production deployment transitions and refusals
-        run: python3 scripts/test-public-production-deployment.py
-
-      - name: Check integration publication refusals and isolation without registry credentials
-        run: python3 scripts/test-public-production-integration.py
-
-      - name: Prove paired backup encryption, recovery and refusal contracts
+      - name: Prove independent runtime contracts in parallel without retries
         run: |
-          python3 scripts/test-production-recovery.py
-          python3 scripts/test-production-recovery-lock.py
+          # Each branch owns disposable containers/networks and synthetic inputs.
+          # Keep one runner: recent runs already show substantial runner queueing.
+          (
+            python3 scripts/test-public-production-deployment.py
+            python3 scripts/test-public-production-integration.py
+            python3 scripts/test-production-recovery.py
+            python3 scripts/test-production-recovery-lock.py
+            python3 scripts/test-production-identity-maintenance.py
+            python3 scripts/test-production-cleanup.py
+          ) &
+          operations_pid=$!
+          python3 scripts/test-production-observability.py --smoke &
+          observability_pid=$!
+          python3 -I scripts/test-public-production-runtime.py &
+          edge_pid=$!
 
-      - name: Prove the identity-maintenance fence and its Keycloak drain evidence
-        run: |
-          python3 scripts/test-production-identity-maintenance.py
-          python3 scripts/test-production-cleanup.py
-
-      - name: Prove production dashboards, PromQL, privacy, Telegram mock and bounded overhead
-        run: python3 scripts/test-production-observability.py --smoke
-
-      - name: Check topology, exposure, secrets, edge routes, limits and maintenance with synthetic inputs
-        run: python3 -I scripts/test-public-production-runtime.py
+          # Wait for all proofs, even after a failure; a bare wait loses failures.
+          status=0
+          for pid in "$operations_pid" "$observability_pid" "$edge_pid"; do
+            if wait "$pid"; then
+              continue
+            else
+              status=1
+            fi
+          done
+          exit "$status"
 
   runtime-alerts:
     name: Private-dev alert rules and Grafana lifecycle
