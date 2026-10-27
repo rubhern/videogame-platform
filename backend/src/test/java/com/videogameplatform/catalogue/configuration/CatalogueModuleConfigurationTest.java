@@ -210,6 +210,12 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.platformgames.port.PlatformGamesReadPort
+                platformGamesReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
         ExternalPlayerScoresReadPort externalPlayerScoresReadPort() {
             return gameIds -> Map.of();
         }
