@@ -15,6 +15,35 @@ import urllib.parse
 import urllib.request
 
 
+HOST_BRIDGE_PROBE = """
+import importlib.util
+import json
+from pathlib import Path
+import resource
+import sys
+import time
+
+spec = importlib.util.spec_from_file_location('sampler', sys.argv[1])
+sampler = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sampler)
+start = time.perf_counter()
+sampler.snapshot('vgp-telemetry-instrumentation-fixture')
+record = json.dumps({'ts': time.time(), 'logger': 'http.log.access.log0',
+                     'status': 503, 'response_origin': 'upstream'}) + '\\n'
+sampler.edge_observations(record * 19999)
+own = resource.getrusage(resource.RUSAGE_SELF)
+children = resource.getrusage(resource.RUSAGE_CHILDREN)
+# Linux ru_maxrss can retain the launching harness's high-water mark across exec.
+# VmHWM belongs to this executable's memory image, not the pre-exec harness.
+parent_peak = int(next(line.split()[1] for line in Path('/proc/self/status').read_text().splitlines()
+                       if line.startswith('VmHWM:')))
+print(json.dumps({'parentPeakKiB': parent_peak, 'childPeakKiB': children.ru_maxrss,
+                 'conservativeCombinedMiB': (parent_peak + children.ru_maxrss) / 1024,
+                 'cpuSeconds': own.ru_utime + own.ru_stime + children.ru_utime + children.ru_stime,
+                 'wallSeconds': time.perf_counter() - start, 'records': 19999}))
+"""
+
+
 def main():
     # Load the same test helpers when invoked from its CLI module.
     import __main__ as test
@@ -207,9 +236,8 @@ def main():
             disk={name:int(run(compose+['exec','-T',name,'du','-sk',path]).split()[0]) for name,path in [('prometheus','/prometheus'),('grafana','/var/lib/grafana')]}
             # Measure the actual host bridge's bounded parse plus local Docker CLI cost.
             # The fixed synthetic project name cannot inspect production/private-dev.
-            bridge_code="import importlib.util,json,time,resource; s=importlib.util.spec_from_file_location('sampler',__import__('sys').argv[1]); m=importlib.util.module_from_spec(s);s.loader.exec_module(m); start=time.perf_counter(); m.snapshot('vgp-telemetry-instrumentation-fixture'); record=json.dumps({'ts':time.time(),'logger':'http.log.access.log0','status':503,'response_origin':'upstream'})+'\\n'; m.edge_observations(record*19999); r=resource.getrusage(resource.RUSAGE_SELF); c=resource.getrusage(resource.RUSAGE_CHILDREN); print(json.dumps({'parentPeakKiB':r.ru_maxrss,'childPeakKiB':c.ru_maxrss,'conservativeCombinedMiB':(r.ru_maxrss+c.ru_maxrss)/1024,'cpuSeconds':r.ru_utime+r.ru_stime+c.ru_utime+c.ru_stime,'wallSeconds':time.perf_counter()-start,'records':19999}))"
-            bridge=json.loads(run(['python3','-c',bridge_code,OBS/'sample-host.py']))
-            assert bridge['conservativeCombinedMiB'] < 64
+            bridge=json.loads(run(['python3','-c',HOST_BRIDGE_PROBE,OBS/'sample-host.py']))
+            assert bridge['conservativeCombinedMiB'] < 64, f'Host bridge exceeds 64 MiB: {bridge}'
             evidence={'hostBridge':bridge,'diskKiB':disk,'kind':'isolated-synthetic-telemetry','workload':{'otlpSeries':1207,'dashboards':6,'promqlPanelsPerRefresh':len(models),'refreshes':4,'sqlPanels':checked,'scrapeSeconds':30,'resourceObservations':len(samples), 'resourceSampling':'during queries and refreshes'},'maxima':maxima,'headSeries':series,'realHostCapacityAccepted':False}
             # No raw container IDs, host paths, secrets or network identifiers enter evidence.
             output=ROOT/'target/production-observability-evidence.json';output.parent.mkdir(exist_ok=True);output.write_text(json.dumps(evidence,indent=2)+'\n')
