@@ -4,11 +4,8 @@ import { FEATURED_PATH } from "../features/releases/featured-search";
 import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
 import { readReleasesSearch, RELEASES_PATH, releasesSearchPath } from "../features/releases/releases-search";
 
-/**
- * The Plataformas section (#287). The navigation links to it before its index exists: until then
- * the path resolves to the not-found page, an owner-accepted intermediate state (#358).
- */
-export const PLATFORMS_PATH = "/plataformas";
+/** The Plataformas index (#287); a selected platform stays on the same path. */
+export { PLATFORMS_PATH } from "../features/platforms/platform-context";
 
 export type ReleaseDestination = { label: string; path: string; to: string };
 

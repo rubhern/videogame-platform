@@ -116,7 +116,9 @@ no former featured link may become a player-score ranking. The **Lanzamientos** 
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
 (`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
 only its source (`source=gameometro`), while its loaded pages stay in the document's query
-cache for Back and the game page's way back. The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
+cache for Back and the game page's way back. **Plataformas** (`/plataformas`) holds only the
+open other platform (`plataforma=<platformId>`); its platform contexts and the three
+destinations' activation live in `src/features/platforms/`. The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
 tokens and personal responses are never stored in browser storage; same-origin

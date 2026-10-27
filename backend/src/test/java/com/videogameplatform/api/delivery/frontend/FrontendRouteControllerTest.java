@@ -50,6 +50,10 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/topometro").param("source", "gameometro"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        // Plataformas reloads with its open platform.
+        mockMvc.perform(get("/plataformas").param("plataforma", "ps4-id"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));

@@ -32,8 +32,8 @@ never replaced by generic computer, controller or device artwork for visual unif
 The existing #178 identity mapping remains authoritative; a logo is presentation only.
 
 The shared [`PlatformLogo`](../../frontend/src/shared/catalogue/platform-logo.tsx) renders
-compact marks through `SelectIcon` and offers a contained 200px large stage for #287.
-That page and its navigation are not implemented by #288. Use one master across sizes
+compact marks through `SelectIcon` and a large stage, which [Plataformas](#plataformas) sizes
+per identity. Use one master across sizes
 when legible; source separate variants only where needed. Preserve proportions, original
 colours and required clear space. Do not trace, stretch, crop, invert or tint newly
 sourced logos into consistency. The Night stage, spacing and visible names unify their
@@ -181,8 +181,8 @@ decorative: the readout beside the title and each card state the same dates in w
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
 where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
 the release explorer a cover wall under its day bar, search a catalogue index, the game page
-its own cover's stage, `Mis puntuaciones` a thermal ledger and TOPómetro a podium over a
-ledger. No screen repeats the temporal G or
+its own cover's stage, `Mis puntuaciones` a thermal ledger, TOPómetro a podium over a
+ledger and Plataformas a showcase of platform stages. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React or hosted identity screen uses them, and new
 work never brings them back.
@@ -264,9 +264,8 @@ in the [product glossary](../product/glossary.md#user-facing-terms):
 2. **TOPómetro** (#386), a native link of its own outside the disclosure, so leaving the
    disclosure for it closes the disclosure. It is named by the TOPómetro lockup at the labels'
    cap height, dimmed like a muted label and lit when hovered or current.
-3. **Plataformas** (#358), a native link to `/plataformas`. Until the Plataformas index (#287)
-   exists, that path resolves to the not-found page: an owner-accepted intermediate state. Never
-   invent platform content to fill it.
+3. **Plataformas** (#358), a native link to the [Plataformas](#plataformas) index (#287), current
+   on it whatever platform it has open.
 
 A section whose page is shown carries the fire rule and `aria-current="page"`.
 
@@ -510,8 +509,8 @@ the executable values; these constraints hold wherever they are used:
 - Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
   entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
-  release a visitor points at; TOPómetro's podium rising onto its steps; a cover easing a little
-  closer on hover; feedback on press and
+  release a visitor points at; TOPómetro's podium rising onto its steps; Plataformas's four
+  stages rising in turn; a cover easing a little closer on hover; feedback on press and
   selection; a G-meter needle sweeping to its reading and the brand needle's twitch on hover and
   focus. Declare it inside `@media (prefers-reduced-motion: no-preference)` instead of disabling
   it afterwards, so reduced motion is the default and nothing animates or transitions there.
@@ -935,6 +934,71 @@ is public: it never varies on the session or `Mis plataformas`.
 **Motion.** The podium enters once: third, second, then the winner rising onto steps that grow
 from the floor, each G-meter sweeping to its reading; newly read lines fade in. Reduced motion
 shows the settled page; forced colours keep the steps, numerals and edges in system colours.
+
+## Plataformas
+
+Post-MVP (#287, implemented; awaiting owner review), **Plataformas** (`/plataformas`) is a
+showcase of platforms that leads to each one's destinations. It reads the public
+[`listPlatforms`](../architecture/api/openapi.yaml) directory, the platforms at least one current
+release uses, and adds no contract. The owner gave a direction without a mockup; the
+composition below is this implementation's.
+
+**Opening.** The `h1` **Plataformas** alone, without a lead (owner decision, 2026-10-27), on the
+plain night canvas: logos are not game art, so no stage light and no G.
+
+**Featured platforms.** Four cards, in the owner's order: **Nintendo Switch 2**, **PlayStation 5**,
+**Xbox Series X|S** and **Windows PC**, each by the catalogue's own name, the same everywhere
+(owner decision, 2026-10-27). [`platform-context.ts`](../../frontend/src/features/platforms/platform-context.ts)
+owns this small presentation mapping: each family resolves to product taxonomy IDs (#178), today
+one seeded ID each, and may group several later; nothing is merged by name and no provider ID
+reaches the browser. Featured versus other is curation, never a domain subtype. Each card is a
+night surface whose upper stage holds the platform's large logo in its own optical box, sized per
+identity within the [asset register](../../frontend/public/assets/platforms/README.md)'s 2× limits,
+so the four read at one weight. A quiet cool light falls from above and pools under the logo; it
+never takes a brand colour. The name heads the body, then the destinations. The cards render without waiting for the directory; once it is
+read, a family without games adds **Aún sin juegos en Gameómetro** after its destinations, so rows
+stay aligned. One row of four from 1024px, two by two from 560px and one per row on phones, where
+the stage keeps the logo large.
+
+**Destinations.** Every platform offers exactly three, in this order: **Próximos destacados**
+(#388, attention by Hypes), **TOPómetro** (#387, player scores, named by its lockup as in the
+header) and **Explorar catálogo** (#389). [`platform-destinations.ts`](../../frontend/src/features/platforms/platform-destinations.ts)
+holds them; a destination becomes a native link only when its feature supplies a path for the
+platform's context, and otherwise reads **Próximamente** without being a link or a tab stop.
+Activating one changes nothing else on the index. From 560px they are full-width rows between
+hairlines, each at least 48px tall, with the state at the row's end or a chevron that leans on
+hover; on phones they form a dock of three tiles at least 64px tall, whose labels break between
+words only. Pointing at or focusing a linked destination lights its card's edge in ice and eases
+its logo a little closer. TOPómetro never leads to Destacados.
+
+**Otras plataformas.** Below a hairline, quieter than the featured cards: its `h2` alone, without a
+lead, then only the owner's other platforms (owner decision, 2026-10-27), in this order, when the
+directory holds games for them: Android, iOS, Linux, Mac, PlayStation 4, Meta Quest 3, Nintendo
+Switch, Xbox One and PlayStation VR2. These are acquired per environment, so the presentation
+mapping recognizes them by their catalogue name, as it does their marks; two platforms sharing a
+name stay two, and the catalogue's own name is shown. Each is a native disclosure button with its
+compact mark, its name and a chevron that points down while closed and up while open, announced
+as expanded or collapsed. Opening one shows its three destinations inside its own item, under or
+beside its name, never in a separate panel, and closes any other; opening the open one closes it.
+The open platform is named in the URL (`?plataforma=<platformId>`) and keeps the reading position,
+so it is shareable and Back undoes it; focus stays on the button, the destinations follow it in the
+tab order, and a shared link opens it without moving focus. The open item takes an ice top edge and
+light. On phones the platforms form one column and open like an accordion, the destinations as the
+cards' dock of three tiles. From 560px they flow as a row of chips, at least 176px wide, and the open
+chip grows sideways to hold its destinations as three compact tiles, each stating its state under
+its label, wrapping beneath its name only when the row cannot hold them; its neighbours keep their
+compact height. The page opts out of the browser's scroll anchoring, so opening a platform never
+moves the page. A featured family named in the URL is already on the page; a platform not on offer
+reads **Esa plataforma no tiene juegos en Gameómetro ahora mismo** with **Ver todas las
+plataformas**, and never opens.
+
+**States.** The featured cards stay through every directory state. Loading keeps the directory's
+shape as placeholders under one status; no other platform is an empty notice; a catalogue not
+ready and a technical failure use the [server-backed states](#server-backed-states) inside Otras,
+with their retry. The index is public and never varies on the session or `Mis plataformas`.
+
+**Motion.** The four cards rise in turn once and an opened platform's destinations fade in; reduced motion shows the
+settled page and forced colours keep every edge and name in system colours.
 
 ## Public game details
 
