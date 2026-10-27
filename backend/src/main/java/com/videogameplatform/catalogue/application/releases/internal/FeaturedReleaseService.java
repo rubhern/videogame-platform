@@ -7,7 +7,6 @@ import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPo
 import com.videogameplatform.catalogue.application.internal.CatalogueReadMapping;
 import com.videogameplatform.catalogue.application.internal.CatalogueReleaseMapping;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
-import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
@@ -20,6 +19,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Framework-independent implementation of UC-010. */
@@ -99,7 +99,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
     /** The same deterministic normalization as release exploration: trimmed, distinct, sorted. */
     private static List<String> normalize(List<String> values) {
         return values.stream()
-                .filter(value -> value != null)
+                .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .distinct()

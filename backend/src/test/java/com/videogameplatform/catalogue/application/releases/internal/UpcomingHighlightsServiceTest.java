@@ -212,7 +212,10 @@ class UpcomingHighlightsServiceTest {
     void aCatalogueNeverPublishedIsNotReady() {
         UpcomingHighlightsReadPort none = criteria -> Optional.empty();
 
-        assertThatThrownBy(() -> service(none).browse(new Query(List.of("platform-ps5"))))
+        var service = service(none);
+        var query = new Query(List.of("platform-ps5"));
+
+        assertThatThrownBy(() -> service.browse(query))
                 .isInstanceOf(CatalogueNotReadyException.class);
     }
 

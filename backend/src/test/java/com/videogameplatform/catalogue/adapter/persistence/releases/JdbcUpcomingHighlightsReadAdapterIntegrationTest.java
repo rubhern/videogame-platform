@@ -125,11 +125,11 @@ class JdbcUpcomingHighlightsReadAdapterIntegrationTest {
                         .toList();
 
         // Golf: Q4 2026 ends inside. Romeo: October 2026 has not ended. Papa: the last day.
-        assertThat(titles).contains("Golf", "Romeo", "Papa");
         // Hotel: Q2 2027 ends after the horizon. India: a year. Juliett: unknown. Oscar: today has
         // already happened. Quebec: the day after the horizon. Sierra: September has ended.
         // Uniform: April 2027 ends after the horizon.
         assertThat(titles)
+                .contains("Golf", "Romeo", "Papa")
                 .doesNotContain(
                         "Hotel", "India", "Juliett", "Oscar", "Quebec", "Sierra", "Uniform");
     }
@@ -144,7 +144,10 @@ class JdbcUpcomingHighlightsReadAdapterIntegrationTest {
     @Test
     void aFamilyCombinesItsPlatformsWithOrAndUnrelatedPlatformsNeverLeakIn() {
         var ps5 = adapter.findUpcomingHighlights(criteria(List.of(PS5), 25)).orElseThrow();
-        assertThat(ps5.items()).extracting(Item::canonicalTitle).doesNotContain("Victor");
+        assertThat(ps5.items())
+                .isNotEmpty()
+                .extracting(Item::canonicalTitle)
+                .doesNotContain("Victor");
 
         var family = adapter.findUpcomingHighlights(criteria(List.of(PS5, XBOX), 25)).orElseThrow();
         assertThat(family.items())
