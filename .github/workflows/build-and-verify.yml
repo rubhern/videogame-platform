@@ -323,11 +323,25 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check out the immutable accepted candidate for static preparation tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 9ffc05a2ff30e261564ddbfd412826cdec504137
+          path: .accepted-private-candidate
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Import only the accepted source object without fetching repository history
+        run: git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD
+
       - name: Prove independent runtime contracts in parallel without retries
         run: |
           # Each branch owns disposable containers/networks and synthetic inputs.
           # Keep one runner: recent runs already show substantial runner queueing.
           (
+            python3 scripts/test-private-production-preparation.py
+            python3 scripts/test-private-production-installation.py
+            python3 scripts/test-private-production-control.py
             python3 scripts/test-public-production-deployment.py
             python3 scripts/test-public-production-integration.py
             python3 scripts/test-production-recovery.py

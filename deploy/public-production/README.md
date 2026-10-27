@@ -3,12 +3,12 @@
 - **Status:** Prepared runtime, manual deployment and recovery candidate (#275), pending real-host validation; never deployed
 
 This directory holds the versioned runtime configuration for the future public
-production runtime. The owner has prepared a host; the
-[host qualification record](../../docs/development/operations-runbook.md#production-host-foundation)
-distinguishes observed foundation from outstanding privileged/network checks.
-No Gameómetro deployment or public exposure is accepted.
-Manual deployment and backup/recovery commands operate only within isolated synthetic
-rehearsals; real-host deployment remains blocked. [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
+production runtime. The [host foundation record](../../docs/development/operations-runbook.md#production-host-foundation)
+owns confirmed prerequisites and outstanding host checks. Gameómetro remains
+undeployed. The #275 deployment command remains rehearsal-only. The separate
+[#276 first-install adapter](#private-first-installation-and-validation) is implemented
+for future explicitly authorized private qualification; it has not run on the VPS.
+[ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
 [ADR-0033](../../docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md)
@@ -28,6 +28,7 @@ what the repository checks and what only a real host can prove.
 | [`bin/run-postgres`](bin/run-postgres) | Reads role secret files before the stock entrypoint drops supplemental groups |
 | [`bin/run-keycloak`](bin/run-keycloak) | Keycloak entrypoint that reads secret files and refuses empty inputs |
 | [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
+| [`../../scripts/prepare_private_production.py`](../../scripts/prepare_private_production.py), [`../../scripts/install_private_production.py`](../../scripts/install_private_production.py) | Separately reviewed #276 private bundle and fresh-host bootstrap; no update, reset or public exposure |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
@@ -180,12 +181,12 @@ version/image, outcome, phase and a bounded failure reason. Raw actor/browser ou
 secrets, account information and tokens are withheld. A failed/concurrent attempt
 gets its own receipt and cannot overwrite another attempt's successful state.
 
-**Real-host refusal is unconditional in this increment.** There is no approval-file
-or environment-variable override. Real-host proof of the prepared paired encrypted backup,
-restore/reconstruction and deletion replay procedures, release/provider/privacy acceptance,
-private host administration and the applicable [purchase/exposure prerequisites](../../docs/development/delivery-lifecycle.md#public-production-gates)
-remain necessary before a separately reviewed host adapter can be enabled. A local
-pass authorizes no VPS purchase, DNS change, public ingress or private-dev operation.
+**This command's real-host refusal remains unconditional.** There is no approval-file
+or environment-variable override. The separately reviewed [first-install adapter](#private-first-installation-and-validation)
+is limited to empty private synthetic qualification. Real-host backup/recovery,
+deletion replay, provider/privacy/release acceptance and the applicable
+[gates](../../docs/development/delivery-lifecycle.md#public-production-gates) still
+block real-data operation and public exposure. A local pass authorizes neither.
 
 ## Secret inventory
 
@@ -888,14 +889,275 @@ log-age enforcement and current trusted-source CI before the separate purchase/e
 gates. The short workstation sample does not pass those checks or authorize more RAM.
 
 
+## Private first installation and validation
+
+**Implemented for independent review; not exercised or accepted on the VPS.** The
+[preparer](../../scripts/prepare_private_production.py) and
+[installer](../../scripts/install_private_production.py) reuse the
+[signed #275 candidate](../../docs/research/public-production-candidate-acceptance.md#owner-acceptance-record)
+without repeating its accepted campaign. They neither select a newer product nor
+mount a newer realm or wrapper into the accepted images. The old deployment
+command and its configuration verifier retain their refusal rules.
+
+There are two independently reviewed identities: the accepted product/runtime and
+the new operational rollout. The installer requires an exact **published trusted-main
+operational revision**, its adapter fingerprint and the reviewed private configuration
+hash. It verifies current retained quality/security/publication evidence, all imported
+operator sources against that operational revision, the complete exported candidate
+bytes/modes against its immutable tree, the signed runtime fingerprint through the
+existing verifier, and every selected image's registry availability/platform. A
+locally edited or unpublished adapter cannot bootstrap a host. This is an operational
+compatibility binding, not a change to #275's acceptance or product version.
+
+The preparer renders the candidate base **plus observability**, then applies only the
+reviewed private delta: remove all published ports, use supplied private TLS material,
+give the BFF its certificate-only truststore, disable automatic service restart, and
+explicitly disable bridge IPv6/use protected IPv4 NAT. Internal data networks, fixed
+proxy addresses, origins, resource limits, mounted wrappers, secret consumers and
+maintenance controls remain intact. The validator compares the complete result with
+that exact delta; extra publications, privileges, host networking, mounts or environment
+changes refuse. Use the final JSON alone; never merge the public Compose back into it.
+Regenerate a previous preparation bundle when the adapter/delta changes.
+The bridge settings use [Docker's protected NAT mode](https://docs.docker.com/engine/network/port-publishing/#gateway-modes);
+`nat-unprotected` is not an acceptable substitute.
+
+### Local preparation
+
+Use Python 3.12+, Git with the accepted candidate available, Docker Compose/Buildx and
+authenticated read-only GitHub/GHCR access. No secret value belongs in `runtime.env`.
+The input inventory is the candidate's existing example; the preparer replaces its
+image/version placeholders with the verified accepted publications.
+
+```bash
+python3 scripts/prepare_private_production.py \
+  --output /new/local/protected-private-bundle \
+  --env-file /absolute/path/to/non-secret-runtime.env \
+  --tls-dir /etc/gameometro/production/private-tls
+python3 scripts/install_private_production.py --print-adapter-fingerprint
+python3 scripts/test-private-production-preparation.py
+python3 scripts/test-private-production-installation.py
+python3 scripts/test-private-production-control.py
+```
+
+Review `compose.candidate.json`, `compose.private.json`, `Caddyfile.private` and
+`preparation.json`. The bundle contains the unmodified candidate operational export;
+its absolute bind paths target the separate host directory recorded in the receipt,
+not the workstation or `/srv/gameometro/repo`. A partial bundle with no complete
+matching receipt is unusable. Keep its parent 0700; the non-secret Caddyfile is 0644
+so the capability-dropped edge can read its bind mount. The two JSON configurations,
+env file and receipt stay 0600. No image build, service start or secret generation
+occurs during preparation.
+
+### Future authorized host sequence
+
+**No command in this section has been executed on the VPS.** Owner review and a
+separate request to publish the operational change precede host execution; this
+change grants neither. After successful trusted-main CI on that exact revision,
+record the reviewed adapter/configuration hashes and reassess the candidate's
+security conditions for the intended private operation. Public opening retains its
+separate eMudhra positive/negative TLS condition and all release gates.
+
+1. With separate staging authorization, put the published operator sources in a
+   root-owned protected operational checkout, for example
+   `/srv/gameometro/operations/<reviewed-operational-sha>`. Stage the bundle at the
+   exact target in its receipt, preserving bytes/executable modes and making all
+   sources root-owned. Keep the existing administration checkout separate. Every
+   protected-path ancestor must be root-owned, non-writable by group/others and
+   free of symlink traversal. The adapter makes no ownership/permission exceptions.
+2. Stage the owner-supplied [base secrets](#secret-inventory) and
+   [observability inputs](#production-observability-candidate), approved model and
+   TLS material. The secret directory/files retain 0750/0640 and their configured
+   consumer group. All fourteen file inputs must exist; only disabled IGDB/Telegram
+   values may be empty. Keep `/var/lib/gameometro/production` 0700, with a new empty
+   `metrics/` at 0755. The model directory must be readable/traversable by its
+   non-root consumer, with the complete approved checksum inventory. Stage no
+   `first-install/` directory or intent: the installer claims both exclusively.
+3. Supply `ca.crt`, `edge.crt` and a certificate-only `truststore.p12` at 0644 in
+   `/etc/gameometro/production/private-tls` (0700), and `edge.key` at 0600, all
+   root-owned. The leaf covers both canonical hosts, matches the key and remains
+   valid beyond the next day. The PKCS12 store contains the private CA and retains
+   the accepted JVM's normal roots; its `changeit` integrity password is public,
+   not a secret. Keep every CA signing key off the VPS. Generate/import these
+   through the owner's reviewed key procedure; the installer creates none.
+   Before staging, run `scripts/validate_private_production_truststore.py --help`
+   and validate the supplied store against the accepted image's **actual JVM** on
+   an authorized workstation with that image already available. This disposable
+   `keytool` invocation has no network and never starts the application. It rejects
+   stores containing keys, missing JVM default roots, missing the private CA, or
+   PKCS12 bags ignored by Java. Review and stage its `truststore.validation.json`
+   at 0600 alongside the TLS inputs; independently record its SHA-256. The host
+   binds the receipt to the exact image, validator, CA and store bytes. An OpenSSL
+   parse alone is insufficient.
+
+   ```bash
+   python3 scripts/validate_private_production_truststore.py \
+     --directory /absolute/local/public-certificate-inputs \
+     --receipt /absolute/local/public-certificate-inputs/truststore.validation.json
+   sha256sum /absolute/local/public-certificate-inputs/truststore.validation.json
+   ```
+4. Establish protected root-side read-only GitHub Actions/contents and registry access,
+   with the required tools already installed. Run the following **without** `--install`
+   first, over existing private administration. Supply an existing root-owned 0700
+   evidence directory outside the installation journal. Preflight writes only
+   protected sanitized evidence there; it never mutates Docker or host settings.
+   Failed and inconclusive checks are retained too. The variables below are the independently recorded
+   reviewed values, not values selected automatically from a mutable checkout:
+
+   ```bash
+   installer=/srv/gameometro/operations/REVIEWED_SHA/scripts/install_private_production.py
+   sudo python3 "$installer" \
+     --operational-revision "$REVIEWED_OPERATIONAL_SHA" \
+     --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256" \
+     --configuration-sha256 "$REVIEWED_CONFIGURATION_SHA256" \
+     --truststore-evidence-sha256 "$REVIEWED_TRUSTSTORE_RECEIPT_SHA256" \
+     --evidence-dir /var/lib/gameometro/private-qualification-evidence
+   ```
+
+5. Inspect the preflight and authorize the **first installation** separately. Invoke
+   the same command/identities with `--install`. It rechecks preflight under the
+   exclusive deployment lock, claims a new journal, pulls only the immutable images,
+   then takes the recovery actor lease. Any pre-existing labelled **or unlabelled**
+   target container, network, volume, startup/identity fence or journal refuses.
+   The only gate-volume exception is the empty volume just claimed by that lease;
+   it must contain solely its lock file. Listing errors never count as emptiness.
+6. The adapter invokes the candidate recovery actor's unchanged `initialize`, then
+   starts PostgreSQL, completes same-image Flyway and checks the accepted migration
+   endpoint before provisioning the Grafana reader. Only then does it start Keycloak,
+   localizer, private edge and monitoring, followed by the application and smoke.
+   All starts use `--no-deps`: Compose cannot start the application before migration.
+   The recovery and identity fences, live image/health, restart policy and zero-port
+   contract are rechecked. No acquisition, cleanup, backup or notification schedule
+   is enabled; no accounts or user writes are created by the smoke.
+
+Preflight is read-only and validates the reviewed Debian/x86_64/local Unix Docker
+context without rootless/user remapping, synchronized clock, cgroups, Docker packet-path protection, source/config
+identities, exact inputs, effective consumer groups, secret content bounds, TLS chain,
+both names/key/CA store, model and host/Docker/tailnet subnet conflicts. It prints
+no secret bytes or raw Docker/environment output. Host configuration and independent
+external IPv4/IPv6 denial still require actual authorized qualification; static
+checks are not evidence that the provider firewall was tested.
+The active systemd daemon's arguments and TCP listeners are inspected as well as its
+configuration file, whose modification time must conclusively predate daemon startup.
+Exact supported Engine/Compose pairs are executable allowlists, not minimum-version
+comparisons: the owner-reported target 29.9.2/5.6.1 still needs real-host qualification;
+local mechanism evidence uses 29.8.2/5.6.0. Unknown versions, flags, configuration or
+network options refuse. Disabled filtering, direct routing, live restore, unexpected
+logging, daemon TCP administration, Swarm and remapping refuse. Effective container
+mounts, capabilities, namespaces, resources, network membership/options, IPAM and
+port bindings are checked against the reviewed configuration after startup too.
+Evidence records version/policy decisions and inconclusive external denial without
+raw environment, listener, container or secret output. Available memory must cover the configured steady-service
+ceilings plus the platform's free-memory reserve; both the runtime and Docker storage
+must retain the platform's free-disk margin, rechecked after image pulls. These are
+startup refusal controls, not workload/capacity acceptance.
+
+### Private tests, receipts and failure handling
+
+The built-in smoke verifies the running application's source/version, health, shell,
+bounded anonymous catalogue result (including the approved empty outcome), denied
+management/master-realm routes, positive private TLS and a negative untrusted-CA
+request. It runs the **candidate's** account-free issuer checker against native
+Keycloak discovery and the BFF's real authorization redirect, including spoofed
+headers. A one-shot bounded helper joins the existing telemetry network, whose edge
+aliases resolve both canonical names. The BFF retains its application-edge issuer
+alias and verified JVM truststore; its actual consumer must load that store. No host
+port, SSH tunnel workaround, globally installed CA or insecure TLS option is added.
+This does not yet prove an authenticated token exchange, real email delivery, a
+full synthetic browser journey, public ACME or certificate renewal. Those private
+identity tests may use separately authorized synthetic identities and the same
+unpublished networks/CA; real accounts remain prohibited while recovery is pending.
+
+Before any Docker mutation, an exclusive durable
+`/var/lib/gameometro/production/first-install-intent.json` identifies the attempt.
+The new `first-install/installation.json` records phases before mutation, source,
+CI/run identities, image set, operational/configuration/schema hashes and migration
+version. Runtime configuration has per-attempt run/configuration labels. Its
+`recovery/` journal and initialization receipt remain alongside it. Writes use
+unique temporary files, atomic replacement and directory fsync; incomplete writes
+remain evidence. Journal-creation/first-write failures are handled too. A failure
+sidecar outside the journal takes precedence over a stale success record. The
+terminal state is first `prepared`; `success` follows the lease completion handshake
+and helper exit. Raw actor output and credential values are withheld.
+
+On a detectable cancellation, migration, startup, TLS, smoke or receipt failure,
+the controller fences the gate and physically stops only exact container IDs whose
+attempt, configuration, Compose project and service labels all match. It retains a
+duplicate of the **actual flock descriptor**, transferred from the helper through a
+private root-only Unix socket; helper death therefore cannot release ownership
+before scoped shutdown. No Docker socket is mounted in a helper. The controller
+never uses a project-wide stop. If it lacks that descriptor, it must reacquire the
+same gate lock and validate the attempt/fences; another legitimate lease or unknown
+maintenance fence prevents any stop. Cleanup has a 90-second operation budget
+(with bounded command termination), then reports unconfirmed completion rather
+than retrying indefinitely. Volumes and journals are preserved; migrations are
+never reversed. A cancelled/in-flight Docker request may complete after its CLI
+exits: such evidence stays inconclusive even when the observed containers stopped.
+After verified ownership and successful gate fencing, an I/O failure in the local
+recovery journal does not skip the scoped physical stop. The persistence error is
+still propagated after the stop attempt; if shutdown fails too, both errors are
+retained. Such a close never returns confirmed success despite the journal error.
+
+`SIGINT`, `SIGTERM`, `SIGHUP`, observable stdin EOF and helper loss request this
+cleanup. Keep the installer attached to the interactive SSH session; do not use
+`nohup`, detach it, or redirect stdin from `/dev/null`. Detection begins when the
+OS reports teardown, not when a physical link first disappears. `SIGKILL`, kernel,
+host or daemon failure cannot promise cleanup: the helper normally fences on EOF,
+but existing services may remain active. Zero published ports and `restart: no`
+remain essential; no reboot/recovery acceptance follows from them.
+
+After any interruption, inspect locally using the reviewed installer:
+
+```bash
+sudo python3 "$installer" --inspect-interrupted
+sudo python3 "$installer" --reconcile-interrupted \
+  --operational-revision "$REVIEWED_OPERATIONAL_SHA" \
+  --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256" \
+  --configuration-sha256 "$REVIEWED_CONFIGURATION_SHA256"
+```
+
+Inspection is diagnostic only. Separately authorize reconciliation: it validates the
+immutable local intent, reviewed operator identity, runtime journal, labels and gate
+ownership, closes the gate and stops only this attempt. It does not start services,
+open a gate, repair a corrupt journal or re-run preflight's network/API dependencies.
+Missing/contradictory state, concurrent ownership or historically uncertain commands
+remain inconclusive and require an owner-assessed recovery; a zero diagnostic exit
+code is not service readiness. Preserve every reconciliation receipt and pending
+write. Do not erase history to make the operation retryable.
+
+Once a journal has been claimed, never rerun first install after success, failure or interruption, delete a journal or
+volume, create `READY`, remove a fence, reverse Flyway or run an ad-hoc Compose start
+to get past a refusal. There is no previous release to roll back to at first install.
+Use an assessed forward fix or separately authorized paired recovery on an empty
+target; any disposal needs a separate exact-target decision. Future updates require a
+different reviewed procedure with installed-state, schema compatibility and recovery
+proof. This adapter deliberately implements no update, force, reset or rollback mode.
+
+### Before any real user data
+
+A passing private install is **not** a recoverable or publicly accepted service.
+Before real accounts/ratings, complete and accept the
+[independent recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery):
+paired encrypted application/identity captures under deny/drain; direct OVHcloud
+uploads with least privilege and tested Object Lock/version/expiry semantics within
+the unchanged retention ceiling; independent integrity/missed-run and consumption
+alerts; separately retained reconstruction secrets and off-VPS decryption/signing
+keys; synchronous independent ledger/archive durability before destructive mutations;
+and cloud-only loss-of-host rebuild/restore with Lenovo unavailable. Prove
+principal/rating consistency, current deletion replay, old-session revocation,
+fenced reopening and achieved recovery objectives on the actual target. Local dumps,
+checksums or #275's synthetic restore cannot satisfy those gates. Retention decisions
+and provider tests remain with the [storage investigation](../../docs/research/public-production-backup-storage.md).
+Public release additionally needs its own complete qualification and owner go/no-go.
+
 ## Host bootstrap and operating handoff to #276
 
-**Prepared runtime sequence; host foundation is observed, runtime steps remain
-unexercised and unauthorized.** Use the
+**Prepared sequence; real-host steps are not exercised or authorized.** The
+[first-install procedure](#private-first-installation-and-validation) owns the executable
+private qualification path; the remainder below is the wider #276 handoff. Use the
 [release gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 for purchase/exposure decisions and the [candidate audit](../../docs/research/public-production-candidate-acceptance.md)
 for exact evidence and remaining work. The current deployment command unconditionally
-refuses real-host operation; #276 must review any host adapter before using it.
+refuses real-host operation; it is not the new first-install adapter.
 
 1. After separate purchase authorization, qualify the selected Linux/x86_64 host,
    clock synchronization, Docker/Compose, private administration and provider console.
@@ -941,7 +1203,7 @@ permit public signup or ingress. Private-dev retirement is a separate decision.
 
 ## Next private implementation stages
 
-**Proposed for owner review under #276; no real-host adapter is enabled.** Host
+**Private adapter implemented for review; host execution remains unauthorized.** Host
 foundation does not approve a product release. Start from the
 [signed #275 candidate](../../docs/research/public-production-candidate-acceptance.md#owner-acceptance-record)
 and preserve its identities and receipts. Do not repeat its accepted local campaign.
@@ -954,90 +1216,40 @@ reviewed rollout, as the deployment verifier already requires.
 
 | Stage | Concrete deliverable | Evidence or approval before the next action |
 |---|---|---|
-| 1. Read-only preflight | Host inventory, candidate comparison and a sanitized refusal report; no Docker mutation | Resolve clock state, privileged Docker inventory, effective firewall/SSH and protected-input checks in the linked host record |
-| 2. Private adapter preparation | Separate private Compose overlay, rendered-config validator and a host adapter around existing trust/deployment/recovery seams; fake-runtime tests first | Owner reviews the implementation, exact candidate/digests, fingerprints, private TLS strategy and fresh-state bootstrap procedure; execution remains disabled until prerequisites pass |
+| 1. Read-only preflight | Host inventory, candidate comparison and a sanitized refusal report; no Docker mutation | Retain recovered NTP in the host record; qualify privileged Docker inventory, effective firewall/SSH and protected inputs |
+| 2. Private adapter preparation | Implemented preparer, exact private rendering, ordered first installer and stop-only interrupted-attempt reconciliation; regression and disposable Docker proofs | Owner reviews the implementation, exact candidate/digests, fingerprints, private TLS strategy and fresh-state bootstrap procedure; execution remains disabled until prerequisites pass |
 | 3. Cloud recovery preparation | Bounded S3 transport for the existing encrypted pair, independent observer and durable ledger/archive copy adapters | Retention decisions, provider setup authorization and effective cloud permissions/semantics; no bucket or credential is provisioned by repository work |
 | 4. Authorized private qualification | Explicit fresh-host bootstrap, migration/activation, synthetic journeys, paired backup and cloud-only reconstruction with deletion replay | Separate authorization to run the reviewed procedure; failures preserve closed gates, journals and receipts |
 | 5. Exposure decision | Real-host capacity, privacy/relay/provider, network/abuse, observability and recovery acceptance | Separate owner public go/no-go under the delivery lifecycle; private qualification alone grants no public access |
 
-Stages 2 and 3 can be prepared locally after their implementation scope is reviewed.
-This proposal changes documentation only. It schedules nothing and supplies no flag,
-approval file or environment override to bypass the current real-host refusal.
+Stage 2 now has the executable [first-install procedure](#private-first-installation-and-validation),
+which owns its preflight, trust binding, private TLS, interruption and recovery rules.
+The accepted deployment command remains rehearsal-only; its guards are unchanged.
+Stage 3 remains proposed and is not supplied by this adapter. Neither a successful
+private preparation nor the owner-reported recovered NTP authorizes host execution,
+public exposure or storage of real user data.
 
-### Read-only preflight boundary
+### Local evidence and review limits
 
-The next executable increment should accept a fixed local checkout and local Docker
-Unix socket, exact trusted-main source/digest/run identities, reviewed runtime-source
-and rendered-configuration fingerprints, and a new protected evidence directory.
-Its default operation must only inspect; incomplete/unknown evidence produces a
-sanitized refusal, never a partial bootstrap. Keep source, image and host identity
-distinct. Record timestamps and checks, including unknowns, without secret values,
-raw environment/inspect output or user data. A current successful CI run proves its
-own source only; retained publication records and registry availability still need
-verification. Preserve the previous candidate identities for assessed recovery.
+`test-private-production-preparation.py`, `test-private-production-installation.py`
+and `test-private-production-control.py` cover rendering/trust and simulated privileged
+host/storage failures. They do not establish VPS behavior. The manually invoked
+`test-private-production-control-docker.py --evidence /new/protected/report.json`
+uses real Docker for disposable synthetic containers, private bridges and scratch
+volumes: retained kernel lease on actor death, competing lease refusal, owned-ID
+stop, SIGHUP/EOF/PTY teardown, hard-kill fencing and explicit stop-only recovery,
+effective isolation checks, and the accepted JVM's truststore behavior. It starts
+no Gameómetro service, publishes no ports and cleans only its randomly labelled
+fixtures. Its protected receipt records source hashes, actual versions, failed or
+inconclusive checks and the absence of VPS/application deployment. Any intermediate
+failed campaign remains evidence; a later changed-source run does not erase it.
 
-Check effective secret consumer ownership/modes and nonempty required inputs from the
-inventory above, the separately approved model checksums, registry pull permission,
-archive/ledger/reconstruction independence, backup public keys and recovery journals.
-Secrets remain owner-generated. Missing permissions must produce an unknown/refusal,
-not an instruction to add the agent to the Docker group, loosen files, create
-`READY`, remove a fence or globally trust a root-owned checkout.
-
-The existing runtime validator's `--env-file` path renders the **base Compose only**.
-It neither certifies the observability overlay nor supplies the proposed private
-overlay. The new validator must inspect the complete rendered combination and test
-unsafe overrides. A successful `compose config --quiet` is syntax evidence only.
-
-### Private host adapter boundary
-
-Reuse trusted-publication verification, exact image identity checks, configuration
-inventory, deployment lock, recovery lease, same-image Flyway actor, readiness,
-bounded anonymous smoke and sanitized atomic receipts. The existing `Deployment`
-object is coupled to a disposable `Exercise`: its project regex, synthetic secret
-ownership, internal-only networks, probe CA and dependency-first preflight cannot
-be made host-safe by removing one guard or renaming the Compose project.
-
-The new overlay/adapter changes the runtime-source inventory. First retain the
-expected mismatch refusal against the signed candidate. Before execution, review a
-rollout contract binding an explicitly published operational revision to the selected
-image revisions, or select a newly reviewed candidate with matching sources. This
-compatibility/trust decision remains open; disabling `verify_configuration` to reuse
-an older image is not an implementation option. Local preparations can test the new
-seams without claiming the signed fingerprint covers them.
-
-Prepare an explicit first-install operation separately from application replacement.
-First install must prove empty/unclaimed volumes and no conflicting project, model,
-network or journal; initialize recovery authorization only through the reviewed
-fresh-state procedure; then start PostgreSQL, run the same-image migration actor,
-provision the Grafana reader after migrations and start dependencies privately before
-application activation. Bootstrap is an operation requiring authorization, not a
-preflight side effect. Existing/ambiguous volumes or interrupted state must refuse.
-The current deployment path expects dependencies already running and cannot bootstrap
-an empty host. Failed phases stay closed; do not erase volumes or revert Flyway.
-
-The private overlay must remove **all** published ports from the final rendered
-configuration, including inherited Caddy bindings. Keep private administration over
-the existing tailnet/SSH route. Review private TLS and canonical-host resolution for
-both `gameometro.com` and `auth.gameometro.com`, including the BFF issuer backchannel;
-retain certificate verification and exact forwarded-header trust. A private test CA
-needs an explicit reviewed test configuration and cannot count as public ACME proof.
-No public DNS change, ACME reachability workaround or registration opening is implied.
-
-Preserve data-network isolation, fixed proxy addresses, denied management routes,
-secret mounts, resource limits and hardened containers. Check route/subnet collisions
-against host, Docker and tailnet routes. Deny host networking, unexpected mounts,
-privileges and publish additions in the private validator. Egress needed for SMTP,
-registry and later approved acquisition differs from public ingress: internalising
-every network blindly would break the issuer/relay contract. The netcup firewall
-alone does not prove Docker forwarding or independent IPv4/IPv6 denial. Preserve
-effective host/provider controls and qualify actual packet paths only in an
-authorized later exercise.
-
-Focused tests must cover no mutation on preflight refusal, combined-overlay port
-reintroduction, wrong socket/source/digest/fingerprint, unsafe/missing inputs,
-conflicting existing resources, concurrent backup/deploy, closed recovery/identity
-fences, failed migration/readiness/smoke and interrupted receipt/state writes. Reuse
-the accepted transition tests; add coverage only for the new host/bootstrap seams.
+Local Docker mechanism evidence does not qualify the target Engine/Compose pair,
+actual systemd configuration, SSH/provider packet paths, complete BFF login/token
+exchange, host-loss recovery or S3. Those remain separately authorized work after
+this second review. Product/image version remains the signed candidate's version;
+these operational changes have a separate reviewed fingerprint and no product API,
+MVP or migration change.
 
 ### Cloud transport dependency
 
