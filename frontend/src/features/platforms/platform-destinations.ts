@@ -1,3 +1,4 @@
+import { platformCataloguePath } from "../platform-catalogue/platform-catalogue-search";
 import type { PlatformContext } from "./platform-context";
 
 export type PlatformDestinationKey = "upcoming" | "topometro" | "catalogue";
@@ -20,5 +21,5 @@ export const platformDestinations: readonly PlatformDestination[] = [
   // #387: the player-rating TOPómetro of games released on the platform, never Hypes.
   { key: "topometro", label: "TOPómetro", to: () => null },
   // #389: the platform's games, browsed without typing.
-  { key: "catalogue", label: "Explorar catálogo", to: () => null },
+  { key: "catalogue", label: "Explorar catálogo", to: (context) => platformCataloguePath(context.key) },
 ];

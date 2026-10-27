@@ -488,6 +488,30 @@ public class ApiExceptionHandler {
                 new ApiRequestException(ProblemCode.FILTER_INVALID, pointer), response);
     }
 
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.platformgames.PlatformGamesQueryException
+                    .class)
+    ResponseEntity<Problem> platformGamesQueryInvalid(
+            com.videogameplatform.catalogue.application.platformgames.PlatformGamesQueryException
+                    exception,
+            HttpServletResponse response) {
+        return switch (exception.code()) {
+            case PLATFORM_NOT_SUPPORTED ->
+                    taxonomyUnsupported(
+                            new ReleaseQueryValidationException(
+                                    ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED),
+                            response);
+            case GENRE_NOT_SUPPORTED ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/genreIds"),
+                            response);
+            case YEAR_RANGE_INVALID ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/toYear"),
+                            response);
+        };
+    }
+
     @ExceptionHandler(SearchQueryInvalidException.class)
     ResponseEntity<Problem> searchQueryInvalid(HttpServletResponse response) {
         return searchQueryInvalid(response, "/query/q");

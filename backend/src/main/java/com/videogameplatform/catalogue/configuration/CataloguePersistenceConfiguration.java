@@ -100,6 +100,14 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.platformgames.port.PlatformGamesReadPort
+            platformGamesReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.platformgames
+                .JdbcPlatformGamesReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     GameDetailsReadPort gameDetailsReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.details
                 .JdbcGameDetailsReadAdapter(

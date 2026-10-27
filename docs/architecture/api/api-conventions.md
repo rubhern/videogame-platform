@@ -52,6 +52,10 @@ usefully expressed once in the contract.
   exact distinct-platform count, and the earliest and latest known years, never invented
   from an unknown date.
 
+- A platform's catalogue (#389) requires an explicit platform scope of product platform IDs; a
+  family travels as the IDs it groups. Its optional `q` follows the catalogue search rules as a
+  filter inside the scope, never as a ranking, and an absent `q` browses the whole scope.
+
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions
 return `428`; stale/existing state returns `412`. Successful commands return coherent

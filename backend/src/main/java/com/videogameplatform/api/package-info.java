@@ -9,6 +9,7 @@
             "catalogue::releases",
             "catalogue::search",
             "catalogue::rankings",
+            "catalogue::platformgames",
             "catalogue::details",
             "catalogue::preferences",
             "identity::application",

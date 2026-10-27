@@ -1,3 +1,4 @@
+import { isPlatformCataloguePath } from "../../features/platform-catalogue/platform-catalogue-search";
 import { FEATURED_PATH } from "../../features/releases/featured-search";
 import { legacyReleasesPath } from "../../features/releases/releases-search";
 import type { Location } from "react-router-dom";
@@ -13,6 +14,7 @@ import type { Location } from "react-router-dom";
 export type ReturnOrigin =
   | "featured"
   | "topometro"
+  | "platform-catalogue"
   | "releases"
   | "release-calendar"
   | "search"
@@ -54,6 +56,7 @@ const LABELS: Record<ReturnOrigin, string> = {
   releases: "Volver a lanzamientos",
   "release-calendar": "Volver al calendario",
   topometro: "Volver al TOPómetro",
+  "platform-catalogue": "Volver al catálogo",
   search: "Volver a resultados",
   "my-ratings": "Volver a mis puntuaciones",
   "rating-insights": "Volver a tus estadísticas",
@@ -109,7 +112,8 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
   if (url.origin !== BASE) return null;
   const legacy = url.pathname === "/" ? legacyReleasesPath(url.searchParams) : null;
   if (legacy !== null) return { origin: "releases", path: legacy };
-  const origin = ORIGINS[url.pathname];
+  // A platform's catalogue (#389) names its platform in the path rather than the query.
+  const origin = isPlatformCataloguePath(url.pathname) ? "platform-catalogue" : ORIGINS[url.pathname];
   return origin === undefined ? null : { origin, path: `${url.pathname === "/" ? FEATURED_PATH : url.pathname}${url.search}` };
 }
 
