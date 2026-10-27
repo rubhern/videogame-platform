@@ -382,4 +382,3 @@ export function PlatformCatalogueShell({
     </section>
   );
 }
-
