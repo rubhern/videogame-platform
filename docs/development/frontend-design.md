@@ -22,6 +22,49 @@ must still preserve functional availability, rating eligibility, score provenanc
 operational outcomes. The [product glossary](../product/glossary.md#user-facing-terms)
 owns terminology, including rating values, controls and accessible announcements.
 
+## Platform identities and logos
+
+Owner decision (#288, 2026-10-27): preserve recognizable platform/brand identities.
+Windows PC uses Windows; macOS uses Apple/macOS; Steam is used only for an actual Steam
+context, never as an operating system or a substitute for SteamVR. Nintendo generations,
+PS5 versus PS5 Pro and combined Xbox Series X|S remain distinct. Known platforms are
+never replaced by generic computer, controller or device artwork for visual uniformity.
+The existing #178 identity mapping remains authoritative; a logo is presentation only.
+
+The shared [`PlatformLogo`](../../frontend/src/shared/catalogue/platform-logo.tsx) renders
+compact marks through `SelectIcon` and offers a contained 200px large stage for #287.
+That page and its navigation are not implemented by #288. Use one master across sizes
+when legible; source separate variants only where needed. Preserve proportions, original
+colours and required clear space. Do not trace, stretch, crop, invert or tint newly
+sourced logos into consistency. The Night stage, spacing and visible names unify their
+presentation; Ice and Fire keep their existing product meanings.
+
+The [platform asset register](../../frontend/public/assets/platforms/README.md) owns the
+selected files, provenance, credit, provisional legacy treatment and blocked alternatives.
+Android and Linux use original sourced SVGs. Windows uses Microsoft's modern, unmodified
+blue four-pane SVG with the Windows name visible alongside it in compact card lists;
+there is no edition wordmark or product-ID change. Its bounded private-development
+referential basis and unresolved public-use risks are recorded in the register.
+Other retained artwork remains provisional. SteamVR's final selection for this increment
+is its explicit name, not the generic Steam symbol: the official black/white lockups
+are isolated for review because their permission and minimum-size conditions do not
+support the intended compact use. This supported name-based alternative does not leave
+an unfinished graphical implementation in #288. The existing PS5 raster is capped at
+180 CSS px in the large treatment to avoid upscaling on a 2× display; prominent VR2 and
+Meta Quest artwork still needs a higher-resolution cleared source. An available download
+does not itself establish rights. Manufacturer licence policies, honest referential use,
+copyright and contractual terms must be distinguished; private-development acceptance
+does not authorize public release. Public-use review follows the existing release gates
+and does not keep this implementation issue open after owner acceptance.
+
+Every containing control, heading or list keeps the full product-owned name; logos are
+decorative and never add duplicate screen-reader names. Failed newly sourced artwork
+keeps the known brand name. Only genuinely unknown platforms use the named generic
+controller fallback. The shared footer exposes required artist/licence notices through
+the native **Créditos de marcas** disclosure. Forced colours preserve names independently
+of the artwork. Review compact contexts and large specimens at 320, 390, 834 and 1320px,
+including 2× density, keyboard access and the accessibility tree.
+
 ## Brand identity
 
 - **Status:** Approved by the owner on 2026-10-16 and implemented on Destacados, the shared
