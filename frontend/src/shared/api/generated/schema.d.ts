@@ -262,6 +262,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-upcoming-highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rank the most anticipated upcoming games of one platform
+         * @description Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
+         *     catalogue publication that are still to come on the requested platform scope inside a
+         *     moving six-calendar-month horizon, ranked by their locally stored positive IGDB Hypes
+         *     descending, then `gameId` ascending. A platform family is sent as the product platform
+         *     identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
+         *
+         *     The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
+         *     starts on it and ends on the day before the same day of the month six calendar months
+         *     later; when that day does not exist, it ends on the last day of that month (from 31 August
+         *     to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
+         *
+         *     A release qualifies on a scope platform when it is a Full Release, neither cancelled nor
+         *     delayed nor pending review, and its known date can only fall inside the horizon and after
+         *     the evaluation date: an exact day after the evaluation date and no later than `window.to`,
+         *     or a month or quarter that has not ended and ends no later than `window.to`. A year or
+         *     unknown (TBA) date never qualifies, and no date is narrowed to an invented day. A game is a
+         *     candidate when it has a qualifying release on the scope, no release on the scope that has
+         *     already effectively occurred (the `browsePlatformGames` occurrence rule, so released and
+         *     upcoming agree with Explorar catálogo), and is not known to be an edition rather than a
+         *     distinct product. A game already released on another platform may be a candidate: what
+         *     matters is that it is new to this platform. Only candidates with a positive Hypes count are
+         *     ranked; a candidate without one is not ranked and no value is ever invented.
+         *
+         *     Each item presents one qualifying release of the scope, chosen by the `ReleaseItem`
+         *     presentation precedence with the earliest date first, and carries the landscape image of
+         *     `FeaturedImage`: the first item uses the hero policy, the others the card policy. Hypes
+         *     measure provider-observed attention: never quality, a rating, a community opinion or an
+         *     editorial recommendation, and the value itself is not exposed. The selection never claims
+         *     that the local catalogue holds every release of the platform. PostgreSQL selects,
+         *     deduplicates, ranks and limits the games and presents their release before anything
+         *     reaches the application. It never varies on the session or preferred platforms and never
+         *     calls a provider.
+         */
+        get: operations["getPlatformUpcomingHighlights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/games": {
         parameters: {
             query?: never;
@@ -1448,6 +1499,51 @@ export interface components {
             platformRelease: components["schemas"]["ReleaseSummary"];
             scores: components["schemas"]["DiscoveryScores"];
         };
+        PlatformUpcomingHighlights: {
+            /** @description The requested platform scope, ordered by case-insensitive name then `platformId`. */
+            platforms: components["schemas"]["Platform"][];
+            /** Format: date */
+            evaluatedOn: string;
+            /**
+             * @description The six-calendar-month horizon, inclusive: from the evaluation date to the day before
+             *     the same day of the month six months later, or that month's last day when the day does
+             *     not exist in it.
+             */
+            window: components["schemas"]["ReleaseWindow"];
+            /**
+             * @description `ranked` when at least one candidate has positive Hypes; `popularity_unavailable`
+             *     when the scope has candidates but none has Hypes; `no_qualifying_releases` when the
+             *     local catalogue holds no candidate in the horizon. The freshness fields describe the
+             *     oldest Hypes evidence among the ranked games.
+             */
+            selection: components["schemas"]["FeaturedSelection"];
+            /**
+             * @description The ranking, highest Hypes first, then `gameId` ascending; each game appears once.
+             *     Empty unless `selection.status` is `ranked`, and shorter than ten when fewer
+             *     candidates have Hypes: no slot is filled artificially.
+             */
+            items: components["schemas"]["UpcomingHighlightItem"][];
+        };
+        UpcomingHighlightItem: {
+            /**
+             * Format: int32
+             * @description The game's place in the ranking, consecutive from 1.
+             */
+            position: number;
+            gameId: components["schemas"]["GameId"];
+            slug: string;
+            canonicalTitle: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @description The hero policy's image for the first item and the card policy's for the others. */
+            featuredImage: components["schemas"]["FeaturedImage"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
+            genres: components["schemas"]["Genre"][];
+            /**
+             * @description The qualifying release that presents the game on the scope, with its own platform,
+             *     region, date at its real precision and effective status (`scheduled`).
+             */
+            platformRelease: components["schemas"]["ReleaseSummary"];
+        };
         GameSearchPage: {
             items: components["schemas"]["GameSummary"][];
             page: components["schemas"]["PageMetadata"];
@@ -2357,6 +2453,17 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The platform scope names an unknown platform, or a request parameter is unknown. */
+        UpcomingHighlightsValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The ranking source, the platform scope, the pagination or a request parameter is invalid. */
         RankingValidationFailed: {
             headers: {
@@ -3146,6 +3253,54 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PlatformGamesValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getPlatformUpcomingHighlights: {
+        parameters: {
+            query: {
+                /**
+                 * @description Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+                 *     identifiers of one platform or one platform family, combined with OR. At least one is
+                 *     required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+                 *     trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds: components["parameters"]["PlatformScopeQuery"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The platform scope's upcoming highlights, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUpcomingHighlights"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["UpcomingHighlightsValidationFailed"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];

@@ -68,7 +68,7 @@ for (const width of [320, 360, 390]) {
     await page.keyboard.press("Enter");
     await expect(menu).toHaveAttribute("aria-expanded", "true");
     const nav = page.getByRole("navigation", { name: "Principal" });
-    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Plataformas"]);
+    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC", "Ver todas las plataformas →"]);
     await expect(nav.getByRole("link", { name: "Explorar", exact: true })).toHaveAttribute("aria-current", "page");
     const account = page.getByRole("group", { name: "Mi cuenta" });
     await expect(account.getByRole("link")).toHaveText(["Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador"]);
@@ -123,13 +123,13 @@ test("the compact menu works by touch: the scrim dismisses without acting and li
   await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
 
   await menu.tap();
-  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Plataformas" }).tap();
+  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Ver todas las plataformas" }).tap();
   await expect(page).toHaveURL(/\/plataformas$/);
   await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("main")).toBeFocused();
   await menu.tap();
-  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Ver todas las plataformas" })).toHaveAttribute("aria-current", "page");
   await page.goBack();
   await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
@@ -180,7 +180,7 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
 
       const nav = page.getByRole("navigation", { name: "Principal" });
       const releases = nav.getByRole("button", { name: "Lanzamientos", exact: true });
-      const platforms = nav.getByRole("link", { name: "Plataformas" });
+      const platforms = nav.getByRole("button", { name: "Plataformas" });
       const account = authenticated
         ? page.getByRole("button", { name: "Mi cuenta" })
         : page.getByRole("link", { name: "Iniciar sesión", exact: true });
@@ -223,10 +223,11 @@ test("Plataformas is a visible section that opens its index", async ({ page }) =
   await mockDiscovery(page, () => ({ authenticated: false }));
   await page.goto("/lanzamientos");
   const nav = page.getByRole("navigation", { name: "Principal" });
-  await nav.getByRole("link", { name: "Plataformas" }).click();
+  await nav.getByRole("button", { name: "Plataformas" }).click();
+  await nav.getByRole("link", { name: "Ver todas las plataformas" }).click();
   await expect(page).toHaveURL(/\/plataformas$/);
   await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("button", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("button", { name: "Lanzamientos", exact: true })).not.toHaveAttribute("aria-current");
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });

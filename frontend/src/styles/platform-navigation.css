@@ -1,0 +1,293 @@
+/* Compact platform identity, shared across the three existing destinations. */
+@layer components {
+  .platform-navigation {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 22px;
+  }
+
+  .platform-navigation .platform-switcher-trigger {
+    min-height: 44px;
+  }
+
+  .platform-navigation-context {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .platform-navigation-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+
+  .platform-navigation-identity .app-select-icon {
+    flex: none;
+    width: 36px;
+    height: 28px;
+  }
+
+  .platform-navigation-links {
+    display: flex;
+    gap: 24px;
+    border-bottom: 1px solid var(--color-line);
+    margin-top: 10px;
+  }
+
+  .platform-navigation-links a {
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding-block: 10px;
+    border-bottom: 2px solid transparent;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .platform-navigation-links a[aria-current] {
+    border-bottom-color: var(--color-ice);
+    color: var(--color-ice-light);
+  }
+
+  .platform-navigation-links a:hover {
+    color: var(--color-ice-light);
+  }
+
+  .platform-navigation-links a:focus-visible, .platform-card a:focus-visible, .other-platform-more:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+  }
+
+  .platforms-panel {
+    min-width: 300px;
+  }
+
+  .platform-shortcuts-heading {
+    margin: 10px 12px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .platform-shortcuts-list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platform-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+  }
+
+  .platform-shortcut .app-select-icon {
+    width: 32px;
+    height: 24px;
+    flex: none;
+  }
+
+  .platform-shortcuts-all {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    border-top: 1px solid var(--color-line);
+    margin-top: 6px;
+    min-height: 44px;
+  }
+
+  .navigation-menu .platform-shortcuts-heading {
+    margin-inline: 0;
+  }
+
+  .navigation-menu .platform-shortcuts-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .navigation-menu .platform-shortcut {
+    padding: 8px 4px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .navigation-menu .platform-shortcuts-all {
+    padding-inline: 4px;
+    font-size: 0.875rem;
+  }
+
+  .platform-card-name a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .platform-card-name a:hover {
+    color: var(--color-ice-light);
+  }
+
+  .platform-destinations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    border-top: 0;
+  }
+
+  .platform-destination + .platform-destination {
+    border-top: 0;
+  }
+
+  .platform-destination:not([data-destination="catalogue"]) .platform-destination-row {
+    margin-inline: 0;
+    min-height: 64px;
+    padding: 8px;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    border: 1px solid var(--color-line);
+  }
+
+  .platform-destination[data-destination="catalogue"] {
+    grid-column: 1 / -1;
+    border: 0;
+    margin-bottom: 6px;
+  }
+
+  .platform-destination[data-destination="catalogue"] .platform-destination-link {
+    min-height: 46px;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-inline: 0;
+    border: 1px solid var(--line-ice-strong);
+    padding-inline: 12px;
+    background: color-mix(in srgb, var(--color-ice) 10%, var(--color-surface));
+    color: var(--color-ice-light);
+  }
+
+  .platform-destination[data-destination="catalogue"] .platform-destination-link:hover {
+    background: var(--control-hover);
+  }
+
+  .platform-destination-row {
+    min-height: 46px;
+  }
+
+  .other-platform-toggle {
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .other-platform-more {
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+    min-width: 44px;
+    min-height: 52px;
+    border: 0;
+    border-left: 1px solid var(--color-line);
+    border-radius: 0 5px 5px 0;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+  }
+
+  .other-platform-more:hover {
+    background: var(--control-hover);
+    color: var(--color-ice-light);
+  }
+
+  .other-platform .platform-destinations {
+    flex-basis: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    padding: 4px 10px 10px;
+  }
+
+  .other-platform .platform-destination-row {
+    align-items: center;
+  }
+
+  .other-platforms-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    align-items: start;
+  }
+
+  .other-platform {
+    min-width: 0;
+  }
+
+  .other-platform[data-open] {
+    padding-right: 0;
+    gap: 0;
+  }
+
+  .other-platform .other-platform-toggle {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .topometro-head-platform {
+    display: block;
+  }
+
+  .topometro-head-platform .topometro-title {
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 559px) {
+    .platform-navigation-context {
+      gap: 8px;
+    }
+
+    .platform-navigation-identity {
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+
+    .platform-navigation-links {
+      gap: 0;
+      justify-content: space-between;
+    }
+
+    .platform-navigation-links a {
+      font-size: 0.75rem;
+    }
+
+    .platform-navigation .platform-switcher-label-rest {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .platform-navigation .platform-switcher {
+      display: block;
+    }
+
+  }
+
+  @media (forced-colors: active) {
+    .platform-navigation-links a[aria-current] {
+      border-color: Highlight;
+      color: LinkText;
+    }
+
+  }
+
+}

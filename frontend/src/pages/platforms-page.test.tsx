@@ -58,10 +58,12 @@ describe("Plataformas", () => {
       const name = within(card).getByRole("heading", { level: 2 }).textContent ?? "";
       const destinations = within(card).getByRole("list", { name: `Destinos de ${name}` });
       expect(within(destinations).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-        "Próximos destacadosPróximamente", "TOPómetro", "Explorar catálogo",
+        "Explorar catálogo", "TOPómetro", "Próximos destacados",
       ]);
-      // TOPómetro (#387) and Explorar catálogo (#389) are live for every platform, by their own
-      // shareable paths.
+      // Próximos destacados (#388), TOPómetro (#387) and Explorar catálogo (#389) are live for
+      // every platform, by their own shareable paths.
+      expect(within(destinations).getByRole("link", { name: "Próximos destacados" }).getAttribute("href"))
+        .toMatch(/^\/plataformas\/[a-z0-9-]+\/proximos$/);
       expect(within(destinations).getByRole("link", { name: "TOPómetro" }).getAttribute("href"))
         .toMatch(/^\/plataformas\/[a-z0-9-]+\/topometro$/);
       expect(within(destinations).getByRole("link", { name: "Explorar catálogo" }).getAttribute("href"))
@@ -69,18 +71,14 @@ describe("Plataformas", () => {
       // Logos are decorative: the heading alone names the platform.
       expect(within(card).queryAllByRole("img")).toHaveLength(0);
     }
-    expect(within(featuredList()).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
-      "/plataformas/nintendo-switch-2/topometro",
-      "/plataformas/nintendo-switch-2/catalogo",
-      "/plataformas/playstation-5/topometro",
-      "/plataformas/playstation-5/catalogo",
-      "/plataformas/xbox-series-x-s/topometro",
-      "/plataformas/xbox-series-x-s/catalogo",
-      "/plataformas/windows-pc/topometro",
-      "/plataformas/windows-pc/catalogo",
-    ]);
+    for (const card of cards) {
+      const catalogue = within(card).getByRole("link", { name: "Explorar catálogo" });
+      const name = within(card).getByRole("heading", { level: 2 }).textContent ?? "";
+      expect(within(card).getByRole("link", { name })).toHaveAttribute("href", catalogue.getAttribute("href"));
+      expect(within(card).getByRole("link", { name: `Explorar catálogo de ${name}` })).toHaveAttribute("href", catalogue.getAttribute("href"));
+    }
     // The header's Plataformas entry is the current page.
-    expect(within(screen.getByRole("navigation", { name: "Principal" })).getByRole("link", { name: "Plataformas" }))
+    expect(within(screen.getByRole("navigation", { name: "Principal" })).getByRole("button", { name: "Plataformas" }))
       .toHaveAttribute("aria-current", "page");
   });
 
@@ -101,10 +99,10 @@ describe("Plataformas", () => {
 
     const list = await within(others()).findByRole("list");
     // SteamVR has games but is not among the owner's other platforms.
-    expect(within(list).getAllByRole("button").map((button) => button.textContent)).toEqual([
-      "Android", "PlayStation 4", "Xbox One",
+    expect(within(list).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Más destinos de Android", "Más destinos de PlayStation 4", "Más destinos de Xbox One",
     ]);
-    const ps4 = within(list).getByRole("button", { name: "PlayStation 4" });
+    const ps4 = within(list).getByRole("button", { name: "Más destinos de PlayStation 4" });
     expect(ps4).toHaveAttribute("aria-expanded", "false");
     expect(within(others()).queryByRole("list", { name: /^Destinos de/ })).not.toBeInTheDocument();
 
@@ -119,14 +117,16 @@ describe("Plataformas", () => {
     // The destinations open inside the chosen platform's own item.
     expect(ps4.closest("li")).toContainElement(destinations);
     expect(destinations).toHaveTextContent(
-      "Próximos destacadosPróximamenteTOPómetroExplorar catálogo",
+      "Explorar catálogoTOPómetroPróximos destacados",
     );
+    expect(within(destinations).getByRole("link", { name: "Próximos destacados" }))
+      .toHaveAttribute("href", "/plataformas/ps4-id/proximos");
     expect(within(destinations).getByRole("link", { name: "TOPómetro" }))
       .toHaveAttribute("href", "/plataformas/ps4-id/topometro");
     expect(within(destinations).getByRole("link", { name: "Explorar catálogo" }))
       .toHaveAttribute("href", "/plataformas/ps4-id/catalogo");
 
-    await user.click(within(list).getByRole("button", { name: "Android" }));
+    await user.click(within(list).getByRole("button", { name: "Más destinos de Android" }));
     expect(router.state.location.search).toBe("?plataforma=android-id");
     expect(ps4).toHaveAttribute("aria-expanded", "false");
     expect(within(others()).getAllByRole("list", { name: /^Destinos de/ })).toHaveLength(1);
@@ -144,8 +144,8 @@ describe("Plataformas", () => {
     renderApp("/plataformas?plataforma=xone-id");
 
     expect(await within(others()).findByRole("list", { name: "Destinos de Xbox One" })).toBeInTheDocument();
-    expect(within(others()).getByRole("button", { name: "Xbox One" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(others()).getByRole("button", { name: "Xbox One" })).not.toHaveFocus();
+    expect(within(others()).getByRole("button", { name: "Más destinos de Xbox One" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(others()).getByRole("button", { name: "Más destinos de Xbox One" })).not.toHaveFocus();
   });
 
   it.each(["dreamcast", "steamvr-id"])("never opens %s, which is not on offer", async (value) => {
@@ -200,7 +200,7 @@ describe("Plataformas", () => {
       return url.includes("/platforms") ? Response.json({ items: directory }) : Response.json({ authenticated: false });
     });
     await user.click(within(alert).getByRole("button", { name: "Reintentar" }));
-    expect(await within(others()).findByRole("button", { name: "Android" })).toBeInTheDocument();
+    expect(await within(others()).findByRole("button", { name: "Más destinos de Android" })).toBeInTheDocument();
   });
 });
 
@@ -209,7 +209,12 @@ describe("PlatformDestinations", () => {
     const pc: PlatformContext = {
       key: "windows-pc", name: "Windows PC", platformIds: ["10000000-0000-4000-8000-000000000003"], logo: "windows",
     };
-    const destinations = platformDestinations;
+    // Every destination is live today; one without a path for the platform still reads
+    // Próximamente and is never a link.
+    const destinations = [
+      ...platformDestinations.filter(destination => destination.key !== "upcoming"),
+      { key: "upcoming" as const, label: "Pendiente", to: () => null },
+    ];
     const router = createMemoryRouter([{
       path: "/",
       element: <PlatformDestinations context={pc} destinations={destinations} />,
@@ -221,5 +226,12 @@ describe("PlatformDestinations", () => {
     expect(within(list).getByRole("link", { name: "Explorar catálogo" })).toHaveAttribute("href", "/plataformas/windows-pc/catalogo");
     expect(within(list).getAllByRole("link")).toHaveLength(2);
     expect(within(list).getAllByText("Próximamente")).toHaveLength(1);
+  });
+
+  it("leads every platform to its upcoming highlights", () => {
+    const upcoming = platformDestinations.find((destination) => destination.key === "upcoming");
+    expect(upcoming?.label).toBe("Próximos destacados");
+    expect(upcoming?.to({ key: "ps4-id", name: "PlayStation 4", platformIds: ["ps4-id"], logo: "playstation" }))
+      .toBe("/plataformas/ps4-id/proximos");
   });
 });

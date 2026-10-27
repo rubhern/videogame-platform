@@ -1,12 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { PlatformLogo } from "../../shared/catalogue/platform-logo";
-import { isPlatformLogoName } from "../../shared/catalogue/platform-logo-assets";
 import { AppSelect } from "../../shared/ui/app-select";
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import type { SelectIconName } from "../../shared/ui/select-icon";
-import { platformsPath, type PlatformContext } from "../platforms/platform-context";
+import type { PlatformContext } from "../platforms/platform-context";
 import {
   ActiveFilterChips,
   CatalogueSearchField,
@@ -25,7 +23,7 @@ import type { PlatformCatalogueViewModel } from "./platform-catalogue-view-model
 import type { PlatformCatalogueState } from "./platform-catalogue-state";
 import type { PlatformGamesSort } from "./platform-games-api";
 import { PlatformGameCard } from "./platform-game-card";
-import { PlatformSwitcher } from "./platform-switcher";
+import { PlatformNavigation } from "../platforms/platform-navigation";
 
 const SORT_ICONS: Record<PlatformGamesSort, SelectIconName> = {
   release_date_desc: "descending",
@@ -131,27 +129,13 @@ export function PlatformCatalogueShell({
     <section aria-labelledby="platform-catalogue-title" className="platform-catalogue-page">
       <div className="page-container platform-catalogue">
         <header className="platform-catalogue-head platform-identity-box" data-logo={context.logo}>
-          <nav aria-label="Ruta de navegación" className="catalogue-breadcrumbs">
-            <ol>
-              <li>
-                <Link to="/plataformas">Plataformas</Link>
-              </li>
-              <li>
-                <Link to={platformsPath(context)}>{context.name}</Link>
-              </li>
-              <li aria-current="page">Explorar catálogo</li>
-            </ol>
-          </nav>
-          <div className="platform-catalogue-identity">
-            <h1 className="page-title platform-catalogue-title" id="platform-catalogue-title">
-              <span className="sr-only">Explorar catálogo de</span> {context.name}
-            </h1>
-            {isPlatformLogoName(context.logo) ? (
-              <div aria-hidden="true" className="platform-catalogue-mark">
-                <PlatformLogo name={context.logo} size="large" />
-              </div>
-            ) : null}
-          </div>
+          <PlatformNavigation context={context} active="catalogue" others={otherPlatforms}
+            pathForPlatform={(platform) => platformCataloguePath(platform.key, search, {
+              page: 1,
+            })} />
+          <h1 className="page-title platform-catalogue-title" id="platform-catalogue-title">
+            Explorar catálogo <span className="sr-only">{`de ${context.name}`}</span>
+          </h1>
         </header>
 
         <div className="catalogue-controls">
@@ -236,17 +220,6 @@ export function PlatformCatalogueShell({
               )}
             </p>
           )}
-          <PlatformSwitcher
-            current={context}
-            others={otherPlatforms}
-            pathFor={(platform) =>
-              platformCataloguePath(platform.key, search, {
-                page: 1,
-                // A genre belongs to the whole taxonomy; the next platform's facets keep it.
-                genreIds: search.genreIds,
-              })
-            }
-          />
         </div>
 
         {state.status === "loading" ? (

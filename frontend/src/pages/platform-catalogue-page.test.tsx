@@ -101,11 +101,12 @@ describe("Explorar catálogo", () => {
     expect(sent.searchParams.get("pageSize")).toBe("24");
     expect(sent.searchParams.has("q")).toBe(false);
 
-    const trail = screen.getByRole("navigation", { name: "Ruta de navegación" });
-    expect(within(trail).getByRole("link", { name: "Nintendo Switch 2" }))
-      .toHaveAttribute("href", "/plataformas?plataforma=nintendo-switch-2");
+    expect(screen.queryByRole("navigation", { name: "Ruta de navegación" })).not.toBeInTheDocument();
+    const trail = screen.getByRole("navigation", { name: "Navegación de Nintendo Switch 2" });
+    expect(within(trail).getByRole("link", { name: "Catálogo" }))
+      .toHaveAttribute("href", "/plataformas/nintendo-switch-2/catalogo");
     // Plataformas stays the current section on a platform's destination.
-    expect(within(screen.getByRole("navigation", { name: "Principal" })).getByRole("link", { name: "Plataformas" }))
+    expect(within(screen.getByRole("navigation", { name: "Principal" })).getByRole("button", { name: "Plataformas" }))
       .toHaveAttribute("aria-current", "true");
   });
 

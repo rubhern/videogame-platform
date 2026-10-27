@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import { isPlatformLogoName, platformLogoAssets } from "../../shared/catalogue/platform-logo-assets";
 import { SelectIcon, type SelectIconName } from "../../shared/ui/select-icon";
+import { platformCataloguePath } from "../platform-catalogue/platform-catalogue-search";
 import { PlatformDestinations } from "./platform-card";
 import { PLATFORMS_PATH, type PlatformContext } from "./platform-context";
 import type { PlatformDestination } from "./platform-destinations";
@@ -30,8 +31,8 @@ function drawsMark(logo: SelectIconName): boolean {
 
 /**
  * **Otras plataformas**: the owner's other platforms that Gameómetro has games for, by their own
- * name and mark. Each is a disclosure that opens its three destinations in place, under its name.
- * The open platform lives in the URL, so it is shareable and kept by history.
+ * name and mark. Each name links to the catalogue; a separate disclosure opens its three
+ * destinations. The open platform lives in the URL, so it is shareable and kept by history.
  */
 export function OtherPlatforms({ state, selection, destinations, onToggle, onRetry }: OtherPlatformsProps) {
   const ready = state.status === "ready" ? state : null;
@@ -103,17 +104,15 @@ export function OtherPlatforms({ state, selection, destinations, onToggle, onRet
             const destinationsId = `other-platform-${platform.key}-destinations`;
             return (
               <li className="other-platform" data-open={open || undefined} key={platform.key}>
-                <button
-                  aria-controls={open ? destinationsId : undefined}
-                  aria-expanded={open}
-                  className="other-platform-toggle"
-                  onClick={() => onToggle(platform)}
-                  type="button"
-                >
+                <Link className="other-platform-toggle" to={platformCataloguePath(platform.key)}>
                   <span className="other-platform-mark" data-logo={platform.logo}>
                     {drawsMark(platform.logo) ? <SelectIcon name={platform.logo} /> : null}
                   </span>
                   <span className="other-platform-name">{platform.name}</span>
+                </Link>
+                <button aria-controls={open ? destinationsId : undefined} aria-expanded={open}
+                  aria-label={`Más destinos de ${platform.name}`} className="other-platform-more"
+                  onClick={() => onToggle(platform)} type="button">
                   <span aria-hidden="true" className="other-platform-chevron" />
                 </button>
                 {open ? (

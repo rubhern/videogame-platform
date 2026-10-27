@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { PlatformShortcuts } from "./platform-shortcuts";
 
 import { TOPOMETRO_PATH } from "../features/rankings/ranking-search";
 import { useSession } from "../features/session/use-session";
 import { TopometroLogo } from "../shared/brand/brand-logo";
 import { AccountActions, AccountEntryLinks } from "./account-control";
-import { PLATFORMS_PATH, usePrimaryDestinations } from "./primary-destinations";
+import { usePrimaryDestinations } from "./primary-destinations";
 
 /** Orders the sheet's staggered entrance; the CSS reads it only when motion is allowed. */
 const step = (index: number) => ({ "--menu-step": index }) as CSSProperties;
@@ -105,11 +106,8 @@ export function NavigationMenu() {
                     </Link>
                   </li>
                   <li className="navigation-menu-section" style={step(2)}>
-                    <Link className="navigation-menu-link" to={PLATFORMS_PATH}
-                      aria-current={current(PLATFORMS_PATH)}>
-                      Plataformas
-                      <span className="navigation-menu-arrow" aria-hidden="true" />
-                    </Link>
+                    <span className="navigation-menu-heading">Plataformas</span>
+                    <PlatformShortcuts />
                   </li>
                 </ul>
               </nav>

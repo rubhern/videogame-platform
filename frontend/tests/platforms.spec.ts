@@ -43,22 +43,23 @@ test("the header reaches Plataformas and a direct load or refresh renders it", a
   await page.route("**/api/v1/featured-releases*", (route) => route.abort());
   await page.goto("/lanzamientos/destacados");
   const nav = page.getByRole("navigation", { name: "Principal" });
-  await nav.getByRole("link", { name: "Plataformas" }).click();
+  await nav.getByRole("button", { name: "Plataformas" }).click();
+  await nav.getByRole("link", { name: "Ver todas las plataformas" }).click();
   await expect(page).toHaveURL(/\/plataformas$/);
   await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("button", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
 
   await page.goto("/plataformas?plataforma=ps4-id");
   await page.reload();
   await expect(others(page).getByRole("list", { name: "Destinos de PlayStation 4" })).toBeVisible();
-  await expect(others(page).getByRole("button", { name: "PlayStation 4" })).toHaveAttribute("aria-expanded", "true");
+  await expect(others(page).getByRole("button", { name: "Más destinos de PlayStation 4" })).toHaveAttribute("aria-expanded", "true");
 });
 
 test("a phone reaches Plataformas through the Menú", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/topometro");
   await page.getByRole("button", { name: "Menú" }).click();
-  await page.getByRole("link", { name: "Plataformas" }).click();
+  await page.getByRole("link", { name: "Ver todas las plataformas" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Plataformas" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Menú" })).toHaveAttribute("aria-expanded", "false");
 });
@@ -66,8 +67,8 @@ test("a phone reaches Plataformas through the Menú", async ({ page }) => {
 test("a platform opens its destinations in place by keyboard, keeps the reading position and Back closes it", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/plataformas");
-  await expect(others(page).getByRole("button")).toHaveText(offered);
-  const ps4 = others(page).getByRole("button", { name: "PlayStation 4" });
+  await expect(others(page).getByRole("link")).toHaveText(offered);
+  const ps4 = others(page).getByRole("button", { name: "Más destinos de PlayStation 4" });
   await ps4.scrollIntoViewIfNeeded();
   const before = await page.evaluate(() => scrollY);
   await ps4.focus();
@@ -79,7 +80,9 @@ test("a platform opens its destinations in place by keyboard, keeps the reading 
   const destinations = others(page).getByRole("list", { name: "Destinos de PlayStation 4" });
   await expect(destinations).toBeInViewport();
   await expect(destinations.getByRole("listitem"))
-    .toHaveText([/Próximos destacados\s*Próximamente/, /^TOPómetro$/, /^Explorar catálogo$/]);
+    .toHaveText([/^Explorar catálogo$/, /^TOPómetro$/, /^Próximos destacados$/]);
+  await expect(destinations.getByRole("link", { name: "Próximos destacados" }))
+    .toHaveAttribute("href", "/plataformas/ps4-id/proximos");
 
   await page.keyboard.press("Space");
   await expect(page).toHaveURL(/\/plataformas$/);
@@ -131,6 +134,6 @@ for (const width of [320, 360, 390, 834, 1320]) {
 
     await page.emulateMedia({ forcedColors: "active" });
     await expect(cards(page).first().getByRole("heading", { level: 2 })).toBeVisible();
-    await expect(others(page).getByRole("button", { name: "Xbox One" })).toBeVisible();
+    await expect(others(page).getByRole("button", { name: "Más destinos de Xbox One" })).toBeVisible();
   });
 }

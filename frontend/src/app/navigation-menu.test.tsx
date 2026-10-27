@@ -45,10 +45,10 @@ describe("compact navigation menu", () => {
     expect(panel).toContainElement(nav);
     const links = within(nav).getAllByRole("link");
     expect(links.map(link => link.textContent)).toEqual([
-      "Destacados", "Explorar", "Calendario", "TOPómetro", "Plataformas",
+      "Destacados", "Explorar", "Calendario", "TOPómetro", "Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC", "Ver todas las plataformas →",
     ]);
     expect(links.map(link => link.getAttribute("href"))).toEqual([
-      "/lanzamientos/destacados", "/lanzamientos", "/lanzamientos/calendario", "/topometro", "/plataformas",
+      "/lanzamientos/destacados", "/lanzamientos", "/lanzamientos/calendario", "/topometro", "/plataformas/nintendo-switch-2/catalogo", "/plataformas/playstation-5/catalogo", "/plataformas/xbox-series-x-s/catalogo", "/plataformas/windows-pc/catalogo", "/plataformas",
     ]);
     expect(within(nav).getByRole("list", { name: "Lanzamientos" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Calendario" })).toHaveAttribute("aria-current", "page");
@@ -76,7 +76,7 @@ describe("compact navigation menu", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     await screen.findByRole("link", { name: "Crear cuenta" });
     // Five sections and both account links, then focus leaves for the page.
-    await user.keyboard("{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}");
+    await user.keyboard("{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}{Tab}");
     expect(screen.getByRole("button", { name: "Next control" })).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
@@ -104,11 +104,11 @@ describe("compact navigation menu", () => {
     await act(() => router.navigate("/lanzamientos?sort=date", { replace: true }));
     expect(trigger).toHaveAttribute("aria-expanded", "true");
 
-    await user.click(screen.getByRole("link", { name: "Plataformas" }));
+    await user.click(screen.getByRole("link", { name: "Ver todas las plataformas" }));
     expect(router.state.location.pathname).toBe("/plataformas");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     await user.click(trigger);
-    expect(screen.getByRole("link", { name: "Plataformas" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Ver todas las plataformas" })).toHaveAttribute("aria-current", "page");
     await act(() => router.navigate(-1));
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });

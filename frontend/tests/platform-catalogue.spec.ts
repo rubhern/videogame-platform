@@ -84,14 +84,14 @@ test("Plataformas leads to a platform's catalogue and a direct load or refresh r
   await stubCatalogue(page);
   await page.goto("/plataformas");
   const card = page.getByRole("list", { name: "Plataformas destacadas" }).getByRole("article").first();
-  await card.getByRole("link", { name: "Explorar catálogo" }).click();
+  await card.getByRole("link", { name: "Explorar catálogo", exact: true }).click();
   await expect(page).toHaveURL(/\/plataformas\/nintendo-switch-2\/catalogo$/);
   await expect(page.getByRole("heading", { level: 1, name: "Explorar catálogo de Nintendo Switch 2" })).toBeVisible();
   await expect(grid(page).getByRole("article")).toHaveCount(24);
 
   await page.reload();
   await expect(grid(page).getByRole("article")).toHaveCount(24);
-  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Plataformas" }))
+  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Plataformas" }))
     .toHaveAttribute("aria-current", "true");
 });
 
@@ -138,7 +138,7 @@ test("works by keyboard: state, search, filters and pages live in the URL", asyn
   await page.goto("/plataformas/nintendo-switch-2/catalogo");
   await expect(grid(page).getByRole("article")).toHaveCount(24);
 
-  await page.getByRole("link", { name: "Próximos" }).focus();
+  await page.getByRole("link", { name: "Próximos", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\?releaseState=upcoming$/);
   await expect.poll(() => requested.at(-1)?.searchParams.get("sort")).toBe("release_date_asc");
@@ -213,5 +213,5 @@ test("reduced motion keeps the page still and forced colours keep the choices", 
   await page.goto("/plataformas/nintendo-switch-2/catalogo?releaseState=upcoming");
   await expect(grid(page).getByRole("article")).toHaveCount(24);
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
-  await expect(page.getByRole("link", { name: "Próximos" })).toHaveCSS("outline-style", "solid");
+  await expect(page.getByRole("link", { name: "Próximos", exact: true })).toHaveCSS("outline-style", "solid");
 });

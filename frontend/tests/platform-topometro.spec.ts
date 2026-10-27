@@ -102,7 +102,7 @@ test("Plataformas leads to a platform's TOPómetro and a direct load or refresh 
 
   await page.reload();
   await expect(page.getByRole("list", { name: "Podio" }).locator(":scope > li")).toHaveCount(3);
-  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Plataformas" }))
+  await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Plataformas" }))
     .toHaveAttribute("aria-current", "true");
 });
 
@@ -118,12 +118,9 @@ for (const width of [320, 390, 834, 1320]) {
       .toHaveCount(17);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 
-    // The plate answers the lockup beneath it, inside the page, and never overflows it.
-    const lockup = await page.locator(".topometro-head-platform .topometro-logo").boundingBox();
-    const plate = await page.locator(".topometro-platform").boundingBox();
-    if (lockup === null || plate === null) throw new Error("The platform opening lost its lockup or plate");
-    expect(plate.y).toBeGreaterThanOrEqual(lockup.y + lockup.height - 1);
-    expect(plate.x + plate.width).toBeLessThanOrEqual(width);
+    const identity = await page.locator(".platform-navigation-identity").boundingBox();
+    expect((identity?.x ?? 0) + (identity?.width ?? 0)).toBeLessThanOrEqual(width);
+    await expect(page.getByRole("navigation", { name: "Ruta de navegación" })).toHaveCount(0);
     // Controls keep comfortable targets inside the viewport.
     const sources = page.getByRole("navigation", { name: "Puntuaciones del TOPómetro" });
     for (const control of [
@@ -197,5 +194,5 @@ test("reduced motion keeps the plate still and forced colours keep its rule", as
   await expect(page.getByRole("heading", { level: 1, name: "TOPómetro de Meta Quest 3" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Podio" })).toBeVisible();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
-  await expect(page.locator(".topometro-platform")).toHaveCSS("border-top-style", "solid");
+  await expect(page.locator(".platform-navigation-links")).toHaveCSS("border-bottom-style", "solid");
 });

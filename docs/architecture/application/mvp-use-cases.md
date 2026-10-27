@@ -19,6 +19,7 @@
 | `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
 | `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 50 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; post-MVP (#387), an optional platform scope of product platform IDs (one platform or one family) admits only games whose eligible release lies on the scope (`RNK-005`) before that order, count and page, keeps each game's global reading and presents its scope release; an unknown scope platform is rejected; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
+| `UC-020` | Rank a platform's most anticipated upcoming games (Próximos destacados) | Visitor | Post-MVP (#388): application validates a platform scope of product platform IDs as `UC-019` does and derives the evaluation date and the six-calendar-month horizon in `Europe/Madrid`; PostgreSQL selects the scope's qualifying releases inside the horizon (`UPC-001`), keeps the distinct games still new to the scope (`UPC-002`), ranks those with positive locally stored Hypes by Hypes descending and `gameId` ascending, limits the ranking to ten and presents one qualifying release per game (`UPC-003`); unranked and empty are valid states; never varies on the session or preferred platforms and never calls a provider |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -250,6 +251,26 @@ for Nintendo Switch 2 and PlayStation 5; the opt-in `PlatformGamesScalabilityIT`
 game's presented release. That cost grows with the platform's own releases, not the page; a
 per-publication projection of each game's presented release per platform is the remedy when a
 measured platform scope makes the page read exceed its budget.
+
+Post-MVP (#388, implemented; awaiting owner review), `UC-020` is **Próximos destacados**, the
+third platform destination of the Plataformas section, beside its TOPómetro and Explorar catálogo.
+It ranks attention, never quality: the same locally stored IGDB Hypes `UC-010` ranks with, whose
+value is never exposed, without `UC-010`'s first-release gate, so a game released years ago on
+another platform qualifies while it is still to come on this one. The horizon runs from the
+evaluation date to the day before the same day six calendar months later, or to the last day of
+that month when the day does not exist in it, and the visitor never chooses it. The ten-game limit
+and the horizon are owner-approved product settings held by the application. Candidates none of
+which has Hypes yield `popularity_unavailable`, a horizon without candidates
+`no_qualifying_releases`; nothing fills a missing place. One statement, in one repeatable-read
+snapshot, selects the horizon's releases through the shared period index, probes each candidate's
+scope releases and Hypes by key, ranks and limits, presents the ten releases and states whether any
+candidate exists; genres are then read for the ten games only, so request memory is `O(limit)`.
+The work grows with the releases inside the horizon across every platform, never with the
+catalogue's history. Evidence (2026-10-27, a copy of the real local catalogue: 21,839 games, 40,681
+releases): about 4,900 releases fall inside the horizon, Windows PC ranks among 727 qualifying
+releases in about 7 ms warm and PlayStation 5 and Nintendo Switch 2 in about 2–3 ms. A partial index
+of qualifying releases per platform is the remedy when a measured horizon makes the read exceed its
+budget.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.

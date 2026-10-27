@@ -105,9 +105,10 @@ describe("A platform's TOPómetro", () => {
     expect(within(podium).queryByRole("list", { name: "Plataformas de Juego 1" })).not.toBeInTheDocument();
     expect(within(podium).getByText("5.494 valoraciones")).toBeVisible();
 
-    const trail = screen.getByRole("navigation", { name: "Ruta de navegación" });
-    expect(within(trail).getByRole("link", { name: "PlayStation 5" }))
-      .toHaveAttribute("href", "/plataformas?plataforma=playstation-5");
+    expect(screen.queryByRole("navigation", { name: "Ruta de navegación" })).not.toBeInTheDocument();
+    const trail = screen.getByRole("navigation", { name: "Navegación de PlayStation 5" });
+    expect(within(trail).getByRole("link", { name: "Catálogo" }))
+      .toHaveAttribute("href", "/plataformas/playstation-5/catalogo");
     expect(screen.getByRole("link", { name: "Comunidad Gameómetro" }))
       .toHaveAttribute("href", "/plataformas/playstation-5/topometro?source=gameometro");
     expect(screen.getByRole("link", { name: "Jugadores IGDB" })).toHaveAttribute("aria-current", "true");

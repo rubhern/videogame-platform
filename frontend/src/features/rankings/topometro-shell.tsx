@@ -1,14 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { PlatformNavigation } from "../platforms/platform-navigation";
 
 import { TopometroLogo } from "../../shared/brand/brand-logo";
-import { PlatformLogo } from "../../shared/catalogue/platform-logo";
-import { isPlatformLogoName } from "../../shared/catalogue/platform-logo-assets";
 import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
-import { SelectIcon } from "../../shared/ui/select-icon";
 import { StageLight } from "../../shared/ui/stage-light";
-import { PlatformSwitcher } from "../platform-catalogue/platform-switcher";
-import { PLATFORMS_PATH, platformsPath, type PlatformContext } from "../platforms/platform-context";
+import { type PlatformContext } from "../platforms/platform-context";
 import type { RankingView } from "./game-ranking-view-model";
 import { RankingPodium } from "./ranking-podium";
 import { RankingRow } from "./ranking-row";
@@ -106,18 +103,6 @@ function EmptyPlatformRanking({ source, platform }: { source: RankingSource; pla
   );
 }
 
-/** The platform's mark in its optical box, or its compact mark when it has no large artwork. */
-function PlatformPlateMark({ platform }: { platform: PlatformContext }) {
-  return (
-    <span className="topometro-platform-mark">
-      {isPlatformLogoName(platform.logo) ? (
-        <PlatformLogo name={platform.logo} size="large" />
-      ) : (
-        <SelectIcon name={platform.logo} />
-      )}
-    </span>
-  );
-}
 
 function RankingLoading() {
   return (
@@ -166,9 +151,8 @@ function RowPlaceholders({ count: rows }: { count: number }) {
  * ledger below are one ranked sequence read page by page; only **Cargar más juegos** reads the
  * next page, never scrolling, and focus moves to the first game of the batch it brought.
  *
- * A platform's TOPómetro (#387) is the same page under the platform's own plate: a trail back to
- * the platform with **Cambiar plataforma**, the platform's mark and name answering the lockup in
- * the heading, and every source and further page kept on the platform.
+ * A platform's TOPómetro shares its contextual navigation with catalogue and upcoming highlights.
+ * Its source and further pages stay scoped to the platform.
  */
 export function TopometroShell({ source, platform, state, onRetry, onLoadMore }: TopometroShellProps) {
   const linkState = useGameLinkState();
@@ -211,31 +195,11 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
           </header>
         ) : (
           <header className="topometro-head topometro-head-platform platform-identity-box" data-logo={platform.context.logo}>
-            <div className="topometro-trail">
-              <nav aria-label="Ruta de navegación" className="catalogue-breadcrumbs">
-                <ol>
-                  <li>
-                    <Link to={PLATFORMS_PATH}>Plataformas</Link>
-                  </li>
-                  <li>
-                    <Link to={platformsPath(platform.context)}>{platform.context.name}</Link>
-                  </li>
-                  <li aria-current="page">TOPómetro</li>
-                </ol>
-              </nav>
-              <PlatformSwitcher
-                current={platform.context}
-                others={platform.others}
-                pathFor={(context) => rankingPath(source, context.key)}
-              />
-            </div>
+            <PlatformNavigation context={platform.context} active="topometro" others={platform.others}
+              pathForPlatform={(context) => rankingPath(source, context.key)} />
             <h1 className="topometro-title topometro-identity" id="topometro-title">
               <span className="sr-only">{`TOPómetro de ${platform.context.name}`}</span>
               <TopometroLogo className="topometro-logo" />
-              <span aria-hidden="true" className="topometro-platform">
-                <PlatformPlateMark platform={platform.context} />
-                <span className="topometro-platform-name">{platform.context.name}</span>
-              </span>
             </h1>
             <RankingSourceSwitch platformKey={platform.context.key} source={source} />
           </header>

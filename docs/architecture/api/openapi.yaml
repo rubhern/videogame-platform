@@ -1,16 +1,17 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.5.0
+  version: 5.6.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
     calendar, weekly and monthly featured releases, the player-rating game ranking,
-    bounded-catalogue search, the catalogue of one platform, public game details, the selectable platform taxonomy, BFF
+    bounded-catalogue search, the catalogue of one platform, the most anticipated upcoming releases
+    of one platform, public game details, the selectable platform taxonomy, BFF
     session discovery, the authenticated user's ratings, rating statistics and preferred
     platforms, and the catalogue operator's synchronization status, coverage, bounded and
     historical synchronization requests and the stop or abandonment of one run. It contains
-    only the twenty-six approved method/path operations.
+    only the twenty-seven approved method/path operations.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -41,6 +42,10 @@ tags:
     description: |
       Public browsing of every locally known game of one platform or platform family, without a
       search query.
+  - name: Upcoming highlights
+    description: |
+      Public ranking of one platform's most anticipated upcoming games by locally observed
+      attention (Próximos destacados), never by quality.
   - name: Platform preferences
     description: |
       The current user's preferred platforms, which the client applies to release discovery as
@@ -979,6 +984,155 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PlatformGamesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /platform-upcoming-highlights:
+    get:
+      tags: [Upcoming highlights]
+      operationId: getPlatformUpcomingHighlights
+      summary: Rank the most anticipated upcoming games of one platform
+      description: |
+        Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
+        catalogue publication that are still to come on the requested platform scope inside a
+        moving six-calendar-month horizon, ranked by their locally stored positive IGDB Hypes
+        descending, then `gameId` ascending. A platform family is sent as the product platform
+        identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
+
+        The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
+        starts on it and ends on the day before the same day of the month six calendar months
+        later; when that day does not exist, it ends on the last day of that month (from 31 August
+        to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
+
+        A release qualifies on a scope platform when it is a Full Release, neither cancelled nor
+        delayed nor pending review, and its known date can only fall inside the horizon and after
+        the evaluation date: an exact day after the evaluation date and no later than `window.to`,
+        or a month or quarter that has not ended and ends no later than `window.to`. A year or
+        unknown (TBA) date never qualifies, and no date is narrowed to an invented day. A game is a
+        candidate when it has a qualifying release on the scope, no release on the scope that has
+        already effectively occurred (the `browsePlatformGames` occurrence rule, so released and
+        upcoming agree with Explorar catálogo), and is not known to be an edition rather than a
+        distinct product. A game already released on another platform may be a candidate: what
+        matters is that it is new to this platform. Only candidates with a positive Hypes count are
+        ranked; a candidate without one is not ranked and no value is ever invented.
+
+        Each item presents one qualifying release of the scope, chosen by the `ReleaseItem`
+        presentation precedence with the earliest date first, and carries the landscape image of
+        `FeaturedImage`: the first item uses the hero policy, the others the card policy. Hypes
+        measure provider-observed attention: never quality, a rating, a community opinion or an
+        editorial recommendation, and the value itself is not exposed. The selection never claims
+        that the local catalogue holds every release of the platform. PostgreSQL selects,
+        deduplicates, ranks and limits the games and presents their release before anything
+        reaches the application. It never varies on the session or preferred platforms and never
+        calls a provider.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlatformScopeQuery'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: The platform scope's upcoming highlights, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformUpcomingHighlights' }
+              examples:
+                ranked:
+                  summary: The most anticipated upcoming game of a platform and the next one
+                  description: |
+                    Evaluated on 27 October 2026. The first game presents a wide artwork; the second
+                    has no usable landscape media, so its provider cover is shown whole, and its
+                    release is known only to its quarter.
+                  value:
+                    platforms:
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                    evaluatedOn: '2026-10-27'
+                    window: { from: '2026-10-27', to: '2027-04-26' }
+                    selection:
+                      status: ranked
+                      popularityFreshness: fresh
+                      popularityObservedAt: '2026-10-26T05:00:00Z'
+                    items:
+                      - position: 1
+                        gameId: game_upcoming_example
+                        slug: juego-esperado-de-ejemplo
+                        canonicalTitle: Juego esperado de ejemplo
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coupcoming.webp
+                          alternativeText: Portada de Juego esperado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-esperado-de-ejemplo
+                        featuredImage:
+                          kind: artwork
+                          presentation: fill
+                          url: https://images.igdb.com/igdb/image/upload/t_1080p/arupcoming.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_720p/arupcoming.webp
+                          alternativeText: Arte de Juego esperado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-esperado-de-ejemplo
+                        genres:
+                          - { genreId: adventure, name: Aventura }
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_worldwide, name: Mundial }
+                          releaseDate: { precision: day, value: '2027-02-12' }
+                          status: scheduled
+                      - position: 2
+                        gameId: game_port_example
+                        slug: adaptacion-de-ejemplo
+                        canonicalTitle: Adaptación de ejemplo
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          alternativeText: Portada de Adaptación de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/adaptacion-de-ejemplo
+                        featuredImage:
+                          kind: cover
+                          presentation: contain
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          alternativeText: Portada de Adaptación de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/adaptacion-de-ejemplo
+                        genres: []
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_europe, name: Europa }
+                          releaseDate: { precision: quarter, value: 2027-Q1 }
+                          status: scheduled
+                popularityUnavailable:
+                  summary: Upcoming games exist on the platform but none has Hypes
+                  value:
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                    evaluatedOn: '2026-08-31'
+                    window: { from: '2026-08-31', to: '2027-02-28' }
+                    selection: { status: popularity_unavailable }
+                    items: []
+                noQualifyingReleases:
+                  summary: The local catalogue holds no upcoming game of the platform in the horizon
+                  value:
+                    platforms:
+                      - { platformId: platform_xbox_one, name: Xbox One }
+                    evaluatedOn: '2026-10-27'
+                    window: { from: '2026-10-27', to: '2027-04-26' }
+                    selection: { status: no_qualifying_releases }
+                    items: []
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/UpcomingHighlightsValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
@@ -3685,6 +3839,69 @@ components:
             region, date precision and effective status; never `cancelled`.
         scores: { $ref: '#/components/schemas/DiscoveryScores' }
       additionalProperties: false
+    PlatformUpcomingHighlights:
+      type: object
+      required: [platforms, evaluatedOn, window, selection, items]
+      properties:
+        platforms:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Platform' }
+          description: The requested platform scope, ordered by case-insensitive name then `platformId`.
+        evaluatedOn: { type: string, format: date }
+        window:
+          $ref: '#/components/schemas/ReleaseWindow'
+          description: |
+            The six-calendar-month horizon, inclusive: from the evaluation date to the day before
+            the same day of the month six months later, or that month's last day when the day does
+            not exist in it.
+        selection:
+          $ref: '#/components/schemas/FeaturedSelection'
+          description: |
+            `ranked` when at least one candidate has positive Hypes; `popularity_unavailable`
+            when the scope has candidates but none has Hypes; `no_qualifying_releases` when the
+            local catalogue holds no candidate in the horizon. The freshness fields describe the
+            oldest Hypes evidence among the ranked games.
+        items:
+          type: array
+          maxItems: 10
+          description: |
+            The ranking, highest Hypes first, then `gameId` ascending; each game appears once.
+            Empty unless `selection.status` is `ranked`, and shorter than ten when fewer
+            candidates have Hypes: no slot is filled artificially.
+          items: { $ref: '#/components/schemas/UpcomingHighlightItem' }
+      additionalProperties: false
+    UpcomingHighlightItem:
+      type: object
+      required: [position, gameId, slug, canonicalTitle, primaryCover, featuredImage, genres, platformRelease]
+      properties:
+        position:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10
+          description: The game's place in the ranking, consecutive from 1.
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        featuredImage:
+          $ref: '#/components/schemas/FeaturedImage'
+          description: The hero policy's image for the first item and the card policy's for the others.
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            The qualifying release that presents the game on the scope, with its own platform,
+            region, date at its real precision and effective status (`scheduled`).
+      additionalProperties: false
     GameSearchPage:
       type: object
       required: [items, page]
@@ -4790,6 +5007,17 @@ components:
             filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
             sortInvalid: { $ref: '#/components/examples/SortInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    UpcomingHighlightsValidationFailed:
+      description: The platform scope names an unknown platform, or a request parameter is unknown.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     RankingValidationFailed:
       description: The ranking source, the platform scope, the pagination or a request parameter is invalid.
