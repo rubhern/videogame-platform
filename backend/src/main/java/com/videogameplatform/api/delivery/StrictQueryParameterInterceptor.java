@@ -104,6 +104,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                         beanType)
                 || ReleaseCalendarApi.class.isAssignableFrom(beanType)
                 || FeaturedReleasesApi.class.isAssignableFrom(beanType)
+                || com.videogameplatform.api.generated.UpcomingHighlightsApi.class.isAssignableFrom(
+                        beanType)
                 || CatalogueApi.class.isAssignableFrom(beanType)
                 || RatingsApi.class.isAssignableFrom(beanType)
                 || PlatformPreferencesApi.class.isAssignableFrom(beanType)

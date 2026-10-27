@@ -1,6 +1,7 @@
 import { isPlatformCataloguePath } from "../../features/platform-catalogue/platform-catalogue-search";
 import { readPlatformRankingKey } from "../../features/rankings/ranking-search";
 import { FEATURED_PATH } from "../../features/releases/featured-search";
+import { readPlatformUpcomingKey } from "../../features/upcoming-highlights/upcoming-highlights-path";
 import { legacyReleasesPath } from "../../features/releases/releases-search";
 import type { Location } from "react-router-dom";
 
@@ -16,6 +17,7 @@ export type ReturnOrigin =
   | "featured"
   | "topometro"
   | "platform-catalogue"
+  | "platform-upcoming"
   | "releases"
   | "release-calendar"
   | "search"
@@ -58,6 +60,7 @@ const LABELS: Record<ReturnOrigin, string> = {
   "release-calendar": "Volver al calendario",
   topometro: "Volver al TOPómetro",
   "platform-catalogue": "Volver al catálogo",
+  "platform-upcoming": "Volver a Próximos destacados",
   search: "Volver a resultados",
   "my-ratings": "Volver a mis puntuaciones",
   "rating-insights": "Volver a tus estadísticas",
@@ -113,12 +116,15 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
   if (url.origin !== BASE) return null;
   const legacy = url.pathname === "/" ? legacyReleasesPath(url.searchParams) : null;
   if (legacy !== null) return { origin: "releases", path: legacy };
-  // A platform's catalogue (#389) and TOPómetro (#387) name their platform in the path.
+  // A platform's catalogue (#389), TOPómetro (#387) and upcoming highlights (#388) name their
+  // platform in the path.
   const origin = isPlatformCataloguePath(url.pathname)
     ? "platform-catalogue"
     : readPlatformRankingKey(url.pathname) !== null
       ? "topometro"
-      : ORIGINS[url.pathname];
+      : readPlatformUpcomingKey(url.pathname) !== null
+        ? "platform-upcoming"
+        : ORIGINS[url.pathname];
   return origin === undefined ? null : { origin, path: `${url.pathname === "/" ? FEATURED_PATH : url.pathname}${url.search}` };
 }
 

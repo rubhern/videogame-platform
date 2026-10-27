@@ -44,6 +44,8 @@ import {
   readPlatformCatalogueSearch,
 } from "../features/platform-catalogue/platform-catalogue-search";
 import { platformGamesQueryOptions } from "../features/platform-catalogue/use-platform-games-query";
+import { readPlatformUpcomingKey } from "../features/upcoming-highlights/upcoming-highlights-path";
+import { upcomingHighlightsQueryOptions } from "../features/upcoming-highlights/use-upcoming-highlights-query";
 import type { PlatformPreferences } from "../features/platform-preferences/platform-preferences-api";
 import { welcomePath } from "../features/platform-preferences/welcome-return";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
@@ -138,6 +140,13 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
             gameRankingQueryOptions(readRankingSource(url.searchParams), context.platformIds),
           )
           .catch(() => undefined);
+      }
+    } else if (readPlatformUpcomingKey(url.pathname) !== null) {
+      // A platform's upcoming highlights (#388) resolve their platform the same way, then read
+      // the one bounded ranking, so Back and the game page's way back restore their height.
+      const context = await readPlatformContext(queryClient, readPlatformUpcomingKey(url.pathname) ?? "");
+      if (context !== null) {
+        await queryClient.prefetchQuery(upcomingHighlightsQueryOptions(context)).catch(() => undefined);
       }
     } else if (url.pathname === PLATFORMS_PATH) {
       // The public directory (#287): Otras and its chosen card restore their height on Back.

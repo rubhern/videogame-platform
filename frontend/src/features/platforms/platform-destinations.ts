@@ -1,5 +1,6 @@
 import { platformCataloguePath } from "../platform-catalogue/platform-catalogue-search";
 import { DEFAULT_RANKING_SOURCE, rankingPath } from "../rankings/ranking-search";
+import { platformUpcomingPath } from "../upcoming-highlights/upcoming-highlights-path";
 import type { PlatformContext } from "./platform-context";
 
 export type PlatformDestinationKey = "upcoming" | "topometro" | "catalogue";
@@ -17,10 +18,7 @@ export type PlatformDestination = {
 };
 
 export const platformDestinations: readonly PlatformDestination[] = [
-  // #388: the most anticipated releases of the next six months, by Hypes (attention).
-  { key: "upcoming", label: "Próximos destacados", to: () => null },
-  // #387: the player-rating TOPómetro of games released on the platform, never Hypes.
-  { key: "topometro", label: "TOPómetro", to: (context) => rankingPath(DEFAULT_RANKING_SOURCE, context.key) },
-  // #389: the platform's games, browsed without typing.
   { key: "catalogue", label: "Explorar catálogo", to: (context) => platformCataloguePath(context.key) },
+  { key: "topometro", label: "TOPómetro", to: (context) => rankingPath(DEFAULT_RANKING_SOURCE, context.key) },
+  { key: "upcoming", label: "Próximos destacados", to: (context) => platformUpcomingPath(context.key) },
 ];

@@ -1,13 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { PlatformsNavigation } from "./platforms-navigation";
 
 import { TOPOMETRO_PATH } from "../features/rankings/ranking-search";
 import { TopometroLogo } from "../shared/brand/brand-logo";
-import { PLATFORMS_PATH, usePrimaryDestinations } from "./primary-destinations";
+import { usePrimaryDestinations } from "./primary-destinations";
 
 /**
  * The visible primary navigation from tablet width: the **Lanzamientos** disclosure (#385), then
- * TOPómetro (#386), named by its own lockup, and Plataformas (#287) beside it. Narrower screens
+ * TOPómetro (#386), named by its own lockup, and the Plataformas disclosure beside it. Narrower screens
  * carry the same sections in the compact `NavigationMenu` (#358).
  * The disclosure's native links keep their normal Tab and browser behaviour, and leaving it,
  * for TOPómetro or Plataformas included, closes it.
@@ -68,9 +69,7 @@ export function ReleasesNavigation() {
         <span className="sr-only">TOPómetro</span>
         <TopometroLogo className="nav-topometro-logo" />
       </Link>
-      <Link className="nav-link" to={PLATFORMS_PATH} aria-current={current(PLATFORMS_PATH)}>
-        Plataformas
-      </Link>
+      <PlatformsNavigation />
     </nav>
   );
 }

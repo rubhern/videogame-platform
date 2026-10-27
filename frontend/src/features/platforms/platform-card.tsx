@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import { TopometroLogo } from "../../shared/brand/brand-logo";
 import { PlatformLogo } from "../../shared/catalogue/platform-logo";
+import { platformCataloguePath } from "../platform-catalogue/platform-catalogue-search";
 import type { FeaturedPlatform, PlatformContext } from "./platform-context";
 import type { PlatformDestination } from "./platform-destinations";
 
@@ -64,11 +65,11 @@ export function PlatformCard({ context, destinations, note }: PlatformCardProps)
   const headingId = `platform-${context.key}-title`;
   return (
     <article aria-labelledby={headingId} className="platform-card" data-logo={context.logo}>
-      <div className="platform-card-stage">
+      <Link className="platform-card-stage" to={platformCataloguePath(context.key)} aria-label={`Explorar catálogo de ${context.name}`}>
         <PlatformLogo name={context.logo} size="large" />
-      </div>
+      </Link>
       <div className="platform-card-body">
-        <h2 className="platform-card-name" id={headingId}>{context.name}</h2>
+        <h2 className="platform-card-name" id={headingId}><Link to={platformCataloguePath(context.key)}>{context.name}</Link></h2>
         <PlatformDestinations context={context} destinations={destinations} />
         {/* After the destinations, so the rows of neighbouring cards stay aligned. */}
         {note === undefined ? null : <p className="platform-card-note">{note}</p>}
