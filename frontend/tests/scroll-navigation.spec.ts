@@ -182,8 +182,10 @@ for (const width of [390, 412, 1320]) {
       await expect(page).toHaveURL(/platformIds=windows-pc/);
       await at(page, before);
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
-  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
+      // Phones reach the sections through the Menú sheet (#358).
+      if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
+      else await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+      await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
       await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
       await at(page, 0);
       await expect(page.getByRole("main")).toBeFocused();

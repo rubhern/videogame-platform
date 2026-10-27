@@ -131,7 +131,8 @@ test.describe("Mis plataformas in Mi cuenta", () => {
       await account.install();
 
       await landOnFeatured(page, "?granularity=month");
-      await page.getByRole("button", { name: "Mi cuenta" }).click();
+      // Phones carry the account in the Menú sheet (#358).
+      await page.getByRole("button", { name: width < 720 ? "Menú" : "Mi cuenta" }).click();
       const check = page.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
       await expect(check).toBeChecked();
       await expect(page.getByRole("link", { name: "Mis plataformas", exact: true })).toBeVisible();
@@ -148,8 +149,9 @@ test.describe("Mis plataformas in Mi cuenta", () => {
 
       // The same document-wide choice holds in the explorer.
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
-    await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();
+      if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
+      else await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+      await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();
       await expect(page).toHaveURL(/\/lanzamientos$/);
       await expect
         .poll(() => account.discoveryReads.at(-1)?.pathname)
