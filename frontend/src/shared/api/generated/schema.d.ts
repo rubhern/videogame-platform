@@ -1767,6 +1767,8 @@ export interface components {
          *     Says nothing about ownership, playing time or the platform's quality.
          */
         PersonalPlatformInsights: {
+            /** @description Added in 5.7.0; absent only on earlier servers, never inferred from items. */
+            distribution?: components["schemas"]["PersonalPlatformDistribution"];
             /**
              * @description Up to six platforms by playedGames descending, then scoredGames descending, then
              *     name case-insensitively ascending and platformId ascending.
@@ -1787,6 +1789,41 @@ export interface components {
              * @description Rated games recorded on two or more platforms.
              */
             gamesOnSeveralPlatforms: number;
+        };
+        /**
+         * @description Exhaustive distribution of recorded game–platform associations, independent of the top-six
+         *     items. Each saved selection contributes one, including unscored selections. A game on PS5
+         *     and Windows contributes to both; two other platforms contribute two to other. The sum is
+         *     the percentage denominator, never the number of rated games. Missing selections contribute
+         *     nothing. All five counts are zero when no platforms are recorded. Product taxonomy IDs,
+         *     not provider identifiers, define the four featured categories; every other ID is other.
+         */
+        PersonalPlatformDistribution: {
+            /**
+             * Format: int64
+             * @description PS5: product platform 10000000-0000-4000-8000-000000000001.
+             */
+            ps5: number;
+            /**
+             * Format: int64
+             * @description Switch 2: product platform 10000000-0000-4000-8000-000000000002.
+             */
+            switch2: number;
+            /**
+             * Format: int64
+             * @description Xbox Series X|S: product platform 10000000-0000-4000-8000-000000000004.
+             */
+            xboxSeries: number;
+            /**
+             * Format: int64
+             * @description PC Windows: product platform 10000000-0000-4000-8000-000000000003.
+             */
+            windowsPc: number;
+            /**
+             * Format: int64
+             * @description All explicitly recorded selections outside the four featured product IDs.
+             */
+            other: number;
         };
         PersonalPlatformInsight: {
             platform: components["schemas"]["Platform"];

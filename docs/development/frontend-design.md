@@ -1667,24 +1667,22 @@ chart.
   `Media 7,2` in the readout voice. It runs behind the columns, so counts stay legible; the
   readout states that the needle is the unrounded mean while each column gathers the
   scores that round to it. Empty columns keep a quiet `0` and draw no bar.
-- **Dónde has jugado.** The coverage of the collection comes first as the page's one pie,
-  a ring, because it is the only partition the section has: every rated game falls in
-  exactly one slice — recorded on one platform (ice), on several (ice-light) or on none,
-  left as the empty, outlined part of the ring. Its centre states the share with a platform,
-  and beside it the figure (`62 de 84 juegos con plataforma`) and a legend give each slice's
-  count and share. Platform counts overlap, so they never become slices of a pie. Then come up to six
-  platforms as a ledger, each with its mark and name, one ice bar and that platform's
-  personal mean. The bar's length is the games played there. Its solid part is the games
-  scored on that platform, and its outlined, hatched part the games only marked as played;
-  a key names both, so the two never depend on colour. The counts follow in words
-  (`31 juegos`, `14 con puntuación`). The mean takes its temperature, with the band in
-  words, or reads `Sin puntuar`. Counts are measures, so they stay ice; only the mean is
-  thermal. Further platforms are counted beneath, and a note states that platform counts
-  overlap and that each mean uses only that platform's scores. On phones the ring sits beside
-  its legend and each platform reads down its own column beside its mean; from 620px the bar
-  takes the middle column, and from 1000px the ring and its legend lead a column of their own. Without any recorded platform the section
-  says so and explains **Puntuar por plataforma**, with no empty chart. Nothing in it claims
-  ownership, playing time or a favourite platform.
+- **Dónde has jugado.** A doughnut shows exactly PS5, Switch 2, Xbox Series X|S,
+  PC Windows and Otras (#398, implemented; awaiting owner review). The centre names the
+  total recorded platform selections; the permanent five-row legend gives every count
+  and percentage, including zeros. Arcs use exact proportions, without minimum slice
+  sizes; displayed shares use largest remainders at one decimal, with fixed-order ties,
+  to sum to 100%. The caption explains that each game counts on every platform indicated,
+  so these are shares of selections rather than distinct games. Zero selections draw no
+  ring and keep five zero readouts beside an invitation to record platforms. Games without
+  a selection stay in a separate quiet note. Categorical hues use restrained ice, orange
+  and neutral accents; they never imply score temperatures. The ring and ledger sit side
+  by side on wide screens and stack on narrow phones.
+  **Tus puntuaciones por plataforma** is a native keyboard-operable disclosure for the
+  secondary top-six ledger. It preserves marks, exact played/scored counts and personal
+  means, thermal only for scores; solid versus hatched bars distinguish scored from
+  played-only selections. Its scope and any omitted platforms remain explicit. Nothing
+  claims ownership, playing time or a favourite platform.
 - **Extremes.** Two game covers anchor the extremes, with full title links and personal
   scores, a platform mean with its decimal (#359). Coincident extremes present one game with
   the shared reading. On phones the covers shrink and the two games stack.
@@ -1699,8 +1697,8 @@ chart.
 Text and native controls carry every reading without SVG, colour, hover or a tooltip; touch
 selects. Only the opening enters once and bar changes transition, and reduced motion removes
 both. Forced colours use system text for bars, the needle and their counts, keep the
-platform bars' fill-and-outline contrast, stripe the ring's several-platform slice and outline a
-selection. Empty collections show a
+platform bars' fill-and-outline contrast, give the ring distinct categorical patterns and outline a
+selection. The permanent numerical legend carries every category without colour. Empty collections show a
 quiet invitation to find a game, with no simulated charts or meaningless instrument. Loading
 and failures use the shared server-backed state language below.
 

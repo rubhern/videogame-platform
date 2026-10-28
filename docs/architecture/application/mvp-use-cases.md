@@ -549,9 +549,18 @@ contribution never reach it. Ratings without any recorded platform stay valid an
 counted. Return up to six platforms by played count descending, scored count descending,
 case-insensitive name then platform ID ascending, plus the number of further platforms.
 
+Post-MVP (#398, implemented; awaiting owner review): the same read also returns five
+exhaustive association counts for PS5, Switch 2, Xbox Series X|S, PC Windows and Otras,
+independent of that top-six limit. Each saved game–platform selection contributes one,
+with or without a platform score; two other platforms on a game contribute two to Otras.
+The denominator is all recorded associations, never distinct games. Missing selections
+contribute to no category and their game count stays separate. Product platform identity
+selects the four featured groups; every other explicitly recorded identity belongs to Otras.
+No associations means five zero counts, not an invented full slice.
+
 PostgreSQL scopes by principal before aggregation, ordering and limits in one read-only
 repeatable-read snapshot. Java receives ten buckets, two lists of at most six genres,
-at most two games, twelve months and at most six platforms: constant memory as the
+at most two games, twelve months, at most six platforms and one five-count aggregate: constant memory as the
 user's collection grows. Database work grows with that user's ratings, their
 at-most-fifty projected genre links and at-most-fifty platforms per game, with indexed
 user/game access; no process-local correctness state.
