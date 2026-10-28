@@ -12,8 +12,8 @@ FROM ${CADDY_BUILDER_IMAGE} AS build
 ARG CADDY_VERSION=v2.11.7
 ARG CADDY_RATELIMIT_MODULE=github.com/mholt/caddy-ratelimit@5625512f24f6f59d6f64fb3aafe5eecff0b286db
 # Caddy's public HTTP/2 server is golang.org/x/net/http2; v0.59.0 has reachable denial-of-service
-# advisories (GO-2026-6603, -6610, -6611, -6612, -6617), fixed in v0.60.0.
-ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.60.0
+# advisories; v0.62.0 also fixes GO-2026-6860 and GO-2026-6866.
+ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.62.0
 ENV CGO_ENABLED=0 \
     GOFLAGS=-trimpath \
     GOPROXY=https://proxy.golang.org \

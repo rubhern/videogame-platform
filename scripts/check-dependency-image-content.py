@@ -53,7 +53,15 @@ EDGE_MODULE = "github.com/mholt/caddy-ratelimit"
 EDGE_MODULE_VERSION = "v0.1.1-0.20260612195517-5625512f24f6"
 # Security overrides in caddy/Dockerfile: {module: (stock version, patched version)}. A stock
 # release that moves the module fails the policy, so the override is reviewed and removed.
-EDGE_OVERRIDES = {"golang.org/x/net": ("v0.59.0", "v0.60.0")}
+EDGE_OVERRIDES = {"golang.org/x/net": ("v0.59.0", "v0.62.0")}
+# Exact transitive upgrades required by x/net v0.62.0's module graph.
+EDGE_TRANSITIVE_UPGRADES = {
+    "golang.org/x/crypto": ("v0.57.0", "v0.58.0"),
+    "golang.org/x/sync": ("v0.23.0", "v0.24.0"),
+    "golang.org/x/sys": ("v0.48.0", "v0.49.0"),
+    "golang.org/x/term": ("v0.46.0", "v0.47.0"),
+    "golang.org/x/text": ("v0.42.0", "v0.43.0"),
+}
 
 
 def normalized(paths):
@@ -137,9 +145,11 @@ def module_violations(image_info, base_info):
     for name in sorted(set(image) | set(base)):
         if name == EDGE_MODULE:
             continue
-        if name in EDGE_OVERRIDES:
-            stock, patched = EDGE_OVERRIDES[name]
-            if base.get(name) != (stock, None) or image.get(name) != (stock, patched):
+        if name in EDGE_OVERRIDES or name in EDGE_TRANSITIVE_UPGRADES:
+            stock, patched = (EDGE_OVERRIDES | EDGE_TRANSITIVE_UPGRADES)[name]
+            # The replacement graph selects x/net v0.60.0 before applying the patch.
+            expected = ("v0.60.0", patched) if name == "golang.org/x/net" else (patched, None)
+            if base.get(name) != (stock, None) or image.get(name) != expected:
                 found.append(f"security override {name} must replace stock {stock} with {patched}; "
                              f"stock {base.get(name)}, image {image.get(name)}")
         elif image.get(name) != base.get(name):
@@ -267,20 +277,25 @@ def self_test():
             failures.append(f"scan policy accepted an {label}")
     stock = ("go\tgo1.26.8\ndep\tgithub.com/caddyserver/caddy/v2\tv2.11.7\th1:x\ndep\tgolang.org/x/net\tv0.59.0\th1:y\n"
              "dep\tgolang.org/x/text\tv0.42.0\th1:t\n")
-    approved = stock.replace("v0.59.0\th1:y\n", "v0.59.0\th1:y\n=>\tgolang.org/x/net\tv0.60.0\th1:p\n") \
+    for name, (old, _) in EDGE_TRANSITIVE_UPGRADES.items():
+        if name not in modules(stock):
+            stock += f"dep\t{name}\t{old}\th1:t\n"
+    approved = stock.replace("v0.59.0\th1:y\n", "v0.60.0\th1:y\n=>\tgolang.org/x/net\tv0.62.0\th1:p\n") \
         + f"dep\t{EDGE_MODULE}\t{EDGE_MODULE_VERSION}\th1:z\n"
+    for name, (old, new) in EDGE_TRANSITIVE_UPGRADES.items():
+        approved = approved.replace(f"{name}\t{old}", f"{name}\t{new}")
     if module_violations(approved, stock):
         failures.append(f"edge module policy rejected the approved build: {module_violations(approved, stock)}")
     module_cases = [
         ("missing approved module", stock, "must be added"),
         ("another module version", approved.replace(EDGE_MODULE_VERSION, "v0.1.0"), "must be added"),
-        ("changed stock dependency", approved.replace("x/text\tv0.42.0", "x/text\tv0.41.0"), "golang.org/x/text differs"),
+        ("changed stock dependency", approved.replace("x/text\tv0.43.0", "x/text\tv0.41.0"), "security override"),
         ("extra module", approved + "dep\texample.com/plugin\tv1.0.0\th1:w\n", "example.com/plugin differs"),
-        ("replaced module", approved.replace("v0.42.0\th1:t\n", "v0.42.0\th1:t\n=>\tgolang.org/x/text\tv0.43.0\th1:r\n"),
-         "golang.org/x/text differs"),
+        ("replaced module", approved.replace("v0.43.0\th1:t\n", "v0.43.0\th1:t\n=>\tgolang.org/x/text\tv0.44.0\th1:r\n"),
+         "security override"),
         ("missing security override", stock + f"dep\t{EDGE_MODULE}\t{EDGE_MODULE_VERSION}\th1:z\n", "security override"),
-        ("override to another version", approved.replace("x/net\tv0.60.0", "x/net\tv0.59.1"), "security override"),
-        ("override to a fork", approved.replace("=>\tgolang.org/x/net\tv0.60.0", "=>\texample.com/net\tv0.60.0"),
+        ("previous vulnerable override", approved.replace("x/net\tv0.62.0", "x/net\tv0.60.0"), "security override"),
+        ("override to a fork", approved.replace("golang.org/x/net\tv0.62.0", "example.com/net\tv0.62.0"),
          "security override"),
     ]
     for label, image_info, fragment in module_cases:
@@ -290,7 +305,7 @@ def self_test():
         failures.append("edge module policy accepted missing stock build information")
     # Stock Caddy shipping the fix must fail, so the override is removed rather than kept.
     if not any("security override" in item for item in module_violations(
-            approved, stock.replace("x/net\tv0.59.0", "x/net\tv0.60.0"))):
+            approved, stock.replace("x/net\tv0.59.0", "x/net\tv0.62.0"))):
         failures.append("edge module policy kept an override that stock Caddy no longer needs")
     stream = ('{"config":{"scan_mode":"binary"}}\n{"finding":{"osv":"GO-0000-0001","trace":[{"module":"stdlib"}]}}\n'
               '{"finding":{"osv":"GO-0000-0002","fixed_version":"v0.60.0","trace":[{"module":"golang.org/x/net"}]}}\n'
