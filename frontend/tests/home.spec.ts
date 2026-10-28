@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
+import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 
 const PS5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" };
 const PC = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
@@ -211,6 +212,36 @@ test("a cold load keeps the home's own loading surface while its reads are pendi
   // Never Destacados's surface, and no preview presents data it has not read.
   await expect(page.getByRole("heading", { name: "Destacados de la semana", level: 1 })).toHaveCount(0);
   await expect(page.getByRole("article")).toHaveCount(0);
+});
+
+test("sign-in destination waits through the home loading surface and first-run welcome", async ({ page }) => {
+  await stubHome(page, { session: { authenticated: true, csrfToken: "csrf", capabilities: [] } });
+  let configured = false;
+  const preferencesReady = Promise.withResolvers<undefined>();
+  await page.route("**/api/v1/me/platform-preferences", async (route) => {
+    if (route.request().method() === "PUT") configured = true;
+    await preferencesReady.promise;
+    await route.fulfill({ json: { configured, platforms: [] } });
+  });
+  await page.goto("/");
+
+  await expect(page.getByRole("status")).toHaveText("Cargando Gameómetro…");
+  let entered = false;
+  const destination = reachHomeAfterSignIn(page, new URL(page.url()).origin).then(() => { entered = true; });
+  try {
+    // Keep the first read pending through a rendered loading frame: its title cannot finish sign-in.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(entered).toBe(false);
+  } finally {
+    preferencesReady.resolve(undefined);
+  }
+  await destination;
+
+  expect(configured).toBe(true);
+  await expect(page.getByRole("region", { name: "Tu criterio. Tu historia." })).toBeVisible();
+  // A later sign-in on a configured account returns directly, without a welcome choice.
+  await page.reload();
+  await reachHomeAfterSignIn(page, new URL(page.url()).origin);
 });
 
 test("keyboard reaches the featured release, chooses a calendar day and switches the TOPómetro source", async ({ page }) => {
