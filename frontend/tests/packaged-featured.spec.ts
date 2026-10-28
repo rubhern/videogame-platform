@@ -20,10 +20,10 @@ function trackProviderRequests(page: Page): string[] {
 test("the packaged featured releases read local PostgreSQL week by week and month by month", async ({ page }) => {
   const providerRequests = trackProviderRequests(page);
 
-  await page.goto("/");
+  await page.goto("/lanzamientos/destacados");
 
   // The browser gate pins the clock to Thursday 13 August 2026, and the deterministic seed holds
-  // no qualifying release in its ISO week: the landing route says so instead of failing.
+  // no qualifying release in its ISO week: Destacados says so instead of failing.
   await expect(
     page.getByRole("heading", { level: 1, name: "Destacados de la semana" }),
   ).toBeVisible();

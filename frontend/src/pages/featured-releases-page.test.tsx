@@ -175,7 +175,7 @@ afterEach(() => {
 describe("featured releases page", () => {
   it("opens on the current week's featured release, Monday to Sunday", async () => {
     const fetchMock = stubFeatured(featuredWeek());
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     // The browser names only the granularity; the API derives the current week in Madrid.
@@ -731,7 +731,7 @@ describe("featured releases page", () => {
 
   it("uses the approved weekly Hype explanation without exposing the signal value", async () => {
     stubFeatured(featuredWeek({ selection: { status: "popularity_unavailable" }, items: [] }));
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     expect(await screen.findByText("De momento, Gameómetro no tiene Hype para lanzamientos de esta semana")).toBeVisible();
     expect(screen.getByText("Sin datos de Hype")).toBeVisible();

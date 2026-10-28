@@ -364,7 +364,7 @@ for (const width of [320, 390, 834, 1320]) {
         reason: eligible ? "ELIGIBLE_RELEASE_FOUND" : "NO_COMMERCIAL_RELEASE" },
     } }));
 
-    await page.goto("/");
+    await page.goto("/lanzamientos/destacados");
     await expect(page.getByRole("heading", { name: "Ups, parece que Destacados se han tomado unas vacaciones. Prueba de nuevo más tarde" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reintentar" })).toBeEnabled();
     await expectAccessibleLayout(page);

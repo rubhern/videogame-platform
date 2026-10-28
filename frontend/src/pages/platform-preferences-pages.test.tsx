@@ -86,7 +86,7 @@ describe("first-run welcome", () => {
 
     await user.click(await screen.findByRole("button", { name: "Ahora no" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/lanzamientos/destacados"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
     expect(fetchMock.bodies).toEqual([{ platformIds: [] }]);
   });
 
@@ -127,7 +127,7 @@ describe("first-run welcome", () => {
     stubBff({ preferences: { configured: true, platforms: [] } });
     const { router } = renderApp("/bienvenida?returnTo=%2F%2Fevil.example");
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/lanzamientos/destacados"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 });
 

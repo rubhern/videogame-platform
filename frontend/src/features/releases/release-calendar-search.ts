@@ -91,8 +91,14 @@ export function toCalendarQuery(
  * The explorer's request for the day's leading games: that one day, exact dates only, ordered by
  * Hype with the explorer's fallback and tie-breakers. The highlighted count caps this bounded
  * first page, since every highlighted game precedes lower or missing Hype. No list filter exists.
+ * The home's preview (#382) reads the same day with its own `size`.
  */
-export function dayPreviewSearch(search: CalendarSearch, day: string, highlightedCount: number): ReleasesSearch {
+export function dayPreviewSearch(
+  search: CalendarSearch,
+  day: string,
+  highlightedCount: number,
+  size = DAY_PREVIEW_SIZE,
+): ReleasesSearch {
   return {
     ...defaultReleasesSearch,
     from: day,
@@ -100,7 +106,7 @@ export function dayPreviewSearch(search: CalendarSearch, day: string, highlighte
     sort: "hype",
     platformIds: search.platformIds,
     regionIds: search.regionIds,
-    pageSize: Math.max(1, Math.min(DAY_PREVIEW_SIZE, highlightedCount)),
+    pageSize: Math.max(1, Math.min(size, highlightedCount)),
   };
 }
 

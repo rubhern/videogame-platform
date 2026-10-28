@@ -394,7 +394,7 @@ for (const width of [320, 390, 834, 1320]) {
   test(`week opening, period switch and seven-day G at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await scriptFeatured(page);
-    await page.goto("/");
+    await page.goto("/lanzamientos/destacados");
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
@@ -476,7 +476,7 @@ for (const width of [320, 390, 834, 1320]) {
 test("weeks step through the URL across months, back to the current week and through history", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await scriptFeatured(page);
-  await page.goto("/");
+  await page.goto("/lanzamientos/destacados");
   const weeks = page.getByRole("navigation", { name: "Semana de la selección" });
   const dial = page.locator(".featured-dial-g");
   await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
@@ -593,7 +593,7 @@ test("the temporal G lights the month by the API's evaluated date and marks the 
   for (const [path, readout] of [
     ["/?granularity=month", "20ago 2026"],
     ["/?month=2026-07", "jul2026"],
-    ["/", "14ago 2026"],
+    ["/lanzamientos/destacados", "14ago 2026"],
   ] as const) {
     await page.goto(path);
     const seal = page.locator(".featured-dial-emblem");
@@ -605,7 +605,7 @@ test("the temporal G lights the month by the API's evaluated date and marks the 
 test("a provider image that cannot load steps down to the product fallback", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await scriptFeatured(page, new Set(["arlead", "lolead", "scyotei"]));
-  await page.goto("/");
+  await page.goto("/lanzamientos/destacados");
 
   const hero = page.getByRole("article", { name: LEAD });
   await expect(hero.locator(".featured-art")).toHaveAttribute("data-art-kind", "fallback");
@@ -722,7 +722,7 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
         },
       });
     });
-    await page.goto("/");
+    await page.goto("/lanzamientos/destacados");
 
     if (state === "loading") {
       await expect(page.getByRole("status")).toHaveText("Cargando Destacados…");
@@ -763,7 +763,7 @@ for (const forcedColors of ["none", "active"] as const) {
     await scriptFeatured(page, new Set(), (month) => ({ ...month, items: month.items.map((item, index) => index === 0 ? {
       ...item, summary: { kind: "editorial", text: SUMMARY, language: "es" },
     } : item) }));
-    await page.goto("/");
+    await page.goto("/lanzamientos/destacados");
     const link = page.getByRole("article", { name: LEAD }).getByRole("link", { name: LEAD, exact: true });
     await expect(link).toBeVisible();
     // As in the packaged journeys, measure normal-palette contrast before testing forced colours.

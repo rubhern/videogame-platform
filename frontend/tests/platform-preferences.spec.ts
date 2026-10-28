@@ -54,11 +54,11 @@ class ScriptedAccount {
   }
 }
 
-/** "/" redirects to Destacados, whose page change moves focus to main and would close an open menu. */
+/** Destacados opened directly: no redirect follows to move focus to main and close an open menu. */
 async function landOnFeatured(page: Page, search = "") {
-  await page.goto(`/${search}`);
+  await page.goto(`/lanzamientos/destacados${search}`);
   await expect(page).toHaveURL(/\/lanzamientos\/destacados(\?|$)/);
-  await expect(page.getByRole("main")).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1, name: /^Destacados/ })).toBeVisible();
 }
 
 async function expectNoPageOverflow(page: Page) {
@@ -114,7 +114,9 @@ test.describe("first-run platform choice", () => {
     await expect(page).toHaveURL(/\/bienvenida$/);
     await page.getByRole("button", { name: "Ahora no" }).click();
 
-    await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
+    // The welcome returns to the home it interrupted (#382).
+    await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/");
     expect(account.commands).toEqual([{ platformIds: [] }]);
     await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
     await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();

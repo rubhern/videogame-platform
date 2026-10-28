@@ -35,8 +35,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("legacy landing migration before hydration", () => {
   it.each([
-    ["/", "/lanzamientos/destacados"],
     ["/?week=2026-W42", "/lanzamientos/destacados?week=2026-W42"],
+    ["/?granularity=month", "/lanzamientos/destacados?granularity=month"],
     ["/?view=recent&platformIds=pc", "/lanzamientos?platformIds=pc"],
   ])("replaces %s with %s without reading discovery twice", async (path, destination) => {
     const fetchMock = stub({ authenticated: false }, { configured: false, platforms: [] });
@@ -45,6 +45,49 @@ describe("legacy landing migration before hydration", () => {
     expect(result.headers.get("Location")).toBe(destination);
     expect(result.headers.get("X-Remix-Replace")).toBe("true");
     expect(paths(fetchMock)).toEqual([]);
+  });
+});
+
+describe("home readiness (#382)", () => {
+  it("reads the featured week, the calendar, TOPómetro and the platforms side by side for an anonymous visitor", async () => {
+    const fetchMock = stub({ authenticated: false }, { configured: false, platforms: [] });
+    const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
+
+    // A failed preview read never blocks the home: each preview offers its own retry.
+    await expect(load(loader, "/")).resolves.toBeNull();
+    expect(paths(fetchMock)).toEqual(expect.arrayContaining([
+      "/api/v1/featured-releases?granularity=week",
+      "/api/v1/release-calendar",
+      "/api/v1/game-rankings?source=igdb_players&page=1&pageSize=20",
+      "/api/v1/platforms",
+    ]));
+    expect(paths(fetchMock).some((path) => path.startsWith("/api/v1/me/"))).toBe(false);
+  });
+
+  it("offers the first-run choice once and returns to the home", async () => {
+    stub({ authenticated: true }, { configured: false, platforms: [] });
+    const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
+
+    const offer = (await load(loader, "/")) as Response;
+    expect(offer.status).toBe(302);
+    expect(offer.headers.get("Location")).toBe("/bienvenida");
+    await expect(load(loader, "/")).resolves.toBeNull();
+  });
+
+  it("reads Destacados and the calendar under the preferred platforms, as their pages do", async () => {
+    const fetchMock = stub({ authenticated: true }, {
+      configured: true,
+      platforms: [{ platformId: "ps5", name: "PlayStation 5" }],
+    });
+    const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
+
+    await load(loader, "/");
+    expect(paths(fetchMock)).toEqual(expect.arrayContaining([
+      "/api/v1/featured-releases?granularity=week&platformIds=ps5",
+      "/api/v1/release-calendar?platformIds=ps5",
+      // TOPómetro is public and never follows preferences.
+      "/api/v1/game-rankings?source=igdb_players&page=1&pageSize=20",
+    ]));
   });
 });
 
