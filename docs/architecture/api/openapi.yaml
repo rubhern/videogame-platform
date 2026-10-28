@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.6.0
+  version: 5.7.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -4242,6 +4242,9 @@ components:
         Says nothing about ownership, playing time or the platform's quality.
       required: [items, otherPlatforms, gamesWithoutPlatforms, gamesOnSeveralPlatforms]
       properties:
+        distribution:
+          $ref: '#/components/schemas/PersonalPlatformDistribution'
+          description: Added in 5.7.0; absent only on earlier servers, never inferred from items.
         items:
           type: array
           maxItems: 6
@@ -4264,6 +4267,43 @@ components:
           format: int64
           minimum: 0
           description: Rated games recorded on two or more platforms.
+      unevaluatedProperties: false
+    PersonalPlatformDistribution:
+      type: object
+      description: |
+        Exhaustive distribution of recorded game–platform associations, independent of the top-six
+        items. Each saved selection contributes one, including unscored selections. A game on PS5
+        and Windows contributes to both; two other platforms contribute two to other. The sum is
+        the percentage denominator, never the number of rated games. Missing selections contribute
+        nothing. All five counts are zero when no platforms are recorded. Product taxonomy IDs,
+        not provider identifiers, define the four featured categories; every other ID is other.
+      required: [ps5, switch2, xboxSeries, windowsPc, other]
+      properties:
+        ps5:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'PS5: product platform 10000000-0000-4000-8000-000000000001.'
+        switch2:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Switch 2: product platform 10000000-0000-4000-8000-000000000002.'
+        xboxSeries:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Xbox Series X|S: product platform 10000000-0000-4000-8000-000000000004.'
+        windowsPc:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'PC Windows: product platform 10000000-0000-4000-8000-000000000003.'
+        other:
+          type: integer
+          format: int64
+          minimum: 0
+          description: All explicitly recorded selections outside the four featured product IDs.
       unevaluatedProperties: false
     PersonalPlatformInsight:
       type: object

@@ -152,19 +152,27 @@ public final class RatingApiMapper {
     private com.videogameplatform.api.generated.model.PersonalPlatformInsights platforms(
             com.videogameplatform.ratings.application.PersonalRatingInsights.Platforms platforms) {
         return new com.videogameplatform.api.generated.model.PersonalPlatformInsights(
-                platforms.items().stream()
-                        .map(
-                                platform ->
-                                        new com.videogameplatform.api.generated.model
-                                                .PersonalPlatformInsight(
-                                                new Platform(platform.id(), platform.name()),
-                                                platform.playedGames(),
-                                                platform.scoredGames(),
-                                                platform.mean()))
-                        .toList(),
-                platforms.otherPlatforms(),
-                platforms.gamesWithoutPlatforms(),
-                platforms.gamesOnSeveralPlatforms());
+                        platforms.items().stream()
+                                .map(
+                                        platform ->
+                                                new com.videogameplatform.api.generated.model
+                                                        .PersonalPlatformInsight(
+                                                        new Platform(
+                                                                platform.id(), platform.name()),
+                                                        platform.playedGames(),
+                                                        platform.scoredGames(),
+                                                        platform.mean()))
+                                .toList(),
+                        platforms.otherPlatforms(),
+                        platforms.gamesWithoutPlatforms(),
+                        platforms.gamesOnSeveralPlatforms())
+                .distribution(
+                        new com.videogameplatform.api.generated.model.PersonalPlatformDistribution(
+                                platforms.distribution().ps5(),
+                                platforms.distribution().switch2(),
+                                platforms.distribution().xboxSeries(),
+                                platforms.distribution().windowsPc(),
+                                platforms.distribution().other()));
     }
 
     private com.videogameplatform.api.generated.model.PersonalGenreInsight genre(

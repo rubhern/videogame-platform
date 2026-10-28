@@ -58,6 +58,23 @@ final class PersonalRatingInsightsSql {
             ORDER BY p.played DESC,p.scored DESC,lower(l.display_name),p.platform_id LIMIT 6
             """;
 
+    // Fixed product taxonomy identities, never provider IDs or display-name matching. The
+    // rating_platform primary key guarantees exactly one association per user/game/platform.
+    // One aggregate row crosses the boundary regardless of the user's collection size.
+    static final String PLATFORM_DISTRIBUTION =
+            """
+            SELECT count(*) FILTER (WHERE platform_id='10000000-0000-4000-8000-000000000001') AS ps5,
+                   count(*) FILTER (WHERE platform_id='10000000-0000-4000-8000-000000000002') AS switch2,
+                   count(*) FILTER (WHERE platform_id='10000000-0000-4000-8000-000000000004') AS xbox_series,
+                   count(*) FILTER (WHERE platform_id='10000000-0000-4000-8000-000000000003') AS windows_pc,
+                   count(*) FILTER (WHERE platform_id NOT IN (
+                       '10000000-0000-4000-8000-000000000001',
+                       '10000000-0000-4000-8000-000000000002',
+                       '10000000-0000-4000-8000-000000000004',
+                       '10000000-0000-4000-8000-000000000003')) AS other
+            FROM ratings.rating_platform WHERE user_id=:user
+            """;
+
     static String genres(boolean bestRated) {
         return """
                 WITH scoped AS MATERIALIZED (

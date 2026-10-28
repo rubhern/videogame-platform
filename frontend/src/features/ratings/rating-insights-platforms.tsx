@@ -1,95 +1,76 @@
 import { useId, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { RatingInsights } from "./rating-insights-api";
-import { decimal, games, number, percent } from "./rating-insights-format";
+import { decimal, games, number } from "./rating-insights-format";
 import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
+import { platformDistribution } from "./platform-distribution";
 import { SelectIcon } from "../../shared/ui/select-icon";
 
 const size = (value: number): CSSProperties => ({ ["--bar-size" as string]: `${value}%` });
 
-type Slice = { key: "one" | "several" | "none"; label: string; count: number };
-
-// A ring of circumference 100 (`pathLength`), drawn clockwise from twelve o'clock.
 const RADIUS = 42;
-const GAP = 1.2;
+const percentage = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
 
-/**
- * The collection's one true partition: every rated game falls in exactly one slice — recorded on
- * one platform, on several, or on none — so the slices add up to the total, unlike the platforms.
- * Games without a platform stay an empty, outlined part of the ring rather than a texture the bars
- * use for something else; the legend states every count and share.
- */
-function CoverageDonut({ total, without, several }: { total: number; without: number; several: number }) {
-  // SVG `url(#…)` references need a plain identifier.
-  const id = `coverage${useId().replace(/[^\w-]/g, "")}`;
-  const recorded = total - without;
-  const slices: Slice[] = [
-    { key: "one", label: "En una plataforma", count: recorded - several },
-    { key: "several", label: "En varias plataformas", count: several },
-    { key: "none", label: "Sin plataforma indicada", count: without },
-  ];
-  const drawn = slices.filter(slice => slice.count > 0);
-  const gap = drawn.length > 1 ? GAP : 0;
-  let start = 0;
-  return <figure className="insights-coverage">
-    <div className="insights-donut">
-      <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+function PlatformDonut({ distribution }: { distribution: NonNullable<RatingInsights["platforms"]["distribution"]> }) {
+  const id = `platform${useId().replace(/[^\w-]/g, "")}`;
+  const { total, rows } = platformDistribution(distribution);
+  return <figure className="insights-coverage" data-empty={total === 0} aria-label="Distribución de plataformas indicadas">
+    {total > 0 ? <div className="insights-donut" aria-hidden="true">
+      <svg viewBox="0 0 100 100" focusable="false">
         <defs>
-          <pattern id={`${id}-several`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="4" height="4" className="insights-donut-several-base" /><rect width="1.4" height="4" className="insights-donut-several-stripe" />
-          </pattern>
+          {rows.map((row, index) => <pattern key={row.key} id={`${id}-${row.key}`} width={3 + index} height={3 + index}
+            patternUnits="userSpaceOnUse" patternTransform={`rotate(${index % 2 === 0 ? 45 : -45})`}>
+            <rect width="10" height="10" className={`insights-donut-pattern-base insights-category-${row.key}`} />
+            {index > 0 ? <rect width={index === 4 ? 2 : 1} height={index === 4 ? 2 : 10} className="insights-donut-pattern-mark" /> : null}
+          </pattern>)}
         </defs>
         <circle className="insights-donut-track" cx="50" cy="50" r={RADIUS} pathLength="100" />
+        {rows.map((row, index) => {
+          if (row.count === 0) return null;
+          const length = row.count / total * 100;
+          const offset = rows.slice(0, index).reduce((sum, previous) => sum + previous.count, 0) / total * 100;
+          return <circle key={row.key} className="insights-donut-slice" cx="50" cy="50" r={RADIUS}
+            pathLength="100" transform="rotate(-90 50 50)" stroke={`url(#${id}-${row.key})`}
+            strokeDasharray={`${length} ${100 - length}`} strokeDashoffset={-offset} />;
+        })}
         <circle className="insights-donut-rim" cx="50" cy="50" r={RADIUS + 7.5} />
         <circle className="insights-donut-rim" cx="50" cy="50" r={RADIUS - 7.5} />
-        {drawn.map(slice => {
-          const length = slice.count / total * 100;
-          const offset = start;
-          start += length;
-          return <circle key={slice.key} className={`insights-donut-slice insights-donut-${slice.key}`} cx="50" cy="50" r={RADIUS}
-            pathLength="100" transform="rotate(-90 50 50)"
-            stroke={slice.key === "several" ? `url(#${id}-several)` : undefined}
-            strokeDasharray={`${Math.max(length - gap, 0.4)} ${100 - Math.max(length - gap, 0.4)}`}
-            strokeDashoffset={-(offset + gap / 2)} />;
-        })}
       </svg>
-      <p className="insights-donut-centre"><strong>{percent(recorded, total)}</strong><span>con plataforma</span></p>
-    </div>
+      <p className="insights-donut-centre"><strong>{number(total)}</strong><span>selecciones de plataforma</span></p>
+    </div> : null}
     <figcaption>
-      <p className="insights-coverage-figure"><strong>{number(recorded)}</strong> <span>de {games(total)} con plataforma</span></p>
+      <p className="insights-coverage-figure">Distribución de plataformas indicadas</p>
       <ul className="insights-donut-legend">
-        {slices.map(slice => <li key={slice.key} data-slice={slice.key}>
-          <span className={`insights-donut-swatch insights-donut-${slice.key}`} aria-hidden="true" />
-          <span className="insights-donut-label">{slice.label}</span>{" "}
-          <span className="insights-donut-value"><strong>{number(slice.count)}</strong> <small>{percent(slice.count, total)}</small></span>
+        {rows.map(row => <li key={row.key} data-slice={row.key}>
+          <span className={`insights-donut-swatch insights-category-${row.key}`} aria-hidden="true" />
+          <span className="insights-donut-label">{row.label}</span>{" "}
+          <span className="insights-donut-value"><strong>{number(row.count)}</strong>{" "}<small>{percentage.format(row.percentage)} %</small></span>
         </li>)}
       </ul>
+      <p className="insights-note">{number(total)} selecciones en total. Cada juego cuenta una vez por plataforma indicada, con o sin puntuación. Los porcentajes reparten estas selecciones, no los juegos.</p>
     </figcaption>
   </figure>;
 }
 
-/**
- * Where the player recorded playing: one bar per platform whose length counts its games, solid for
- * the games scored on that platform and outlined for those only marked as played, beside the mean
- * of those platform scores alone. Platforms overlap, so the coverage ring — the one partition of
- * the collection — sits apart from them.
- */
+/** Fixed association distribution first; personal platform scores remain secondary. */
 export function PlatformInsights({ platforms, total }: Pick<RatingInsights, "platforms" | "total">) {
-  const { items, otherPlatforms, gamesWithoutPlatforms, gamesOnSeveralPlatforms } = platforms;
+  const { items, otherPlatforms, gamesWithoutPlatforms, distribution } = platforms;
   const maximum = Math.max(...items.map(item => item.playedGames), 1);
   const anyScore = items.some(item => item.scoredGames > 0);
   return <section className="insights-platforms" aria-labelledby="platforms-title">
     <div className="insights-platforms-lead">
       <p className="insights-caption">Las plataformas que has indicado</p>
       <h2 id="platforms-title">Dónde has jugado</h2>
-      {items.length === 0 ? null : <CoverageDonut total={total} without={gamesWithoutPlatforms} several={gamesOnSeveralPlatforms} />}
+      {distribution ? <PlatformDonut distribution={distribution} /> : <p className="insights-note">La distribución de plataformas no está disponible.</p>}
+      <p className="insights-note insights-platforms-missing">{games(gamesWithoutPlatforms)} sin plataforma indicada; no {gamesWithoutPlatforms === 1 ? "entra" : "entran"} en el gráfico.</p>
     </div>
     {items.length === 0 ? <div className="insights-inline-empty insights-platforms-empty">
       <p>Aún no has indicado en qué plataformas jugaste {total === 1 ? "tu juego" : `tus ${games(total)}`}.</p>
       <p>Al puntuar un juego, <strong>Puntuar por plataforma</strong> te deja marcarlas, con o sin una puntuación para cada una.</p>
       <Link className="insights-inline-link" to="/mis-puntuaciones">Ir a Mis puntuaciones</Link>
-    </div> : <div className="insights-platforms-body">
+    </div> : <details className="insights-platforms-body">
+      <summary>Tus puntuaciones por plataforma</summary>
       <ul className="insights-platform-key" aria-label="Cómo leer las barras">
         <li><span className="insights-key-swatch" aria-hidden="true" /> Con tu puntuación en esa plataforma</li>
         <li><span className="insights-key-swatch insights-key-played" aria-hidden="true" /> Solo marcada como jugada</li>
@@ -126,6 +107,6 @@ export function PlatformInsights({ platforms, total }: Pick<RatingInsights, "pla
       <p className="insights-note">{anyScore
         ? "Cada media usa solo las puntuaciones que diste en esa plataforma, nunca tu puntuación general del juego."
         : "Todavía no has puntuado ningún juego por plataforma: aquí solo ves dónde jugaste."} Un juego cuenta en cada plataforma indicada, así que las cifras se solapan.</p>
-    </div>}
+    </details>}
   </section>;
 }
