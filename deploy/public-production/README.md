@@ -1036,6 +1036,10 @@ both names/key/CA store, model and host/Docker/tailnet subnet conflicts. It prin
 no secret bytes or raw Docker/environment output. Host configuration and independent
 external IPv4/IPv6 denial still require actual authorized qualification; static
 checks are not evidence that the provider firewall was tested.
+The subnet inventory accepts null IPAM configuration only for Docker's built-in
+`host`/`host` and `none`/`null` name/driver pairs, which allocate no subnet. Missing
+or malformed IPAM configuration and null configuration on other networks refuse;
+host routes and allocated Docker subnets still undergo the overlap check.
 The active systemd daemon's arguments and TCP listeners are inspected as well as its
 configuration file, whose modification time must conclusively predate daemon startup.
 Exact supported Engine/Compose pairs are executable allowlists, not minimum-version

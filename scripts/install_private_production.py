@@ -556,7 +556,16 @@ class Host:
             info = json.loads(run(['docker', 'network', 'inspect', network]))[0]
             if info['Name'] in {n['name'] for n in self.config['networks'].values()}:
                 continue
-            subnets.extend(c['Subnet'] for c in info.get('IPAM', {}).get('Config', []) if c.get('Subnet'))
+            ipam = info.get('IPAM')
+            require(isinstance(ipam, dict) and 'Config' in ipam, 'Unexpected Docker network IPAM.')
+            configs = ipam['Config']
+            # Built-in host/none networks have no allocated subnet. Do not turn
+            # missing or null configuration on other networks into an empty list.
+            if configs is None and (info['Name'], info.get('Driver')) in (('host', 'host'), ('none', 'null')):
+                continue
+            require(isinstance(configs, list) and all(isinstance(c, dict) for c in configs),
+                    'Unexpected Docker network IPAM configuration.')
+            subnets.extend(c['Subnet'] for c in configs if c.get('Subnet'))
         require(not any(a.version == b.version and a.overlaps(b) for a in reserved
                         for b in map(ipaddress.ip_network, subnets)), 'Host/Docker/tailnet route overlaps runtime trust subnet.')
 
