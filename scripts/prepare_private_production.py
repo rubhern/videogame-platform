@@ -122,6 +122,28 @@ def fingerprint(source):
         deployment.ROOT = previous
 
 
+def candidate_binds(config, source):
+    """Map only immutable candidate bind sources to the local exported tree."""
+    target = TARGET / 'candidate'
+    return sorted({source / Path(m['source']).relative_to(target)
+                   for service in config['services'].values()
+                   for m in service.get('volumes', [])
+                   if m['type'] == 'bind' and Path(m['source']).is_relative_to(target)})
+
+
+def prepare_mount_directories(config, source):
+    # tar's data filter leaves directory modes to the restrictive process umask.
+    # Docker mounts the source itself: host-only ancestors need no public access.
+    # Keep file bytes/executable modes and all administrative directories intact.
+    for path in candidate_binds(config, source):
+        if path.is_dir():
+            for parent, dirs, _ in os.walk(path, followlinks=False):
+                require(not Path(parent).is_symlink()
+                        and not any((Path(parent) / name).is_symlink() for name in dirs),
+                        'Symlinked candidate mount directory.')
+                Path(parent).chmod(0o755)
+
+
 def prepare(output, env_file, tls):
     require(not output.exists() and output.parent.is_dir(), 'A new output directory is required.')
     require(output.is_absolute() and tls.is_absolute() and env_file.is_absolute(),
@@ -190,6 +212,7 @@ def prepare(output, env_file, tls):
     caddyfile.chmod(0o644)
     config = adapt(base, TARGET / caddyfile.name, tls)
     validate(base, config, TARGET / caddyfile.name, tls)
+    prepare_mount_directories(config, source)
     images = {name: service['image'] for name, service in config['services'].items()}
     checked = registry_images(images)
     rendered = json.dumps(config, sort_keys=True, indent=2) + '\n'

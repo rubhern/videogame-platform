@@ -282,6 +282,33 @@ class Lease(unittest.TestCase):
 
 
 class Contracts(unittest.TestCase):
+    def test_mount_descendant_access_and_file_execution(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(install, 'secure') as protected:
+            source = Path(tmp) / 'candidate'
+            root = source / 'mounted'
+            nested = root / 'nested'
+            nested.mkdir(parents=True)
+            file = nested / 'script'
+            file.write_text('#!/bin/sh\nexit 0\n'); file.chmod(0o755)
+            config = {'services': {'fixture': {'volumes': [prepare.bind(
+                prepare.TARGET / 'candidate/mounted', '/mounted')]}}}
+            install.verify_candidate_mounts(config, source)
+            protected.assert_any_call(file, directory=False)
+            protected.assert_any_call(nested, directory=True)
+            for path, mode in ((nested, 0o700), (file, 0o750), (file, 0o744)):
+                with self.subTest(path=path.name, mode=oct(mode)):
+                    original = path.stat().st_mode & 0o777
+                    path.chmod(mode)
+                    try:
+                        with self.assertRaises(trust.Refused):
+                            install.verify_candidate_mounts(config, source)
+                        self.assertEqual(path.stat().st_mode & 0o777, mode)  # never repair during preflight
+                    finally:
+                        path.chmod(original)
+            protected.side_effect = trust.Refused('Unsafe protected owner/type/permissions.')
+            with self.assertRaisesRegex(trust.Refused, 'Unsafe protected'):
+                install.verify_candidate_mounts(config, source)
+
     def test_complete_read_only_preflight_with_real_candidate_sources_and_compose(self):
         # Real export, both renderings, full tree comparison and the unchanged #275
         # verifier. Only privileged host metadata, protected inputs and remote APIs
@@ -353,12 +380,42 @@ class Contracts(unittest.TestCase):
             scope.enter_context(patch.object(install, 'verify_operational', return_value=selected))
             scope.enter_context(patch.object(install, 'run', side_effect=host_run))
             host = install.Host(receipt['configurationSha256'], install.operational_fingerprint(), 'a' * 40)
-            with patch.object(host, 'inputs'), patch.object(host, 'headroom'):
-                summary = host.preflight()
+            scope.enter_context(patch.object(host, 'inputs'))
+            scope.enter_context(patch.object(host, 'headroom'))
+            summary = host.preflight()
             self.assertFalse(summary['productionReady'])
             self.assertEqual(summary['sourceRevision'], prepare.REVISION)
             self.assertFalse(install.JOURNAL.exists())
             self.assertFalse(any(c[:2] == ['docker', 'run'] or 'pull' in c or 'up' in c for c in calls))
+            mounts = [p for p in prepare.candidate_binds(host.config, host.source) if p.is_dir()]
+            self.assertEqual(len(mounts), 4)
+            for path in mounts:
+                for mode in (0o700, 0o711, 0o744):
+                    with self.subTest(mount=path.relative_to(host.source), mode=oct(mode)), \
+                            patch.object(host, 'claim') as claim, patch.object(host, 'pull') as pull:
+                        path.chmod(mode)
+                        try:
+                            with self.assertRaisesRegex(trust.Refused, 'Candidate bind is unreadable/unsearchable'):
+                                install.first_install(host)
+                            self.assertEqual(host.check, 'candidate-mount-permissions')
+                            self.assertFalse(install.JOURNAL.exists())
+                            self.assertFalse(install.intent_file().exists())
+                            self.assertFalse((install.ADMIN / 'first-install.lock').exists())
+                            claim.assert_not_called(); pull.assert_not_called()
+                        finally:
+                            path.chmod(0o755)
+            # Also recheck under the deployment lock, before the intent/journal claim.
+            install.ADMIN.mkdir(mode=0o700)
+            original_preflight = host.preflight
+            def drift_after_first_preflight():
+                result = original_preflight()
+                mounts[0].chmod(0o700)
+                return result
+            with patch.object(host, 'preflight', side_effect=drift_after_first_preflight), \
+                    self.assertRaisesRegex(trust.Refused, 'Candidate bind is unreadable/unsearchable'):
+                install.first_install(host)
+            self.assertFalse(install.JOURNAL.exists())
+            self.assertFalse(install.intent_file().exists())
 
     def test_effective_daemon_flags_cannot_disable_docker_protections(self):
         install.daemon_flags(['/usr/bin/dockerd', '-H', 'fd://', '--containerd=/run/containerd/containerd.sock'])

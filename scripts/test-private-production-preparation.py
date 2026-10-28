@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Focused #276 preparation tests: fake registry and no runtime mutations."""
 import copy
+import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -134,14 +136,40 @@ class Preparation(unittest.TestCase):
                 patch.object(adapter, 'registry_images', return_value={}), \
                 patch.object(adapter, 'command', side_effect=local_only):
             output = Path(tmp) / 'new-bundle'
-            receipt = adapter.prepare(output, adapter.ROOT / 'deploy/public-production/runtime.env.example',
-                                      Path('/etc/gameometro/production/private-tls'))
+            previous_umask = os.umask(0o077)
+            try:
+                receipt = adapter.prepare(output, adapter.ROOT / 'deploy/public-production/runtime.env.example',
+                                          Path('/etc/gameometro/production/private-tls'))
+            finally:
+                os.umask(previous_umask)
             self.assertEqual(adapter.fingerprint(output / 'candidate'), adapter.FINGERPRINT)
             self.assertEqual((output / 'Caddyfile.private').stat().st_mode & 0o777, 0o644)
             self.assertEqual(output.stat().st_mode & 0o777, 0o700)
             self.assertFalse(receipt['executionEnabled'])
             base = json.loads((output / 'compose.candidate.json').read_text())
             config = json.loads((output / 'compose.private.json').read_text())
+            directory_binds = {p.relative_to(output / 'candidate').as_posix(): p
+                               for p in adapter.candidate_binds(config, output / 'candidate') if p.is_dir()}
+            self.assertEqual(set(directory_binds), {
+                'docker/postgres/init', 'deploy/public-production/keycloak/import',
+                'deploy/private-dev/grafana/dashboards', 'deploy/public-production/observability/grafana'})
+            for name, path in directory_binds.items():
+                with self.subTest(mount=name):
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o755)
+                    self.assertTrue(all(p.stat().st_mode & 0o004 for p in path.rglob('*') if p.is_file()))
+            for path in ('candidate', 'candidate/docker', 'candidate/deploy', 'candidate/scripts'):
+                self.assertEqual((output / path).stat().st_mode & 0o777, 0o700)
+            for name in ('compose.candidate.json', 'compose.private.json', 'runtime.env', 'preparation.json'):
+                self.assertEqual((output / name).stat().st_mode & 0o777, 0o600)
+            entries = subprocess.run(['git', 'ls-tree', '-rz', adapter.REVISION, 'deploy', 'docker', 'scripts', 'tools'],
+                                     capture_output=True, check=True).stdout.decode().split('\0')
+            for entry in filter(None, entries):
+                metadata, name = entry.split('\t', 1)
+                mode, _, digest = metadata.split()
+                path = output / 'candidate' / name
+                data = path.read_bytes()
+                self.assertEqual(hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest(), digest)
+                self.assertEqual(path.stat().st_mode & 0o777, int(mode, 8) & 0o777)
             adapter.validate(base, config, adapter.TARGET / 'Caddyfile.private',
                              Path('/etc/gameometro/production/private-tls'))
             self.assertEqual(len(config['services']), 11)
@@ -151,6 +179,23 @@ class Preparation(unittest.TestCase):
             docker_calls = [c for c in calls if c[0] == 'docker']
             self.assertEqual(len(docker_calls), 1)
             self.assertEqual(docker_calls[0][-3:], ['config', '--format', 'json'])
+
+    def test_nested_mount_directories_only_are_normalized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'candidate'
+            nested = source / 'public/nested'
+            nested.mkdir(parents=True, mode=0o700)
+            (source / 'public').chmod(0o700)
+            source.chmod(0o700)
+            script = nested / 'entrypoint'
+            script.write_bytes(b'#!/bin/sh\nexit 0\n'); script.chmod(0o755)
+            config = {'services': {'fixture': {'volumes': [adapter.bind(
+                adapter.TARGET / 'candidate/public', '/public')]}}}
+            adapter.prepare_mount_directories(config, source)
+            self.assertEqual(source.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(nested.stat().st_mode & 0o777, 0o755)
+            self.assertEqual((source / 'public').stat().st_mode & 0o777, 0o755)
+            self.assertEqual(script.stat().st_mode & 0o777, 0o755)
 
     def test_execution_and_update_flags_do_not_exist(self):
         for option in ('--execute', '--first-install', '--update', '--rollback'):
