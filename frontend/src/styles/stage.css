@@ -9,6 +9,8 @@
     position: relative;
     /* Keep negative-z artwork behind this page's text in its own stacking context. */
     isolation: isolate;
+    /* Editors may extend beyond the page and must remain above the following footer. */
+    z-index: 1;
     /* The stage bleeds to the viewport's edges; nothing may scroll sideways because of it. */
     overflow-x: clip;
   }
