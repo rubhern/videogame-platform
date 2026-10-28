@@ -891,7 +891,7 @@ gates. The short workstation sample does not pass those checks or authorize more
 
 ## Private first installation and validation
 
-**Implemented for independent review; not exercised or accepted on the VPS.** The
+**Implemented; the first private VPS attempt failed before migration.** The
 [preparer](../../scripts/prepare_private_production.py) and
 [installer](../../scripts/install_private_production.py) reuse the
 [signed #275 candidate](../../docs/research/public-production-candidate-acceptance.md#owner-acceptance-record)
@@ -945,12 +945,22 @@ its absolute bind paths target the separate host directory recorded in the recei
 not the workstation or `/srv/gameometro/repo`. A partial bundle with no complete
 matching receipt is unusable. Keep its parent 0700; the non-secret Caddyfile is 0644
 so the capability-dropped edge can read its bind mount. The two JSON configurations,
-env file and receipt stay 0600. No image build, service start or secret generation
+env file and receipt stay 0600. The preparer makes only candidate directory bind
+sources and their subdirectories readable/searchable by non-root consumers. Host-only
+ancestors stay private: Docker resolves them before mounting the source. Candidate
+file bytes and executable modes remain unchanged and are verified against the accepted
+tree. Preserve directory modes when staging; do not apply a recursive permission
+change to the bundle, secret/TLS directories or administrative storage.
+Preflight checks candidate file binds and every directory bind descendant for consumer
+access as well as protected ownership/type/ACLs. An incompatible mount refuses before
+the intent or journal is claimed, including the repeated preflight under the deployment
+lock. These metadata checks do not start containers or prove application behaviour.
+No image build, service start or secret generation
 occurs during preparation.
 
 ### Future authorized host sequence
 
-**No command in this section has been executed on the VPS.** Owner review and a
+**Prepared sequence; the failed attempt grants no runtime acceptance.** Owner review and a
 separate request to publish the operational change precede host execution; this
 change grants neither. After successful trusted-main CI on that exact revision,
 record the reviewed adapter/configuration hashes and reassess the candidate's
@@ -1135,6 +1145,69 @@ Use an assessed forward fix or separately authorized paired recovery on an empty
 target; any disposal needs a separate exact-target decision. Future updates require a
 different reviewed procedure with installed-state, schema compatibility and recovery
 proof. This adapter deliberately implements no update, force, reset or rollback mode.
+
+### Failed synthetic bootstrap disposition
+
+**Proposal for separate owner review and exact-target authorization; not executed.**
+The [host evidence](../../docs/development/operations-runbook.md#failed-private-bootstrap)
+records the failed attempt. Correcting bundle permissions does not make its claimed
+journal reusable. Keep it fenced and stopped while choosing a disposition. This
+procedure supplies no deletion or restart command: live resource IDs,
+configuration hashes and scope must first be independently verified and approved.
+
+1. Collect a protected evidence copy of the original intent, installation/failure
+   sidecar, runtime JSON, recovery journal, preparation receipt and any pending writes.
+   Hash the copies and retain the original operator revision/fingerprint, accepted
+   candidate/image identities, private configuration hash and timestamps. Never
+   overwrite the old receipt with a newly prepared bundle's identity.
+2. Under exclusive local installation ownership and the original recovery actor lease,
+   compare the exact attempt UUID across intent, journal, failure sidecar and gate
+   owner. Compare configuration hashes and the runtime's sole per-service label delta
+   against the original reviewed private rendering. Verify the original published
+   operational sources, candidate tree/fingerprint and pinned images independently.
+   A newer adapter cannot assert the old operational identity for reconciliation.
+   If inspection shows an active actor, uncertain in-flight request, missing evidence,
+   conflicting owner, identity-maintenance fence or unexpected gate contents, stop for
+   investigation. A historical `confirmed` shutdown is insufficient on its own.
+3. Inventory actual container IDs, image IDs/digests, mounts, project/service/run/config
+   labels, state and restart policies; require all attempt containers stopped, no
+   active helper/writer and no published port. Inventory exact volume names, drivers,
+   mountpoints and Compose labels from the original runtime, and network IDs, labels,
+   subnets and endpoints. Volumes/networks do not carry the attempt labels: project
+   names alone cannot prove ownership. Require recorded creation/mount relationships
+   and no unrelated consumers. Do not inspect arbitrary Docker storage by name prefix.
+4. Independently verify the PostgreSQL volume's exact identity and **entire** contents
+   read-only with the accepted bounded helper, no network, no PostgreSQL entrypoint
+   and no writable mount. Absence of `PG_VERSION` alone is not emptiness. Confirm no
+   Flyway/application/Keycloak state, accounts, ratings or other valuable data exists;
+   any entries or incomplete inspection invalidate the empty-state disposal proposal.
+   Preserve the owned recovery gate's owner/fence evidence; never manufacture `READY`.
+5. **Preservation option:** retain all state and prepare a separately reviewed forward
+   recovery procedure with original installed-state identities and closed-gate checks.
+   The first installer and stop-only reconciler cannot resume initialization. Starting
+   PostgreSQL manually, editing the journal or merely fixing permissions is not an
+   approved recovery. Nonempty state requires a new data/schema assessment before
+   selecting forward recovery or an independently verified paired restore.
+6. **Empty synthetic disposal option:** submit a finite manifest of verified stopped
+   container IDs, the exact empty `postgres-data` volume, the owned `recovery-state`
+   volume and only actually created, exclusively owned network IDs. At phase `postgres`,
+   later service/data resources are unexpected and require investigation. Include the
+   protected evidence archive destination and exact original administrative paths:
+   `first-install/`, `first-install-intent.json` and this attempt's failure sidecar under
+   `/var/lib/gameometro/production`. After separate owner approval, a reviewed operator
+   may remove only those Docker objects, leaving the gate until last and preserving
+   evidence before archiving the original claims. Keep the installation lock inode
+   intact. Recheck identity, inactivity and exclusive ownership immediately before each
+   action; any drift stops the procedure. Never use project-wide `down -v`, pruning,
+   wildcards or recursive deletion of administrative storage. Exclude secrets, TLS,
+   model, metrics, images, other installations, private-dev and all independent backup,
+   legal and deletion-ledger stores.
+
+Disposal is not a retry or an installation authorization. Any later fresh qualification
+needs a separately approved bootstrap plan, corrected newly prepared bundle, published
+trusted operational revision/fingerprint, current trust evidence and read-only preflight
+showing exact resource/claim absence. Keep #275's accepted source, images and signed
+acceptance unchanged; never clear state merely to pass the existing installer.
 
 ### Before any real user data
 

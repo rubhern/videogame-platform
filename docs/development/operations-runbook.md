@@ -19,8 +19,9 @@ disposable operational history.
 
 The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 and [separate purchase/exposure gates](delivery-lifecycle.md#public-production-gates)
-follow the accepted ADR-0025 design; the gates remain open and no production
-procedure has been exercised on a real host. The [production recovery candidate](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+follow the accepted ADR-0025 design; the gates remain open. The
+[first private bootstrap failed](#failed-private-bootstrap) and grants no runtime
+acceptance. The [production recovery candidate](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
 owns prepared commands and the synthetic host-loss exercise, with its real-host limits. Record
 real-VPS evidence here only when those procedures are executed; private-dev evidence
 does not certify production networking, capacity, email or recovery.
@@ -67,7 +68,7 @@ Keycloak client secret no longer matches `.env`; `verify` reports it).
 
 ## Production host foundation
 
-**Foundation observed under #276; runtime not exercised.** On
+**Foundation observed under #276; runtime qualification failed subsequently.** On
 2026-10-27 the owner supplied the production tailnet SSH route and loaded its key into
 the existing workstation agent. The agent inspected the host without `sudo`, changed
 no host configuration and started no container. Private addresses, provider identifiers
@@ -125,11 +126,30 @@ The [next private stages](../../deploy/public-production/README.md#next-private-
 own prepared operator work and the remaining proposed cloud/release stages. No purchase terms, bucket, backup, deployment,
 public exposure or production version is accepted by this foundation observation.
 
+### Failed private bootstrap
+
+**Owner-reported evidence, 2026-10-28 (#276); not independently re-inspected in
+this correction.** Attempt `41b0b52d-2c21-4c27-96a3-c886dc74c4a7` failed in phase
+`postgres`: PostgreSQL exited with code 2 because `/docker-entrypoint-initdb.d`
+was inaccessible (`Permission denied`). Four candidate directory bind sources had
+mode 0700; their files were readable. Shutdown was recorded as `confirmed` and the
+PostgreSQL volume was reported empty. No migration, working runtime, recovery or
+public acceptance follows from this attempt. These are historical observations,
+not proof of the host's current state or authorization to discard it.
+
+The [operator procedure](../../deploy/public-production/README.md#private-first-installation-and-validation)
+owns corrected bundle preparation and early preflight refusal. The
+[synthetic-state disposition proposal](../../deploy/public-production/README.md#failed-synthetic-bootstrap-disposition)
+separates preservation from exact-target disposal, requires renewed identity and
+emptiness checks and separate authorization, and has not been executed. Retain the
+original journal, intent, failure sidecar and gate evidence. The signed #275 candidate
+and its image identities and acceptance remain unchanged.
+
 ## Public-production manual deployment
 
 The [host foundation record](#production-host-foundation) owns observed and owner-confirmed prerequisites.
 The [private first-install procedure](../../deploy/public-production/README.md#private-first-installation-and-validation)
-owns the separate prepared adapter; it has not run on the VPS.
+owns the separate adapter; its [first attempt failed](#failed-private-bootstrap).
 
 **Prepared for local synthetic rehearsal; not exercised on a real host.** The
 [production operator procedure](../../deploy/public-production/README.md#manual-deployment-procedure)

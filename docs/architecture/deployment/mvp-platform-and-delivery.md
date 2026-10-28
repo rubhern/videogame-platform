@@ -359,8 +359,10 @@ holds the Compose topology and the Caddy edge with its [request limits](#public-
 and what remains unvalidated. The owner confirms a prepared host foundation, recorded
 in the [operations runbook](../../development/operations-runbook.md#production-host-foundation).
 The separately reviewed [private first-install adapter](../../../deploy/public-production/README.md#private-first-installation-and-validation)
-is prepared but has not run; Gameómetro, backups and production telemetry remain
-undeployed and public exposure unaccepted. The following specifies the public target;
+failed before migration on its first private attempt; the
+[host evidence](../../development/operations-runbook.md#failed-private-bootstrap)
+owns the reported outcome and limits. No working Gameómetro runtime, backups,
+production telemetry or public exposure is accepted. The following specifies the public target;
 the private qualifier removes all published ports and disables unattended restart.
 Configuration and its local tests are not
 proof of a public host. The [disposable integration exercise](../../../deploy/public-production/README.md#disposable-integration-exercise)

@@ -116,6 +116,35 @@ def verify_export(source, tree):
     require(found == set(expected), 'Incomplete candidate export.')
 
 
+def verify_candidate_mounts(config, source):
+    """Read-only DAC check for public candidate resources, without a Docker probe.
+
+    Rootful/no-userns Docker resolves the protected host ancestors. Inside each
+    mount, arbitrary non-root consumers need other-read and directory search;
+    secure() still enforces root ownership, no writes, symlinks or access ACLs.
+    Secret, TLS and model permissions retain their separate consumer policies.
+    """
+    def check(path, directory=False):
+        secure(path, directory=directory)
+        mode = path.stat().st_mode
+        access = 0o005 if directory else 0o004
+        require(mode & access == access,
+                'Candidate bind is unreadable/unsearchable by non-root consumers: ' + str(path.relative_to(source)))
+        if not directory and mode & 0o111:
+            require(mode & 0o001, 'Candidate executable bind is not executable by non-root consumers.')
+
+    for path in prepare.candidate_binds(config, source):
+        if path.is_dir():
+            for parent, dirs, files in os.walk(path, followlinks=False):
+                check(Path(parent), directory=True)
+                for name in dirs:
+                    check(Path(parent) / name, directory=True)
+                for name in files:
+                    check(Path(parent) / name)
+        else:
+            check(path)
+
+
 durable = control.durable
 
 
@@ -429,6 +458,8 @@ class Host:
                 'Unexpected candidate version.')
         require(services['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] == 'false'
                 and services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED'] == 'false', 'Background work/notifications must stay off.')
+        self.check = 'candidate-mount-permissions'
+        verify_candidate_mounts(self.config, self.source)
         images = {n: s['image'] for n, s in services.items()}
         images['recovery-helper'] = HELPER
         self.check = 'registry'
