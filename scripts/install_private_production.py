@@ -666,6 +666,41 @@ class Host:
         require(self.recovery.gate('check') == b'open'
                 and self.recovery.gate('maintenance-check') == b'none', 'Recovery/identity fence closed.')
 
+    @staticmethod
+    def process_arguments(value):
+        """Inspect represents an absent argv as either null or []; nothing else is equivalent."""
+        require(value is None or isinstance(value, list) and all(isinstance(a, str) for a in value),
+                'Unsupported effective process arguments.')
+        return [] if value is None else value
+
+    @staticmethod
+    def effective_process(service, image_config):
+        """Resolve rendered Compose argv, then Docker's image-default merge, without a shell."""
+        def compose_argv(key):
+            value = service.get(key)
+            if value is None:
+                return None
+            args = Host.process_arguments(value)
+            # Compose config JSON re-escapes dollars for loading as a Compose file.
+            # Decode exactly once, only on Compose overrides, never image/inspect argv.
+            # An unpaired dollar is not canonical rendered input; refuse ambient expansion.
+            require(all('$' not in a.replace('$$', '') for a in args),
+                    'Unresolved interpolation in reviewed process arguments.')
+            return [a.replace('$$', '$') for a in args]
+
+        entrypoint, command = compose_argv('entrypoint'), compose_argv('command')
+        # Match Docker's merge: a nonempty entrypoint suppresses image Cmd;
+        # an empty entrypoint prevents Entrypoint inheritance, but not Cmd inheritance.
+        if not entrypoint:
+            if not command:
+                command = image_config.get('Cmd')
+            if entrypoint is None:
+                entrypoint = image_config.get('Entrypoint')
+        # Docker treats this single empty executable as an explicit entrypoint reset.
+        if entrypoint == ['']:
+            entrypoint = None
+        return {'Entrypoint': Host.process_arguments(entrypoint), 'Cmd': Host.process_arguments(command)}
+
     def running(self, names):
         for name in names:
             cid = self.compose('ps', '-q', name).decode().split()
@@ -696,8 +731,9 @@ class Host:
                     and host.get('PidMode', '') == '' and host.get('IpcMode') == 'private'
                     and not host.get('UTSMode') and not host.get('UsernsMode'), 'Effective resource/namespace drift.')
             require(all(not bindings for bindings in (value['NetworkSettings'].get('Ports') or {}).values()), 'Unexpected IPv4/IPv6 publication.')
-            require(value['Config'].get('Entrypoint') == intended_service.get('entrypoint', image['Config'].get('Entrypoint'))
-                    and value['Config'].get('Cmd') == intended_service.get('command', None if intended_service.get('entrypoint') is not None else image['Config'].get('Cmd')),
+            expected_process = self.effective_process(intended_service, image['Config'])
+            require(all(self.process_arguments(value['Config'].get(key)) == args
+                        for key, args in expected_process.items()),
                     'Effective entrypoint/command differs from the reviewed guard.')
             require(value['Config'].get('Labels', {}).get(control.RUN_LABEL) == self.run_id
                     and value['Config']['Labels'].get(control.CONFIG_LABEL) == self.configuration, 'Running attempt identity differs.')

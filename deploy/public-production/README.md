@@ -891,7 +891,7 @@ gates. The short workstation sample does not pass those checks or authorize more
 
 ## Private first installation and validation
 
-**Implemented; the first private VPS attempt failed before migration.** The
+**Implemented; private VPS qualification remains incomplete.** The
 [preparer](../../scripts/prepare_private_production.py) and
 [installer](../../scripts/install_private_production.py) reuse the
 [signed #275 candidate](../../docs/research/public-production-candidate-acceptance.md#owner-acceptance-record)
@@ -918,6 +918,16 @@ maintenance controls remain intact. The validator compares the complete result w
 that exact delta; extra publications, privileges, host networking, mounts or environment
 changes refuse. Use the final JSON alone; never merge the public Compose back into it.
 Regenerate a previous preparation bundle when the adapter/delta changes.
+
+Post-start validation compares effective process argument vectors resolved from the
+reviewed Compose overrides and immutable image defaults with Docker inspection.
+Compose dollar escaping and Docker's absent-argument representations are normalized;
+executables, argument content, order and boundaries must still match. A genuine
+process mismatch remains a startup refusal subject to the interruption procedure
+below. This operator-only correction requires a newly reviewed and published
+operational identity; it does not change the accepted product candidate or authorize
+retrying a claimed installation.
+
 The bridge settings use [Docker's protected NAT mode](https://docs.docker.com/engine/network/port-publishing/#gateway-modes);
 `nat-unprotected` is not an acceptable substitute.
 
