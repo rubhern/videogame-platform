@@ -109,6 +109,110 @@ class HostClose(unittest.TestCase):
         self.assertGreaterEqual(sum(args[:2] == ['docker', 'inspect'] for args in self.commands), 3)
 
 
+class HostProcess(unittest.TestCase):
+    """Exercise the live validator; only Compose discovery and Docker I/O are simulated."""
+    def check_process(self, service, image_process, live_process):
+        host = install.Host('c'*64, 'a'*64, 'b'*40)
+        host.run_id = 'test-attempt'
+        host.config = {'services': {'fixture': {
+            'image': 'reviewed@sha256:' + 'd'*64, 'mem_limit': 1024, 'cpus': .1,
+            'pids_limit': 32, 'networks': {'private': {}}, **service}},
+            'networks': {'private': {'name': 'isolated'}}, 'volumes': {}}
+        live = {'Image': 'sha256:' + 'd'*64, 'State': {'Running': True},
+                'Config': {'Image': host.config['services']['fixture']['image'], 'Labels': {
+                    control.RUN_LABEL: host.run_id, control.CONFIG_LABEL: host.configuration}, **live_process},
+                'HostConfig': {'RestartPolicy': {'Name': 'no'}, 'Memory': 1024, 'NanoCpus': 100000000,
+                               'PidsLimit': 32, 'IpcMode': 'private', 'NetworkMode': 'isolated'},
+                'NetworkSettings': {'Networks': {'isolated': {'NetworkID': 'network-id'}}}}
+        image = {'Id': live['Image'], 'Config': image_process}
+        network = {'Id': 'network-id', 'EnableIPv6': False, 'EnableIPv4': True, 'Driver': 'bridge',
+                   'Internal': False, 'Scope': 'local',
+                   'Options': {'com.docker.network.bridge.gateway_mode_ipv4': 'nat'},
+                   'IPAM': {'Driver': 'default', 'Config': [{'Subnet': '10.203.1.0/28', 'Gateway': '10.203.1.1'}]}}
+        def runner(args, **_):
+            if args == ['docker', 'inspect', 'container-id']: result = live
+            elif args == ['docker', 'image', 'inspect', host.config['services']['fixture']['image']]: result = image
+            elif args == ['docker', 'network', 'inspect', 'isolated']: result = network
+            else: self.fail('Unexpected process validation command')
+            return json.dumps([result]).encode()
+        with patch.object(host, 'compose', return_value=b'container-id') as compose, \
+                patch.object(install, 'run', side_effect=runner):
+            host.running(['fixture'])
+            compose.assert_called_once_with('ps', '-q', 'fixture')
+
+    def test_dependencies_inherit_explicit_null_entrypoint(self):
+        for name, executable in [('catalogue-localizer', '/usr/local/bin/localizer'),
+                                 ('telemetry', '/otelcol-contrib'), ('prometheus', '/bin/prometheus'),
+                                 ('node-exporter', '/bin/node_exporter'), ('blackbox', '/bin/blackbox_exporter')]:
+            with self.subTest(service=name):
+                self.check_process({'entrypoint': None, 'command': ['--config=/etc/config']},
+                                   {'Entrypoint': [executable], 'Cmd': ['image-default']},
+                                   {'Entrypoint': [executable], 'Cmd': ['--config=/etc/config']})
+
+    def test_missing_and_null_inherit_caddy_command(self):
+        image = {'Entrypoint': None, 'Cmd': ['caddy', 'run', '--config', '/etc/caddy/Caddyfile']}
+        for service in ({}, {'entrypoint': None, 'command': None}):
+            with self.subTest(service=service): self.check_process(service, image, image)
+
+    def test_override_and_empty_semantics_match_engine_merge(self):
+        image = {'Entrypoint': ['/image-entrypoint'], 'Cmd': ['image-default']}
+        cases = [
+            ({'entrypoint': ['/guard']}, {'Entrypoint': ['/guard'], 'Cmd': None}),
+            ({'entrypoint': ['/guard'], 'command': None}, {'Entrypoint': ['/guard'], 'Cmd': []}),
+            ({'entrypoint': ['/guard'], 'command': []}, {'Entrypoint': ['/guard'], 'Cmd': None}),
+            ({'entrypoint': ['/guard'], 'command': ['run']}, {'Entrypoint': ['/guard'], 'Cmd': ['run']}),
+            ({'entrypoint': []}, {'Entrypoint': None, 'Cmd': ['image-default']}),
+            ({'entrypoint': [], 'command': []}, {'Entrypoint': [], 'Cmd': ['image-default']}),
+            ({'command': []}, image),
+            ({'entrypoint': [''], 'command': ['run']}, {'Entrypoint': None, 'Cmd': ['run']}),
+        ]
+        for service, actual in cases:
+            with self.subTest(service=service): self.check_process(service, image, actual)
+
+    def test_compose_dollars_decode_once_without_changing_argument_boundaries(self):
+        self.check_process({'entrypoint': ['/guard$$name'],
+                            'command': ['--ignored=^/$$', '$$$$', '$$HOME', '$${HOME}', 'two words', '']},
+                           {}, {'Entrypoint': ['/guard$name'],
+                                'Cmd': ['--ignored=^/$', '$$', '$HOME', '${HOME}', 'two words', '']})
+        # Image metadata and live inspect are already effective: their dollars stay literal.
+        image = {'Entrypoint': ['/image$$name'], 'Cmd': ['$$$$', '$HOME', '']}
+        self.check_process({'entrypoint': None, 'command': None}, image, image)
+
+    def test_real_process_changes_are_rejected(self):
+        service = {'entrypoint': ['/guard'], 'command': ['--ignored=^/$$', 'two words', '']}
+        expected = {'Entrypoint': ['/guard'], 'Cmd': ['--ignored=^/$', 'two words', '']}
+        changes = [
+            {'Entrypoint': ['/other']}, {'Entrypoint': None}, {'Entrypoint': ['/guard', 'extra']},
+            {'Cmd': None}, {'Cmd': ['--ignored=^/$$', 'two words', '']},
+            {'Cmd': ['--ignored=^/', 'two words', '']},
+            {'Cmd': ['two words', '--ignored=^/$', '']},
+            {'Cmd': ['--ignored=^/$', 'two', 'words', '']},
+            {'Cmd': ['--ignored=^/$', 'two words']},
+            {'Cmd': ['--ignored=^/$', 'two words', '', 'extra']},
+            {'Cmd': '--ignored=^/$ two words'},
+        ]
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(trust.Refused):
+                self.check_process(service, {}, {**expected, **change})
+        for key in ('Entrypoint', 'Cmd'):
+            with self.subTest(inherited=key), self.assertRaises(trust.Refused):
+                self.check_process({'entrypoint': None, 'command': None}, expected,
+                                   {**expected, key: ['/substituted']})
+        with self.assertRaises(trust.Refused):
+            self.check_process({'entrypoint': ['/guard']}, {'Cmd': ['default']},
+                               {'Entrypoint': ['/guard'], 'Cmd': ['default']})
+        for key in ('Entrypoint', 'Cmd'):
+            image = {'Entrypoint': ['/image$$name'], 'Cmd': ['literal$$']}
+            with self.subTest(image_dollars=key), self.assertRaises(trust.Refused):
+                self.check_process({}, image, {**image, key: [image[key][0].replace('$$', '$')]})
+
+    def test_unrendered_or_malformed_overrides_refuse(self):
+        for value in ('/guard arg', 0, {}, [None], ['$HOME'], ['${HOME}'], ['$$$HOME']):
+            for key in ('entrypoint', 'command'):
+                with self.subTest(key=key, value=value), self.assertRaises(trust.Refused):
+                    self.check_process({key: value}, {}, {})
+
+
 class Regressions(unittest.TestCase):
     def setUp(self):
         control.CANCEL.clear(); control.CAUSE = None; control.UNCERTAIN_COMMAND = False
