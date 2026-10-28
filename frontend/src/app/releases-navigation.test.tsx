@@ -24,9 +24,9 @@ it("exposes the three release destinations in the disclosure, then TOPómetro an
   const topometro = within(nav).getByRole("link", { name: "TOPómetro" });
   expect(topometro).toHaveAttribute("href", "/topometro");
   expect(topometro).not.toHaveAttribute("aria-current");
-  const platforms = within(nav).getByRole("link", { name: "Plataformas" });
-  expect(platforms).toHaveAttribute("href", "/plataformas");
-  expect(within(nav).getAllByRole("link")).toEqual([topometro, platforms]);
+  const platforms = within(nav).getByRole("button", { name: "Plataformas" });
+  expect(platforms).toHaveAttribute("aria-expanded", "false");
+  expect(within(nav).getAllByRole("link")).toEqual([topometro]);
   await user.click(trigger);
   const links = within(nav).getAllByRole("link").filter(link => link !== topometro && link !== platforms);
   expect(links.map(link => link.textContent)).toEqual(["Destacados", "Explorar", "Calendario"]);
@@ -40,8 +40,8 @@ it.each([["/topometro?source=gameometro", "TOPómetro"], ["/plataformas", "Plata
   "marks %s as the current page without making Lanzamientos current", (path, name) => {
     renderNavigation(path);
     const nav = screen.getByRole("navigation", { name: "Principal" });
-    expect(within(nav).getByRole("link", { name })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getAllByRole("link").filter(link => link.hasAttribute("aria-current"))).toHaveLength(1);
+    expect(within(nav).getByRole(name === "Plataformas" ? "button" : "link", { name })).toHaveAttribute("aria-current", "page");
+    expect([...within(nav).getAllByRole("link"), ...within(nav).getAllByRole("button")].filter(link => link.hasAttribute("aria-current"))).toHaveLength(1);
     expect(within(nav).getByRole("button", { name: "Lanzamientos" })).not.toHaveAttribute("aria-current");
   });
 
@@ -85,4 +85,32 @@ it("closes after navigation, including history and a same-page selection, and pr
   await user.click(getTrigger());
   await act(() => router.navigate(-1));
   expect(getTrigger()).toHaveAttribute("aria-expanded", "false");
+});
+
+it("offers only the four direct platform catalogues and the index, with keyboard dismissal", async () => {
+  const user = userEvent.setup();
+  const { router } = renderNavigation("/plataformas/playstation-5/topometro");
+  const trigger = screen.getByRole("button", { name: "Plataformas" });
+  expect(trigger).toHaveAttribute("aria-current", "true");
+  trigger.focus();
+  await user.keyboard("{Enter}{Tab}");
+  const first = screen.getByRole("link", { name: "Nintendo Switch 2" });
+  expect(first).toHaveFocus();
+  expect(first).toHaveAttribute("href", "/plataformas/nintendo-switch-2/catalogo");
+  expect(screen.getByRole("link", { name: "PlayStation 5" })).toHaveAttribute("href", "/plataformas/playstation-5/catalogo");
+  expect(screen.getByRole("link", { name: "Xbox Series X|S" })).toHaveAttribute("href", "/plataformas/xbox-series-x-s/catalogo");
+  expect(screen.getByRole("link", { name: "Windows PC" })).toHaveAttribute("href", "/plataformas/windows-pc/catalogo");
+  expect(screen.getByRole("link", { name: "Ver todas las plataformas" })).toHaveAttribute("href", "/plataformas");
+  await user.keyboard("{Escape}");
+  expect(trigger).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await user.click(trigger);
+  await user.click(screen.getByRole("heading", { name: "Outside" }));
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await user.click(trigger);
+  await user.click(screen.getByRole("link", { name: "Windows PC" }));
+  expect(router.state.location.pathname).toBe("/plataformas/windows-pc/catalogo");
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await act(() => router.navigate(-1));
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
 });

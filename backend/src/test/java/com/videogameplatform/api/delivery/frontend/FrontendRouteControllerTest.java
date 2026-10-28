@@ -50,6 +50,33 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/topometro").param("source", "gameometro"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        // Plataformas reloads with its open platform.
+        mockMvc.perform(get("/plataformas").param("plataforma", "ps4-id"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        // A platform's catalogue reloads with its featured key or platform identifier and filters.
+        mockMvc.perform(
+                        get("/plataformas/nintendo-switch-2/catalogo")
+                                .param("releaseState", "upcoming"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/plataformas/2f1c0a6e-8d4b-4c3a-9e1f-5b6a7c8d9e0f/catalogo"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        // A platform's TOPómetro reloads with its platform and source.
+        mockMvc.perform(get("/plataformas/playstation-5/topometro").param("source", "gameometro"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/plataformas/2f1c0a6e-8d4b-4c3a-9e1f-5b6a7c8d9e0f/topometro"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        // A platform's upcoming highlights reload with its featured key or platform identifier.
+        mockMvc.perform(get("/plataformas/xbox-series-x-s/proximos"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/plataformas/2f1c0a6e-8d4b-4c3a-9e1f-5b6a7c8d9e0f/proximos"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
@@ -78,5 +105,10 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/login")).andExpect(status().isNotFound());
         mockMvc.perform(get("/actuator")).andExpect(status().isNotFound());
         mockMvc.perform(get("/login/oauth2/code/keycloak")).andExpect(status().isNotFound());
+        // Only a platform's catalogue, TOPómetro and upcoming highlights live under a platform.
+        mockMvc.perform(get("/plataformas/ps5/novedades")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/plataformas/PS_5/catalogo")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/plataformas/PS_5/topometro")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/plataformas/PS_5/proximos")).andExpect(status().isNotFound());
     }
 }

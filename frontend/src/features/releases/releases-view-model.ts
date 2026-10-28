@@ -126,7 +126,7 @@ function localCoverPreview(slug: string, title: string): ReleaseCover | null {
  * generated transport type narrows the null-valued branch away, so the variant is
  * detected the same way the release-date union is.
  */
-function toCover(cover: Cover): ReleaseCover {
+export function toCover(cover: Cover): ReleaseCover {
   const attribution = "attribution" in cover ? cover.attribution : null;
 
   if (attribution === null) {

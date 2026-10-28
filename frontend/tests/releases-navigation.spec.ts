@@ -29,9 +29,9 @@ for (const width of [720, 834, 1320]) {
     await expect(nav.getByRole("link", { name: "TOPómetro" })).toHaveAttribute("href", "/topometro");
     await trigger.tap();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Plataformas"]);
+    await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro"]);
     await expect(nav.getByRole("link", { name: "Destacados", exact: true })).toHaveAttribute("aria-current", "page");
-    const panel = page.locator(".releases-panel");
+    const panel = page.locator(".releases-panel").filter({ visible: true });
     const box = await panel.boundingBox();
     if (!box) throw new Error("The releases panel is not rendered");
     expect(box.x).toBeGreaterThanOrEqual(0);

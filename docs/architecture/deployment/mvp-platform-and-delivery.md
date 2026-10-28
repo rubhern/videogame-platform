@@ -356,8 +356,13 @@ Local/CI development continues with temporary private-dev.
 one application replica and one PostgreSQL server. **Runtime configuration prepared,
 not deployed (#275):** [`deploy/public-production`](../../../deploy/public-production/README.md)
 holds the Compose topology and the Caddy edge with its [request limits](#public-edge-request-limits); its README owns the secret inventory
-and what remains unvalidated. No host, DNS, deployment workflow, backup or telemetry
-exists. The following specifies the target; configuration and its local tests are not
+and what remains unvalidated. The owner confirms a prepared host foundation, recorded
+in the [operations runbook](../../development/operations-runbook.md#production-host-foundation).
+The separately reviewed [private first-install adapter](../../../deploy/public-production/README.md#private-first-installation-and-validation)
+is prepared but has not run; Gameómetro, backups and production telemetry remain
+undeployed and public exposure unaccepted. The following specifies the public target;
+the private qualifier removes all published ports and disables unattended restart.
+Configuration and its local tests are not
 proof of a public host. The [disposable integration exercise](../../../deploy/public-production/README.md#disposable-integration-exercise)
 runs the trusted-main runtime locally with synthetic state and canonical names; its
 receipts keep the remaining validation boundary explicit.

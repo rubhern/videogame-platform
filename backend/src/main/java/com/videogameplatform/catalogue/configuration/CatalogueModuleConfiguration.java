@@ -11,14 +11,17 @@ import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPo
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleaseCalendarUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.BrowseUpcomingHighlightsUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedPeriodPolicy;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCalendarService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.releases.internal.UpcomingHighlightsService;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
+import com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
@@ -119,6 +122,17 @@ class CatalogueModuleConfiguration {
                 new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
     }
 
+    @Bean
+    BrowseUpcomingHighlightsUseCase browseUpcomingHighlightsUseCase(
+            UpcomingHighlightsReadPort readPort,
+            CatalogueCoverPolicy coverPolicy,
+            ProviderImageReferenceResolver imageResolver,
+            Clock clock,
+            CatalogueFreshnessPolicy freshnessPolicy) {
+        return new UpcomingHighlightsService(
+                readPort, coverPolicy, imageResolver, clock, freshnessPolicy);
+    }
+
     /** The calendar reaches the same future as featured months: one forward acquisition bound. */
     @Bean
     BrowseReleaseCalendarUseCase browseReleaseCalendarUseCase(
@@ -145,6 +159,18 @@ class CatalogueModuleConfiguration {
             Clock clock) {
         return new com.videogameplatform.catalogue.application.rankings.internal.GameRankingService(
                 readPort, coverPolicy, clock);
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.platformgames.BrowsePlatformGamesUseCase
+            browsePlatformGamesUseCase(
+                    com.videogameplatform.catalogue.application.platformgames.port
+                                    .PlatformGamesReadPort
+                            readPort,
+                    CatalogueCoverPolicy coverPolicy,
+                    Clock clock) {
+        return new com.videogameplatform.catalogue.application.platformgames.internal
+                .PlatformGamesService(readPort, coverPolicy, clock);
     }
 
     @Bean

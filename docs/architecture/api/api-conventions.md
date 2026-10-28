@@ -52,6 +52,16 @@ usefully expressed once in the contract.
   exact distinct-platform count, and the earliest and latest known years, never invented
   from an unknown date.
 
+- A platform's catalogue (#389) requires an explicit platform scope of product platform IDs; a
+  family travels as the IDs it groups. Its optional `q` follows the catalogue search rules as a
+  filter inside the scope, never as a ranking, and an absent `q` browses the whole scope.
+- A platform's TOPómetro (#387) names the same kind of scope through the ranking's optional
+  `platformIds`; without it the ranking is global. The scope narrows the candidates before
+  ranking and paging and never changes the scale, the source or the reading.
+- A platform's upcoming highlights (#388) require the same explicit scope and take no other
+  parameter: the evaluation date, the six-calendar-month horizon, the ranking and its limit are
+  server-owned product rules, so a date, order or filter parameter is rejected as unknown.
+
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions
 return `428`; stale/existing state returns `412`. Successful commands return coherent

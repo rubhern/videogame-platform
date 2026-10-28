@@ -31,8 +31,8 @@ export function RankingPodium({ games }: { games: readonly RankedGame[] }) {
                 </h3>
                 <div className="podium-meta">
                   <p className="podium-year">
-                    <span className="sr-only">Lanzamiento: </span>
-                    {game.year}
+                    <span className="sr-only">{game.yearLabel}</span>
+                    <span aria-hidden="true">{game.year}</span>
                   </p>
                   {game.platforms.length === 0 ? null : (
                     <PlatformMarks

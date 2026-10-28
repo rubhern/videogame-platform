@@ -280,7 +280,17 @@ function fallbackArt(title: string): FeaturedArt {
   };
 }
 
-function art(item: FeaturedResponseItem): FeaturedArt[] {
+/** What an art step list is built from: any ranked item carrying the featured-image contract. */
+export type FeaturedArtSource = Pick<
+  FeaturedResponseItem,
+  "featuredImage" | "primaryCover" | "canonicalTitle"
+>;
+
+/**
+ * A card's image steps: the contract's featured image, then the provider cover shown whole if a
+ * provider image fails to load, and the product-owned fallback always last.
+ */
+export function featuredCardArt(item: FeaturedArtSource): FeaturedArt[] {
   const image = item.featuredImage;
   const first: FeaturedArt = {
     kind: image.kind,
@@ -315,7 +325,7 @@ function toFeaturedItem(
   const first = item.releases[0];
   return {
     ...toReleaseListItem(item),
-    art: art(item),
+    art: featuredCardArt(item),
     logo:
       item.logo === undefined ? null : { url: item.logo.url, alt: item.logo.alternativeText },
     // The first presented release is the card's visible release row, so its date is the one the
@@ -334,10 +344,11 @@ export { toWordmark };
  * first, then the designed fallback, which the cover may light, and the cover shown whole only
  * when not even that can load.
  */
-function toFeaturedLead(
-  item: FeaturedResponseItem,
-  timeline: PeriodTimeline | null,
-): FeaturedLead {
+/**
+ * A lead's image steps: its landscape media, then the designed fallback, and the provider cover
+ * shown whole only when not even that can load. `light` is what may light the page's stage.
+ */
+export function featuredLeadArt(item: FeaturedArtSource): { art: FeaturedArt[]; light: string } {
   const image = item.featuredImage;
   const landscape: FeaturedArt[] =
     image.kind === "artwork" || image.kind === "screenshot"
@@ -365,11 +376,22 @@ function toFeaturedLead(
         ]
       : [];
   return {
-    ...toFeaturedItem(item, timeline),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
+    light: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
+  };
+}
+
+function toFeaturedLead(
+  item: FeaturedResponseItem,
+  timeline: PeriodTimeline | null,
+): FeaturedLead {
+  const { art, light } = featuredLeadArt(item);
+  return {
+    ...toFeaturedItem(item, timeline),
+    art,
     facts: facts(item.releases[0]),
     wordmark: toWordmark(item.canonicalTitle),
-    lightUrl: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
+    lightUrl: light,
   };
 }
 

@@ -1395,6 +1395,12 @@ quality/security gates, main ancestry and the deployment contract, revalidates t
 same derived tuple before connectivity, and the host independently rechecks source
 trust and digest/OCI binding. No build occurs during promotion.
 
+Transient GitHub evidence-read failures use bounded retries; exhausted retries still
+refuse promotion before activation. Invalid or rejected evidence is never accepted
+through a retry. The helper owns retry limits and delays. Changes to that helper
+also require updating and acknowledging the installed deployment contract through
+the procedure below.
+
 Pending Actions runs are serialized but the queue is not FIFO; the existing host
 lock also refuses concurrent manual deployment.
 

@@ -3,11 +3,13 @@ package com.videogameplatform.catalogue.configuration;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcFeaturedReleaseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcReleaseBrowseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcReleaseCalendarReadAdapter;
+import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcUpcomingHighlightsReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.search.JdbcGameSearchReadAdapter;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
+import com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import javax.sql.DataSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -86,6 +88,12 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    UpcomingHighlightsReadPort upcomingHighlightsReadPort(CatalogueReadExecution execution) {
+        return new JdbcUpcomingHighlightsReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     GameSearchReadPort gameSearchReadPort(CatalogueReadExecution execution) {
         return new JdbcGameSearchReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());
@@ -96,6 +104,14 @@ class CataloguePersistenceConfiguration {
             gameRankingReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.rankings
                 .JdbcGameRankingReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.platformgames.port.PlatformGamesReadPort
+            platformGamesReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.platformgames
+                .JdbcPlatformGamesReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());
     }
 

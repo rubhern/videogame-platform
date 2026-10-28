@@ -65,8 +65,12 @@ class DeliveryTests(unittest.TestCase):
 
         runtime = jobs['production-runtime']
         self.assertNotIn('matrix:', runtime)  # Avoid extra runner queues for these branches.
+        candidate = re.search(r"^REVISION = '([0-9a-f]{40})'", (ROOT / 'scripts/prepare_private_production.py').read_text(), re.M)[1]
+        self.assertIn('          ref: ' + candidate, runtime)
+        self.assertIn('git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD', runtime)
         proofs = {
-            'operations': ['test-public-production-deployment.py', 'test-public-production-integration.py',
+            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py',
+                           'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py'],
             'observability': ['test-production-observability.py --smoke'],

@@ -195,8 +195,8 @@ scale remains a direction, without evidence of a real community or demand yet.
   remains unapproved.
 - Always show each available valid score with its source and positive vote count,
   including a single vote. No minimum sample threshold may hide either Gameómetro
-  or IGDB scores. The one owner-approved threshold (2026-10-26, #386) decides ranking only:
-  TOPómetro ranks IGDB players' scores from 100 ratings and community scores from the first,
+  or IGDB scores. The one owner-approved threshold (2026-10-26, #386; lowered 2026-10-27) decides
+  ranking only: TOPómetro ranks IGDB players' scores from 50 ratings and community scores from the first,
   while every such score stays shown wherever it appears. Keep the two sources separate; sample size never changes provenance
   or blends their values. Personal and community ratings also remain distinct.
 - Missing or invalid score/count pairs have no numeric score; unavailable statistics

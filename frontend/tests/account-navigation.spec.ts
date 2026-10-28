@@ -17,8 +17,8 @@ for (const width of [1320, 1024, 834, 390, 320]) {
       await menu.focus();
       await page.keyboard.press("Enter");
       await expect(menu).toHaveAttribute("aria-expanded", "true");
-      // Destacados, Explorar, Calendario, TOPómetro and Plataformas come before the account.
-      for (let step = 0; step < 6; step++) await page.keyboard.press("Tab");
+      // Primary discovery links and the five platform shortcuts precede the account.
+      for (let step = 0; step < 10; step++) await page.keyboard.press("Tab");
       await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeFocused();
     } else {
       await expect(page.getByRole("button", { name: "Menú" })).toHaveCount(0);
