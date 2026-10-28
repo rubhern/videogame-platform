@@ -509,6 +509,57 @@ class Contracts(unittest.TestCase):
                 else:
                     host.routes()
 
+    def test_special_docker_networks_preserve_route_collision_checks(self):
+        host = install.Host('a', 'b', 'c')
+        host.config = {'networks': {'edge': {'name': 'gameometro-production_edge',
+                              'ipam': {'config': [{'subnet': '10.203.1.0/28'}]}}}}
+        special = [{'Name': 'host', 'Driver': 'host', 'IPAM': {'Config': None}},
+                   {'Name': 'none', 'Driver': 'null', 'IPAM': {'Config': None}}]
+        for route, subnet, refused in (
+                ('100.64.0.0/10', '172.17.0.0/16', False),
+                ('10.203.0.0/16', '172.17.0.0/16', True),
+                ('100.64.0.0/10', '10.203.1.0/29', True)):
+            networks = [*special, {'Name': 'bridge', 'Driver': 'bridge',
+                                   'IPAM': {'Config': [{'Subnet': subnet}]}}]
+            def fake(args, **_):
+                if args[0] == 'ip': return json.dumps([{'dst': route}]).encode()
+                if args == ['docker', 'network', 'ls', '-q']: return b'0 1 2'
+                if args[:3] == ['docker', 'network', 'inspect']:
+                    return json.dumps([networks[int(args[3])]]).encode()
+                self.fail(f'Unexpected command: {args}')
+            with self.subTest(route=route, subnet=subnet), patch.object(install, 'run', side_effect=fake):
+                if refused:
+                    with self.assertRaisesRegex(trust.Refused, 'overlaps runtime trust subnet'):
+                        host.routes()
+                else:
+                    host.routes()
+
+    def test_unexpected_docker_ipam_is_refused(self):
+        host = install.Host('a', 'b', 'c')
+        host.config = {'networks': {}}
+        networks = [
+            {'Name': 'bridge', 'Driver': 'bridge', 'IPAM': {'Config': None}},
+            {'Name': 'custom', 'Driver': 'host', 'IPAM': {'Config': None}},
+            {'Name': 'host', 'Driver': 'bridge', 'IPAM': {'Config': None}},
+            {'Name': 'none', 'Driver': 'bridge', 'IPAM': {'Config': None}},
+            {'Name': 'bridge', 'Driver': 'bridge', 'IPAM': {}},
+            {'Name': 'bridge', 'Driver': 'bridge', 'IPAM': None},
+            {'Name': 'bridge', 'Driver': 'bridge'},
+            *({'Name': name, 'Driver': driver, 'IPAM': {'Config': value}}
+              for name, driver in (('bridge', 'bridge'), ('host', 'host'), ('none', 'null'))
+              for value in ({}, '', [None], ['unexpected'])),
+        ]
+        for network in networks:
+            def fake(args, **_):
+                if args[0] == 'ip': return b'[]'
+                if args == ['docker', 'network', 'ls', '-q']: return b'network-id'
+                if args == ['docker', 'network', 'inspect', 'network-id']:
+                    return json.dumps([network]).encode()
+                self.fail(f'Unexpected command: {args}')
+            with self.subTest(network=network), patch.object(install, 'run', side_effect=fake):
+                with self.assertRaisesRegex(trust.Refused, 'Unexpected Docker network IPAM'):
+                    host.routes()
+
     def test_exact_operational_source_binding(self):
         class API:
             def request(self, _):
