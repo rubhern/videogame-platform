@@ -40,7 +40,7 @@ test("only a session signed in with the catalogue operator role reads catalogue 
   expect(await read(player, STATUS)).toMatchObject({ status: 403, code: "ACCESS_DENIED" });
   expect(await read(player, COVERAGE)).toMatchObject({ status: 403, code: "ACCESS_DENIED" });
   await player.getByRole("button", { name: "Mi cuenta" }).click();
-  await expect(player.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+  await expect(player.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
   await expect(player.getByRole("link", { name: "Panel de administrador" })).toHaveCount(0);
   await player.goto("/administracion/catalogo");
   await expect(player.getByRole("heading", { name: "Tu cuenta no puede administrar el catálogo" })).toBeVisible();
