@@ -2,18 +2,16 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect, replace, type LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
+import { HOME_FEATURED_SEARCH, HOME_PATH, legacyHomeRedirect } from "../features/home/home-path";
 import { getRatingInsights } from "../features/ratings/rating-insights-api";
 import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
 import { FEATURED_PATH, readFeaturedSearch } from "../features/releases/featured-search";
-import {
-  legacyReleasesPath,
-  readReleasesSearch,
-  RELEASES_PATH,
-} from "../features/releases/releases-search";
+import { readReleasesSearch, RELEASES_PATH } from "../features/releases/releases-search";
 import { featuredReleasesQueryOptions } from "../features/releases/use-featured-releases-query";
 import { releasesQueryOptions } from "../features/releases/use-releases-query";
 import {
   CALENDAR_PATH,
+  defaultCalendarSearch,
   readCalendarSearch,
   toCalendarQuery,
 } from "../features/releases/release-calendar-search";
@@ -21,7 +19,12 @@ import { releaseCalendarQueryOptions } from "../features/releases/use-release-ca
 import { resolvePlatformFilter } from "../features/platform-preferences/interests";
 import { hasSearchableQuery, readGameSearchParams } from "../features/search/game-search-params";
 import { gameSearchQueryOptions } from "../features/search/use-game-search-query";
-import { readPlatformRankingKey, readRankingSource, TOPOMETRO_PATH } from "../features/rankings/ranking-search";
+import {
+  DEFAULT_RANKING_SOURCE,
+  readPlatformRankingKey,
+  readRankingSource,
+  TOPOMETRO_PATH,
+} from "../features/rankings/ranking-search";
 import { gameRankingQueryOptions } from "../features/rankings/use-game-ranking-query";
 import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
@@ -74,12 +77,30 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
   let welcomeOffered = false;
   return async ({ request, params }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
-    // Resolve the compatibility entry before hydration, so a pending destination keeps its
-    // loading surface instead of mounting a redirect-only page with an empty outlet.
-    if (url.pathname === "/") {
-      return replace(legacyReleasesPath(url.searchParams) ?? `${FEATURED_PATH}${url.search}`);
-    }
-    if (url.pathname === FEATURED_PATH || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
+    // Former landing links resolve before hydration, so a pending destination keeps its loading
+    // surface instead of mounting a redirect-only page with an empty outlet.
+    const legacy = url.pathname === HOME_PATH ? legacyHomeRedirect(url.searchParams) : null;
+    if (legacy !== null) return replace(legacy);
+    if (url.pathname === HOME_PATH) {
+      // The home (#382) previews Destacados and the calendar under the visitor's preferences, as
+      // they read them, so it is a way into discovery too: the first-run choice is offered here
+      // once per document, and returns here. Its bounded public reads run side by side and share
+      // their destinations' cache entries, so Back restores its height; a failed one only leaves
+      // its own preview to retry.
+      const interests = await loadInterests(queryClient);
+      const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
+      if (!welcomeOffered && preferences?.configured === false) {
+        welcomeOffered = true;
+        return redirect(welcomePath(HOME_PATH));
+      }
+      const platformIds = featuredRequestPlatforms(interestsSwitch.enabled(), interests);
+      await Promise.all([
+        queryClient.prefetchQuery(featuredReleasesQueryOptions(HOME_FEATURED_SEARCH, platformIds)),
+        queryClient.prefetchQuery(releaseCalendarQueryOptions(toCalendarQuery(defaultCalendarSearch, platformIds))),
+        queryClient.ensureInfiniteQueryData(gameRankingQueryOptions(DEFAULT_RANKING_SOURCE)).catch(() => undefined),
+        queryClient.prefetchQuery(platformListQueryOptions()),
+      ]);
+    } else if (url.pathname === FEATURED_PATH || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
       const interests = await loadInterests(queryClient);
       const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
       if (!welcomeOffered && preferences?.configured === false) {

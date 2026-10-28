@@ -179,13 +179,14 @@ known only to a month, quarter or year take no needle; the bar never invents a d
 decorative: the readout beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
-where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
-the release explorer a cover wall under its day bar, search a catalogue index, the game page
+where they carry meaning, and each keeps its own composition: the [home](#home) a front page led by
+the week's featured release, Destacados the period's stage, the release explorer a cover wall under its day bar, search a catalogue index, the game page
 its own cover's stage, `Mis puntuaciones` a thermal ledger, TOPómetro a podium over a
 ledger, Plataformas a showcase of platform stages, a platform's
 Explorar catálogo the release explorer's cover wall under that platform's own mark and its
-Próximos destacados a horizon over a numbered run of art. No screen repeats the temporal G or
-becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
+Próximos destacados a horizon over a numbered run of art. Only Destacados draws the temporal G and
+opens on a featured release's hero, and the home leads with that same hero (owner decision,
+2026-10-28); no other screen repeats either. Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React or hosted identity screen uses them, and new
 work never brings them back.
 
@@ -501,9 +502,9 @@ the executable values; these constraints hold wherever they are used:
   gradients from banding. It follows the document and never sits above readable content.
   Do not implement it as a viewport-sized fixed translucent layer: deep scrolling and the
   mobile browser toolbar must not invalidate the header or page content.
-- Featured, search, personal ratings and game details open on a stage lit by art they already
-  show, anchored to the top of the document so it runs behind the header: Destacados by its
-  featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
+- The home, featured, search, personal ratings and game details open on a stage lit by art they
+  already show, anchored to the top of the document so it runs behind the header: the
+  [home](#home) and Destacados by their featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
   three of the covers the page presents; TOPómetro by its podium's covers; Próximos destacados by its
   most anticipated game's art and the next covers; a game's page by its own cover. The release explorer
   keeps the plain night canvas under its opening and cover wall. Each image's hue, not
@@ -517,7 +518,7 @@ the executable values; these constraints hold wherever they are used:
   and there is one easing curve, one overshoot for presses and three durations. Do not add a
   per-component shadow scale, a backdrop blur or a halo.
 - Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
-  entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
+  entrance and parallax ([below](#featured-releases)); the home's entrance ([below](#home)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
   release a visitor points at; TOPómetro's podium rising onto its steps; Plataformas's four
   stages rising in turn; Próximos destacados' arrivals landing on its horizon; a cover easing a little closer on hover; feedback on press and
@@ -649,7 +650,7 @@ skip link, but never draws a page-sized focus outline; visible keyboard-focus in
 remain on interactive controls.
 
 Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
-was opened from — **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
+was opened from — **Volver al inicio** (#382), **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
 (#250), **Volver al TOPómetro** (#386), **Volver al catálogo** (#389), **Volver a Próximos destacados** (#388), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
 and returns to it with the same period, range, order, filters,
 search and page, restoring that screen's reading position while the document keeps it. Every
@@ -706,6 +707,86 @@ documents and **Contacto** follow the
 shows the identity and the closing lines alone until then. **Sobre Gameómetro** links to
 `/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
 not found.
+
+## Home
+
+Post-MVP (#382, implemented; awaiting owner review), `/` is Gameómetro's home: a front page that
+opens the features Gameómetro already has from one place. The owner's mockup is a reference, not a
+specification. The home adds no contract: each preview reads the same bounded public API as its
+destination, with the same request and the same preferred platforms, so it shares that
+destination's cache entry and shows the same games, order and period. A former landing link keeps
+its destination: `view=` opens the explorer, and a featured period (`week`, `month`, `granularity`)
+opens Destacados; no former featured link becomes a ranking. The home is a doorway: besides the
+featured hero it never repeats a full calendar, the podium or a destination's own controls.
+
+**Opening.** A compact heading opens the stage, secondary to the release beneath it: the `h1`
+**Descubre tu próximo juego** in the page-title voice and one muted line, *Lanzamientos, destacados y
+los juegos mejor valorados.* (owner request, 2026-10-28). The stage is Destacados's current week,
+whatever granularity Destacados opens on, set as [Destacados's hero](#featured-releases) itself: the
+featured release's art, the week's temporal G framing its copy on wide screens and becoming the
+release's seal on phones, the wordmark as the game link, the release facts, the genres and the
+readings. Only the home closes that copy with two ways out inside the hero, above the title's
+stretched target: **Ver ficha**, the primary ice action named with the game, and **Ver destacados**.
+They share one row inside the G and take the full width on phones. Destacados keeps its hero
+without them. **Más destacados de la semana** follows, with **Ver todos los lanzamientos de la
+semana** (the explorer on the represented week) and up to four further featured releases of the week:
+the landscape art (a screenshot keeps the game's logo), the compact date after the fire needle, the
+title as the card's only keyboard stop and pointer target, and up to three platform marks. They stand
+four in a row from 720px and read one line each, art beside the facts, below it.
+
+**Calendario de destacados.** Beside TOPómetro from 1024px and above it on narrower screens, the
+preview takes the calendar's own name, since the [glossary](../product/glossary.md#user-facing-terms)
+keeps `Próximos` out of section names, with **Ver calendario** and the readout of the days it covers.
+It offers up to seven days, from the API's evaluation date on, that hold highlighted games under
+`UC-016`: the calendar's current month and, only while that month runs short, the API's next month.
+A day without highlights is left out rather than shown as an empty slot. Each day is a native toggle
+button in the instrument's voice — the weekday or `hoy`, the date, the month and the count beside the
+calendar's interest dot — named in full with its count; the chosen day is ringed in ice and announced
+as pressed, and the preview opens on the day with the most highlights, the earliest among equals.
+Beneath come the chosen day's heading and count, up to four of its games in the calendar's Hype order
+(cover, title and platform marks), **Ver todos los lanzamientos del día** (the explorer on that day)
+and **Abrir este día en el calendario**. Phones scroll the days and the covers sideways inside the
+preview, never the page.
+
+**TOPómetro.** The lockup heads the preview, with **Ver TOPómetro** and the source switch: two native
+toggle buttons, **Jugadores IGDB** (the default) and **Comunidad Gameómetro**, each with its own
+untinted mark. The choice stays in the preview, never the URL, and the preview's link opens that
+source's ranking. Places 1–3 of the chosen source read as a short ledger: the place numeral (the
+winner's in the lockup's moonlit silver, the others outlined in ice, never a medal colour), the cover,
+the title as the only keyboard stop besides the IGDB attribution, the known years and platform marks,
+and the reading that placed the game with its exact count, under [TOPómetro](#topómetro)'s reading
+rules. The sources never mix and Hype never enters. The preview reads TOPómetro's own first page, so
+the full ranking opens on the same places; an empty source says so and offers the other.
+
+**Explora por plataforma.** A compact preview, not a second index (owner request, 2026-10-28): the
+four featured platforms in the owner's order, each by its own logo on a quiet cool stage, its name
+and one way in, **Explorar catálogo**, whose target covers the card; four in a row from 1024px and
+two by two below, one per row under 360px. Each platform's TOPómetro and Próximos destacados, and
+every other platform, stay on the platform pages and **Ver todas las plataformas**. A featured
+platform without games adds **Aún sin juegos en Gameómetro** from the public directory, whose
+failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
+
+**Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
+A signed-in player gets **Mis puntuaciones**, **Tus estadísticas** and **Mis plataformas** as a short
+ledger of links. An anonymous visitor gets one invitation, the keypad's ice-to-fire key, **Crear
+cuenta** (primary) and **Iniciar sesión** through the BFF, both returning to the home, and four short
+lines on what an account adds, each an implemented feature. The home never reads personal data:
+while the session is unknown the plate waits, and an unavailable session read offers the personal
+links without claiming the visitor is signed out.
+
+**States.** Each preview owns its states in the [server-backed states](#server-backed-states)
+language at a preview's size: placeholders shaped like it while it loads; an empty or unranked
+notice that names what is missing and offers the full feature (and **Ver todas las plataformas**
+when preferred platforms empty the week); and a catalogue not ready or a technical failure with its
+retry. One preview's failure never blanks or blocks another, and an unexpected rendering fault stays
+inside its own preview. The route reads the featured week, the calendar's month and TOPómetro's first
+page and the platform directory side by side before it renders, so Back restores the reading
+position; the chosen day's games and the following month follow on their own.
+
+**Motion.** The hero keeps Destacados's own entrance, the further releases rise in turn and each
+preview's content fades in once; covers ease a little closer on hover and chevrons lean into
+their direction. Reduced motion shows the settled page. Forced colours keep the hero's own rules,
+outline the chosen day and source, and return the key and the numerals to system colours.
 
 ## Release calendar
 
@@ -787,7 +868,7 @@ and the next-period step. A week reads as its exact days at the precision they n
 a month reads as `Octubre 2026`. While another period is shown, a quiet underlined **Semana
 actual** or **Mes actual** link follows and returns to the current one. Switching granularity
 always opens that granularity's current period. Every choice is a native link, so the period
-lives in the URL and in browser history: `/` is the current period of the default granularity,
+lives in the URL and in browser history: the Destacados route is the current period of the default granularity,
 `?granularity=` names the current period of the other one, and `?week=YYYY-Www` or
 `?month=YYYY-MM` names a period. Only the API states the navigation bounds and the
 adjacent periods. A step at a bound, or a step whose bounds are still loading, stays in place
@@ -1441,16 +1522,17 @@ one **Volver a Gameómetro** link to the landing page at its foot. Actions take 
 the [server-backed states](#server-backed-states); a failed save keeps the selection.
 
 **The offer.** The welcome is product UI after Keycloak, never a registration step. A signed-in
-player who has never chosen is sent to it once per document on the way into Destacados, the
-explorer or the calendar, carrying the destination, which it restores after saving or skipping; a rating return
-or any other page never redirects. Skipping records an empty choice and never blocks discovery.
+player who has never chosen is sent to it once per document on the way into the home (#382),
+Destacados, the explorer or the calendar, carrying the destination, which it restores after saving
+or skipping; the home is its default destination. A rating return or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
 **Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
-never in the URL, history or browser storage, so Destacados, the explorer and the calendar always
-agree and a shared link resolves with the reader's own preferences. Discovery screens carry no
+never in the URL, history or browser storage, so the home's Destacados and calendar previews,
+Destacados, the explorer and the calendar always agree and a shared link resolves with the reader's
+own preferences. Discovery screens carry no
 control or shortcut of their own, and no screen prints the list of applied platforms: only the
 explorer's and the calendar's **Plataforma** summarize them as `Mis plataformas` (and the
 explorer's folded phone controls name it). Choosing platforms by hand in **Plataforma** starts

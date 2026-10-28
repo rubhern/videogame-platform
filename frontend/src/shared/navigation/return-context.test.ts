@@ -9,7 +9,7 @@ const at = (path: string, state: unknown = null, key = "entry-1") => {
 
 describe("game page return context", () => {
   it.each([
-    ["/", "Volver a Destacados"],
+    ["/", "Volver al inicio"],
     ["/lanzamientos/destacados?week=2026-W42", "Volver a Destacados"],
     ["/?month=2026-12", "Volver a Destacados"],
     ["/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&page=2", "Volver a lanzamientos"],
@@ -29,7 +29,8 @@ describe("game page return context", () => {
     const context = readReturnContext(gameLinkState(at(path)));
 
     expect(context?.label).toBe(label);
-    expect(context?.path).toBe(path.replace(/^\/(?=\?|$)/, "/lanzamientos/destacados"));
+    // A former landing link with a featured period opens Destacados on it; the home has no state.
+    expect(context?.path).toBe(path.replace(/^\/(?=\?)/, "/lanzamientos/destacados"));
     expect(context?.state).toEqual({ restoreEntry: "entry-1" });
   });
 
@@ -39,6 +40,12 @@ describe("game page return context", () => {
     } })).toEqual({
       origin: "releases", path: "/lanzamientos?platformIds=pc&regionIds=europe&pageSize=6",
       label: "Volver a lanzamientos", state: { restoreEntry: "old-entry" },
+    });
+  });
+
+  it("returns to the home itself, which keeps no state of its own", () => {
+    expect(readReturnContext(gameLinkState(at("/?utm=x")))).toEqual({
+      origin: "home", path: "/", label: "Volver al inicio", state: { restoreEntry: "entry-1" },
     });
   });
 

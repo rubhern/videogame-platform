@@ -23,6 +23,7 @@
 @import "./platform-catalogue.css";
 @import "./upcoming-highlights.css";
 @import "./platform-navigation.css";
+@import "./home.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

@@ -97,7 +97,12 @@ test("direct canonical links reload and forced colours keep current navigation a
 for (const forcedColors of ["none", "active"] as const) {
   test(`route and skip-link focus never draw a page outline with forced colours ${forcedColors}`, async ({ page }) => {
     await page.emulateMedia({ forcedColors, reducedMotion: "reduce" });
+    // A keyboard route change from the home focuses the main landmark without drawing it.
     await page.goto("/");
+    await page.getByRole("button", { name: "Lanzamientos", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
     const main = page.getByRole("main");
     await expect(main).toBeFocused();
@@ -128,7 +133,7 @@ for (const forcedColors of ["none", "active"] as const) {
   });
 }
 
-for (const path of ["/", "/lanzamientos/destacados", "/lanzamientos/destacados?granularity=month"]) {
+for (const path of ["/lanzamientos/destacados", "/lanzamientos/destacados?granularity=month", "/?granularity=month"]) {
   test(`cold navigation keeps the featured loading surface while its read is pending: ${path}`, async ({ page }) => {
     await page.route("**/api/v1/featured-releases*", () => undefined);
     await page.goto(path);

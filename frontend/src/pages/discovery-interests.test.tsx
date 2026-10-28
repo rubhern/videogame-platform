@@ -139,7 +139,7 @@ describe("Mis plataformas on Destacados", () => {
   it("ranks only the preferred platforms by default, asking the API before ranking", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await screen.findByRole("heading", { name: /Juego uno/ });
     // The first and only read is already the restricted one; nothing filters the six afterwards.
@@ -160,7 +160,7 @@ describe("Mis plataformas on Destacados", () => {
   it("shows every platform in both screens while unchecked, without changing the saved choice", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    const { router } = renderApp("/?week=2026-W40");
+    const { router } = renderApp("/lanzamientos/destacados?week=2026-W40");
 
     await user.click(await platformsCheck(user));
 
@@ -187,7 +187,7 @@ describe("Mis plataformas on Destacados", () => {
   it("names an empty selection of the preferred platforms and offers every platform", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests, { featuredItems: [] });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     expect(
       await screen.findByRole("heading", { name: /Tus plataformas no tienen lanzamientos/ }),
@@ -200,7 +200,7 @@ describe("Mis plataformas on Destacados", () => {
 
   it("keeps the general Destacados for an anonymous visitor", async () => {
     const fetchMock = stubBff({ kind: "anonymous" });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await screen.findByRole("heading", { name: /Juego uno/ });
     expect(reads(fetchMock, "/api/v1/featured-releases")[0]?.searchParams.has("platformIds")).toBe(false);
@@ -211,7 +211,7 @@ describe("Mis plataformas on Destacados", () => {
   it("offers only the management link to a signed-in visitor without preferences", async () => {
     const user = userEvent.setup();
     stubBff({ kind: "signed-in", preferences: { configured: true, platforms: [] } });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
     expect(await screen.findByRole("link", { name: "Mis plataformas" })).toBeInTheDocument();

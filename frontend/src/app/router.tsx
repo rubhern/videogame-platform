@@ -3,8 +3,8 @@ import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { FeaturedReleasesPage } from "../pages/featured-releases-page";
-import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
+import { HomePage } from "../pages/home-page";
 import { NotFoundPage } from "../pages/not-found-page";
 import { PlatformCataloguePage } from "../pages/platform-catalogue-page";
 import { PlatformTopometroPage } from "../pages/platform-topometro-page";
@@ -34,7 +34,7 @@ export const appRoutes: RouteObject[] = [
     path: "/",
     element: <AppShell />,
     children: [
-      { index: true, element: <DiscoveryPage /> },
+      { index: true, element: <HomePage /> },
       { path: "lanzamientos/destacados", element: <FeaturedReleasesPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
@@ -22,6 +22,11 @@ type FeaturedHeroProps = {
   timeline: PeriodTimeline | null;
   /** `octubre de 2026` or `la semana del 12 al 18 de octubre de 2026`. */
   periodPhrase: string;
+  /**
+   * Ways out that close the copy inside the G, above the title's stretched target (the home's,
+   * #382). Destacados has none: its title is the only way into the game.
+   */
+  actions?: ReactNode;
 };
 
 /** Phones show this many platform marks and the exact count of the rest, as the cards do. */
@@ -46,7 +51,7 @@ function longestWord(text: string): number {
  * under the fire needle. The G keeps its own proportions; the copy keeps to its reading zone. The title link
  * spans the hero; score attribution and release overflow stay separate.
  */
-export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: FeaturedHeroProps) {
+export function FeaturedHero({ lead, granularity, timeline, periodPhrase, actions }: FeaturedHeroProps) {
   const zoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -217,6 +222,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
                   ))}
                 </ul>
               )}
+              {actions === undefined ? null : <div className="featured-hero-actions">{actions}</div>}
             </div>
           </div>
         </div>

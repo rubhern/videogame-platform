@@ -1,7 +1,8 @@
 # VideoGame Platform frontend
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
-BFF/API. It implements the complete MVP journey: `UC-001` release discovery, `UC-010` monthly
+BFF/API. Its home at `/` (#382) composes previews of the features below. It implements the
+complete MVP journey: `UC-001` release discovery, `UC-010` monthly
 featured releases,
 `UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
 same-origin authentication boundary (direct BFF/OIDC navigation to hosted identity screens,
@@ -108,12 +109,13 @@ React Router owns navigation. TanStack Query owns server state, caching, loading
 invalidation. Component state owns transient interaction state; URL parameters own
 navigable/shareable state when safe (the featured week or month, release view and filters,
 search query and page). The canonical featured destination is `/lanzamientos/destacados`; `week`, `month` and
-`granularity` keep the existing weekly/monthly URL state. Until #382 supplies a dedicated
-home, `/` replaces its history entry with that destination and carries its query; former
-`view=recent|upcoming` links retain their existing explorer migration. Saved game-return
-state for the old landing also resolves to Destacados, preserving the query and scroll-entry
-identity. A future home must retain migration of explicit legacy featured-period links;
-no former featured link may become a player-score ranking. The **Lanzamientos** disclosure
+`granularity` keep the existing weekly/monthly URL state. `/` is the home (#382), whose
+previews live in `src/features/home/` and keep no URL state of their own (TOPómetro's source
+and the calendar's chosen day stay in the preview). A former landing link keeps its destination:
+`week`, `month` or `granularity` replace their history entry with Destacados on that query, and
+`view=recent|upcoming` links retain their explorer migration; saved game-return state carrying
+them resolves the same way, so no former featured link becomes a player-score ranking. A game
+opened from the home returns with **Volver al inicio**. The **Lanzamientos** disclosure
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
 (`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
 only its source (`source=gameometro`), while its loaded pages stay in the document's query
