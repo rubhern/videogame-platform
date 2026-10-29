@@ -1,0 +1,89 @@
+#!/usr/bin/python3 -I
+"""Prepare the explicit private-dev executor capability/configuration; never deploy or start it."""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pathlib
+import secrets
+import sys
+import urllib.parse
+
+ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+
+def configuration(runtime, env_file, directory):
+    origin = urllib.parse.urlsplit(runtime['PRIVATE_DEV_KEYCLOAK_ORIGIN'])
+    if (runtime.get('COMPOSE_PROJECT_NAME', 'videogame-platform-dev') != 'videogame-platform-dev'
+            or origin.scheme != 'https' or not (origin.hostname or '').startswith('vgpdev.')
+            or not (origin.hostname or '').endswith('.ts.net') or origin.port != 8443
+            or origin.username or origin.password or origin.path or origin.query or origin.fragment):
+        raise ValueError('Only the existing private vgpdev Tailscale environment is supported')
+    return {
+        'policy': 'private-dev',
+        'issuer': runtime['PRIVATE_DEV_KEYCLOAK_ORIGIN'] + '/realms/videogame-platform',
+        'host_command': ['/usr/bin/python3', '-I', str(ROOT / 'deploy/private-dev/bin/personal-data'),
+                         '--private-dev-env-file', str(env_file)],
+        'management_url': 'http://127.0.0.1:8081/actuator/accountdeletionexecutor',
+        'credential_file': str(directory / 'executor.key'),
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--env-file', type=pathlib.Path, required=True)
+    args = parser.parse_args()
+    if os.getuid() != 0 or ROOT != pathlib.Path('/opt/videogame-platform'):
+        raise ValueError('Run from the owner-installed root-owned checkout on vgpdev')
+    loader = importlib.machinery.SourceFileLoader('private_runtime', str(ROOT / 'deploy/private-dev/bin/personal-data'))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    tool = importlib.util.module_from_spec(spec)
+    loader.exec_module(tool)
+    runtime = tool.provisioning.parse_runtime_environment(args.env_file)
+    directory = pathlib.Path('/etc/videogame-platform/dev/account-deletion')
+    config = configuration(runtime, args.env_file.resolve(), directory)
+    if directory.is_symlink():
+        raise ValueError('Refusing symlink state')
+    directory.mkdir(mode=0o700, exist_ok=True)
+    directory.chmod(0o700)
+    credential = directory / 'executor.key'
+    if not credential.exists():
+        fd = os.open(credential, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(secrets.token_hex(32))
+            stream.flush()
+            os.fsync(stream.fileno())
+    if (credential.is_symlink() or credential.stat().st_mode & 0o077
+            or credential.stat().st_uid != 0
+            or not __import__('re').fullmatch('[0-9a-f]{64}', credential.read_text())):
+        raise ValueError('Existing capability is unsafe; no rotation performed')
+    # Root-owned runner credential and read-only app copy hold the same capability.
+    # Each retains mode 0600 and the owner required by its execution boundary.
+    app_credential = directory / 'application.key'
+    if not app_credential.exists():
+        fd = os.open(app_credential, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(credential.read_text())
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chown(app_credential, 10001, 10001)
+    if (app_credential.is_symlink() or app_credential.stat().st_mode & 0o077
+            or app_credential.stat().st_uid != 10001
+            or app_credential.read_text() != credential.read_text()):
+        raise ValueError('Application capability copy is unsafe; no rotation performed')
+    destination = directory / 'runner.json'
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        os.fchmod(stream.fileno(), 0o600)
+        stream.write(json.dumps(config))
+        stream.flush()
+        os.fsync(stream.fileno())
+    print('Private-dev executor configuration prepared. No services started or runtime flags changed.')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        sys.exit('Private-dev account-deletion configuration refused; no activation performed.')

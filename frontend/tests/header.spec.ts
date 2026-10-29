@@ -71,7 +71,7 @@ for (const width of [320, 360, 390]) {
     await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC", "Ver todas las plataformas →"]);
     await expect(nav.getByRole("link", { name: "Explorar", exact: true })).toHaveAttribute("aria-current", "page");
     const account = page.getByRole("group", { name: "Mi cuenta" });
-    await expect(account.getByRole("link")).toHaveText(["Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador"]);
+    await expect(account.getByRole("link")).toHaveText(["Mi perfil", "Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador"]);
     // The sheet spans the viewport under the header row and scrolls within it when taller.
     const sheet = page.locator(".navigation-menu-panel");
     const sheetBox = await sheet.boundingBox();
@@ -207,6 +207,9 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
         await account.focus();
         await page.keyboard.press("Enter");
         await expect(account).toHaveAttribute("aria-expanded", "true");
+        await page.keyboard.press("Tab");
+        await expect(page.getByRole("link", { name: "Mi perfil", exact: true })).toBeFocused();
+        await expect(page.getByRole("link", { name: "Mi perfil", exact: true })).toHaveAttribute("href", "/mi-perfil");
         await page.keyboard.press("Tab");
         await expect(page.getByRole("link", { name: "Mis puntuaciones" })).toBeFocused();
         expect((await analyzeAccessibility(page)).violations).toEqual([]);

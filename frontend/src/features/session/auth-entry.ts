@@ -11,7 +11,7 @@ export function safeReturnTo(candidate: string | null): string {
     : path === "/lanzamientos" ? ["from", "to", "sort", "includeApproximateDates", "platformIds", "regionIds", "page", "pageSize"]
     : path === "/lanzamientos/calendario" ? ["month", "day", "platformIds", "regionIds"]
     : path === "/search" ? ["q", "page", "pageSize"]
-      : path === "/mis-puntuaciones" || path === "/mis-plataformas" || path === "/mis-puntuaciones/estadisticas" ? []
+      : path === "/mi-perfil" || path === "/mis-puntuaciones" || path === "/mis-plataformas" || path === "/mis-puntuaciones/estadisticas" ? []
         : path === "/administracion/catalogo" ? ["tab", "year", "month"]
         : /^\/games\/[a-z0-9-]{1,100}(?:\/[a-z0-9-]{1,200})?$/.test(path ?? "") ? ["platformId", "regionId"]
           : null;

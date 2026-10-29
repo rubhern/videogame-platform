@@ -239,7 +239,7 @@ jobs:
       # Every leg is part of one required result; one failure must not hide another.
       fail-fast: false
       matrix:
-        leg: [private-dev, core, renewal, idle, production, personal-data]
+        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -278,6 +278,7 @@ jobs:
             core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
             production) bash scripts/validate-production-identity.sh ;;
             personal-data) bash scripts/validate-personal-data.sh ;;
+            personal-data-private) PERSONAL_DATA_COMPLETION_POLICY=private-dev bash scripts/validate-personal-data.sh ;;
             *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
           esac
 

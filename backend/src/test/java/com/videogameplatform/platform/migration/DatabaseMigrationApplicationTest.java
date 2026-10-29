@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(34);
+                    .isEqualTo(37);
             assertThat(
                             singleString(
                                     statement,
@@ -236,7 +236,7 @@ class DatabaseMigrationApplicationTest {
         }
 
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
@@ -251,6 +251,77 @@ class DatabaseMigrationApplicationTest {
                                     statement,
                                     "SELECT count(*) FROM catalogue.deferred_synchronization_policy"))
                     .isZero();
+        }
+    }
+
+    @Test
+    void upgradesAppliedDeletionAdmissionWithoutRepairAndRequiresCompletionEvidence()
+            throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("deletion_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        var configuration =
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(database),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration");
+        configuration.target("20261028.120000").load().migrate();
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO identity.account_deletion
+                        (user_id,subject,request_id,receipt_hash,receipt_expires_at,
+                         requested_at,state,next_attempt_at,completed_at)
+                    SELECT gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+                           repeat(n::text,64), now() + interval '1 day', now(),
+                           CASE WHEN n=1 THEN 'pending' ELSE 'complete' END, now(),
+                           CASE WHEN n=2 THEN now() END
+                    FROM generate_series(1,2) n
+                    """);
+        }
+        var flyway = configuration.target("latest").load();
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        flyway.validate();
+        assertThat(flyway.migrate().migrationsExecuted).isZero();
+        try (var connection = PostgreSqlTestDatabase.adminConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT checksum FROM flyway_schema_history WHERE version='20261028.120000'"))
+                    .isEqualTo(-1818520783);
+        }
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM identity.account_deletion WHERE state='pending' AND completed_at IS NULL"))
+                    .isEqualTo(2);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM identity.account_deletion WHERE receipt_hash IN (repeat('1',64), repeat('2',64))"))
+                    .isEqualTo(2);
+            assertThatThrownBy(
+                            () ->
+                                    statement.execute(
+                                            "UPDATE identity.account_deletion SET state='complete', completed_at=now()"))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(error -> ((SQLException) error).getSQLState())
+                    .isEqualTo("23514");
+            statement.execute(
+                    "UPDATE identity.account_deletion SET ledger_digest=repeat('a',64), proof_digest=repeat('b',64), state='complete', completed_at=now()");
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM identity.account_deletion WHERE state='complete'"))
+                    .isEqualTo(2);
+            statement.execute("INSERT INTO identity.deletion_executor (seen_at) VALUES (now())");
+            assertThat(singleInt(statement, "SELECT count(*) FROM identity.deletion_executor"))
+                    .isEqualTo(1);
         }
     }
 

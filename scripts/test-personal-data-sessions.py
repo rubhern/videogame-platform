@@ -62,6 +62,27 @@ def login(device: str, username: str, password: str, rating: int | None) -> None
         with opener.open(request, timeout=20) as response:
             if response.status not in (200, 201):
                 raise SystemExit(f"{device}: rating creation answered HTTP {response.status}")
+    # #272: real OIDC principal projection and complete private export, before erasure.
+    with opener.open(f"{APPLICATION}/api/v1/me/profile", timeout=20) as response:
+        profile = json.loads(response.read())
+        assert response.headers.get("Cache-Control") == "no-store"
+        assert set(profile) <= {"name", "email", "deletionAvailable"}
+    with opener.open(f"{APPLICATION}/api/v1/me/data-export", timeout=20) as response:
+        exported = json.loads(response.read())
+        assert response.headers.get("Cache-Control") == "no-store"
+        assert exported["format"] == "gameometro-personal-data-export" and exported["version"] == 1
+        assert "preferredPlatforms" in exported and isinstance(exported["ratings"], list)
+        if rating is not None:
+            assert any(item["gameId"] == GAME_ID and item["value"] == rating for item in exported["ratings"])
+        assert not any(key in exported for key in ("password", "accessToken", "csrfToken"))
+    # Existing SSO must still show credentials when the profile requests recent authentication.
+    with opener.open(f"{APPLICATION}/auth/profile/reauthenticate", timeout=20) as response:
+        page = response.read().decode("utf-8")
+    form = re.search(r'<form[^>]*id="kc-form-login"[^>]*action="([^"]+)"', page)
+    assert form, "Profile reauthentication did not require credentials"
+    with opener.open(html.unescape(form.group(1)), data=credentials, timeout=20) as response:
+        assert response.geturl() == f"{APPLICATION}/mi-perfil"
+    assert session_state(opener).get("authenticated") is True
     jar.save(ignore_discard=True)
 
 
@@ -80,6 +101,20 @@ if __name__ == "__main__":
         for specification in sys.argv[2:]:
             parts = specification.split(":")
             login(parts[0], os.environ[parts[1]], os.environ[parts[2]], int(parts[3]) if len(parts) > 3 else None)
+    elif command in ("request-deletion", "deletion-status"):
+        opener, jar = opener_for(sys.argv[2], load=True)
+        if command == "request-deletion":
+            current = session_state(opener)
+            request = urllib.request.Request(f"{APPLICATION}/api/v1/me/account-deletion", method="POST",
+                data=json.dumps({"confirmation":"ELIMINAR"}).encode(),
+                headers={"Content-Type":"application/json", "X-CSRF-Token":current["csrfToken"]})
+        else:
+            request = urllib.request.Request(f"{APPLICATION}/api/v1/account-deletion")
+        with opener.open(request, timeout=20) as response:
+            print(response.read().decode())
+        if command == "request-deletion":
+            assert session_state(opener).get("authenticated") is False, "BFF session must end on acceptance"
+        jar.save(ignore_discard=True)
     elif command == "check":
         check(sys.argv[2:])
     else:

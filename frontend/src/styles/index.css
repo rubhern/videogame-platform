@@ -76,3 +76,18 @@
 .legal-table { overflow-x: auto; margin-block: 1.5rem; }
 .legal-table table { border-collapse: collapse; width: 100%; }
 .legal-table th, .legal-table td { text-align: left; padding: .75rem; border-bottom: 1px solid currentColor; vertical-align: top; }
+
+/* Private account: quiet reading sections on the existing night canvas. */
+.profile-content { max-width: 54rem; padding-block: 2rem 4rem; }
+.profile-content p { max-width: 70ch; line-height: 1.65; }
+.profile-section { padding-block: 2rem; border-top: 1px solid var(--color-line); }
+.profile-section h2 { margin-bottom: 1rem; }
+.profile-section dl > div { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: 1rem; margin-block: .75rem; }
+.profile-section dd { margin: 0; overflow-wrap: anywhere; }
+.profile-links, .profile-actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-block: 1.25rem; }
+.profile-content a { text-decoration: underline; text-underline-offset: .2em; }
+.profile-confirm { border-inline-start: 3px solid var(--color-danger); padding: 1rem; margin-top: 1rem; }
+.profile-confirm label { display: block; margin-block: 1rem .5rem; }
+.profile-confirm input { width: min(100%, 22rem); min-height: 2.75rem; padding: .6rem; background: var(--color-surface); border: 1px solid currentColor; }
+.profile-delete-button { color: var(--color-danger); border: 1px solid currentColor; }
+@media (max-width: 620px) { .profile-actions > .button { width: 100%; } .profile-links { flex-direction: column; } }

@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Owner-side orchestration seam for the existing ledger, exercised with synthetic fixtures.
+
+One bounded identity envelope from a trusted caller, one verified receipt. No public server.
+The owner-only configuration pins issuer/runtime and every ledger/archive argument. No shell,
+client configuration, export, arbitrary operator command or general retry is exposed.
+"""
+import argparse
+import contextlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+import pathlib
+import stat
+import sys
+
+sys.dont_write_bytecode = True
+loader = importlib.machinery.SourceFileLoader("self_service_ledger", str(pathlib.Path(__file__).with_name("personal-data-ledger")))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+ledger = importlib.util.module_from_spec(spec)
+loader.exec_module(ledger)
+
+
+def execute(config, command):
+    if (not isinstance(command, dict) or set(command) != {"version", "issuer", "subject", "userId", "requestId"}
+            or type(command["version"]) is not int or command["version"] != 1
+            or command["issuer"] != config["issuer"]):
+        raise ValueError("Invalid self-service envelope")
+    for field in ("subject", "userId", "requestId"):
+        ledger.canonical_uuid(command[field], field)
+    policy = config.get("policy", "independent")
+    if policy not in ("independent", "private-dev"):
+        raise ValueError("Unknown completion policy")
+    if policy == "private-dev":
+        if not config["issuer"].endswith("/realms/videogame-platform"):
+            raise ValueError("Private-dev deletion cannot target a production realm")
+        host_command = config["host_command"]
+        if not isinstance(host_command, list) or not host_command or not all(isinstance(x, str) and x for x in host_command):
+            raise ValueError("Fixed host command must be an argument array")
+        identity = ledger.identify(host_command, command["subject"])
+        if identity.get("issuer") != command["issuer"] or identity["userId"] != command["userId"]:
+            raise ValueError("Private-dev runtime identity mismatch")
+        # Reuse the exact #274 idempotent step engine. PostgreSQL owns retry state;
+        # no independent ledger/archive is created or claimed in this owner-approved mode.
+        entry = {"keycloakUserId": command["subject"], "userId": command["userId"]}
+        with contextlib.redirect_stdout(io.StringIO()):
+            ledger.run_steps(None, host_command, entry, replay=False)
+        return {"verified": True, "policy": "private-dev", "requestId": command["requestId"], "userId": command["userId"]}
+    # Runtime identify independently derives userId from the pinned issuer and subject.
+    required = ("ledger", "ledger_copy", "proof_root", "archive_root", "archive_copy", "gnupg_home", "recipient", "signer", "holds", "host_command")
+    if any(not config.get(key) for key in required):
+        raise ValueError("Incomplete protected configuration")
+    args = argparse.Namespace(**{key: pathlib.Path(config[key]) if key not in ("recipient", "signer", "host_command") else config[key] for key in required})
+    args.request = command["requestId"]
+    args.keycloak_user_id = command["subject"]
+    args.archive_profile = None
+    args.maintenance_command = None
+    args.self_service = True
+    args.expected_issuer = config["issuer"]
+    args.expected_user = command["userId"]
+    host_command = config["host_command"]
+    if not isinstance(host_command, list) or not host_command or not all(isinstance(x, str) and x for x in host_command):
+        raise ValueError("Fixed host command must be an argument array")
+    # Operator output must never become the BFF receipt or an application log.
+    with contextlib.redirect_stdout(io.StringIO()):
+        ledger.command_erase(args, host_command)
+    with ledger.open_ledger(args.ledger, args.ledger_copy) as evidence:
+        entry = evidence.entry(command["subject"])
+        if (not entry or not entry["completedAt"] or entry["request"] != command["requestId"]
+                or entry["userId"] != command["userId"] or not entry.get("archiveProfile")):
+            raise ValueError("No matching independent completed evidence")
+        evidence_digest = evidence.digest()
+    ledger_digest = evidence_digest
+    proof_digest = __import__("hashlib").sha256(ledger.archive_module.read(args.proof_root / (command["requestId"] + ".json"), 16384)).hexdigest()
+    answer = ledger.run_host(host_command, ["verify", "--keycloak-user-id", command["subject"], "--user-id", command["userId"]])
+    if answer.get("verified") is not True:
+        raise ValueError("Current runtime absence is unverified")
+    return {"verified": True, "requestId": command["requestId"], "userId": command["userId"], "ledgerSha256": ledger_digest, "proofSha256": proof_digest}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=pathlib.Path, required=True)
+    args = parser.parse_args()
+    path = args.config
+    ledger._require_private(path.parent, directory=True)
+    ledger._require_private(path, directory=False)
+    if path.stat().st_size > 16384:
+        raise ValueError("Configuration budget exceeded")
+    config = json.loads(path.read_text())
+    raw = sys.stdin.buffer.read(4097)
+    if len(raw) > 4096:
+        raise ValueError("Envelope budget exceeded")
+    answer = execute(config, json.loads(raw))
+    print(json.dumps(answer, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        print("Self-service erasure unavailable; no completion claimed.", file=sys.stderr)
+        sys.exit(1)

@@ -41,7 +41,8 @@ describe("legal publication boundary", () => {
   it("includes the opt-in username hint in the labelled cookie inventory", () => {
     wrap(<LegalPage document="cookies" />);
     expect(screen.getByRole("table")).toHaveAccessibleName("Cookies de autenticación, seguridad e idioma");
-    expect(screen.getAllByRole("row")).toHaveLength(9);
+    expect(screen.getAllByRole("row")).toHaveLength(10);
+    expect(screen.getByRole("cell", { name: "gameometro_deletion" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "KEYCLOAK_SESSION" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "KEYCLOAK_REMEMBER_ME" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "Persistente: 365 días" })).toBeVisible();

@@ -26,6 +26,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 @EnableConfigurationProperties(CatalogueJdbcProperties.class)
 class CataloguePersistenceConfiguration {
     @Bean
+    com.videogameplatform.catalogue.application.preferences.ExportPlatformPreferences
+            exportPlatformPreferences(
+                    CatalogueReadExecution execution,
+                    com.videogameplatform.catalogue.application.preferences.port
+                                    .PlatformPreferenceStore
+                            store) {
+        return new com.videogameplatform.catalogue.adapter.persistence.preferences
+                .JdbcPreferenceExport(execution.jdbcOperations(), store);
+    }
+
+    @Bean
     com.videogameplatform.catalogue.application.details.port.GameListingReadPort
             gameListingReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.details

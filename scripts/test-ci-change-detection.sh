@@ -240,6 +240,21 @@ run_case local-dependencies \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case private-dev-account-deletion-activation \
+  $'deploy/private-dev/compose.account-deletion.yaml\nscripts/test-private-dev-account-deletion.py' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case private-dev-account-deletion-runner \
+  'scripts/test-private-dev-account-deletion-runner.py' \
+  'identity' \
+  'frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case local-account-deletion \
+  $'compose.account-deletion.yaml\nscripts/local-account-deletion.py\nscripts/test-local-account-deletion.py' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case local-observability \
   'compose.observability.yaml' \
   'backend,migrations,identity,container,build' \

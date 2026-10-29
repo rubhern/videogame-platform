@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.7.0
+  version: 5.8.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -11,7 +11,7 @@ info:
     session discovery, the authenticated user's ratings, rating statistics and preferred
     platforms, and the catalogue operator's synchronization status, coverage, bounded and
     historical synchronization requests and the stop or abandonment of one run. It contains
-    only the twenty-seven approved method/path operations.
+    the approved method/path operations, including private profile, data export and deletion.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -22,6 +22,8 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Profile
+    description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
     description: Operator-controlled durable calendar-month backfill.
   - name: Releases
@@ -60,6 +62,141 @@ tags:
       No operation here waits for, or exposes, the provider.
 security: []
 paths:
+  /me/profile:
+    get:
+      tags: [Profile]
+      operationId: getMyProfile
+      summary: Read my private account summary
+      description: |
+        Validated server-session identity projection only. Optional absent fields are unknown,
+        never inferred from browser input. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Private account summary with optional available identity fields.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateProfile' }
+              example: { deletionAvailable: false }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/data-export:
+    get:
+      tags: [Profile]
+      operationId: exportMyData
+      summary: Download my complete supported personal data
+      description: |
+        One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
+        exportedAt, account (available session-validated name/email), ratings (gameId, title,
+        direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
+        and preferredPlatforms (configured, savedAt when configured, platforms). No credentials,
+        tokens, provider payloads or other users' data. Reads one consistent local snapshot.
+        Preparation is bounded to 10000 ratings, 16 MiB and 30 seconds; budget or source failure
+        returns an error before any successful download, never a truncated successful export.
+        Empty collections are valid. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Complete versioned JSON attachment.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Content-Disposition:
+              schema: { type: string }
+              description: Fixed safe attachment filename gameometro-datos.json.
+          content:
+            application/json:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/AccountUnavailable' }
+  /me/account-deletion:
+    post:
+      tags: [Profile]
+      operationId: requestMyAccountDeletion
+      summary: Confirm and request deletion of my account
+      description: |
+        Requires literal ELIMINAR confirmation, same-origin CSRF and validated original OIDC
+        auth_time within five minutes (missing/future time is refused). No user selector.
+        Atomically records one intent per principal and blocks authenticated access. An automatic protected
+        polling executor reuses the independent two-copy ledger and legal archive erasure engine.
+        Admission requires explicit enablement and fresh authenticated executor readiness; otherwise
+        503 changes nothing.
+        202 means pending, never erased, and ends the requesting BFF session immediately.
+        Completion requires verified absence and, in production, independent durable evidence.
+        Retries preserve the same intent. A fixed receipt cookie permits status reads after
+        session invalidation, expires after 24 hours and cannot authorize any mutation.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountDeletionConfirmation' }
+            example: { confirmation: ELIMINAR }
+      responses:
+        '202':
+          description: Deletion accepted, requesting BFF session ended and access blocked; completion remains unverified.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Set-Cookie:
+              schema: { type: string }
+              description: HttpOnly SameSite=Strict path-scoped receipt; Secure outside loopback.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountDeletionStatus' }
+              example: { state: pending }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccountDeletionForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/AccountUnavailable' }
+  /account-deletion:
+    get:
+      tags: [Profile]
+      operationId: getAccountDeletionStatus
+      summary: Read only the deletion outcome authorized by my receipt
+      description: |
+        No account identity or query parameters. Requires the opaque receipt cookie issued by
+        the authenticated confirmation. Missing/expired receipts are 401. The receipt permits
+        no commands or personal-data reads. Complete means the engine verified all erasure
+        steps and independent durable evidence; pending includes retryable failures.
+      security: [{ deletionReceipt: [] }]
+      responses:
+        '200':
+          description: Restricted deletion outcome.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountDeletionStatus' }
+              example: { state: pending }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /releases:
     get:
       tags: [Releases]
@@ -2575,6 +2712,11 @@ paths:
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
 components:
   securitySchemes:
+    deletionReceipt:
+      type: apiKey
+      in: cookie
+      name: gameometro_deletion
+      description: Restricted opaque deletion-status receipt, never authentication.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -2954,6 +3096,26 @@ components:
       example: 60
 
   schemas:
+    PrivateProfile:
+      type: object
+      additionalProperties: false
+      required: [deletionAvailable]
+      properties:
+        name: { type: string, maxLength: 500 }
+        email: { type: string, maxLength: 500 }
+        deletionAvailable: { type: boolean }
+    AccountDeletionConfirmation:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation: { type: string, enum: [ELIMINAR] }
+    AccountDeletionStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [pending, complete] }
     ReleaseSort:
       type: string
       enum: [releaseDate, hype, rating, externalPlayerScore]
@@ -4614,6 +4776,8 @@ components:
         - HISTORICAL_SYNCHRONIZATION_RANGE_INVALID
         - HISTORICAL_SYNCHRONIZATION_NOT_FOUND
         - HISTORICAL_SYNCHRONIZATION_CONFLICT
+        - RECENT_AUTHENTICATION_REQUIRED
+        - ACCOUNT_OPERATION_UNAVAILABLE
         - REQUEST_MALFORMED
         - REQUEST_PROPERTY_UNKNOWN
         - REQUEST_PARAMETER_UNKNOWN
@@ -4691,6 +4855,30 @@ components:
       description: RFC 9457 Problem Details with stable product extensions.
 
   responses:
+    ProfileValidationFailed:
+      description: REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AccountUnavailable:
+      description: ACCOUNT_OPERATION_UNAVAILABLE; source, budget or protected erasure capability unavailable. No successful partial export or deletion claimed.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AccountDeletionForbidden:
+      description: CSRF_VALIDATION_FAILED or RECENT_AUTHENTICATION_REQUIRED; no deletion admitted.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     HistoricalSynchronizationRejected:
       description: HISTORICAL_SYNCHRONIZATION_RANGE_INVALID; the operation changed no historical target.
       headers:

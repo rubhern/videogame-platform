@@ -26,6 +26,8 @@ class FrontendRouteController {
         "/mis-puntuaciones",
         "/mis-puntuaciones/estadisticas",
         "/mis-plataformas",
+        "/mi-perfil",
+        "/mi-perfil/borrado",
         "/bienvenida",
         "/administracion/catalogo"
     })

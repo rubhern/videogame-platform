@@ -1,0 +1,25 @@
+[Unit]
+Description=Gameometro private-dev account deletion executor
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 -I /opt/videogame-platform/deploy/private-dev/bin/personal-data-self-service-runner --config /etc/videogame-platform/dev/account-deletion/runner.json
+Restart=always
+RestartSec=10
+TimeoutStopSec=660
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=256M
+TasksMax=32
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target

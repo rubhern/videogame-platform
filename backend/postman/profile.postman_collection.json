@@ -1,0 +1,248 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Private Profile",
+    "description": "Principal-only profile/export and safe deletion refusals. Sign in through the BFF with a synthetic account and synchronize its cookie. Destructive confirmation is disabled unless enableAccountDeletion=true is explicitly set on a disposable environment after enabling its protected executor (production also requires qualified independent ledger/archive storage). Never run against an owner's real account by default. Automatic admission requires explicit runtime enablement and a fresh protected-runner heartbeat. The runner automatically processes accepted requests through the existing #274 engine under the server-selected environment policy; a 202 never certifies completion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "enableAccountDeletion",
+      "value": "false"
+    }
+  ],
+  "item": [
+    {
+      "name": "Read session and CSRF",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/session"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.json().authenticated).to.eql(true);",
+              "pm.collectionVariables.set(\"csrfToken\", pm.response.json().csrfToken);",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read my profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.json()).to.have.property(\"deletionAvailable\");",
+              "pm.expect(pm.response.json()).not.to.have.property(\"userId\");",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download all supported personal data",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/data-export"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const body = pm.response.json();",
+              "pm.expect(body.format).to.eql(\"gameometro-personal-data-export\");",
+              "pm.expect(body.version).to.eql(1);",
+              "pm.expect(body.ratings).to.be.an(\"array\");",
+              "pm.expect(body.preferredPlatforms.platforms).to.be.an(\"array\");",
+              "pm.expect(pm.response.text()).not.to.include(\"csrfToken\");",
+              "pm.expect(pm.response.headers.get(\"Content-Disposition\")).to.include(\"gameometro-datos.json\");",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject browser owner selector",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/profile?userId=forged"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(422);",
+              "pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject deliberate deletion without CSRF",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/account-deletion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"confirmation\": \"ELIMINAR\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(403);",
+              "pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\");",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Confirm synthetic account deletion (explicit opt-in)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/account-deletion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"confirmation\": \"ELIMINAR\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"enableAccountDeletion\") !== \"true\") pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(202);",
+              "pm.expect(pm.response.json().state).to.eql(\"pending\");",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.sendRequest(pm.variables.replaceIn(\"{{baseUrl}}/api/v1/session\"), (error, response) => { pm.test(\"Requesting BFF session ended on acceptance\", () => { pm.expect(error).to.eql(null); pm.expect(response.code).to.eql(200); pm.expect(response.json().authenticated).to.eql(false); }); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read restricted deletion result (explicit opt-in)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/account-deletion"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.collectionVariables.get(\"enableAccountDeletion\") !== \"true\") pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.json().state).to.be.oneOf([\"pending\", \"complete\"]);",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
