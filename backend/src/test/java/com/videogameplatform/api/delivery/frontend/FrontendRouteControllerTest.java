@@ -29,7 +29,8 @@ class FrontendRouteControllerTest {
 
     @Test
     void publicLegalPagesSurviveDirectNavigationAndReload() throws Exception {
-        for (String path : java.util.List.of("/privacidad", "/condiciones", "/aviso-legal", "/cookies")) {
+        for (String path :
+                java.util.List.of("/privacidad", "/condiciones", "/aviso-legal", "/cookies")) {
             mockMvc.perform(get(path))
                     .andExpect(status().isOk())
                     .andExpect(forwardedUrl("/index.html"));

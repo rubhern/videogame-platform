@@ -305,7 +305,14 @@ def unique(purpose: str, domain: str = "example.test") -> str:
 for mapper in legacy_client["protocolMappers"]:
     if mapper["protocolMapper"] == "gameometro-remember-me":
         assert admin("DELETE", f"{ADMIN_REALM}/clients/{legacy_client['id']}/protocol-mappers/models/{mapper['id']}")[0] == 204
-assert admin("PUT", ADMIN_REALM, {"rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
+# New local imports include the adult/terms flow and legal localization. Recreate
+# the historical registration baseline so apply/restore still prove its migration.
+assert admin("PUT", ADMIN_REALM, {"registrationFlow": identity.BUILT_IN_REGISTRATION_FLOW, "rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
+for flow in get(f"{ADMIN_REALM}/authentication/flows"):
+    if flow["alias"] == identity.desired_policy()["registrationFlow"]["alias"]:
+        assert admin("DELETE", f"{ADMIN_REALM}/authentication/flows/{flow['id']}")[0] == 204
+for key in get(f"{ADMIN_REALM}/localization/es"):
+    assert admin("DELETE", f"{ADMIN_REALM}/localization/es/{urllib.parse.quote(key, safe='')}")[0] == 204
 legacy_password = "legacy-1"
 verified_name, verified_email = "legacy-verified", unique("legacy-verified", "gameometro.com")
 reserved_name, reserved_email = "legacy-reserved", unique("legacy-reserved")
