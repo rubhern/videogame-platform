@@ -28,12 +28,12 @@ class CataloguePersistenceConfiguration {
     @Bean
     com.videogameplatform.catalogue.application.preferences.ExportPlatformPreferences
             exportPlatformPreferences(
-                    org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations jdbc,
+                    CatalogueReadExecution execution,
                     com.videogameplatform.catalogue.application.preferences.port
                                     .PlatformPreferenceStore
                             store) {
         return new com.videogameplatform.catalogue.adapter.persistence.preferences
-                .JdbcPreferenceExport(jdbc, store);
+                .JdbcPreferenceExport(execution.jdbcOperations(), store);
     }
 
     @Bean
