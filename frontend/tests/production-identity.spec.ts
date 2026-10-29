@@ -83,6 +83,15 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await page.goto("/auth/start?intent=register");
   await expect(page).toHaveURL(new RegExp(`^${escape(issuer)}/`));
   await record(first, page, "Keycloak registration form");
+  const notice = page.locator("#kc-registration-terms-text");
+  await expect(notice).toContainText("Responsable: Rubén Hernández López");
+  await expect(notice).toContainText("proveedores externos de alojamiento y correo");
+  await expect(notice.getByRole("link", { name: "política de privacidad", exact: true }))
+    .toHaveAttribute("href", `${applicationOrigin}/privacidad`);
+  await expect(notice.getByRole("link", { name: "condiciones de uso", exact: true }))
+    .toHaveAttribute("href", `${applicationOrigin}/condiciones`);
+  await expect(page.locator('#kc-register-form input[type="checkbox"]')).toHaveCount(1);
+  await expect(notice).not.toContainText(/Texto aprobado|Internal editorial|Borrador/);
   await page.locator("#email").fill(email);
   await page.locator('input[name="termsAccepted"]').check();
   await page.locator("#kc-register-form [type=submit]").click();

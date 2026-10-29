@@ -6,7 +6,7 @@
 
 This is the maintained operational record for data protection. The
 [Product Brief](../product/product-brief.md#public-release-and-sustainability) owns
-account/product decisions, the [Spanish drafts](../legal/public-texts-es.md) own public
+account/product decisions, the [approved Spanish texts](../legal/public-texts-es.md) own public
 copy, the [platform design](../architecture/deployment/mvp-platform-and-delivery.md)
 owns topology/recovery, and [observability](observability.md) owns logging policy.
 The [research](../research/public-release-rights-and-privacy.md#9-legal-and-operational-increment-2026-10-17)
@@ -263,50 +263,58 @@ erasure replay. This exercise and host response channels are not yet proven.
 
 ## Publication and product integration
 
-Production publication remains disabled: the shipped React footer has branding, its
-signature and the IGDB data credit but no legal or contact destinations; development now has the four review pages. Keycloak's production realm has the native required adult/terms checkbox
-and a short draft registration paragraph, with no final privacy/terms links. Its
-shared theme footer only links back to the catalogue. Native enforcement is prepared;
-D19 accepts no per-account accepted-text record. Reuse it, never move credentials
-into React or add a blanket privacy-consent checkbox.
+The owner approved all five [public Spanish text sections](../legal/public-texts-es.md)
+on 2026-10-29 and authorized their integration in local, private-dev and production
+configurations. The four anonymous React routes (`/privacidad`, `/condiciones`,
+`/aviso-legal`, `/cookies`) and relative same-origin footer links, including contact
+mail, are available in every application build. Only public section bodies are
+rendered; approval metadata, the administrative template and editorial checklist
+remain internal documentation. Existing semantic layout, responsive table scrolling
+and navigation are reused without dependencies or a cookie banner.
 
-Local preparation now implements cleanup/archive and legal review pages. No real
-cleanup is scheduled; legal publication/production realm import are withheld. The owner's
-legal-name/LSSI/Mailjet/storage decisions and A/B/C design approval are consolidated; final copy approval
-and material processor/transfer evidence remain. The private portal exposes review
-copies, not public product pages or host/storage data.
-After the prerequisites below, the smallest proposed integration is four static
-same-origin React destinations: `/privacidad`, `/condiciones`, `/aviso-legal` and
-`/cookies`, linked by descriptive labels in the common footer, plus contact mailto.
-These are local review routes, pending public activation. Use approved copy from its single
-owner; do not serve internal registers/research or unresolved brackets. In the
-production-only Keycloak registration notice show the basic layer, direct privacy
-and terms links before submit, and keep the native declaration. Use the fixed
-application origin; do not derive legal URLs from request headers. Preserve pending
-rating intent, verification/recovery, locale, keyboard access and exact redirects.
-The shared theme must not make local/private-dev inherit public claims accidentally.
-Linking the privacy notice is information, not consent; terms acceptance is separate.
-No consent banner is justified by the current necessary-cookie inventory alone.
+The canonical generator also supplies the basic registration information and privacy/
+terms links in Keycloak realm localization before submission. Local registration uses
+the existing native adult/terms action; the production flow and private-dev alignment
+retain it. Privacy is information, never an additional compulsory consent. D19's lack
+of a per-account accepted-text record remains accepted. Links use the configured
+application origin (not incoming Host headers); footer routes remain relative.
 
-| Pending decision / evidence | Owner and boundary |
+Startup realm import does not overwrite existing realms. After review, an operator
+must explicitly reconcile existing private-dev identity through its snapshot-backed
+`configure-keycloak-identity` command, which takes the application origin from the
+protected runtime configuration. Disposable/local reconciliation with `--origin` can
+set `--application-origin` (default `http://localhost:8080`). Session-only alignment
+does not update legal localization. Existing local realms require an explicit reset
+or reviewed administrative update; no reset or live realm change is part of this slice.
+
+Text approval, page availability in a build, and actual public production go-live are
+separate decisions. Approval accepts the editorial operating premises; it supplies no
+independent evidence of a deployed host, actual account/order contracts, transfers,
+SMTP, cookies, retention or recovery. Those checks, provider purchase and exposure
+remain governed by [public-production gates](delivery-lifecycle.md#public-production-gates)
+and #276. No public deployment or existing private-dev retirement is authorized here.
+
+Remaining evidence belongs to the existing release work, not another wording approval:
+
+| Boundary | Owner and preserved decision |
 |---|---|
-| Final text/design approval, field-level blocking schedule and remaining legal-basis assessment | **#274 phase 1:** owner name and initial LSSI interpretation decided; do not ask for address/NIF on the same unchanged facts. Three-year default and annual review decided, longer applicable claims assessed per case |
-| Mailjet actual DPA/entity, processing retention/transfers; OVHcloud receiving-mail product; CDN legal roles/basis/safeguards | **#274:** material legal/provider work remains. No further Mailjet eligibility or IGDB permission inquiry; accepted contractual/content risks are not open clarification tasks |
-| Review-copy effective version/date and A/B/C implementation | **#274 phase 2:** A/B/C design and initial minimum profiles approved; implementation prepared locally. Final public copy and effective date still await owner approval |
-| Real VPS/cloud isolation, encrypted backup/legal archive and independent ledger/archive copies, separate keys and recovery | **#275** accepted candidate/evidence unchanged; **#276** implements the superseding cloud target and proves actual access, locations, transfers, retention, recovery and no agent/private-dev key exposure. Provider selection is approved; no provisioning or purchase authorized |
-| Production identity/proxy/abuse/mail/security channels, actual cookies/storage/CDN and contracts attached to the selected account/order | **#275/#276:** local preparation versus real-contract/host evidence; no production compliance claim from a document |
-| Purchase/opening | Separate owner authorizations under the [public gates](delivery-lifecycle.md#public-production-gates); #274 remains In progress through these decisions |
+| Actual Mailjet/Sinch entity/DPA/retention/transfers, OVHcloud account/order and CDN safeguards | #276 actual-contract acceptance; no further Mailjet eligibility or IGDB permission inquiry is introduced. Accepted contractual/content risks remain distinct from demonstrated rights or privacy assurances |
+| Cloud isolation, independent encrypted backup/legal-archive and ledger copies, separate keys and recovery | #276 qualifies the approved target against #275 preparation; no provisioning or purchase is authorized by this integration |
+| Identity/proxy/abuse/mail/security channels and actual cookie/storage/CDN behaviour | #276 supplies deployed evidence; editorial approval is not a host test |
+| Effective public-release date and exposure | Separate owner decision under the public-production gates |
 
-Frontend capability increment: `0.33.0` (MINOR over integrated main `0.32.0`), with the root lock file updated. No
-backend/OpenAPI or PoC version change; administrative scripts have no independent
-release version. CI/host acceptance and final owner legal/publication approval remain
-distinct from local validation.
+The frontend gains public build availability as a compatible MINOR capability.
+The backend reactor also gains a compatible MINOR capability for the four explicit
+SPA forward mappings required on direct navigation and reload. OpenAPI and the
+documentation portal artefact version are unchanged; identity configuration/scripts
+have no independent version.
 
 ## Phase 1 design for approval
 
 **Approved A/B/C design (2026-10-17); phase 2 prepared locally.** The owner accepts
 the reduced ordinary source profiles and their documented legal uncertainty.
-Publication still requires final text review and verified provider/operating claims.
+Public integration is now approved; actual exposure still requires the separate
+[release gates](delivery-lifecycle.md#public-production-gates).
 The specification below remains the approved design; executable commands own exact
 mechanics and the [implementation evidence](#local-implementation-and-acceptance)
 distinguishes preparation from real operation. No timer, host change or deployment.
@@ -634,35 +642,17 @@ reapply expiry before it becomes accessible; it never restores data to the produ
 
 ### C. Minimum React and Keycloak legal integration
 
-**Owner-approved design, conditional publication.** The direction and technical C
-are approved; public text publication still waits for final text review and verified
-supplier and operating claims. Local React review and a staged Keycloak copy now implement this design without
-activating public notices or modifying the imported production realm.
-
-Use the four [proposed destinations](#publication-and-product-integration) under the
-existing shared shell. Proposed small component/data module for approved Spanish
-copy; the four route entries render semantic headings/sections/tables without new
-requests, tracking, storage, credentials, libraries or authentication requirements.
-The shared footer adds descriptive privacy, terms, legal-notice, cookies and contact
-links. Follow the existing visual guide, focus/navigation behavior, responsive table
-scroll and keyboard-visible links; no legal-content hero image or consent banner.
-Only approved public sections are release content. Keep the canonical Markdown as
-review source and compare the rendered approved text/version in focused tests; do
-not serve the Markdown file's internal editorial checklist or register to visitors.
-No new backend/API path or OpenAPI change is needed for SPA routes; verify direct
-same-origin page navigation through the existing static fallback.
-
-For the production realm only, extend the existing `localizationTexts.es`
-`termsText` with the basic information and fixed absolute privacy/terms links
-to `https://gameometro.com/privacidad` and `/condiciones`, before submit. Preserve
-native required adult/terms declaration and its validation, password/email
-verification sequence, return intent and recovery. No extra privacy-consent checkbox,
-new required action, recorded-consent database or copied registration form. D19's
-accepted-text evidence limitation remains; deployed realm/text version is evidence
-of the enforced flow, not a per-user signed acceptance record. Prefer realm copy over
-changing the shared theme; verify Keycloak's sanitization preserves ordinary anchors
-without unsafe HTML. Keep local/private-dev from acquiring public claims implicitly.
-The static links are reviewed deployment constants, never request Host/header input.
+**Implemented integration; actual public deployment separately gated.**
+The [publication and product integration](#publication-and-product-integration)
+section owns current availability, registration reconciliation and release boundaries.
+The four destinations use the existing shared shell and safe generated Spanish text
+model, with semantic headings/tables and no legal-content image, tracking, storage,
+credentials, additional libraries or authentication requirement. No product API or
+OpenAPI change is required for these SPA routes. The existing static fallback
+controller explicitly forwards the four legal paths on direct navigation and reload.
+Registration preserves the native adult/terms enforcement,
+verification, recovery and return intent; no copied registration form, new required
+action or consent database is introduced.
 
 ### Focused phase-2 evidence required
 
@@ -680,8 +670,8 @@ affected-area CI and actual proxy/VPS/cloud qualification remain separate gates.
 ## Local implementation and acceptance
 
 **Prepared locally, pending review and CI (2026-10-17).** A/B/C and the minimum
-ordinary profiles are owner-approved. This status does not approve final Spanish
-copy, demonstrate legal compliance or authorize scheduling, host mutation or opening.
+ordinary profiles and final Spanish copy are owner-approved. Approval does not
+demonstrate legal compliance or authorize scheduling, host mutation or opening.
 The [runbook](operations-runbook.md#privacy-phase-2-administration) owns administrative
 commands; executable sources own exact fields, limits and adapter arguments.
 
@@ -747,21 +737,18 @@ the caller on separately bounded host steps; it is deliberately not an indexed d
 and may refuse large histories. Review measured runtime before
 scheduling; no claim of constant-time full-history traversal is made.
 
-C generates safe text blocks from the canonical [Spanish proposals](../legal/public-texts-es.md),
-excluding their internal editorial checklist. Four routes and footer links are visible
-in Vite development review. `legalPublicationApproved` remains false: production
-builds exclude legal copy/routes/footer notices until a reviewed source change after
-approval. The generated `legal-review.json` is outside Keycloak's import directory
-and explicitly marked for review; no native registration/recovery/adult flow is changed.
-Approval still requires verified supplier/transfer/operating claims and effective
-version/date. Packaged same-origin navigation and Keycloak rendering remain CI/#276
-acceptance, not proven by the development preview.
+C generates safe text blocks and realm localization from the
+[approved Spanish source](../legal/public-texts-es.md), excluding internal editorial
+material. See [product integration](#publication-and-product-integration) for current
+availability and operator/release boundaries. Packaged same-origin navigation and
+actual deployed realm/mail/storage/cookie/CDN acceptance remain distinct from local
+component and disposable-provider evidence.
 
 | Work | #274 local result | Remaining gate |
 |---|---|---|
 | A: 30-day pending signup cleanup | Bounded probe, conditional maintenance protocol, fresh verification guard, existing deletion/ledger and failure recovery | CI real native filters; #275 [prepared production transport and local evidence](../../deploy/public-production/README.md#identity-maintenance), pending final acceptance; #276 measured deployed race/drain/backlog and scheduling acceptance before any real timer |
 | B: minimum blocked archive | Automatic profiles, scoped claims, encrypted signed two-copy sealing, separate proof, review/hold/expiry/purge and restored-copy refusal | #275 protected storage/keys and independent copies; #276 cloud/owner-storage isolation, actual recovery/snapshot/media disposal and longer applicable obligations |
-| C: public information | Four review pages/footer, generated staged Keycloak basic layer, publication withheld | Owner final copy approval; #274 supplier/legal review; #275 integration configuration; #276 actual realm/mail/storage/cookie/CDN evidence |
+| C: public information | Approved public sections in every build, shared footer and generated native registration notice | Owner code review and CI; explicit existing-realm reconciliation; #276 actual realm/mail/storage/cookie/CDN evidence and public exposure decision |
 | Rights and incidents | Register, rights/breach procedures and existing export/deletion/replay retained | #276 actual contacts, channels, backup replay and response exercise |
 
 Focused synthetic evidence: real-GPG archive lifecycle and existing ledger fault tests;

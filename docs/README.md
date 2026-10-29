@@ -39,7 +39,7 @@ triggers are labelled explicitly and do not imply delivery commitments.
 | Flyway authoring, privilege, seed, and validation policy | [Database migrations](development/database-migrations.md) | SQL owns the schema |
 | Health, correlation, logs, metrics, tracing, and telemetry safety | [Observability](development/observability.md) | `application.yaml` owns runtime settings |
 | CI gate contract and command mapping | [Continuous integration](development/continuous-integration.md) | Workflows and scripts own job mechanics |
-| Public Spanish privacy, terms, legal notice and cookie review copy | [Public legal drafts](legal/public-texts-es.md) | Links; never publish unresolved drafts as final product notices |
+| Approved Spanish registration notice, privacy, terms, legal notice and cookies | [Public legal texts](legal/public-texts-es.md) | Links; public routes expose only the approved sections, never editorial metadata |
 | Processing activities, supplier/transfer register, rights and breach handling | [Data-protection record](development/data-protection.md) | Operator runbook owns commands; research owns point-in-time legal evidence |
 | Proven operational procedures and evidence boundary | [Operations runbook](development/operations-runbook.md) | Links to the executable owner of each command; never policy |
 | Human change flow, risk, versioning, validation policy, and Definition of Done | [Delivery lifecycle](development/delivery-lifecycle.md) | No deployment-command duplication |
