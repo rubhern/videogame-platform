@@ -580,10 +580,15 @@ indefinite legal holds on rolling data or reset the clock by reuploading old bac
 Legal archives have case-specific review/hold/purge duties: a blanket immutable term
 may prevent lawful narrowing/destruction and is not approved here. Ledger copies must
 remain available/current while any restorable data exists and obey their own schedule;
-rolling expiry must never prune them. Retention duration/cleanup mechanics, missed
-expiry handling and evidence of provider-side deletion remain unresolved launch gates.
-No 34-day lock, expanded copy count or altered rehearsal cadence is approved merely
-by accepting the provider and direct-upload topology. No real host change is made.
+rolling expiry must never prune them. The owner's 2026-10-29 target policy measures
+the unchanged ceiling as verified exact-version deletion by recovery point + 35 days;
+provider-internal reclamation follows accepted processor terms. A missed deadline is
+a retention incident, with continued deletion attempts. The
+[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+owns the approved cadence, lock and evidence ages. Provider-side enforcement and
+actual deletion remain launch gates. D3, D6 and the precise D7 thresholds remain
+recommendations; no ledger/archive lock policy or rehearsal-pin override is inferred.
+No real host change is made.
 
 **Review, expiry and destruction:** each sealed case has its own signed expiry,
 next-review date and field-level schedule. The operator reviews at least every twelve

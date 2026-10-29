@@ -1,6 +1,6 @@
 # Automated off-host backup storage (#276)
 
-- **Status:** Provider/topology, Lite 3, revised budget and scoped uncapped OVHcloud PAYG risk approved by owner on 2026-10-25; Object Lock retention policy recommended, not approved; implementation not authorized
+- **Status:** Provider/topology approved 2026-10-25; summarized target retention policy and local S3 implementation authorized 2026-10-29; D3/D6/exact D7 values pending; no operational acceptance
 - **Research date:** 2026-10-25
 - **Repository inspected:** `147f7f28c0b637f89314aa997303a0847f1617c3`
 - **Consumer:** Owner decision within [#276](https://github.com/rubhern/videogame-platform/issues/276)
@@ -8,7 +8,7 @@
 Point-in-time comparison and proposed changes only. The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 owns recovery policy; the [data-protection record](../development/data-protection.md#b-restricted-legal-archive)
 owns deletion/archive obligations; the [runtime guide](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
-and its scripts own mechanics. Those approved sources remain unchanged. The accepted
+and its scripts own mechanics. The approved sources now record the scoped 2026-10-29 policy approval; the comparison below remains dated research. The accepted
 [#275 candidate and evidence](public-production-candidate-acceptance.md) remain frozen;
 this research neither reopens their acceptance nor repeats their tests.
 
@@ -47,15 +47,14 @@ Public documentation establishes alerts, resource quotas and prepaid credit, not
 hard aggregate charge limit. The owner has [accepted that residual risk](#owner-accepted-uncapped-payg-risk)
 as a scoped exception; it is not a purchase authorization.
 
-Only the decisions in the table are approved. The [Object Lock retention recommendation](#object-lock-retention-recommendation)
+The table records the 2026-10-25 approval. The later scoped approval and local evidence are recorded [below](#local-s3-adapter-evidence). The [Object Lock retention recommendation](#object-lock-retention-recommendation)
 reconciles lock duration, capture cadence, copy count, expiry ownership and
 ledger/archive placement with the canonical 35-day and privacy/recovery requirements.
-It is **not approved**: its parameters, the GitHub watchdog and the restore-evidence
-semantics remain owner decisions, and no implicit policy change is recorded here.
+Its full detail was not approved on 2026-10-25. The 2026-10-29 approval covers the summarized policy only; D3, D6 and precise D7 thresholds still await ratification. The watchdog remains uninstalled.
 
 ## Evidence and current implementation
 
-**Verified in repository:**
+**Verified at the 2026-10-25 research baseline; the [local adapter section](#local-s3-adapter-evidence) records subsequent changes:**
 
 | Executable source | Existing capability and integration consequence |
 |---|---|
@@ -295,7 +294,7 @@ project deletion is never an automatic cost control for locked backups.
 | Topology | Assessment |
 |---|---|
 | Lenovo initiates existing restricted pull, verifies ciphertext, uploads to immutable S3 | Closest to the prepared pull workflow and keeps cloud keys off VPS. Adds Lenovo uptime, staging capacity, patching, SSH transport and copy-lag dependencies. Lenovo root still controls upload credentials, local manifests and checks. Only previously locked cloud versions are protected; root can forge future success. Cannot host the authoritative legal/ledger/key material under the approved isolation rule |
-| **VPS produces existing encrypted pair and uploads directly to protected S3** | **Owner-selected target; not implemented.** Removes a required machine/transfer hop. Only restricted upload credentials reach VPS; cloud versions, independent receipt verification and owner-held keys provide recovery after either machine is lost. ADR-0033 explicitly revises the former source-with-no-destination-credential rule; exact credential policies remain to validate. It does not protect future captures from a compromised VPS, which the pull topology also cannot prove truthful |
+| **VPS produces existing encrypted pair and uploads directly to protected S3** | **Owner-selected target; automation not activated.** Removes a required machine/transfer hop. Only restricted upload credentials reach VPS; cloud versions, independent receipt verification and owner-held keys provide recovery after either machine is lost. ADR-0033 explicitly revises the former source-with-no-destination-credential rule; exact credential policies remain to validate. It does not protect future captures from a compromised VPS, which the pull topology also cannot prove truthful |
 
 Run the existing capture as a restricted host backup actor with its public key only;
 no upload/admin key in application/Keycloak containers, build jobs, Docker metadata,
@@ -415,7 +414,7 @@ key recovery and restart fencing in the timed RTO.
 
 ## Object Lock retention recommendation
 
-**Recommendation for owner approval, 2026-10-25; not approved, not implemented.**
+**Historical recommendation dated 2026-10-25; subsequently approved only to the extent stated in the [2026-10-29 implementation boundary](#local-s3-adapter-evidence).**
 Until approval, the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 and the [data-protection record](../development/data-protection.md#b-restricted-legal-archive)
 keep their current wording. This section supersedes the earlier 34-day-lock,
@@ -657,7 +656,7 @@ P1–P5 block activation.
 If P2 fails (the uploader can set a lock or a hold), this bucket design is **NO-GO**.
 A compromised VPS could then lock personal data past the ceiling.
 
-### Minimal implementation changes (not made)
+### Original implementation proposal (2026-10-25)
 
 - `deploy/public-production/bin/recovery`: add `publish` (upload the existing
   four-file pair plus a receipt under the admission window and unique attempt
@@ -692,7 +691,7 @@ P2 or P5 fail, the policy returns for revision before any personal data.
 
 ## Decision alignment and next bounded slice
 
-**Approved now:** only the infrastructure, total budget, 200 GiB planning target,
+**Approved on 2026-10-25:** the infrastructure, total budget, 200 GiB planning target,
 Compliance/direct-upload direction, expendable Lenovo boundary and scoped uncapped
 OVHcloud PAYG risk recorded above.
 ADR-0033 partially supersedes ADR-0025 without rewriting its rationale. Canonical
@@ -712,8 +711,8 @@ Product Brief/platform/privacy records are aligned in this documentation change;
 - Actual domain/DNS renewal and contact-mailbox charges, Mailjet Free/account terms,
   CI/monitor/administration extras and final combined recurring/initial cash quote.
   The EUR 2 email contingency stays reserved; no fallback service purchase is approved.
-- Owner decisions [D1–D7](#owner-decisions-before-bucket-creation) on the retention
-  recommendation, before any bucket is created; private storage and key locations.
+- Ratification of outstanding [D3, D6 and exact D7 values](#owner-decisions-before-bucket-creation)
+  before any bucket is created; private storage and key locations.
   No silent widening of retention or weakening of two-copy barriers.
 
 **Actions requiring separate owner authorization:** any account/project/credential
@@ -721,7 +720,7 @@ setup or purchase, including the provider-test bucket;
 then host installation/deployment/DNS changes and restricted real-host exercises;
 and finally public exposure. Documentation approval is none of these authorizations.
 
-**Next minimal implementation slice after explicit implementation approval:** prepare
+**Original next slice (authorized locally on 2026-10-29; see [evidence](#local-s3-adapter-evidence)):** prepare
 one bounded S3 publish/exact-version retrieval/integrity/expiry adapter around the
 existing four-file encrypted pair, with an independent receipt and missed-run check.
 Keep endpoints, buckets and keys as private inputs; do not provision them. Use focused
@@ -741,6 +740,52 @@ retention/deletion barriers, missed-job detection, acceptable billing/terms and 
 cloud-only recovery. Optional future 3-AZ/second provider/paid watchdog work requires
 new evidence and approval, not a provider comparison restart here.
 
-Documentation-only: no executable artefact or SemVer bump. #276 remains open for
+**Historical 2026-10-25 research change:** documentation-only, no executable artefact or SemVer bump. #276 remains open for
 contracting decisions, implementation and real-host acceptance. No account, credential,
 purchase, infrastructure/DNS change, deployment, commit or merge occurred.
+
+
+## Local S3 adapter evidence
+
+**Prepared locally for #276, 2026-10-29; no provider or production acceptance.**
+The [owner approval](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
+authorizes this bounded adapter and fake-S3 tests. It approves the summarized target
+policy: 12-hour capture, 33-day Compliance, verified exact-version deletion within
+35 days, integrity age at most 24 hours, full restore at least every 8 days,
+independent expiry actor, off-VPS recovery keys and spend monitoring within the
+approved planning budget. The [platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+and [privacy record](../development/data-protection.md#b-restricted-legal-archive)
+own those guarantees. D3, D6 and D7's precise values remain recommendations.
+The runtime [S3 preparation guide](../../deploy/public-production/README.md#s3-transport-preparation-276)
+owns commands, protected inputs and limitations.
+
+[`test-production-recovery-s3.py`](../../scripts/test-production-recovery-s3.py)
+uses an in-process fake and frozen clock. It reuses the existing pair verifier;
+synthetic bytes do not establish encryption or provider enforcement.
+
+| Reference | Local guarantee and limit |
+|---|---|
+| L1 | Refuses admission at six hours, future recovery points, stale capacity evidence and clock skew; rechecks between parts/objects and after completion. An already accepted late write cannot be undone; no success receipt is issued |
+| L2 | Unique attempt prefixes; observer detects multiple versions; fetch reads the recorded version even when another exists |
+| L3 | Receipt last, binds four exact version IDs/sizes/SHA-256; multipart failure attempts abort; missing acknowledgement and corruption never publish a complete local destination. Process death or failed abort leaves an orphan for later reconciliation |
+| L4 | Bounded version/marker inventory and expiry selection demonstrated; **planning only**. Exact-version DELETE, post-delete absence and bypass rejection remain unimplemented and unproven |
+| L5 | Frozen-clock alerts at due + 2 hours, recovery point + 34 days 12 hours and + 35 days; no automatic notification channel installed |
+| L6 | Observer refuses mode/hold/retention/configuration drift, unknown keys and missing versions; streams exact ciphertext versions through the existing checksum verifier |
+| L7 | Integrity and restore ages are separate; missed-copy and restore-age alerts demonstrated. Pin override remains unimplemented pending D3; no deletion occurs |
+| L8 | Not implemented: synchronous remote ledger/archive durability and crash-boundary tests remain a separate required slice. Pair version-acknowledgement tests do not satisfy this barrier |
+| L9 | Caller-specified projected byte budget enforced using fresh protected observer evidence, without deletion. No fixed 200 GiB enforcement decision: exact D7 values remain pending. Concurrent attempts, incomplete multipart bytes and account-wide consumption still require operational reconciliation |
+
+P1–P8 remain entirely unexecuted. SDK and fake behaviour do not establish OVHcloud
+semantics, effective IAM/ACL denies, provider clocks, physical deletion, lifecycle,
+billing or monitored consumption. P1–P5 block activation; retain P6–P8 as qualification
+requirements. No cloud-only restore, achieved RPO/RTO, independent environment/key
+isolation, observer heartbeat delivery, real missed-job notification or cloud
+ledger/archive barriers are proven. `verify-offhost.py` retains its accepted
+filesystem-only attestation contract; S3 observation cannot set its green recovery
+flag. Scheduler/attestation integration and real deletion require a later reviewed
+slice, ratification of pending decisions and separate provider authorization.
+
+The optional adapter starts its own operational version at `0.1.0` (new compatible
+capability); application, frontend, candidate #275 and migration versions are unchanged.
+#276 remains open. No account, bucket, credential, deployment, job, commit or publication
+is created by this increment.

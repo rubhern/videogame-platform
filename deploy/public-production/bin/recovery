@@ -676,7 +676,10 @@ def retain(root, verified_receipt):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery'])
+    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery', 'publish', 'fetch', 'observe', 'expire'])
+    parser.add_argument('--s3-config', type=Path, help='Protected explicit OVH endpoint/bucket/credentials and lifecycle fingerprint')
+    parser.add_argument('--observer-receipt', type=Path)
+    parser.add_argument('--publish-receipt', type=Path)
     parser.add_argument('--config', type=Path, help='Protected, fully rendered Compose JSON; never source shell env')
     parser.add_argument('--project')
     parser.add_argument('--state', type=Path)
@@ -706,7 +709,15 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        if a.command == 'verify':
+        if a.command in ('publish', 'fetch', 'observe', 'expire'):
+            sys.path.insert(0, str(ROOT / 'deploy/public-production/lib'))
+            from recovery_s3 import dispatch, VERSION
+            try:
+                result = dispatch(sys.modules[__name__], a)
+                result['adapterVersion'] = VERSION
+            finally:
+                signal.alarm(0)
+        elif a.command == 'verify':
             m = verify(a.backup)
             result = {'kind': 'ciphertext-integrity', 'backupId': m['backupId'], 'recoverabilityVerified': False}
         elif a.command == 'copy':
@@ -738,7 +749,7 @@ def main():
     finally:
         write(a.receipt, result)
     print('Recovery operation completed; sanitized receipt written.')
-    return 0
+    return 2 if result.get('alerts') else 0
 
 
 if __name__ == '__main__':

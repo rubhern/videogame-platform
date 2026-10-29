@@ -340,6 +340,97 @@ These need later increments or the real host (#276):
 - The [request limits and maintenance gate](#request-limits-on-the-real-host), whose
   thresholds, like the edge's body, header and timeout bounds, are uncalibrated.
 
+## S3 transport preparation (#276)
+
+**Local preparation only; never activated.** The optional adapter behind `bin/recovery`
+reuses the four-file encrypted pair, checksum verifier and staged local publication.
+It creates no backup, database dump, account, bucket, credential, timer or application
+change. The [platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+owns approved policy; the [research evidence](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
+owns L1–L9 coverage and unexecuted P1–P8. The accepted #275 candidate remains frozen.
+
+Use a dedicated owner-side Python environment with `s3-requirements.txt` for the optional
+SDK; the existing filesystem commands require no SDK. Provide an owner-only regular
+JSON file to `--s3-config`, containing `endpoint`, `region`, `bucket`, `accessKey`,
+`secretKey`, and, for observation, `lifecycleSha256`. Endpoint must be the explicitly
+confirmed full-region OVH HTTPS endpoint; no default region/bucket/credential discovery
+is provided. `lifecycleSha256` is SHA-256 of the reviewed S3 lifecycle `Rules` JSON,
+serialized with Python `json.dumps(rules, sort_keys=True)`. Obtain and protect it in
+the owner context; never learn an expected value from an untrusted runtime.
+No configuration example contains real provider identifiers or secrets.
+
+Prepared calls (private absolute paths are operator inputs, not provisioned resources):
+
+```bash
+# Independent read-only observer; no decryption key. Can bootstrap an empty inventory.
+python3 deploy/public-production/bin/recovery observe \
+  --s3-config /protected/observer.json --max-copy-bytes "$reviewed_byte_budget" \
+  --receipt /protected/observation.json
+
+# Upload-only actor; input must be the existing complete encrypted pair.
+python3 deploy/public-production/bin/recovery publish \
+  --s3-config /protected/uploader.json --backup /protected/pair \
+  --observer-receipt /protected/observation.json --max-copy-bytes "$reviewed_byte_budget" \
+  --receipt /protected/publish.json
+
+# Owner recovery: use a protected independently retained publish reference,
+# or one complete pair from the protected observation's pairs array.
+python3 deploy/public-production/bin/recovery fetch \
+  --s3-config /protected/reader.json --publish-receipt /protected/pair-reference.json \
+  --destination /protected/new-pair --max-copy-bytes "$reviewed_byte_budget" \
+  --receipt /protected/fetch.json
+
+# Independent expiry actor: selection/report only; never sends DELETE.
+python3 deploy/public-production/bin/recovery expire \
+  --s3-config /protected/expiry.json --receipt /protected/expiry-plan.json
+```
+
+Upload admission needs a protected successful observation at most one hour old. Missing
+copy/restore-age alerts allow recovery captures; inventory/protection faults refuse
+admission. Known incomplete attempts remain counted and alerted, and permit the next
+admitted capture; they are never silently removed. The projected budget reserves space
+for the final receipt. It is not a
+provider quota, concurrency reservation or an account spending cap. Incomplete multipart
+bytes, other stores and concurrent uploads need independent consumption monitoring
+before activation. Exact D7 thresholds are private reviewed inputs pending ratification.
+
+Each attempt uses unique keys and publishes its version-bound receipt last. The uploader
+sends no retention, hold or bypass override. It checks an unsigned TLS provider `Date`
+before mutation, and checks response dates and the admission window during transfer.
+Single requests already accepted after a deadline cannot be rolled back; abandoned
+versions remain locked and need reconciliation. Failed multipart uploads attempt abort;
+SIGKILL/host loss and failed abort still need provider lifecycle cleanup. Requests have
+bounded SDK timeouts and no automatic SDK retry; the whole operation has a 30-minute
+Unix alarm. Streaming memory is bounded by one multipart part; inventories refuse more
+than the adapter's fixed version/page limits. No complete dump is loaded into memory.
+
+Run the observer with credentials/environment independent of the VPS, retain its output
+there and transfer only the admission evidence to the uploader. The observer checks
+lock/versioning/lifecycle, all versions/markers and protection before streaming each
+complete pair through `fetch` and the existing verifier. It detects absent/incomplete
+attempts, duplicate versions and overdue integrity/expiry evidence. Receipts are evidence
+from that actor, not cryptographic proof of physical or administrative isolation.
+`ciphertextIntegrity` never proves decryption, deletion replay or cloud-only recovery.
+
+For full-restore age, optionally supply `--verified-receipt` to `observe`: a protected
+owner evidence envelope containing the existing successful `recovery-rehearsal` receipt
+fields plus the independently recorded `verifiedAt` timestamp. The original #275 receipt
+format is unchanged. It must match an observed pair's backup ID and manifest hash and
+have `scope: owner-reconstructed-target`, successful deletion replay and readiness.
+An isolated-local rehearsal is refused as production recovery evidence. Integrity and
+full-restore timestamps are reported separately. S3 evidence never sets the existing
+filesystem attestation's `independentRecoveryVerified` flag.
+
+Exit 0 means the operation completed without health alerts; exit 2 means observation
+or expiry planning completed with alerts, and exit 1 is refusal/failure. Failure receipts
+remain sanitized. A scheduler must deliver alert/failure and missing-observer-heartbeat
+notifications independently; none is installed here. Keep receipts outside pair folders.
+The expiry command lists exact eligible versions/markers and deadline alerts using only
+list/protection reads. It performs no deletion while D3 and provider gates are pending.
+Do not interpret a plan as verified absence or retention compliance. The legacy `retain`
+command remains solely for filesystem copies. Remote ledger/archive durability barriers,
+cloud attestation acceptance and real cloud-only recovery are required before activation.
+
 ## Paired backup and recovery candidate
 
 **Implemented for isolated synthetic rehearsal (#275 increment 5); not operated on
@@ -428,8 +519,9 @@ connectivity and monitoring recovery before ending maintenance.
 
 **Existing #275 filesystem-copy capability, not the selected #276 cloud path.**
 The [current recovery target](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
-requires direct automated encrypted S3 uploads; those adapters and cloud verification
-are not implemented here. The following documents the existing command contract.
+requires direct automated encrypted S3 uploads; the optional
+[S3 preparation](#s3-transport-preparation-276) remains unactivated. The following
+documents the existing filesystem command contract.
 
 Run `pull` **on the independent destination under its backup administration account**.
 Use an owner-controlled 0600 SSH config, pinned source host key, a dedicated read-only
@@ -1340,29 +1432,9 @@ MVP or migration change.
 
 ### Cloud transport dependency
 
-Implement only the missing S3 seams around `bin/recovery`, not another backup engine.
-The [storage investigation](../../docs/research/public-production-backup-storage.md#minimal-implementation-changes-not-made)
-owns the proposed transport, local tests and provider experiments. Its
-[D1–D7 decisions](../../docs/research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
-are still proposals; do not turn the proposed lock/cadence/expiry values into defaults
-or apply the filesystem daily/weekly selector to immutable cloud versions.
-
-Stream the existing four-file encrypted pair; bound object/byte counts, multipart
-concurrency, timeouts, retries and version-list pages. Persist resumable progress and
-refuse overflow instead of loading all history. Publish the receipt last with exact
-version IDs, sizes and SHA-256; fetch those versions for existing integrity/restore
-checks. An independent observer verifies storage/lock state and missed/failed jobs;
-the VPS uploader must not hold decryption, administration or expiry authority.
-The separately reviewed off-VPS expiry worker deletes exact eligible versions and
-verifies absence; delete markers or lifecycle configuration alone prove no erasure.
-
-Keep restricted legal archives, deletion ledgers, proofs and reconstruction material
-under their own protection/copy requirements. Destructive privacy steps must wait for
-the existing synchronous independent durability barrier; a queued upload is not an
-acknowledgement. Update cloud attestation semantics only after D5 is resolved: the
-current filesystem verifier requires a matching full recovery receipt and cannot be
-relabelled as S3 evidence. Add fake-S3 failure tests before authorized provider tests
-P1–P8; P1–P5 block activation. Install no capture/upload/expiry/observer timer until
-cloud-only loss-of-host recovery, ledger replay, independent missed-job alerts and
-bounded spending monitoring have been proved. Lenovo must be unavailable for that
-proof. New cloud credentials stay outside the application containers.
+The [S3 preparation guide](#s3-transport-preparation-276) owns the locally prepared
+adapter and its inputs. The [evidence boundary](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
+distinguishes demonstrated local guarantees from missing provider, deletion,
+ledger/archive and scheduler/attestation acceptance. Install no production timer
+until those gates and cloud-only recovery have passed. Credentials remain outside
+application containers; Lenovo must be unavailable for the cloud-only proof.
