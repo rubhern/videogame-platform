@@ -125,8 +125,12 @@ assert [(step["authenticator"], step["flowAlias"], step["requirement"]) for step
 declaration = realm["localizationTexts"]["es"]
 assert "18 años" in declaration["acceptTerms"] and "condiciones" in declaration["acceptTerms"]
 assert "18 años" in declaration["termsAcceptanceRequired"]
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/privacidad"' in declaration["termsText"]
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/condiciones"' in declaration["termsText"]
+assert "Responsable: Rubén Hernández López" in declaration["termsText"]
+assert "Texto aprobado" not in declaration["termsText"]
 assert "email" in declaration["emailInstruction"] and "usuario" not in declaration["emailInstruction"]
-assert "nacimiento" not in text and "DNI" not in text
+# Public copy may explain that birth date and ID are not collected; profile assertions above own the fields.
 # A temporary lockout must read exactly like a wrong password, so it reveals nothing.
 assert declaration["accountTemporarilyDisabledMessage"] == declaration["invalidUserMessage"]
 

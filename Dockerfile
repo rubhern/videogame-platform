@@ -17,7 +17,8 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY docs/architecture/api/openapi.yaml docs/architecture/api/openapi.yaml
 COPY docs/legal/public-texts-es.md docs/legal/public-texts-es.md
 COPY scripts/prepare-legal-content.mjs scripts/prepare-legal-content.mjs
-COPY deploy/public-production/keycloak/legal-review.json deploy/public-production/keycloak/legal-review.json
+COPY deploy/public-production/keycloak/import/gameometro-realm.json deploy/public-production/keycloak/import/gameometro-realm.json
+COPY docker/keycloak/import/videogame-platform-realm.json docker/keycloak/import/videogame-platform-realm.json
 COPY frontend frontend
 
 ARG APPLICATION_VERSION

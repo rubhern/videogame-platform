@@ -115,7 +115,13 @@ def reserved_address(email: str) -> bool:
     )
 
 
-def desired_policy() -> dict[str, object]:
+def desired_policy(application_origin: str = "http://localhost:8080") -> dict[str, object]:
+    parsed = urllib.parse.urlsplit(application_origin)
+    if (parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username
+            or parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+            or any(char in application_origin for char in '<>"\\\r\n')):
+        raise ProvisioningError("Application origin must be an HTTP(S) origin without credentials or a path")
+    application_origin = application_origin.rstrip("/")
     realm = json.loads(production_import.read_text(encoding="utf-8"))
     profile = json.loads(
         realm["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0]
@@ -147,7 +153,8 @@ def desired_policy() -> dict[str, object]:
                 ],
             },
         },
-        "localization": dict(realm["localizationTexts"]["es"]),
+        "localization": {key: value.replace("https://${APPLICATION_PUBLIC_HOST}", application_origin)
+                         for key, value in realm["localizationTexts"]["es"].items()},
     }
 
 
@@ -519,6 +526,7 @@ def main() -> int:
     target.add_argument("--origin", help="Keycloak origin for local or disposable environments")
     parser.add_argument("--admin-username", help="Master-realm administrator, with --origin")
     parser.add_argument("--admin-password-file", type=pathlib.Path, help="Password input (for example /dev/stdin), with --origin")
+    parser.add_argument("--application-origin", default="http://localhost:8080", help="Application origin for legal links with --origin")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="Report alignment and the account inventory without changes")
     mode.add_argument("--list-unverified", action="store_true", help="Print unverified accounts with a deliverable address")
@@ -544,7 +552,10 @@ def main() -> int:
     if applying and not arguments.snapshot_dir:
         parser.error("applying the policy requires --snapshot-dir")
 
-    desired = desired_policy()
+    application_origin = arguments.application_origin if arguments.origin else provisioning.required(
+        provisioning.parse_runtime_environment(arguments.private_dev_env_file.resolve(strict=True)),
+        "PRIVATE_DEV_APPLICATION_ORIGIN")
+    desired = desired_policy(application_origin)
     admin = provisioning.KeycloakAdmin(origin)
     admin.authenticate(username, password)
     realm = Realm(admin, arguments.realm)

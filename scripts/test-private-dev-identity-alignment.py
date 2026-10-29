@@ -449,6 +449,11 @@ device = Browser()
 login, _ = device.authorize()
 assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}
 registration = device.open(page_link(login.body, "/login-actions/registration"))
+assert "Responsable: Rubén Hernández López" in page_text(registration.body)
+assert "Para prestar el servicio utilizamos proveedores externos" in page_text(registration.body)
+assert "no te pedimos que consientas" in page_text(registration.body)
+assert "/privacidad" in registration.body and "/condiciones" in registration.body
+assert "Texto aprobado por el titular" not in registration.body and "Internal editorial" not in registration.body
 assert form_fields(registration.body, "kc-register-form") == {"email", "termsAccepted"}, form_fields(registration.body, "kc-register-form")
 player = unique("player")
 undeclared = device.open(form_action(registration.body, "kc-register-form"), {"email": player})
