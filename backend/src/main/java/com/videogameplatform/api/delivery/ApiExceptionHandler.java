@@ -79,6 +79,29 @@ public class ApiExceptionHandler {
     private static final String GAME_ID_PATH_POINTER = "/path/gameId";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(com.videogameplatform.identity.application.AccountOperationException.class)
+    public ResponseEntity<Problem> accountOperation(
+            com.videogameplatform.identity.application.AccountOperationException failure,
+            HttpServletResponse response) {
+        boolean recent =
+                failure.reason()
+                        == com.videogameplatform.identity.application.AccountOperationException
+                                .Reason.RECENT_AUTHENTICATION;
+        return problem(
+                response,
+                recent ? HttpStatus.FORBIDDEN : HttpStatus.SERVICE_UNAVAILABLE,
+                recent
+                        ? ProblemCode.RECENT_AUTHENTICATION_REQUIRED
+                        : ProblemCode.ACCOUNT_OPERATION_UNAVAILABLE,
+                recent ? "Recent authentication required" : "Account operation unavailable",
+                recent
+                        ? "Authenticate again before confirming account deletion."
+                        : "Retry later or contact the owner. No completion is claimed.",
+                recent ? ErrorCategory.AUTHENTICATION : ErrorCategory.TECHNICAL,
+                "/",
+                "Account operation was not completed.");
+    }
+
     @ExceptionHandler(ApiRequestException.class)
     public ResponseEntity<Problem> requestInvalid(
             ApiRequestException exception, HttpServletResponse response) {

@@ -127,6 +127,7 @@ describe("compact navigation menu", () => {
 
     const account = await screen.findByRole("group", { name: "Mi cuenta" });
     expect(within(account).getAllByRole("link").map(link => link.textContent)).toEqual([
+      "Mi perfil",
       "Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador",
     ]);
     expect(within(account).queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();

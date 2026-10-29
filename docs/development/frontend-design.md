@@ -1743,3 +1743,27 @@ identity's instruments and the absence of the retired language. For material vis
 
 Do not add a component library, Storybook, theme engine or speculative abstraction for this
 visual direction.
+
+
+## Private profile
+
+Post-MVP (#272), prepared for owner review: **Mi perfil** opens from the shared
+**Mi cuenta** actions at `/mi-perfil`. Use the plain night canvas, shared page opening
+and one narrow reading column, without artwork or instruments that have no value to show.
+Separate **Tu cuenta**, **Tus datos, contigo** and **Eliminar mi cuenta** with hairlines.
+Account facts show only email in a definition list, with an honest **No disponible**
+when absent; registration collects no name. **Mi perfil** carries a decorative account
+icon in both account menus. Existing personal
+and Keycloak security actions are links; export is one primary button with preparation,
+completion and failure states. Never render cached personal details without a current session.
+
+Deletion is a restrained danger outline, with consequences and backup/legal limitations in
+words. Keep its trigger visible when automation is unavailable, disabled and associated
+with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
+literal **ELIMINAR**, offers recent authentication, and keeps the destructive action disabled
+until deliberate confirmation. Escape and cancellation restore trigger focus without a request.
+A failed command focuses its alert and cautions against repeating an uncertain request.
+Acceptance clears personal caches and returns immediately to anonymous home with no waiting
+screen or deletion-completed notice. The server ends the requesting BFF session; background
+execution continues independently. Old status-page bookmarks redirect home. Actions wrap and
+stack on phones, fields fit at 320px, focus/forced colours and keyboard access remain native.

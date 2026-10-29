@@ -579,6 +579,20 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
     keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
     with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger, contextlib.ExitStack() as fence:
         existing = ledger.entry(keycloak_user_id)
+        self_service = getattr(arguments, "self_service", False)
+        if self_service:
+            identity = identify(host_command, keycloak_user_id)
+            if identity.get("issuer") != arguments.expected_issuer or identity["userId"] != arguments.expected_user:
+                raise LedgerError("Self-service runtime identity mismatch")
+            if existing is not None:
+                if existing["request"] != request or existing["userId"] != arguments.expected_user or not existing.get("archiveProfile"):
+                    raise LedgerError("Self-service request does not match the existing protected entry")
+                if not existing["completedAt"]:
+                    archive = archive_from(arguments)
+                    require_proof(archive)
+                    archive_preflight(archive)
+                    run_steps(ledger, host_command, existing, replay=False, archive=archive)
+                return 0
         if existing is not None:
             if existing["completedAt"]:
                 print(f"Already erased under request {existing['request']} at {existing['completedAt']}; nothing changed.")
@@ -588,7 +602,7 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
         if identity["account"] == "absent":
             raise LedgerError("No account has this Keycloak user ID in the target runtime; nothing recorded")
         profile = arguments.archive_profile
-        if str(identity.get("issuer", "")).endswith("/realms/gameometro"):
+        if self_service or str(identity.get("issuer", "")).endswith("/realms/gameometro"):
             # Requester verification is distinct from the account's stored email-verification state.
             if profile is None:
                 source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", keycloak_user_id])
@@ -606,6 +620,8 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
                     # A protected particular-case record is the explicit exception, not a default full export.
                     archive_module.read(hold_path, 16384)
                     profile = "case-hold-v1"
+        if self_service:
+            archive_preflight(archive)
         if arguments.maintenance_command:
             issuer = identity.get("issuer", "")
             if not issuer.startswith("https://") or not issuer.endswith("/realms/gameometro"):

@@ -116,3 +116,15 @@ one packaging leg of each matrix retains tests. Local packaging retains tests by
 default. Cross-job build reuse must not
 introduce stale artifacts, mix source revisions, expose trusted credentials to PRs, or
 lengthen the critical path without measured benefit.
+
+
+### Automatic account deletion preparation (#272)
+
+The existing personal-data gate includes the automatically polled self-service journey with
+synthetic accounts on real disposable Keycloak/PostgreSQL/BFF, runner restart after a
+cross-system failure and pre-admission backup replay. Its `PERSONAL_DATA_COMPLETION_POLICY=private-dev`
+variant proves verified automatic processing and interruption recovery without ledger/archive/GPG
+configuration; CI runs both policies against separate disposable topologies. Its dedicated authenticated management
+port is published only on loopback in that disposable topology. No real private-dev or
+production configuration is changed. Temporary paired evidence tests the protocol, never
+physical storage independence; production qualification remains in the operations runbook.

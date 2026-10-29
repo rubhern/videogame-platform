@@ -683,14 +683,73 @@ or e-mail address. The archive holds the files under
 `errors.log` and `summary.md`/`summary.json`. The monitor's own `state.json` and
 `monitor.log` stay on the host.
 
+## Automatic self-service deletion
+
+Owner decision (2026-10-29, #272): private dev uses automatic account deletion without
+external ledger copies, legal archive, signing keys or backup prerequisites. It reuses
+the existing #274 erasure steps and the application's durable PostgreSQL queue, leases,
+access fences and retries. This is a private-dev operating policy, not production
+qualification. The [runbook](../../docs/development/operations-runbook.md#self-service-account-deletion)
+owns its guarantees, policy separation and recovery limitations. No real host is changed
+by preparing these sources.
+
+One-time owner installation is needed before promotion can enable the button. From the
+existing root-owned `/opt/videogame-platform` checkout on `vgpdev`:
+
+```bash
+sudo python3 -I /opt/videogame-platform/deploy/private-dev/bin/configure-account-deletion \
+  --env-file /etc/videogame-platform/dev/runtime.env
+sudo install -m 0644 \
+  /opt/videogame-platform/deploy/private-dev/systemd/gameometro-account-deletion.service \
+  /etc/systemd/system/gameometro-account-deletion.service
+sudo systemctl daemon-reload
+```
+
+Set `PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true` in the protected `runtime.env`.
+The setup command creates only a dedicated management capability and fixed runner config
+under `/etc/videogame-platform/dev/account-deletion/`; it does not start services,
+change the flag or deploy. The root-owned `executor.key` and UID-10001 `application.key`
+contain the same capability with mode 0600. The root-only config directory protects
+both paths. Only the application copy enters the read-only application container;
+Keycloak admin credentials and Docker access remain in the supervised host process.
+No archive, GPG keyring or ledger is configured.
+
+Follow the existing reviewed runtime-contract acknowledgement and promotion procedure;
+the new private-dev Compose overlay/profile are part of that contract. Promotion reads
+the persistent flag, includes `compose.account-deletion.yaml`, and publishes the
+capability-authenticated management interface only on `127.0.0.1:8081`. Tailscale Serve
+continues to expose only the existing product/identity routes. Then enable supervision:
+
+```bash
+sudo systemctl enable --now gameometro-account-deletion.service
+sudo systemctl status gameometro-account-deletion.service
+```
+
+The process has no server/listener and runs as root because the existing operator adapter
+needs Docker and protected host credentials. It polls one job at a time; systemd restarts
+it after host reboot or failure, and promotions retain both the runner and the flag.
+After a fresh heartbeat, **Eliminar mi cuenta** is enabled. Acceptance ends the requesting
+BFF session and returns straight to anonymous home; verification continues in the
+background. First prove this with a disposable account through confirmation and recent
+authentication. Check the bounded attempt metric and private operation state; never
+interpret the home redirect as a verified erasure receipt.
+
+On partial failure keep the request pending and access blocked; fix the failed host
+prerequisite and let the same operation retry. To disable new admissions, stop the runner
+and remove/set the flag false before application recreation. Resolve pending requests
+before disabling the access fence or changing completion policy. This private mode cannot
+process production/independent-policy claims. If old independently governed requests are
+pending, reconcile them explicitly rather than weakening their policy. It offers no
+recovery from lost PostgreSQL state or replay after restoring old private-dev snapshots.
+
 ## Personal-data requests
 
-Post-MVP (#274). The
+Retained manual #274 tooling; the automatic private-dev policy above does not require it. The
 [operations runbook](../../docs/development/operations-runbook.md#personal-data-requests-and-account-revocation)
 owns the owner procedure: verifying the requester, export, erasure, retry, restriction
 and the restore replay. `bin/personal-data` and `bin/personal-data-ledger` own the
-mechanics, and `scripts/validate-personal-data.sh` proves them. No container, port or
-route changes for the live project.
+mechanics, and `scripts/validate-personal-data.sh` proves them. The manual procedure itself
+adds no route; optional automatic activation is described above.
 
 The ledger driver runs on the owner's workstation; each step reaches the host over the
 [owner connection](#owner-connection-from-wsl) and runs as root from the installed

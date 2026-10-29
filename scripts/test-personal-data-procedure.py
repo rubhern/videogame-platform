@@ -373,3 +373,6 @@ for container in (application, keycloak):
 print("Personal-data procedure proven with real Keycloak, PostgreSQL and the BFF: export, interrupted "
       "erasure and retry, two-device revocation, restore of a pre-erasure backup, refused and verified "
       "replay, untouched re-registration and other account, no address in the ledger or logs.")
+
+# Fully automatic #272 journey in the same disposable identity topology.
+exec(compile((repository_root / "scripts/test-account-deletion-real-procedure.py").read_text(), "test-account-deletion-real-procedure.py", "exec"))

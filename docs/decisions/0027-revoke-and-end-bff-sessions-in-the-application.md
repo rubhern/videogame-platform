@@ -123,3 +123,37 @@ holds the evidence.
 - Sessions become self-contained, leaving no store to invalidate.
 - Revocation must originate somewhere the owner procedure cannot reach every session
   store, such as self-service deletion.
+
+
+## Prepared amendment: self-service deletion (#272)
+
+**Owner-requested implementation; amendment pending owner review before rollout.**
+The self-service revisit trigger now applies. Retain the single-replica registry and
+write-drain mechanism, and add a durable identity-owned deletion-intent fence checked
+on authenticated requests and inside admitted personal writes. This narrowly replaces
+the no-per-request-database-check decision for deletion safety: restart must not admit
+an identity while the external erasure is incomplete. A database failure refuses access. An unsettled claim revocation starts no destructive
+step; it may retry only to obtain a fresh successful drain, otherwise the operator's
+restart fallback remains required.
+
+Owner clarification: add no SSH client, outbound administration connection or new infrastructure
+to the web application. Use a protected polling executor over the authenticated private management boundary;
+application PostgreSQL owns admission/leases and #274 owns the shared idempotent erasure steps.
+Production also requires #274 independent completion evidence.
+The full automatic processing is implemented; real runtime activation requires operating qualification.
+Owner decision (2026-10-29): private dev may use a same-host protected executor with no
+independent ledger, archive or backup requirement. Its explicit profile and non-production
+realm gate a persisted `private-dev` completion policy; the public realm refuses it. PostgreSQL
+provides retry state and verified absence is required. This exception authorizes no production
+evidence bypass, independent-request downgrade or host-loss/replay guarantee. The [runbook](../development/operations-runbook.md#production-integration-and-cost)
+records the implemented polling integration, cost and #276 activation requirements. The original no-new-dependency decision
+remains intact. Production self-service acceptance is not complete.
+
+The public command can select only its recent-authenticated principal. It creates an
+intent; the protected runner polls durable claims and invokes the existing erasure engine and independent
+ledger/archive boundary in production, or the explicit private-dev policy. Revocation is now reachable from the protected executor claim operation as well
+as the private operator endpoint. Completed and pending intents both deny authentication;
+new registration has a distinct subject. Status after session end uses only a restricted
+receipt. The [runbook](../development/operations-runbook.md#self-service-account-deletion)
+owns sequencing, recovery and operational qualification. Multiple replicas still require
+a separate session-store/drain decision; this amendment does not authorize them.

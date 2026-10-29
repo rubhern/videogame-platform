@@ -44,6 +44,7 @@ minimization and review, rather than routine ID collection.
 | Preferred platforms / account holders | Derived UserId, chosen platform IDs, whether and when a choice was last saved (#295); narrow release discovery at the user's request | Contract; operator/VPS; never sent to Keycloak, telemetry, logs or public reads, only to the user's own browser | Until the user clears or replaces them, or account erasure, which deletes them with the ratings; included in exports |
 | Transactional delivery / account holders, including pending accounts | Email, verification/recovery message and action link, delivery/bounce/routing metadata | Contract for requested mail; security under legitimate interest; Mailjet Free selected, receiving mailbox providers | Free statistics/campaigns: 90 days; contacts/templates: account lifetime according to the [current help page](https://documentation.mailjet.com/hc/en-us/articles/360042755094-How-long-are-my-statistics-kept). SMTP content/recipient/bounce/routing retention still requires verification; link expiry is not message erasure. No marketing/tracking purpose authorized; verify actual messages do not add tracking |
 | Support and rights / correspondents | Address, necessary correspondence, request reference, identity-check outcome, response proof | Ordinary service support: contract or legitimate interest for non-account queries; rights: legal obligation 6(1)(c) | Export files deleted after verified delivery; support closed then minimized; suppression proof, blocked source data and deletion ledger remain separate; blocked-data initial term 3 years with 12-month review and case-specific legal holds; no indefinite mailbox retention |
+| Self-service deletion admission / account holders | Principal-derived UserId, subject, opaque request reference, receipt hash, pending/completed status and times; fence access and reconcile the independently recorded erasure | Rights compliance; controller and existing hosting/administration boundary only; no profile, rating values or credentials in the intent | Pending until safely resolved; completed intent reviewed with the deletion ledger while restorable identity state exists, at least 35 days. Receipt authorization expires after 24 hours; owner review/purge remains required |
 | Recovery and deletion replay / account holders | Encrypted paired PostgreSQL dumps, live identity-session IPs at capture, credentials/SMTP secret; minimal deletion ledger with issuer/subject/UserId, times/outcomes | Legitimate interest in recovery; rights-compliance evidence under legal obligation; operator and owner-selected future OVHcloud off-host storage, subject to processor terms and independent access/keys | All backup copies ≤35 days; ledger while any restorable copy exists, at least 35 days after completion; incomplete entries never purged; resolve rather than indefinitely neglect them |
 | Operation and incident response / visitors and accounts | Necessary route/status/timing/error diagnostics and aggregate metrics; exceptional incident evidence | Legitimate interest in security; breach records/notifications under legal obligation; operator, relevant processors, AEPD/affected people when required | Routine logs ≤7 days; bounded aggregate telemetry under observability policy; incident evidence separate and restricted; reasoned legal schedule/holds, not an automatic extension of routine logs |
 | External image delivery / visitors | IP, browser headers/user agent, origin referrer to images.igdb.com / CloudFront to display catalogue artwork | Legitimate interest proposed, **not established**; Twitch/CDN roles and applicable transfer mechanism unresolved | Third-party retention unknown; no false 7-day/35-day promise. Complete necessity/balancing and role/transfer assessment before privacy acceptance |
@@ -152,9 +153,26 @@ promise staffed or immediate support.
    retain the same subject/issuer and revoke current Keycloak/BFF sessions before
    allowing re-entry. Confirm the verified state deliberately: do not bypass proof
    by just setting an email and `emailVerified=true`. No automatic change-email
-   command or public self-service flow is claimed implemented; rehearse the exact
+   command is implemented; rehearse the exact
    admin flow synthetically before using it with public accounts.
-5. For account erasure run the existing
+5. Self-service export and automatic erasure are functionally implemented in #272,
+   pending owner review and production operating qualification. The protected runner
+   automatically claims persisted requests and reuses #274 without manual fulfillment;
+   local/disposable functional evidence does not establish physical independence. The principal/session is the authorization source; a recent
+   OIDC authentication and CSRF protect deliberate deletion. The supported JSON covers
+   current account fields, direct/per-platform ratings and preferred-platform timestamps;
+   article 15 supplementary identity/session information remains available administratively.
+   See the [prepared sequence](operations-runbook.md#self-service-account-deletion).
+   Owner decision (2026-10-29): private-dev self-service uses an explicitly gated policy,
+   current verification and PostgreSQL retry state, without independent ledger/archive/backup
+   requirements; it cannot certify production guarantees. Its activation and restoration limits
+   are owned by the linked runbook. In production, the durable access intent is separate from the independent deletion ledger, blocked
+   source archive and suppression proof. Pending work is retained until resolved;
+   completed local intents retain the subject fence while backups/identity state could
+   permit resurrection, and are reviewed with the deletion ledger (at least 35 days).
+   Receipt hashes expire after 24 hours; no personal content or credential is stored in
+   the intent. This prepared change authorizes no legal publication or production rollout.
+   For administrative account erasure run the existing
    [ledger-driven procedure](operations-runbook.md#erasure), including its two copies,
    revocation, rating deletion, identity deletion and verification. Partial failure
    stays incomplete and fail-closed; retry and verify before replying that it is done.

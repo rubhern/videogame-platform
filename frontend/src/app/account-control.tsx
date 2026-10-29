@@ -119,6 +119,13 @@ export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountA
   const logout = useLogout();
   return (
     <>
+      <Link className="account-option" onClick={onNavigate} to="/mi-perfil">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+          <circle cx="10" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M4 17v-2a6 6 0 0 1 12 0v2H4Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+        </svg>
+        Mi perfil
+      </Link>
       <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
         <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
           <path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />

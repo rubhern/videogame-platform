@@ -19,6 +19,35 @@ The script checks WSL/filesystem placement, Java/Javac, Node/npm, Python, Git,
 Docker, Compose, and the Maven Wrapper without starting services. Use its
 diagnostics rather than maintaining a parallel checklist here.
 
+## Automatic account deletion with synthetic local accounts
+
+The ordinary local topology leaves the protected deletion executor disabled. To
+exercise real self-service from **Mi perfil**, explicitly start the packaged
+application and the owner-side executor together:
+
+```bash
+bash scripts/local-dependencies.sh application --account-deletion
+```
+
+Use synthetic accounts only: confirmation really removes the Keycloak identity,
+ratings and platform preferences in this local Compose project. Host Python 3,
+GnuPG and Docker are required. The launcher creates private, ignored state under
+`.local-secrets/account-deletion/` and runs the existing #274 engine from the
+workstation. The application receives only a dedicated management capability; it
+receives neither administration credentials, Docker access nor archive/signing keys.
+The local application uses the non-root workstation owner's UID to read that
+mode-0600 capability. Management remains published only on loopback.
+
+Keep the executor terminal open. After its first heartbeat, reload **Mi perfil**:
+**Eliminar mi cuenta** becomes enabled. Without a healthy executor, the same button
+stays visible and disabled with an explanation. Ctrl+C stops the executor; it leaves
+local data and evidence intact. Restart the same command to recover pending work.
+Do not delete its evidence to resolve a failure. Starting `application` without the
+flag recreates the application with automation disabled. No flag changes private
+dev or production. The two local ledger/archive paths prove protocol behaviour,
+not physical independence; production activation still requires the qualifications
+in the [privacy runbook](operations-runbook.md#personal-data-requests-and-account-revocation).
+
 ## Local topology
 
 The default Compose topology provides loopback-only PostgreSQL, Keycloak and the

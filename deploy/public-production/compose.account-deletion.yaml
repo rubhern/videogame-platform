@@ -1,0 +1,12 @@
+# Optional activation overlay; qualify #274/#276 operating guarantees before use.
+# Exposes no port, mounts no archive/identity administration credentials and installs no runner.
+services:
+  application:
+    environment:
+      ACCOUNT_DELETION_EXECUTOR_ENABLED: 'true'
+      ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE: /run/secrets/account_deletion_executor_capability
+    secrets:
+      - account_deletion_executor_capability
+secrets:
+  account_deletion_executor_capability:
+    file: ${ACCOUNT_DELETION_EXECUTOR_CAPABILITY_FILE:?Set a protected private capability file readable by application uid}

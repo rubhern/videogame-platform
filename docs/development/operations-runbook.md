@@ -1007,8 +1007,10 @@ recorded and safe to repeat: **revoke** (disable the Keycloak account, end its
 Keycloak sessions, revoke its BFF sessions, repeat expecting zero), **delete-ratings**
 (which also deletes the preferred platforms, #295, under its existing recorded name),
 **delete-identity** and **verify** (no account, Keycloak session, rating, preferred
-platform or BFF session left). Public aggregates read ratings at request time, so nothing is
-recomputed. A step refuses to run out of order.
+platform or BFF session left). Live statistics read current ratings. The shared operational deletion adapter also
+replaces the persisted Catalogue community-score projection under Ratings' per-game
+lock in the same bounded transaction, including during restore replay. It removes a
+projection with no remaining votes. Existing public cache revalidation limits still apply. A step refuses to run out of order.
 
 On any failure the entry stays incomplete and the account stays disabled once
 revocation has run, so a half-erased account cannot act. Fix the cause and run
@@ -1320,3 +1322,140 @@ scheduled update takes its turn. Record duration/resource evidence with the
 [existing pilot procedure](../../deploy/private-dev/README.md#historical-synchronization-pilot).
 The present change provides automated local evidence; it does not claim this deployed
 acceptance or authorize deployment/full historical import.
+
+
+## Self-service account deletion
+
+**Functional implementation prepared for owner review (#272); production operational
+acceptance remains #276. No live installation, activation or credential provisioning is implied.**
+
+Owner decision (2026-10-29): private dev does not require backups, independent deletion
+ledgers, legal archives or suppression proofs. Its explicit `private-dev` completion policy
+reuses the same #274 idempotent `revoke`, `delete-ratings`, `delete-identity`, `verify` engine
+steps without evidence hooks. PostgreSQL retains admission, policy, access fences, leases
+and retries. Only current verified absence acknowledges completion; no fake evidence digest
+is produced. The private profile and non-production realm are both required at startup;
+the production realm rejects this policy. Claims and readiness are policy-scoped, and a
+private executor cannot acknowledge an independently governed request. Changing policy with
+pending independently governed requests requires explicit reconciliation, never silent downgrade.
+
+A same-host supervised administrative runner is sufficient for private dev. It reads existing
+protected host credentials and polls capability-authenticated management on loopback. Neither
+Docker access nor identity administration credentials enter the application. This policy has
+no host-loss or backup-replay guarantee. Do not restore a pre-deletion private-dev snapshot
+and reopen accounts assuming replay protection: recreate the disposable development data
+or reconcile all affected identities explicitly. Production retains the full independent
+pre-mutation evidence, legal-archive and replay sequence below. The
+[private-dev guide](../../deploy/private-dev/README.md#automatic-self-service-deletion)
+owns its one-time activation and supervision.
+
+The independent-evidence policy (mandatory in production) uses this sequence:
+
+1. The BFF validates the principal, deliberate confirmation, same-origin CSRF and a recent
+   signed OIDC authentication. No browser-supplied owner is accepted. Admission requires an
+   explicitly enabled protected executor with a fresh authenticated heartbeat.
+2. One intent per principal is committed to Identity's PostgreSQL table. It immediately fences
+   authenticated access and personal writes, survives application restart and is never itself
+   presented as erasure evidence. HTTP `202` means pending. A short-lived opaque HttpOnly
+   receipt permits status reads only after session revocation.
+3. `personal-data-self-service-runner`, running in the existing protected administrative
+   context, polls the private `accountdeletionexecutor` operation. It owns no web request and
+   the web application launches no process or SSH connection. A claim leases one row for
+   fifteen minutes, revokes all BFF sessions and verifies personal writes have drained before
+   returning the principal-derived work. An unsettled drain releases the claim for retry and
+   starts no destructive step.
+4. The runner invokes `personal-data-self-service`, which reuses the existing #274 ledger,
+   archive and erasure orchestration. The request is fsynced to both ledger copies before
+   identity/data mutations, the fixed legal profile and any relevant hold are sealed before
+   data removal, and every erasure step remains idempotent. Keycloak credentials, keys,
+   protected source and both evidence copies remain in the administrative environment.
+5. Only a completed matching ledger entry, sealed suppression proof and current verification
+   of absence produce a successful receipt. Its ledger/proof digests are acknowledged using
+   the private executor credential and exact request/claim. PostgreSQL requires evidence
+   digests for a complete row. Missing evidence, foreign/stale claims and failures cannot
+   certify completion; the public status never treats acceptance as success.
+6. Failure stays pending and blocked. A failed attempt waits five minutes; a crashed runner's
+   claim becomes eligible after its fifteen-minute lease. A restarted runner repeats that
+   same recorded request and first archive, including when the identity was already removed.
+   A lost acknowledgement never loses independent erasure evidence. Expired acknowledgements
+   are refused; the next claim re-verifies the completed engine operation. No account is
+   automatically re-enabled. Divergent ledgers, missing archive/holds and storage failures
+   require repair of that failed prerequisite, not manual fulfillment of normal requests.
+7. Acceptance ends the requesting BFF session and immediately returns the browser to the
+   anonymous home, without a waiting screen or success claim. Processing does not depend on
+   the browser. The restricted status API remains available through its receipt; old status-page
+   bookmarks redirect home. A lost/expired receipt neither completes nor cancels queued work.
+
+For a workstation rehearsal with synthetic accounts, use the explicit
+[local launcher](local-setup.md#automatic-account-deletion-with-synthetic-local-accounts).
+Its local evidence files exercise this protocol and do not qualify production storage.
+
+### Protected executor configuration
+
+The supported `identity.deletion-executor.enabled` and `credential-file` properties are
+initialized from `ACCOUNT_DELETION_EXECUTOR_ENABLED` and
+`ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE`. Both default to disabled/unconfigured.
+An enabled instance refuses startup unless the dedicated capability file is private and
+holds 32 random bytes encoded as 64 lowercase hexadecimal characters. The prepared `deploy/public-production/compose.account-deletion.yaml` overlay enables
+only this capability and mounts its file; it is absent from every default promotion command.
+This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
+The endpoint exists only with explicit enablement and a separate management port. It is
+never on the product port, edge allowlist or public OpenAPI, and rejects browser-originated
+commands. Every action also requires the dedicated Bearer capability, even on loopback.
+
+Start the runner with `personal-data-self-service-runner --config <private-json-file>` in
+the owner's existing protected administration context. It is the one added process because
+independent evidence/keys must survive loss of the web host. It serves no HTTP interface,
+introduces no broker/database/service and never polls from a browser. Supervision restarts
+this command; production durable state remains PostgreSQL and the existing #274 ledger.
+A source-only systemd unit is prepared for the owner-approved private-dev policy; no timer,
+service unit or real-host process has been installed by this change. The bounded `--once` option
+is for qualification/tests; ordinary operation continuously processes new requests.
+
+The private config pins `issuer`, an argument-array `host_command` for the existing runtime
+adapter, `ledger`, `ledger_copy`, `proof_root`, `archive_root`, `archive_copy`, `gnupg_home`,
+`recipient`, `signer`, `holds`, plus `credential_file` and the exact `management_url` ending
+in `/actuator/accountdeletionexecutor`. The URL must be HTTPS or loopback HTTP. The HTTP
+client disables environment proxies and redirects and bounds time/response bytes. Production
+must provide the existing protected administration path to the private management interface;
+no automatically provisioned destination is assumed. The runner may use existing owner-side
+administrative transport; no SSH client is added to the web application.
+
+Startup preflights both ledger/archive paths, signing/decryption keys and suppression/hold
+stores before announcing readiness. A heartbeat every twenty seconds remains fresh for sixty
+seconds, including during processing. Losing readiness stops new admissions; already accepted
+work remains blocked and recoverable. Each engine attempt has a ten-minute child deadline.
+Restart/forced interruption relies on the existing two-copy write-ahead/retry guarantees.
+Coordinate capability rotation by restarting the application and runner with the new protected
+file. Keep management inaccessible to browsers/other networks throughout qualification.
+
+### Production integration and cost
+
+The implementation reuses the existing administrative runtime and a single polling process.
+It requires no additional paid service by design, but actual availability, equipment and
+operating costs still need qualification; existing owner equipment is not an uptime promise.
+Production #276 must qualify the supervised execution context, protected management channel,
+secret ownership/rotation, independently durable storage failure domains, archive/key access,
+interruption recovery and restore replay before activation. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
+its installation and live acceptance remain pending. No production requirement is
+silently waived to enable a development demo.
+
+Local/CI can use disposable PostgreSQL/Keycloak and synthetic identities, keys and temporary
+ledger/archive paths. Those exercises prove protocol and recovery behavior, not physical
+storage independence. `AutomaticAccountDeletionIntegrationTest` exercises real PostgreSQL,
+management authentication, browser admission, GPG and the existing engine with a synthetic
+identity-provider seam. The personal-data gate additionally exercises the automatic runner
+against real disposable Keycloak/BFF/PostgreSQL, an interrupted deletion, runner restart and
+replay of a backup taken before admission. Functional implementation and production operating
+acceptance are separate; neither synthetic files nor a green test authorize production opening.
+
+Inspect pending age privately and `account.deletion.attempts` with bounded `verified`/`retry`
+outcomes. Metrics and application state are not independent erasure evidence. Pending intents
+are never purged. A rollback to a version without the access fence is unsafe during pending
+work: keep authenticated entry closed and resolve/verify it first. Admission is ordinary PostgreSQL durable state, subject to its established host-loss RPO
+until the protected runner has recorded it independently. A `202` is not an independent
+erasure receipt. No product/identity erasure starts in that interval; operators must reconcile
+restored intent and ledger state before reopening. Process restarts preserve committed intent;
+the pre-opening replay guarantee applies to every independently recorded erasure, even if its
+admission row was lost. A restored database is never sufficient: replay every independently recorded erasure before reopening, including operations
+whose admission row is absent from that backup.

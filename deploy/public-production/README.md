@@ -1438,3 +1438,15 @@ distinguishes demonstrated local guarantees from missing provider, deletion,
 ledger/archive and scheduler/attestation acceptance. Install no production timer
 until those gates and cloud-only recovery have passed. Credentials remain outside
 application containers; Lenovo must be unavailable for the cloud-only proof.
+
+
+## Optional automatic account deletion
+
+The prepared `compose.account-deletion.yaml` overlay is opt-in and is not consumed by the
+current promotion command. It exposes no management port and passes no Keycloak credentials
+to the application. Before activating it, qualify the existing #274 independent evidence/key
+boundary, protected executor availability/channel and recovery under #276. The
+[runbook](../../docs/development/operations-runbook.md#protected-executor-configuration)
+owns configuration, the dedicated capability secret, rotation, runner supervision and pending
+request recovery. File-backed Compose secrets must be privately readable by runtime uid 10001;
+never commit capability material. This source preparation is not deployment or acceptance.

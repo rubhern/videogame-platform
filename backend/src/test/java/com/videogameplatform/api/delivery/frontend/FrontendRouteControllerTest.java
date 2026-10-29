@@ -19,6 +19,15 @@ class FrontendRouteControllerTest {
     }
 
     @Test
+    void profileAndDeletionStatusSurviveReloadAndIdentityReturn() throws Exception {
+        for (String path : java.util.List.of("/mi-perfil", "/mi-perfil/borrado")) {
+            mockMvc.perform(get(path))
+                    .andExpect(status().isOk())
+                    .andExpect(forwardedUrl("/index.html"));
+        }
+    }
+
+    @Test
     void forwardsOnlyApprovedBrowserRoutesToThePackagedSpa() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/search"))

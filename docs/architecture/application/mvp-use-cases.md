@@ -654,3 +654,37 @@ local progress, including completed/skipped/remaining months, current counters, 
 stable failure reasons. Month completion is acquisition evidence, never a guarantee that all
 Games were imported without errors. The existing coverage view remains canonical. Commands
 require the authenticated catalogue-operator authority, same-origin BFF and CSRF proof.
+
+
+### Private account lifecycle (UC-021, post-MVP #272)
+
+Owner-requested implementation, pending review and acceptance. **Mi perfil** exposes
+only the authenticated account's available session-validated email, personal
+navigation and Keycloak-owned security. Missing fields are unknown. No public profile,
+credential editor or new statistics model is introduced.
+
+Export captures the current profile projection, every retained personal rating with
+its game context, direct and per-platform scores and timestamps, and preferred-platform
+choice including its save time. A consistent local snapshot is read through module-owned
+contracts in bounded cursor batches. A bounded complete JSON document is prepared before
+successful delivery; exceeding the byte/time budget fails explicitly, never truncates.
+Credentials, tokens, raw provider data and other accounts are excluded.
+
+Deletion requires explicit confirmation, CSRF and a validated OIDC `auth_time` within
+five minutes, without an `iat` fallback. A missing or future time requires reauthentication.
+A durable principal-derived intent blocks new authenticated access before execution;
+existing personal writes settle under the session-revocation fence. Admission is idempotent
+per identity. An opaque, short-lived, HttpOnly receipt allows only status reads after
+session invalidation. Acceptance ends the requesting BFF session and immediately returns the
+browser to anonymous home; no waiting screen or automatic completion notice is shown.
+Acceptance is pending, never a claim of completed deletion.
+
+The existing erasure engine remains authoritative. Independent ledger/archive obligations apply
+to production; the owner-approved private-dev policy reuses its idempotent steps without external
+ledger/archive/backup prerequisites, preserving PostgreSQL recovery and access blocking;
+see the [operational sequence](../../development/operations-runbook.md#self-service-account-deletion).
+A protected polling executor retries the same leased intent after interruption. It marks completion
+only after verified absence and, in production, independent durable engine evidence. Failure remains blocked
+and recoverable, never automatically re-enables an account. The owner reviews the prepared
+[ADR-0027 amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
+before rollout.

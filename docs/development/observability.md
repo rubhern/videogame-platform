@@ -846,3 +846,12 @@ shutdown-interrupted admission remains pending, and policy-admission infrastruct
 log the stable `SYNCHRONIZATION_DEFERRED_ADMISSION_FAILED` code without payload or exception
 message. The [solution architecture](../architecture/mvp-solution-architecture.md#historical-acquisition-orchestration)
 owns bounded durable deferral and restart semantics.
+
+
+## Prepared account deletion signal (#272)
+
+The private executor acknowledgement counts `account.deletion.attempts` with only the fixed `outcome`
+values `verified` and `retry`. No account/reference/session/receipt is a
+metric label or log field. The counter supports failure detection; the independent
+ledger and verified status remain the completion authority. Qualification and recovery
+belong to the [runbook](operations-runbook.md#self-service-account-deletion).

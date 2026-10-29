@@ -396,6 +396,36 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void profileReauthenticationTightensOidcAndSecurityUsesOnlyTheNativePasswordAction()
+            throws Exception {
+        var reauth =
+                mockMvc.perform(get("/auth/login/keycloak").queryParam("reauthenticate", "true"))
+                        .andExpect(status().is3xxRedirection())
+                        .andReturn()
+                        .getResponse()
+                        .getRedirectedUrl();
+        var query = UriComponentsBuilder.fromUriString(reauth).build().getQueryParams();
+        assertThat(query.getFirst("prompt")).isEqualTo("login");
+        assertThat(query.getFirst("max_age")).isEqualTo("0");
+        assertThat(query.getFirst("state")).isNotBlank();
+        var security =
+                mockMvc.perform(
+                                get("/auth/login/keycloak")
+                                        .queryParam("accountSecurity", "true")
+                                        .queryParam("kc_action", "delete_account"))
+                        .andExpect(status().is3xxRedirection())
+                        .andReturn()
+                        .getResponse()
+                        .getRedirectedUrl();
+        assertThat(
+                        UriComponentsBuilder.fromUriString(security)
+                                .build()
+                                .getQueryParams()
+                                .getFirst("kc_action"))
+                .isEqualTo("UPDATE_PASSWORD");
+    }
+
+    @Test
     void callbackWithMismatchedStateNeverCreatesAnAuthenticatedSession() throws Exception {
         MvcResult authorization =
                 mockMvc.perform(get("/auth/login/keycloak"))

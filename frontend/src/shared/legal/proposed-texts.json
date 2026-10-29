@@ -71,7 +71,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Las cuentas verificadas y tus puntuaciones se conservan hasta que las elimines o solicites su supresión, salvo una obligación legal aplicable. La inactividad no provoca el borrado de una cuenta verificada. Puedes borrar cada puntuación desde el producto. Para eliminar la cuenta y todas sus puntuaciones, escribe al contacto anterior. Si no verificas el email, la cuenta se elimina al alcanzar 30 días desde su creación en la siguiente ejecución periódica de limpieza. Puedes volver a registrarte después; los enlaces de la cuenta eliminada dejarán de funcionar."
+          "text": "Las cuentas verificadas y tus puntuaciones se conservan hasta que las elimines o solicites su supresión, salvo una obligación legal aplicable. La inactividad no provoca el borrado de una cuenta verificada. Puedes borrar cada puntuación desde el producto. Desde «Mi cuenta → Mi perfil» puedes solicitar la eliminación de la cuenta, sus puntuaciones (también las de cada plataforma) y tus plataformas preferidas. La solicitud requiere confirmación expresa, autenticación reciente y protección de la sesión. Al aceptar la solicitud se cierra tu sesión de Gameómetro y vuelves al inicio; el borrado continúa automáticamente. El acceso queda bloqueado mientras se completa; recibir la solicitud no significa que el borrado haya terminado. Solo se confirma tras verificarlo. Los fallos se reintentan sin devolver acceso a una cuenta parcialmente borrada. Si la opción no está disponible o necesitas ayuda, escribe al contacto anterior. Si no verificas el email, la cuenta se elimina al alcanzar 30 días desde su creación en la siguiente ejecución periódica de limpieza. Puedes volver a registrarte después; los enlaces de la cuenta eliminada dejarán de funcionar."
         },
         {
           "kind": "paragraph",
@@ -91,7 +91,11 @@
         },
         {
           "kind": "paragraph",
-          "text": "Puedes consultar y modificar tus puntuaciones en «Mis puntuaciones». El cambio de email y la eliminación completa de la cuenta se gestionan administrativamente. El acceso puede incluir información de tus sesiones e IP; la exportación de datos se facilita en JSON. No incluye contraseñas ni secretos de autenticación."
+          "text": "Puedes consultar y modificar tus puntuaciones en «Mis puntuaciones». En «Mi perfil» puedes descargar un JSON versionado con los datos de cuenta disponibles para el producto, tus puntuaciones y las de cada plataforma, sus juegos y fechas, y tus plataformas preferidas. La descarga es privada y no se almacena en cachés; si no puede prepararse completa, se informa del error. No incluye contraseñas, tokens ni secretos de autenticación. Puedes pedir por email la información adicional de acceso, incluida la información de sesiones e IP que conserve el sistema de identidad. El cambio de email sigue requiriendo atención administrativa; las contraseñas se gestionan en Keycloak."
+        },
+        {
+          "kind": "paragraph",
+          "text": "La solicitud de borrado y su estado se conservan para impedir acceso durante una operación incompleta y confirmar su resultado. Un recibo privado de este navegador permite consultar solo ese estado durante 24 horas. El justificante y el registro técnico de supresión se rigen por los plazos anteriores. La baja retira tus votos de las medias actuales, sin alterar los de otras personas. No implica borrar de inmediato las copias inmutables ni los datos cuyo bloqueo o conservación exija una obligación legal o una reclamación concreta; esos datos quedan fuera del uso ordinario. Si existe una excepción aplicable o necesitas ejercer otros derechos, contacta con el responsable."
         },
         {
           "kind": "paragraph",
@@ -124,7 +128,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Puedes dejar de usarlo en cualquier momento, borrar puntuaciones o solicitar la baja y el borrado de tu cuenta por email. Las reglas de conservación y derechos figuran en la política de privacidad. Ante abuso, se podrán aplicar restricciones proporcionadas; puedes solicitar revisión por email. Los cambios sustanciales de estas condiciones se comunicarán antes de aplicarse; si alteran lo aceptado se evaluará una nueva aceptación. No se limita el acceso a las autoridades o tribunales que resulten competentes según las normas aplicables."
+          "text": "Puedes dejar de usarlo en cualquier momento y borrar tus puntuaciones. Puedes solicitar la baja y el borrado desde «Mi cuenta → Mi perfil», con confirmación y autenticación reciente, o pedir asistencia por email. El acceso queda bloqueado durante el proceso; una solicitud pendiente no acredita que haya terminado. La eliminación verificada retira tus puntuaciones y sus contribuciones a las medias, y cierra tus sesiones. Las reglas de conservación y derechos figuran en la política de privacidad. Ante abuso, se podrán aplicar restricciones proporcionadas; puedes solicitar revisión por email. Los cambios sustanciales de estas condiciones se comunicarán antes de aplicarse; si alteran lo aceptado se evaluará una nueva aceptación. No se limita el acceso a las autoridades o tribunales que resulten competentes según las normas aplicables."
         }
       ]
     },
@@ -166,6 +170,12 @@
               "`gameometro.com`",
               "Sesión del BFF; identificador opaco",
               "Sesión del navegador; límites del servidor según el modo de acceso explicado debajo"
+            ],
+            [
+              "`gameometro_deletion`",
+              "`gameometro.com`",
+              "Recibo opaco para consultar solo el estado del borrado solicitado; no permite acceder a la cuenta ni autoriza cambios",
+              "24 horas"
             ],
             [
               "`AUTH_SESSION_ID`",
@@ -217,7 +227,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Todas utilizan `Secure` y sin atributo `Domain`. Las cookies de Keycloak se limitan a `/realms/gameometro/`; la del BFF, a `/`. `KC_AUTH_SESSION_HASH` y `KEYCLOAK_SESSION` son legibles por scripts del proveedor de identidad; las restantes usan `HttpOnly`. La cookie del BFF usa `SameSite=Lax` y las de Keycloak, `SameSite=None`. Son del mismo sitio, aunque sus hosts sean distintos."
+          "text": "Todas utilizan `Secure` y sin atributo `Domain`. Las cookies de Keycloak se limitan a `/realms/gameometro/`; la de sesión del BFF, a `/`, y el recibo de borrado, a `/api/v1/account-deletion`. `KC_AUTH_SESSION_HASH` y `KEYCLOAK_SESSION` son legibles por scripts del proveedor de identidad; las restantes usan `HttpOnly`. La cookie de sesión del BFF usa `SameSite=Lax`; el recibo de borrado, `SameSite=Strict`, y las de Keycloak, `SameSite=None`. Son del mismo sitio, aunque sus hosts sean distintos."
         },
         {
           "kind": "paragraph",

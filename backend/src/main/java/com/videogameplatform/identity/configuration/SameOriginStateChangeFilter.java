@@ -86,7 +86,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
     private static boolean isStateChange(HttpServletRequest request) {
         return isSessionMutation(request)
                 || (isPersonalApi(request)
-                        && (HttpMethod.PUT.matches(request.getMethod())
+                        && (HttpMethod.POST.matches(request.getMethod())
+                                || HttpMethod.PUT.matches(request.getMethod())
                                 || HttpMethod.DELETE.matches(request.getMethod())))
                 || (isAdministrationApi(request) && HttpMethod.POST.matches(request.getMethod()));
     }

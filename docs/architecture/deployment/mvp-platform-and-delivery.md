@@ -476,6 +476,19 @@ and running in private-dev; no revocation procedure has been operated on a host:
 - These guarantees hold for one application replica with in-memory sessions; the ADR
   names what reopens the decision.
 
+**#272 prepared amendment, pending owner review:** self-service adds an identity-owned
+durable access fence and an authenticated private management claim/acknowledgement operation.
+A protected administrative runner automatically invokes the existing #274 erasure steps.
+The owner-approved private-dev policy uses PostgreSQL recovery without external ledger/archive
+requirements; production activation retains independent evidence and #276 qualification.
+No SSH connection originates in the web application and no management port becomes browser-reachable.
+The [ADR amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
+owns the changed revocation decision; the
+[runbook](../../development/operations-runbook.md#self-service-account-deletion) owns
+activation, independent-storage qualification, failure recovery and rollback. Local/CI use
+synthetic adapters; private-dev activation requires its one-time protected runner setup. Automatic
+runtime deletion refuses explicitly unless enabled with a protected credential and fresh executor readiness.
+
 Management-interface requirements that #275 must preserve in the production runtime
 (the prepared Compose binds it to loopback, publishes and routes nothing to it, and the
 contract test enforces both):
@@ -682,7 +695,7 @@ of existing versions, independent detection and clean-context cloud-only restore
 must be proved before operation. Direct uploads cannot authenticate future captures
 from a compromised source. Do not treat a mutable success receipt as independent proof.
 
-Legal archive, deletion ledger and proofs remain separately protected, with mandatory
+For production, legal archive, deletion ledger and proofs remain separately protected, with mandatory
 independent copies and synchronous pre-mutation durability. Their concrete locations
 and cloud adapters are still to be approved/proved; two buckets in one account are
 not independent copies. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
@@ -715,7 +728,8 @@ common recovery point. Restoration must reapply post-backup deletion requests be
 reopening and invalidate old sessions as appropriate. Keep a minimal protected deletion
 ledger outside both databases and the VPS while any backup able to restore the deleted
 data exists; replay it idempotently and verify the result before reopening.
-**Implemented for private-dev (#274), not yet operated on a host:** the ledger lives on
+**Historical private-dev tooling (#274), retained for manual procedures; not required by
+owner-approved private-dev self-service (2026-10-29):** the ledger lives on
 the owner's workstation with a mandatory copy on independent owner storage, and its
 driver records each step in both before running it on the host. A restore starts the
 restored Keycloak without the application and the replay refuses while the application
