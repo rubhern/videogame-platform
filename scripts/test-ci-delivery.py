@@ -71,7 +71,7 @@ class DeliveryTests(unittest.TestCase):
         proofs = {
             'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
-                           'test-production-recovery.py', 'test-production-recovery-lock.py',
+                           'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py'],
             'observability': ['test-production-observability.py --smoke'],
             'edge': ['test-public-production-runtime.py'],

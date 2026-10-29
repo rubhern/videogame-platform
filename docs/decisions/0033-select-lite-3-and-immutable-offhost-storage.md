@@ -50,9 +50,9 @@ archive or administrative dependency. This does not change private-dev hosting.
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 owns recovery requirements; the [privacy record](../development/data-protection.md#b-restricted-legal-archive)
 owns separate legal archives, ledgers, independent copies/keys, deletion barriers and
-retention. Preserve the 35-day rolling-backup ceiling. Exact lock duration, capture
-cadence, copy selection, cloud expiry and restore-evidence semantics remain proposals
-requiring compatibility review; accepting Compliance mode does not approve a 35-day
+retention. Preserve the 35-day rolling-backup ceiling. At the original 2026-10-25 acceptance, exact lock duration, capture
+cadence, copy selection, cloud expiry and restore-evidence semantics remained proposals
+requiring compatibility review; the [later amendment](#amendment-2026-10-29-scoped-recovery-policy-approval) records the scoped update; accepting Compliance mode does not approve a 35-day
 upload-relative lock, indefinite hold or a research parameter by implication.
 
 ## Alternatives and consequences
@@ -108,3 +108,16 @@ recurring ceiling, the netcup or email terms, nor any other gate, and it authori
 no purchase, account, credential, bucket, deployment or exposure. The
 [#276 research](../research/public-production-backup-storage.md#owner-accepted-uncapped-payg-risk)
 holds the proposed thresholds and the open operating parameters.
+
+
+## Amendment 2026-10-29: scoped recovery policy approval
+
+The [owner decision in #276](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
+approves the summarized target policy now recorded by the
+[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery),
+and authorizes local adapter preparation and fake-S3 testing. It grants no operational
+acceptance, provider setup, purchase, job installation or deployment. D3, D6 and the
+precise D7 operating thresholds remain recommendations pending ratification; no
+research table is approved in full by implication. The
+[local evidence boundary](../research/public-production-backup-storage.md#local-s3-adapter-evidence)
+records what is prepared and what still blocks activation. #275 remains unchanged.

@@ -661,7 +661,7 @@ Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
 bounded retention and isolated restore. Proposed initial recovery objectives for
 owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
 **RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
-**Owner storage decision (#276, 2026-10-25), approved target, not implemented:**
+**Owner storage decision (#276, 2026-10-25), approved target, locally prepared transport only:**
 upload encrypted paired backups directly from the production VPS to OVHcloud Object
 Storage Standard, full 1-AZ region Gravelines, using Object Lock Compliance retention,
 least-privilege upload credentials, independent integrity verification and missed-job
@@ -675,7 +675,7 @@ Lenovo may hold an optional expendable copy but no required recovery material.
 This explicitly permits a restricted upload credential on the VPS, replacing the
 old rule that the source has no destination credential. It does not permit application
 or identity runtime credentials to read/delete history, change retention/ACLs or
-manage provider credentials. Separate expiry-worker privileges/location remain to review.
+manage provider credentials. The expiry actor runs independently of the VPS with separate delete-only credentials; jobs remain uninstalled.
 Keep cloud management/recovery access, decryption and signing material, and reconstruction
 unlock material independent of VPS, Lenovo and agents. Provider-enforced protection
 of existing versions, independent detection and clean-context cloud-only restore
@@ -691,13 +691,19 @@ is authorized by recording this direction. Legal archives are not rolling backup
 
 Backup history, off-host copies included, is owner-limited to **35 days** (#274);
 the prepared filesystem selector uses seven daily copies plus four weekly copies.
-It is not a cloud version/lock policy. Exact Compliance duration, cadence, version
-selection/expiry and verification evidence remain design decisions: the #276 research
-proposes alternatives but the owner's provider/topology approval does not approve
-those parameters. A 35-day lock starting at upload can exceed the ceiling measured
-from capture; indefinite legal holds or an unexpired last-rehearsed pair cannot
-silently extend it. Resolve and test these conflicts, including deletion-ledger replay
-and archive-specific duties, before cloud activation. Size the independent
+It is not a cloud version/lock policy. **Owner policy approval (#276, 2026-10-29):**
+capture every 12 hours, bucket-default Compliance protection for 33 days, exact-version
+deletion verified within 35 days of the recovery point, independent integrity evidence
+no older than 24 hours and a full verified restore at least every 8 days. These are
+target guarantees, not operational acceptance or measured RPO/RTO. Provider-internal
+reclamation follows the contracted deletion terms; a missed exact-version deletion
+deadline is an incident, never an extension. The independent actor performs deletion;
+keys remain off the VPS. The [research and implementation boundary](../../research/public-production-backup-storage.md#local-s3-adapter-evidence)
+records the bounded local slice and remaining provider tests. D3 (rehearsal pin versus
+expiry), D6 (separate-store locks) and D7's exact spend/storage thresholds remain
+recommendations pending ratification. The cloud expiry command therefore prepares a
+plan only. Resolve these details, deletion-ledger barriers and archive-specific duties
+before activation. Size the independent
 destination and prove the scheduled copy/check cadence; a dump left on the VPS is
 not a backup against host/account loss. Failure/age must reach the owner through a
 tested private channel. If this cannot operate within the budget, do not open accounts.
@@ -721,8 +727,9 @@ add durable role fences and a startup authorization volume, paired encrypted dum
 owner-side SSH-context restoration, destination-side bounded pull/retention and the
 same Keycloak-only deletion replay gate. Local rehearsal is synthetic evidence only;
 cloud access/version isolation, physical/account independence, transfer cadence,
-expiry and cloud-only VPS recovery remain #276 gates. The prepared pull-based
-commands do not implement the superseding direct-S3 target. The
+expiry and cloud-only VPS recovery remain #276 gates. The prepared filesystem commands retain their original contract. The
+[optional S3 transport](../../../deploy/public-production/README.md#s3-transport-preparation-276)
+reuses their encrypted pair and verifier; it does not qualify the cloud target. The
 [data-protection record](../../development/data-protection.md#phase-1-design-for-approval)
 owns the future cleanup/archive design; the existing ledger design evidence remains
 in [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion), and the
