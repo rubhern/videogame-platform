@@ -159,6 +159,13 @@ class PrivateDevAccountDeletionIntegrationTest {
             assertThat(development.claim(now)).isEmpty();
             var protectedClaim = independent.claim(now).orElseThrow();
             assertThat(development.acknowledge(protectedClaim, true, null, null, now)).isFalse();
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> independent.finish(protectedClaim, true, now))
+                    .isInstanceOf(IllegalArgumentException.class);
+            independent.finish(protectedClaim, false, now);
+            assertThat(independent.claim(now)).isEmpty();
+            assertThat(independent.claim(now.plusSeconds(301)).orElseThrow().requestId())
+                    .isEqualTo(protectedClaim.requestId());
         } finally {
             runner.destroy();
             if (!runner.waitFor(10, java.util.concurrent.TimeUnit.SECONDS))

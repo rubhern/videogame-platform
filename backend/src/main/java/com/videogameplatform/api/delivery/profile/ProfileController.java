@@ -42,6 +42,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequestMapping("/api/v1")
 public class ProfileController implements ProfileApi {
     private static final String RECEIPT = "gameometro_deletion";
+    private static final SecureRandom RECEIPT_RANDOM = new SecureRandom();
     private final CurrentUser user;
     private final AccountDeletionStore deletions;
     private final DeletionExecutorAvailability erasure;
@@ -164,7 +165,7 @@ public class ProfileController implements ProfileApi {
         if (confirmation.getConfirmation() != AccountDeletionConfirmation.ConfirmationEnum.ELIMINAR)
             throw new IllegalArgumentException("Explicit confirmation required");
         byte[] entropy = new byte[32];
-        new SecureRandom().nextBytes(entropy);
+        RECEIPT_RANDOM.nextBytes(entropy);
         String receipt = Base64.getUrlEncoder().withoutPadding().encodeToString(entropy);
         user.changeAsCurrentUser(
                 id -> {

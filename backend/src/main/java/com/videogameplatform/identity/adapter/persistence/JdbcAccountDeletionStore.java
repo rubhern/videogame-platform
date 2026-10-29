@@ -104,19 +104,14 @@ public final class JdbcAccountDeletionStore implements AccountDeletionStore {
             throw new IllegalArgumentException("Completion requires protected executor evidence");
         jdbc.update(
                 """
-            UPDATE identity.account_deletion SET state = :state, completed_at = :completed,
+            UPDATE identity.account_deletion SET state = 'pending', completed_at = NULL,
                 next_attempt_at = :now + interval '5 minutes', claim = NULL
             WHERE user_id = :user AND claim = :claim AND state = 'pending'
             """,
-                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("state", verified ? "complete" : "pending")
-                        .addValue(
-                                "completed",
-                                verified ? at(now) : null,
-                                java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
-                        .addValue("now", at(now))
-                        .addValue("user", UUID.fromString(work.userId()))
-                        .addValue("claim", UUID.fromString(work.claim())));
+                Map.of(
+                        "now", at(now),
+                        "user", UUID.fromString(work.userId()),
+                        "claim", UUID.fromString(work.claim())));
     }
 
     @Override
