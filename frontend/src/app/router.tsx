@@ -22,7 +22,6 @@ import { WelcomePage } from "../pages/welcome-page";
 import { PLATFORM_CATALOGUE_ROUTE } from "../features/platform-catalogue/platform-catalogue-search";
 import { PLATFORM_TOPOMETRO_ROUTE } from "../features/rankings/ranking-search";
 import { PLATFORM_UPCOMING_ROUTE } from "../features/upcoming-highlights/upcoming-highlights-path";
-import { legalPublicationApproved } from "../shared/legal/publication";
 import { legalRoutes } from "../shared/legal/legal-routes";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { routeReadiness } from "./route-readiness";
@@ -53,7 +52,7 @@ export const appRoutes: RouteObject[] = [
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
-      ...(import.meta.env.DEV || legalPublicationApproved ? legalRoutes(true) : []),
+      ...legalRoutes(),
       { path: "*", element: <NotFoundPage /> },
     ],
   },

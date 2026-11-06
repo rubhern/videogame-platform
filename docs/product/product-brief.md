@@ -265,7 +265,8 @@ unless a legal obligation applies. Never-verified accounts are to be deleted aft
 30 days from creation; cleanup is prepared locally with a mandatory verified
 maintenance fence and is not scheduled on a real environment. Access,
 export, rectification and deletion use manual administrative procedures; no privacy
-portal is built for launch. The [public legal drafts](../legal/public-texts-es.md) await owner review; the
+portal is built for launch. The [public legal texts](../legal/public-texts-es.md) are owner-approved for integration
+in every environment; public production exposure remains separately gated. The
 [data-protection record](../development/data-protection.md) owns operational duties,
 the initial legal-blocking schedule, owner-approved A/B/C and the local
 implementation/remaining production evidence.

@@ -49,6 +49,23 @@ assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-terms-and-conditions", "REQUIRED"),
 ]
 assert "18 años" in desired["localization"]["acceptTerms"]
+for origin in ("http://localhost:8080", "https://private-dev.example.test"):
+    notice = identity.desired_policy(origin)["localization"]["termsText"]
+    assert f'href="{origin}/privacidad"' in notice
+    assert f'href="{origin}/condiciones"' in notice
+    assert "${" not in notice and "gameometro.com/privacidad" not in notice
+for unsafe in ('https://app.test/path', 'https://user:pass@app.test', 'https://app.test/?next=x', 'https://app.test/\"'):
+    try:
+        identity.desired_policy(unsafe)
+        raise AssertionError("unsafe application origin accepted")
+    except identity.ProvisioningError:
+        pass
+
+# New local imports also require the native declaration without a second consent action.
+assert local["registrationFlow"] == production["registrationFlow"]
+local_steps = next(flow for flow in local["authenticationFlows"] if flow["providerId"] == "form-flow")["authenticationExecutions"]
+assert [(step["authenticator"], step["requirement"]) for step in local_steps] == desired["registrationFlow"]["form"]["steps"]
+assert 'href="${APPLICATION_PUBLIC_ORIGIN}/privacidad"' in local["localizationTexts"]["es"]["termsText"]
 
 # Session-only production reconciliation must target the explicit realm, not private-dev.
 class RealmAdmin:

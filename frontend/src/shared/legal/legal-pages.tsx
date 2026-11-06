@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 
-import proposed from "./proposed-texts.json";
-import { legalPublicationApproved } from "./publication";
+import published from "./public-texts.json";
 
-type DocumentKey = keyof typeof proposed.documents;
+type DocumentKey = keyof typeof published.documents;
 
 function Inline({ text }: { text: string }) {
   return text.split(/(\[[^\]]+\]\([^)]+\)|`[^`]+`)/g).map((part, index) => {
@@ -18,15 +17,9 @@ function Inline({ text }: { text: string }) {
 }
 
 export function LegalPage({ document }: { document: DocumentKey }) {
-  const content = proposed.documents[document];
+  const content = published.documents[document];
   return (
     <article className="page-container page-section legal-document">
-      {!legalPublicationApproved && (
-        <aside className="notice notice-info" aria-label="Estado del texto">
-          <strong>Borrador para revisión. No está en vigor.</strong>
-          <p>La publicación requiere aprobar los textos y verificar los proveedores y mecanismos operativos.</p>
-        </aside>
-      )}
       <h1 className="page-title">{content.title}</h1>
       {content.blocks.map((block, index) => {
         if (block.kind === "heading" && "text" in block) return <h2 key={index}>{block.text}</h2>;

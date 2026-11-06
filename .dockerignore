@@ -32,10 +32,11 @@
 !/scripts/backend-artifact.sh
 !/scripts/prepare-legal-content.mjs
 
-!/deploy/public-production/keycloak/legal-review.json
+!/deploy/public-production/keycloak/import/gameometro-realm.json
 
 !/docker/
 !/docker/keycloak/
+!/docker/keycloak/import/videogame-platform-realm.json
 !/docker/keycloak/themes/
 !/docker/keycloak/themes/**
 !/docker/keycloak/remember-me-mapper/

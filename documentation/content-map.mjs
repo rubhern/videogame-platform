@@ -47,7 +47,7 @@ export const groups = [
     ['docs/development/observability.md', 'Observability'],
     ['docs/development/operations-runbook.md', 'Operations & acceptance evidence'],
     ['docs/development/data-protection.md', 'Data protection & rights procedures'],
-    ['docs/legal/public-texts-es.md', 'Spanish legal texts · draft for review'],
+    ['docs/legal/public-texts-es.md', 'Spanish legal texts · owner-approved'],
   ]],
   ['Research & history', [
     ['docs/research/README.md', 'Research index & limitations'],
