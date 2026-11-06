@@ -30,6 +30,7 @@ what the repository checks and what only a real host can prove.
 | [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
 | [`../../scripts/prepare_private_production.py`](../../scripts/prepare_private_production.py), [`../../scripts/install_private_production.py`](../../scripts/install_private_production.py) | Separately reviewed #276 private bundle and fresh-host bootstrap; no update, reset or public exposure |
 | [`../../scripts/private_production_acceptance.py`](../../scripts/private_production_acceptance.py) | [Post-acceptance transition](#post-acceptance-runtime-transition) of an installed private runtime: restart policy, reviewed ceilings and the localization dashboard and view |
+| [`../../scripts/private_production_upgrade.py`](../../scripts/private_production_upgrade.py) | [In-place upgrade](#in-place-upgrade-of-the-installed-runtime) of an accepted private runtime to validated trusted-main publications |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
@@ -63,7 +64,9 @@ an authorized rollout. It changes only the shared session fields and BFF mapper;
 repeated applies without drift do nothing. Restore with the same target and scope
 plus `--restore <session-snapshot>`. The command's full private-dev identity policy
 must never be applied to production. Rollback must account for remembered SSO and
-BFF revocation, not just restoring an older image.
+BFF revocation, not just restoring an older image. The
+[in-place upgrade](#in-place-upgrade-of-the-installed-runtime) runs this command during
+its reviewed sequence; do not run it separately on a runtime that upgrade owns.
 
 This is prepared configuration, never deployed or publicly enabled. Actual HTTPS,
 cookie and manual restart/renewal acceptance remains a real-host gate.
@@ -446,9 +449,8 @@ wrappers refuse startup unless it contains `READY` without `PENDING.json`. Only 
 owner recovery actor writes that volume. Its private `--state` directory is an
 **owner-side journal**, outside Git, separate from the runtime volume. Preserve it
 through an interrupted operation. Creating `READY` by hand bypasses the control and
-is not a recovery procedure. The future production promotion command must share
-this actor's runtime-volume lease and respect the startup guard; no production promotion command
-exists in this revision.
+is not a recovery procedure. The [in-place upgrade](#in-place-upgrade-of-the-installed-runtime)
+shares this actor's runtime-volume lease and respects the startup guard.
 
 Before first boot, the owner stages the trusted checkout, protected configuration,
 secret files and immutable-image provenance, validates the runtime inputs, and renders
@@ -1246,9 +1248,9 @@ Once a journal has been claimed, never rerun first install after success, failur
 volume, create `READY`, remove a fence, reverse Flyway or run an ad-hoc Compose start
 to get past a refusal. There is no previous release to roll back to at first install.
 Use an assessed forward fix or separately authorized paired recovery on an empty
-target; any disposal needs a separate exact-target decision. Future updates require a
-different reviewed procedure with installed-state, schema compatibility and recovery
-proof. This adapter deliberately implements no update, force, reset or rollback mode.
+target; any disposal needs a separate exact-target decision. Updates use the separate
+[in-place upgrade](#in-place-upgrade-of-the-installed-runtime). This adapter deliberately
+implements no update, force, reset or rollback mode.
 
 ### Failed synthetic bootstrap disposition
 
@@ -1370,7 +1372,185 @@ works while the gate is closed. It keeps the higher ceiling, plugin policy, dash
 view, which are harmless without their consumers. Reversing those needs a separately
 reviewed recreate. The view is additive and never needs removal for an older application.
 The [runbook checklist](../../docs/development/operations-runbook.md#private-production-localization-and-grafana-stabilization)
-owns the authorized sequence.
+owns the authorized sequence. Once an upgrade claims the runtime, this transition refuses:
+its file no longer describes what runs.
+
+### In-place upgrade of the installed runtime
+
+**Implemented for review; not executed on any host.**
+[`private_production_upgrade.py`](../../scripts/private_production_upgrade.py) moves an
+[accepted](#post-acceptance-runtime-transition) private runtime to the validated publications
+of one newer trusted-main commit. It is not a first install, a deployment platform or
+public acceptance, and it never edits the installation journal or the signed candidate. The
+[runbook checklist](../../docs/development/operations-runbook.md#private-production-in-place-upgrade)
+owns the authorized sequence; this section owns the contract.
+
+| Mode | Effect |
+|---|---|
+| None (plan) | Read-only: prints the plan and its hash. Its only effects are a private scratch directory it removes and bounded helper containers without network or write access to state |
+| `--stage` | Writes the immutable bundle `/srv/gameometro/installations/<sha12>-private` and pulls absent pinned digests. The runtime is untouched |
+| `--apply` | Runs the upgrade under the backup fence, for the reviewed hash and an owner reference |
+| `--resume` | Fences again and repeats the same claimed upgrade |
+| `--abandon` | Returns an upgrade whose schema and identity did not advance to the backup's own fence, so `recovery thaw` works |
+| `--forward-fix-of <failed-sha>` | With plan, `--stage` and `--apply`: replaces a failed target with a newer published one, under the original recovery point |
+| `--verify`, `--inspect` | Read-only comparison with the activation; journal and fence diagnostics with the recovery boundary |
+
+There is no force, skip or rollback mode. Target selection is the full source SHA alone: the
+digests come from that commit's retained publication records, checked against its
+successful build and security runs and strict ancestry over the active source.
+
+**What the target is.** The plan exports the target's operational sources, verifies them
+against the trusted Git tree, and renders that source's base and observability Compose with
+the installed non-secret inputs and the
+[reviewed private delta](#private-first-installation-and-validation). It then compares the
+result with the active configuration:
+
+| Difference | Outcome |
+|---|---|
+| None, and identical bound bytes | The service keeps its exact definition and is not recreated. PostgreSQL always takes this path |
+| Published image (application, migration, Keycloak, edge, localizer) | Allowed, then recreated |
+| The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory ceiling | Allowed, listed by field and setting name, then recreated |
+| Any other existing setting, issuer, `KC_*` or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
+| Any change to PostgreSQL, or an observability image | Refused: outside this procedure |
+| A different runtime-input inventory, or a realm import change outside the migration below | Refused until a reviewed change covers it |
+
+The result must keep `restart: unless-stopped` on persistent services, `restart: no` on the
+one-shot actor, the accepted localizer ceiling and Grafana plugin policy, the mounted
+localization dashboard, the same image for migration and application, zero publications, and
+scheduling, Telegram and the [account-deletion overlay](#optional-automatic-account-deletion)
+off. Installation run and configuration labels survive unchanged on every service; a new label
+names the upgrade on recreated ones.
+
+**Refusals before any change.** No recorded completed installation and transition, drifted live
+containers, an unfinished upgrade, an unreviewed plan hash, a staged bundle differing from it,
+an unsupported Docker version, an unsynchronized clock, insufficient memory or disk, invalid
+TLS, secret or model inputs, or a truststore lacking the target JVM's anchors or the private
+CA. An applied migration that differs from the target also refuses, as do a failed Flyway row,
+a database ahead of the target and an out-of-order pending migration, or a target that would
+replace the accepted dashboard with an older copy. The plan also proves the Keycloak administrator
+credential while Keycloak runs, because the realm migration needs it only after Flyway.
+
+**Recovery point.** A manual `pg_dump` never qualifies. Apply requires one
+[canonical pair](#paired-backup-and-recovery-candidate) under 24 hours old, captured from the
+active configuration with its images, whose ciphertext verifies, plus a receipt of
+its off-host copy (`recovery pull` on the destination, or `publish`) and of an isolated restore
+of that same pair. The two receipts are owner-supplied attestations that the host cannot
+independently prove. Writers must still be closed by that backup: its journal phase and
+pair identity must match, roles must be `NOLOGIN` and drained, and the schema identities
+must equal the manifest. A thaw in between therefore needs a new pair, and `--resume`, `--abandon`
+and a forward fix check the same continuity: a stale fence is never recreated over writes the pair
+did not capture. Recorded synchronization or unexpired translation claims refuse too; resolve them
+before fencing.
+
+**Sequence.** Everything runs under the recovery lease and the identity fence, so backup,
+restore, thaw and identity maintenance refuse throughout and after an interruption.
+
+1. Claim the journal and replace the backup's journal phase, so `recovery thaw` now refuses.
+2. Run the **target image's** one-shot actor, then verify the history against the target. Only its
+   role can log in, for this step alone. The gate **stays closed**: the reviewed wrapper refuses a
+   closed gate, so this tool, holding the lease and the identity fence, runs the program that wrapper
+   guards. Every other start of the actor is still refused.
+3. Re-apply the target's monitoring reader grants. Existing reader settings are kept and rechecked.
+4. Allow only Keycloak's role, start the target Keycloak, and reconcile the realm.
+5. Replace the superseded edge, application, localizer and Grafana containers with stopped target
+   ones, and name the target in `upgrades/ACTIVE.json`. No superseded container remains to start.
+6. Reopen roles and gate, release the identity fence, then start monitoring, the edge and the
+   application in that order. The edge precedes the application because the BFF validates its issuer
+   through it. The localizer and Grafana start last.
+7. Smoke source, version, health, private TLS, denied routes, the issuer contract, an
+   anonymous personal-route refusal and a catalogue read, plus monitoring, reader and row counts.
+
+**Optional services.** The localizer and Grafana stay [optional for product readiness](#post-acceptance-runtime-transition):
+either may be stopped before the upgrade, and the upgrade starts both, as the transition does. If one
+does not become healthy, the journal and `--verify` report it in `optionalDegraded` and the product is
+not fenced for it. A failed required service, or a cancellation, fences the runtime.
+
+**Existing realm.** Keycloak's startup import skips an existing realm, so a new image does not
+migrate it. The tool runs the shared
+[`--sessions-only` alignment](#remember-me-provider-compatibility) on the private identity
+network, with the administrator password crossing stdin, never an import. It changes only the
+five session settings and the BFF Remember Me mapper, writes a snapshot before any change, and is a
+no-op when repeated. A half-applied realm converges on resume. Digests of accounts, credentials,
+role, group and identity links, every other realm column, attribute, flow, component, localization
+and mail setting, and every client, scope and mapper must stay equal, or the fence stays closed. A
+realm import that differs in anything else refuses at plan time; the registration notice changed
+by the legal publication is such a change, so targets from that commit on need a reviewed extension.
+
+**Interruption.** `upgrades/<sha>/upgrade.json` records the phase durably, with sanitized
+reasons, before each step. A handled failure fences again, stops the writers and records whether
+containment was confirmed. Every step checks its own postcondition, so `--resume` repeats
+them from the canonical fence: Flyway has nothing pending, and the realm is already aligned.
+`--resume` and `--abandon` verify the operator bytes against the claimed fingerprint offline, so a
+GitHub outage cannot strand them; a newer operator revision must prove its publication first.
+
+| Stopped at | State | Exit |
+|---|---|---|
+| Before any change | Nothing claimed; the backup fence still stands | Fix the cause and retry, or `recovery thaw` |
+| Claimed, schema and identity unchanged | Upgrade fence; thaw refuses | `--resume`, or `--abandon` then thaw |
+| Flyway ran or Keycloak started | Same, and an older image is no longer assumed safe | `--resume`, then `--forward-fix-of`, or a paired restore |
+| After reopening | Re-fenced on a handled failure. After `SIGKILL` or host loss the gate stays open on target containers | `--inspect`, then `--resume` or `--forward-fix-of` |
+| Migration actor still running, or a failed Flyway row | Resume refuses; no second actor starts | Wait and inspect, or forward fix or paired restore; never `flyway repair` by hand |
+
+**Abrupt termination.** `SIGKILL`, a daemon restart or host loss cannot run any cleanup; an observable
+session loss or `SIGTERM` does fence again. Safety before reopening therefore rests only on durable
+state: the closed gate, the `PENDING.json` phase, the identity fence and PostgreSQL `NOLOGIN`.
+
+| Attempt while an upgrade is pending | Result |
+|---|---|
+| Daemon restart or abrupt loss | Stopped writers stay stopped, a never-started container stays down, one-shot actors do not rerun, and gate, fence and role state persist. PostgreSQL rolls back an in-flight transaction |
+| Start of the superseded or target application | Its wrapper refuses before reading a secret |
+| Start of either migration actor by its normal entrypoint | Its wrapper refuses |
+| Start of the superseded Keycloak | Its role is `NOLOGIN`, so it cannot reach its database. Once the target Keycloak is running, it is private and the edge still refuses |
+| Start of the edge | Both hosts answer maintenance |
+| `recovery backup`, `thaw`, `reopen`, identity maintenance | Refused by the fence or the phase |
+
+An orphaned actor may finish its migration after the controller died, which `--resume` then finds
+applied. Only the migrator role can log in during that window. After reopening there is deliberately
+no fence: only target containers remain, and starting a service from a superseded file is the one
+remaining mistake, which [root is always able to make](#paired-backup-and-recovery-candidate).
+
+Forward-only limits: migrations are never reversed and no older image is started after they
+ran. Returning to the pair means a separately authorized
+[paired restore on an empty target](#restoration-and-deletion-gate) with the pair's image set,
+never over live volumes, and it loses any writes made after reopening. Previous digests and
+configuration stay in the journal and the old bundle is kept; no image or bundle is deleted.
+
+**After an upgrade.** Use the `configurationFile` in `upgrades/ACTIVE.json` for any later Compose
+command and for `recovery --config`, with `recovery` from the same bundle. Older files would
+revert images when they recreate a service. The file is named from just before reopening.
+
+**Deliberate trade-offs.**
+
+- *The migration actor runs around its wrapper, not behind an open gate.* Opening the gate for it left
+  a durable open gate after any abrupt death. The exception is one reviewed entrypoint, only under this
+  tool's own lease and fence; every other start keeps the guard.
+- *The backup's fence stays closed through the upgrade.* The pair is then exactly the
+  pre-upgrade state, at the cost of downtime that includes the off-host copy and restore check.
+- *A restore receipt is mandatory.* It lengthens that window, but a checksum alone does not show
+  that a pair restores before a forward-only change.
+- *The reviewed scope is narrow.* PostgreSQL, observability images, realm changes beyond the
+  session migration and new runtime inputs refuse, and each needs a reviewed extension of this
+  tool. This is cheaper than a generic deployment engine for one private host.
+- *Reopening precedes the smoke*, because the BFF needs the edge and identity to start. A failed
+  smoke re-fences, but writes in that short private window are newer than the pair.
+- *Local image identity is preferred* when a digest is already pulled: it is content-addressed, so
+  a registry outage or rate limit does not block a plan. CI and security evidence stays mandatory.
+
+**Local evidence.** `scripts/test-private-production-upgrade.py` covers the delta, evidence, continuity
+and phase matrices with a fake host, and the exact first pair's rendered delta.
+`scripts/rehearse-private-production-upgrade.py` runs real images on disposable PostgreSQL, Keycloak,
+edge, application and monitoring with synthetic accounts: a real paired backup and isolated restore,
+real `SIGKILL` of the controller with the actor in flight, with the realm half migrated and after
+reopening, a contained `SIGTERM`, every start in the table above, and preservation of identity, rows,
+reader settings, unchanged containers and provenance. `scripts/test-private-production-restart-docker.py`
+proves the daemon rows on a disposable real daemon.
+
+They do **not** cover: a host reboot, the VPS's Docker pair or real volumes; catalogue-scale
+migration duration; node-exporter, which Docker Desktop cannot mount; localization, because no model is
+supplied and the localizer is only exercised as a failing optional service; a real off-host copy
+(simulated receipt); operational publication, which needs a merged revision; or the installer's input
+contract against real protected paths, which has a contract test only. The rehearsal also accepts
+Docker Desktop's spelling of directory binds and skips the Docker data-root disk check.
 
 ### Before any real user data
 

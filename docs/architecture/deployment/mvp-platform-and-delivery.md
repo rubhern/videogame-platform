@@ -802,6 +802,11 @@ promotion path is optional later, not a launch prerequisite. Migration is a one-
 actor before application replacement; dependencies/config/secrets have separate
 reviewed rollouts. No automatic merge-to-production or extra staging environment.
 
+The installed private runtime upgrades only through the owner-run, forward-only
+[in-place upgrade](../../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime),
+which consumes the write fence of a verified paired backup and never restores over live
+volumes or returns to an older image after its migrations or realm change.
+
 Retain the previous digest and recovery point. Failed migration prevents activation;
 failed readiness/smoke is recorded as failure. An application rollback requires
 schema compatibility; otherwise use a forward fix or assessed restore. Never revert

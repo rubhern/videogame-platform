@@ -222,10 +222,13 @@ class Apply(unittest.TestCase):
         self.transition.accepted = acceptance.accepted_configuration(self.transition.runtime, ROOT)
         self.transition.accepted_sha = acceptance.digest(acceptance.canonical(self.transition.accepted))
         self.backup = self.admin / 'manifest.json'
-        self.backup.write_text(json.dumps(manifest(recoveryPoint=datetime.now(timezone.utc).isoformat())))
+        self.backup.write_text(json.dumps(manifest()))
         self.recovery = FakeRecovery(self.log)
         self.running_failure = None
+        verify_backup = acceptance.verify_backup
         self.scope = [patch.object(acceptance, 'load_recovery', side_effect=lambda *_: self.recovery),
+                      # A fixed clock: the host's wall clock steps backwards, which a "now" fixture would read as future.
+                      patch.object(acceptance, 'verify_backup', side_effect=lambda value, images: verify_backup(value, images, now=NOW)),
                       patch.object(acceptance.install, 'secure'),
                       patch.object(acceptance.install, 'verify_operational'),
                       patch.object(install.Host, 'compose', autospec=True, side_effect=self.compose),
@@ -307,7 +310,7 @@ class Apply(unittest.TestCase):
         self.assert_refused_without_change()
 
     def test_stale_backup_refuses(self):
-        self.backup.write_text(json.dumps(manifest()))
+        self.backup.write_text(json.dumps(manifest(recoveryPoint=(NOW - acceptance.BACKUP_MAX_AGE - timedelta(seconds=1)).isoformat())))
         self.assert_refused_without_change()
 
     def test_unreviewed_hash_or_missing_reference_refuses(self):

@@ -1320,6 +1320,131 @@ compose() { docker compose -p gameometro-production -f "$runtime" --profile '*' 
    describe. An unrecoverable data problem follows the paired-recovery procedure on an empty
    target, never a change to the live volume.
 
+### Private production in-place upgrade
+
+The [upgrade contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
+owns behaviour, refusals and forward-recovery limits. This checklist is **prepared, not executed**:
+every host step needs separate owner authorization, and a failed step stops the sequence.
+
+**Prerequisites:**
+
+- The [stabilization checklist](#private-production-localization-and-grafana-stabilization)
+  is complete, so `private_production_acceptance.py --verify` passes.
+- This tool is merged with green trusted-main CI. Its revision and the target are separate identities:
+  the tool may be newer than the target.
+- The target has green build and security runs, and is still within its 30-day publication retention,
+  as is the operator revision. Past that, plan refuses; choose a newer target.
+- The target's realm import differs from the active one only by the
+  [reviewed session migration](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime).
+- `control.SUPPORTED` lists the host's exact Docker and Compose pair. Otherwise the plan refuses.
+- The owner has a maintenance window for the whole fenced period, an independent destination, and a
+  machine with the decryption keyring, Docker and this repository for the restore check.
+
+**Never during this procedure:** the first installer, `down -v`, volume, journal or bundle deletion,
+`prune`, a manual `READY` or fence removal, `flyway repair`, an older image, an ad-hoc Compose start,
+a restore over live volumes, the account-deletion overlay, a backfill or public ingress.
+
+Run every host step as root, attached to the interactive SSH session: no `nohup`, and stdin stays open.
+
+1. **Stage the operator source and target commit.** Follow the
+   [root-owned checkout rules](../../deploy/public-production/README.md#future-authorized-host-sequence)
+   for `/srv/gameometro/operations/REVIEWED_SHA`, make the target commit available in the
+   administration checkout, and record the fingerprint. This does not touch the runtime.
+
+   ```bash
+   tool=/srv/gameometro/operations/REVIEWED_SHA/scripts
+   python3 "$tool/install_private_production.py" --print-adapter-fingerprint
+   git -C /srv/gameometro/repo fetch origin main
+   ```
+
+2. **Review the plan while the runtime is open.** It is read-only. Record `planSha256`, and compare
+   source SHAs, digests, Flyway change set, realm delta, changed services and setting names, and
+   prerequisites with the issue that authorizes this upgrade. `keycloakAdministratorAuthenticates`
+   must be `true` here: nothing can prove it once writers are fenced, and the realm migration needs it
+   after Flyway. Any refusal is a stop: correct the cause, not the check.
+
+   ```bash
+   upgrade() { python3 "$tool/private_production_upgrade.py" --target-revision "$TARGET_SHA" --operational-revision REVIEWED_SHA --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256" "$@"; }
+   upgrade | python3 -m json.tool
+   ```
+
+3. **Stage the bundle.** Review `compose.target.json` and `upgrade-plan.json` in the bundle. The
+   runtime is still untouched.
+
+   ```bash
+   upgrade --stage --plan-sha256 "$REVIEWED_PLAN_SHA256"
+   ```
+
+4. **Take the pair; writers stay closed from here.** Use the active configuration and the recovery
+   actor of the same bundle. The first upgrade uses `compose.accepted.json` and the installed
+   candidate. Later ones use `configurationFile` from `upgrades/ACTIVE.json` and its bundle. Do **not** `thaw`.
+
+   ```bash
+   admin=/var/lib/gameometro/production
+   recovery=/srv/gameometro/installations/9ffc05a-private/candidate/deploy/public-production/bin/recovery
+   python3 "$recovery" backup --config "$admin/compose.accepted.json" --project gameometro-production \
+     --state "$admin/first-install/recovery" --keyring /protected/public-keyring --recipient OWNER_40_HEX_FINGERPRINT \
+     --destination /protected/backups/NEW_PAIR --receipt /protected/receipts/backup.json
+   python3 "$recovery" verify --backup /protected/backups/NEW_PAIR --receipt /protected/receipts/integrity.json
+   ```
+
+5. **Prove it elsewhere.** On the independent destination,
+   [pull and verify](../../deploy/public-production/README.md#independently-secured-copy-and-retention)
+   the pair. On the owner machine that holds the decryption keyring, restore it into a throwaway
+   PostgreSQL with synthetic role passwords. Compare its size with free `/dev/shm`, disk and the
+   destination first. Copy both sanitized receipts to the host, root-owned at 0600.
+
+   ```bash
+   python3 scripts/rehearse-private-production-upgrade.py --restore-check \
+     --backup /protected/independent-backups/NEW_PAIR --keyring /owner/private-keyring \
+     --receipt /protected/receipts/restore.json
+   ```
+
+6. **Confirm the fenced plan, then apply.** The hash must be unchanged and `writersFencedByBackup`
+   true. The apply needs the owner's separate authorization reference.
+
+   ```bash
+   upgrade --plan-sha256 "$REVIEWED_PLAN_SHA256" | python3 -m json.tool
+   upgrade --apply --plan-sha256 "$REVIEWED_PLAN_SHA256" --backup /protected/backups/NEW_PAIR \
+     --offhost-receipt /protected/receipts/pull.json --restore-receipt /protected/receipts/restore.json \
+     --owner-reference "$OWNER_DECISION_REFERENCE"
+   ```
+
+   A refusal before the claim changes nothing: to end the window, run `recovery thaw` and restart
+   the consumers as in the [stabilization checklist](#private-production-localization-and-grafana-stabilization).
+
+7. **Verify.** Expect the target version, zero published ports and every service healthy. Then, over
+   private access, sign in with the owner's existing account, with and without Remember Me, read the
+   catalogue, and check that the Grafana localization panels load. An `optionalDegraded` service is
+   recorded, not fenced: diagnose it, then start it from the active file.
+
+   ```bash
+   upgrade --verify
+   ```
+
+8. **Record the result.** Post sanitized results on the issue, including the final Flyway endpoint,
+   source and digests. Keep the pair and the old bundle. From now on use `configurationFile` from
+   `upgrades/ACTIVE.json`, as the [contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) requires.
+
+**If it stops.** Start read-only, and take the exit the
+[interruption table](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) gives:
+
+```bash
+upgrade --inspect | python3 -m json.tool
+```
+
+Do not start any service by hand; the
+[fence table](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) shows
+why that gains nothing. If `migrationActorRunning` is true, wait for it. A closed SSH session or a reboot
+needs no other action before this step. After a reboot, confirm PostgreSQL is back first.
+
+Once the owner accepts the cause as transient, `--resume --plan-sha256 "$REVIEWED_PLAN_SHA256"` repeats the
+claimed upgrade. `--abandon` applies only before the schema or identity moved.
+Otherwise publish a fix on `main`, then plan, `--stage` and `--apply` the newer SHA with
+`--forward-fix-of "$FAILED_SHA"`, or request a paired restore on an empty target. No older image returns.
+A forward-fix target carries the same realm-delta limit, so a fix built on a commit with another realm
+change also needs the tool extended first.
+
 ## Documentation portal
 
 Owner: [Private-dev portal procedure](../../deploy/private-dev/README.md#documentation-portal).
