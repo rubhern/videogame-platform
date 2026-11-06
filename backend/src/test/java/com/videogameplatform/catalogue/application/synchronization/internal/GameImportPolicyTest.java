@@ -17,16 +17,20 @@ class GameImportPolicyTest {
     @ParameterizedTest
     @EnumSource(
             value = ProviderWorkType.class,
-            names = {"MAIN_GAME", "REMAKE", "REMASTER", "STANDALONE_EXPANSION"})
+            names = {
+                "MAIN_GAME",
+                "REMAKE",
+                "REMASTER",
+                "STANDALONE_EXPANSION",
+                "PORT",
+                "EXPANDED_GAME"
+            })
     void importsWorksTheProductTreatsAsIndependent(ProviderWorkType type) {
         assertThat(GameImportPolicy.evaluate(work(type, "Fixture Work")))
                 .isEqualTo(GameImportPolicy.Decision.ACCEPTED);
     }
 
-    /**
-     * A port is the same work on another platform and the release model already expresses that, so
-     * importing one would split a single work into several games.
-     */
+    /** These depend on a parent work, are packaging or are not first-party works (#449). */
     @ParameterizedTest
     @EnumSource(
             value = ProviderWorkType.class,
@@ -38,7 +42,6 @@ class GameImportPolicyTest {
                 "BUNDLE",
                 "PACK",
                 "UPDATE",
-                "PORT",
                 "MOD",
                 "FORK",
                 "UNKNOWN"
@@ -63,7 +66,9 @@ class GameImportPolicyTest {
                         ProviderWorkType.MAIN_GAME,
                         ProviderWorkType.REMAKE,
                         ProviderWorkType.REMASTER,
-                        ProviderWorkType.STANDALONE_EXPANSION);
+                        ProviderWorkType.STANDALONE_EXPANSION,
+                        ProviderWorkType.PORT,
+                        ProviderWorkType.EXPANDED_GAME);
     }
 
     private static ProviderWork work(ProviderWorkType type, String title) {
