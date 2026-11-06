@@ -283,6 +283,9 @@ class Apply(unittest.TestCase):
         self.assertIn('SET LOCAL ROLE videogame_app_migrator', self.recovery.query)
         self.assertIn('GRANT SELECT ON catalogue.observability_localization_coverage TO videogame_grafana', self.recovery.query)
         self.assertEqual(self.recovery.query.count('GRANT'), 1)
+        for setting in ('jit = off', 'max_parallel_workers_per_gather = 0'):
+            self.assertIn(f'ALTER ROLE videogame_grafana SET {setting}', self.recovery.query)
+            self.assertIn(f'ALTER ROLE videogame_grafana SET {setting}', (acceptance.ROOT / 'deploy/private-dev/grafana/provision-reader.sql').read_text())
 
     def assert_refused_without_change(self):
         with self.assertRaises(trust.Refused):

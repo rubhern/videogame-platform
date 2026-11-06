@@ -1341,8 +1341,9 @@ recreates a service.
 
 The running application is unchanged. The
 coverage view reaches this runtime ahead of its Flyway history: the transition applies the
-same idempotent migration file under the migrator role, and grants it to the existing
-reader. A later application update replaces the view with itself. Nothing else is applied.
+same idempotent migration file under the migrator role, grants it to the existing reader and
+gives that reader the settings `provision-reader.sql` owns. A later application update replaces
+the view with itself. Nothing else is applied.
 
 Refusals, all before any runtime or database change:
 

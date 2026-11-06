@@ -461,6 +461,33 @@ class HostTests(unittest.TestCase):
             ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
                 host.verify_base_application()
 
+    def test_account_deletion_overlay_is_allowed_only_while_its_owner_flag_is_set(self):
+        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
+        overlay = "/opt/videogame-platform/deploy/private-dev/compose.account-deletion.yaml"
+        files = f"{base},{overlay}\n".encode()
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory) / "runtime.env"
+            with patch.object(host, "RUNTIME_ENV", runtime):
+                runtime.write_text("A=1\nPRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n", encoding="utf-8")
+                with patch.object(host.subprocess, "check_output", side_effect=[b"application-id\n", files]):
+                    host.verify_base_application()
+                # A base application may also gain the overlay on its first promotion.
+                with patch.object(host.subprocess, "check_output", side_effect=[b"application-id\n", f"{base}\n".encode()]):
+                    host.verify_base_application()
+                for flag in ("", "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=false\n", "#PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n",
+                             "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true # no\n"):
+                    runtime.write_text(flag, encoding="utf-8")
+                    with self.subTest(flag=flag), patch.object(host.subprocess, "check_output", side_effect=[
+                        b"application-id\n", files,
+                    ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
+                        host.verify_base_application()
+                runtime.write_text("PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n", encoding="utf-8")
+                for wrong in (f"{overlay},{base}", f"{base},{overlay},/tmp/custom.yaml", f"{base},/tmp/compose.account-deletion.yaml"):
+                    with self.subTest(files=wrong), patch.object(host.subprocess, "check_output", side_effect=[
+                        b"application-id\n", (wrong + "\n").encode(),
+                    ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
+                        host.verify_base_application()
+
     def test_shell_scp_injection_and_arbitrary_arguments_are_refused(self):
         for command in ("sh", "scp -t /tmp", COMMAND + "; id", COMMAND + " extra",
                         COMMAND.replace(REVISION, "$(id)"), COMMAND.replace(DIGEST, "latest")):
