@@ -51,6 +51,12 @@ final class ReleaseRangeSql {
             " OR (rs.date_precision IN ('month', 'quarter', 'year')"
                     + " AND rs.period_end >= CAST(:evaluatedOn AS date))";
 
+    /**
+     * The explorer's default range, without approximate dates: the candidates Destacados shares
+     * with it (FEAT-001).
+     */
+    static final String DEFAULT_RANGE_PREDICATE = RANGE_PREDICATE + ")";
+
     private ReleaseRangeSql() {}
 
     record RangePredicate(String predicate, Map<String, Object> parameters) {}
@@ -58,7 +64,9 @@ final class ReleaseRangeSql {
     static RangePredicate range(
             LocalDate from, LocalDate to, LocalDate evaluatedOn, boolean includeApproximateDates) {
         String predicate =
-                RANGE_PREDICATE + (includeApproximateDates ? APPROXIMATE_BRANCH : "") + ")";
+                includeApproximateDates
+                        ? RANGE_PREDICATE + APPROXIMATE_BRANCH + ")"
+                        : DEFAULT_RANGE_PREDICATE;
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("rangeFrom", from);
         parameters.put("rangeTo", to);

@@ -2,12 +2,15 @@ package com.videogameplatform.catalogue.adapter.persistence.releases;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.Sort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.Item;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,9 +30,9 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * PostgreSQL evidence for UC-010: which releases qualify for a week or a month, how their games rank
- * by the local popularity signal, how ties and missing signals behave, and which releases are
- * presented.
+ * PostgreSQL evidence for UC-010: the selection is the head of the release explorer's Hypes order,
+ * so which releases qualify for a week or a month, how their games rank, how ties and missing
+ * signals behave, and which releases are presented all match that read.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 class JdbcFeaturedReleaseReadAdapterIntegrationTest {
@@ -46,6 +49,8 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
 
     /** ISO week 53 of 2032 runs from Monday 27 December 2032 to Sunday 2 January 2033. */
     private static final LocalDate WEEK_53_OF_2032 = LocalDate.parse("2032-12-27");
+
+    private static final YearMonth MARCH_2035 = YearMonth.of(2035, 3);
 
     private static JdbcTemplate admin;
     private static JdbcFeaturedReleaseReadAdapter adapter;
@@ -73,16 +78,18 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                 adapter(migrate(PostgreSqlTestDatabase.isolatedDatabaseName("featured_empty")));
         seedOctober();
         seedYearEndWeek();
+        seedEveryKindOfRelease();
     }
 
     @Test
-    void ranksByHypesThenUniqueGameIdAndKeepsOnlyTheBoundedTop() {
+    void ranksByHypesThenTheExplorerDateOrderAndKeepsOnlyTheBoundedTop() {
         var result = adapter.findFeaturedReleases(criteria(OCTOBER, 6, 25)).orElseThrow();
 
-        // Equal signals (Bravo, Charlie) are ordered by the unique game id; the seventh is cut.
+        // Equal signals (Charlie, Bravo) follow the explorer's date order, the earlier day first;
+        // the seventh is cut.
         assertThat(result.items())
                 .extracting(Item::canonicalTitle)
-                .containsExactly("Alpha", "Delta", "Bravo", "Charlie", "Lima", "Mike");
+                .containsExactly("Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Kilo");
         assertThat(result.qualifyingReleases()).isTrue();
         assertThat(result.items().getFirst().summary()).isPresent();
         assertThat(result.items().stream().skip(1))
@@ -94,14 +101,91 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
+    void isExactlyTheHeadOfTheExplorerHypeOrderForAnyPeriodDateAndPlatforms() {
+        var periods =
+                List.of(
+                        new Period(OCTOBER.atDay(1), OCTOBER.atEndOfMonth()),
+                        new Period(LocalDate.parse("2026-11-01"), LocalDate.parse("2026-11-30")),
+                        new Period(LocalDate.parse("2026-09-28"), LocalDate.parse("2026-10-04")),
+                        new Period(WEEK_53_OF_2032, WEEK_53_OF_2032.plusDays(6)),
+                        new Period(MARCH_2035.atDay(1), MARCH_2035.atEndOfMonth()),
+                        new Period(MARCH_2035.atDay(5), MARCH_2035.atDay(11)));
+        var platformSelections = List.of(List.<String>of(), List.of(WINDOWS), List.of(PS5, XBOX));
+        for (Period period : periods) {
+            for (LocalDate evaluatedOn :
+                    List.of(
+                            period.from().minusDays(40),
+                            period.from().plusDays(3),
+                            period.to().plusDays(40))) {
+                for (List<String> platforms : platformSelections) {
+                    var featured =
+                            adapter.findFeaturedReleases(
+                                            new FeaturedReleaseReadPort.Criteria(
+                                                    period.from(),
+                                                    period.to(),
+                                                    evaluatedOn,
+                                                    6,
+                                                    25,
+                                                    platforms))
+                                    .orElseThrow()
+                                    .items();
+                    var head = explorerHead(period, evaluatedOn, platforms);
+
+                    assertThat(featured)
+                            .as("%s evaluated on %s for %s", period, evaluatedOn, platforms)
+                            .extracting(Item::canonicalTitle)
+                            .containsExactlyElementsOf(
+                                    head.stream()
+                                            .map(ReleaseBrowseReadPort.Item::canonicalTitle)
+                                            .toList());
+                    for (int i = 0; i < featured.size(); i++) {
+                        assertThat(featured.get(i).releases())
+                                .as("%s releases in %s", featured.get(i).canonicalTitle(), period)
+                                .isEqualTo(head.get(i).releases());
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void portsRemakesEditionsEveryStageAndUnknownFirstReleasesAllCompete() {
+        var items =
+                adapter.findFeaturedReleases(criteria(MARCH_2035, 50, 25)).orElseThrow().items();
+
+        // Hypes alone decide: first-release evidence, product eligibility and stage never exclude.
+        // Whiskey and X-ray tie on Hypes and day, so the case-insensitive title decides; Yankee
+        // ties
+        // them on Hypes with a later day. Zulu has no signal and is never ranked.
+        assertThat(items)
+                .extracting(Item::canonicalTitle)
+                .containsExactly(
+                        "Old Port",
+                        "Edition",
+                        "Early Access",
+                        "Advance Access",
+                        "Beta Build",
+                        "Unknown First",
+                        "Remake",
+                        "whiskey",
+                        "X-ray",
+                        "Yankee");
+        assertThat(items.stream().filter(item -> item.canonicalTitle().equals("Early Access")))
+                .singleElement()
+                .satisfies(
+                        item ->
+                                assertThat(item.releases().getFirst().stage())
+                                        .isEqualTo(ReleaseStage.EARLY_ACCESS));
+    }
+
+    @Test
     void restrictsCandidatesToThePlatformsBeforeRankingAndLimiting() {
-        // Unrestricted, the top two are Alpha and Delta. Restricted to Windows, Mike (sixth
-        // overall)
-        // takes the second slot: the ranking is that of the restricted candidates, never a filtered
-        // copy of the unrestricted top.
+        // Unrestricted, the top two are Juliett and Alpha. Restricted to Windows, Mike (far below
+        // them overall) takes the second slot: the ranking is that of the restricted candidates,
+        // never a filtered copy of the unrestricted top.
         assertThat(adapter.findFeaturedReleases(criteria(OCTOBER, 2, 25)).orElseThrow().items())
                 .extracting(Item::canonicalTitle)
-                .containsExactly("Alpha", "Delta");
+                .containsExactly("Juliett", "Alpha");
         var windows =
                 adapter.findFeaturedReleases(restricted(OCTOBER, 2, List.of(WINDOWS)))
                         .orElseThrow();
@@ -158,7 +242,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     void readsTheStoredFeaturedImageAndLogoOfEachRankedGameByRole() {
         var items = adapter.findFeaturedReleases(criteria(OCTOBER, 6, 25)).orElseThrow().items();
 
-        Item alpha = items.getFirst();
+        Item alpha = titled(items, "Alpha");
         assertThat(alpha.image())
                 .contains(
                         new MediaReference(
@@ -181,13 +265,15 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                                 320,
                                 true,
                                 "https://www.igdb.com/games/game-1"));
-        Item delta = items.get(1);
+        Item delta = titled(items, "Delta");
         assertThat(delta.image())
                 .hasValueSatisfying(
                         image -> assertThat(image.kind()).isEqualTo(ImageKind.SCREENSHOT));
         assertThat(delta.logo()).isEmpty();
         // A game without stored media still ranks; the read only completes what exists.
-        assertThat(items.subList(2, items.size()))
+        assertThat(items)
+                .filteredOn(item -> item != alpha && item != delta)
+                .isNotEmpty()
                 .allSatisfy(
                         item -> {
                             assertThat(item.image()).isEmpty();
@@ -196,35 +282,51 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
-    void qualifiesOnlyKnownDatesInsideTheMonthWithoutNegativeEvidenceOrPendingReview() {
-        var titles =
-                adapter
-                        .findFeaturedReleases(criteria(OCTOBER, 50, 25))
-                        .orElseThrow()
-                        .items()
-                        .stream()
-                        .map(Item::canonicalTitle)
-                        .toList();
+    void afterAPeriodEndedItsEndedDatesQualifyAndNegativeEvidenceDoesNot() {
+        var titles = titles(criteria(OCTOBER, 50, 25));
 
-        // The first and the last day qualify; the neighbouring days, a quarter period, cancelled,
-        // delayed and pending-review evidence never do, whatever their popularity. A game without
-        // a signal stays unranked. A beta never qualifies.
+        // The first and the last day and a month that ended qualify, and so do a beta and a release
+        // pending review. The neighbouring days, a quarter still open, cancelled evidence and a
+        // delayed day that has passed never do, whatever their popularity. A game without a signal
+        // stays unranked.
         assertThat(titles)
-                .containsExactly("Alpha", "Delta", "Bravo", "Charlie", "Lima", "Mike")
-                .doesNotContain("Echo", "Golf", "Hotel", "India", "Juliett", "Foxtrot", "December");
+                .containsExactly(
+                        "Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Kilo", "Lima", "Mike")
+                .doesNotContain("Echo", "Golf", "Hotel", "India", "Foxtrot", "December");
     }
 
     @Test
-    void presentsOneQualifyingReleasePerPlatformExactDayFirst() {
+    void beforeAPeriodStartsOnlyExactDaysQualifyAndADelayedDayStaysExpected() {
+        var titles =
+                titles(
+                        new FeaturedReleaseReadPort.Criteria(
+                                OCTOBER.atDay(1),
+                                OCTOBER.atEndOfMonth(),
+                                LocalDate.parse("2026-09-01"),
+                                50,
+                                25));
+
+        // Bravo is known only to the month, which has not ended: the explorer's default leaves it
+        // out, and so does Golf's quarter. India's delayed day is still expected.
+        assertThat(titles)
+                .containsExactly(
+                        "India", "Juliett", "Alpha", "Delta", "Charlie", "Kilo", "Lima", "Mike")
+                .doesNotContain("Bravo", "Golf");
+    }
+
+    @Test
+    void presentsOneQualifyingReleasePerPlatformInTheExplorerOrder() {
         Item alpha =
-                adapter.findFeaturedReleases(criteria(OCTOBER, 1, 25))
-                        .orElseThrow()
-                        .items()
-                        .getFirst();
+                titled(
+                        adapter.findFeaturedReleases(criteria(OCTOBER, 50, 25))
+                                .orElseThrow()
+                                .items(),
+                        "Alpha");
 
         // PlayStation 5 holds a Worldwide day and an earlier European day: the shared precedence
-        // presents Worldwide before the date order. The month precision release of another
-        // platform follows the exact day, and the European record stays stored, not presented.
+        // presents Worldwide before the date order. The month that ends later follows the exact
+        // day,
+        // and the European record stays stored, not presented.
         assertThat(alpha.releases())
                 .extracting(row -> row.platform().id() + "/" + row.region().id())
                 .containsExactly(PS5 + "/" + WORLDWIDE, WINDOWS + "/" + WORLDWIDE);
@@ -238,10 +340,11 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     @Test
     void boundsTheReleasesPresentedUnderEachRankedGame() {
         Item alpha =
-                adapter.findFeaturedReleases(criteria(OCTOBER, 1, 1))
-                        .orElseThrow()
-                        .items()
-                        .getFirst();
+                titled(
+                        adapter.findFeaturedReleases(criteria(OCTOBER, 50, 1))
+                                .orElseThrow()
+                                .items(),
+                        "Alpha");
 
         assertThat(alpha.releases()).singleElement();
     }
@@ -260,8 +363,16 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
 
     @Test
     void tellsAnUnrankedMonthApartFromAMonthWithoutQualifyingReleases() {
+        // December's only day has no signal, and Golf's quarter is still open on 1 December.
         var december =
-                adapter.findFeaturedReleases(criteria(YearMonth.of(2026, 12), 6, 25)).orElseThrow();
+                adapter.findFeaturedReleases(
+                                new FeaturedReleaseReadPort.Criteria(
+                                        LocalDate.parse("2026-12-01"),
+                                        LocalDate.parse("2026-12-31"),
+                                        LocalDate.parse("2026-12-01"),
+                                        6,
+                                        25))
+                        .orElseThrow();
         var empty =
                 adapter.findFeaturedReleases(criteria(YearMonth.of(2031, 2), 6, 25)).orElseThrow();
 
@@ -272,44 +383,105 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
-    void aWeekCrossingMonthsAdmitsOnlyExactDaysAndGamesFirstReleasedInsideIt() {
-        // Monday 28 September to Sunday 4 October 2026. Charlie's 1 October qualifies. Bravo is
-        // known only to October, which is never assigned to a week; Echo's 30 September is inside
-        // the week but its own first release is in November; Alpha's days fall outside the week.
-        var week =
-                adapter.findFeaturedReleases(week(LocalDate.parse("2026-09-28"), 50, 25))
+    void anOpenApproximateDateIsNotAQualifyingReleaseEvenWithHypes() {
+        // Golf's quarter has Hypes, but before it ends the explorer's default does not list it, so
+        // the period is empty rather than unranked. Once it ends it qualifies.
+        var open =
+                adapter.findFeaturedReleases(
+                                new FeaturedReleaseReadPort.Criteria(
+                                        LocalDate.parse("2026-12-14"),
+                                        LocalDate.parse("2026-12-20"),
+                                        LocalDate.parse("2026-12-01"),
+                                        6,
+                                        25))
+                        .orElseThrow();
+        var ended =
+                adapter.findFeaturedReleases(
+                                new FeaturedReleaseReadPort.Criteria(
+                                        LocalDate.parse("2026-12-14"),
+                                        LocalDate.parse("2026-12-20"),
+                                        LocalDate.parse("2027-01-01"),
+                                        6,
+                                        25))
                         .orElseThrow();
 
-        assertThat(week.items()).extracting(Item::canonicalTitle).containsExactly("Charlie");
-        assertThat(week.items().getFirst().releases())
+        assertThat(open.items()).isEmpty();
+        assertThat(open.qualifyingReleases()).isFalse();
+        assertThat(ended.items()).extracting(Item::canonicalTitle).containsExactly("Golf");
+    }
+
+    @Test
+    void anUpcomingWeekAdmitsOnlyExactDaysAcrossMonths() {
+        // Monday 28 September to Sunday 4 October 2026, read before it starts. Echo's 30 September
+        // and Charlie's 1 October are inside it; Alpha and Bravo are known to its month only, which
+        // has not ended, and Alpha's days fall outside the week.
+        var week =
+                adapter.findFeaturedReleases(
+                                week(
+                                        LocalDate.parse("2026-09-28"),
+                                        50,
+                                        25,
+                                        LocalDate.parse("2026-09-01")))
+                        .orElseThrow();
+
+        assertThat(week.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Echo", "Charlie");
+        assertThat(week.items().getLast().releases())
                 .extracting(ReleaseRow::releaseDate)
                 .containsExactly(new ReleaseDate.Day(LocalDate.parse("2026-10-01")));
     }
 
     @Test
-    void ranksAYearCrossingWeekByHypesThenUniqueGameIdPresentingOnlyItsDays() {
-        var week = adapter.findFeaturedReleases(week(WEEK_53_OF_2032, 6, 25)).orElseThrow();
+    void aPastWeekAlsoHoldsTheEndedCoarseDatesOverlappingIt() {
+        // As in the explorer, a month that has ended overlaps each of its weeks without being
+        // placed
+        // on an invented day.
+        var week =
+                adapter.findFeaturedReleases(
+                                week(
+                                        LocalDate.parse("2026-09-28"),
+                                        50,
+                                        25,
+                                        LocalDate.parse("2026-11-15")))
+                        .orElseThrow();
 
-        // Quebec leads; Oscar and Papa tie and keep the unique game id order across the new year.
-        // Romeo (month precision only), Sierra (first released the week before) and Tango (the
-        // Monday after) never qualify for the week, whatever their attention.
         assertThat(week.items())
                 .extracting(Item::canonicalTitle)
-                .containsExactly("Quebec", "Oscar", "Papa");
+                .containsExactly("Echo", "Alpha", "Charlie", "Bravo");
+        assertThat(titled(week.items(), "Alpha").releases())
+                .extracting(ReleaseRow::releaseDate)
+                .containsExactly(new ReleaseDate.Month(YearMonth.of(2026, 10)));
+    }
+
+    @Test
+    void ranksAYearCrossingWeekByHypesThenDatePresentingOnlyItsDays() {
+        var week =
+                adapter.findFeaturedReleases(
+                                week(WEEK_53_OF_2032, 6, 25, LocalDate.parse("2032-12-01")))
+                        .orElseThrow();
+
+        // Sierra leads with the full release inside the week, its earlier beta stays out. Oscar and
+        // Papa tie and keep their date order across the new year. Romeo (an open month) and Tango
+        // (the Monday after) stay out of the week, whatever their attention.
+        assertThat(week.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Sierra", "Quebec", "Oscar", "Papa");
         assertThat(week.qualifyingReleases()).isTrue();
         // Quebec's January month precision release stays out of the week's presentation.
-        assertThat(week.items().getFirst().releases())
+        assertThat(week.items().get(1).releases())
                 .extracting(ReleaseRow::releaseDate)
                 .containsExactly(new ReleaseDate.Day(LocalDate.parse("2032-12-31")));
-        assertThat(week.items().get(2).releases())
+        assertThat(week.items().getLast().releases())
                 .extracting(ReleaseRow::releaseDate)
                 .containsExactly(new ReleaseDate.Day(LocalDate.parse("2033-01-02")));
     }
 
     @Test
-    void theMonthKeepsItsOwnSemanticsBesideTheWeeksItHolds() {
-        // December 2032 admits Romeo's month precision and Sierra's earlier first release, which no
-        // week does; Papa's 2 January belongs to January.
+    void anEndedMonthHoldsItsCoarseDateBesideTheWeeksDays() {
+        // December 2032 has ended, so Romeo's month precision qualifies; Papa's 2 January belongs
+        // to
+        // January.
         var december =
                 adapter.findFeaturedReleases(criteria(YearMonth.of(2032, 12), 6, 25)).orElseThrow();
 
@@ -319,10 +491,15 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
-    void aWeekHoldingOnlyCoarserDatesHasNoQualifyingReleases() {
-        // Romeo is known only to December 2032; no week of December may claim it.
+    void aWeekHoldingOnlyAnOpenCoarserDateHasNoQualifyingReleases() {
+        // Romeo is known only to December 2032, which has not ended when this week is read.
         var week =
-                adapter.findFeaturedReleases(week(LocalDate.parse("2032-12-06"), 6, 25))
+                adapter.findFeaturedReleases(
+                                week(
+                                        LocalDate.parse("2032-12-06"),
+                                        6,
+                                        25,
+                                        LocalDate.parse("2032-12-01")))
                         .orElseThrow();
 
         assertThat(week.items()).isEmpty();
@@ -334,102 +511,114 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         assertThat(emptyCatalogueAdapter.findFeaturedReleases(criteria(OCTOBER, 6, 25))).isEmpty();
     }
 
-    @Test
-    void oldPortsEditionsMissingFirstDatesAndNeighbouringMonthsStayOutOfFeaturedButRemainStored() {
-        for (int i = 20; i <= 27; i++) {
-            game(i, "Excluded " + i, "9999");
-            day(
-                    i * 10,
-                    i,
-                    PS5,
-                    WORLDWIDE,
-                    "2026-10-15",
-                    "announced",
-                    "not_required",
-                    "full_release");
-        }
-        first(20, "2018-11-14"); // old Game, newly ported
-        first(21, "2026-09-30");
-        first(22, "2026-11-01");
-        first(23, null);
-        admin.update(
-                "UPDATE catalogue.game_featured_evidence SET eligible_product=false WHERE game_id=CAST(? AS uuid)",
-                gameId(24));
-        for (var stage :
-                java.util.Map.of(25, "early_access", 26, "alpha", 27, "unknown").entrySet()) {
-            admin.update(
-                    "UPDATE catalogue.release_snapshot SET release_stage=? WHERE game_id=CAST(? AS uuid)",
-                    stage.getValue(),
-                    gameId(stage.getKey()));
-        }
-        var items = adapter.findFeaturedReleases(criteria(OCTOBER, 50, 25)).orElseThrow().items();
-        assertThat(items).extracting(Item::canonicalTitle).noneMatch(t -> t.startsWith("Excluded"));
-        // Read as days still to come and as days that have happened.
-        for (var evaluatedOn :
-                java.util.List.of(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 11, 15))) {
-            var normal =
-                    browseAdapter
-                            .findPublishedReleases(
-                                    new com.videogameplatform.catalogue.application.releases.port
-                                            .ReleaseBrowseReadPort.Criteria(
-                                            new com.videogameplatform.catalogue.application.releases
-                                                    .port.ReleaseBrowseReadPort.Window(
-                                                    LocalDate.of(2026, 10, 1),
-                                                    LocalDate.of(2026, 10, 31)),
-                                            evaluatedOn,
-                                            com.videogameplatform.catalogue.application.releases
-                                                    .BrowseReleasesUseCase.Sort.RELEASE_DATE,
-                                            java.util.List.of(),
-                                            java.util.List.of(),
-                                            new com.videogameplatform.catalogue.application.releases
-                                                    .port.ReleaseBrowseReadPort.Pagination(
-                                                    1, 100, 0),
-                                            true,
-                                            25))
-                            .orElseThrow();
-            assertThat(normal.items())
-                    .extracting(
-                            com.videogameplatform.catalogue.application.releases.port
-                                            .ReleaseBrowseReadPort.Item
-                                    ::canonicalTitle)
-                    .contains(
-                            "Excluded 20",
-                            "Excluded 21",
-                            "Excluded 22",
-                            "Excluded 23",
-                            "Excluded 24",
-                            "Excluded 25",
-                            "Excluded 26",
-                            "Excluded 27");
-        }
-        assertThat(
-                        admin.queryForObject(
-                                "SELECT count(*) FROM catalogue.game_snapshot WHERE canonical_title LIKE 'Excluded%'",
-                                Integer.class))
-                .isEqualTo(8);
-        assertThat(
-                        admin.queryForObject(
-                                "SELECT count(*) FROM catalogue.release_snapshot WHERE game_id IN (SELECT game_id FROM catalogue.game_snapshot WHERE canonical_title LIKE 'Excluded%')",
-                                Integer.class))
-                .isEqualTo(8);
+    private record Period(LocalDate from, LocalDate to) {}
+
+    /** The explorer's Hypes order for the period, keeping only the games with positive Hypes. */
+    private static List<ReleaseBrowseReadPort.Item> explorerHead(
+            Period period, LocalDate evaluatedOn, List<String> platforms) {
+        var withHypes =
+                admin.queryForList(
+                        "SELECT game_id::text FROM catalogue.game_featured_evidence WHERE hypes > 0",
+                        String.class);
+        return browseAdapter
+                .findPublishedReleases(
+                        new ReleaseBrowseReadPort.Criteria(
+                                new ReleaseBrowseReadPort.Window(period.from(), period.to()),
+                                evaluatedOn,
+                                Sort.HYPE,
+                                platforms,
+                                List.of(),
+                                new ReleaseBrowseReadPort.Pagination(1, 100, 0),
+                                false,
+                                25))
+                .orElseThrow()
+                .items()
+                .stream()
+                .filter(item -> withHypes.contains(item.gameId()))
+                .limit(6)
+                .toList();
     }
 
+    private static List<String> titles(FeaturedReleaseReadPort.Criteria criteria) {
+        return adapter.findFeaturedReleases(criteria).orElseThrow().items().stream()
+                .map(Item::canonicalTitle)
+                .toList();
+    }
+
+    private static Item titled(List<Item> items, String title) {
+        return items.stream()
+                .filter(item -> item.canonicalTitle().equals(title))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    /** The whole month read two weeks after it ended, so its ended coarse dates qualify too. */
     private static FeaturedReleaseReadPort.Criteria criteria(
             YearMonth month, int limit, int releaseGroupLimit) {
         return new FeaturedReleaseReadPort.Criteria(
-                month.atDay(1), month.atEndOfMonth(), limit, releaseGroupLimit);
+                month.atDay(1),
+                month.atEndOfMonth(),
+                month.atEndOfMonth().plusDays(15),
+                limit,
+                releaseGroupLimit);
     }
 
     private static FeaturedReleaseReadPort.Criteria restricted(
             YearMonth month, int limit, List<String> platformIds) {
         return new FeaturedReleaseReadPort.Criteria(
-                month.atDay(1), month.atEndOfMonth(), limit, 25, platformIds);
+                month.atDay(1),
+                month.atEndOfMonth(),
+                month.atEndOfMonth().plusDays(15),
+                limit,
+                25,
+                platformIds);
     }
 
     private static FeaturedReleaseReadPort.Criteria week(
-            LocalDate monday, int limit, int releaseGroupLimit) {
+            LocalDate monday, int limit, int releaseGroupLimit, LocalDate evaluatedOn) {
         return new FeaturedReleaseReadPort.Criteria(
-                monday, monday.plusDays(6), limit, releaseGroupLimit);
+                monday, monday.plusDays(6), evaluatedOn, limit, releaseGroupLimit);
+    }
+
+    /** Every kind of release a game can feature with, far from the other fixtures. */
+    private static void seedEveryKindOfRelease() {
+        kind(40, "Old Port", "900", "2018-11-14", true, "full_release", "2035-03-20");
+        kind(41, "Edition", "890", "2035-03-02", false, "full_release", "2035-03-20");
+        kind(42, "Early Access", "880", "2035-03-03", true, "early_access", "2035-03-20");
+        kind(43, "Advance Access", "870", "2035-03-20", true, "advance_access", "2035-03-20");
+        kind(44, "Beta Build", "860", "2035-03-21", true, "beta", "2035-03-20");
+        kind(45, "Unknown First", "850", null, true, "unknown", "2035-03-20");
+        kind(46, "Remake", "840", "2035-03-22", true, "full_release", "2035-03-20");
+        // Ties on Hypes: the day, then the case-insensitive title, as the explorer orders them.
+        kind(47, "X-ray", "500", "2035-03-08", true, "full_release", "2035-03-08");
+        kind(48, "whiskey", "500", "2035-03-08", true, "full_release", "2035-03-08");
+        kind(49, "Yankee", "500", "2035-03-09", true, "full_release", "2035-03-09");
+        kind(50, "Zulu", null, "2035-03-10", true, "full_release", "2035-03-10");
+    }
+
+    private static void kind(
+            int game,
+            String title,
+            String hypes,
+            String firstRelease,
+            boolean eligible,
+            String stage,
+            String day) {
+        game(game, title, hypes);
+        first(game, firstRelease);
+        admin.update(
+                "UPDATE catalogue.game_featured_evidence SET eligible_product=? WHERE game_id=CAST(? AS uuid)",
+                eligible,
+                gameId(game));
+        day(
+                game * 10,
+                game,
+                game % 2 == 0 ? WINDOWS : PS5,
+                WORLDWIDE,
+                day,
+                "announced",
+                "not_required",
+                stage);
     }
 
     /** Candidates around ISO week 53 of 2032, far from the October fixtures. */
@@ -471,7 +660,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         day(11, 1, PS5, WORLDWIDE, "2026-10-15", "announced", "not_required", "full_release");
         day(12, 1, PS5, EUROPE, "2026-10-12", "announced", "not_required", "full_release");
         month(13, 1, WINDOWS, WORLDWIDE, 2026, 10);
-        // Bravo and Charlie tie on popularity; Bravo has the smaller game id.
+        // Bravo and Charlie tie on popularity; Charlie's day is earlier than Bravo's month end.
         game(2, "Bravo", "50");
         month(21, 2, XBOX, EUROPE, 2026, 10);
         game(3, "Charlie", "50");
@@ -485,7 +674,9 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         // Foxtrot qualifies but has no popularity signal: it is never ranked or invented.
         game(6, "Foxtrot", null);
         day(61, 6, PS5, WORLDWIDE, "2026-10-10", "announced", "not_required", "full_release");
-        // A quarter is wider than the month; negative or pending evidence never qualifies.
+        // An open quarter stays out by default; cancelled evidence never qualifies and a delayed
+        // day
+        // only while it is still expected. Pending review qualifies.
         game(7, "Golf", "99");
         quarter(71, 7, PS5, WORLDWIDE, 2026, 4);
         game(8, "Hotel", "98");
@@ -494,7 +685,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         day(91, 9, PS5, WORLDWIDE, "2026-10-12", "delayed", "not_required", "full_release");
         game(10, "Juliett", "96");
         day(101, 10, PS5, WORLDWIDE, "2026-10-12", "announced", "required", "full_release");
-        // A beta is excluded even with attention.
+        // A beta competes like any other release.
         game(11, "Kilo", "30");
         day(111, 11, PS5, WORLDWIDE, "2026-10-07", "announced", "not_required", "beta");
         game(12, "Lima", "20");

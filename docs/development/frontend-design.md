@@ -730,7 +730,8 @@ stretched target: **Ver ficha**, the primary ice action named with the game, and
 They share one row inside the G and take the full width on phones. Destacados keeps its hero
 without them. **Más destacados de la semana** follows, with **Ver todos los lanzamientos de la
 semana** (the explorer on the represented week) and up to four further featured releases of the week:
-the landscape art (a screenshot keeps the game's logo), the compact date after the fire needle, the
+the landscape art (a screenshot keeps the game's logo), the compact date after the fire needle with
+the [release-kind label](#featured-releases) beside it when there is one, the
 title as the card's only keyboard stop and pointer target, and up to three platform marks. They stand
 four in a row from 720px and read one line each, art beside the facts, below it.
 
@@ -907,7 +908,9 @@ keeping its name, and its region), up to two localized genres as quiet text, and
 readings. The hero shows no summary: the game page owns it, and the response keeps it. Missing
 enrichment is omitted without invented values. Ordinary lifecycle and Full Release labels are
 absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a
-chip. The canonical title is the native game link, its pointer target stretched over the hero,
+chip. A release that is not a full launch (#457) says so in the meta row, right after its date, as
+a quiet outlined label in ink (**Acceso previo**, **Acceso anticipado**, **Beta**, **Alfa**) and
+never in a warning's colours; the label appears only when it holds for every platform of that row. The canonical title is the native game link, its pointer target stretched over the hero,
 its keyboard focus outlining it, and pointing anywhere on it underlines the title. The IGDB score
 attribution remains a separate native link above that target; links never nest. Further
 release dates keep their overflow control immediately below and outside the linked frame.
@@ -933,7 +936,7 @@ context-selected media under `FEAT-003` in the
 existing decorative logo, and artwork is shown as it is. Beneath the frame come the compact
 period scale with the release's compact date, the title on one line (its full text stays the link
 and its tooltip) as the only keyboard stop, the readings, one release line with up to three
-platform marks, the exact `+N` and the region, then up to two localized genres and the overflow
+platform marks, the exact `+N`, the region and the same release-kind label, then up to two localized genres and the overflow
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
 period replaces the hero and the row with an informational or empty notice that names the

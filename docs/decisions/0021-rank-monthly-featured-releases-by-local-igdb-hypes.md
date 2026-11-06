@@ -4,7 +4,7 @@
 - **Date:** 2026-10-03
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
-- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151); amended by [#329](https://github.com/rubhern/videogame-platform/issues/329)
+- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151); amended by [#329](https://github.com/rubhern/videogame-platform/issues/329) and [#457](https://github.com/rubhern/videogame-platform/issues/457)
 
 ## Context
 
@@ -97,6 +97,32 @@ decisions above are unchanged.
 - **Consequence.** An operator who narrows or disables the upcoming policy also shortens how
   far forward months may be browsed. A game whose first-release evidence lies in another week
   than its catalogued day appears in its month and in no week.
+
+## Amendment 2026-11-06
+
+[#457](https://github.com/rubhern/videogame-platform/issues/457) changes who competes. The owner
+compared November 2026 in Destacados and Explorar, saw two different "most hyped" lists for one
+month, and decided that Destacados must include everything Explorar includes. Hypes stays the only
+signal; IGDB's other popularity measures were compared and left out.
+
+- **Selection.** For one period and platforms, Destacados is the head of the explorer's Hype order,
+  counting only positive Hypes and leaving approximate dates out as the explorer's default does. This
+  replaces the Full Release, first-release, distinct-product, delay and pending-review gates of the
+  decision above and the "same rule, narrower period" of the previous amendment. Both reads share
+  one SQL definition.
+- **Evidence kept.** Featured evidence still carries the first-release date and eligibility.
+  Próximos destacados reads the eligibility, while the first-release date no longer has a product
+  reader; removing it is a separate schema decision.
+- **Accepted consequences.** A port or an early access launch can be *Lanzamiento del mes*, and its
+  hero and card state *Acceso previo* or *Acceso anticipado*. A game launched years ago can feature
+  with Hypes its new release did not earn, because Hypes belong to the Game. A game can feature in
+  several periods. Editions compete with their base game. New platform releases of older games take
+  places from new launches: on 6 November 2026, November holds Stellar Blade, Zero Parades and
+  Metaphor: ReFantazio instead of Dreadmoor, Tanuki and Void/Breaker.
+- **Evidence.** Over the generated 100k-release catalogue the query keeps the period index and has no
+  sequential scan of releases, games, featured evidence or media, at about 6 ms for a month and 4 ms
+  for a week. On the private-dev catalogue, November 2026 took about 15 ms. These are point-in-time
+  plans, not latency gates.
 
 ## Alternatives considered
 

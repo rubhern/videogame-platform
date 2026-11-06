@@ -71,6 +71,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                 new FeaturedReleaseReadPort.Criteria(
                                         window.from(),
                                         window.to(),
+                                        evaluatedOn,
                                         FEATURED_LIMIT,
                                         browsePolicy.releaseGroupLimit(),
                                         normalize(query.platformIds())))
