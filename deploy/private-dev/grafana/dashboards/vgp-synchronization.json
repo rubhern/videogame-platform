@@ -2851,7 +2851,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_memory_anon_bytes{service=\"catalogue-localizer\"}",
+          "expr": "production_container_memory_anon_bytes{job=\"host\",service=\"catalogue-localizer\"}",
           "legendFormat": "anonymous",
           "editorMode": "code",
           "range": true,
@@ -2863,7 +2863,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_memory_bytes{service=\"catalogue-localizer\"}",
+          "expr": "production_container_memory_bytes{job=\"host\",service=\"catalogue-localizer\"}",
           "legendFormat": "total",
           "editorMode": "code",
           "range": true,
@@ -2875,7 +2875,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_memory_peak_bytes{service=\"catalogue-localizer\"}",
+          "expr": "production_container_memory_peak_bytes{job=\"host\",service=\"catalogue-localizer\"}",
           "legendFormat": "peak since start",
           "editorMode": "code",
           "range": true,
@@ -2887,7 +2887,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_memory_limit_bytes{service=\"catalogue-localizer\"}",
+          "expr": "production_container_memory_limit_bytes{job=\"host\",service=\"catalogue-localizer\"}",
           "legendFormat": "ceiling",
           "editorMode": "code",
           "range": true,
@@ -2956,7 +2956,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "rate(production_container_cpu_seconds_total{service=\"catalogue-localizer\"}[5m])",
+          "expr": "rate(production_container_cpu_seconds_total{job=\"host\",service=\"catalogue-localizer\"}[5m])",
           "legendFormat": "used cores",
           "editorMode": "code",
           "range": true,
@@ -2968,7 +2968,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_cpu_limit_cores{service=\"catalogue-localizer\"}",
+          "expr": "production_container_cpu_limit_cores{job=\"host\",service=\"catalogue-localizer\"}",
           "legendFormat": "ceiling",
           "editorMode": "code",
           "range": true,
@@ -3037,7 +3037,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_restarts_total{service=~\"catalogue-localizer|grafana\"}",
+          "expr": "production_container_restarts_total{job=\"host\",service=~\"catalogue-localizer|grafana\"}",
           "legendFormat": "{{service}} \u00b7 restarts",
           "editorMode": "code",
           "range": true,
@@ -3049,7 +3049,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_oom_total{service=~\"catalogue-localizer|grafana\"}",
+          "expr": "production_container_oom_total{job=\"host\",service=~\"catalogue-localizer|grafana\"}",
           "legendFormat": "{{service}} \u00b7 OOM kills",
           "editorMode": "code",
           "range": true,
@@ -3061,7 +3061,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_running{service=~\"catalogue-localizer|grafana\"}",
+          "expr": "production_container_running{job=\"host\",service=~\"catalogue-localizer|grafana\"}",
           "legendFormat": "{{service}} \u00b7 running",
           "editorMode": "code",
           "range": true,
@@ -3130,7 +3130,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_pids_current{service=\"grafana\"}",
+          "expr": "production_container_pids_current{job=\"host\",service=\"grafana\"}",
           "legendFormat": "tasks",
           "editorMode": "code",
           "range": true,
@@ -3142,7 +3142,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_pids_limit{service=\"grafana\"}",
+          "expr": "production_container_pids_limit{job=\"host\",service=\"grafana\"}",
           "legendFormat": "ceiling",
           "editorMode": "code",
           "range": true,
@@ -3154,7 +3154,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "production_container_pids_max_events_total{service=\"grafana\"}",
+          "expr": "production_container_pids_max_events_total{job=\"host\",service=\"grafana\"}",
           "legendFormat": "refused tasks",
           "editorMode": "code",
           "range": true,

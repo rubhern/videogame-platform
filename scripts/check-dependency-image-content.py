@@ -53,10 +53,14 @@ EDGE_MODULE = "github.com/mholt/caddy-ratelimit"
 EDGE_MODULE_VERSION = "v0.1.1-0.20260612195517-5625512f24f6"
 # Security overrides in caddy/Dockerfile: {module: (stock version, patched version)}. A stock
 # release that moves the module fails the policy, so the override is reviewed and removed.
-EDGE_OVERRIDES = {"golang.org/x/net": ("v0.59.0", "v0.62.0")}
+EDGE_OVERRIDES = {"golang.org/x/net": ("v0.59.0", "v0.62.0"),
+                  "golang.org/x/crypto": ("v0.57.0", "v0.58.1-0.20261009181718-2f1f834330b2"),
+                  "github.com/klauspost/compress": ("v1.20.1", "v1.20.2")}
+# What the module graph selects before each replacement applies.
+EDGE_OVERRIDE_SELECTED = {"golang.org/x/net": "v0.60.0", "golang.org/x/crypto": "v0.58.0",
+                          "github.com/klauspost/compress": "v1.20.1"}
 # Exact transitive upgrades required by x/net v0.62.0's module graph.
 EDGE_TRANSITIVE_UPGRADES = {
-    "golang.org/x/crypto": ("v0.57.0", "v0.58.0"),
     "golang.org/x/sync": ("v0.23.0", "v0.24.0"),
     "golang.org/x/sys": ("v0.48.0", "v0.49.0"),
     "golang.org/x/term": ("v0.46.0", "v0.47.0"),
@@ -147,8 +151,8 @@ def module_violations(image_info, base_info):
             continue
         if name in EDGE_OVERRIDES or name in EDGE_TRANSITIVE_UPGRADES:
             stock, patched = (EDGE_OVERRIDES | EDGE_TRANSITIVE_UPGRADES)[name]
-            # The replacement graph selects x/net v0.60.0 before applying the patch.
-            expected = ("v0.60.0", patched) if name == "golang.org/x/net" else (patched, None)
+            selected = EDGE_OVERRIDE_SELECTED.get(name)
+            expected = (selected, patched) if selected else (patched, None)
             if base.get(name) != (stock, None) or image.get(name) != expected:
                 found.append(f"security override {name} must replace stock {stock} with {patched}; "
                              f"stock {base.get(name)}, image {image.get(name)}")
