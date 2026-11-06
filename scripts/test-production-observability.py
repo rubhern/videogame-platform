@@ -101,7 +101,17 @@ def static():
             for target in panel.get('targets', []):
                 datasource = target.get('datasource', panel.get('datasource', {}))
                 assert datasource.get('uid') in ('private-dev-prometheus', 'private-dev-postgres')
+    # Only PostgreSQL and Prometheus backends may run: each plugin consumes Grafana's PID ceiling.
+    disabled = set(services['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'].split(','))
+    used = {t['datasource']['type'] for path in canonical for p in json.loads(path.read_text())['panels'] for t in p.get('targets', [])}
+    assert used == {'prometheus', 'grafana-postgresql-datasource'} and not used & disabled
+    assert services['grafana']['pids_limit'] == 128
+    assert 'catalogue.observability_localization_coverage' in sql
+    synchronization = json.loads((SHARED / 'grafana/dashboards/vgp-synchronization.json').read_text())
+    localization = [t for p in synchronization['panels'] for t in p.get('targets', []) if 'localization' in (t.get('expr', '') + t.get('rawSql', ''))]
+    assert len(localization) == 4 and not any('or vector(0)' in t.get('expr', '') for t in localization)
     for rule in rules():
+        assert 'localiz' not in rule['title'].lower() and 'localiz' not in rule['uid'], 'Localizer alert policy belongs to #451'
         assert rule['labels']['environment'] == 'production'
         assert rule['labels']['category'] == 'operational'
         assert rule['annotations']['action']
@@ -213,6 +223,14 @@ def edge_observations(text):
             values = sampler.cgroup_values(d)
             self.assertEqual(values['cpu_seconds_total'], 1)
             self.assertEqual(values['oom_total'], 1)
+            # An older kernel or a missing controller file stays absent, never zero.
+            self.assertFalse({'memory_anon_bytes', 'memory_peak_bytes', 'pids_current', 'pids_limit', 'pids_max_events_total'} & set(values))
+            for name,content in {'memory.stat':'anon 700\nfile 200\n','memory.peak':'950','pids.current':'33','pids.max':'128','pids.events':'max 2\n'}.items():
+                (d/name).write_text(content)
+            values = sampler.cgroup_values(d)
+            self.assertEqual((values['memory_anon_bytes'],values['memory_peak_bytes'],values['pids_current'],values['pids_limit'],values['pids_max_events_total']),(700,950,33,128,2))
+            (d/'pids.max').write_text('max')
+            self.assertNotIn('pids_limit', sampler.cgroup_values(d))
             sampler.atomic(d/'host.prom','old')
             sampler.atomic(d/'host.prom','new')
             self.assertEqual((d/'host.prom').read_text(),'new')
