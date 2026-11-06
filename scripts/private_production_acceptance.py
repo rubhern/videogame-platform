@@ -124,19 +124,30 @@ def verify_backup(manifest, images, *, now=None):
     return manifest['backupId']
 
 
-def load_recovery(source, runtime_file, state):
-    """The installed candidate's own actor, exactly as the installer loads it."""
+def recovery_module(source):
     path = source / 'deploy/public-production/bin/recovery'
     loader = importlib.machinery.SourceFileLoader('accepted_private_runtime_recovery', str(path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
+    return module
+
+
+def load_recovery(source, runtime_file, state):
+    """The installed candidate's own actor, exactly as the installer loads it."""
+    module = recovery_module(source)
 
     def guarded(args, *, data=None, output=None, timeout=1800):
         require(output is None, 'Unsupported transport.')
         return control.run(args, data=data, timeout=min(timeout, 180))
     module.run = guarded
     return module.Runtime(runtime_file, prepare.PROJECT, state)
+
+
+def upgrade_owns_runtime(admin):
+    root = admin / 'upgrades'
+    return (root / 'ACTIVE.json').exists() or any(
+        json.loads(path.read_text()).get('status') in ('running', 'failed') for path in root.glob('*/upgrade.json'))
 
 
 GATE_OWNER = "import json;o=json.load(open('/gate/INSTALLATION-OWNER.json'));print(o['runId'],o['status'])"
@@ -184,6 +195,9 @@ class Transition:
     def check_gate(self, recovery):
         require(recovery.gate('check') == b'open', 'Recovery gate is closed.')
         require(recovery.gate('maintenance-check') == b'none', 'Identity maintenance is active.')
+        self.check_gate_owner(recovery)
+
+    def check_gate_owner(self, recovery):
         owner = self.run(['docker', 'run', '--rm', '--log-driver', 'none', '--network', 'none', '--read-only',
                           '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true', '--memory', '96m',
                           '--pids-limit', '32', '-v', recovery.gate_volume + ':/gate:ro', install.HELPER,
@@ -292,6 +306,8 @@ def main():
         transition = Transition()
         # Removing automatic restart must stay possible while a recovery is pending.
         transition.load(recovery_pending=args.revert_restart)
+        # An in-place upgrade supersedes this file as the runtime's intended configuration.
+        require(not upgrade_owns_runtime(ADMIN), 'An in-place upgrade owns this runtime; use its tool.')
         if args.apply:
             require(args.backup_manifest is not None, 'A paired backup manifest is required.')
             result = transition.apply(args.accepted_configuration_sha256, args.backup_manifest,
