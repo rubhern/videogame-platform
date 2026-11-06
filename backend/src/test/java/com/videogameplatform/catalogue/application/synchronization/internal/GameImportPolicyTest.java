@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.application.synchronization.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
+import com.videogameplatform.catalogue.application.synchronization.port.ImportPolicyRevision;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderWorkType;
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +58,13 @@ class GameImportPolicyTest {
                 .isEqualTo(GameImportPolicy.Decision.DEFERRED_UNUSABLE_TITLE);
         assertThat(GameImportPolicy.evaluate(work(ProviderWorkType.MAIN_GAME, null)))
                 .isEqualTo(GameImportPolicy.Decision.DEFERRED_UNUSABLE_TITLE);
+    }
+
+    /** Raising the set without the revision would let a historical skip hide the new works. */
+    @Test
+    void aWiderImportableSetRaisesTheRevisionCoverageRecords() {
+        assertThat(GameImportPolicy.importableTypes()).hasSize(6);
+        assertThat(ImportPolicyRevision.CURRENT).isEqualTo(2);
     }
 
     @Test

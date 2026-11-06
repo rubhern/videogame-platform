@@ -1549,8 +1549,8 @@ hold/proof retention are separately verified operator responsibilities.
 
 Implemented under #246; owner review and deployed private-dev acceptance remain pending.
 Use **Sincronización y cobertura → Sincronización histórica** with a catalogue-operator
-session. Select explicit inclusive dates and whether completely covered months are omitted
-or reprocessed, then review the confirmation. The initial intended historical interval is
+session. Select explicit inclusive dates and whether months completely covered under the current import
+policy are omitted or reprocessed, then review the confirmation. The initial intended historical interval is
 recorded in the [pilot evidence](../research/historical-sync-pilot.md#completed-measurements-and-conclusion);
 never run that full interval merely to accept the mechanism.
 
@@ -1588,10 +1588,12 @@ process is confirmed gone. Read status after an ambiguous command before repeati
 An existing unfinished target cannot be replaced by a new date range.
 
 **Acquiring newly importable work types.** Widening the import policy (#456) affects only
-provider works seen by a later run: a deferred work leaves no local trace, and coverage says a
-period was scanned, not under which policy. Recurring windows pick up new works by themselves. For
-periods already covered, start a historical target over their dates with completely covered months
-**reprocessed**, not omitted. Known Games resolve by reference and stay unchanged, except for
+provider works seen by a later run, because a deferred work leaves no local trace. Coverage therefore
+records the import policy revision of each scan. Recurring windows pick up new works by themselves.
+For periods already covered, start a historical target over their dates: omitting covered months
+skips only those scanned under the current revision, so both choices acquire the new works, and
+every month covered before the change counts as work to do. **Cobertura** still shows it as
+scanned. Known Games resolve by reference and stay unchanged, except for
 whatever IGDB itself changed. Record the Games added, duration and failed Games per month, and
 the pending month as the resume point. The owner authorizes such a run, per environment; for #456
 the owner has left it undecided, so only recurring windows acquire these works for now.

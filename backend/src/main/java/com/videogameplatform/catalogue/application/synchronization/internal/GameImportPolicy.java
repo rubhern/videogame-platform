@@ -22,8 +22,8 @@ import java.util.Set;
  *       packaging rather than works; and mods and forks are not first-party works.
  * </ul>
  *
- * <p>Deferring is expected behaviour, not failure. Widening the catalogue is a change to this set,
- * not to the synchronization mechanism.
+ * <p>Deferring is expected behaviour, not failure. Widening the catalogue is a change to this set
+ * and to {@code ImportPolicyRevision}, not to the synchronization mechanism.
  */
 public final class GameImportPolicy {
 
