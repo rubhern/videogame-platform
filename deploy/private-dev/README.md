@@ -1472,7 +1472,8 @@ The host rechecks public main CI/source evidence and binds the candidate's runti
 fingerprint to the installed and acknowledged contract. The required localizer must
 already be running, healthy and match the resolved service configuration and local
 image. A different contract or unrelated application Compose overlay stops before
-migration/activation. The fixed `videogame-platform-dev` project has one base runtime,
+migration/activation; the account-deletion overlay is accepted only while its
+[persistent flag](#automatic-self-service-deletion) is set. The fixed `videogame-platform-dev` project has one base runtime,
 including localization. An application still labelled with the retired localization
 overlay can transition through normal promotion because the endpoint now lives in
 the base definition; the required localizer is still checked and left intact.

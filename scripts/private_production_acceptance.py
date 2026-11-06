@@ -194,7 +194,10 @@ class Transition:
         # Only this idempotent read contract. A later Flyway run replaces the view with itself.
         sql = (self.root / COVERAGE_VIEW).read_text()
         recovery.sql('videogame_platform', 'BEGIN;\nSET LOCAL ROLE videogame_app_migrator;\n' + sql + 'RESET ROLE;\n'
-                     'GRANT SELECT ON catalogue.observability_localization_coverage TO videogame_grafana;\nCOMMIT;\n')
+                     'GRANT SELECT ON catalogue.observability_localization_coverage TO videogame_grafana;\n'
+                     # Same reader settings as provision-reader.sql, which this transition does not rerun.
+                     'ALTER ROLE videogame_grafana SET jit = off;\n'
+                     'ALTER ROLE videogame_grafana SET max_parallel_workers_per_gather = 0;\nCOMMIT;\n')
 
     def apply(self, reviewed_sha, backup, reference, operational_revision, adapter):
         require(reviewed_sha == self.accepted_sha, 'Accepted configuration differs from the reviewed hash.')

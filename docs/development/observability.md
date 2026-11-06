@@ -716,7 +716,9 @@ Grafana administration needs the existing private host/tunnel boundary. Only Gra
 joins the separate notification egress bridge. Its analytics network reaches the
 application database with the existing restricted reader and approved observability
 views, two connections and short query limits; no identity database privileges or
-new analytics queries across base tables are granted.
+new analytics queries across base tables are granted. The reader runs without JIT or
+parallel workers because PostgreSQL has a single CPU here: with them, two dashboard panels
+querying the localization coverage view at once exceeded the statement limit.
 
 Standard node_exporter collects host CPU/steal, memory, swap, pressure, root filesystem
 and disk I/O; blackbox_exporter probes Keycloak readiness and both HTTPS certificates
