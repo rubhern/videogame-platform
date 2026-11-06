@@ -140,9 +140,10 @@ export function HistoricalSynchronization({ csrfToken, ordinary }: { csrfToken: 
         <label>Desde<input type="date" required min="1950-01-01" max="2099-12-31" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
         <label>Hasta<input type="date" required min={from || "1950-01-01"} max="2099-12-31" value={to} onChange={(event) => setTo(event.target.value)} /></label>
         <label>Meses ya cubiertos<select value={coveredMonths} onChange={(event) => setCoveredMonths(event.target.value === "skip" ? "skip" : "rerun")}>
-          <option value="skip">Omitir los completamente cubiertos</option><option value="rerun">Volver a procesarlos</option>
+          <option value="skip">Omitir los ya cubiertos con las reglas de importación actuales</option><option value="rerun">Volver a procesarlos</option>
         </select></label>
         <p>Ambas fechas incluidas. Primer y último mes se ajustan a las fechas elegidas. Todas las plataformas compatibles.</p>
+        <p>Un mes cubierto antes de ampliar los tipos de juego importados se procesa de nuevo aunque elijas omitir, para que no se pierdan esos juegos.</p>
         <button className="button button-primary" disabled={busy || invalidRange}>Iniciar histórico</button>
       </form> : null}
     </> : null}

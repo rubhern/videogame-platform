@@ -1626,7 +1626,8 @@ a native link, marks it with `aria-current`, and moves focus to the level that c
 Post-MVP (#246, implementation prepared; owner review and private-dev acceptance pending),
 **Sincronización histórica** is a third URL-selected tab within the same plain administration
 ledger. Tabs wrap on narrow screens. This tab has its own lifecycle and controls: explicit
-inclusive date fields, a required skip/reprocess choice for covered months, then a confirmation
+inclusive date fields, a required skip/reprocess choice for covered months, whose note says that a
+month covered before the imported types widened is processed either way, then a confirmation
 with the safe **Cancelar** action first and focused. Escape returns focus to its trigger.
 Start, stop and resume each name their consequences; command feedback takes focus and reports
 conflicts without losing persisted progress. Historical controls never issue ordinary stop

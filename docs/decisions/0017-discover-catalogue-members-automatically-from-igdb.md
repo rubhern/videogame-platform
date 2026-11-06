@@ -35,7 +35,8 @@
   restates the only staged reference of one release tuple is redundant evidence, not a
   colliding Release; see [Stable identity and reconciliation](#stable-identity-and-reconciliation) and `REL-014`
 - **Refined:** 2026-11-06, owner-requested #456: Port and Expanded Game works become Games of
-  their own; see [Stable identity and reconciliation](#stable-identity-and-reconciliation)
+  their own; see [Stable identity and reconciliation](#stable-identity-and-reconciliation). Coverage
+  records the import policy revision of each scan; see [Coverage and freshness](#coverage-and-freshness)
 
 ## Context
 
@@ -220,8 +221,10 @@ interrupted run that still committed Games reports `PARTIAL` with
 Before #245 that code also named page interruptions.
 
 PostgreSQL keeps coverage as disjoint inclusive date intervals per provider. Each interval
-records the run that last covered it, when that scan started and completed, and its failed
-Game count. The
+records the run that last covered it, when that scan started and completed, its failed
+Game count and the import policy revision it ran under (#456). A deferred work leaves no local
+trace, so a historical target that skips covered months trusts only the current revision; raising
+the revision whenever the importable types grow makes those months work to do again. The
 covering run's completion writes it in the same fenced transaction, so a run's outcome and
 its coverage commit together and an abandoned worker cannot record either. A newer covering
 run replaces the overlapped part of earlier intervals and leaves their remainder untouched,

@@ -6,6 +6,7 @@ import com.videogameplatform.catalogue.application.administration.HistoricalSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ImportPolicyRevision;
 import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -352,12 +353,15 @@ public final class JdbcHistoricalBackfillStore
     @Override
     public boolean covered(LocalDate from, LocalDate to) {
         // Disjoint coverage can be fragmented; PostgreSQL aggregates, Java never materializes it.
+        // Only the current import policy counts: an earlier scan may have deferred admissible
+        // works.
         return Boolean.TRUE.equals(
                 jdbc.queryForObject(
                         """
             SELECT COALESCE(sum(LEAST(covered_to,?::date)-GREATEST(covered_from,?::date)+1),0)
               = ?::date-?::date+1 FROM catalogue.synchronization_coverage
-            WHERE provider=? AND daterange(covered_from,covered_to,'[]') && daterange(?::date,?::date,'[]')
+            WHERE provider=? AND import_policy_revision=?
+              AND daterange(covered_from,covered_to,'[]') && daterange(?::date,?::date,'[]')
             """,
                         Boolean.class,
                         to,
@@ -365,6 +369,7 @@ public final class JdbcHistoricalBackfillStore
                         to,
                         from,
                         provider,
+                        ImportPolicyRevision.CURRENT,
                         from,
                         to));
     }

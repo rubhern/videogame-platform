@@ -20,6 +20,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.ImportPolicyRevision;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ExternalScore;
@@ -1312,8 +1313,9 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         jdbc.update(
                 """
                 INSERT INTO catalogue.synchronization_coverage(provider,covered_from,covered_to,
-                    run_id,scan_started_at,scan_completed_at,failed_games)
-                SELECT provider,:after,covered_to,run_id,scan_started_at,scan_completed_at,failed_games
+                    run_id,scan_started_at,scan_completed_at,failed_games,import_policy_revision)
+                SELECT provider,:after,covered_to,run_id,scan_started_at,scan_completed_at,failed_games,
+                    import_policy_revision
                 FROM catalogue.synchronization_coverage
                 WHERE provider=:provider AND covered_to>:to
                   AND daterange(covered_from,covered_to,'[]') @> CAST(:to AS date)
@@ -1335,13 +1337,14 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         jdbc.update(
                 """
                 INSERT INTO catalogue.synchronization_coverage(provider,covered_from,covered_to,
-                    run_id,scan_started_at,scan_completed_at,failed_games)
-                VALUES (:provider,:from,:to,:run,:started,:completed,:failed)
+                    run_id,scan_started_at,scan_completed_at,failed_games,import_policy_revision)
+                VALUES (:provider,:from,:to,:run,:started,:completed,:failed,:revision)
                 """,
                 interval.addValue("run", report.runId())
                         .addValue("started", timestamp(report.startedAt()))
                         .addValue("completed", timestamp(report.completedAt()))
-                        .addValue("failed", report.counters().failedGames()));
+                        .addValue("failed", report.counters().failedGames())
+                        .addValue("revision", ImportPolicyRevision.CURRENT));
     }
 
     @Override

@@ -2097,7 +2097,10 @@ export interface components {
             /** Format: date */
             to: string;
             /**
-             * @description Explicit intent for completely covered chunks; never skip partial coverage.
+             * @description Explicit intent for completely covered chunks; never skip partial coverage. Since 5.10.0,
+             *     `skip` trusts only coverage scanned under the current import policy: a chunk covered
+             *     before the policy last widened is processed, because that scan may have deferred
+             *     works now admitted.
              * @enum {string}
              */
             coveredMonths: "skip" | "rerun";

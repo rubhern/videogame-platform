@@ -638,7 +638,8 @@ maintenance on private management, not a product-facing endpoint or historical l
 
 Owner-requested extension, implemented subject to review and private-dev acceptance. The
 catalogue operator explicitly starts one historical target and chooses whether already-covered
-months are skipped or re-run. Deterministic calendar-month chunks clip the first and last
+months are skipped or re-run. A skip trusts only coverage scanned under the current import policy
+(#456), so a month covered before the policy widened is processed either way. Deterministic calendar-month chunks clip the first and last
 month to the requested dates. Only UC-009 acquires provider data, with all supported Games
 and platforms and unchanged per-Game reconciliation. Completed months, including empty ones,
 are durable checkpoints independent of run-history retention. Known data-quality failures

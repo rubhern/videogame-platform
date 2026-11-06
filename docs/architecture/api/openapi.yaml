@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.9.0
+  version: 5.10.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -4668,7 +4668,11 @@ components:
         coveredMonths:
           type: string
           enum: [skip, rerun]
-          description: Explicit intent for completely covered chunks; never skip partial coverage.
+          description: |
+            Explicit intent for completely covered chunks; never skip partial coverage. Since 5.10.0,
+            `skip` trusts only coverage scanned under the current import policy: a chunk covered
+            before the policy last widened is processed, because that scan may have deferred
+            works now admitted.
       additionalProperties: false
     HistoricalSynchronizationStatus:
       type: object
