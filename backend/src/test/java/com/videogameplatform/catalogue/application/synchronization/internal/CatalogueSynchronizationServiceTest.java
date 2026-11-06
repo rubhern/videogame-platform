@@ -557,6 +557,8 @@ class CatalogueSynchronizationServiceTest {
         "STANDALONE_EXPANSION,false,true",
         "MAIN_GAME,true,false",
         "REMAKE,true,false",
+        "PORT,false,true",
+        "EXPANDED_GAME,false,true",
         "ADD_ON,false,false"
     })
     void featuredEvidenceUsesExistingImportTypesAndExcludesEditionsOnlyFromFeatured(

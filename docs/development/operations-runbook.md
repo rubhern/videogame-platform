@@ -1587,6 +1587,15 @@ wait for it to finish or stop it through its named controls; abandon only a stal
 process is confirmed gone. Read status after an ambiguous command before repeating it.
 An existing unfinished target cannot be replaced by a new date range.
 
+**Acquiring newly importable work types.** Widening the import policy (#456) affects only
+provider works seen by a later run: a deferred work leaves no local trace, and coverage says a
+period was scanned, not under which policy. Recurring windows pick up new works by themselves. For
+periods already covered, start a historical target over their dates with completely covered months
+**reprocessed**, not omitted. Known Games resolve by reference and stay unchanged, except for
+whatever IGDB itself changed. Record the Games added, duration and failed Games per month, and
+the pending month as the resume point. The owner authorizes such a run, per environment; for #456
+the owner has left it undecided, so only recurring windows acquire these works for now.
+
 For owner-authorized private-dev acceptance after review and promotion, choose a small
 representative interval crossing a month boundary, record the target and run identifiers,
 stop while the second month is active, restart the application only under the existing

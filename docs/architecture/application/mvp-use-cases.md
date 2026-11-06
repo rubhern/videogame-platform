@@ -323,7 +323,9 @@ scheduled adapter, outside application reconciliation and domain rules; the
 provider returns `SKIPPED / SYNCHRONIZATION_ALREADY_RUNNING` without provider work;
 no credentials returns `SKIPPED / SYNCHRONIZATION_DISABLED` without persistence work.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns Game selection, import policy, stable Release identity and per-Game atomicity.
+owns Game selection, import policy, stable Release identity and per-Game atomicity. Since #456 a
+port or an expanded game is imported as a Game of its own, like a main game, so it can be
+rated and ranked separately from its parent; identical titles keep distinct slugs.
 It also acquires the platform and region taxonomy that accepted releases use, resolving
 each provider entity through a typed external reference and creating the product entity
 when the reference is unknown, per
