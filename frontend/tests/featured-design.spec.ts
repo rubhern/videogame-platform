@@ -151,6 +151,32 @@ async function scriptFeatured(
   });
 }
 
+for (const width of [360, 1280]) {
+  test(`states advance and early access on the hero and cards at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await scriptFeatured(page, new Set(), (period) => ({
+      ...period,
+      items: period.items.map((item, index) => ({
+        ...item,
+        releases: item.releases.map((release) => ({
+          ...release,
+          stage:
+            index === 0 ? "advance_access" : index === 1 ? "early_access" : "full_release",
+        })),
+      })),
+    }));
+    await page.goto("/lanzamientos/destacados?granularity=month");
+
+    const hero = page.getByRole("article").first();
+    await expect(hero.getByText("Acceso previo")).toBeVisible();
+    await expect(hero.locator(".featured-badge")).toHaveText("Lanzamiento del mes");
+    const others = page.getByRole("region", { name: "Más lanzamientos destacados" });
+    await expect(others.getByText("Acceso anticipado")).toBeVisible();
+    await expect(page.getByText("Lanzamiento completo")).toHaveCount(0);
+    await expectAccessibleLayout(page);
+  });
+}
+
 // Controlled responses isolate the composition; the packaged spec owns the real API journey.
 for (const width of [320, 390, 834, 1320]) {
   test(`featured releases layout, contrast and keyboard at ${width}px`, async ({ page }) => {

@@ -1,10 +1,11 @@
 import {
   formatCalendarDay,
   formatDayRange,
+  formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
 import { toWordmark, type TitleWordmark } from "../../shared/catalogue/title-wordmark";
-import { releaseStatuses } from "../../shared/catalogue/release-labels";
+import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
 import type { FeaturedGranularity } from "./featured-search";
 import {
@@ -48,6 +49,8 @@ export type FeaturedItem = ReleaseListItem & {
   logo: FeaturedTitleLogo | null;
   /** Where the first presented release falls on the represented period's temporal scale. */
   mark: ReleaseMark;
+  /** `Acceso previo`, `Acceso anticipado`…: the kind of launch its date stands for, if not a full one. */
+  stage: string | null;
 };
 
 /**
@@ -270,6 +273,26 @@ function facts(release: FeaturedRelease | undefined): string[] {
   return notices;
 }
 
+/**
+ * The stage of the visible release row, stated only when it is not a plain full release. The row
+ * joins every platform sharing the date and region, so a stage shown for it must hold for them all.
+ */
+function visibleStage(releases: readonly FeaturedRelease[]): string | null {
+  const [first] = releases;
+  if (first === undefined || first.stage === "full_release" || first.stage === "unknown") {
+    return null;
+  }
+  const date = formatReleaseDate(first.releaseDate);
+  const shared = releases
+    .filter(
+      (release) =>
+        formatReleaseDate(release.releaseDate) === date &&
+        release.region.regionId === first.region.regionId,
+    )
+    .every((release) => release.stage === first.stage);
+  return shared ? releaseStages[first.stage] : null;
+}
+
 function fallbackArt(title: string): FeaturedArt {
   return {
     kind: "fallback",
@@ -334,6 +357,7 @@ function toFeaturedItem(
       first === undefined || timeline === null
         ? { kind: "unknown" }
         : toReleaseMark(first.releaseDate, timeline),
+    stage: visibleStage(item.releases),
   };
 }
 

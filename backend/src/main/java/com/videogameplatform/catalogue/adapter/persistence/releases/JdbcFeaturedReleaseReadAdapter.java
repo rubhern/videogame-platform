@@ -5,10 +5,10 @@ import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueSummaryRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
-import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.Sort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
@@ -29,39 +29,26 @@ import org.springframework.transaction.support.TransactionOperations;
  * PostgreSQL read adapter for one calendar period's featured releases (UC-010): an ISO week or a
  * calendar month.
  *
- * <p>PostgreSQL does all the work: qualifying_release holds the period's qualifying releases through
- * the shared period index, ranked_game ranks their distinct games by the local popularity signal and
- * keeps only the bounded top, and presented_release keeps one presented release per game and
- * platform among those games. Only the ranked games read their snapshot and their stored featured
- * hero/card images and card logo, each by key. Work grows with the period's releases, never with the catalogue, the
- * popularity table or the media table, and request memory stays O(limit x releaseGroupLimit).
+ * <p>The selection is the head of the release explorer's Hypes order for the same range and
+ * platforms (FEAT-001, FEAT-002): {@link ReleaseRangeSql} decides which releases qualify and {@link
+ * ReleaseRangeGameSql} presents and positions their games, so the two cannot drift apart. PostgreSQL
+ * does all the work. Only games with positive Hypes enter, ranked_game keeps the bounded top, and
+ * only the ranked games read their stored featured hero/card images and card logo, each by key.
+ * Work grows with the period's releases, never with the catalogue, the popularity table or the
+ * media table, and request memory stays O(limit x releaseGroupLimit).
  */
 public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseReadPort {
 
-    // A release qualifies when its whole known date period lies inside the featured period: an
-    // exact
-    // day of it or, for a month, month precision equal to the month. Quarter and year periods are
-    // wider than any month and a month is wider than any week, so a week admits exact days alone
-    // and
-    // no coarser date is ever assigned to an invented week; an unknown date has no period. Negative
-    // lifecycle evidence and pending review never qualify; only a Full Release qualifies.
+    // The explorer's default range; only the wider date opt-in stays with the explorer.
     private static final String QUALIFYING_PREDICATE =
-            """
-            rs.publication_id = CAST(:publicationId AS uuid)
-              AND rs.release_status NOT IN ('cancelled', 'delayed')
-              AND rs.review_status <> 'required'
-              AND rs.release_stage = 'full_release'
-              AND rs.date_precision IN ('day', 'month')
-              AND rs.period_start IS NOT NULL
-              AND daterange(rs.period_start, rs.period_end, '[]')
-                  <@ daterange(CAST(:periodStart AS date), CAST(:periodEnd AS date), '[]')
-            """;
+            ReleaseRangeSql.PUBLICATION_PREDICATE
+                    + " AND "
+                    + ReleaseRangeSql.DEFAULT_RANGE_PREDICATE;
 
     // A platform restriction narrows the qualifying releases themselves, so it applies before any
     // game is ranked, limited or presented: the ranking is that of the restricted candidates. The
     // identifiers were validated to exist before they reach the cast.
-    private static final String PLATFORM_PREDICATE =
-            " AND rs.platform_id = ANY(CAST(:platformIds AS uuid[]))";
+    private static final String PLATFORM_PREDICATE = " AND " + ReleaseRangeSql.PLATFORM_PREDICATE;
 
     private static final String QUALIFYING_EXISTS_SQL = qualifyingExistsSql(QUALIFYING_PREDICATE);
     private static final String RESTRICTED_QUALIFYING_EXISTS_SQL =
@@ -70,100 +57,81 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
     private static String qualifyingExistsSql(String qualifyingPredicate) {
         return "SELECT EXISTS (SELECT 1 FROM catalogue.release_snapshot rs WHERE "
                 + qualifyingPredicate
-                + " AND EXISTS (SELECT 1 FROM catalogue.game_featured_evidence evidence"
-                + " WHERE evidence.game_id = rs.game_id AND evidence.eligible_product"
-                + " AND evidence.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)))";
+                + ")";
     }
 
-    // Each candidate reads its signal through a LATERAL primary-key probe (the LIMIT keeps the
-    // planner from hashing the whole popularity table), and only the ranked games join their
-    // snapshot: the release foreign key guarantees one in the same publication, so joining after
-    // the bound changes nothing. The presented release of each platform follows the shared
-    // precedence with the earliest date first; inside a game an exact day precedes month precision,
-    // then the earlier date. The page keeps the ranking order: highest popularity first, then the
-    // unique game id.
     private static final String PAGE_SQL = pageSql(QUALIFYING_PREDICATE);
     private static final String RESTRICTED_PAGE_SQL =
             pageSql(QUALIFYING_PREDICATE + PLATFORM_PREDICATE);
 
+    // Each candidate reads its signal through a LATERAL primary-key probe: the LIMIT keeps the
+    // planner from hashing the whole popularity table, so the work follows the period's games.
     private static String pageSql(String qualifyingPredicate) {
-        return """
-            WITH qualifying_release AS MATERIALIZED (
-                SELECT rs.* FROM catalogue.release_snapshot rs WHERE %1$s
-            ),
-            ranked_game AS MATERIALIZED (
-                SELECT candidate.game_id, popularity.hypes, popularity.observed_at
-                FROM (SELECT DISTINCT qr.game_id FROM qualifying_release qr) candidate
+        return ReleaseRangeGameSql.presentedGames(" WHERE " + qualifyingPredicate)
+                + """
+                ,
+                game_signal AS (
+                    SELECT gt.*, popularity.hypes, popularity.observed_at
+                    FROM game_top gt
+                    JOIN LATERAL (
+                        SELECT signal.hypes, signal.observed_at
+                        FROM catalogue.game_featured_evidence signal
+                        WHERE signal.game_id = gt.game_id AND signal.hypes > 0
+                        LIMIT 1
+                    ) popularity ON true
+                ),
+                ranked_game AS MATERIALIZED (
+                    SELECT * FROM game_signal gt
+                    ORDER BY %1$s
+                    LIMIT :limit
+                )
+                SELECT rg.game_id::text AS game_id, rg.slug, rg.canonical_title,
+                       rg.cover_reference, rg.cover_source, rg.cover_usage_mode,
+                       rg.cover_alternative_text, rg.cover_source_url,
+                       rg.observed_at AS popularity_observed_at,
+                       image.media_kind AS image_kind, image.image_reference AS image_reference,
+                       image.width AS image_width, image.height AS image_height,
+                       image.transparent AS image_transparent, image.source_name AS image_source,
+                       image.source_url AS image_source_url,
+                       card_image.media_kind AS card_image_kind, card_image.image_reference AS card_image_reference,
+                       card_image.width AS card_image_width, card_image.height AS card_image_height,
+                       card_image.transparent AS card_image_transparent, card_image.source_name AS card_image_source,
+                       card_image.source_url AS card_image_source_url,
+                       logo.media_kind AS logo_kind, logo.image_reference AS logo_reference,
+                       logo.width AS logo_width, logo.height AS logo_height,
+                       logo.transparent AS logo_transparent, logo.source_name AS logo_source,
+                       logo.source_url AS logo_source_url,
+                       rel.release_id::text AS release_id,
+                       rel.platform_id::text AS platform_id, rel.platform_name,
+                       rel.region_id::text AS region_id, rel.region_name,
+                       rel.date_precision, rel.exact_date, rel.release_year, rel.release_month,
+                       rel.release_quarter, rel.release_stage, rel.release_status, rel.source_kind,
+                       rel.source_name, rel.source_entity_type, rel.provider_updated_at,
+                       rel.last_verified_at, rel.verification_level,
+                       rel.review_status
+                FROM ranked_game rg
+                LEFT JOIN catalogue.game_featured_media image
+                  ON image.game_id = rg.game_id AND image.media_role = 'image'
+                LEFT JOIN catalogue.game_featured_media card_image
+                  ON card_image.game_id = rg.game_id AND card_image.media_role = 'card_image'
+                LEFT JOIN catalogue.game_featured_media logo
+                  ON logo.game_id = rg.game_id AND logo.media_role = 'logo'
                 JOIN LATERAL (
-                    SELECT signal.hypes, signal.observed_at
-                    FROM catalogue.game_featured_evidence signal
-                    WHERE signal.game_id = candidate.game_id
-                      AND signal.eligible_product
-                      AND signal.hypes > 0
-                      AND signal.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)
-                    LIMIT 1
-                ) popularity ON true
-                ORDER BY popularity.hypes DESC, candidate.game_id
-                LIMIT :limit
-            ),
-            presented_release AS MATERIALIZED (
-                SELECT DISTINCT ON (qr.game_id, qr.platform_id) qr.*
-                FROM qualifying_release qr
-                JOIN ranked_game rg ON rg.game_id = qr.game_id
-                JOIN catalogue.region release_region ON release_region.region_id = qr.region_id
-                ORDER BY qr.game_id, qr.platform_id, %2$s
-            )
-            SELECT rg.game_id::text AS game_id, snapshot.slug, snapshot.canonical_title,
-                   snapshot.cover_reference, snapshot.cover_source, snapshot.cover_usage_mode,
-                   snapshot.cover_alternative_text, snapshot.cover_source_url,
-                   rg.observed_at AS popularity_observed_at,
-                   image.media_kind AS image_kind, image.image_reference AS image_reference,
-                   image.width AS image_width, image.height AS image_height,
-                   image.transparent AS image_transparent, image.source_name AS image_source,
-                   image.source_url AS image_source_url,
-                   card_image.media_kind AS card_image_kind, card_image.image_reference AS card_image_reference,
-                   card_image.width AS card_image_width, card_image.height AS card_image_height,
-                   card_image.transparent AS card_image_transparent, card_image.source_name AS card_image_source,
-                   card_image.source_url AS card_image_source_url,
-                   logo.media_kind AS logo_kind, logo.image_reference AS logo_reference,
-                   logo.width AS logo_width, logo.height AS logo_height,
-                   logo.transparent AS logo_transparent, logo.source_name AS logo_source,
-                   logo.source_url AS logo_source_url,
-                   rel.release_id::text AS release_id,
-                   rel.platform_id::text AS platform_id, rel.platform_name,
-                   rel.region_id::text AS region_id, rel.region_name,
-                   rel.date_precision, rel.exact_date, rel.release_year, rel.release_month,
-                   rel.release_quarter, rel.release_stage, rel.release_status, rel.source_kind,
-                   rel.source_name, rel.source_entity_type, rel.provider_updated_at,
-                   rel.last_verified_at, rel.verification_level,
-                   rel.review_status
-            FROM ranked_game rg
-            JOIN catalogue.game_snapshot snapshot
-              ON snapshot.publication_id = CAST(:publicationId AS uuid)
-             AND snapshot.game_id = rg.game_id
-            LEFT JOIN catalogue.game_featured_media image
-              ON image.game_id = rg.game_id AND image.media_role = 'image'
-            LEFT JOIN catalogue.game_featured_media card_image
-              ON card_image.game_id = rg.game_id AND card_image.media_role = 'card_image'
-            LEFT JOIN catalogue.game_featured_media logo
-              ON logo.game_id = rg.game_id AND logo.media_role = 'logo'
-            JOIN LATERAL (
-                SELECT p.*, pl.display_name AS platform_name, r.display_name AS region_name,
-                       %3$s AS precision_rank
-                FROM presented_release p
-                JOIN catalogue.platform pl ON pl.platform_id = p.platform_id
-                JOIN catalogue.region r ON r.region_id = p.region_id
-                WHERE p.game_id = rg.game_id
-                ORDER BY %3$s, p.period_start, p.release_id
-                LIMIT :releaseGroupLimit
-            ) rel ON true
-            ORDER BY rg.hypes DESC, rg.game_id, rel.precision_rank, rel.period_start,
-                     rel.release_id
-            """
-                .formatted(
-                        qualifyingPredicate,
-                        ReleasePresentationOrder.of("qr", "release_region", "qr.period_start ASC"),
-                        ReleasePresentationOrder.precisionRank("p"));
+                    SELECT p.*, pl.display_name AS platform_name, r.display_name AS region_name
+                    FROM presented_release p
+                    JOIN catalogue.platform pl ON pl.platform_id = p.platform_id
+                    JOIN catalogue.region r ON r.region_id = p.region_id
+                    WHERE p.game_id = rg.game_id
+                    ORDER BY %2$s
+                    LIMIT :releaseGroupLimit
+                ) rel ON true
+                ORDER BY %3$s, %4$s
+                """
+                        .formatted(
+                                ReleaseRangeGameSql.gameOrder(Sort.HYPE, "gt"),
+                                ReleaseRangeGameSql.releaseOrder("p"),
+                                ReleaseRangeGameSql.gameOrder(Sort.HYPE, "rg"),
+                                ReleaseRangeGameSql.releaseOrder("rel"));
     }
 
     private static final String SUMMARY_SQL =
@@ -212,8 +180,13 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
         if (restricted) {
             parameters.put("platformIds", "{" + String.join(",", platformIds) + "}");
         }
-        parameters.put("periodStart", criteria.periodStart());
-        parameters.put("periodEnd", criteria.periodEnd());
+        parameters.putAll(
+                ReleaseRangeSql.range(
+                                criteria.periodStart(),
+                                criteria.periodEnd(),
+                                criteria.evaluatedOn(),
+                                false)
+                        .parameters());
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 

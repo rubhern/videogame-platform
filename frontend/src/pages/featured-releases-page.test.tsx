@@ -265,6 +265,27 @@ describe("featured releases page", () => {
     expect(document.body).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
   });
 
+  it("states the kind of launch on the hero and the cards, and nothing for a full release", async () => {
+    const lead = item("game-lead", "Juego destacado", "2026-10-15");
+    const early = item("game-two", "Segundo juego", "2026-10-22");
+    const full = item("game-three", "Tercer juego", "2026-10-03");
+    lead.releases = lead.releases.map((release) => ({ ...release, stage: "advance_access" }));
+    early.releases = early.releases.map((release) => ({ ...release, stage: "early_access" }));
+    full.releases = full.releases.map((release) => ({ ...release, stage: "full_release" }));
+    const fetchMock = vi.fn(async () => Response.json(featured({ items: [lead, early, full] })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderApp(MONTH);
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    expect(within(hero).getByText("Acceso previo")).toBeVisible();
+    // The featured release keeps its headline whatever kind of launch it is.
+    expect(within(hero).getByText("Lanzamiento del mes")).toBeVisible();
+    const card = screen.getByRole("link", { name: "Segundo juego" }).closest("article");
+    expect(within(card as HTMLElement).getByText("Acceso anticipado")).toBeVisible();
+    expect(screen.queryByText("Lanzamiento completo")).toBeNull();
+  });
+
   it("shows only discovery metadata, with a stretched title link and no nested controls", async () => {
     const summary = {
       kind: "sourced" as const, text: "Explora un mundo lleno de historias. ".repeat(30), language: "es",

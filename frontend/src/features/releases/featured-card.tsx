@@ -85,6 +85,9 @@ export function FeaturedCard({
               ) : null}
             </span>
             <span className="featured-card-region">{primaryGroup.region}</span>
+            {item.stage === null ? null : (
+              <span className="featured-release-stage">{item.stage}</span>
+            )}
           </p>
         )}
         {item.genres.length === 0 ? null : (

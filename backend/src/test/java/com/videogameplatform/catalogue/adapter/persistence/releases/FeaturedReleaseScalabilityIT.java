@@ -73,7 +73,11 @@ class FeaturedReleaseScalabilityIT {
                         new NamedParameterJdbcTemplate(runtime), transaction);
         var criteria =
                 new FeaturedReleaseReadPort.Criteria(
-                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), 6, 25);
+                        LocalDate.of(2026, 8, 1),
+                        LocalDate.of(2026, 8, 31),
+                        LocalDate.of(2026, 7, 1),
+                        6,
+                        25);
 
         var result = adapter.findFeaturedReleases(criteria).orElseThrow();
         JsonNode plan = explain(admin, pageSql("2026-08-01", "2026-08-31"));
@@ -93,13 +97,16 @@ class FeaturedReleaseScalabilityIT {
                         "game_featured_media");
         assertThat(sequentialScans(plan)).filteredOn(unboundedTables::contains).isEmpty();
 
-        // A week, Monday 27 July to Sunday 2 August holding the shared first-release date, takes
-        // the
-        // same bounded path over a narrower period.
+        // A week, Monday 27 July to Sunday 2 August, takes the same bounded path over a narrower
+        // period.
         var week =
                 adapter.findFeaturedReleases(
                                 new FeaturedReleaseReadPort.Criteria(
-                                        LocalDate.of(2026, 7, 27), LocalDate.of(2026, 8, 2), 6, 25))
+                                        LocalDate.of(2026, 7, 27),
+                                        LocalDate.of(2026, 8, 2),
+                                        LocalDate.of(2026, 7, 1),
+                                        6,
+                                        25))
                         .orElseThrow();
         JsonNode weekPlan = explain(admin, pageSql("2026-07-27", "2026-08-02"));
         recordPlan(rows, "week", weekPlan);
@@ -260,8 +267,9 @@ class FeaturedReleaseScalabilityIT {
         return ((String) field.get(null))
                 .replace(":genreLimit", "2")
                 .replace(":publicationId", "'" + PUBLICATION_ID + "'")
-                .replace(":periodStart", "'" + periodStart + "'")
-                .replace(":periodEnd", "'" + periodEnd + "'")
+                .replace(":rangeFrom", "'" + periodStart + "'")
+                .replace(":rangeTo", "'" + periodEnd + "'")
+                .replace(":evaluatedOn", "'2026-07-01'")
                 .replace(":releaseGroupLimit", "25")
                 .replace(":limit", "6");
     }

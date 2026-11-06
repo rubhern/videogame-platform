@@ -55,12 +55,12 @@ import tools.jackson.databind.ObjectMapper;
 class DiscoveryScoresApiIntegrationTest {
     private static final String DB =
             PostgreSqlTestDatabase.isolatedDatabaseName("discovery_scores");
-    private static final UUID GAME = UUID.fromString("30000000-0000-4000-8000-00000000000a");
+    private static final UUID GAME = UUID.fromString("30000000-0000-4000-8000-00000000000c");
     private static final UUID USER = UUID.fromString("70000000-0000-4000-8000-000000000255");
-    private static final String FEATURED = "/api/v1/featured-releases?month=2026-10";
+    private static final String FEATURED = "/api/v1/featured-releases?month=2026-09";
     private static final String UPCOMING =
-            "/api/v1/releases?from=2026-10-01&to=2026-10-31&includeApproximateDates=true&pageSize=1";
-    private static final String SEARCH = "/api/v1/games?q=crimson%20desert&pageSize=1";
+            "/api/v1/releases?from=2026-09-01&to=2026-09-30&includeApproximateDates=true&pageSize=1";
+    private static final String SEARCH = "/api/v1/games?q=wolverine&pageSize=1";
     private static final ObjectMapper JSON = new ObjectMapper();
     @LocalServerPort private int port;
     @Autowired private JdbcTemplate jdbc;
