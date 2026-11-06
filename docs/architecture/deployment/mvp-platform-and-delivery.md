@@ -596,22 +596,24 @@ Begin qualification with explicit memory/CPU/PID/connection/request/log/storage
 bounds. This initial envelope is a local/CI hypothesis, not a claim that these
 values work on netcup; executable Compose owns the prepared limits. The accepted
 #275 candidate used the former 8 GB class as its hypothesis. Lite 3 selection does
-not change those executable ceilings or revalidate them: retain that evidence and
-qualify the unchanged candidate on the selected 16 GB host before any recalibration.
+not revalidate those executable ceilings: retain that evidence and qualify them on the
+selected 16 GB host. The only recalibration so far is the localizer ceiling, from the
+measured peak and the production OOM recorded in the
+[stabilization evidence](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization).
 
 | Memory allocation for qualification | GiB |
 |---|---:|
 | Application, including JVM native memory | 1.50 |
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
-| Catalogue localizer | 0.75 |
+| Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
 | Collector / Prometheus / Grafana total | 0.625 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **4.50** |
+| Steady service ceilings total | **5.50** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
-| Historical #275 remainder at 8 decimal GB (~7.45 GiB) | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), same allocations | **~8.90** |
+| Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.90** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap

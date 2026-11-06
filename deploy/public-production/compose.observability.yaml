@@ -85,6 +85,9 @@ services:
       GF_NEWS_NEWS_FEED_ENABLED: 'false'
       GF_UNIFIED_ALERTING_ENABLED: 'true'
       GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+      # Every bundled backend datasource runs its own process, about seven threads each, and all of
+      # them count against pids_limit. Only PostgreSQL and Prometheus are provisioned here.
+      GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,grafana-pyroscope-datasource,influxdb,jaeger,loki,mssql,mysql,opentsdb,stackdriver,tempo,zipkin
       GF_SNAPSHOTS_EXTERNAL_ENABLED: 'false'
       GF_LOG_MODE: console
       GRAFANA_TELEGRAM_ENABLED: ${PRODUCTION_TELEGRAM_ENABLED:-false}

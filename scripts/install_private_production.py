@@ -42,7 +42,10 @@ TLS = Path('/etc/gameometro/production/private-tls')
 HELPER = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258'
 OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_private_production_truststore.py', 'scripts/install_private_production.py', 'scripts/prepare_private_production.py',
                      'scripts/private_dev_promotion.py', 'scripts/public_production_deployment.py',
-                     'scripts/public_production_integration.py')
+                     'scripts/public_production_integration.py', 'scripts/private_production_acceptance.py',
+                     # Non-code inputs the post-acceptance transition applies to the installed runtime.
+                     'deploy/private-dev/grafana/dashboards/vgp-synchronization.json',
+                     'backend/src/main/resources/db/migration/V20261106_120000__observe_catalogue_localization.sql')
 require = trust.require
 
 
@@ -709,7 +712,9 @@ class Host:
             require(value['State']['Running'] and value['State'].get('Health', {}).get('Status', 'healthy') == 'healthy'
                     and value['Config']['Image'] == self.config['services'][name]['image']
                     and not value['HostConfig'].get('PortBindings')
-                    and value['HostConfig']['RestartPolicy']['Name'] == 'no', 'Live image, health, restart or exposure mismatch.')
+                    # prepare.validate pins 'no' for first install; only the reviewed acceptance differs.
+                    and value['HostConfig']['RestartPolicy']['Name'] == self.config['services'][name].get('restart', 'no'),
+                    'Live image, health, restart or exposure mismatch.')
             host = value['HostConfig']; intended_service = self.config['services'][name]
             require(not host.get('Privileged') and not host.get('PublishAllPorts')
                     and not host.get('Devices') and host.get('NetworkMode') not in ('host', 'container')

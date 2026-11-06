@@ -420,7 +420,7 @@ run_case production-cleanup-transport "deploy/public-production/bin/recovery-per
 run_case production-cleanup-exercise "scripts/rehearse-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
 run_case production-cleanup-tests "scripts/test-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
 
-for private_source in scripts/prepare_private_production.py scripts/install_private_production.py scripts/test-private-production-preparation.py scripts/test-private-production-installation.py scripts/private_production_control.py scripts/validate_private_production_truststore.py scripts/test-private-production-control.py scripts/test-private-production-control-docker.py; do
+for private_source in scripts/prepare_private_production.py scripts/install_private_production.py scripts/private_production_acceptance.py scripts/test-private-production-acceptance.py scripts/test-private-production-preparation.py scripts/test-private-production-installation.py scripts/private_production_control.py scripts/validate_private_production_truststore.py scripts/test-private-production-control.py scripts/test-private-production-control-docker.py; do
   run_case "private-production-${private_source##*/}" "$private_source" \
     'production_runtime' 'backend,frontend,identity,container,build'
 done

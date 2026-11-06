@@ -1,13 +1,13 @@
 {
   "uid": "vgp-synchronization",
   "title": "VideoGame Platform \u00b7 Catalogue Synchronization",
-  "description": "Manual date-window imports: retained SQL runs and current inventory; process provider diagnostics from OTLP. No scheduled-job assumptions. SQL history is limited by retained-runs policy, not Prometheus retention.",
+  "description": "Manual date-window imports: retained SQL runs and current inventory; process provider diagnostics from OTLP. Localization coverage is stored state; its outcomes are process counters. No scheduled-job assumptions. SQL history is limited by retained-runs policy, not Prometheus retention.",
   "tags": [
     "videogame-platform",
     "private-dev"
   ],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": false,
   "timezone": "Europe/Madrid",
   "refresh": "5m",
@@ -2558,6 +2558,653 @@
         "y": 101,
         "w": 8,
         "h": 11
+      }
+    },
+    {
+      "id": 41,
+      "title": "Catalogue localization \u00b7 stored coverage, process outcomes and helper resources",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 112,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 42,
+      "title": "Stored coverage by kind \u00b7 current",
+      "type": "table",
+      "description": "Exact current state derived from stored source and translation evidence, independent of the selected range and of Prometheus history. A blank count means zero targets in that status. The observability guide defines each status.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT kind AS \"Kind\", sum(items) FILTER (WHERE status <> 'not_applicable') AS \"Eligible\", sum(items) FILTER (WHERE status = 'current') AS \"Current\", sum(items) FILTER (WHERE status = 'current' AND origin = 'curated') AS \"of which curated\", sum(items) FILTER (WHERE status = 'missing') AS \"Missing\", sum(items) FILTER (WHERE status = 'stale') AS \"Stale\", sum(items) FILTER (WHERE status = 'reusable') AS \"Reusable\", sum(items) FILTER (WHERE status = 'retryable') AS \"Retryable\", sum(items) FILTER (WHERE status = 'busy') AS \"Busy\", sum(items) FILTER (WHERE last_valid_retained) AS \"Last valid retained\", sum(items) FILTER (WHERE status = 'not_applicable') AS \"Not applicable\" FROM catalogue.observability_localization_coverage GROUP BY kind ORDER BY kind",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 113,
+        "w": 18,
+        "h": 6
+      }
+    },
+    {
+      "id": 43,
+      "title": "Translated share of eligible targets \u00b7 current",
+      "type": "bargauge",
+      "description": "Current targets over eligible targets per kind. Not-applicable sources are excluded, so this is not a share of the whole catalogue.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT kind, 100.0 * sum(items) FILTER (WHERE status = 'current') / NULLIF(sum(items) FILTER (WHERE status <> 'not_applicable'), 0) AS coverage FROM catalogue.observability_localization_coverage GROUP BY kind ORDER BY kind",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 113,
+        "w": 6,
+        "h": 6
+      }
+    },
+    {
+      "id": 44,
+      "title": "Content outcomes \u00b7 per 5 minutes",
+      "type": "timeseries",
+      "description": "Process counters: they reset with the application and exist only while it exports OTLP. No data means no observation, not zero failures.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (kind,outcome) (increase(catalogue_localization_content_total{job=\"application-otlp\"}[5m]))",
+          "legendFormat": "{{kind}} \u00b7 {{outcome}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 119,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 45,
+      "title": "Backfill batches \u00b7 per 5 minutes",
+      "type": "timeseries",
+      "description": "Batches acknowledged by the bounded backfill operation. Retry means a batch with a failed or busy target keeps its previous cursor.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (outcome) (increase(catalogue_localization_backfill_total{job=\"application-otlp\"}[5m]))",
+          "legendFormat": "{{outcome}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 119,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 46,
+      "title": "Localizer memory against its ceiling",
+      "type": "timeseries",
+      "description": "Host sampler, production only: No data where the sampler is absent. Anonymous memory is the trend to judge; total also includes reclaimable model file cache.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_memory_anon_bytes{service=\"catalogue-localizer\"}",
+          "legendFormat": "anonymous",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_memory_bytes{service=\"catalogue-localizer\"}",
+          "legendFormat": "total",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_memory_peak_bytes{service=\"catalogue-localizer\"}",
+          "legendFormat": "peak since start",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_memory_limit_bytes{service=\"catalogue-localizer\"}",
+          "legendFormat": "ceiling",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 127,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 47,
+      "title": "Localizer CPU against its ceiling",
+      "type": "timeseries",
+      "description": "Host sampler, production only. Sustained use at the ceiling is expected during inference; it limits throughput, not safety.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "rate(production_container_cpu_seconds_total{service=\"catalogue-localizer\"}[5m])",
+          "legendFormat": "used cores",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_cpu_limit_cores{service=\"catalogue-localizer\"}",
+          "legendFormat": "ceiling",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 127,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 48,
+      "title": "Localizer and Grafana lifecycle",
+      "type": "timeseries",
+      "description": "Host sampler, production only. Restarts count automatic and manual restarts of the current container; the OOM counter restarts with its cgroup.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_restarts_total{service=~\"catalogue-localizer|grafana\"}",
+          "legendFormat": "{{service}} \u00b7 restarts",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_oom_total{service=~\"catalogue-localizer|grafana\"}",
+          "legendFormat": "{{service}} \u00b7 OOM kills",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_running{service=~\"catalogue-localizer|grafana\"}",
+          "legendFormat": "{{service}} \u00b7 running",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 135,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 49,
+      "title": "Grafana tasks against its PID ceiling",
+      "type": "timeseries",
+      "description": "Host sampler, production only. The cgroup counts every thread of every process, including plugin backends. Any increase in refused tasks is cgroup PID exhaustion.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_pids_current{service=\"grafana\"}",
+          "legendFormat": "tasks",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_pids_limit{service=\"grafana\"}",
+          "legendFormat": "ceiling",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "production_container_pids_max_events_total{service=\"grafana\"}",
+          "legendFormat": "refused tasks",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 135,
+        "w": 12,
+        "h": 8
       }
     }
   ]

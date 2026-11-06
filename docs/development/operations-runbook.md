@@ -1169,6 +1169,157 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.
 
+### Private production localization and Grafana stabilization
+
+Prerequisite of the [bulk backfill](https://github.com/rubhern/videogame-platform/issues/448).
+The checklist below is **prepared, not executed**: it needs separate owner authorization
+for every host step, and a failed step stops the sequence.
+
+**Local evidence, 2026-11-06 (#452), no VPS access.** Accepted localizer and pinned Grafana
+images under the production CPU, PID and read-only limits, on a 16 GB WSL2 workstation with
+the local TC-big model and real IGDB summaries. These reproduce the reported symptoms; they
+do not prove what happened on the VPS or measure its speed.
+
+| Localizer workload | Ceiling | Observed |
+|---|---|---|
+| 800 real summaries, up to 1,238 characters | 768 MiB | Anonymous memory flat at 386 MiB after warmup, peak 410 MiB, no failure, 1.3 requests/s |
+| 200 longest real summaries, up to 3,432 characters | 768 MiB | Anonymous memory 447 to 460 MiB. Total reached the ceiling through reclaimable model cache: 641 reclaim events, no OOM |
+| Bounded 18–20k-character inputs, real words | 1536 MiB | Peak 617 MiB, 11–20 s per request |
+| One word repeated to 20k characters: decodes to the output bound and is rejected | 4 GiB | Peak 1,334 MiB, about 165 s per request |
+| The same degenerate input, repeated | 768 MiB | **Exit 137, `OOMKilled=true`**, on the second pass |
+| The same degenerate input, repeated | 1536 MiB | Survived, peak 1,482 MiB: only 54 MiB of headroom |
+| The degenerate input twice, then 400 real summaries including the longest | 1792 MiB | Peak 1,337 MiB, 455 MiB of headroom, no OOM or reclaim event. The two degenerate requests were rejected as designed. Anonymous memory then held at 510 to 517 MiB: retained after the spike, without progressive growth |
+
+| Finding | Status |
+|---|---|
+| Localizer exited 137 at 768 MiB while completing translations | Confirmed on the VPS |
+| A single bounded request can need nearly twice that ceiling | Reproduced locally. The production request that caused it is unknown |
+| Progressive retained growth | No evidence: real workloads stayed flat. Unproven on the VPS until the soak below |
+| Grafana exited 2 with `newosproc`, `errno=11`, `OOMKilled=false` | Confirmed on the VPS |
+| "have N already" counts one process, not the cgroup | Reproduced: the same message appeared with `have 7 already` under a lower PID ceiling, with exit 2 and no OOM |
+| Idle Grafana used 107 of 128 tasks, peak 112: 13 backend plugin processes at about 7 threads each | Measured locally. Disabling 11 unused plugins gave 32, peak 36. Thread counts may differ with the VPS core count |
+| VPS cause: 34 Grafana threads plus about 91 plugin threads reached `pids.max` | **Strong inference, not proven**: the crashed cgroup is gone. Step 1 tests it; `RLIMIT_NPROC` and host-wide limits are not excluded by repository evidence |
+
+Decisions from that evidence: the localizer ceiling is 1792 MiB, because 1.5 GiB leaves
+under the soak's 128 MiB margin at the measured worst case, and the host envelope has
+room. Grafana's PID and memory ceilings stay unchanged, because removing unused processes
+addresses the demonstrated demand. Neither model nor runtime changes.
+
+**Never during this procedure:** `down -v`, volume or journal deletion, `prune`, a manual
+`READY`, a Flyway revert, an image change or a full-catalogue backfill. Run every step as
+root on the host, with `runtime=/var/lib/gameometro/production/first-install/runtime.json`.
+
+```bash
+compose() { docker compose -p gameometro-production -f "$runtime" --profile '*' "$@"; }
+```
+
+1. **Capture evidence, read-only.** Record Grafana's actual limit before changing it. A low
+   `pids.current` plus a high thread count in one process does not match the local
+   mechanism: stop and reassess the plugin fix.
+
+   ```bash
+   grafana=$(compose ps -q grafana)
+   docker exec "$grafana" sh -c 'cat /sys/fs/cgroup/pids.current /sys/fs/cgroup/pids.peak /sys/fs/cgroup/pids.max /sys/fs/cgroup/pids.events; ulimit -u
+     for p in /proc/[0-9]*; do echo "$(cat $p/comm) $(ls $p/task | wc -l)"; done'
+   docker logs --since 240h "$grafana" 2>&1 | grep -c newosproc
+   cat /proc/sys/kernel/threads-max /proc/sys/kernel/pid_max
+   systemctl show docker.service --property=TasksMax
+   ```
+
+2. **Confirm nothing is running.** Both counts must be zero, and no backfill or scheduled
+   command may be active.
+
+   ```bash
+   compose exec -T postgres gosu postgres psql -XAt -d videogame_platform -c "SELECT count(*) FROM catalogue.synchronization_run WHERE run_status='running'; SELECT count(*) FROM catalogue.content_translation WHERE claimed_until > now();"
+   ```
+
+3. **Protect the imported catalogue.** Take a [paired backup](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+   with the protected public keyring, verify it, copy it off the host, verify the copy there,
+   and record its size against free `/dev/shm`, disk and the off-host destination. The earlier pair
+   predates the bulk import and does not protect it. Then `thaw`, restart the stopped
+   consumers and confirm readiness. Keep a root-owned 0600 copy of the pair's `manifest.json`
+   on the host: the transition requires it, no older than 24 hours.
+
+   ```bash
+   compose up -d --no-deps --wait --pull never keycloak application caddy grafana
+   ```
+
+4. **Stage the reviewed operator source.** After merge and green trusted-main CI, follow the
+   [root-owned checkout rules](../../deploy/public-production/README.md#future-authorized-host-sequence)
+   for `/srv/gameometro/operations/REVIEWED_SHA`, then record the fingerprint. This does not
+   touch the runtime.
+
+   ```bash
+   tool=/srv/gameometro/operations/REVIEWED_SHA/scripts
+   python3 "$tool/install_private_production.py" --print-adapter-fingerprint
+   ```
+
+5. **Review the plan, then apply.** The first command is read-only. Compare its changed
+   fields with the [transition table](../../deploy/public-production/README.md#post-acceptance-runtime-transition)
+   before running the second, which restarts only the localizer and Grafana. A refusal
+   changes nothing in the runtime: correct the cause, do not work around it.
+
+   ```bash
+   python3 "$tool/private_production_acceptance.py"
+   python3 "$tool/private_production_acceptance.py" --apply \
+     --accepted-configuration-sha256 "$REVIEWED_ACCEPTED_SHA256" \
+     --backup-manifest /var/lib/gameometro/private-qualification-evidence/manifest.json \
+     --acceptance-reference "$OWNER_DECISION_REFERENCE" \
+     --operational-revision REVIEWED_SHA --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256"
+   python3 "$tool/private_production_acceptance.py" --verify
+   ```
+
+   From here use `runtime=/var/lib/gameometro/production/compose.accepted.json`.
+
+6. **Confirm Grafana.** Expect about 30–40 tasks and only the PostgreSQL and Prometheus
+   plugins. Through the [private tunnel](../../deploy/public-production/README.md#production-observability-candidate),
+   check that every panel of the Catalogue Localization section loads: coverage should match
+   the issue's inventory, about 157k eligible summaries, and process panels may show no data until
+   work runs. Resource panels need the host sampler from this revision, which is a separate
+   authorization. Recheck `pids.peak` and `pids.events` after 24 hours and after opening the
+   dashboards: any `max` event means the diagnosis is incomplete.
+
+7. **Soak the localizer.** Select ordinary and the longest real sources, then run the
+   [bounded soak](../../tools/catalogue-localization/soak.py) against the helper's own
+   loopback. It writes nothing and starts no backfill. Sorting by length scans the summaries once.
+
+   ```bash
+   filter="summary_kind='sourced' AND summary_language='en' AND summary_source_kind='external_provider' AND summary_source_name='IGDB'"
+   compose exec -T postgres gosu postgres psql -XAt -d videogame_platform -c "SELECT json_agg(summary_text) FROM ((SELECT summary_text FROM catalogue.game_snapshot WHERE $filter ORDER BY game_id LIMIT 400) UNION ALL (SELECT summary_text FROM catalogue.game_snapshot WHERE $filter ORDER BY length(summary_text) DESC, game_id LIMIT 100)) s" > /root/localization-soak.json
+   docker exec -i "$(compose ps -q catalogue-localizer)" python -c "$(cat /srv/gameometro/operations/REVIEWED_SHA/tools/catalogue-localization/soak.py)" \
+     --max-requests 1000 --max-seconds 3600 --sample-every 5 < /root/localization-soak.json | tee /root/localization-soak-report.json
+   rm /root/localization-soak.json
+   ```
+
+   A non-zero exit or any `blocking` reason blocks #448. In particular,
+   `anonymous-memory-growth` is the retained-growth signal, and `oom-kill` or
+   `insufficient-ceiling-headroom` means the ceiling needs new evidence. Then run one small
+   real path, with the backfill's [existing checkpoint rules](#catalogue-localization), and watch
+   coverage move: `--batch-size 10 --max-batches 10`.
+
+8. **Exercise recovery.** Kill the localizer process from the host, not with `docker kill`,
+   which counts as an intentional stop. The restart count must rise, the model must become
+   ready and product reads must stay available. Repeat with Grafana. Then stop the localizer
+   with `compose stop catalogue-localizer` and confirm it stays stopped until
+   `compose up -d --no-deps --pull never catalogue-localizer`. A daemon restart or host reboot
+   is a separate owner decision with a maintenance window. Expect the
+   [documented behaviour](../../deploy/public-production/README.md#post-acceptance-runtime-transition),
+   then `--verify`, readiness and a catalogue read.
+
+   ```bash
+   kill -9 "$(docker inspect --format '{{.State.Pid}}' "$(compose ps -q catalogue-localizer)")"
+   docker inspect --format '{{.RestartCount}} {{.State.Health.Status}}' "$(compose ps -q catalogue-localizer)"
+   ```
+
+9. **Decide.** Record sanitized results on the issue. Only stable soak, stable Grafana and
+   the verified pair unblock #448, whose
+   [resource review](https://github.com/rubhern/videogame-platform/issues/448) still applies.
+   To return to the former restart state at any point, run
+   `private_production_acceptance.py --revert-restart`, which the
+   [rollback limits](../../deploy/public-production/README.md#post-acceptance-runtime-transition)
+   describe. An unrecoverable data problem follows the paired-recovery procedure on an empty
+   target, never a change to the live volume.
+
 ## Documentation portal
 
 Owner: [Private-dev portal procedure](../../deploy/private-dev/README.md#documentation-portal).

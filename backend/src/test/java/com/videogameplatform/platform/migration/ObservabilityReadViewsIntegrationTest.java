@@ -65,6 +65,7 @@ class ObservabilityReadViewsIntegrationTest {
                             + "jsonb_build_object('counters',jsonb_build_object('playerScoreObservedGames',3,'playerScoreAbsentGames',92,"
                             + "'playerScoreUnavailableGames',0,'playerScoreCreatedGames',3,'playerScoreUpdatedGames',0,"
                             + "'playerScoreRemovedGames',0,'playerScoreUnchangedGames',0)))");
+            stageLocalizationEvidence(statement);
         }
         try (var connection =
                         DriverManager.getConnection(
@@ -129,6 +130,7 @@ class ObservabilityReadViewsIntegrationTest {
                 assertThat(result.getLong("checked")).isEqualTo(1);
                 assertThat(result.getLong("rechecked")).isEqualTo(1);
             }
+            assertLocalizationCoverage(statement);
             try (var result =
                     statement.executeQuery(
                             "SELECT connections FROM public.observability_database")) {
@@ -149,6 +151,11 @@ class ObservabilityReadViewsIntegrationTest {
                                     statement.executeQuery(
                                             "SELECT * FROM catalogue.game_external_score"))
                     .isInstanceOf(SQLException.class);
+            assertThatThrownBy(
+                            () ->
+                                    statement.executeQuery(
+                                            "SELECT * FROM catalogue.content_translation"))
+                    .isInstanceOf(SQLException.class);
             // Privileges, not a session read-only default, are the enforcement boundary.
             statement.execute("SET default_transaction_read_only = off");
             assertThatThrownBy(() -> statement.execute("DELETE FROM ratings.rating"))
@@ -161,6 +168,87 @@ class ObservabilityReadViewsIntegrationTest {
             assertThatThrownBy(
                             () -> statement.execute("CREATE TABLE public.reader_write(id integer)"))
                     .isInstanceOf(SQLException.class);
+        }
+    }
+
+    /**
+     * Twelve seeded Games become one target per status. Source edits always pass through the
+     * snapshot, so each Game is addressed by its stable row number.
+     */
+    private static void stageLocalizationEvidence(java.sql.Statement statement)
+            throws SQLException {
+        statement.getConnection().setAutoCommit(false);
+        statement.execute(
+                "CREATE TEMP TABLE ranked_games AS SELECT game_id,"
+                        + " row_number() OVER (ORDER BY game_id) AS rank FROM catalogue.game_snapshot");
+        statement.execute(
+                "UPDATE catalogue.game_snapshot g SET summary_kind='sourced',summary_language='en',"
+                        + "summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='game',"
+                        + "summary_text='Source '||r.rank FROM ranked_games r WHERE r.game_id=g.game_id AND r.rank<=7");
+        // Rank 8 onwards keeps its seeded editorial summary, which is not a target.
+        statement.execute(
+                "INSERT INTO catalogue.content_translation"
+                        + "(fingerprint,source_text,translated_text,runtime_revision,translated_at,claim_id,claimed_until)"
+                        + " SELECT catalogue.spanish_source_fingerprint(source),source,translated,revision,at,claim,until FROM (VALUES "
+                        // 1: current. 2: stale, linked to the former source of the same Game.
+                        + "('Source 1','Fuente 1','fixture',now(),NULL::uuid,NULL::timestamptz),"
+                        + "('Former source 2','Fuente anterior','fixture',now(),NULL,NULL),"
+                        // 3: reusable, translated for another Game. 4: released. 5: leased. 6:
+                        // expired.
+                        + "('Source 3','Fuente 3','fixture',now(),NULL,NULL),"
+                        + "('Source 4',NULL,NULL,NULL,NULL,NULL),"
+                        + "('Source 5',NULL,NULL,NULL,gen_random_uuid(),now()+interval '5 minutes'),"
+                        + "('Source 6',NULL,NULL,NULL,gen_random_uuid(),now()-interval '1 minute')"
+                        + ") v(source,translated,revision,at,claim,until)");
+        statement.execute(
+                "INSERT INTO catalogue.game_summary_translation(game_id,fingerprint)"
+                        + " SELECT game_id,catalogue.spanish_source_fingerprint(source) FROM ranked_games"
+                        + " JOIN (VALUES (1,'Source 1'),(2,'Former source 2')) v(rank,source) USING(rank)");
+        statement.getConnection().commit();
+        statement.getConnection().setAutoCommit(true);
+    }
+
+    private static void assertLocalizationCoverage(java.sql.Statement statement)
+            throws SQLException {
+        var summary = new java.util.TreeMap<String, Long>();
+        try (var result =
+                statement.executeQuery(
+                        "SELECT status,sum(items) AS items FROM catalogue.observability_localization_coverage"
+                                + " WHERE kind='summary' GROUP BY status")) {
+            while (result.next()) summary.put(result.getString(1), result.getLong(2));
+        }
+        // Rank 7 has never been attempted; ranks 8..12 are outside enrichment ownership.
+        assertThat(summary)
+                .containsOnly(
+                        org.assertj.core.api.Assertions.entry("current", 1L),
+                        org.assertj.core.api.Assertions.entry("stale", 1L),
+                        org.assertj.core.api.Assertions.entry("reusable", 1L),
+                        org.assertj.core.api.Assertions.entry("retryable", 2L),
+                        org.assertj.core.api.Assertions.entry("busy", 1L),
+                        org.assertj.core.api.Assertions.entry("missing", 1L),
+                        org.assertj.core.api.Assertions.entry("not_applicable", 5L));
+        try (var result =
+                statement.executeQuery(
+                        "SELECT count(*) FILTER (WHERE status='stale' AND last_valid_retained AND origin IS NULL)"
+                                + " AS stale_last_valid,"
+                                + " count(*) FILTER (WHERE status='current' AND kind='summary' AND origin='machine') AS machine,"
+                                + " count(*) FILTER (WHERE status='current' AND kind<>'summary' AND origin<>'curated') AS uncurated"
+                                + " FROM catalogue.observability_localization_coverage")) {
+            result.next();
+            assertThat(result.getLong("stale_last_valid")).isEqualTo(1);
+            assertThat(result.getLong("machine")).isEqualTo(1);
+            assertThat(result.getLong("uncurated")).isZero();
+        }
+        // The contract is aggregate only: no identity, source text or fingerprint column.
+        try (var result =
+                statement.executeQuery(
+                        "SELECT * FROM catalogue.observability_localization_coverage LIMIT 0")) {
+            var columns = new java.util.ArrayList<String>();
+            for (int i = 1; i <= result.getMetaData().getColumnCount(); i++) {
+                columns.add(result.getMetaData().getColumnName(i));
+            }
+            assertThat(columns)
+                    .containsExactly("kind", "status", "origin", "last_valid_retained", "items");
         }
     }
 }

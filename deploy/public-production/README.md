@@ -29,6 +29,7 @@ what the repository checks and what only a real host can prove.
 | [`bin/run-keycloak`](bin/run-keycloak) | Keycloak entrypoint that reads secret files and refuses empty inputs |
 | [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
 | [`../../scripts/prepare_private_production.py`](../../scripts/prepare_private_production.py), [`../../scripts/install_private_production.py`](../../scripts/install_private_production.py) | Separately reviewed #276 private bundle and fresh-host bootstrap; no update, reset or public exposure |
+| [`../../scripts/private_production_acceptance.py`](../../scripts/private_production_acceptance.py) | [Post-acceptance transition](#post-acceptance-runtime-transition) of an installed private runtime: restart policy, reviewed ceilings and the localization dashboard and view |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
@@ -1003,7 +1004,8 @@ compatibility binding, not a change to #275's acceptance or product version.
 
 The preparer renders the candidate base **plus observability**, then applies only the
 reviewed private delta: remove all published ports, use supplied private TLS material,
-give the BFF its certificate-only truststore, disable automatic service restart, and
+give the BFF its certificate-only truststore, disable automatic service restart until the
+[post-acceptance transition](#post-acceptance-runtime-transition), and
 explicitly disable bridge IPv6/use protected IPv4 NAT. Internal data networks, fixed
 proxy addresses, origins, resource limits, mounted wrappers, secret consumers and
 maintenance controls remain intact. The validator compares the complete result with
@@ -1310,6 +1312,64 @@ needs a separately approved bootstrap plan, corrected newly prepared bundle, pub
 trusted operational revision/fingerprint, current trust evidence and read-only preflight
 showing exact resource/claim absence. Keep #275's accepted source, images and signed
 acceptance unchanged; never clear state merely to pass the existing installer.
+
+### Post-acceptance runtime transition
+
+**Implemented for review; not executed on any host.** First installation keeps every
+service at `restart: no` on purpose. [`private_production_acceptance.py`](../../scripts/private_production_acceptance.py)
+is the one reviewed step out of that state, for a runtime the owner has accepted. It is
+not an update path: images, the accepted candidate, its fingerprint and Flyway history
+do not change, and it grants no public, backup or recovery acceptance.
+
+The candidate's bundle is immutable, so a change to this directory never reaches an
+installed runtime by itself. The transition derives one configuration from the installed
+journal, and its validator refuses any other difference:
+
+| Service | Change |
+|---|---|
+| Ten persistent services | `restart: unless-stopped` |
+| `catalogue-localizer` | The [reviewed memory ceiling](compose.yaml), by recreating the container |
+| `grafana` | [Plugin policy](compose.observability.yaml) and the reviewed dashboard as one read-only file over the candidate's copy, by recreating the container |
+| `migration` | None: it stays `restart: no` and is not started |
+
+The other eight services change policy in place through `docker update`, with no restart,
+and only the two recreated services are optional for product readiness. The intended
+configuration and a record stay in `/var/lib/gameometro/production` as
+`compose.accepted.json` and `runtime-acceptance.json`. Use that file for any later Compose
+command on this runtime: `compose.private.json` would revert policy and ceilings when it
+recreates a service.
+
+The running application is unchanged. The
+coverage view reaches this runtime ahead of its Flyway history: the transition applies the
+same idempotent migration file under the migrator role, and grants it to the existing
+reader. A later application update replaces the view with itself. Nothing else is applied.
+
+Refusals, all before any runtime or database change:
+
+- no recorded successful installation, or a failure sidecar, reconciliation, pending write
+  or recovery journal `PENDING.json`;
+- a closed recovery gate, identity maintenance, or a gate owned by another attempt;
+- a held recovery lease, including a running backup;
+- a required service that drifted from the installed configuration. A stopped localizer or
+  Grafana is accepted, because the transition starts both;
+- a reviewed-hash, operational-revision or owner-reference mismatch;
+- no paired backup manifest from the last 24 hours with the installed image identities.
+
+Restart behaviour, proved on a disposable real daemon by
+`scripts/test-private-production-restart-docker.py`: a crash or daemon loss restarts an
+accepted service, including an abrupt daemon loss; `docker stop`, `docker kill` and Compose
+stop survive both, so a stopped service stays stopped until an operator starts it. One-shot
+actors do not rerun. A closed gate keeps its protection on every restart: the application
+and migration wrappers refuse before reading any secret, and a backup leaves their
+containers stopped. Daemon restart gives no start order, so the application may exit and
+retry until PostgreSQL is ready. A real host reboot remains to be exercised.
+
+Rollback limits: `--revert-restart` returns all ten services to `restart: no` in place and
+works while the gate is closed. It keeps the higher ceiling, plugin policy, dashboard and
+view, which are harmless without their consumers. Reversing those needs a separately
+reviewed recreate. The view is additive and never needs removal for an older application.
+The [runbook checklist](../../docs/development/operations-runbook.md#private-production-localization-and-grafana-stabilization)
+owns the authorized sequence.
 
 ### Before any real user data
 

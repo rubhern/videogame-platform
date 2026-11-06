@@ -55,12 +55,26 @@ def cgroup_values(directory):
     quota, period = (directory / 'cpu.max').read_text().split()
     if limit == 'max' or quota == 'max':
         raise ValueError('Expected bounded cgroup v2')
-    return {'cpu_seconds_total': int(cpu['usage_usec']) / 1e6,
-            'cpu_throttled_periods_total': int(cpu.get('nr_throttled', 0)),
-            'cpu_periods_total': int(cpu.get('nr_periods', 0)),
-            'cpu_limit_cores': int(quota) / int(period),
-            'memory_bytes': int((directory / 'memory.current').read_text()),
-            'memory_limit_bytes': int(limit), 'oom_total': int(memory['oom_kill'])}
+    values = {'cpu_seconds_total': int(cpu['usage_usec']) / 1e6,
+              'cpu_throttled_periods_total': int(cpu.get('nr_throttled', 0)),
+              'cpu_periods_total': int(cpu.get('nr_periods', 0)),
+              'cpu_limit_cores': int(quota) / int(period),
+              'memory_bytes': int((directory / 'memory.current').read_text()),
+              'memory_limit_bytes': int(limit), 'oom_total': int(memory['oom_kill'])}
+    # memory_bytes includes reclaimable file cache; anonymous memory is what the trend needs.
+    # pids.max counts every thread of every process, so it explains an EAGAIN that a single
+    # Go runtime's own thread count cannot. An unavailable reading stays absent, never zero.
+    optional = {'memory_anon_bytes': lambda: fields('memory.stat')['anon'],
+                'memory_peak_bytes': lambda: (directory / 'memory.peak').read_text(),
+                'pids_current': lambda: (directory / 'pids.current').read_text(),
+                'pids_limit': lambda: (directory / 'pids.max').read_text(),
+                'pids_max_events_total': lambda: fields('pids.events')['max']}
+    for name, reader in optional.items():
+        try:
+            values[name] = int(reader())
+        except (OSError, KeyError, ValueError):
+            pass
+    return values
 
 
 def command(args, max_bytes=16384):
