@@ -537,8 +537,8 @@ class FakeUpgrade(upgrade.Upgrade):
         if names[0] in self.test.start_failures:
             raise trust.Refused('Service did not become healthy.')
 
-    def realm_command(self, host, *arguments):
-        self.test.log.append('realm:' + ('check' if '--check' in arguments else 'apply'))
+    def realm_command(self, host, *arguments, command=upgrade.REALM_COMMAND):
+        self.test.log.append(('notice:' if command == 'scripts/production_registration_notice.py' else 'realm:') + ('check' if '--check' in arguments else 'apply'))
         self.test.assertTrue(self.test.recovery.keycloak_login, 'The realm migrated without the target Keycloak.')
 
     def phase_reached(self, phase):
@@ -638,7 +638,7 @@ class Flow(unittest.TestCase):
         self.assertEqual(self.filtered(), [
             'closed:upgrade-claimed', 'fence-enter',
             'sql:ALTER ROLE videogame_app_migrator LOGIN;', 'run migration', 'sql:ALTER ROLE videogame_app_migrator NOLOGIN;',
-            'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'realm:apply', 'realm:check',
+            'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'notice:apply', 'realm:apply', 'realm:check', 'notice:check',
             'no-start:caddy,application,catalogue-localizer,grafana', 'roles-login:True', 'gate-open', 'fence-exit',
             'up:telemetry', 'up:prometheus', 'up:node-exporter', 'up:blackbox',
             'up:caddy', 'up:application', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
@@ -821,9 +821,9 @@ class Flow(unittest.TestCase):
         changed = dict(self.identity, users=[1, 'lost'])
         original = FakeUpgrade.realm_command
 
-        def lose(upgrader, host, *arguments):
+        def lose(upgrader, host, *arguments, **kwargs):
             self.identity = changed
-            return original(upgrader, host, *arguments)
+            return original(upgrader, host, *arguments, **kwargs)
         with patch.object(FakeUpgrade, 'realm_command', lose), self.assertRaises(trust.Refused):
             self.apply()
         record = self.journal()
@@ -976,6 +976,74 @@ class Flow(unittest.TestCase):
         self.assertEqual(self.journal()['supersededBy'], NEWER)
         self.assertEqual(self.log.count('fence'), 1)
         self.assertNotIn('run migration', self.log)
+
+    def predecessor_notice_snapshot(self, target=TARGET):
+        before = {'es': copy.deepcopy(NOTICE_LEGACY['localizationTexts']['es']), 'fr': {'keep': 'original'}}
+        expected = copy.deepcopy(before)
+        expected['es']['termsText'] = notice.notice(NOTICE_TARGET).replace(
+            'https://${APPLICATION_PUBLIC_HOST}', 'https://gameometro.com')
+        saved = {'targetSha256': notice.APPROVED, 'before': before, 'expected': expected, 'realmSha256': 'f' * 64}
+        path = self.admin / upgrade.UPGRADES / target / 'registration-notice.json'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(saved))
+        path.chmod(0o600)
+        return path
+
+    def test_forward_fix_carries_original_notice_snapshot_after_legal_text_changed(self):
+        value = self.prepare_forward_fix()
+        original = self.predecessor_notice_snapshot()
+        saved = original.read_bytes()
+        self.identity['realmLocalizations'] = [2, 'aligned-notice']
+        value.apply(value.build(None, None)['planSha256'], reference='#276 forward fix')
+        inherited = value.directory / original.name
+        self.assertEqual(inherited.read_bytes(), saved)
+        self.assertEqual(inherited.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(json.loads(inherited.read_text())['before']['fr'], {'keep': 'original'})
+
+    def test_notice_baseline_survives_repeated_forward_fixes_and_interrupted_copy(self):
+        value = self.prepare_forward_fix()
+        original = self.predecessor_notice_snapshot()
+        predecessor = value.active['predecessor']
+        value.carry_notice_snapshot(predecessor)
+        value.carry_notice_snapshot(predecessor)  # Retry before the new claim uses identical bytes.
+        successor = self.upgrader('c' * 40, NEWER)
+        successor.bundle.mkdir(parents=True)
+        import_path = successor.bundle / 'candidate' / upgrade.REALM_IMPORT
+        import_path.parent.mkdir(parents=True)
+        import_path.write_text(json.dumps(NOTICE_TARGET))
+        successor.carry_notice_snapshot(predecessor)
+        self.assertEqual((successor.directory / original.name).read_bytes(), original.read_bytes())
+        (value.directory / original.name).write_text('{}')
+        with self.assertRaises(trust.Refused): value.carry_notice_snapshot(predecessor)
+
+    def test_missing_notice_baseline_after_mutation_refuses_before_superseding_predecessor(self):
+        value = self.prepare_forward_fix()
+        self.identity['realmLocalizations'] = [2, 'aligned-notice']
+        with self.assertRaises(trust.Refused):
+            value.apply(value.build(None, None)['planSha256'], reference='#276 forward fix')
+        self.assertEqual(self.journal()['status'], 'failed')
+        self.assertFalse((value.directory / upgrade.JOURNAL).exists())
+
+    def test_invalid_predecessor_notice_snapshot_refuses_before_claim(self):
+        value = self.prepare_forward_fix()
+        for invalid in ('missing-fields', 'wrong-target', 'unexpected-text', 'symlink'):
+            with self.subTest(invalid):
+                path = self.predecessor_notice_snapshot()
+                if invalid == 'symlink':
+                    other = path.with_suffix('.saved')
+                    path.rename(other)
+                    path.symlink_to(other)
+                else:
+                    saved = json.loads(path.read_text())
+                    if invalid == 'missing-fields': saved = {}
+                    elif invalid == 'wrong-target': saved['targetSha256'] = '0' * 64
+                    else: saved['expected']['fr']['keep'] = 'adopted drift'
+                    path.write_text(json.dumps(saved))
+                with self.assertRaises(trust.Refused):
+                    value.apply(value.build(None, None)['planSha256'], reference='#276 forward fix')
+                self.assertEqual(self.journal()['status'], 'failed')
+                self.assertFalse((value.directory / upgrade.JOURNAL).exists())
+                path.unlink()
 
     def test_forward_fix_refuses_a_stale_pair_before_any_write_was_possible(self):
         value = self.prepare_forward_fix('identity')
@@ -1326,6 +1394,181 @@ class Cli(unittest.TestCase):
         for revision in ('latest', 'main', 'A' * 40, 'a' * 39, ''):
             with self.assertRaises(trust.Refused):
                 upgrade.Upgrade(revision)
+
+
+import production_registration_notice as notice
+import private_production_upgrade as upgrade
+import private_dev_promotion as trust
+
+NOTICE_TARGET = json.loads((notice.ROOT / notice.IMPORT).read_text())
+NOTICE_LEGACY = copy.deepcopy(NOTICE_TARGET)
+NOTICE_LEGACY['localizationTexts']['es']['termsText'] = '<p>Gameómetro es un servicio gratuito y sin fines comerciales para personas adultas. Para crear tu cuenta solo te pedimos tu email.</p>'
+
+
+class NoticeRealm:
+    def __init__(self):
+        self.texts = {'es': copy.deepcopy(NOTICE_LEGACY['localizationTexts']['es']), 'fr': {'other': 'preserved'}}
+        self.state = {'realm': 'gameometro', 'registrationAllowed': True, 'smtpServer': {'host': 'preserved'}}
+        self.writes = 0
+        self.fail = False
+        self.drift = False
+
+    def representation(self): return copy.deepcopy(self.state)
+
+    def get(self, path):
+        if path == '/localization': return list(self.texts)
+        return copy.deepcopy(self.texts[path.split('/')[2].split('?')[0]])
+
+    def set_localization(self, key, value):
+        self.writes += 1
+        self.texts['es'][key] = value
+        if self.drift: self.texts['fr']['other'] = 'unexpected'
+        if self.fail: raise RuntimeError('lost response after durable write')
+
+
+class RegistrationNoticeMigration(unittest.TestCase):
+    def test_metadata_reads_are_bounded_before_json_decoding(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.read.return_value = b'x' * (notice.MAX_BYTES + 1)
+        admin = SimpleNamespace(origin='http://keycloak:8080', access_token='synthetic', opener=MagicMock())
+        admin.opener.open.return_value = response
+        realm = notice.BoundedRealm(SimpleNamespace(admin=admin, admin_path='/admin/realms/gameometro'))
+        with self.assertRaisesRegex(ValueError, 'exceeds its bound'):
+            realm.get('/localization/es')
+        response.read.assert_called_once_with(notice.MAX_BYTES + 1)
+        response.read.return_value = b'{"realm":"gameometro"}'
+        self.assertEqual(realm.representation(), {'realm': 'gameometro'})
+        response.read.return_value = b'{"realm":"other"}'
+        with self.assertRaisesRegex(ValueError, 'Invalid realm'):
+            realm.representation()
+
+    def test_plan_requires_the_matching_actor_in_target_before_any_live_query(self):
+        with tempfile.TemporaryDirectory() as directory:
+            previous, target = Path(directory) / 'previous', Path(directory) / 'target'
+            for source, content in ((previous, NOTICE_LEGACY), (target, NOTICE_TARGET)):
+                path = source / upgrade.REALM_IMPORT
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(content))
+            operator = upgrade.Upgrade('a' * 40)
+            operator.active = {'source': previous}
+            actor = target / upgrade.NOTICE_COMMAND
+            with patch.object(operator, 'query') as query:
+                with self.assertRaises(trust.Refused): operator.realm_plan(target)
+                query.assert_not_called()
+                actor.parent.mkdir(parents=True)
+                actor.write_text('incompatible actor')
+                with self.assertRaises(trust.Refused): operator.realm_plan(target)
+                query.assert_not_called()
+                actor.write_bytes(Path(notice.__file__).read_bytes())
+                query.return_value = upgrade.desired_session_state(NOTICE_TARGET)
+                self.assertEqual(operator.realm_plan(target)['registrationNotice']['targetSha256'], notice.APPROVED)
+
+    def test_plan_accepts_only_exact_approved_notice_delta(self):
+        upgrade.realm_import_delta(NOTICE_LEGACY, NOTICE_TARGET)
+        for locale, key in (('es', 'termsText'), ('es', 'acceptTerms')):
+            changed = copy.deepcopy(NOTICE_TARGET)
+            changed['localizationTexts'][locale][key] = 'unreviewed'
+            with self.assertRaises(trust.Refused): upgrade.realm_import_delta(NOTICE_LEGACY, changed)
+        self.assertEqual(NOTICE_LEGACY['localizationTexts']['es']['termsText'], notice.notice(NOTICE_LEGACY))
+
+    def test_apply_check_and_repeat_preserve_every_other_locale_and_realm(self):
+        realm = NoticeRealm()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            saved = path.read_bytes()
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            self.assertEqual(path.read_bytes(), saved)
+            self.assertEqual(realm.writes, 1)
+            self.assertEqual(realm.texts['fr'], {'other': 'preserved'})
+            self.assertEqual(realm.texts['es']['acceptTerms'], NOTICE_TARGET['localizationTexts']['es']['acceptTerms'])
+
+    def test_check_old_notice_does_not_snapshot_or_write(self):
+        realm = NoticeRealm()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            self.assertFalse(path.exists())
+            self.assertEqual(realm.writes, 0)
+
+    def test_lost_acknowledgement_resumes_without_losing_snapshot(self):
+        realm = NoticeRealm()
+        realm.fail = True
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            with self.assertRaises(RuntimeError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            saved = path.read_bytes()
+            realm.fail = False
+            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            self.assertEqual(path.read_bytes(), saved)
+            self.assertEqual(realm.writes, 1)
+
+    def test_other_locale_or_realm_drift_refuses_and_cannot_be_adopted_on_retry(self):
+        for drift in ('locale', 'realm'):
+            realm = NoticeRealm()
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'snapshot.json'
+                notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                if drift == 'locale': realm.texts['fr']['other'] = 'unexpected'
+                else: realm.state['registrationAllowed'] = False
+                with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                self.assertEqual(realm.writes, 1)
+
+    def test_unknown_live_notice_and_write_side_effects_refuse(self):
+        realm = NoticeRealm()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            realm.texts['es']['termsText'] = 'custom'
+            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            self.assertEqual(realm.writes, 0)
+            self.assertFalse(path.exists())
+            realm = NoticeRealm()
+            realm.drift = True
+            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+
+    def test_session_alignment_is_independently_verified_without_resetting_notice_snapshot(self):
+        self.assertEqual(notice.SESSION_SETTINGS, upgrade.SESSION_SETTINGS)
+        realm = NoticeRealm()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            saved = path.read_bytes()
+            realm.state['rememberMe'] = True
+            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            self.assertEqual(path.read_bytes(), saved)
+
+    def test_notice_cli_addresses_gameometro_instead_of_private_dev_default(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        identity = SimpleNamespace(provisioning=SimpleNamespace(KeycloakAdmin=Mock()), Realm=Mock())
+        with tempfile.TemporaryDirectory() as directory:
+            password = Path(directory) / 'password'
+            password.write_text('synthetic-password')
+            argv = ['notice', '--origin', 'http://keycloak:8080', '--admin-username', 'synthetic',
+                    '--admin-password-file', str(password), '--check']
+            with patch.object(sys, 'argv', argv), \
+                 patch.object(notice.importlib.machinery, 'SourceFileLoader'), \
+                 patch.object(notice.importlib.util, 'spec_from_loader'), \
+                 patch.object(notice.importlib.util, 'module_from_spec', return_value=identity), \
+                 patch.object(notice, 'align') as align:
+                notice.main()
+            identity.Realm.assert_called_once_with(identity.provisioning.KeycloakAdmin.return_value, 'gameometro')
+            self.assertTrue(align.call_args.args[-1])
+
+    def test_locale_bound_refuses_before_any_write(self):
+        realm = NoticeRealm()
+        realm.texts.update({f'x{i}': {} for i in range(notice.MAX_LOCALES)})
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
+            notice.align(realm, notice.notice(NOTICE_TARGET), Path(directory) / 'snapshot.json')
+        self.assertEqual(realm.writes, 0)
+
+
 
 
 if __name__ == '__main__':

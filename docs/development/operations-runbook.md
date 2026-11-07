@@ -1321,11 +1321,58 @@ compose() { docker compose -p gameometro-production -f "$runtime" --profile '*' 
    describe. An unrecoverable data problem follows the paired-recovery procedure on an empty
    target, never a change to the live volume.
 
+### Private production maintenance plan
+
+**Prepared coordination plan for #276; not executed or operationally accepted.**
+Use this single sequence for the installed private production runtime. Detailed commands
+remain in their linked procedures; approval records, source identities and sanitized
+results belong in the issue and PR. This plan does not retire private-dev. Preparation
+and publication authorization does not authorize host mutation, cloud mutation or exposure.
+
+| Phase | Delegated work and exit evidence | Owner authorization, grouped for the phase |
+|---|---|---|
+| 1. Review and publication | Correct and review the notice migration; focused tests, portal checks and current-commit PR CI; record operational fingerprint and compatibility | Branch, commit, push and PR are authorized for this change. Present the complete review before a separate merge decision |
+| 2. Private maintenance window | After merge and fresh trusted-main publication, inspect host/source/permissions, stage the exact reviewed operator, target and images, review the new plan hash, take a fresh fenced pair, secure an independent copy and isolated restore, apply and verify the upgrade and private owner journey | One bounded authorization naming host, target/operator SHAs, reviewed plan hash, window, permitted service interruption, pair/copy destinations, key custody and reference. It may cover staging, capture, copy, isolated restore, apply and same-plan resume for diagnosed transient failures. An unexpected delta or forward fix returns for review |
+| 3. Manual cloud qualification | Verify effective credentials and provider retention/permission tests, fresh capacity admission, protected cost monitoring/alerts before first upload; publish an eligible fresh pair; verify independently and reconstruct into an empty isolated target with the source host and Lenovo unavailable; replay current deletions and prove archive/ledger durability | One separate bounded authorization naming test/production buckets, exact roles, synthetic test objects, allowed writes and exact-version test deletions, transfer/storage allowance, independent restore target and notification test recipient. It grants no recurring execution or deletion of live retained pairs |
+| 4. Automation activation | Qualify capture serialization, off-VPS observation/expiry, missing-job and firing/recovery delivery, restart/reboot, failed-run fencing and manual fallback. Verify current recovery evidence and separately protected reconstruction material | Separate explicit activation decision listing each timer, workflow variable/environment, cadence, uploader/observer/expiry credential scope and stop conditions. Include account cleanup only after its own deployed durability/fencing acceptance; merging prepared code activates nothing |
+| 5. Restricted launch qualification | Complete the remaining real-host capacity, IPv4/IPv6 isolation, abuse/shared-IP/spoofing, SMTP/quota, certificate, privacy/provider and synthetic external-journey checks required by the exposure gate | Separate authorization for any temporary DNS/ACME or public test route, exact scope and expiry, with real registration closed. Accept measured recovery and residual limitations only after reviewing evidence |
+| 6. Public opening | Present the complete release identity and evidence matrix, unresolved risks and closure/recovery procedure | Separate explicit public go/no-go naming the accepted release, hostnames and signup/ingress change. No maintenance or automation approval implies this decision |
+
+The [upgrade procedure](#private-production-in-place-upgrade),
+[S3 preparation guide](../../deploy/public-production/README.md#s3-transport-preparation-276),
+[scheduled-cycle contract](../../deploy/public-production/README.md#scheduled-backup-cycle-276)
+and [public-production gates](delivery-lifecycle.md#public-production-gates) own execution
+and acceptance. Reuse valid accepted evidence, including #275, and execute only missing
+or changed checks. Provider/account/contract decisions already recorded remain valid;
+verify effective access and current evidence instead of requesting them again.
+
+**Risks and recovery.** Schedule interruption for the entire fenced period; a backup
+closes writers and an interrupted upgrade may keep them closed. Retain the original pair,
+source/configuration identities, journals and notice snapshots. Inspect before resuming;
+abandon only before schema/identity advancement, otherwise use a reviewed forward fix
+or an explicitly authorized paired restore into empty state. Never remove a fence or
+roll back an image over an advanced schema. A stale pair cannot qualify an upload:
+take a fresh pair within the transport's admission window, under the authorized window.
+Cloud lock/permission failures, ambiguous deletions, missing independent evidence or
+cost/capacity excursions stop that phase and keep exposure closed. Preserve intent
+receipts, reconcile exact versions, and restore with current independent deletion-ledger
+replay before reopening. Do not shorten retention or bypass Compliance protection.
+
+Stop recurring work when its acceptance fails; preserve evidence and protected state.
+Stopping an expiry worker needs incident handling and a manual qualified fallback so
+the retention deadline is still met. Missing notifications require an independent
+check; they are not a healthy result. Credentials and decryption/reconstruction
+material stay in protected stores, outside chat, Git and public CI output. Actual
+RPO/RTO and operator availability are measured acceptance inputs, not promises in this
+prepared plan. The owner retains credential/MFA entry and final risk/activation/exposure
+decisions; bounded technical preparation, execution and evidence collection can be delegated.
+
 ### Private production in-place upgrade
 
 The [upgrade contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
 owns behaviour, refusals and forward-recovery limits. This checklist is **prepared, not executed**:
-every host step needs separate owner authorization, and a failed step stops the sequence.
+every host step needs explicit owner authorization, which may be grouped under the
+[maintenance phase](#private-production-maintenance-plan); a failed step stops the sequence.
 
 **Prerequisites:**
 
@@ -1336,7 +1383,8 @@ every host step needs separate owner authorization, and a failed step stops the 
 - The target has green build and security runs, and is still within its 30-day publication retention,
   as is the operator revision. Past that, plan refuses; choose a newer target.
 - The target's realm import differs from the active one only by the
-  [reviewed session migration](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime).
+  [reviewed session and registration-notice migrations](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime),
+  and contains the matching reviewed notice actor when that extension applies.
 - `control.SUPPORTED` lists the host's exact Docker and Compose pair. Otherwise the plan refuses.
 - The owner has a maintenance window for the whole fenced period, an independent destination, and a
   machine with the decryption keyring, Docker and this repository for the restore check.

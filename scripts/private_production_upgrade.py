@@ -31,6 +31,7 @@ import private_production_control as control
 import public_production_integration as integration
 import validate_private_production_truststore as stores
 import private_production_admin as admin
+import production_registration_notice as registration
 
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN = install.ADMIN
@@ -63,11 +64,12 @@ VERSION_ENVIRONMENT = 'TELEMETRY_SERVICE_VERSION'
 FENCE_STOPPED = {'caddy', 'application', 'keycloak', 'grafana'}
 MIGRATION_TIMEOUT = 1800
 REALM_IMPORT = 'deploy/public-production/keycloak/import/gameometro-realm.json'
+NOTICE_COMMAND = 'scripts/production_registration_notice.py'
 REALM_COMMAND = 'deploy/private-dev/bin/configure-keycloak-identity'
 MIGRATION_DIRECTORY = 'backend/src/main/resources/db/migration/'
 BFF_CLIENT = 'videogame-platform-bff'
 REMEMBER_MAPPER = 'native remember me'
-# The whole reviewed existing-realm migration; configure-keycloak-identity --sessions-only owns it.
+# Session portion of the reviewed realm migration; the notice actor owns localization.
 SESSION_SETTINGS = ('rememberMe', 'ssoSessionIdleTimeout', 'ssoSessionMaxLifespan',
                     'ssoSessionIdleTimeoutRememberMe', 'ssoSessionMaxLifespanRememberMe')
 OFF_HOST_RECEIPTS = ('encrypted-pull', 's3-publish')
@@ -216,9 +218,13 @@ def flyway_delta(history, files):
 
 
 def realm_import_delta(previous, target):
-    """Compare two realm imports semantically. Only the reviewed session migration may differ."""
+    """Compare two realm imports semantically. Only the reviewed session and registration-notice migrations may differ."""
     def clients(realm):
         return {c['clientId']: c for c in realm.get('clients', [])}
+    try:
+        previous = registration.reviewed_delta(previous, target)
+    except ValueError as error:
+        raise trust.Refused(str(error)) from None
     changed = sorted(k for k in set(previous) | set(target) if k != 'clients' and previous.get(k) != target.get(k))
     require(set(changed) <= set(SESSION_SETTINGS),
             'The realm import changed outside the reviewed session migration; a reviewed realm delta is required.')
@@ -656,10 +662,16 @@ class Upgrade:
         previous = json.loads((self.active['source'] / REALM_IMPORT).read_text())
         target = json.loads((source / REALM_IMPORT).read_text())
         realm_import_delta(previous, target)
+        if registration.digest(registration.notice(target)) == registration.APPROVED:
+            actor = source / NOTICE_COMMAND
+            require(actor.is_file() and actor.read_bytes() == Path(registration.__file__).read_bytes(),
+                    'Target lacks the reviewed notice actor; choose a target published with this extension.')
         desired, live = desired_session_state(target), self.query('videogame_keycloak', REALM_SQL)
-        return {'changes': {k: {'from': live[k], 'to': desired[k]} for k in desired if live[k] != desired[k]},
+        return {'registrationNotice': {'targetSha256': registration.APPROVED, 'field': 'localizationTexts.es.termsText'}
+                if registration.digest(registration.notice(target)) == registration.APPROVED else None,
+                'changes': {k: {'from': live[k], 'to': desired[k]} for k in desired if live[k] != desired[k]},
                 'preserved': 'users, credentials, identities, client secret, redirect URIs and every other realm setting',
-                'method': 'configure-keycloak-identity --sessions-only through the Admin API, never an import'}
+                'method': 'scoped session and registration-notice actors through the Admin API, never an import'}
 
     def accepted_dashboard(self, api, source):
         """#452 mounted one reviewed dashboard over the candidate's copy; the target must not lose it."""
@@ -860,6 +872,7 @@ class Upgrade:
                               identityBefore=predecessor['identityBefore'], dataBefore=predecessor['dataBefore'],
                               readerBefore=predecessor['readerBefore'], reopened=predecessor['reopened'])
                 require(record['reopened'] or self.fence_continuous(record), 'Writers were not continuously fenced; the pair is stale.')
+                self.carry_notice_snapshot(predecessor)
                 self.directory.mkdir(parents=True, exist_ok=True)
             else:
                 record['backup'] = self.verify_fence(backup, offhost, restore)
@@ -878,6 +891,51 @@ class Upgrade:
                 require(self.recovery.gate('maintenance-enter', record['runUuid']) == b'entered',
                         'Another identity-maintenance run holds the fence.')
             return self.execute(record, built['reviewed'])
+
+    def carry_notice_snapshot(self, predecessor):
+        """Keep the original legal-text baseline through successive forward fixes."""
+        previous = self.admin / UPGRADES / self.forward_of / 'registration-notice.json'
+        destination = self.directory / previous.name
+        if not previous.exists() and not previous.is_symlink():
+            self.preserved(predecessor['identityBefore'], self.query('videogame_keycloak', IDENTITY_SQL),
+                           ('realmLocalizations',))
+            require(not destination.exists() and not destination.is_symlink(),
+                    'A notice snapshot exists without its predecessor baseline.')
+            return
+        install.secure(previous, mode=0o600)
+        require(previous.is_file() and not previous.is_symlink()
+                and previous.stat().st_size <= 2 * registration.MAX_BYTES + 4096,
+                'Invalid predecessor notice snapshot.')
+        data = previous.read_bytes()
+        saved = json.loads(data)
+        desired = registration.notice(json.loads((self.bundle / 'candidate' / REALM_IMPORT).read_text())).replace(
+            'https://${APPLICATION_PUBLIC_HOST}', 'https://gameometro.com')
+        require(isinstance(saved, dict) and saved.get('targetSha256') == registration.APPROVED
+                and isinstance(saved.get('before'), dict) and isinstance(saved.get('expected'), dict)
+                and re.fullmatch('[0-9a-f]{64}', saved.get('realmSha256', '')),
+                'Invalid predecessor notice baseline.')
+        expected = json.loads(json.dumps(saved['before']))
+        require(isinstance(expected.get('es'), dict)
+                and (expected['es'].get('termsText') == desired
+                     or registration.digest(expected['es'].get('termsText', '')) == registration.LEGACY),
+                'Invalid predecessor notice baseline.')
+        expected['es']['termsText'] = desired
+        require(saved['expected'] == expected, 'Invalid predecessor notice baseline.')
+        if destination.exists() or destination.is_symlink():
+            install.secure(destination, mode=0o600)
+            require(destination.is_file() and not destination.is_symlink()
+                    and destination.stat().st_size == len(data) and destination.read_bytes() == data,
+                    'The inherited notice snapshot differs from its predecessor.')
+            return
+        self.directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=self.directory, suffix='.pending', delete=False) as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary = stream.name
+        os.replace(temporary, destination)
+        control.fsync_dir(self.directory)
 
     def claim_record(self, built, reference):
         return {'schema': 1, 'status': 'running', 'phase': 'claimed', 'runUuid': str(uuid.uuid4()),
@@ -1015,7 +1073,8 @@ class Upgrade:
                          '-v', f'{host.source}:/candidate:ro', '-v', f'{self.directory}:/snapshots',
                          install.HELPER, 'python3', '-I', '/candidate/' + command, '--origin', 'http://keycloak:8080',
                          '--admin-username', environment['KC_BOOTSTRAP_ADMIN_USERNAME'], '--admin-password-file', '/dev/stdin',
-                         *(['--realm', 'gameometro', '--sessions-only'] if command == REALM_COMMAND else ['--frontend-url', admin.KEYCLOAK]), *arguments],
+                         *(['--realm', 'gameometro', '--sessions-only'] if command == REALM_COMMAND else
+                           [] if command == NOTICE_COMMAND else ['--frontend-url', admin.KEYCLOAK]), *arguments],
                         data=secret.read_bytes(), timeout=120, output=False)
 
     def identity(self, host, record):
@@ -1027,6 +1086,14 @@ class Upgrade:
         started = self.query('videogame_keycloak', IDENTITY_SQL)
         if not record['reopened']:
             self.preserved(before, started, ACCOUNT_DIGESTS)
+        notice = registration.notice(json.loads((host.source / REALM_IMPORT).read_text()))
+        notice_migration = registration.digest(notice) == registration.APPROVED
+        if notice_migration:
+            # First capture the original texts before any realm actor can change them.
+            # On resume the durable notice snapshot verifies the already-aligned texts.
+            if not (self.directory / 'registration-notice.json').exists():
+                self.preserved(before, started, ('realmLocalizations',))
+            self.realm_command(host, '--snapshot-dir', '/snapshots', command=NOTICE_COMMAND)
         self.phase_reached('realm-migration')
         self.realm_command(host, '--snapshot-dir', '/snapshots')
         self.realm_command(host, '--check')
@@ -1034,9 +1101,13 @@ class Upgrade:
             command = 'deploy/public-production/bin/configure-keycloak-admin'
             self.realm_command(host, '--snapshot-dir', '/snapshots', command=command)
             self.realm_command(host, '--check', command=command)
+        if notice_migration:
+            self.realm_command(host, '--check', command=NOTICE_COMMAND)
         after = self.query('videogame_keycloak', IDENTITY_SQL)
         if not record['reopened']:
-            self.preserved(before, after, before)
+            # Only the notice actor may change localizations; its durable snapshot verifies
+            # every locale and text, while every other SQL digest remains unchanged.
+            self.preserved(before, after, set(before) - ({'realmLocalizations'} if notice_migration else set()))
         live = self.query('videogame_keycloak', REALM_SQL)
         desired = desired_session_state(json.loads((host.source / REALM_IMPORT).read_text()))
         require(live == desired, 'The realm does not hold the reviewed session policy.')
