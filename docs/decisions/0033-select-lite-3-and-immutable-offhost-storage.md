@@ -133,7 +133,27 @@ created, because a capture only reads the databases. Every other fence, manual b
 its existing refusal. The
 [runtime guide](../../deploy/public-production/README.md#scheduled-backup-cycle-276) owns the mechanics.
 
-**Proposed for owner review, not yet decided:** a list-only admission reader on the VPS replaces moving
+**Owner decision, 2026-11-07 (#276): approved.** A list-only admission reader on the VPS replaces moving
 observer evidence to the host, which had no transport from a public workflow to a private host. It reads
 listings and configuration, never object content, so the host still cannot read history, and it does not
-replace the independent observer. This grants no provider setup, installation or activation.
+replace the independent observer. Approval grants no provider setup, installation or activation by itself.
+
+## Amendment 2026-11-07: ledger and legal archive copies in one OVHcloud account
+
+**Owner decision (#276).** The deletion ledger and the legal archive each keep two synchronous
+S3 copies inside the **same OVHcloud account**, in two separate Public Cloud projects with buckets
+in distinct European regions. Each copy has its own S3 identity. The ledger buckets keep the D6
+Compliance default of 36 days; the archive buckets have no Object Lock, so an archive purge can
+remove its source.
+
+This **reduces the administrative independence approved earlier**: one account compromise, closure
+or billing suspension can reach both copies and the rolling backups together. The owner explicitly
+accepts that residual risk for the MVP to avoid a second account or provider. Regions and
+identities still separate provider-region failures and credential misuse; Object Lock still
+protects existing ledger versions from deletion.
+
+The owner-side driver refuses any production mutation unless both copies acknowledge an exact,
+read-back version first. Recovery reopens only on a ledger rebuilt from both identical cloud copies.
+The [runtime guide](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+owns the mechanics. Reconsider when the service holds enough accounts that one account failure
+would be unacceptable, or when a second provider is contracted for another reason.

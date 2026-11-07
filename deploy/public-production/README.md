@@ -355,7 +355,7 @@ reuses the four-file encrypted pair, checksum verifier and staged local publicat
 It creates no backup, database dump, account, bucket, credential, timer or application
 change. The [platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 owns approved policy; the [research evidence](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
-owns L1–L9 coverage and unexecuted P1–P8. The accepted #275 candidate remains frozen.
+owns L1–L9 coverage and the P1–P8 provider test status. The accepted #275 candidate remains frozen.
 
 Use a dedicated owner-side Python environment with `s3-requirements.txt` for the optional
 SDK; the existing filesystem commands require no SDK. Provide an owner-only regular
@@ -787,14 +787,28 @@ scans both stores, streams identifiers through private scratch files and uses ex
 sorting with an 8 MiB sort buffer; memory never scales with the number of accounts.
 No account IDs enter a receipt. Orphans are a refusal requiring investigation.
 
-Before replay the owner reconciles the **authoritative current ledger and its
-independent second copy**, including requests interrupted before their first mutation.
-Both must be matching private 0600 files in distinct 0700 owner directories. Supply a
-private checkpoint JSON with `environment: "production"`, `ledgerSha256` and an
-ISO-8601 UTC `asOf` representing that explicit reconciliation. The checkpoint is a
-trusted owner attestation, not evidence that a stale ledger became current merely by
-hashing it. It must be no older than one hour and must postdate the backup recovery
-point. Missing, changed, divergent or stale evidence refuses reopening, including for
+Before replay, rebuild the ledger from its two cloud copies (#276, L8):
+
+```bash
+personal-data-ledger --cloud-copies <owner-only cloud.json> \
+  --ledger <new dir A>/ledger --ledger-copy <new dir B>/ledger \
+  ledger-fetch --checkpoint <new dir A>/checkpoint.json
+```
+
+It refuses unless both copies exist, pass their SHA-256 read-back and are identical; a copy
+lagging by an unacknowledged append is reconciled first by running any ledger command with
+`--cloud-copies`. It writes both private local files and a checkpoint naming the two copies.
+`recovery` accepts only that checkpoint: `source: cloud-ledger`, two copies in distinct buckets
+and regions matching `ledgerSha256`, no older than one hour and later than the backup recovery
+point. A hand-made checkpoint or a single surviving copy refuses reopening.
+
+In production every `erase`, `retry` and `cleanup-unverified` needs `--cloud-copies`: each ledger
+append and each legal-archive write returns only after both S3 copies acknowledge an exact
+read-back version, and the ledger copies must show their Compliance lock. A failure stops before
+the next host step; rerunning reconciles a lagging copy. `archive-purge --execute` also removes
+every version of the reference from both archive buckets and verifies absence. The configuration
+names two ledger destinations (`key`) and two archive destinations (`prefix`), each with an
+absolute owner-only credentials file; four distinct buckets and identities are required. Missing, changed, divergent or stale evidence refuses reopening, including for
 an intentionally empty ledger. Preserve the ledger while any backup can resurrect
 its subjects; do not prune it with backups.
 
@@ -1900,6 +1914,41 @@ The focused contracts are `scripts/test-private-production-admin.py`; the opt-in
 Caddy/Keycloak/Grafana without host publications. Neither touches Tailscale or the VPS.
 Application/backend/frontend/OpenAPI artefacts and their versions are unchanged; this is
 an operational capability delivered by separately fingerprinted source and runtime bundles.
+
+### Public ingress transition (#276)
+
+**Implemented for review; not executed on the host.** [`production_public_ingress.py`](../../scripts/production_public_ingress.py)
+is the reviewed, reversible step from the installed private edge to public ingress. Only the edge
+changes: Caddy publishes 80/443 on the host's public IPv4 address, where Docker's NAT keeps each
+external client's address for the per-source limits, and obtains public ACME certificates in its existing data volume instead of the private edge certificate.
+Every other service, mount, network, secret and image stays byte-identical, and owner-only
+administration keeps its Tailscale listeners ([ADR-0035](../../docs/decisions/0035-separate-private-production-admin-ingress.md)).
+The application needs no change: its truststore keeps every default JVM anchor.
+
+Order and refusals:
+
+1. `--plan --public-ipv4 <address>` is read-only. It refuses an address that is not global or not
+   assigned to the host, an unfinished upgrade, an edge that is already public, and DNS that does not
+   resolve both names **only** to that address. An AAAA record also refuses: IPv6 serving is not
+   qualified yet, so clients must not be sent to a closed IPv6 edge.
+2. `--apply` closes self-registration with [`configure-public-registration`](bin/configure-public-registration),
+   which changes only `registrationAllowed` and verifies the rest of the realm representation, and
+   checks it before any port is published. It then recreates only Caddy from `compose.public.json`,
+   points `ACTIVE.json` at it, and waits up to five minutes for the public catalogue, the refused
+   personal route and the issuer through the public address with system trust only.
+3. If that verification fails, the private edge is recreated, `ACTIVE.json` names the private file
+   again and registration stays closed. `--revert` does the same at any time.
+4. `--open-registration` is the public go decision of the exposure gate and needs a verified public
+   edge; nothing else opens registration.
+
+`ACTIVE.json` names the running public configuration, so the scheduled backup cycle and paired
+captures follow the real runtime, and `ingress/INGRESS.json` keeps the private file it replaced.
+A later in-place upgrade preserves the public edge: it derives the same delta for the target, stages
+`Caddyfile.public` and a `compose.private.json` twin, and updates the ingress record before
+`ACTIVE.json`. After publication run [`check-public-edge-external.py`](../../scripts/check-public-edge-external.py)
+from outside the VPS: certificates, redirection, catalogue, refusals, closed admin console, denied
+management and database ports on IPv4 and IPv6, and the per-source search limit with and without
+forged forwarding headers. SSH exposure is reported for the owner's firewall decision, not judged.
 
 ### Before any real user data
 

@@ -317,7 +317,11 @@ def main():
         require(not runtime.compose('ps', '-aq').strip(), 'Original runtime remains.')
         shutil.rmtree(source_dir)
         checkpoint = owner / 'checkpoint.json'
-        core.write(checkpoint, {'environment': 'production', 'asOf': core.utc().isoformat(timespec='seconds'), 'ledgerSha256': core.digest(ledger)})
+        # Synthetic stand-in for ledger-fetch output; the real rebuild needs both cloud copies.
+        digest = core.digest(ledger)
+        core.write(checkpoint, {'environment': 'production', 'asOf': core.utc().isoformat(timespec='seconds'), 'ledgerSha256': digest,
+                                'source': 'cloud-ledger', 'copies': [{'bucket': 'rehearsal-ledger-a', 'region': 'gra', 'sha256': digest},
+                                                                     {'bucket': 'rehearsal-ledger-b', 'region': 'sbg', 'sha256': digest}]})
         replacement_dir = work / 'replacement'; replacement_dir.mkdir()
         replacement = RecoveryExercise(replacement_dir, a.evidence, selected, None)
         exercises.append(replacement)
