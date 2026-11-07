@@ -16,7 +16,7 @@ import uuid
 import urllib.request
 import urllib.error
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 PART = 16 * 1024 * 1024
 MAX_VERSIONS = 2048
@@ -129,7 +129,10 @@ class Store:
             page = self.call('list_object_versions', MaxKeys=128, **cursor)
             self.c.require(page.get('Name') == self.bucket and type(page.get('IsTruncated')) is bool
                            and not page.get('CommonPrefixes') and not page.get('Prefix')
-                           and not page.get('Delimiter') and not page.get('EncodingType'), 'Incomplete S3 inventory.')
+                           and not page.get('Delimiter') and page.get('EncodingType') in (None, 'url'),
+                           'Incomplete S3 inventory.')
+            # botocore itself requests EncodingType=url for ListObjectVersions and decodes the keys;
+            # real providers echo it. Any other encoding would leave keys undecoded.
             self.c.require(all(isinstance(page.get(group, []), list) for group in ('Versions', 'DeleteMarkers'))
                            and sum(len(page.get(group, [])) for group in ('Versions', 'DeleteMarkers')) <= 128,
                            'Invalid S3 inventory page.')

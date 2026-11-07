@@ -803,6 +803,6 @@ only a full owner restore can set its green recovery flag; S3 observation cannot
 scheduler and real-provider deletion require later reviewed qualification and separate provider
 authorization. The explicit local executor is not activation.
 
-The optional adapter advances its operational version to `0.2.0` for compatible explicit expiry execution, the admission reader and incremental observation; application, frontend, candidate #275 and migration versions are unchanged.
+The optional adapter is at operational version `0.2.1`: `0.2.0` added compatible explicit expiry execution, the admission reader and incremental observation, and `0.2.1` accepts the `url` listing encoding that botocore requests and real providers echo; application, frontend, candidate #275 and migration versions are unchanged.
 #276 remains open. No account, bucket, credential, deployment, job, commit or publication
 is created by this increment.
