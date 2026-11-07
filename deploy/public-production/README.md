@@ -1,13 +1,16 @@
 # Public-production runtime configuration
 
-- **Status:** Prepared runtime, manual deployment and recovery candidate (#275), pending real-host validation; never deployed
+- **Status:** Public runtime and recovery candidate pending acceptance; private installation under #276, public exposure unapproved
 
 This directory holds the versioned runtime configuration for the future public
 production runtime. The [host foundation record](../../docs/development/operations-runbook.md#production-host-foundation)
-owns confirmed prerequisites and outstanding host checks. Gameómetro remains
-undeployed. The #275 deployment command remains rehearsal-only. The separate
-[#276 first-install adapter](#private-first-installation-and-validation) is implemented
-for future explicitly authorized private qualification; it has not run on the VPS.
+owns recorded prerequisites and outstanding host checks. The #275 deployment command
+remains rehearsal-only. The separate [#276 first-install adapter](#private-first-installation-and-validation)
+has been used for private qualification; the issue's later evidence records the
+installed runtime and pending upgrade. The earlier failed bootstrap is historical,
+not evidence that the host is empty. The [private maintenance plan](../../docs/development/operations-runbook.md#private-production-maintenance-plan)
+owns coordination of the next authorized steps; current host state must be inspected
+before execution. Neither installation nor repository preparation establishes public acceptance.
 [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
