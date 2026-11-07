@@ -162,7 +162,15 @@ def render(containers, offhost=None, backup=None, capacity=None, now=None, cgrou
         emit('offhost_verification_seconds', timestamp(offhost['verifiedAt']))
     emit('backup_attempt_observed', int(bool(backup)))
     if backup:
-        emit('backup_last_attempt_failed', int(backup.get('outcome') != 'success' or backup.get('kind') not in ('paired-backup', 'backup')))
+        emit('backup_last_attempt_failed', int(backup.get('outcome') != 'success' or backup.get('kind') not in ('paired-backup', 'backup', 'backup-cycle')))
+    if backup and backup.get('kind') == 'backup-cycle':
+        emit('backup_cycle_attention', int(backup.get('attention') is not False))
+        emit('backup_cycle_capacity_warning', int(backup.get('capacityWarning') is True))
+        for name, field in (('capture', 'lastCaptureAt'), ('upload', 'lastUploadAt')):
+            try:
+                emit(f'backup_cycle_last_{name}_seconds', timestamp(backup[field]))
+            except (KeyError, TypeError, ValueError, AttributeError):  # No upload yet, or an unreadable date.
+                pass
     calibrated = False
     if capacity:
         try:

@@ -33,6 +33,7 @@ what the repository checks and what only a real host can prove.
 | [`../../scripts/private_production_upgrade.py`](../../scripts/private_production_upgrade.py) | [In-place upgrade](#in-place-upgrade-of-the-installed-runtime) of an accepted private runtime to validated trusted-main publications |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
+| [`bin/backup-cycle`](bin/backup-cycle), [`bin/backup-watch`](bin/backup-watch), [`systemd/`](systemd/) | [Scheduled backup cycle](#scheduled-backup-cycle-276) and its independent supervision; prepared, not installed |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
 | [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
@@ -356,8 +357,8 @@ owns L1–L9 coverage and unexecuted P1–P8. The accepted #275 candidate remain
 Use a dedicated owner-side Python environment with `s3-requirements.txt` for the optional
 SDK; the existing filesystem commands require no SDK. Provide an owner-only regular
 JSON file to `--s3-config`, containing `endpoint`, `region`, `bucket`, `accessKey`,
-`secretKey`, and, for observation, `lifecycleSha256`. Endpoint must be the explicitly
-confirmed full-region OVH HTTPS endpoint; no default region/bucket/credential discovery
+`secretKey`, and, for observation or expiry execution, `lifecycleSha256`. Endpoint must be the explicitly
+confirmed full-region OVH HTTPS endpoint matching `region`; no default region/bucket/credential discovery
 is provided. `lifecycleSha256` is SHA-256 of the reviewed S3 lifecycle `Rules` JSON,
 serialized with Python `json.dumps(rules, sort_keys=True)`. Obtain and protect it in
 the owner context; never learn an expected value from an untrusted runtime.
@@ -370,6 +371,11 @@ Prepared calls (private absolute paths are operator inputs, not provisioned reso
 python3 deploy/public-production/bin/recovery observe \
   --s3-config /protected/observer.json --max-copy-bytes "$reviewed_byte_budget" \
   --receipt /protected/observation.json
+
+# VPS capacity and configuration check: listing only; its receipt also admits an upload.
+python3 deploy/public-production/bin/recovery admission \
+  --s3-config /protected/admission-reader.json --max-copy-bytes "$reviewed_byte_budget" \
+  --receipt /protected/admission.json
 
 # Upload-only actor; input must be the existing complete encrypted pair.
 python3 deploy/public-production/bin/recovery publish \
@@ -384,19 +390,25 @@ python3 deploy/public-production/bin/recovery fetch \
   --destination /protected/new-pair --max-copy-bytes "$reviewed_byte_budget" \
   --receipt /protected/fetch.json
 
-# Independent expiry actor: selection/report only; never sends DELETE.
+# Independent expiry actor: default selection/report only; never sends DELETE.
 python3 deploy/public-production/bin/recovery expire \
   --s3-config /protected/expiry.json --receipt /protected/expiry-plan.json
+
+# Explicit execution, only after separate provider/activation authorization.
+# Run independently of the VPS with a separate scoped identity.
+python3 deploy/public-production/bin/recovery expire --execute \
+  --s3-config /protected/expiry.json --receipt /protected/new-expiry-execution.json
 ```
 
 Upload admission needs a protected successful observation at most one hour old. Missing
-copy/restore-age alerts allow recovery captures; inventory/protection faults refuse
-admission. Known incomplete attempts remain counted and alerted, and permit the next
-admitted capture; they are never silently removed. The projected budget reserves space
-for the final receipt. It is not a
-provider quota, concurrency reservation or an account spending cap. Incomplete multipart
-bytes, other stores and concurrent uploads need independent consumption monitoring
-before activation. Exact D7 thresholds are private reviewed inputs pending ratification.
+copy/restore-age alerts allow recovery captures; inventory/protection faults refuse admission. Known
+incomplete attempts remain counted and alerted, and permit the next admitted capture; they are never
+silently removed. The projected budget reserves space for the final receipt. It is not a provider
+quota, concurrency reservation or an account spending cap. Incomplete multipart bytes, other stores
+and concurrent uploads need independent consumption monitoring before activation. Use the
+[approved D7 values](../../docs/research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
+for private reviewed admission inputs. Automatic warning/forecast delivery and fixed policy wiring
+remain activation work.
 
 Each attempt uses unique keys and publishes its version-bound receipt last. The uploader
 sends no retention, hold or bypass override. It checks an unsigned TLS provider `Date`
@@ -425,15 +437,166 @@ An isolated-local rehearsal is refused as production recovery evidence. Integrit
 full-restore timestamps are reported separately. S3 evidence never sets the existing
 filesystem attestation's `independentRecoveryVerified` flag.
 
-Exit 0 means the operation completed without health alerts; exit 2 means observation
-or expiry planning completed with alerts, and exit 1 is refusal/failure. Failure receipts
-remain sanitized. A scheduler must deliver alert/failure and missing-observer-heartbeat
-notifications independently; none is installed here. Keep receipts outside pair folders.
-The expiry command lists exact eligible versions/markers and deadline alerts using only
-list/protection reads. It performs no deletion while D3 and provider gates are pending.
+Exit 0 means the operation completed without health alerts; exit 2 means observation or expiry
+completed with alerts, and exit 1 is refusal/failure. Expiry execution preserves the plan's deadline
+alerts in its receipt even when removal subsequently succeeds. Failure receipts remain sanitized. A
+scheduler must deliver alert/failure and missing-observer-heartbeat notifications independently;
+none is installed here. Keep receipts outside pair folders. The default expiry command lists
+eligible exact versions/markers using only list/protection reads. `--execute` is valid only for
+`expire` and builds a fresh plan; saved plans are not execution inputs. The execution identity also
+needs read access to bucket lock/versioning/lifecycle configuration, with no configuration or
+protection writes, object-content reads or bypass rights. Unknown prefixes, holds, inconsistent
+protection/configuration and incomplete or changing inventories refuse execution. Active retained
+versions are preserved. The executor sends only `delete_object` with `Bucket`, `Key` and a non-null
+`VersionId`, including for markers. It rechecks protection/configuration before each deletion.
+Compliance/hold enforcement at the provider remains essential for races after preflight and requires
+P1–P5.
+
+The protected execution receipt records the fresh plan and inventory fingerprint, lifecycle
+fingerprint, version-specific intent before each request, acknowledgement times and a
+complete final inventory fingerprint. Only final absence of every attempted version and
+an unchanged remainder allow `absenceVerified: true` and success. A partial failure, lost
+acknowledgement, uncertain response or failed final listing leaves attempts `unconfirmed`,
+even if a request may have deleted bytes. Retain that receipt and reconcile it with a fresh
+complete inventory; retry with a new receipt path re-plans remaining versions. Do not
+replay an old plan or treat an empty retry as confirmation of the previous receipt.
+
+Receipts are durably checkpointed before mutation and after acknowledgements. A checkpoint
+write failure stops progress; SIGKILL/host loss can leave an older checkpoint or temporary
+receipt requiring reconciliation. Absence is logical provider-visible absence, not proof
+of physical reclamation. Requests have no SDK retry; execution shares the fixed call,
+version/page and 30-minute budgets in `recovery_s3.py`. No VPS connection, Compose inputs,
+recovery keys or rehearsal receipt is needed for expiry. Preserve receipt files outside
+the VPS and pair folders.
+
 Do not interpret a plan as verified absence or retention compliance. The legacy `retain`
 command remains solely for filesystem copies. Remote ledger/archive durability barriers,
 cloud attestation acceptance and real cloud-only recovery are required before activation.
+
+## Scheduled backup cycle (#276)
+
+**Prepared and rehearsed locally; never installed, and blocked until the owner activates it.**
+Nothing in the repository enables a timer, a workflow job or a provider resource. The
+[platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+owns cadence and ceilings; [the research](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
+owns the evidence and its limits.
+
+[`bin/backup-cycle`](bin/backup-cycle) runs on the VPS at 02:30 and 14:30 UTC. It reuses the
+existing actor, lease, gate and encrypted pair, and adds no backup format:
+
+1. **Check without a fence.** Public key, separate credentials, open gate, no identity
+   maintenance, pending journal, unfinished upgrade or running synchronization, required services
+   running, disk and tmpfs for the database sizes, and S3 admission. Any refusal skips the slot with
+   no downtime.
+2. **Capture under one lease,** within a 30-minute fence budget by default.
+3. **Reopen** the roles and gate, start Keycloak, the edge and the application in that order,
+   restart Grafana if it was running, and check readiness.
+4. **Upload** only after reopening, with a fresh admission for each attempt.
+5. **Keep** only the last uploaded pair on the host, and receipts for 40 days.
+
+`CYCLE.json` records each step before it happens, so the
+[reconcile timer](systemd/gameometro-backup-reconcile.timer) finishes whatever a crash or reboot
+left, within two minutes of boot and every ten minutes afterwards.
+
+| Failure | Result |
+|---|---|
+| Any predictable condition in step 1 | Slot skipped; product untouched; failure reported |
+| Capture fails, is interrupted or exceeds its budget | Own fence undone, product restarted, nothing uploaded, failure reported |
+| Thaw fails after a valid pair | Own fence undone, and that pair still uploads |
+| Host dies or reboots during the capture | Reconcile reopens; a published pair uploads if its window is open |
+| A required service or readiness fails | Retried by reconcile; the owner is alerted after three failed reopenings |
+| Grafana fails to return | Reported as degraded; never fences the product |
+| Upload or admission fails | Product stays open; retries at 15, 30, 60… minutes inside the six-hour window |
+| Window closes | Pair is never uploaded late, because its lock would pass the ceiling; the next slot replaces it |
+| Fence owned by a manual backup, upgrade, restore or replay | Never touched. `owner-required` if it replaced this tool's fence, and captures stop |
+
+**Reopening is limited by ownership.** The actor's `reopen_capture` accepts only the two capture
+phases, recorded with this run's identity. A capture only reads the databases, so undoing its fence
+loses nothing. Manual `backup`, whose fence the in-place upgrade depends on, keeps its explicit
+`thaw` and records no owner. A running synchronization defers the slot rather than being interrupted;
+a long run can therefore age the upload until the alerts below fire.
+
+**Availability cost.** The fence stops the edge, so the product is unreachable, without a maintenance
+page, for the whole capture twice a day. Its duration on the real host is unmeasured.
+
+### Protected inputs and provider identities
+
+Create these only after separate owner authorization. No repository file contains their values.
+`/etc/gameometro/production/backup-cycle.json` is owner-only, with exactly these fields:
+`authorized` (`true` only at activation), `admin`, `project`, `state`, `keyring`, `recipient`, `work`,
+`uploaderConfig`, `admissionConfig`, `s3Python` (a virtual environment holding `s3-requirements.txt`),
+`status` (the sampler's `--backup-receipt` path), and optionally `maxRetainedBytes` and
+`maxFenceSeconds`. The admission reader's file needs the same `lifecycleSha256` as the
+[S3 configuration](#s3-transport-preparation-276).
+
+| Identity | Held in | Rights | Denied |
+|---|---|---|---|
+| Uploader | VPS | Put and multipart create/part/complete/abort under `pairs/` | Reads, listing, deletion, retention, holds, bypass, configuration |
+| Admission reader | VPS | List versions; read lock, versioning and lifecycle configuration | Object content, every write and delete |
+| Observer | GitHub environment `backup-observer` | List versions; read exact versions, retention, holds and configuration | Every write and delete |
+| Expiry | GitHub environment `backup-expiry` | List versions; read retention, holds and configuration; delete by version ID | Put, retention, holds, bypass, configuration writes |
+| Recovery reader | Owner context | Read exact versions | Everything else. P5 must prove it can read uploader-owned objects |
+
+Each GitHub environment needs `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+`S3_LIFECYCLE_SHA256`, `NOTIFY_TELEGRAM_TOKEN` and `NOTIFY_TELEGRAM_CHAT`, restricted to `main`. The
+observer may also hold `RESTORE_EVIDENCE`, the envelope described under
+[S3 transport](#s3-transport-preparation-276); without it the observer reports `restore-missing`.
+
+### Independent supervision
+
+[`backup-watch.yml`](../../.github/workflows/backup-watch.yml) runs hourly and is inert until the
+repository variables `BACKUP_OBSERVER_ENABLED` and `BACKUP_EXPIRY_ENABLED` are `true`. The observer
+hashes each pair once, newest first and at most two per run, keeping its checkpoint in the Actions
+cache; a lost checkpoint only re-hashes. The expiry job deletes exact versions after a fresh plan.
+The repository is **public**: logs and artefacts are readable, so the tool prints fixed lines, uploads
+no artefact, and sends findings to the private channel only. A changed finding is sent at once, and
+every finding, healthy included, at 07:00 UTC. A missing daily message is the dead-man signal: GitHub
+schedules are best effort and disable themselves after 60 days without repository activity.
+
+On the host, `sample-host.py` reads the cycle status as its `--backup-receipt`, driving the
+[stale-upload and needs-the-owner alerts](../../docs/development/observability.md#production-alert-interpretation-and-calibration).
+`verify-offhost.py` accepts an `s3-fetch` receipt, so a weekly owner restore can feed the existing
+attestation. Forecast alerts at EUR 2 and EUR 3 are configured in the OVHcloud console, not here.
+
+### Validate before activating
+
+1. **Provider:** P1–P5 pass on a disposable bucket, and P6–P8 are recorded.
+2. **Local:** `python3 scripts/test-production-backup-cycle.py`, then, from `scripts/`, the disposable
+   real-runtime rehearsal:
+
+   ```bash
+   python3 rehearse-production-backup-cycle.py --revision "$TRUSTED_MAIN_SHA" --evidence /protected/new-directory
+   ```
+
+3. **Host, read-only:** with `authorized` still false, `backup-cycle check` must report every line
+   `ok` except `authorized`.
+4. **Host, one supervised cycle** in a low-traffic window, once `authorized` is true: start
+   `gameometro-backup.service` by hand; measure the fence; confirm the status file, the external
+   product journey and an upload.
+5. **Independent proof:** dispatch the workflow; confirm the pair is hashed, then `fetch` it from a
+   clean owner context and complete a full restore and deletion replay.
+6. **Failure drills on the real host:** reboot during a capture and confirm reconcile reopens; revoke
+   the uploader and confirm the product stays open and the alert reaches the owner; stop the workflow
+   and confirm a missing heartbeat is noticed.
+7. **Expiry:** prove exact-version deletion on the disposable bucket before enabling its job.
+
+Activation is a separate owner decision, after the remaining gates in
+[Cloud transport dependency](#cloud-transport-dependency):
+
+```bash
+sudo install -m 0644 deploy/public-production/systemd/gameometro-backup* /etc/systemd/system/
+```
+
+```bash
+sudo systemctl enable --now gameometro-backup-reconcile.timer gameometro-backup.timer
+```
+
+### When the owner is needed
+
+`owner-required` stops all automatic action. Inspect `CYCLE.json` and the pending journal; resolve the
+fence with the procedure that owns it, never by creating `READY`; then run `backup-cycle acknowledge`,
+which refuses while the gate is closed. To hold a fence for inspection, stop
+`gameometro-backup-reconcile.timer` first.
 
 ## Paired backup and recovery candidate
 
@@ -501,11 +664,11 @@ Provision sufficient bounded tmpfs space and disable swap or use independently
 encrypted swap; tmpfs alone does not prevent swapping. An abrupt power loss needs no
 plaintext disk recovery. After SIGKILL, inspect/remove abandoned private scratch and
 `.partial` ciphertext directories only after proving no actor is active. Never turn
-an incomplete directory into a published pair. Failure leaves the journal, gate and
+an incomplete directory into a published pair. A manual failure leaves the journal, gate and
 role fences closed. Completed backups also stay closed until explicit `thaw`; it
 refuses an interrupted backup. Inspect the journal and service/role state privately
 before recovering an incomplete capture; make a new pair rather than guessing that
-it succeeded. `thaw` removes only a completed backup fence and starts no services:
+it succeeded. Only the [scheduled cycle](#scheduled-backup-cycle-276) reopens by itself, and only its own fence. `thaw` removes only a completed backup fence and starts no services:
 
 ```bash
 python3 "$recovery" thaw --config /protected/compose.json \
@@ -1676,7 +1839,7 @@ MVP or migration change.
 The [S3 preparation guide](#s3-transport-preparation-276) owns the locally prepared
 adapter and its inputs. The [evidence boundary](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
 distinguishes demonstrated local guarantees from missing provider, deletion,
-ledger/archive and scheduler/attestation acceptance. Install no production timer
+ledger/archive and scheduler acceptance. Install no [production timer](#scheduled-backup-cycle-276)
 until those gates and cloud-only recovery have passed. Credentials remain outside
 application containers; Lenovo must be unavailable for the cloud-only proof.
 

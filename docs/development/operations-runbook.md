@@ -304,7 +304,8 @@ never add addresses, accounts or tokens to notification text.
 For missing telemetry, inspect the Collector, scrape limits/targets, textfile timer,
 Caddy safe encoder schema and Grafana datasource health. Compare the last host/export
 heartbeat; an absent series is not healthy zero traffic. A stopped telemetry component
-must leave product reads and readiness available. For missing/failed/stale backup proof,
+must leave product reads and readiness available. For a stale upload or a cycle needing the owner, follow the
+[scheduled cycle procedure](../../deploy/public-production/README.md#when-the-owner-is-needed). For missing/failed backup proof,
 check the source backup attempt, independent pull, protected isolation review and the
 matching full restore/deletion-replay receipt. A local dump or checksum-only receipt
 must never reset the verified off-host recovery-point age.

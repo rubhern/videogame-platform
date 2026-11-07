@@ -687,15 +687,15 @@ records why this supersedes the #274 Lenovo storage and destination-pull selecti
 Lenovo root/Docker/agent access cannot provide the required privilege independence;
 Lenovo may hold an optional expendable copy but no required recovery material.
 
-This explicitly permits a restricted upload credential on the VPS, replacing the
-old rule that the source has no destination credential. It does not permit application
-or identity runtime credentials to read/delete history, change retention/ACLs or
-manage provider credentials. The expiry actor runs independently of the VPS with separate delete-only credentials; jobs remain uninstalled.
-Keep cloud management/recovery access, decryption and signing material, and reconstruction
-unlock material independent of VPS, Lenovo and agents. Provider-enforced protection
-of existing versions, independent detection and clean-context cloud-only restore
-must be proved before operation. Direct uploads cannot authenticate future captures
-from a compromised source. Do not treat a mutable success receipt as independent proof.
+This explicitly permits a restricted upload credential on the VPS, replacing the old rule that the
+source has no destination credential. It does not permit application or identity runtime credentials
+to read/delete history, change retention/ACLs or manage provider credentials. The expiry actor runs
+independently of the VPS with separate credentials limited to exact-version deletion and preflight
+reads; jobs remain uninstalled. Keep cloud management/recovery access, decryption and signing
+material, and reconstruction unlock material independent of VPS, Lenovo and agents.
+Provider-enforced protection of existing versions, independent detection and clean-context
+cloud-only restore must be proved before operation. Direct uploads cannot authenticate future
+captures from a compromised source. Do not treat a mutable success receipt as independent proof.
 
 For production, legal archive, deletion ledger and proofs remain separately protected, with mandatory
 independent copies and synchronous pre-mutation durability. Their concrete locations
@@ -704,24 +704,29 @@ not independent copies. The [data-protection design](../../development/data-prot
 owns their retention, sealing and access requirements. No host/storage provisioning
 is authorized by recording this direction. Legal archives are not rolling backups.
 
-Backup history, off-host copies included, is owner-limited to **35 days** (#274);
-the prepared filesystem selector uses seven daily copies plus four weekly copies.
-It is not a cloud version/lock policy. **Owner policy approval (#276, 2026-10-29):**
-capture every 12 hours, bucket-default Compliance protection for 33 days, exact-version
-deletion verified within 35 days of the recovery point, independent integrity evidence
-no older than 24 hours and a full verified restore at least every 8 days. These are
-target guarantees, not operational acceptance or measured RPO/RTO. Provider-internal
-reclamation follows the contracted deletion terms; a missed exact-version deletion
-deadline is an incident, never an extension. The independent actor performs deletion;
-keys remain off the VPS. The [research and implementation boundary](../../research/public-production-backup-storage.md#local-s3-adapter-evidence)
-records the bounded local slice and remaining provider tests. D3 (rehearsal pin versus
-expiry), D6 (separate-store locks) and D7's exact spend/storage thresholds remain
-recommendations pending ratification. The cloud expiry command therefore prepares a
-plan only. Resolve these details, deletion-ledger barriers and archive-specific duties
-before activation. Size the independent
-destination and prove the scheduled copy/check cadence; a dump left on the VPS is
-not a backup against host/account loss. Failure/age must reach the owner through a
-tested private channel. If this cannot operate within the budget, do not open accounts.
+Backup history, off-host copies included, is owner-limited to **35 days** (#274); the prepared
+filesystem selector uses seven daily copies plus four weekly copies. It is not a cloud version/lock
+policy. **Owner policy approval (#276, 2026-10-29):** capture every 12 hours, bucket-default
+Compliance protection for 33 days, exact-version deletion verified within 35 days of the recovery
+point, independent integrity evidence no older than 24 hours and a full verified restore at least
+every 8 days. These are target guarantees, not operational acceptance or measured RPO/RTO.
+Provider-internal reclamation follows the contracted deletion terms; a missed exact-version deletion
+deadline is an incident, never an extension. The independent actor performs deletion; keys remain
+off the VPS. The
+[research and implementation boundary](../../research/public-production-backup-storage.md#local-s3-adapter-evidence)
+records the bounded local slice and remaining provider tests. The
+[subsequent owner decision](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
+approves D3 (expiry wins over the rehearsal pin), D6 (separate-store locks) and D7 (spend/storage
+thresholds), detailed in the
+[decision table](../../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation). Cloud expiry defaults to planning; explicit execution is locally prepared with
+configuration/protection preflight, durable intent and verified exact-version absence. The
+[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is prepared
+and uninstalled: it refuses predictable failures before fencing, uploads only after reopening, and
+reopens only a fence it created. Every other fence stays closed for its owner. Provider
+qualification, deletion-ledger barriers and archive-specific duties still block activation. Size the
+independent destination and prove the scheduled copy/check cadence; a dump left on the VPS is not a
+backup against host/account loss. Failure/age must reach the owner through a tested private channel.
+If this cannot operate within the budget, do not open accounts.
 
 Two per-database dumps do not create one cross-database transaction. Quiesce rating
 writes and registration/identity mutation while capturing the pair, verify the

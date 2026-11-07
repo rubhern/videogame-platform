@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Owner-triggered paired production backup/recovery. No automatic reopening on failure."""
+"""Paired production backup/recovery. Only a scheduled cycle's own capture fence reopens by itself."""
 from __future__ import annotations
 
 import argparse
@@ -30,6 +30,8 @@ ROLES = ('videogame_app', 'videogame_app_migrator', 'videogame_keycloak', 'video
 ARCHIVE_INPUTS = ('archive_root', 'archive_copy', 'gnupg_home', 'recipient', 'signer', 'proof_root', 'holds')
 FILES = (*[d + '.dump.gpg' for d in DATABASES], 'manifest.json', 'SHA256SUMS')
 MAX_LEDGER = 128 * 1024 * 1024
+# Only these fences leave both databases exactly as they were: a capture only reads them.
+CAPTURE_PHASES = ('quiescing', 'backup-complete-writers-still-fenced')
 sys.dont_write_bytecode = True
 
 
@@ -331,7 +333,8 @@ os.close(fd)
         # READY is deliberately absent on new hosts. Never remove the pending journal on failure.
         (self.state / 'READY').unlink(missing_ok=True)
         self.gate('close')
-        write(self.state / 'PENDING.json', {'phase': phase, 'backupId': backup_id})
+        owner = getattr(self, 'cycle_run', None)
+        write(self.state / 'PENDING.json', {'phase': phase, 'backupId': backup_id, **({'cycleRun': owner} if owner else {})})
 
     def role_login(self, enabled):
         # Only known consumers; the optional reader may not have been provisioned yet.
@@ -454,6 +457,23 @@ os.close(fd)
         (self.state / 'PENDING.json').unlink()
         # Explicit owner action starts services after the fence is removed.
         return {'kind': 'backup-thawed', 'servicesStarted': False}
+
+    def reopen_capture(self, run_id):
+        """Undo the fence of a capture that one scheduled cycle owns, finished or not.
+
+        Refuses every other fence: a manual backup, an upgrade, a restore or a replay stays
+        closed for its owner. The journal may be absent only if the fence died before writing it.
+        """
+        path = self.state / 'PENDING.json'
+        if path.exists():
+            pending = json.loads(path.read_text())
+            require(pending.get('cycleRun') == run_id and pending.get('phase') in CAPTURE_PHASES,
+                    'This fence is not owned by the scheduled capture; automatic reopening refused.')
+        self.role_login(True)
+        self.gate('open')
+        write(self.state / 'READY', {'kind': 'scheduled-capture-reopened', 'cycleRun': run_id})
+        path.unlink(missing_ok=True)
+        return {'kind': 'scheduled-capture-reopened', 'servicesStarted': False}
 
     def fresh(self):
         for name, volume in self.volumes.items():
@@ -676,9 +696,12 @@ def retain(root, verified_receipt):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery', 'publish', 'fetch', 'observe', 'expire'])
+    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery', 'publish', 'fetch', 'observe', 'expire', 'admission'])
     parser.add_argument('--s3-config', type=Path, help='Protected explicit OVH endpoint/bucket/credentials and lifecycle fingerprint')
+    parser.add_argument('--execute', action='store_true', help='Execute exact-version S3 expiry; only valid with expire')
     parser.add_argument('--observer-receipt', type=Path)
+    parser.add_argument('--observer-state', type=Path, help='Observer checkpoint of pairs already hashed once')
+    parser.add_argument('--max-verify-pairs', type=int, help='Most pairs one observation may stream')
     parser.add_argument('--publish-receipt', type=Path)
     parser.add_argument('--config', type=Path, help='Protected, fully rendered Compose JSON; never source shell env')
     parser.add_argument('--project')
@@ -705,15 +728,18 @@ def main():
     require(not a.receipt.exists(), 'Receipt already exists.')
     result = {'outcome': 'failure', 'kind': a.command, 'productionReady': False}
     def interrupted(*_):
+        if a.command in ('publish', 'fetch', 'observe', 'expire', 'admission'):
+            raise Refused('Interrupted; reconcile the protected S3 receipt before retrying.')
         raise Refused('Interrupted; writers remain closed. Inspect the pending journal.')
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        if a.command in ('publish', 'fetch', 'observe', 'expire'):
+        require(not a.execute or a.command == 'expire', '--execute is only valid with expire.')
+        if a.command in ('publish', 'fetch', 'observe', 'expire', 'admission'):
             sys.path.insert(0, str(ROOT / 'deploy/public-production/lib'))
             from recovery_s3 import dispatch, VERSION
             try:
-                result = dispatch(sys.modules[__name__], a)
+                result = dispatch(sys.modules[__name__], a, result)
                 result['adapterVersion'] = VERSION
             finally:
                 signal.alarm(0)
@@ -738,13 +764,17 @@ def main():
                 elif a.command == 'record-recovery': result = runtime.record_recovery(a.backup, a.ledger, a.ledger_copy, a.checkpoint)
         result['outcome'] = 'success'
     except Refused as error:
+        result['outcome'] = 'failure'
         # Refused messages in this module are fixed operator-facing strings; raw driver
         # exception values and subprocess output never enter logs or receipts.
         result['reason'] = str(error)
         print(str(error), file=sys.stderr)
         return 1
     except (Exception, KeyboardInterrupt):
-        print('Recovery operation failed; raw diagnostics withheld. Inspect the pending journal privately.', file=sys.stderr)
+        result['outcome'] = 'failure'
+        action = ('Reconcile the protected receipt privately.' if a.command in ('publish', 'fetch', 'observe', 'expire', 'admission')
+                  else 'Inspect the pending journal privately.')
+        print('Recovery operation failed; raw diagnostics withheld. ' + action, file=sys.stderr)
         return 1
     finally:
         write(a.receipt, result)

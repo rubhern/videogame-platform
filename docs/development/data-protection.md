@@ -599,22 +599,23 @@ ordinary agents/processes cannot decrypt. Provider selection does not approve th
 research's particular owner-storage/S3 archive placement or an asynchronous-copy
 substitute for the existing synchronous pre-delete ledger/archive barriers.
 
-**Object Lock compatibility gate:** rolling copies remain limited to 35 days from
-the recovery point. Upload-relative Compliance retention must leave room for actual
-upload lag and deletion of every version; expiry is not deletion. Do not enable
-indefinite legal holds on rolling data or reset the clock by reuploading old backups.
-Legal archives have case-specific review/hold/purge duties: a blanket immutable term
-may prevent lawful narrowing/destruction and is not approved here. Ledger copies must
-remain available/current while any restorable data exists and obey their own schedule;
-rolling expiry must never prune them. The owner's 2026-10-29 target policy measures
-the unchanged ceiling as verified exact-version deletion by recovery point + 35 days;
-provider-internal reclamation follows accepted processor terms. A missed deadline is
-a retention incident, with continued deletion attempts. The
+**Object Lock compatibility gate:** rolling copies remain limited to 35 days from the recovery
+point. Upload-relative Compliance retention must leave room for actual upload lag and deletion of
+every version; expiry is not deletion. Do not enable indefinite legal holds on rolling data or reset
+the clock by reuploading old backups. Legal archives have case-specific review/hold/purge duties: a
+blanket immutable term may prevent lawful narrowing/destruction and is not approved here. Ledger
+copies must remain available/current while any restorable data exists and obey their own schedule;
+rolling expiry must never prune them. The owner's 2026-10-29 target policy measures the unchanged
+ceiling as verified exact-version deletion by recovery point + 35 days; provider-internal
+reclamation follows accepted processor terms. A missed deadline is a retention incident, with
+continued deletion attempts. The
 [platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
-owns the approved cadence, lock and evidence ages. Provider-side enforcement and
-actual deletion remain launch gates. D3, D6 and the precise D7 thresholds remain
-recommendations; no ledger/archive lock policy or rehearsal-pin override is inferred.
-No real host change is made.
+owns the approved cadence, lock and evidence ages. Provider-side enforcement and actual deletion
+remain launch gates. The
+[owner-ratified D3/D6/D7 target policy](../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
+now governs expiry versus the rehearsal pin, separate-store locks and operating thresholds. The
+prepared executor does not establish provider enforcement or fulfill ledger/archive durability
+barriers. No real host change is made.
 
 **Review, expiry and destruction:** each sealed case has its own signed expiry,
 next-review date and field-level schedule. The operator reviews at least every twelve

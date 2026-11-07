@@ -50,6 +50,8 @@ The separate [owner-approved promotion workflow](../../.github/workflows/deploy-
 derives the validated image from the exact dispatch SHA and uses dev environment
 credentials only after the owner dispatch (the sole human deployment approval); its policy and
 runtime boundary belong to the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+The [backup watch workflow](../../.github/workflows/backup-watch.yml) is not validation CI: it is an
+[independent production actor](../../deploy/public-production/README.md#independent-supervision), inert until the owner enables it.
 Private-dev validation uses
 disposable configuration, a fake deployment boundary to prove ordering/lock/failure
 semantics, and an in-memory Keycloak-admin double to prove smoke-account ownership
