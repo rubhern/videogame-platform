@@ -1,7 +1,7 @@
 """Bounded S3 transport for recovery's existing encrypted inventory; no scheduler.
 
-Only the uploader writes. Observer and expiry planner require separate credentials.
-Expiry is deliberately a plan until D3 and the real-provider gates are ratified.
+Uploader, observer and expiry actor require separate credentials. Expiry execution
+is explicit; local preparation does not authorize provider or production activation.
 """
 import base64
 import datetime as dt
@@ -16,11 +16,19 @@ import uuid
 import urllib.request
 import urllib.error
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 PART = 16 * 1024 * 1024
 MAX_VERSIONS = 2048
 MAX_JSON = 128 * 1024
+MAX_CALLS = 20000
+MAX_STATE = 4 * 1024 * 1024
+# Owner-approved D7 storage values (#276). Admission thresholds, not a provider quota.
+WARNING_BYTES = 180 * 1024 ** 3
+LIMIT_BYTES = 200 * 1024 ** 3
+# Findings a capture may proceed with: none shows the rolling store itself is unsafe.
+ADMITTED_ALERTS = {'capacity-warning', 'integrity-backlog', 'integrity-critical', 'missed-copy-warning', 'restore-missing',
+                   'restore-warning', 'restore-critical', 'incomplete-attempt'}
 KEY = re.compile(r'pairs/(\d{8}T\d{6}Z)/([0-9a-f]{32})/([0-9a-f]{32})/([^/]+)')
 
 
@@ -29,14 +37,19 @@ class Store:
         self.c, self.s3, self.bucket = core, client, bucket
         self.deadline = time.monotonic() + 1800
         self.provider_clock = provider_clock
+        self.calls = 0
 
     def call(self, operation, **kw):
-        self.c.require(time.monotonic() < self.deadline, 'S3 operation budget exhausted.')
+        self.c.require(time.monotonic() < self.deadline and self.calls < MAX_CALLS, 'S3 operation budget exhausted.')
+        self.calls += 1
         response = getattr(self.s3, operation)(Bucket=self.bucket, **kw)
         self.c.require(time.monotonic() < self.deadline, 'S3 operation budget exhausted.')
+        self.c.require(response['ResponseMetadata']['HTTPStatusCode'] == (204 if operation == 'delete_object' else 200),
+                       'Unexpected S3 response status.')
         date = response['ResponseMetadata']['HTTPHeaders']['date']
         remote = email.utils.parsedate_to_datetime(date)
         self.c.require(abs((self.c.utc() - remote).total_seconds()) <= 60, 'S3 clock skew exceeds 60 seconds.')
+        self.remote_now = remote
         return response
 
     def admission(self, point):
@@ -88,9 +101,9 @@ class Store:
         self.c.require(admission.stat().st_size <= 4 * 1024 * 1024, 'Oversized S3 admission evidence.')
         proof = json.loads(admission.read_text())
         size = sum((backup / n).stat().st_size for n in self.c.FILES)
-        self.c.require(proof['kind'] == 's3-observation' and proof['bucket'] == self.bucket
+        self.c.require(proof['kind'] in ('s3-observation', 's3-admission') and proof['bucket'] == self.bucket
                        and proof['outcome'] == 'success'
-                       and set(proof['alerts']) <= {'integrity-critical', 'missed-copy-warning', 'restore-missing', 'restore-warning', 'restore-critical', 'incomplete-attempt'}
+                       and set(proof['alerts']) <= ADMITTED_ALERTS
                        and 0 <= (self.c.utc() - self.c.timestamp(proof['verifiedAt'])).total_seconds() <= 3600
                        and type(proof['retainedBytes']) is int and proof['retainedBytes'] >= 0
                        and 0 < max_bytes and proof['retainedBytes'] + size + MAX_JSON <= max_bytes,
@@ -111,29 +124,54 @@ class Store:
                 'ciphertextIntegrity': False, 'independentRecoveryVerified': False}
 
     def inventory(self):
-        entries, cursor, seen = [], {}, set()
+        entries, cursor, seen, cursors = [], {}, set(), set()
         for _ in range(32):
             page = self.call('list_object_versions', MaxKeys=128, **cursor)
+            self.c.require(page.get('Name') == self.bucket and type(page.get('IsTruncated')) is bool
+                           and not page.get('CommonPrefixes') and not page.get('Prefix')
+                           and not page.get('Delimiter') and not page.get('EncodingType'), 'Incomplete S3 inventory.')
+            self.c.require(all(isinstance(page.get(group, []), list) for group in ('Versions', 'DeleteMarkers'))
+                           and sum(len(page.get(group, [])) for group in ('Versions', 'DeleteMarkers')) <= 128,
+                           'Invalid S3 inventory page.')
             for marker, group in ((False, 'Versions'), (True, 'DeleteMarkers')):
                 for item in page.get(group, []):
                     self.c.require(len(entries) < MAX_VERSIONS, 'S3 inventory overflow; reconcile before continuing.')
                     match = KEY.fullmatch(item['Key'])
                     self.c.require(match and match[4] in (*self.c.FILES, 'receipt.json')
-                                   and item.get('VersionId') not in (None, '', 'null'), 'Unknown S3 inventory entry.')
+                                   and isinstance(item.get('VersionId'), str)
+                                   and 0 < len(item['VersionId']) <= 1024
+                                   and item['VersionId'] != 'null', 'Unknown S3 inventory entry.')
+                    modified = item.get('LastModified')
+                    self.c.require(isinstance(modified, dt.datetime) and modified.utcoffset() is not None
+                                   and modified <= min(self.c.utc(), self.remote_now) + dt.timedelta(seconds=60)
+                                   and (marker or (type(item.get('Size')) is int and item['Size'] >= 0)),
+                                   'Invalid S3 version metadata.')
+                    point = dt.datetime.strptime(match[1], '%Y%m%dT%H%M%SZ').replace(tzinfo=dt.timezone.utc)
+                    self.c.require(modified >= point, 'Invalid S3 version chronology.')
                     identity = (item['Key'], item['VersionId'])
                     self.c.require(identity not in seen, 'Repeated S3 inventory entry.')
                     seen.add(identity)
                     entries.append({**item, 'marker': marker})
-            if not page.get('IsTruncated'):
+            if not page['IsTruncated']:
+                self.c.require(not page.get('NextKeyMarker') and not page.get('NextVersionIdMarker'),
+                               'Ambiguous S3 pagination end.')
                 return entries
-            cursor = {'KeyMarker': page['NextKeyMarker'], 'VersionIdMarker': page['NextVersionIdMarker']}
+            next_cursor = (page.get('NextKeyMarker'), page.get('NextVersionIdMarker'))
+            self.c.require(all(isinstance(v, str) and v for v in next_cursor)
+                           and next_cursor in seen and next_cursor not in cursors, 'Ambiguous S3 pagination cursor.')
+            cursors.add(next_cursor)
+            cursor = dict(zip(('KeyMarker', 'VersionIdMarker'), next_cursor))
         raise self.c.Refused('S3 pagination budget exhausted.')
 
     def configuration(self, expected_lifecycle):
+        self.c.require(isinstance(expected_lifecycle, str) and re.fullmatch('[0-9a-f]{64}', expected_lifecycle),
+                       'Reviewed S3 lifecycle fingerprint required.')
         lock = self.call('get_object_lock_configuration')['ObjectLockConfiguration']
         self.c.require(lock == {'ObjectLockEnabled': 'Enabled', 'Rule': {'DefaultRetention': {'Mode': 'COMPLIANCE', 'Days': 33}}},
                        'S3 lock configuration drift.')
-        self.c.require(self.call('get_bucket_versioning').get('Status') == 'Enabled', 'S3 versioning drift.')
+        versioning = self.call('get_bucket_versioning')
+        self.c.require(versioning.get('Status') == 'Enabled' and versioning.get('MFADelete', 'Disabled') == 'Disabled',
+                       'S3 versioning drift.')
         lifecycle = self.call('get_bucket_lifecycle_configuration')['Rules']
         self.c.require(hashlib.sha256(json.dumps(lifecycle, sort_keys=True).encode()).hexdigest() == expected_lifecycle,
                        'S3 lifecycle configuration drift.')
@@ -144,9 +182,13 @@ class Store:
         hold = self.call('get_object_legal_hold', **args)['LegalHold']['Status']
         point = dt.datetime.strptime(KEY.fullmatch(entry['Key'])[1], '%Y%m%dT%H%M%SZ').replace(tzinfo=dt.timezone.utc)
         modified, until = entry['LastModified'], retention['RetainUntilDate']
-        self.c.require(retention['Mode'] == 'COMPLIANCE' and hold == 'OFF'
+        self.c.require(isinstance(until, dt.datetime) and until.utcoffset() is not None
+                       and retention['Mode'] == 'COMPLIANCE' and hold == 'OFF'
                        and 0 <= (modified - point).total_seconds() <= 21600
-                       and dt.timedelta(days=33) <= until - modified <= dt.timedelta(days=34, minutes=5)
+                       # A multipart lock may start at initiation, before LastModified, but
+                       # never before the recovery point: anchor the minimum there.
+                       and until >= point + dt.timedelta(days=33)
+                       and until - modified <= dt.timedelta(days=34, minutes=5)
                        and until <= point + dt.timedelta(days=34, hours=6)
                        and modified <= self.c.utc() + dt.timedelta(seconds=60), 'S3 protection invariant violated.')
         return point, until
@@ -214,27 +256,105 @@ class Store:
     def expiry_plan(self):
         """Delete-only actor needs no object-content or configuration read authority."""
         candidates, alerts = [], set()
-        for entry in self.inventory():
+        entries = self.inventory()
+        for entry in entries:
             point = dt.datetime.strptime(KEY.fullmatch(entry['Key'])[1], '%Y%m%dT%H%M%SZ').replace(tzinfo=dt.timezone.utc)
             until = entry['LastModified'] if entry['marker'] else self.protection(entry)[1]
             if self.c.utc() >= until:
-                candidates.append({'key': entry['Key'], 'versionId': entry['VersionId'], 'marker': entry['marker']})
+                candidates.append({'key': entry['Key'], 'versionId': entry['VersionId'], 'marker': entry['marker'],
+                                   'lastModified': entry['LastModified'].isoformat(), 'retainUntil': until.isoformat()})
                 age = self.c.utc() - point
                 if age >= dt.timedelta(days=35): alerts.add('retention-incident')
                 elif age >= dt.timedelta(days=34, hours=12): alerts.add('expiry-critical')
                 elif self.c.utc() - until >= dt.timedelta(hours=2): alerts.add('expiry-warning')
         return {'kind': 's3-expiry-plan', 'bucket': self.bucket, 'verifiedAt': self.c.utc().isoformat(),
+                'inventorySha256': self.inventory_digest(entries),
                 'candidates': candidates, 'alerts': sorted(alerts), 'deletionEnabled': False}
 
-    def observe(self, lifecycle, max_bytes, restore=None, plan=False):
+    @staticmethod
+    def inventory_digest(entries):
+        rows = sorted((e['Key'], e['VersionId'], e['marker'], e['LastModified'].isoformat(), e.get('Size')) for e in entries)
+        return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
+
+    def expire(self, lifecycle, receipt, checkpoint):
+        """Fresh plan only; persist intent before each exact-version mutation.
+
+        Acknowledgement alone is never absence. On any failure, attempted versions
+        remain unconfirmed until an operator reconciles the protected receipt.
+        """
+        receipt.update(kind='s3-expiry', adapterVersion=VERSION, bucket=self.bucket,
+                       outcome='failure', deletionEnabled=True, attempts=[], absenceVerified=False)
+        checkpoint()
+        self.configuration(lifecycle)
+        plan = self.expiry_plan()  # Complete bounded protection scan before any DELETE.
+        receipt.update(plan=plan, lifecycleSha256=lifecycle)
+        checkpoint()
+        before = self.inventory()
+        self.c.require(self.inventory_digest(before) == plan['inventorySha256'], 'S3 inventory changed before expiry.')
+        by_id = {(e['Key'], e['VersionId']): e for e in before}
+        removed = set()
+        for candidate in plan['candidates']:
+            # Configuration/retention can change after planning; server-side
+            # Compliance and Legal Hold enforcement must also be qualified (P1–P5).
+            self.configuration(lifecycle)
+            identity = (candidate['key'], candidate['versionId'])
+            entry = by_id[identity]
+            until = entry['LastModified'] if entry['marker'] else self.protection(entry)[1]
+            self.c.require(until.isoformat() == candidate['retainUntil']
+                           and min(self.c.utc(), self.remote_now) >= until, 'S3 version no longer eligible for expiry.')
+            attempt = {**candidate, 'state': 'unconfirmed', 'attemptedAt': self.c.utc().isoformat()}
+            receipt['attempts'].append(attempt)
+            checkpoint()  # Durable intent survives timeout, termination or lost acknowledgement.
+            response = self.call('delete_object', Key=identity[0], VersionId=identity[1])
+            self.c.require(response.get('VersionId') == identity[1]
+                           and response.get('DeleteMarker', False) is entry['marker'], 'Ambiguous S3 deletion acknowledgement.')
+            attempt.update(acknowledgedAt=self.c.utc().isoformat())
+            removed.add(identity)
+            checkpoint()
+        self.configuration(lifecycle)
+        after = self.inventory()  # No prefix/delimiter: verify versions AND markers.
+        expected = [e for e in before if (e['Key'], e['VersionId']) not in removed]
+        self.c.require(self.inventory_digest(after) == self.inventory_digest(expected), 'S3 deletion absence unconfirmed or inventory changed.')
+        verified = self.c.utc().isoformat()
+        for attempt in receipt['attempts']:
+            attempt.update(state='absence-verified', verifiedAt=verified)
+        receipt.update(outcome='success', absenceVerified=True, verifiedAt=verified,
+                       inventoryAfterSha256=self.inventory_digest(after), alerts=plan['alerts'])
+        checkpoint()
+        return receipt
+
+    def admission_evidence(self, lifecycle, max_bytes):
+        """The VPS's own capacity and configuration check: listing only, never object content.
+
+        A local guard for the next upload. It proves nothing about integrity, which stays
+        with the independent observer, and it cannot see incomplete multipart bytes.
+        """
+        self.c.require(abs((self.c.utc() - self.provider_clock()).total_seconds()) <= 60,
+                       'S3 clock skew exceeds 60 seconds.')
+        self.configuration(lifecycle)
+        retained = sum(e.get('Size', 0) for e in self.inventory())
+        self.c.require(0 < max_bytes and retained <= max_bytes, 'S3 retained-byte budget exceeded.')
+        return {'kind': 's3-admission', 'bucket': self.bucket, 'verifiedAt': self.c.utc().isoformat(),
+                'retainedBytes': retained, 'alerts': ['capacity-warning'] if retained >= WARNING_BYTES else [],
+                'independentRecoveryVerified': False}
+
+    def observe(self, lifecycle, max_bytes, restore=None, plan=False, state=None, verify_limit=None, checkpoint=None):
+        """With a state, each version set is hashed once; later runs inspect metadata only.
+
+        verify_limit bounds the ciphertext streamed by one run, newest pair first. A pair
+        not yet hashed is never counted as integrity evidence.
+        """
         if plan:
             return self.expiry_plan()
         self.configuration(lifecycle)
         entries = self.inventory()  # Full bounded scan includes unknown prefixes, orphans and markers.
-        alerts, keys, pairs = set(), set(), []
+        alerts, keys, pairs, receipts = set(), set(), [], []
+        verified = (state if state is not None else {}).setdefault('verified', {})
         versions = {(e['Key'], e['VersionId']) for e in entries if not e['marker']}
         retained = sum(e.get('Size', 0) for e in entries)
         self.c.require(retained <= max_bytes and max_bytes > 0, 'S3 retained-byte budget exceeded.')
+        if retained >= WARNING_BYTES:
+            alerts.add('capacity-warning')
         for e in entries:
             if e['Key'] in keys:
                 alerts.add('multiple-versions')
@@ -252,13 +372,31 @@ class Store:
                 elif age >= dt.timedelta(days=34, hours=12): alerts.add('expiry-critical')
                 elif self.c.utc() - until >= dt.timedelta(hours=2): alerts.add('expiry-warning')
             if not e['marker'] and match[4] == 'receipt.json':
+                receipts.append(e)
+        hashed = 0
+        for e in sorted(receipts, key=lambda item: item['Key'], reverse=True):  # Keys sort by recovery point.
+            reference = e['Key'] + '@' + e['VersionId']
+            proof = verified.get(reference)
+            if proof is None and verify_limit is not None and hashed >= verify_limit:
+                alerts.add('integrity-backlog')
+                continue
+            if proof is None:
                 proof = self.receipt(e)
                 self.c.require(all((o['key'], o['versionId']) in versions for o in proof['objects'].values()), 'S3 pair has missing versions.')
                 # Reuse the exact same verifier as recovery, with ephemeral ciphertext only.
                 with self.c.tempfile.TemporaryDirectory() as name:
                     self.fetch(proof, Path(name) / 'pair', max_bytes)
-                pairs.append({**proof, 'receiptObject': {'key': e['Key'], 'versionId': e['VersionId']}})
-        completed = {p['receiptObject']['key'].rsplit('/', 1)[0] for p in pairs}
+                hashed += 1
+                verified[reference] = proof
+                if checkpoint:
+                    checkpoint()
+            # A hashed set must still exist exactly as it was published.
+            self.c.require(all((o['key'], o['versionId']) in versions for o in proof['objects'].values()), 'S3 pair has missing versions.')
+            pairs.append({**proof, 'receiptObject': {'key': e['Key'], 'versionId': e['VersionId']}})
+        current = {e['Key'] + '@' + e['VersionId'] for e in receipts}
+        for reference in set(verified) - current:
+            del verified[reference]  # Expired pairs leave the state with their versions.
+        completed = {e['Key'].rsplit('/', 1)[0] for e in receipts}
         if any(e['Key'].rsplit('/', 1)[0] not in completed for e in entries):
             alerts.add('incomplete-attempt')
         latest = max((self.c.timestamp(p['recoveryPoint']) for p in pairs), default=None)
@@ -285,17 +423,24 @@ class Store:
                 'healthy': not alerts}
 
 
-def dispatch(core, args):
+def dispatch(core, args, result=None):
     def timeout(*_):
         raise core.Refused('S3 operation budget exhausted.')
     core.signal.signal(core.signal.SIGALRM, timeout)
     core.signal.alarm(1800)
     core.private(args.s3_config)
     core.require(args.s3_config.stat().st_size <= MAX_JSON, 'Oversized S3 configuration.')
-    config = json.loads(args.s3_config.read_text())
+    def unique_fields(pairs):
+        fields = {}
+        for key, value in pairs:
+            core.require(key not in fields, 'Ambiguous S3 configuration fields.')
+            fields[key] = value
+        return fields
+    config = json.loads(args.s3_config.read_text(), object_pairs_hook=unique_fields)
     core.require(all(isinstance(config[k], str) and config[k].strip() for k in
                      ('endpoint', 'region', 'bucket', 'accessKey', 'secretKey')), 'Explicit S3 identity required.')
     core.require(re.fullmatch(r'https://s3\.[a-z0-9-]+\.io\.cloud\.ovh\.net', config['endpoint'])
+                 and config['endpoint'] == f"https://s3.{config['region']}.io.cloud.ovh.net"
                  and re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]', config['bucket']), 'Invalid OVH S3 target.')
     import boto3
     from botocore.config import Config
@@ -325,6 +470,24 @@ def dispatch(core, args):
         core.private(args.verified_receipt)
         core.require(args.verified_receipt.stat().st_size <= MAX_JSON, 'Oversized S3 restore evidence.')
         restore = json.loads(args.verified_receipt.read_text())
+    if args.command == 'admission':
+        return store.admission_evidence(config.get('lifecycleSha256'), args.max_copy_bytes)
     if args.command == 'expire':
+        if args.execute:
+            core.require(isinstance(result, dict), 'Expiry receipt context required.')
+            return store.expire(config.get('lifecycleSha256'), result, lambda: core.write(args.receipt, result))
         return store.expiry_plan()
-    return store.observe(config['lifecycleSha256'], args.max_copy_bytes, restore)
+    state = None
+    if args.observer_state:
+        state = {}
+        if args.observer_state.exists():
+            core.private(args.observer_state)
+            core.require(args.observer_state.stat().st_size <= MAX_STATE, 'Oversized S3 observer state.')
+            state = json.loads(args.observer_state.read_text())
+    def checkpoint():
+        core.write(args.observer_state, state)
+    observation = store.observe(config['lifecycleSha256'], args.max_copy_bytes, restore, state=state,
+                                verify_limit=args.max_verify_pairs, checkpoint=checkpoint if state is not None else None)
+    if state is not None:
+        checkpoint()
+    return observation

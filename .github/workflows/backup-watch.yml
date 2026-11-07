@@ -1,0 +1,96 @@
+name: Backup watch
+
+# Independent of the VPS: observes every rolling pair and removes expired versions.
+# Inert until the owner sets the repository variables below, after the provider gates pass.
+# The repository is public: secrets stay in protected environments restricted to main, and
+# nothing here uploads an artefact. The tool prints fixed lines only.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-watch
+  cancel-in-progress: false
+
+jobs:
+  observer:
+    if: github.ref == 'refs/heads/main' && vars.BACKUP_OBSERVER_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: backup-observer
+    steps:
+      - name: Check out trusted default-branch code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Restore the checkpoint of pairs already hashed
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .backup-watch
+          key: backup-watch-observer-${{ github.run_id }}
+          restore-keys: backup-watch-observer-
+      - name: Install the pinned S3 client
+        run: |
+          python3 -m venv .backup-venv
+          .backup-venv/bin/pip install --quiet --disable-pip-version-check -r deploy/public-production/s3-requirements.txt
+      - name: Observe
+        env:
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_LIFECYCLE_SHA256: ${{ secrets.S3_LIFECYCLE_SHA256 }}
+          RESTORE_EVIDENCE: ${{ secrets.RESTORE_EVIDENCE }}
+          NOTIFY_TELEGRAM_TOKEN: ${{ secrets.NOTIFY_TELEGRAM_TOKEN }}
+          NOTIFY_TELEGRAM_CHAT: ${{ secrets.NOTIFY_TELEGRAM_CHAT }}
+        run: .backup-venv/bin/python3 -I deploy/public-production/bin/backup-watch observer --state-directory "$PWD/.backup-watch"
+      - name: Save the checkpoint
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .backup-watch
+          key: backup-watch-observer-${{ github.run_id }}
+
+  expiry:
+    if: github.ref == 'refs/heads/main' && vars.BACKUP_EXPIRY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: backup-expiry
+    steps:
+      - name: Check out trusted default-branch code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Restore the last notification
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .backup-watch
+          key: backup-watch-expiry-${{ github.run_id }}
+          restore-keys: backup-watch-expiry-
+      - name: Install the pinned S3 client
+        run: |
+          python3 -m venv .backup-venv
+          .backup-venv/bin/pip install --quiet --disable-pip-version-check -r deploy/public-production/s3-requirements.txt
+      - name: Delete expired versions by exact version
+        env:
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_LIFECYCLE_SHA256: ${{ secrets.S3_LIFECYCLE_SHA256 }}
+          NOTIFY_TELEGRAM_TOKEN: ${{ secrets.NOTIFY_TELEGRAM_TOKEN }}
+          NOTIFY_TELEGRAM_CHAT: ${{ secrets.NOTIFY_TELEGRAM_CHAT }}
+        run: .backup-venv/bin/python3 -I deploy/public-production/bin/backup-watch expiry --state-directory "$PWD/.backup-watch"
+      - name: Save the last notification
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .backup-watch
+          key: backup-watch-expiry-${{ github.run_id }}

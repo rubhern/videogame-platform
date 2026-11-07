@@ -107,17 +107,33 @@ The exception covers OVHcloud Object Storage only. It changes neither the EUR 25
 recurring ceiling, the netcup or email terms, nor any other gate, and it authorizes
 no purchase, account, credential, bucket, deployment or exposure. The
 [#276 research](../research/public-production-backup-storage.md#owner-accepted-uncapped-payg-risk)
-holds the proposed thresholds and the open operating parameters.
+holds the approved target thresholds and the outstanding implementation/qualification boundaries.
 
 
 ## Amendment 2026-10-29: scoped recovery policy approval
 
-The [owner decision in #276](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
+The
+[owner decision in #276](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
 approves the summarized target policy now recorded by the
-[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery),
-and authorizes local adapter preparation and fake-S3 testing. It grants no operational
-acceptance, provider setup, purchase, job installation or deployment. D3, D6 and the
-precise D7 operating thresholds remain recommendations pending ratification; no
-research table is approved in full by implication. The
+[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery), and authorizes local adapter preparation and fake-S3 testing. It grants no operational acceptance,
+provider setup, purchase, job installation or deployment. The
+[subsequent explicit owner ratification](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
+approves D3, D6 and the precise D7 operating thresholds as target policy, superseding their earlier
+recommendation status. The
+[decision table](../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
+owns those details; remaining qualification gates are unchanged. The
 [local evidence boundary](../research/public-production-backup-storage.md#local-s3-adapter-evidence)
 records what is prepared and what still blocks activation. #275 remains unchanged.
+
+## Amendment 2026-11-07: scheduled cycle availability
+
+The owner required scheduled backups that never leave Gameómetro blocked, which replaces the earlier
+recommendation to leave a failed capture fenced for owner action. A scheduled cycle may undo a fence it
+created, because a capture only reads the databases. Every other fence, manual backups included, keeps
+its existing refusal. The
+[runtime guide](../../deploy/public-production/README.md#scheduled-backup-cycle-276) owns the mechanics.
+
+**Proposed for owner review, not yet decided:** a list-only admission reader on the VPS replaces moving
+observer evidence to the host, which had no transport from a public workflow to a private host. It reads
+listings and configuration, never object content, so the host still cannot read history, and it does not
+replace the independent observer. This grants no provider setup, installation or activation.
