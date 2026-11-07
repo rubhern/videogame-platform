@@ -350,6 +350,8 @@ jobs:
             python3 scripts/test-public-production-integration.py
             python3 scripts/test-production-recovery.py
             python3 scripts/test-production-recovery-s3.py
+            python3 scripts/test-personal-data-cloud.py
+            python3 scripts/test-production-public-ingress.py
             python3 scripts/test-production-backup-cycle.py
             python3 scripts/test-production-recovery-lock.py
             python3 scripts/test-production-identity-maintenance.py

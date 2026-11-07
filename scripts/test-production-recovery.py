@@ -5,6 +5,7 @@ import datetime as dt
 import importlib.machinery
 import importlib.util
 import json
+import shutil
 import io
 import tarfile
 import os
@@ -261,8 +262,33 @@ class Recovery(unittest.TestCase):
         ledger = owner / 'ledger'; ledger.write_text(''); ledger.chmod(0o600)
         ledger_copy = independent / 'ledger'; ledger_copy.write_text(''); ledger_copy.chmod(0o600)
         checkpoint = owner / 'checkpoint'
-        core.write(checkpoint, {'asOf': (core.utc()-dt.timedelta(hours=hours)).isoformat(), 'environment':'production', 'ledgerSha256':core.digest(ledger)})
+        digest = core.digest(ledger)
+        core.write(checkpoint, {'asOf': (core.utc()-dt.timedelta(hours=hours)).isoformat(), 'environment':'production',
+                                'ledgerSha256': digest, 'source': 'cloud-ledger',
+                                'copies': [{'bucket': 'ledger-a', 'region': 'gra', 'sha256': digest},
+                                           {'bucket': 'ledger-b', 'region': 'sbg', 'sha256': digest}]})
         return ledger, ledger_copy, checkpoint
+
+    def test_ledger_not_rebuilt_from_two_cloud_copies_never_reopens(self):
+        # L8: a hand-made checkpoint, one copy, a same-region pair or a mismatched copy refuses.
+        for change in ({'source': None}, {'copies': None}, {'copies': 'one'},
+                       {'copies': [{'bucket': 'ledger-a', 'region': 'gra'}]},
+                       {'copies': [{'bucket': 'ledger-a', 'region': 'gra'}, {'bucket': 'ledger-b', 'region': 'gra'}]},
+                       {'copies': [{'bucket': 'ledger-a', 'region': 'gra'}, {'bucket': 'ledger-a', 'region': 'sbg'}]},
+                       {'mismatch': True}):
+            with self.subTest(change=change):
+                shutil.rmtree(self.work / 'owner', ignore_errors=True); shutil.rmtree(self.work / 'independent', ignore_errors=True)
+                ledger, ledger_copy, checkpoint = self.evidence()
+                value = json.loads(checkpoint.read_text())
+                digest = value['ledgerSha256']
+                if 'mismatch' in change:
+                    value['copies'][1]['sha256'] = '0' * 64
+                else:
+                    value.update(change)
+                    if isinstance(value.get('copies'), list):
+                        for copy in value['copies']: copy.setdefault('sha256', digest)
+                core.write(checkpoint, value)
+                with self.assertRaises(core.Refused): core.ledger_evidence(ledger, ledger_copy, checkpoint)
 
     def test_empty_current_ledger_requires_two_matching_copies(self):
         paths = self.evidence()

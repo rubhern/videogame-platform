@@ -32,6 +32,7 @@ import public_production_integration as integration
 import validate_private_production_truststore as stores
 import private_production_admin as admin
 import production_registration_notice as registration
+import production_public_ingress as ingress
 
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN = install.ADMIN
@@ -43,6 +44,8 @@ JOURNAL = 'upgrade.json'
 PLAN = 'upgrade-plan.json'
 TARGET_CONFIG = 'compose.target.json'
 CADDYFILE = 'Caddyfile.private'
+PUBLIC_CADDYFILE = 'Caddyfile.public'
+PRIVATE_TWIN = 'compose.private.json'
 UPGRADE_LABEL = 'gameometro.upgrade.revision'
 FENCED_PHASE = 'backup-complete-writers-still-fenced'
 PERSISTENT, ONE_SHOT = acceptance.PERSISTENT, acceptance.ONE_SHOT
@@ -85,7 +88,8 @@ GATE_STATE = ("import json,os\np='/gate/'\ndef read(n):\n try:\n  return json.lo
 # Anonymous only: personal routes refuse, the public catalogue answers from local state.
 AUTHORIZATION_PROBE = r'''
 import http.client,ssl
-ctx=ssl.create_default_context(cafile='/run/private-tls/ca.crt')
+ctx=ssl.create_default_context()
+ctx.load_verify_locations('/run/private-tls/ca.crt')
 def get(path):
  c=http.client.HTTPSConnection('gameometro.com',context=ctx,timeout=15)
  c.request('GET',path);r=c.getresponse();b=r.read(262145);c.close()
@@ -340,9 +344,13 @@ def validate_runtime(config, images):
     services = config['services']
     require(config['name'] == prepare.PROJECT, 'Unexpected private project.')
     for name, service in services.items():
-        require(not service.get('ports') and not service.get('privileged') and 'network_mode' not in service
+        # Only a public edge recorded by the reviewed ingress transition may publish, exactly 80/443.
+        published = service.get('ports')
+        require(not published or (name == 'caddy' and published == ingress.public_ports(published[0].get('host_ip'))),
+                'Only the reviewed public edge may publish ports.')
+        require(not service.get('privileged') and 'network_mode' not in service
                 and not service.get('build') and '@sha256:' in service['image'],
-                'Upgrades forbid publications, privileges, host networking, builds and mutable images.')
+                'Upgrades forbid privileges, host networking, builds and mutable images.')
         require(service.get('restart') == ('no' if name in ONE_SHOT else acceptance.POLICY),
                 'Restart policy differs from the accepted runtime.')
     for name, source in PUBLISHED.items():
@@ -646,6 +654,17 @@ class Upgrade:
         for name, service in config['services'].items():
             service['restart'] = 'no' if name in ONE_SHOT else acceptance.POLICY
         config = self.localize(config)
+        published = self.active['config']['services']['caddy'].get('ports')
+        private_edge = None
+        if published:
+            # Preserve the reviewed public edge: the same derivation the ingress transition applied.
+            ipv4 = published[0]['host_ip']
+            require(published == ingress.public_ports(ipv4), 'The active edge publishes unreviewed ports.')
+            private_edge = json.loads(json.dumps(config['services']['caddy']))
+            text = ingress.public_caddyfile((directory / CADDYFILE).read_text())
+            (directory / PUBLIC_CADDYFILE).write_text(text)
+            (directory / PUBLIC_CADDYFILE).chmod(0o644)
+            config = ingress.derive_public(config, self.bundle / PUBLIC_CADDYFILE, ipv4)
 
         def local(path):
             path = Path(path)
@@ -655,6 +674,13 @@ class Upgrade:
         validate_runtime(config, selected['images'])
         mark_changed(config, changed, self.target)
         (directory / TARGET_CONFIG).write_text(canonical(config))
+        if private_edge is not None:
+            # The private twin differs only in the edge; --revert of the ingress tool uses it.
+            twin = json.loads(json.dumps(config))
+            twin['services']['caddy'] = {**private_edge, 'labels': config['services']['caddy'].get('labels', {})}
+            require(ingress.derive_public(twin, self.bundle / PUBLIC_CADDYFILE, ipv4) == config,
+                    'The public target is not exactly the private target plus the reviewed edge.')
+            (directory / PRIVATE_TWIN).write_text(canonical(twin))
         prepare.prepare_mount_directories(config, source, self.bundle)
         return {'tree': tree, 'config': config, 'changed': changed, 'version': version, 'local': local}
 
@@ -812,7 +838,7 @@ class Upgrade:
             (partial / PLAN).write_text(canonical(built['reviewed']))
             for path in partial.iterdir():
                 if path.is_file():
-                    path.chmod(0o644 if path.name == CADDYFILE else 0o600)
+                    path.chmod(0o644 if path.name in (CADDYFILE, PUBLIC_CADDYFILE) else 0o600)
             partial.rename(self.bundle)
             control.fsync_dir(self.bundle.parent)
         # Only absent pinned digests: a present one is content-addressed and needs no registry.
@@ -837,6 +863,14 @@ class Upgrade:
         install.verify_candidate_mounts(config, source, self.bundle)
         require((self.bundle / CADDYFILE).read_text() == prepare.private_caddy(
             (source / 'deploy/public-production/caddy/Caddyfile').read_text()), 'The private edge delta changed.')
+        if config['services']['caddy'].get('ports'):
+            install.secure(self.bundle / PUBLIC_CADDYFILE, mode=0o644)
+            install.secure(self.bundle / PRIVATE_TWIN, mode=0o600)
+            twin = json.loads((self.bundle / PRIVATE_TWIN).read_text())
+            require((self.bundle / PUBLIC_CADDYFILE).read_text() == ingress.public_caddyfile((self.bundle / CADDYFILE).read_text())
+                    and ingress.derive_public(twin, self.bundle / PUBLIC_CADDYFILE,
+                                             config['services']['caddy']['ports'][0]['host_ip']) == config,
+                    'The public edge or its private twin differs from the reviewed derivation.')
         require(all(self.local_images(self.required_images(config)).values()),
                 'A target image is not available locally; stage again.')
 
@@ -1121,6 +1155,16 @@ class Upgrade:
         self.write_active(record, reviewed)
 
     def write_active(self, record, reviewed):
+        state_file = self.admin / 'ingress/INGRESS.json'
+        twin = self.bundle / PRIVATE_TWIN
+        if twin.exists():
+            # Keep the ingress record on the upgraded runtime before ACTIVE names it.
+            state = json.loads(state_file.read_text())
+            require(state.get('mode') == 'public', 'A public target needs the recorded public ingress.')
+            state.update(revision=self.target, privateConfigurationFile=str(twin), privateConfigurationSha256=install.sha(twin),
+                         publicConfigurationFile=str(self.bundle / TARGET_CONFIG),
+                         publicConfigurationSha256=reviewed['targetConfigurationSha256'])
+            control.durable(state_file, state)
         control.durable(self.admin / UPGRADES / ACTIVE, {
             'revision': self.target, 'configurationFile': str(self.bundle / TARGET_CONFIG),
             'configurationSha256': reviewed['targetConfigurationSha256'], 'planSha256': record['planSha256'],

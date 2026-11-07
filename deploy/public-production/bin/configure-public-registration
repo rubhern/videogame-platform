@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Close or open self-registration on the production realm; nothing else may change (#276).
+
+Runs in a disposable helper on the private identity network, like the registration-notice actor.
+The administrator password crosses stdin only. The realm representation without
+`registrationAllowed` must be byte-identical before and after, so no other setting can drift.
+"""
+import argparse
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[3]
+FIELD = 'registrationAllowed'
+
+
+def require(value, reason):
+    if not value:
+        raise ValueError(reason)
+
+
+def rest_digest(state):
+    state = {k: v for k, v in state.items() if k != FIELD}
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+
+
+def align(realm, desired, check=False):
+    """`realm` offers representation() and send(method, path, body)."""
+    before = realm.representation()
+    require(isinstance(before, dict) and before.get('realm') == 'gameometro'
+            and isinstance(before.get(FIELD), bool), 'Invalid realm representation.')
+    if check:
+        require(before[FIELD] is desired, 'Self-registration is not in the requested state.')
+        return {'registrationAllowed': desired, 'changed': False}
+    if before[FIELD] is desired:
+        return {'registrationAllowed': desired, 'changed': False}
+    fingerprint = rest_digest(before)
+    realm.send('PUT', '', {FIELD: desired})
+    after = realm.representation()
+    require(after.get(FIELD) is desired and rest_digest(after) == fingerprint,
+            'State changed outside self-registration; investigate before any exposure.')
+    return {'registrationAllowed': desired, 'changed': True}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--origin', required=True, choices=['http://keycloak:8080'])
+    parser.add_argument('--admin-username', required=True)
+    parser.add_argument('--admin-password-file', type=Path, required=True)
+    parser.add_argument('--state', required=True, choices=['closed', 'open'])
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    loader = importlib.machinery.SourceFileLoader('registration_identity', str(ROOT / 'deploy/private-dev/bin/configure-keycloak-identity'))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    identity = importlib.util.module_from_spec(spec)
+    loader.exec_module(identity)
+    admin = identity.provisioning.KeycloakAdmin(args.origin)
+    admin.authenticate(args.admin_username, args.admin_password_file.read_text().rstrip('\r\n'))
+    print(json.dumps(align(identity.Realm(admin, 'gameometro'), args.state == 'open', args.check), sort_keys=True))
+
+
+if __name__ == '__main__':
+    sys.dont_write_bytecode = True
+    os.umask(0o077)
+    try:
+        main()
+    except Exception:
+        print('Self-registration alignment refused or failed; raw diagnostics withheld.', file=sys.stderr)
+        raise SystemExit(1)

@@ -1335,7 +1335,7 @@ and publication authorization does not authorize host mutation, cloud mutation o
 | 2. Private maintenance window | After merge and fresh trusted-main publication, inspect host/source/permissions, stage the exact reviewed operator, target and images, review the new plan hash, take a fresh fenced pair, secure an independent copy and isolated restore, apply and verify the upgrade and private owner journey | One bounded authorization naming host, target/operator SHAs, reviewed plan hash, window, permitted service interruption, pair/copy destinations, key custody and reference. It may cover staging, capture, copy, isolated restore, apply and same-plan resume for diagnosed transient failures. An unexpected delta or forward fix returns for review |
 | 3. Manual cloud qualification | Verify effective credentials and provider retention/permission tests, fresh capacity admission, protected cost monitoring/alerts before first upload; capture/copy/restore-check a fresh pair from the current candidate if the earlier pair is ineligible, then upload and explicitly thaw only after required checks; verify independently and reconstruct into an empty isolated target with the source host and Lenovo unavailable; replay current deletions and prove archive/ledger durability | One separate bounded authorization naming test/production buckets, exact roles, synthetic test objects, allowed writes and exact-version test deletions, a fresh capture window and reopening scope, transfer/storage allowance, independent restore target and notification test recipient. Decide the proposed VPS list-only admission identity separately from approved retention parameters. It grants no recurring execution or deletion of live retained pairs |
 | 4. Automation activation | Qualify capture serialization, off-VPS observation/expiry, missing-job and firing/recovery delivery, restart/reboot, failed-run fencing and manual fallback. Verify current recovery evidence and separately protected reconstruction material | Separate explicit activation decision listing each timer, workflow variable/environment, cadence, uploader/observer/expiry credential scope and stop conditions. Include account cleanup only after its own deployed durability/fencing acceptance; merging prepared code activates nothing |
-| 5. Restricted launch qualification | Complete the remaining real-host capacity, IPv4/IPv6 isolation, abuse/shared-IP/spoofing, SMTP/quota, certificate, privacy/provider and synthetic external-journey checks required by the exposure gate | Separate authorization for any temporary DNS/ACME or public test route, exact scope and expiry, with real registration closed. Accept measured recovery and residual limitations only after reviewing evidence |
+| 5. Restricted launch qualification | Complete the remaining real-host capacity, IPv4/IPv6 isolation, abuse/shared-IP/spoofing, SMTP/quota, certificate, privacy/provider and synthetic external-journey checks required by the exposure gate. The [public ingress transition](../../deploy/public-production/README.md#public-ingress-transition-276) publishes with registration closed and reverts on failure | Separate authorization for any temporary DNS/ACME or public test route, exact scope and expiry, with real registration closed. Accept measured recovery and residual limitations only after reviewing evidence |
 | 6. Public opening | Present the complete release identity and evidence matrix, unresolved risks and closure/recovery procedure | Separate explicit public go/no-go naming the accepted release, hostnames and signup/ingress change. No maintenance or automation approval implies this decision |
 
 The [upgrade procedure](#private-production-in-place-upgrade),
@@ -1351,8 +1351,8 @@ known; a fresh cloud capture must cover the upgraded runtime. Start authorized
 [provider tests](../research/public-production-backup-storage.md#tests-that-validate-the-semantics)
 early: the synthetic one-day-lock test must actually reach expiry before post-expiry
 deletion can be accepted. Use that waiting period for independent qualification work;
-do not shorten production retention to speed it up. The proposed VPS admission
-identity remains an [owner decision](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md),
+do not shorten production retention to speed it up. The VPS list-only admission
+identity is [approved](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md) (2026-11-07),
 and public opening still requires effective privacy/processor safeguards and the
 owner's support/rights-contact coverage decision.
 
@@ -1535,9 +1535,14 @@ records the synthetic restore-time container and origin/issuer/database pairing;
 
 ```bash
 personal-data-ledger --ledger <owner-ledger> --ledger-copy <independent-ledger> \
+  --cloud-copies <owner-only cloud.json> \
   --host-command "<reviewed production host command>" \
   cleanup-unverified
 ```
+
+Production mutation always needs `--cloud-copies`; the
+[runtime guide](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+owns the two-copy barrier and the `ledger-fetch` used before recovery replay.
 
 This probes only, reports candidates and never enters maintenance. For any profiled
 erasure/cleanup, add the following global options: `--archive-root <owner-archive>`,

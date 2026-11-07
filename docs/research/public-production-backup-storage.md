@@ -662,6 +662,25 @@ P1–P5 block activation.
 If P2 fails (the uploader can set a lock or a hold), this bucket design is **NO-GO**.
 A compromised VPS could then lock personal data past the ceiling.
 
+**Provider test results: P1–P5 PASS** on `gameometro-lock-test` (Gravelines, Compliance
+1-day default) with distinct restricted uploader, observer and worker identities.
+
+| Test | Executed | Result |
+|---|---|---|
+| P1 | 2026-10-25; real multipart repeated 2026-10-29 | Single PUT: retain-until is upload + exactly 1 day, no rounding. Multipart: the lock anchors at **initiation**, not completion |
+| P2 | 2026-10-25 | Uploader PUTs with earlier/later retain-until or legal hold, and retention/hold changes on its own version, all 403; effective retention is the default, read by the observer |
+| P3 | 2026-10-25 | Owner shortening and switching to Governance return 403; extension is accepted |
+| P4 | Pre-expiry 2026-10-25; post-expiry 2026-11-07 | Before expiry: version-ID DELETE 403, simple DELETE adds a marker, the version stays readable. After expiry: the worker's version-ID DELETE returns 204 and the observer lists the version as absent |
+| P5 | Pre-expiry 2026-10-25 (67 allow/deny cases); post-expiry 2026-11-07 | Uploader: PUT/multipart only. Observer: read-only. Worker: list, protection reads and version deletes only. After expiry the observer and uploader still get 403 on an exact-version DELETE, and the worker deletes an uploader-owned expired version (204) |
+
+Findings that bind the design: the bucket owner cannot read uploader-owned objects, so
+recovery needs a separate reader with an explicit allow; the worker can delete
+delete-markers created by another identity; Compliance retention can be extended. The
+2026-10-29 run also found that a prefix-scoped worker can list keys outside its prefix,
+so listing is bucket-wide and must not be relied on for confidentiality between prefixes.
+Sanitized post-expiry output is retained by the owner outside Git. P6–P8 remain
+unexecuted and are activation or monitoring checks, not P1–P5 prerequisites.
+
 ### Original implementation proposal (2026-10-25)
 
 - `deploy/public-production/bin/recovery`: add `publish` (upload the existing
@@ -691,9 +710,9 @@ Object Lock is fixed when a bucket is created, so these decisions precede creati
 | D6 | Ledger and archive locks | Ledger bucket COMPLIANCE 36 days; archive, proof and reconstruction buckets created without Object Lock |
 | D7 | PAYG operating values | 180/200 GiB, forecast EUR 2/3, review after the first invoice or 30 days |
 
-**Verdict: CONDITIONAL GO.** D1–D7 are approved as target policy, including the explicit D3/D6/D7 ratification linked above. Activation stays
-blocked until P1–P5 pass on a test bucket. If P1 shows rounding beyond one day, or
-P2 or P5 fail, the policy returns for revision before any personal data.
+**Verdict: CONDITIONAL GO.** D1–D7 are approved as target policy, including the explicit D3/D6/D7 ratification linked above. P1–P5 passed on the
+test bucket (see the provider test results above), so they no longer block activation;
+the remaining activation gates are owned by the platform recovery policy.
 
 ## Decision alignment and next bounded slice
 
@@ -781,7 +800,7 @@ synthetic bytes do not establish encryption or provider enforcement.
 | L5 | Frozen-clock alerts at due + 2 hours, recovery point + 34 days 12 hours and + 35 days; no automatic notification channel installed |
 | L6 | Observer refuses mode/hold/retention/configuration drift, unknown keys and missing versions; streams exact ciphertext versions through the existing checksum verifier |
 | L7 | Integrity and restore ages are separate; missed-copy and restore-age alerts demonstrated. Cloud expiry does not consult a rehearsal pin, following D3; filesystem `retain` keeps its existing contract |
-| L8 | Not implemented: synchronous remote ledger/archive durability and crash-boundary tests remain a separate required slice. Pair version-acknowledgement tests do not satisfy this barrier |
+| L8 | Implemented for review (`personal_data_cloud.py`): two-copy synchronous ledger/archive barrier with read-back, lock check, prefix reconciliation, cloud-only `ledger-fetch` and recovery refusal; fake-S3 tests in `test-personal-data-cloud.py`. Real OVHcloud check 2026-11-07 with synthetic data: both ledger copies (GRA, SBG) acknowledged exact versions with read-back and Compliance lock; both archive copies accepted and fully purged a reference |
 | L9 | Caller-specified projected byte budget enforced using fresh protected observer evidence, without deletion. D7 is approved; the caller must supply the approved admission budget. Fixed policy wiring, warning/forecast delivery and independent account-wide monitoring remain activation work. Concurrent attempts, incomplete multipart bytes and account-wide consumption still require operational reconciliation |
 
 [`test-production-backup-cycle.py`](../../scripts/test-production-backup-cycle.py) adds the scheduled
@@ -793,10 +812,10 @@ pair once, and L9 enforces the approved 180/200 GiB values through the admission
 lock is anchored at the recovery point, because a multipart lock may start before `LastModified`.
 Real-host fence duration, recovery and alert delivery are unproven.
 
-P1–P8 remain entirely unexecuted. SDK and fake behaviour do not establish OVHcloud
-semantics, effective IAM/ACL denies, provider clocks, physical deletion, lifecycle,
-billing or monitored consumption. P1–P5 block activation; retain P6–P8 as qualification
-requirements. No cloud-only restore, achieved RPO/RTO, independent environment/key
+P1–P5 passed on the provider (see the provider test results). P7 version inventory and a
+preliminary P8 clock check passed on 2026-10-29; P6 and incomplete-multipart inventory (P7)
+remain unevaluated. SDK and fake behaviour still establish nothing about physical deletion,
+lifecycle, billing or monitored consumption. No cloud-only restore, achieved RPO/RTO, independent environment/key
 isolation, observer heartbeat delivery, real missed-job notification or cloud
 ledger/archive barriers are proven. `verify-offhost.py` also accepts an `s3-fetch` receipt, but
 only a full owner restore can set its green recovery flag; S3 observation cannot. Installing the

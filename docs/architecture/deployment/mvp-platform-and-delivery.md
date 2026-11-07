@@ -724,9 +724,11 @@ cloud-only restore must be proved before operation. Direct uploads cannot authen
 captures from a compromised source. Do not treat a mutable success receipt as independent proof.
 
 For production, legal archive, deletion ledger and proofs remain separately protected, with mandatory
-independent copies and synchronous pre-mutation durability. Their concrete locations
-and cloud adapters are still to be approved/proved; two buckets in one account are
-not independent copies. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
+independent copies and synchronous pre-mutation durability. Two buckets in one account are
+not administratively independent; the owner accepted that reduction for the MVP in the
+[ADR-0033 amendment of 2026-11-07](../../decisions/0033-select-lite-3-and-immutable-offhost-storage.md#amendment-2026-11-07-ledger-and-legal-archive-copies-in-one-ovhcloud-account):
+two projects, distinct European regions and separate identities, with a synchronous two-copy
+barrier implemented for review. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
 owns their retention, sealing and access requirements. No host/storage provisioning
 is authorized by recording this direction. Legal archives are not rolling backups.
 

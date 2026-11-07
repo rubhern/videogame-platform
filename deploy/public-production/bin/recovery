@@ -601,6 +601,13 @@ def ledger_evidence(ledger, ledger_copy, checkpoint):
     age = utc() - timestamp(evidence['asOf'])
     require(dt.timedelta(0) <= age <= dt.timedelta(hours=1) and evidence['environment'] == 'production'
             and evidence['ledgerSha256'] == digest(ledger) == digest(ledger_copy), 'Missing, divergent or stale owner deletion evidence.')
+    # L8 (#276): the ledger must have been rebuilt from two identical, intact cloud copies in
+    # separate buckets and regions; a hand-made checkpoint or one surviving copy never reopens.
+    copies = evidence.get('copies')
+    require(evidence.get('source') == 'cloud-ledger' and isinstance(copies, list) and len(copies) == 2
+            and all(isinstance(c, dict) and c.get('sha256') == evidence['ledgerSha256'] for c in copies)
+            and len({c.get('bucket') for c in copies}) == 2 and len({c.get('region') for c in copies}) == 2,
+            'The deletion ledger was not reconstructed and verified from its two cloud copies.')
     return evidence['ledgerSha256']
 
 
