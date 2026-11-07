@@ -345,7 +345,7 @@ class S3Tests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertTrue(result['absenceVerified'])
         self.assertEqual(result['outcome'], 'success')
-        self.assertEqual(result['adapterVersion'], '0.2.0')
+        self.assertEqual(result['adapterVersion'], '0.2.1')
         self.assertFalse(result['productionReady'])
 
     def test_cli_failed_execution_persists_sanitized_attempt(self):
@@ -640,6 +640,20 @@ class S3Tests(unittest.TestCase):
             self.assertIn('capacity-warning', self.store.observe(self.lifecycle, 1000000)['alerts'])
         with self.assertRaises(core.Refused):
             self.store.admission_evidence(self.lifecycle, 1)
+
+    def test_inventory_accepts_botocore_url_encoding_echoed_by_the_provider(self):
+        # Regression (#276, first real OVHcloud listing): botocore adds EncodingType=url to
+        # ListObjectVersions and decodes the keys, and the provider echoes the field.
+        original = self.fake.list_object_versions
+        for published in (False, True):
+            if published: self.publish()
+            with self.subTest(published=published), patch.object(self.fake, 'list_object_versions',
+                    side_effect=lambda **kw: {**original(**kw), 'EncodingType': 'url'}):
+                self.assertEqual(self.store.admission_evidence(self.lifecycle, 1000000)['kind'], 's3-admission')
+        with patch.object(self.fake, 'list_object_versions',
+                          side_effect=lambda **kw: {**original(**kw), 'EncodingType': 'base64'}):
+            with self.assertRaises(core.Refused):
+                self.store.admission_evidence(self.lifecycle, 1000000)
 
     def test_admission_refuses_configuration_drift_and_clock_skew(self):
         self.fake.lock['Rule']['DefaultRetention']['Days'] = 34
