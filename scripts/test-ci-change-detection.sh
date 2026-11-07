@@ -95,6 +95,11 @@ run_case production-identity \
   'identity,production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case private-production-admin \
+  $'scripts/private_production_admin.py\nscripts/test-private-production-admin.py\nscripts/test-private-production-admin-docker.py\ndeploy/public-production/bin/configure-keycloak-admin' \
+  'production_runtime' \
+  'identity,backend,frontend,container,dependency_images'
+
 run_case public-production-runtime \
   $'deploy/public-production/compose.yaml\ndeploy/public-production/runtime.env.example\ndeploy/public-production/caddy/Caddyfile\ndeploy/public-production/bin/run-keycloak\nscripts/test-public-production-runtime.py\nscripts/probe-public-production-edge.py\nscripts/public_production_integration.py\nscripts/test-public-production-integration.py\nscripts/public_production_deployment.py\nscripts/test-public-production-deployment.py\nscripts/run-production-runtime-browser.sh\nscripts/test-production-recovery.py\nscripts/test-production-recovery-lock.py\nscripts/rehearse-production-recovery.py' \
   'production_runtime' \

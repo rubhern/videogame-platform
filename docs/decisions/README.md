@@ -46,6 +46,8 @@ historical decision.
 
 ## Proposed
 
+- [ADR-0035: Separate private-production administration ingress](0035-separate-private-production-admin-ingress.md) — #464; Caddy behind two owner-only Serve routes, fixed-edge loopback bridges and an operator-controlled master frontend attribute; implementation pending review and authorized host acceptance.
+
 - [ADR-0032: Checkpoint historical synchronization by calendar month](0032-checkpoint-historical-synchronization-by-month.md) — #246, owner review pending.
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.

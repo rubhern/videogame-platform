@@ -30,6 +30,7 @@ import private_production_acceptance as acceptance
 import private_production_control as control
 import public_production_integration as integration
 import validate_private_production_truststore as stores
+import private_production_admin as admin
 
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN = install.ADMIN
@@ -309,6 +310,10 @@ def validate_delta(name, current, candidate, fields, target_bundle):
     if 'mem_limit' in fields:
         require(int(candidate['mem_limit']) >= int(current['mem_limit']), 'An accepted memory ceiling would decrease.')
     for key in environment_delta(current, candidate):
+        if key in admin.environment(name):
+            require(admin.allowed_setting(name, key, current.get('environment', {}).get(key), candidate.get('environment', {}).get(key)),
+                    'The private admin ingress setting differs from its exact reviewed value.')
+            continue
         require(not key.startswith(PROTECTED_ENVIRONMENT) and not key.endswith('_FILE'),
                 'A protected identity, ingress or secret-file setting changed.')
         require(key == VERSION_ENVIRONMENT or key not in current.get('environment', {}),
@@ -712,6 +717,9 @@ class Upgrade:
                                 for n in material['changed'] if environment_delta(self.active['config']['services'][n], config['services'][n])},
             'activationOrder': ['keycloak', *ACTIVATION, *OPTIONAL], 'acceptedDashboard': dashboard,
             'flyway': flyway, 'migrationInventory': files, 'realm': realm,
+            'adminIngress': {'grafana': config['services']['grafana']['environment'].get('GF_SERVER_ROOT_URL'),
+                             'keycloak': config['services']['keycloak']['environment'].get('KC_HOSTNAME_ADMIN'),
+                             'masterAttribute': 'frontendUrl', 'masterSnapshot': 'master-frontend.json'},
             'forwardFixOf': self.forward_of, 'publishedPorts': [], 'productionReady': False,
         }
         return {'reviewed': reviewed, 'planSha256': digest(reviewed), 'config': config, 'local': material['local']}
@@ -996,7 +1004,7 @@ class Upgrade:
                      timeout=timeout + 60, output=False)
         host.running(names)
 
-    def realm_command(self, host, *arguments):
+    def realm_command(self, host, *arguments, command=REALM_COMMAND):
         """The shared alignment command on the private identity network; credentials cross stdin only."""
         environment = host.config['services']['keycloak']['environment']
         secret = Path(host.config['secrets']['keycloak_admin_password']['file'])
@@ -1005,9 +1013,9 @@ class Upgrade:
                          '--user', f'{os.getuid()}:{os.getgid()}', '--label', f'com.docker.compose.project={prepare.PROJECT}',
                          '--label', 'com.docker.compose.service=private-probe', '--label', 'gameometro.recovery-helper=true',
                          '-v', f'{host.source}:/candidate:ro', '-v', f'{self.directory}:/snapshots',
-                         install.HELPER, 'python3', '-I', '/candidate/' + REALM_COMMAND, '--origin', 'http://keycloak:8080',
+                         install.HELPER, 'python3', '-I', '/candidate/' + command, '--origin', 'http://keycloak:8080',
                          '--admin-username', environment['KC_BOOTSTRAP_ADMIN_USERNAME'], '--admin-password-file', '/dev/stdin',
-                         '--realm', 'gameometro', '--sessions-only', *arguments],
+                         *(['--realm', 'gameometro', '--sessions-only'] if command == REALM_COMMAND else ['--frontend-url', admin.KEYCLOAK]), *arguments],
                         data=secret.read_bytes(), timeout=120, output=False)
 
     def identity(self, host, record):
@@ -1022,6 +1030,10 @@ class Upgrade:
         self.phase_reached('realm-migration')
         self.realm_command(host, '--snapshot-dir', '/snapshots')
         self.realm_command(host, '--check')
+        if host.config['services']['keycloak']['environment'].get('KC_HOSTNAME_ADMIN') == admin.KEYCLOAK:
+            command = 'deploy/public-production/bin/configure-keycloak-admin'
+            self.realm_command(host, '--snapshot-dir', '/snapshots', command=command)
+            self.realm_command(host, '--check', command=command)
         after = self.query('videogame_keycloak', IDENTITY_SQL)
         if not record['reopened']:
             self.preserved(before, after, before)

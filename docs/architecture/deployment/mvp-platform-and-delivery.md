@@ -376,7 +376,7 @@ receipts keep the remaining validation boundary explicit.
 | Keycloak | Independent production realm/client/database. Dedicated HTTPS identity origin with canonical issuer; only necessary product-realm OIDC/login/resource routes public. Block admin console/API, master realm, health and metrics at the edge; admin hostname alone is not an access control |
 | PostgreSQL | Same supported PG family; separate application/identity databases and roles; runtime role without DDL, one-shot migration actor. No host/public database port |
 | Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
-| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through private administration/tunnel only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
+| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
 | Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
 | Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Approved target, not implemented; Lenovo is optional and expendable |
 
@@ -417,6 +417,32 @@ qualification. Docker NAT/published ports and host firewall must both be assesse
 on IPv4/IPv6; do not claim protection from an SSH/HTTP-only firewall screenshot.
 Private administration must work before opening the edge; provider console is a
 protected break-glass path.
+
+### Private-production administration
+
+**Implemented in repository; review and separately authorized VPS acceptance pending
+(#464).** [ADR-0035](../../decisions/0035-separate-private-production-admin-ingress.md)
+records the design and the owner's narrow master-realm exception. Two dedicated
+owner-only Tailscale Serve HTTPS origins terminate TLS ahead of hardened host-loopback
+bridges to Caddy's existing fixed application-edge address. Caddy resolves upstreams by
+Docker service name and admits only the host gateway peer on these listeners; only these additional private HTTP listeners are used. Docker
+publishes no new ports, and the existing product TCP 443 bridge is untouched.
+
+The private adapter owns Grafana's HTTPS root/Secure cookies and Keycloak's separate
+admin hostname. The reviewed upgrade aligns only `master.attributes.frontendUrl` with
+that private hostname, preserving the product realm, canonical issuer, BFF and durable
+application state. The public identity allowlist still denies administration and master
+regardless of client forwarding headers. The private Keycloak ingress allows console,
+resources, Admin REST and master login routes only; private routes close during recovery
+or identity maintenance. Native application authentication remains required.
+
+Owner-only means effective ACL/grant restriction, not simply tailnet membership. An
+owner policy review plus positive owner and negative non-owner/deployment-identity tests
+on both address families precede enabling the routes. No Funnel, public/LAN listeners or
+new trust in client forwarding headers is permitted. The
+[operator guide](../../../deploy/public-production/README.md#private-production-administration)
+owns exact installation, temporary-route reconciliation, withdrawal and remaining host
+acceptance. These sources do not authorize deploying or opening public production.
 
 ### Public domain and names
 

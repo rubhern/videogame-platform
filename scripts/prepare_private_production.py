@@ -15,6 +15,7 @@ import tarfile
 import private_dev_promotion as trust
 import public_production_deployment as deployment
 import public_production_integration as integration
+import private_production_admin as admin
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = '9ffc05a2ff30e261564ddbfd412826cdec504137'
@@ -40,7 +41,7 @@ def private_caddy(source):
                                host + ' {\n\ttls /run/private-tls/edge.crt /run/private-tls/edge.key',
                                source, flags=re.M)
         require(count == 1, 'Candidate canonical TLS host is missing or ambiguous.')
-    return source
+    return source + admin.caddy()
 
 
 def bind(source, target):
@@ -68,7 +69,7 @@ def adapt(base, caddyfile, tls):
     require('JAVA_TOOL_OPTIONS' not in app['environment'], 'Unexpected candidate JVM options.')
     app['environment']['JAVA_TOOL_OPTIONS'] = JAVA_TLS
     app['volumes'].append(bind(tls / 'truststore.p12', '/run/private-tls/truststore.p12'))
-    return config
+    return admin.adapt(config)
 
 
 def validate(base, config, caddyfile, tls):

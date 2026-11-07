@@ -1572,8 +1572,9 @@ result with the active configuration:
 |---|---|
 | None, and identical bound bytes | The service keeps its exact definition and is not recreated. PostgreSQL always takes this path |
 | Published image (application, migration, Keycloak, edge, localizer) | Allowed, then recreated |
+| The exact [private administration](#private-production-administration) settings | Allowed only at their reviewed values; master frontend alignment stays under the upgrade lease |
 | The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory ceiling | Allowed, listed by field and setting name, then recreated |
-| Any other existing setting, issuer, `KC_*` or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
+| Any other existing setting, issuer, `KC_*` (except the exact private admin hostname below) or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
 | Any change to PostgreSQL, or an observability image | Refused: outside this procedure |
 | A different runtime-input inventory, or a realm import change outside the migration below | Refused until a reviewed change covers it |
 
@@ -1714,6 +1715,141 @@ supplied and the localizer is only exercised as a failing optional service; a re
 (simulated receipt); operational publication, which needs a merged revision; or the installer's input
 contract against real protected paths, which has a contract test only. The rehearsal also accepts
 Docker Desktop's spelling of directory binds and skips the Docker data-root disk check.
+
+### Private-production administration
+
+**Repository implementation (#464); not deployed or accepted on the VPS.** The
+[platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-production-administration)
+owns the boundary and [ADR-0035](../../docs/decisions/0035-separate-private-production-admin-ingress.md)
+records the master's frontend exception approved by the owner. The earlier manual
+Grafana success used a temporary bridge; it proves neither persistence nor Keycloak,
+ACL, reboot or public-network acceptance.
+
+[`private_production_admin.py`](../../scripts/private_production_admin.py) owns the two
+endpoint/bridge ports, exact settings and systemd units. It installs only the dedicated
+admin units and Serve handlers, refuses conflicts/foreground Serve/Funnel, and verifies
+that unrelated Serve state (especially TCP 443) is unchanged. The bridges use Caddy's
+existing fixed peer and Caddy uses Docker service names. An installation probe checks
+actual host-to-edge connectivity through both loopback backends before enabling Serve.
+Only the host's Docker gateway source is admitted on those listeners; attached application
+peers cannot use them, even with spoofed forwarding headers. No Docker publication, image,
+data volume, issuer, BFF setting or existing product bridge
+is changed by this helper. It needs existing `/usr/bin/socat`, Tailscale and systemd.
+
+#### Prepare the owner-only access policy
+
+Before any live command, obtain separate owner authorization for the rollout. Review the
+**effective** policy in Tailscale, including every additive ACL and grant: remove or narrow
+any wildcard/member/group/tag rule that also grants the admin ports. Preserve existing
+SSH/product access deliberately. Merge
+[`admin-policy.hujson.example`](admin-policy.hujson.example), substituting the actual
+owner login, non-owner/deployment identities and this VPS's tailnet IPv4 and IPv6 addresses
+outside Git. Run the policy's accept/deny tests before saving. Test both ports with the
+owner, a real non-owner device and the deployment identity. A tagged node must not inherit
+the owner's user access. Where no non-owner test device exists, acceptance remains pending.
+
+Keep a protected copy of the effective saved policy and its SHA256 plus the owner decision
+reference. `--policy-sha256` records an acknowledgement; it cannot prove control-plane
+policy or replace negative network tests. This implementation does not change ACLs.
+See [Tailscale grants](https://tailscale.com/docs/features/grants) and
+[Serve](https://tailscale.com/docs/reference/tailscale-cli/serve).
+
+#### Authorized rollout
+
+1. Publish only after owner review, then use the normal
+   [in-place upgrade](#in-place-upgrade-of-the-installed-runtime) plan/stage/apply sequence
+   with current trusted-main publications, the new operational fingerprint, a fresh
+   canonical paired backup, off-host and isolated-restore receipts, and the owner reference.
+   Do not edit `compose.target.json` or the installed runtime input. Review the plan's
+   `adminIngress`, environment delta, Caddy bytes and master migration explicitly.
+2. The private adapter sets the external Grafana root and Secure cookies and adds only
+   `KC_HOSTNAME_ADMIN`. The upgrade's identity phase uses
+   [`configure-keycloak-admin`](bin/configure-keycloak-admin) to snapshot the original
+   master's frontend attribute to `upgrades/<target>/master-frontend.json`, then changes
+   only that effective setting and verifies the realm representation. Keycloak can
+   materialize typed defaults as equivalent string attributes; the verifier accepts only
+   known aliases equal to their unchanged typed values. It reauthenticates after changing
+   master's issuer; existing administrative tokens require a new login. Product tokens
+   and sessions keep their issuer. Unexpected existing URLs
+   refuse. Session policy alignment and the existing product-state digest checks remain.
+   A failure keeps the recovery fence closed; use the existing inspect/resume/forward-fix
+   procedure. No manual `thaw` or identity changes are required.
+3. After the upgrade's `--verify`, inspect `tailscale serve status --json`,
+   `tailscale funnel status --json`, `ss -ltnp` and the existing systemd product bridge.
+   Preserve TCP 443 and its backend. Reconcile the temporary Grafana route: if it is the
+   exact proposed handler the helper can retain it, otherwise remove **only** its reviewed
+   handler. Identify and stop the exact temporary `socat` PID/session listening on the
+   Grafana loopback port before installing the permanent unit. Never kill all socat
+   processes or use `tailscale serve reset`. The helper refuses a busy unowned loopback
+   port or a conflicting handler; it does not silently adopt the temporary process.
+4. Use the protected, root-owned, published operational checkout used for the upgrade;
+   keep that path available across reboot. Replace these review placeholders outside Git:
+
+   ```bash
+   admin=/srv/gameometro/operations/REVIEWED_SHA/scripts/private_production_admin.py
+   python3 "$admin" --install \
+     --operational-revision REVIEWED_SHA --adapter-fingerprint REVIEWED_FINGERPRINT \
+     --owner-reference OWNER_DECISION --policy-sha256 EFFECTIVE_POLICY_SHA256
+   python3 "$admin" --verify
+   ```
+
+   `--install` is idempotent for the same source and units. It records the policy hash and
+   decision, enables both hardened bridges, probes them, installs only the two background
+   Serve HTTPS handlers and enables boot reconciliation. On interruption, rerun the same
+   reviewed command; no application state is changed. Do not move/delete the operational
+   checkout. A different unit definition requires reviewed withdrawal/reinstallation.
+
+#### Acceptance on the authorized VPS
+
+Record evidence in the protected acceptance location, with no passwords, tokens, cookies
+or personal data in transcripts. Run the helper's `--verify`, compare Serve before/after,
+and inspect unit status plus host IPv4/IPv6 listeners. From an owner device open Grafana
+at `https://gameometro-prod.tailca0b11.ts.net:8443/` and Keycloak at
+`https://gameometro-prod.tailca0b11.ts.net:10000/admin/`. Require trusted HTTPS, native
+login/logout, Secure/HttpOnly session cookies, correct redirects, Grafana dashboards and
+Keycloak realm navigation/Admin REST. Confirm unauthenticated APIs refuse access.
+
+From non-owner and deployment identities, deny **both** ports using the effective policy
+and real device probes on tailnet IPv4/IPv6. From an independent external network verify
+that host public IPv4/IPv6 and LAN paths do not expose either admin origin/backend and
+Funnel is absent; unavailable address families are an explicit evidence limitation.
+Using the canonical public identity host, require 404 for `/admin`, `/admin/realms`,
+`/admin/master/console/`, `/realms/master` and its discovery/token paths, also with spoofed
+Host and `Forwarded`/`X-Forwarded-*` values (a mismatched TLS SNI/Host may yield 421).
+Verify the exact product issuer and normal Gameómetro browsing, registration, login,
+logout and Remember Me through the unchanged product TCP 443 route. Recheck healthy
+services, dashboards, datasources, metrics history and data counts.
+
+In the same authorized maintenance window, reboot the host and verify bridge units,
+Serve handlers and both browser sessions again. Through an authorized operator rollout,
+recreate Grafana/Keycloak and verify that their dynamic address changes require no host
+edits. Recovery/identity fences must close the private routes as well. A local Docker
+restart test is not real-host reboot evidence. Keep #464 open until those acceptance
+steps pass; this work does not close #276 or authorize public exposure.
+
+#### Withdraw only administration ingress
+
+Use the **same installed operational source**, even if a later upgrade is active:
+
+```bash
+python3 "$admin" --remove --owner-reference OWNER_WITHDRAWAL_DECISION
+```
+
+Removal refuses drift/conflicts, removes only the two owned Serve routes, disables and
+removes only their three systemd units and receipt, and leaves TCP 443 untouched. Repeated
+removal with no remaining owned units/routes is a no-op. Recheck Serve, listeners and
+Gameómetro/OIDC. This restores the previous access boundary without restarting services,
+restoring a database, deleting volumes or downgrading an image. Runtime admin settings and
+master's private frontend remain dormant. Direct private operator access remains available;
+restoring the old frontend attribute would require a separately reviewed forward change
+under the upgrade lease using the saved snapshot, or the existing paired restore on an
+empty target. Never run an old Keycloak image against the advanced live database.
+
+The focused contracts are `scripts/test-private-production-admin.py`; the opt-in
+`scripts/test-private-production-admin-docker.py --help` exercise uses disposable real
+Caddy/Keycloak/Grafana without host publications. Neither touches Tailscale or the VPS.
+Application/backend/frontend/OpenAPI artefacts and their versions are unchanged; this is
+an operational capability delivered by separately fingerprinted source and runtime bundles.
 
 ### Before any real user data
 

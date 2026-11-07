@@ -1,0 +1,13 @@
+// Merge into the EFFECTIVE policy outside Git. Grants/ACLs are additive: this fragment
+// cannot revoke a broad member/wildcard/group/tag grant. Use actual node IPv4 AND IPv6.
+// Do not apply this fragment or change the tailnet without separate owner authorization.
+{
+  "grants": [
+    {"src": ["<OWNER_LOGIN>"], "dst": ["<VPS_TAILNET_IPV4>", "<VPS_TAILNET_IPV6>"], "ip": ["tcp:8443", "tcp:10000"]}
+  ],
+  "tests": [
+    {"src": "<OWNER_LOGIN>", "accept": ["<VPS_TAILNET_IPV4>:8443", "<VPS_TAILNET_IPV4>:10000", "[<VPS_TAILNET_IPV6>]:8443", "[<VPS_TAILNET_IPV6>]:10000"]},
+    {"src": "<NON_OWNER_IDENTITY>", "deny": ["<VPS_TAILNET_IPV4>:8443", "<VPS_TAILNET_IPV4>:10000", "[<VPS_TAILNET_IPV6>]:8443", "[<VPS_TAILNET_IPV6>]:10000"]},
+    {"src": "<DEPLOYMENT_TAG>", "deny": ["<VPS_TAILNET_IPV4>:8443", "<VPS_TAILNET_IPV4>:10000", "[<VPS_TAILNET_IPV6>]:8443", "[<VPS_TAILNET_IPV6>]:10000"]}
+  ]
+}
