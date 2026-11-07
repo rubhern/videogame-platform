@@ -49,6 +49,7 @@ CloudError = cloud_module.CloudError
 # after both independent S3 copies acknowledge it (#276, L8). Production mutation requires it.
 CLOUD = None
 MUTATING = False
+PRODUCTION_ISSUER = "https://auth.gameometro.com/realms/gameometro"
 MAX_LEDGER_BYTES = 128 * 1024 * 1024
 MAX_EVENT_BYTES = 8192
 
@@ -398,7 +399,7 @@ def run_steps(
 
 def require_cloud(issuer: object) -> None:
     # The production realm never mutates without the two-copy cloud ledger and archive.
-    if MUTATING and CLOUD is None and str(issuer).endswith("/realms/gameometro"):
+    if MUTATING and CLOUD is None and issuer == PRODUCTION_ISSUER:
         raise LedgerError("Production erasure requires --cloud-copies (two independent S3 copies)")
 
 
@@ -924,7 +925,8 @@ def main() -> int:
 
     global CLOUD, MUTATING
     # Replay runs on a ledger rebuilt by ledger-fetch; recovery verifies that checkpoint itself.
-    MUTATING = arguments.command in ("erase", "retry", "cleanup-unverified")
+    MUTATING = arguments.command in ("erase", "retry") or (
+        arguments.command == "cleanup-unverified" and arguments.execute)
     if arguments.cloud_copies is not None:
         CLOUD = cloud_module.CloudCopies(arguments.cloud_copies)
     host_command = shlex.split(arguments.host_command) if arguments.host_command else None

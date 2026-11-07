@@ -802,7 +802,7 @@ lagging by an unacknowledged append is reconciled first by running any ledger co
 and regions matching `ledgerSha256`, no older than one hour and later than the backup recovery
 point. A hand-made checkpoint or a single surviving copy refuses reopening.
 
-In production every `erase`, `retry` and `cleanup-unverified` needs `--cloud-copies`: each ledger
+Against the production issuer, `erase`, `retry` and `cleanup-unverified --execute` need `--cloud-copies`: each ledger
 append and each legal-archive write returns only after both S3 copies acknowledge an exact
 read-back version, and the ledger copies must show their Compliance lock. A failure stops before
 the next host step; rerunning reconciles a lagging copy. `archive-purge --execute` also removes

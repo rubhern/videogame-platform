@@ -218,6 +218,7 @@ class Barrier(Base):
         ledger_module.CLOUD, ledger_module.MUTATING = None, True
         with self.assertRaises(ledger_module.LedgerError): ledger_module.require_cloud(PRODUCTION)
         ledger_module.require_cloud("https://identity.example.test/realms/videogame-platform")
+        ledger_module.require_cloud("https://identity.example.test/realms/gameometro")
         ledger_module.MUTATING = False
         ledger_module.require_cloud(PRODUCTION)
 
