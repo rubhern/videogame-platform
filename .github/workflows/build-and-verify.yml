@@ -345,6 +345,7 @@ jobs:
             python3 scripts/test-private-production-control.py
             python3 scripts/test-private-production-acceptance.py
             python3 scripts/test-private-production-upgrade.py
+            python3 scripts/test-private-production-admin.py
             python3 scripts/test-public-production-deployment.py
             python3 scripts/test-public-production-integration.py
             python3 scripts/test-production-recovery.py

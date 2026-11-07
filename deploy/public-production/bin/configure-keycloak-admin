@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Align only master.frontendUrl under the upgrade operator's recovery lease (#464)."""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import hashlib
+import tempfile
+import os
+from pathlib import Path
+import sys
+
+sys.dont_write_bytecode = True
+ROOT = Path(__file__).resolve().parents[3]
+loader = importlib.machinery.SourceFileLoader('provisioning', str(ROOT / 'deploy/private-dev/bin/provision-oidc-smoke-user'))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+provisioning = importlib.util.module_from_spec(spec)
+loader.exec_module(provisioning)
+
+
+def align(admin, desired, snapshot, check=False, reauthenticate=None):
+    payload, _ = admin._request('GET', '/admin/realms/master', expected={200})
+    realm = json.loads(payload)
+    attributes = realm.get('attributes') or {}
+    previous = attributes.get('frontendUrl')
+    if previous not in (None, '', desired):
+        raise RuntimeError('Unexpected master frontendUrl; separate owner decision required')
+    expected = effective({**realm, 'attributes': {**attributes, 'frontendUrl': desired}})
+    expected_hash = hashlib.sha256(json.dumps(expected, sort_keys=True).encode()).hexdigest()
+    if check:
+        if previous != desired or not snapshot.exists():
+            raise RuntimeError('Master frontend differs or its snapshot is missing')
+        saved = json.loads(snapshot.read_text())
+        if previous != desired or saved['expectedSha256'] != expected_hash:
+            raise RuntimeError('Master frontend or preserved configuration differs')
+        return
+    if not snapshot.exists():
+        # Rename durably BEFORE PUT; retry never loses the original pre-change value.
+        with tempfile.NamedTemporaryFile(mode='w', dir=snapshot.parent, suffix='.pending', delete=False) as stream:
+            json.dump({'realm': 'master', 'attribute': 'frontendUrl', 'previous': previous,
+                       'target': desired, 'expectedSha256': expected_hash}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary = stream.name
+        os.replace(temporary, snapshot)
+        directory = os.open(snapshot.parent, os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    saved = json.loads(snapshot.read_text())
+    if saved['target'] != desired or saved['expectedSha256'] != expected_hash:
+        raise RuntimeError('Snapshot target or preserved master configuration differs')
+    if previous != desired:
+        admin._request('PUT', '/admin/realms/master', body={**realm, 'attributes': {**attributes, 'frontendUrl': desired}}, expected={204})
+        # The master token's issuer changes with its frontend URL; obtain a fresh token.
+        if reauthenticate:
+            reauthenticate()
+    payload, _ = admin._request('GET', '/admin/realms/master', expected={200})
+    aligned = json.loads(payload)
+    if effective(aligned) != effective({**realm, 'attributes': {**attributes, 'frontendUrl': desired}}):
+        raise RuntimeError('Master state changed outside the approved attribute')
+
+
+def effective(realm):
+    """Keycloak 26.7 materializes these typed values as redundant string attributes on PUT.
+
+    Ignore an alias only when it exactly equals its typed field, preserving every
+    effective value. A mismatching or unrecognized attribute still fails comparison.
+    """
+    result = json.loads(json.dumps(realm))
+    attributes = result.get('attributes') or {}
+    for key in ('oauth2DeviceCodeLifespan', 'oauth2DevicePollingInterval',
+                'clientSessionIdleTimeout', 'clientSessionMaxLifespan',
+                'clientOfflineSessionIdleTimeout', 'clientOfflineSessionMaxLifespan', 'scimApiEnabled'):
+        if key in result and attributes.get(key) == str(result[key]).lower():
+            attributes.pop(key)
+    result['attributes'] = attributes
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--origin', required=True, choices=['http://keycloak:8080'])
+    parser.add_argument('--admin-username', required=True)
+    parser.add_argument('--admin-password-file', type=Path, required=True)
+    parser.add_argument('--frontend-url', required=True)
+    parser.add_argument('--snapshot-dir', type=Path)
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    if not args.check and not args.snapshot_dir:
+        parser.error('--snapshot-dir required for apply')
+    from urllib.parse import urlsplit
+    url = urlsplit(args.frontend_url)
+    if url.scheme != 'https' or not url.hostname or not url.hostname.endswith('.ts.net') or url.port != 10000 or url.path or url.query or url.fragment or url.username:
+        parser.error('An HTTPS tailnet admin origin on port 10000 is required')
+    admin = provisioning.KeycloakAdmin(args.origin)
+    password = args.admin_password_file.read_text().rstrip('\r\n')
+    authenticate = lambda: admin.authenticate(args.admin_username, password)
+    authenticate()
+    align(admin, args.frontend_url, (args.snapshot_dir or Path('/snapshots')) / 'master-frontend.json', args.check, authenticate)
+
+
+if __name__ == '__main__':
+    try:
+        os.umask(0o077)
+        main()
+    except Exception:
+        print('Master frontend alignment refused or failed; inspect locally.', file=sys.stderr)
+        raise SystemExit(1)

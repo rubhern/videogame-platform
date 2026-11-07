@@ -69,7 +69,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn('          ref: ' + candidate, runtime)
         self.assertIn('git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD', runtime)
         proofs = {
-            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py',
+            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py'],

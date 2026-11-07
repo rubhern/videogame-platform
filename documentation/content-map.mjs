@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0035-separate-private-production-admin-ingress.md', 'Private production admin ingress · proposed'],
     ['docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md', 'Production host & immutable storage · accepted'],
     ['docs/decisions/0032-checkpoint-historical-synchronization-by-month.md', 'Historical month checkpoints · proposed'],
   ]],
