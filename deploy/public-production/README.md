@@ -1,13 +1,16 @@
 # Public-production runtime configuration
 
-- **Status:** Prepared runtime, manual deployment and recovery candidate (#275), pending real-host validation; never deployed
+- **Status:** Public runtime and recovery candidate pending acceptance; private installation under #276, public exposure unapproved
 
 This directory holds the versioned runtime configuration for the future public
 production runtime. The [host foundation record](../../docs/development/operations-runbook.md#production-host-foundation)
-owns confirmed prerequisites and outstanding host checks. Gameómetro remains
-undeployed. The #275 deployment command remains rehearsal-only. The separate
-[#276 first-install adapter](#private-first-installation-and-validation) is implemented
-for future explicitly authorized private qualification; it has not run on the VPS.
+owns recorded prerequisites and outstanding host checks. The #275 deployment command
+remains rehearsal-only. The separate [#276 first-install adapter](#private-first-installation-and-validation)
+has been used for private qualification; the issue's later evidence records the
+installed runtime and pending upgrade. The earlier failed bootstrap is historical,
+not evidence that the host is empty. The [private maintenance plan](../../docs/development/operations-runbook.md#private-production-maintenance-plan)
+owns coordination of the next authorized steps; current host state must be inspected
+before execution. Neither installation nor repository preparation establishes public acceptance.
 [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
@@ -1633,12 +1636,59 @@ not fenced for it. A failed required service, or a cancellation, fences the runt
 migrate it. The tool runs the shared
 [`--sessions-only` alignment](#remember-me-provider-compatibility) on the private identity
 network, with the administrator password crossing stdin, never an import. It changes only the
-five session settings and the BFF Remember Me mapper, writes a snapshot before any change, and is a
-no-op when repeated. A half-applied realm converges on resume. Digests of accounts, credentials,
-role, group and identity links, every other realm column, attribute, flow, component, localization
-and mail setting, and every client, scope and mapper must stay equal, or the fence stays closed. A
-realm import that differs in anything else refuses at plan time; the registration notice changed
-by the legal publication is such a change, so targets from that commit on need a reviewed extension.
+five session settings and the BFF Remember Me mapper, and snapshots the pre-change values.
+The private-admin alignment separately handles the approved master frontend attribute.
+
+**Registration notice extension (#276): prepared locally, not deployed or accepted.**
+The upgrade also admits exactly the old-to-approved `localizationTexts.es.termsText`
+change from the legal publication (#434), identified by fixed source hashes in
+[`production_registration_notice.py`](../../scripts/production_registration_notice.py).
+Every other import difference still refuses. The target publication must also contain
+the exact notice actor matching the reviewed operator; planning refuses an older or
+incompatible target before any live realm query. The plan identifies this notice migration
+explicitly. A new startup import alone cannot update the existing realm.
+
+The notice actor uses the [Keycloak localization API](https://www.keycloak.org/docs-api/latest/rest-api/index.html)
+to change only that Spanish key to the approved text with canonical product links.
+It snapshots all locale overrides before PUT, preserves the original snapshot across
+interruptions, accepts only the known old or already-aligned live notice, and verifies
+all other texts and the realm representation on apply, check and resume. The five
+reviewed session fields are verified independently by the session actor and SQL
+postconditions, so its alignment does not invalidate the notice snapshot. Metadata work
+is bounded to 32 locales, 2,048 texts per locale and a 1 MiB localization inventory;
+exceeding a bound refuses before mutation. Each metadata HTTP response is limited
+before JSON decoding. No account listing is involved.
+
+Account, credential, role, group, identity-link and all other configuration SQL digests
+remain unchanged. The aggregate localization digest may change only when the notice
+actor's complete multilingual snapshot comparison succeeds; a changed sibling text,
+another locale or an unrelated realm setting keeps the recovery fence closed. The
+change remains under the existing upgrade lease and writer fence. No full realm import,
+client replacement, public registration activation or unrelated policy alignment occurs.
+Forward fixes retain the original protected notice snapshot before claiming the new
+upgrade. A missing snapshot after localization changed, or an invalid or conflicting
+snapshot, refuses before superseding the failed upgrade; repeated fixes never adopt
+the changed state as a new baseline.
+
+Local tests cover the exact source delta, unknown notices, read-only checking,
+repeated execution, lost PUT acknowledgement, snapshot preservation, metadata bounds
+and unrelated drift. The focused disposable proof uses real Keycloak with synthetic state and no published
+ports; it does not qualify production PostgreSQL, the whole upgrade or the VPS:
+
+```bash
+python3 scripts/test-private-production-registration-notice-docker.py \
+  --keycloak-image "$REVIEWED_KEYCLOAK_IMAGE"
+```
+
+It exercises a real PUT, a lost acknowledgement, session alignment, resume, repeat,
+read-only check and unrelated-drift refusal. It uses locally available immutable
+images only. A fresh reviewed trusted-main publication and real-host upgrade
+qualification remain required before operational acceptance. The older published
+operator still refuses targets containing the new notice; do not bypass its check.
+
+The [private maintenance plan](../../docs/development/operations-runbook.md#private-production-maintenance-plan)
+groups owner authorizations and recovery boundaries for the installed runtime.
+
 
 **Interruption.** `upgrades/<sha>/upgrade.json` records the phase durably, with sanitized
 reasons, before each step. A handled failure fences again, stops the writers and records whether

@@ -43,7 +43,7 @@ HELPER = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9
 OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_private_production_truststore.py', 'scripts/install_private_production.py', 'scripts/prepare_private_production.py',
                      'scripts/private_dev_promotion.py', 'scripts/public_production_deployment.py',
                      'scripts/public_production_integration.py', 'scripts/private_production_acceptance.py',
-                     'scripts/private_production_upgrade.py',
+                     'scripts/private_production_upgrade.py', 'scripts/production_registration_notice.py',
                      'scripts/private_production_admin.py',
                      # Non-code inputs the post-acceptance transition applies to the installed runtime.
                      'deploy/private-dev/grafana/dashboards/vgp-synchronization.json',

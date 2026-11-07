@@ -96,7 +96,7 @@ run_case production-identity \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case private-production-admin \
-  $'scripts/private_production_admin.py\nscripts/test-private-production-admin.py\nscripts/test-private-production-admin-docker.py\ndeploy/public-production/bin/configure-keycloak-admin' \
+  $'scripts/production_registration_notice.py\nscripts/private_production_admin.py\nscripts/test-private-production-admin.py\nscripts/test-private-production-admin-docker.py\ndeploy/public-production/bin/configure-keycloak-admin' \
   'production_runtime' \
   'identity,backend,frontend,container,dependency_images'
 
