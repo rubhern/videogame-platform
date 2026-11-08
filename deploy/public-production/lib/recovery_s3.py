@@ -16,7 +16,7 @@ import uuid
 import urllib.request
 import urllib.error
 
-VERSION = "0.2.2"
+VERSION = "0.3.0"
 
 PART = 16 * 1024 * 1024
 MAX_VERSIONS = 2048
@@ -422,8 +422,10 @@ class Store:
                            'S3 restore evidence mismatch.')
             restored_age = self.c.utc() - self.c.timestamp(restore['verifiedAt'])
             self.c.require(restored_age >= dt.timedelta(), 'Future restore evidence.')
-            if restored_age > dt.timedelta(days=14): alerts.add('restore-critical')
-            elif restored_age > dt.timedelta(days=8): alerts.add('restore-warning')
+            # Owner policy (2026-11-08): a full verified restore at least every 30 days, before the
+            # restored pair leaves its 33-day lock and the evidence can no longer match it.
+            if restored_age > dt.timedelta(days=32): alerts.add('restore-critical')
+            elif restored_age > dt.timedelta(days=30): alerts.add('restore-warning')
         return {'kind': 's3-observation', 'bucket': self.bucket,
                 'verifiedAt': self.c.utc().isoformat(), 'retainedBytes': retained,
                 'alerts': sorted(alerts), 'pairs': pairs, 'candidates': [],

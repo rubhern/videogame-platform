@@ -1323,7 +1323,8 @@ compose() { docker compose -p gameometro-production -f "$runtime" --profile '*' 
 
 ### Private production maintenance plan
 
-**Prepared coordination plan for #276; not executed or operationally accepted.**
+**Executed for #276 through public opening (2026-11-07/08); owner-accepted 2026-11-08.** The
+[release record](../research/public-production-release-acceptance.md) holds the evidence and remaining items.
 Use this single sequence for the installed private production runtime. Detailed commands
 remain in their linked procedures; approval records, source identities and sanitized
 results belong in the issue and PR. This plan does not retire private-dev. Preparation

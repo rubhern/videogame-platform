@@ -513,7 +513,8 @@ class Watch(unittest.TestCase):
     def test_summary_carries_fixed_vocabulary_and_no_identifiers(self):
         evidence = {'alerts': ['restore-missing'], 'bucket': 'private-bucket', 'pairs': [{'backupId': 'secret-id'}]}
         self.assertEqual(self.run_watch(2, evidence), 0)
-        self.assertEqual(self.sent, ['Backup observer findings: restore-missing'])
+        self.assertEqual(self.sent, ['Backup observer findings: restore-missing. Run the owner reconstruction: '
+                                     'bash ~/gameometro-276-release/reconstruct.sh'])
         self.assertNotIn('private-bucket', self.sent[0])
 
     def test_critical_or_failed_observation_fails_the_job(self):

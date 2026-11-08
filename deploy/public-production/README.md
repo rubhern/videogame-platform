@@ -746,7 +746,8 @@ recoverable pair. No recurring job or notification channel is installed here.
 
 Production restoration is **owner-side only**, using an SSH Docker context pointing
 at the reconstructed target. The command refuses local/TCP Docker endpoints for the
-production project. The private decryption key stays on the owner machine, outside
+production project. The single exception is the periodic owner reconstruction below: it
+restores on the owner machine's own local engine, by explicit owner decision (2026-11-08). The private decryption key stays on the owner machine, outside
 both runtime hosts, containers, configuration bundles and backup store. Decrypted
 bytes stream from owner tmpfs into remote `pg_restore`; the key is never sent.
 Prepare the target's protected bind inputs at the paths recorded in the rendered
@@ -806,6 +807,26 @@ lagging by an unacknowledged append is reconciled first by running any ledger co
 `recovery` accepts only that checkpoint: `source: cloud-ledger`, two copies in distinct buckets
 and regions matching `ledgerSha256`, no older than one hour and later than the backup recovery
 point. A hand-made checkpoint or a single surviving copy refuses reopening.
+
+Before the first production erasure there is no ledger to copy, and an empty ledger without cloud
+evidence also refuses reopening. `personal-data-ledger --cloud-copies <cloud.json> ledger-init` records
+the empty ledger once in both locked copies; it refuses when either copy already exists.
+
+[`scripts/reconstruct-production-recovery.py`](../../scripts/reconstruct-production-recovery.py) runs
+this whole sequence for the owner from S3 alone:
+
+1. The observer lists the bucket, and the recovery reader fetches the newest pair.
+2. `ledger-fetch` rebuilds the ledger.
+3. The pair is restored under the production project name into a disposable target on the owner's
+   Docker engine.
+4. The tool replays deletions, reopens and records readiness.
+
+It needs the trusted release that captured the pair and the production Keycloak administrator from
+the reconstruction material. It writes the `RESTORE_EVIDENCE` envelope the observer accepts, and it
+never contacts the VPS. It finds the matching trusted release itself and can store the envelope as the
+`backup-observer` secret. The owner runs `bash ~/gameometro-276-release/reconstruct.sh`
+about every 30 days. The observer warns after 30 days and is critical after 32, and its
+Telegram message names that command. The target is the owner's local Docker engine (see above).
 
 Against the production issuer, `erase`, `retry` and `cleanup-unverified --execute` need `--cloud-copies`: each ledger
 append and each legal-archive write returns only after both S3 copies acknowledge an exact

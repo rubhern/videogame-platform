@@ -257,6 +257,31 @@ class Reconstruction(Base):
                 self.assertFalse((target / "checkpoint.json").exists())
 
 
+    def test_empty_ledger_initialized_once_in_both_locked_copies_then_reconstructs(self):
+        # Production before its first erasure: recovery needs verified evidence of an empty ledger.
+        with self.assertRaises(cloud_module.CloudError):
+            self.cloud.reconstruct()
+        self.assertEqual(ledger_module.command_ledger_init(None, None), 0)
+        self.assertEqual((self.current("ledger-gra"), self.current("ledger-sbg")), (b"", b""))
+        ledger, copy, checkpoint = (self.root / "fetch-a" / "ledger", self.root / "fetch-b" / "ledger",
+                                    self.root / "fetch-a" / "checkpoint.json")
+        self.assertEqual(ledger_module.command_ledger_fetch(self.arguments(ledger, copy, checkpoint), None), 0)
+        self.assertEqual(ledger.read_bytes(), b"")
+        self.assertEqual(recovery.ledger_evidence(ledger, copy, checkpoint), recovery.digest(ledger))
+        with self.assertRaises(ledger_module.LedgerError):
+            ledger_module.command_ledger_init(None, None)
+
+    def test_init_refuses_when_any_copy_exists_and_never_overwrites_it(self):
+        with ledger_module.open_ledger(self.ledger_path, self.copy_path, create=True) as ledger:
+            self.request(ledger)
+        before = self.current("ledger-gra")
+        del self.buckets["ledger-sbg"].versions["ledger/production.jsonl"]
+        with self.assertRaises(ledger_module.LedgerError):
+            ledger_module.command_ledger_init(None, None)
+        self.assertEqual(self.current("ledger-gra"), before)
+        self.assertNotIn("ledger/production.jsonl", self.buckets["ledger-sbg"].versions)
+
+
 class Archive(Base):
     def test_archive_is_mirrored_to_both_unlocked_copies_and_purged_from_both(self):
         directory = self.root / "owner" / "REQ-001"

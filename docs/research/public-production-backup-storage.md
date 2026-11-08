@@ -706,7 +706,7 @@ Object Lock is fixed when a bucket is created, so these decisions precede creati
 | D2 | Retention parameters | 12-hour cadence, 6-hour admission, 33-day Compliance default, keep all pairs (about 67); no cloud daily/weekly selection |
 | D3 | Expiry versus the rehearsed-pair pin | Expiry wins; alert ladder on full-restore age |
 | D4 | Expiry-worker location | Independent scheduled environment with a delete-only credential, plus a manual owner fallback; not the VPS |
-| D5 | Restore-evidence contract | Integrity-verified pair at most 24 h old, plus a full restore at most 8 days old with the same tooling, format and key |
+| D5 | Restore-evidence contract | Integrity-verified pair at most 24 h old, plus a full restore at most 8 days old with the same tooling, format and key (owner changed the restore age to 30 days on 2026-11-08; the [platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery) is current) |
 | D6 | Ledger and archive locks | Ledger bucket COMPLIANCE 36 days; archive, proof and reconstruction buckets created without Object Lock |
 | D7 | PAYG operating values | 180/200 GiB, forecast EUR 2/3, review after the first invoice or 30 days |
 
@@ -776,7 +776,7 @@ purchase, infrastructure/DNS change, deployment, commit or merge occurred.
 [owner approval](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
 authorizes this bounded adapter and fake-S3 tests. It approves the summarized target policy: 12-hour
 capture, 33-day Compliance, verified exact-version deletion within 35 days, integrity age at most 24
-hours, full restore at least every 8 days, independent expiry actor, off-VPS recovery keys and spend
+hours, full restore at least every 8 days (30 days since 2026-11-08), independent expiry actor, off-VPS recovery keys and spend
 monitoring within the approved planning budget. The
 [platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 and [privacy record](../development/data-protection.md#b-restricted-legal-archive) own those
@@ -822,6 +822,6 @@ only a full owner restore can set its green recovery flag; S3 observation cannot
 scheduler and real-provider deletion require later reviewed qualification and separate provider
 authorization. The explicit local executor is not activation.
 
-The optional adapter is at operational version `0.2.2`: `0.2.0` added compatible explicit expiry execution, the admission reader and incremental observation, and `0.2.1` accepts the `url` listing encoding that botocore requests and real providers echo, and `0.2.2` reads the `NoSuchObjectLockConfiguration` answer OVHcloud returns for a version that never had a legal hold as hold `OFF`; application, frontend, candidate #275 and migration versions are unchanged.
+The optional adapter is at operational version `0.2.2`: `0.2.0` added compatible explicit expiry execution, the admission reader and incremental observation, and `0.2.1` accepts the `url` listing encoding that botocore requests and real providers echo, `0.2.2` reads the `NoSuchObjectLockConfiguration` answer OVHcloud returns for a version that never had a legal hold as hold `OFF`, and `0.3.0` moves the restore-age alerts to the owner's 30-day policy (warning after 30 days, critical after 32); application, frontend, candidate #275 and migration versions are unchanged.
 #276 remains open. No account, bucket, credential, deployment, job, commit or publication
 is created by this increment.
