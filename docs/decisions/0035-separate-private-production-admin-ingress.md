@@ -1,6 +1,6 @@
 # ADR-0035: Separate private-production administration ingress
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-07
 - **Owner:** Ruben Hernandez
 - **Related:** [#464](https://github.com/rubhern/videogame-platform/issues/464), [ADR-0025](0025-host-public-production-on-a-deferred-single-vps.md)

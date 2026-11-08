@@ -13,6 +13,8 @@ historical decision.
 
 - [ADR-0036: Use protected Actions for private-production recovery](0036-use-protected-actions-for-production-recovery.md) — #467; explicit owner approval for an environment-protected recovery-key copy on ephemeral GitHub runners; original WSL copy retained.
 
+- [ADR-0035: Separate private-production administration ingress](0035-separate-private-production-admin-ingress.md) — #464; Caddy behind two owner-only Serve routes, fixed-edge loopback bridges and an operator-controlled master frontend attribute; owner-accepted 2026-11-08; installed on the VPS and reboot-verified, browser-session check pending.
+
 - [ADR-0001: Reference IGDB cover images without copying binaries](0001-reference-igdb-cover-images.md)
 - [ADR-0002: Use a modular monolith and relational data boundary](0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](0003-use-a-same-origin-bff-and-http-json-api.md)
@@ -47,8 +49,6 @@ historical decision.
 - [ADR-0033: Select Lite 3 and immutable off-host production storage](0033-select-lite-3-and-immutable-offhost-storage.md) — #276, owner-approved direction 2026-10-25; direct encrypted S3/Compliance uploads to OVHcloud 1-AZ Gravelines, Lenovo optional; contracting/spending and real-host gates unresolved.
 
 ## Proposed
-
-- [ADR-0035: Separate private-production administration ingress](0035-separate-private-production-admin-ingress.md) — #464; Caddy behind two owner-only Serve routes, fixed-edge loopback bridges and an operator-controlled master frontend attribute; implementation pending review and authorized host acceptance.
 
 - [ADR-0032: Checkpoint historical synchronization by calendar month](0032-checkpoint-historical-synchronization-by-month.md) — #246, owner review pending.
 
