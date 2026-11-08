@@ -434,7 +434,10 @@ opt-in/overrides. These are acquisition policies, not product/business invariant
 Post-MVP (#155, implemented and accepted in private dev): opt-in recurring near-term
 and upcoming policies invoke the same UC-009 application path as the exceptional
 `POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off,
-independently of credentials. Each policy accepts a six-field Spring cron; `-`
+independently of credentials. Public production turns it on with the default policies
+and no cron override (#484); the
+[production upgrade](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
+owns that guard. Each policy accepts a six-field Spring cron; `-`
 disables only that policy. Non-negative past/future day offsets derive an inclusive
 window from one evaluation of the application clock in `Europe/Madrid`; neither the
 host timezone nor the UTC provider date-query boundary changes this evaluation.

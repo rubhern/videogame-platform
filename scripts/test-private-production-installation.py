@@ -554,6 +554,18 @@ class Contracts(unittest.TestCase):
                         checked_store.assert_not_called()
                     self.assertTrue(commands and all(c[0] == 'openssl' for c in commands))
 
+    def test_provider_credentials_are_required_while_recurring_acquisition_is_on(self):
+        on, off = {install.SCHEDULING: 'true'}, {install.SCHEDULING: 'false'}
+        self.assertFalse(install.optional_secret('igdb-client-id', on))
+        self.assertFalse(install.optional_secret('igdb-client-secret', on))
+        self.assertTrue(install.optional_secret('igdb-client-id', off))
+        self.assertTrue(install.optional_secret('grafana-telegram-bot-token', on))
+        self.assertFalse(install.optional_secret('application-db-password', off))
+        self.assertTrue(install.reviewed_schedule(on))
+        self.assertTrue(install.reviewed_schedule(off))
+        self.assertFalse(install.reviewed_schedule({install.SCHEDULING: 'yes'}))
+        self.assertFalse(install.reviewed_schedule({**on, 'CATALOGUE_SYNC_UPCOMING_CRON': '0 0 * * * *'}))
+
     def test_route_collision_refuses_with_read_only_commands(self):
         host = install.Host('a', 'b', 'c')
         host.config = {'networks': {'edge': {'name': 'gameometro-production_edge',

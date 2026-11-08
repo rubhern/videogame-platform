@@ -325,6 +325,9 @@ def validate_delta(name, current, candidate, fields, target_bundle):
             require(admin.allowed_setting(name, key, current.get('environment', {}).get(key), candidate.get('environment', {}).get(key)),
                     'The private admin ingress setting differs from its exact reviewed value.')
             continue
+        if key == install.SCHEDULING and current.get('environment', {}).get(key) == 'false' \
+                and candidate.get('environment', {}).get(key) == 'true':
+            continue  # #484: the one reviewed activation of recurring acquisition.
         require(not key.startswith(PROTECTED_ENVIRONMENT) and not key.endswith('_FILE'),
                 'A protected identity, ingress or secret-file setting changed.')
         require(key == VERSION_ENVIRONMENT or key not in current.get('environment', {}),
@@ -360,9 +363,8 @@ def validate_runtime(config, images):
     require(any(m['target'] == MIGRATION_ENTRYPOINT for m in services['migration'].get('volumes', [])),
             'The target no longer provides the reviewed migration entrypoint.')
     environment = services['application']['environment']
-    require(environment.get('CATALOGUE_SYNC_SCHEDULING_ENABLED') == 'false'
-            and services['grafana']['environment'].get('GRAFANA_TELEGRAM_ENABLED') == 'false',
-            'Background work and notifications must stay off.')
+    require(install.reviewed_schedule(environment), 'Recurring acquisition must be off or on the reviewed default schedule.')
+    require(services['grafana']['environment'].get('GRAFANA_TELEGRAM_ENABLED') == 'false', 'Notifications must stay off.')
     require(not set(environment) & set(FORBIDDEN_ENVIRONMENT) and 'account_deletion_executor_capability' not in config.get('secrets', {}),
             'A deferred overlay would be activated.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),

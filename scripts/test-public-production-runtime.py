@@ -128,7 +128,7 @@ APPLICATION_ENVIRONMENT = {
     "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
     "APPLICATION_SESSION_COOKIE_SECURE": "true",
     "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "production",
-    "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+    "CATALOGUE_SYNC_SCHEDULING_ENABLED": "true",
 }
 KEYCLOAK_ENVIRONMENT = {
     "KC_HOSTNAME": IDENTITY_ORIGIN,
@@ -344,6 +344,8 @@ def service_violations(name, service, config, secrets_dir):
             found.append(f"{name} must retain the production recovery startup guard and read-only authorization volume")
     if name == "application":
         found += environment_violations(name, environment, APPLICATION_ENVIRONMENT)
+        if any(key.startswith("CATALOGUE_SYNC_") and key.endswith("_CRON") for key in environment):
+            found.append("application must keep the default synchronization schedule (#484), without a cron override")
     if name == "keycloak":
         found += environment_violations(name, environment, {**KEYCLOAK_ENVIRONMENT, **abuse_settings()})
         imports = [volume for volume in service.get("volumes") or [] if volume.get("target") == "/opt/keycloak/data/import"]

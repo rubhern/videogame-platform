@@ -264,8 +264,9 @@ services:
       # Telemetry export belongs to a later increment.
       TELEMETRY_OTLP_TRACES_ENABLED: "false"
       TELEMETRY_OTLP_METRICS_ENABLED: "false"
-      # Recurring acquisition stays off until a reviewed production schedule exists.
-      CATALOGUE_SYNC_SCHEDULING_ENABLED: "false"
+      # Recurring acquisition (#484) on the application's default schedule; installer and
+      # upgrader refuse a cron override and require non-empty provider credentials.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:

@@ -42,7 +42,7 @@ def bind(source, target):
 
 
 def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], caddy='ghcr.io/r/caddy@sha256:' + '8' * 64,
-           localizer='ghcr.io/r/loc@sha256:' + '9' * 64):
+           localizer='ghcr.io/r/loc@sha256:' + '9' * 64, scheduling='true'):
     def service(image, **fields):
         return {'image': image, 'restart': acceptance.POLICY, 'mem_limit': '100', 'cpus': 1.0, 'pids_limit': 64,
                 'labels': {control.RUN_LABEL: RUN, control.CONFIG_LABEL: CONFIGURATION},
@@ -56,7 +56,7 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
                                    volumes=[bind(candidate / 'deploy/public-production/bin/run-keycloak', '/opt/run-keycloak')])
     services['caddy'] = service(caddy, volumes=[bind(bundle / 'Caddyfile.private', '/etc/caddy/Caddyfile'),
                                                 {'type': 'volume', 'source': 'caddy-data', 'target': '/data'}])
-    services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': 'false', 'TELEMETRY_SERVICE_VERSION': '1',
+    services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': scheduling, 'TELEMETRY_SERVICE_VERSION': '1',
                                                                 'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro'},
                                       volumes=[bind(candidate / 'deploy/public-production/bin/run-application', '/opt/run-application')])
     services['migration'] = {**service(application, volumes=[bind(candidate / 'deploy/public-production/bin/run-migrations', '/opt/run-migrations'),
@@ -456,6 +456,22 @@ class Delta(unittest.TestCase):
         self.assertEqual(upgrade.environment_delta(self.active['services']['application'], result['services']['application']),
                          ['NEW_PRODUCT_LIMIT', 'TELEMETRY_SERVICE_VERSION'])
 
+    def test_recurring_acquisition_is_activated_only_from_off_to_on(self):
+        self.active['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'false'
+        result, changed = self.reconcile()
+        self.assertEqual(result['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'], 'true')
+        upgrade.validate_runtime(result, IMAGES)
+        for value in ('TRUE', '1'):
+            with self.subTest(value):
+                target = rendered(self.new_bundle)
+                target['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        # Once on, switching it off again is a separate reviewed change, not an upgrade delta.
+        self.active['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'true'
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'false'
+        self.assertRaises(trust.Refused, self.reconcile, target)
+
     def test_a_postgres_bound_file_change_refuses(self):
         (self.new_bundle / 'candidate/deploy/public-production/bin/run-postgres').write_text('changed')
         with self.assertRaises(trust.Refused):
@@ -479,7 +495,8 @@ class Delta(unittest.TestCase):
             'always restart': set_service('caddy', 'restart', 'always'),
             'migration other image': set_service('migration', 'image', 'ghcr.io/r/app@sha256:' + '0' * 64),
             'unselected digest': set_service('keycloak', 'image', OLD['keycloak']),
-            'scheduling on': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'true'),
+            'scheduling unknown': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'TRUE'),
+            'schedule override': environment('application', 'CATALOGUE_SYNC_NEAR_TERM_CRON', '0 * * * * *'),
             'telegram on': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
             'deletion overlay': environment('application', 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'true'),
             'deletion capability': lambda c: c['secrets'].__setitem__('account_deletion_executor_capability', {'file': '/x'}),
