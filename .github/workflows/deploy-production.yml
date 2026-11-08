@@ -128,7 +128,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/production-ssh/key"
           printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/production-ssh/known_hosts"
       - name: Join the exclusive production deployment identity
-        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
         with:
           oauth-client-id: ${{ secrets.PRODUCTION_TS_CLIENT_ID }}
           oauth-secret: ${{ secrets.PRODUCTION_TS_CLIENT_SECRET }}
