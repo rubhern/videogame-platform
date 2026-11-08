@@ -138,6 +138,101 @@ class ActiveLineage(unittest.TestCase):
             acceptance.recovery_module(self.value.active_state(None)['source'])
 
 
+class LivePublicExposure(unittest.TestCase):
+    def setUp(self):
+        self.host = object.__new__(upgrade.Host)
+        self.host.run_id, self.host.configuration = 'run', 'configuration'
+        self.host.config = {'services': {'caddy': {'image': 'reviewed-image', 'restart': 'unless-stopped',
+            'mem_limit': '100', 'cpus': 1, 'pids_limit': 64, 'networks': {'edge': {}},
+            'ports': upgrade.ingress.public_ports('62.83.73.32')}},
+            'networks': {'edge': {'name': 'edge-network', 'internal': True}}}
+        self.bindings = {f'{port}/tcp': [{'HostIp': '62.83.73.32', 'HostPort': str(port)}] for port in (80, 443)}
+        self.info = {'State': {'Running': True, 'Health': {'Status': 'healthy'}}, 'Image': 'sha256:reviewed',
+            'Config': {'Image': 'reviewed-image', 'Labels': {control.RUN_LABEL: 'run', control.CONFIG_LABEL: 'configuration'}},
+            'HostConfig': {'PortBindings': copy.deepcopy(self.bindings), 'RestartPolicy': {'Name': 'unless-stopped'},
+                           'Memory': 100, 'NanoCpus': 10**9, 'PidsLimit': 64, 'IpcMode': 'private', 'NetworkMode': 'edge-network'},
+            'NetworkSettings': {'Ports': copy.deepcopy(self.bindings), 'Networks': {'edge-network': {'NetworkID': 'network-id'}}}}
+        self.network = {'Id': 'network-id', 'EnableIPv6': False, 'EnableIPv4': True, 'Driver': 'bridge',
+            'Internal': True, 'Scope': 'local', 'IPAM': {'Driver': 'default', 'Config': [{'Subnet': '10.203.1.0/24', 'Gateway': '10.203.1.1'}]},
+            'Options': {'com.docker.network.bridge.gateway_mode_ipv4': 'nat'}}
+        self.host.compose = lambda *_, **__: b'container'
+        self.calls = []
+
+    def inspect_run(self, args):
+        self.calls.append(args)
+        if args[:3] == ['docker', 'image', 'inspect']:
+            return json.dumps([{'Id': 'sha256:reviewed', 'Config': {}}]).encode()
+        if args[:3] == ['docker', 'network', 'inspect']:
+            return json.dumps([self.network]).encode()
+        self.assertEqual(args[:2], ['docker', 'inspect'])
+        return json.dumps([self.info]).encode()
+
+    def test_live_public_edge_passes_the_complete_inherited_runtime_contract(self):
+        with patch.object(install, 'run', side_effect=self.inspect_run):
+            self.host.running(['caddy'])
+        self.assertTrue(any(c[:3] == ['docker', 'network', 'inspect'] for c in self.calls))
+
+    def test_wrong_missing_extra_ipv6_and_duplicate_bindings_refuse(self):
+        for field in ('HostConfig', 'NetworkSettings'):
+            key = 'PortBindings' if field == 'HostConfig' else 'Ports'
+            for mutation in ('ipv4', 'wildcard', 'ipv6', 'port', 'protocol', 'extra', 'missing', 'duplicate'):
+                with self.subTest(field=field, mutation=mutation):
+                    bindings = copy.deepcopy(self.bindings)
+                    if mutation in ('ipv4', 'wildcard', 'ipv6'):
+                        bindings['443/tcp'][0]['HostIp'] = {'ipv4': '62.83.73.33', 'wildcard': '0.0.0.0', 'ipv6': '::'}[mutation]
+                    elif mutation == 'port': bindings['443/tcp'][0]['HostPort'] = '8443'
+                    elif mutation == 'protocol': bindings['443/udp'] = bindings.pop('443/tcp')
+                    elif mutation == 'extra': bindings['10000/tcp'] = [{'HostIp': '62.83.73.32', 'HostPort': '10000'}]
+                    elif mutation == 'missing': del bindings['80/tcp']
+                    else: bindings['443/tcp'].append(copy.deepcopy(bindings['443/tcp'][0]))
+                    self.info[field][key] = bindings
+                    with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                        self.host.running(['caddy'])
+                    self.info[field][key] = copy.deepcopy(self.bindings)
+
+    def test_public_exposure_does_not_hide_other_live_runtime_drift(self):
+        for field, key, value in [('Config', 'Image', 'other-image'), ('State', 'Running', False),
+                                  ('State', 'Health', {'Status': 'unhealthy'}), ('HostConfig', 'Privileged', True),
+                                  ('HostConfig', 'PublishAllPorts', True), ('HostConfig', 'Memory', 101),
+                                  ('HostConfig', 'RestartPolicy', {'Name': 'always'})]:
+            with self.subTest(field=field, key=key):
+                original = copy.deepcopy(self.info[field])
+                self.info[field][key] = value
+                with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                    self.host.running(['caddy'])
+                self.info[field] = original
+
+    def test_first_install_still_rejects_public_bindings(self):
+        private = object.__new__(install.Host)
+        private.__dict__.update(self.host.__dict__)
+        with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+            private.running(['caddy'])
+
+    def test_non_edge_or_unreviewed_configured_publication_refuses(self):
+        for mutation in ('service', 'admin-port'):
+            with self.subTest(mutation=mutation):
+                services = copy.deepcopy(self.host.config['services'])
+                if mutation == 'service':
+                    services['keycloak'] = services.pop('caddy')
+                    name = 'keycloak'
+                else:
+                    services['caddy']['ports'].append({'mode': 'ingress', 'host_ip': '62.83.73.32', 'target': 10000, 'published': '10000', 'protocol': 'tcp'})
+                    name = 'caddy'
+                with patch.dict(self.host.config, services=services), patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                    self.host.running([name])
+
+    def test_stopped_public_edge_preserves_the_same_bindings_during_a_fence(self):
+        value = upgrade.Upgrade(TARGET)
+        value.host = lambda: self.host
+        value.scope = lambda: ['caddy']
+        self.host.compose = lambda *args, **__: b'' if args[1] == '-q' else b'container'
+        value.run = self.inspect_run
+        self.assertEqual(value.observe_services({'ready': False, 'pending': True}), {'caddy': 'stopped'})
+        self.info['HostConfig']['PortBindings']['443/tcp'][0]['HostIp'] = '::'
+        with self.assertRaises(trust.Refused):
+            value.observe_services({'ready': False, 'pending': True})
+
+
 class Pure(unittest.TestCase):
     def test_checksum_ignores_line_endings_and_bom_and_is_a_signed_integer(self):
         self.assertEqual(upgrade.flyway_checksum(b'a\nb\n'), upgrade.flyway_checksum(b'a\r\nb'))

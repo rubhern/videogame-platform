@@ -26,6 +26,20 @@ BACKUP_UNITS = Path('/etc/systemd/system')
 OPERATIONS = Path('/srv/gameometro/operations')
 EXPORT = ('deploy/', 'docker/', 'scripts/', 'tools/', 'backend/src/main/resources/db/migration/')
 require = trust.require
+PREFLIGHT_CHECKS = ('access', 'recovery-ready', 'installed-runtime', 'backup-cycle', 'backup-lock',
+                    'backup-runtime', 'host-s3-admission', 'backup-services', 'upgrade-plan',
+                    'plan-prerequisites', 'recovery-capacity')
+FAILURE_CATEGORIES = ('missing-file', 'permission-denied', 'timeout', 'interrupted', 'check-refused', 'unexpected')
+
+
+def failure_category(error):
+    # Fixed vocabulary only: exception text, child output and file paths remain private.
+    for kind, name in ((FileNotFoundError, 'missing-file'), (PermissionError, 'permission-denied'),
+                       ((TimeoutError, subprocess.TimeoutExpired), 'timeout'), (KeyboardInterrupt, 'interrupted'),
+                       (trust.Refused, 'check-refused')):
+        if isinstance(error, kind):
+            return name
+    return 'unexpected'
 
 
 def identity(command):
@@ -228,31 +242,48 @@ class Rollout:
         self.record = {'revision': revision, 'runId': run_id, 'attempt': attempt, 'outcome': 'failure', 'phase': 'preflight'}
 
     def save(self, phase):
+        if phase not in ('preflight', 'planned'):
+            self.record.pop('check', None)
         self.record['phase'] = phase
         upgrade.control.durable(self.directory / 'deployment.json', self.record)
+
+    def check(self, name):
+        require(name in PREFLIGHT_CHECKS, 'Unknown preflight check.')
+        self.record['check'] = name
+        self.save(self.record['phase'])
 
     def run(self, mode):
         require(not self.directory.exists(), 'This deployment already has a journal; inspect it before a fresh dispatch.')
         self.directory.mkdir(mode=0o700, parents=True)
         self.save('preflight')
+        self.check('access')
         access(self.config)
         api = trust.GitHub(os.environ['GH_TOKEN'])
+        self.check('recovery-ready')
         proof = evidence.read(api, 'ready', self.revision, self.record['runId'], self.record['attempt'])
         require(proof.get('kind') == 'recovery-ready' and proof.get('outcome') == 'success'
                 and re.fullmatch('[0-9a-f]{64}', proof.get('nonce', '')), 'Recovery runner readiness is unproven.')
+        self.check('installed-runtime')
         fingerprint = install.operational_fingerprint()
         actor = upgrade.Upgrade(self.revision, operational=self.revision, adapter=fingerprint).load()
+        self.check('backup-cycle')
         cycle = load_cycle(Path(self.config['backupCycleConfig']))
         require(cycle.config['admin'] == str(install.ADMIN) and cycle.config['project'] == 'gameometro-production'
                 and cycle.config['state'] == str(install.ADMIN / 'first-install/recovery'), 'Backup configuration names another runtime.')
         # Both installed timers use this lock. Do not stop/disable them or invoke their thawing capture.
+        self.check('backup-lock')
         with cycle.exclusive():
             require(cycle.journal['status'] == 'idle', 'A scheduled backup is unfinished; let its existing reconciler finish.')
+            self.check('backup-runtime')
             runtime = cycle.runtime_factory()
             cycle.preflight(runtime)
+            self.check('host-s3-admission')
             admission_receipt = cycle.admission()
+            self.check('backup-services')
             backup_units(Path(self.config['backupCycleConfig']), actor.bundle / 'candidate')
+            self.check('upgrade-plan')
             plan = actor.plan()
+            self.check('plan-prerequisites')
             require(not plan['publishedPorts'] and plan['prerequisites']['noActiveWork']
                     and plan['prerequisites']['keycloakAdministratorAuthenticates'] is True,
                     'A private, idle, authenticated runtime is required.')
@@ -262,6 +293,7 @@ class Rollout:
                                sourceRunAttempt=str(plan['target']['sourceRunAttempt']), securityRunId=str(plan['target']['securityRunId']))
             self.save('planned')
             if mode == 'plan':
+                self.check('recovery-capacity')
                 total = int(runtime.sql('postgres', "SELECT coalesce(sum(pg_database_size(datname)),0)::bigint FROM pg_database WHERE datname IN ('videogame_platform','videogame_keycloak');").decode().strip().split('|')[0])
                 require(proof.get('primaryFingerprint') == cycle.config['recipient']
                         and proof.get('tmpfsFreeBytes', 0) >= total + 64 * 1024**2
@@ -270,6 +302,8 @@ class Rollout:
                 self.record['outcome'] = 'planned'
                 self.save('planned')
                 return self.record
+            self.record.pop('check', None)
+            self.save('planned')
             actor.stage(plan['planSha256'])
             # Recheck against actual PostgreSQL storage sizes before closing any writer.
             total, largest = runtime.sql('postgres', "SELECT coalesce(sum(pg_database_size(datname)),0)::bigint, coalesce(max(pg_database_size(datname)),0)::bigint FROM pg_database WHERE datname IN ('videogame_platform','videogame_keycloak');").decode().strip().split('|')
@@ -379,6 +413,10 @@ def summarize(path, revision, run_id, attempt, plan_only):
             raise trust.Refused('Recovery has not authorized apply.')
         require(value.get('phase') in PHASES, 'Unknown deployment phase.')
         result['phase'] = value['phase']
+        if value.get('outcome') in ('failure', 'refused-or-failed'):
+            for key, vocabulary in (('check', PREFLIGHT_CHECKS), ('category', FAILURE_CATEGORIES)):
+                if value.get(key) in vocabulary:
+                    result[key] = value[key]
         for key in ('planSha256', 'adapterFingerprint'):
             require(re.fullmatch('[0-9a-f]{64}', value.get(key, '')), 'Missing operational identity.')
             result[key] = value[key]
@@ -425,6 +463,8 @@ def summarize(path, revision, run_id, attempt, plan_only):
     summary = ('Production deployment: **' + result['outcome'] + '**\n\n'
                + 'Revision: `' + revision + '`; phase: `' + result['phase'] + '`.\n\n'
                + 'See the sanitized receipt for immutable identities. On failure inspect the protected deployment/upgrade journals; do not rerun, thaw or roll back migrations.\n')
+    if 'check' in result:
+        summary += 'Preflight check: `' + result['check'] + '`; category: `' + result.get('category', 'unexpected') + '`.\n'
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
             stream.write(summary)
@@ -526,12 +566,13 @@ def main():
                     return child.returncode
         print(json.dumps(result))
         return 0
-    except BaseException:
+    except BaseException as error:
         # Do not serialize exceptions, payloads, child output, environment or local paths.
         failure = {'outcome': 'refused-or-failed', 'advice': 'Inspect the protected deployment and upgrade journals; no automatic retry or thaw.'}
         if rollout:
             failure.update(rollout.record)
             failure['outcome'] = 'failure'
+            failure['category'] = failure_category(error)
         print(json.dumps(failure))
         return 1
 

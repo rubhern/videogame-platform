@@ -715,6 +715,10 @@ class Host:
             entrypoint = None
         return {'Entrypoint': Host.process_arguments(entrypoint), 'Cmd': Host.process_arguments(command)}
 
+    def port_bindings_match(self, name, bindings):
+        # First install and private acceptance never authorize published ports.
+        return bindings is None or isinstance(bindings, dict) and not any(bindings.values())
+
     def running(self, names):
         for name in names:
             cid = self.compose('ps', '-q', name).decode().split()
@@ -722,7 +726,7 @@ class Host:
             value = json.loads(run(['docker', 'inspect', cid[0]]))[0]
             require(value['State']['Running'] and value['State'].get('Health', {}).get('Status', 'healthy') == 'healthy'
                     and value['Config']['Image'] == self.config['services'][name]['image']
-                    and not value['HostConfig'].get('PortBindings')
+                    and self.port_bindings_match(name, value['HostConfig'].get('PortBindings'))
                     # prepare.validate pins 'no' for first install; only the reviewed acceptance differs.
                     and value['HostConfig']['RestartPolicy']['Name'] == self.config['services'][name].get('restart', 'no'),
                     'Live image, health, restart or exposure mismatch.')
@@ -746,7 +750,7 @@ class Host:
                     and host.get('PidsLimit') == int(intended_service['pids_limit'])
                     and host.get('PidMode', '') == '' and host.get('IpcMode') == 'private'
                     and not host.get('UTSMode') and not host.get('UsernsMode'), 'Effective resource/namespace drift.')
-            require(all(not bindings for bindings in (value['NetworkSettings'].get('Ports') or {}).values()), 'Unexpected IPv4/IPv6 publication.')
+            require(self.port_bindings_match(name, value['NetworkSettings'].get('Ports')), 'Unexpected IPv4/IPv6 publication.')
             expected_process = self.effective_process(intended_service, image['Config'])
             require(all(self.process_arguments(value['Config'].get(key)) == args
                         for key, args in expected_process.items()),
