@@ -478,8 +478,13 @@ cloud attestation acceptance and real cloud-only recovery are required before ac
 
 ## Scheduled backup cycle (#276)
 
-**Prepared and rehearsed locally; never installed, and blocked until the owner activates it.**
-Nothing in the repository enables a timer, a workflow job or a provider resource. The
+**Active on private production since 2026-11-08** (owner activation; first supervised cycle captured,
+reopened and uploaded with about 2.5 minutes of unavailability). Nothing in the repository enables a
+timer, a workflow job or a provider resource; the host installation does. The installed units run
+`backup-cycle` from the active upgrade bundle's `candidate/`, so an in-place upgrade must repoint
+`ExecStart` to the new bundle. Both services also need `ReadWritePaths` on the public keyring: its
+`gpg --list-secret-keys` check starts `gpg-agent`, whose socket lives there because `ProtectHome`
+hides `/run/user`. The
 [platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
 owns cadence and ceilings; [the research](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
 owns the evidence and its limits.
