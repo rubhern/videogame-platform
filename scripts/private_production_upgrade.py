@@ -88,9 +88,8 @@ GATE_STATE = ("import json,os\np='/gate/'\ndef read(n):\n try:\n  return json.lo
               "'owner':read('INSTALLATION-OWNER.json')}))")
 # Anonymous only: personal routes refuse, the public catalogue answers from local state.
 AUTHORIZATION_PROBE = r'''
-import http.client,ssl
-ctx=ssl.create_default_context()
-ctx.load_verify_locations('/run/private-tls/ca.crt')
+import http.client,os,ssl
+ctx=ssl.create_default_context(cafile=os.environ.get('OIDC_CONTRACT_CA_FILE') or None)
 def get(path):
  c=http.client.HTTPSConnection('gameometro.com',context=ctx,timeout=15)
  c.request('GET',path);r=c.getresponse();b=r.read(262145);c.close()

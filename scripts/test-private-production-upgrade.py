@@ -7,6 +7,7 @@ import contextlib
 import io
 import sys
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -217,6 +218,25 @@ class LivePublicExposure(unittest.TestCase):
         self.assertEqual(self.host.probe_ca_file(), '/run/private-tls/ca.crt')
         private = object.__new__(install.Host)
         self.assertEqual(private.probe_ca_file(), '/run/private-tls/ca.crt')
+
+    def test_authorization_probe_uses_the_selected_trust_roots(self):
+        import ssl
+        from types import SimpleNamespace
+        class Connection:
+            def __init__(self, *args, **kwargs):
+                pass
+            def request(self, method, path):
+                self.path = path
+            def getresponse(self):
+                return SimpleNamespace(status=401 if self.path == '/api/v1/me/ratings' else 200, read=lambda _: b'{}')
+            def close(self):
+                pass
+        for ca in (None, '/run/private-tls/ca.crt'):
+            environment = {'OIDC_CONTRACT_CA_FILE': ca} if ca else {}
+            with self.subTest(ca=ca), patch.dict(os.environ, environment, clear=True), \
+                    patch('http.client.HTTPSConnection', Connection), patch.object(ssl, 'create_default_context') as context:
+                exec(upgrade.AUTHORIZATION_PROBE, {})
+                context.assert_called_once_with(cafile=ca)
 
     def test_unreviewed_publication_cannot_select_public_tls_mode(self):
         self.host.config['services']['caddy']['ports'][0]['host_ip'] = '0.0.0.0'
