@@ -1381,8 +1381,11 @@ decisions; bounded technical preparation, execution and evidence collection can 
 ### Private production in-place upgrade
 
 The [upgrade contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
-owns behaviour, refusals and forward-recovery limits. This checklist is **prepared, not executed**:
-every host step needs explicit owner authorization, which may be grouped under the
+owns behaviour, refusals and forward-recovery limits. The owner reports #455 was used for the
+latest validated private deployment. Routine releases use the
+[owner-approved Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+after its one-time setup; the checklist below remains the manual contingency route.
+Every host step needs explicit owner authorization, which may be grouped under the
 [maintenance phase](#private-production-maintenance-plan); a failed step stops the sequence.
 
 **Prerequisites:**

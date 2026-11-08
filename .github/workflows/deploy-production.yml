@@ -1,0 +1,176 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_only:
+        description: Read-only host plan and recovery preflight (no backup or deployment)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: private-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify exact main release
+    if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' && github.run_attempt == 1 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Admit dispatch, both environment policies and immutable publications
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          ATTEMPT: ${{ github.run_attempt }}
+        run: python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT"
+
+  recovery:
+    name: Isolated production recovery
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    environment: production-recovery
+    permissions:
+      contents: read
+      actions: read
+    env:
+      REVISION: ${{ github.sha }}
+      RUN_ID: ${{ github.run_id }}
+      ATTEMPT: ${{ github.run_attempt }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install the existing pinned S3 client
+        run: |
+          python3 -m venv "$RUNNER_TEMP/recovery-venv"
+          "$RUNNER_TEMP/recovery-venv/bin/pip" install --quiet --disable-pip-version-check -r deploy/public-production/s3-requirements.txt
+      - name: Import recovery material only on this ephemeral runner and prove readiness
+        env:
+          RECOVERY_GPG_KEY: ${{ secrets.RECOVERY_GPG_KEY }}
+          RECOVERY_GPG_PASSPHRASE: ${{ secrets.RECOVERY_GPG_PASSPHRASE }}
+          RECOVERY_S3_CONFIG: ${{ secrets.RECOVERY_S3_CONFIG }}
+          RECOVERY_PRIMARY_FINGERPRINT: ${{ vars.RECOVERY_PRIMARY_FINGERPRINT }}
+          RECOVERY_DECRYPTION_FINGERPRINT: ${{ vars.RECOVERY_DECRYPTION_FINGERPRINT }}
+          RECOVERY_KEY_SCOPE: ${{ vars.RECOVERY_KEY_SCOPE || 'subkey' }}
+        run: |
+          "$RUNNER_TEMP/recovery-venv/bin/python3" -B scripts/production_recovery_executor.py prepare "$REVISION" "$RUN_ID" "$ATTEMPT"
+      - name: Publish non-secret readiness before any host fence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-recovery-ready-${{ github.run_id }}-${{ github.run_attempt }}
+          path: recovery-ready.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Fetch the exact durable S3 pair and perform the real isolated restore
+        if: ${{ !inputs.plan_only }}
+        run: |
+          "$RUNNER_TEMP/recovery-venv/bin/python3" -B scripts/production_recovery_executor.py restore "$REVISION" "$RUN_ID" "$ATTEMPT"
+      - name: Remove temporary GPG, plaintext, ciphertext and isolated Docker resources
+        if: ${{ always() }}
+        run: python3 -B scripts/production_recovery_executor.py cleanup "$REVISION" "$RUN_ID" "$ATTEMPT"
+      - name: Publish only the cleaned restore attestation
+        if: ${{ success() && !inputs.plan_only }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-recovery-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: recovery-result.json
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Approved private production deployment
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REVISION: ${{ github.sha }}
+      RUN_ID: ${{ github.run_id }}
+      ATTEMPT: ${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Revalidate publications after approval
+        run: python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT" > release.json
+      - name: Prepare the restricted production SSH identity
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+          TS_CLIENT: ${{ secrets.PRODUCTION_TS_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.PRODUCTION_TS_CLIENT_SECRET }}
+        run: |
+          test -n "$SSH_KEY" && test -n "$KNOWN_HOSTS" && test -n "$TS_CLIENT" && test -n "$TS_SECRET"
+          [[ "$DEPLOY_HOST" =~ ^gameometro-prod\.[a-zA-Z0-9.-]+\.ts\.net$ ]]
+          umask 077
+          mkdir -p "$RUNNER_TEMP/production-ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/production-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/production-ssh/known_hosts"
+      - name: Join the exclusive production deployment identity
+        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4
+        with:
+          oauth-client-id: ${{ secrets.PRODUCTION_TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.PRODUCTION_TS_CLIENT_SECRET }}
+          tags: tag:gameometro-production-deploy
+          version: 1.102.4
+          sha256sum: 50748df1045e60b5b695f19f4c56b0da36c019948b440fb456b6584a50f0d8b9
+          use-cache: "false"
+          log-mode: quiet
+      - name: Wait for recovery readiness and prepare the exact fenced backup
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PLAN_ONLY: ${{ inputs.plan_only }}
+        run: |
+          mode=prepare
+          if [[ "$PLAN_ONLY" == true ]]; then mode=plan; fi
+          python3 -B scripts/production_deploy.py --runner "$mode" "$REVISION" "$RUN_ID" "$ATTEMPT"
+      - name: Relay only the canonical S3 reference and bound recovery request
+        if: ${{ !inputs.plan_only }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-recovery-request-${{ github.run_id }}-${{ github.run_attempt }}
+          path: recovery-request.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Require successful cleaned recovery before apply and verify
+        if: ${{ !inputs.plan_only }}
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+        run: python3 -B scripts/production_deploy.py --runner apply "$REVISION" "$RUN_ID" "$ATTEMPT"
+      - name: Summarize a missing or failed host outcome
+        if: ${{ failure() || cancelled() }}
+        run: |
+          python3 -B scripts/production_deploy.py --receipt "$RUNNER_TEMP/production-response.json" \
+            "$REVISION" "$RUN_ID" "$ATTEMPT" false
+      - name: Retain sanitized evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove temporary SSH credentials
+        if: ${{ always() }}
+        run: rm -rf -- "$RUNNER_TEMP/production-ssh"

@@ -1,22 +1,23 @@
 # Public-production runtime configuration
 
-- **Status:** Public runtime and recovery candidate pending acceptance; private installation under #276, public exposure unapproved
+- **Status:** Production and scheduled S3 backups operational; public release accepted under #276; Actions deployment prepared for review
 
-This directory holds the versioned runtime configuration for the future public
-production runtime. The [host foundation record](../../docs/development/operations-runbook.md#production-host-foundation)
-owns recorded prerequisites and outstanding host checks. The #275 deployment command
-remains rehearsal-only. The separate [#276 first-install adapter](#private-first-installation-and-validation)
-has been used for private qualification; the issue's later evidence records the
-installed runtime and pending upgrade. The earlier failed bootstrap is historical,
-not evidence that the host is empty. The [private maintenance plan](../../docs/development/operations-runbook.md#private-production-maintenance-plan)
-owns coordination of the next authorized steps; current host state must be inspected
-before execution. Neither installation nor repository preparation establishes public acceptance.
+This directory owns the versioned production runtime configuration. The
+[public-release acceptance](../../docs/research/public-production-release-acceptance.md)
+records the owner-approved exposure and recovery evidence; the
+[host foundation record](../../docs/development/operations-runbook.md#production-host-foundation)
+owns prerequisites and host checks. The #275 deployment command remains rehearsal-only.
+The #276 installation and #455 updater have been used on the real runtime; the
+[protected Actions procedure](#owner-approved-actions-deployment-467) adds automated,
+owner-approved releases after its one-time setup. Earlier failed bootstrap evidence
+is historical and does not mean the host is empty.
+
 [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
-accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
-remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
-[ADR-0033](../../docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md)
-records the superseding #276 host/storage direction. Its cloud integration is not
-implemented by this prepared candidate; #275 acceptance, digests and evidence remain unchanged.
+and [ADR-0033](../../docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md)
+record the host/storage direction. Existing backup, S3 and supervision are reused.
+This change does not alter ingress, purchase services or change private-dev;
+[delivery gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
+continue to govern later changes.
 
 The [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 owns the topology, trust boundary, resource envelope and recovery policy. This page owns
@@ -36,7 +37,7 @@ what the repository checks and what only a real host can prove.
 | [`../../scripts/private_production_upgrade.py`](../../scripts/private_production_upgrade.py) | [In-place upgrade](#in-place-upgrade-of-the-installed-runtime) of an accepted private runtime to validated trusted-main publications |
 | [`bin/run-application`](bin/run-application), [`bin/run-migrations`](bin/run-migrations) | Fail-closed recovery authorization before the shared secret wrappers |
 | [`bin/recovery`](bin/recovery) | Paired backup, bounded copy/retention, isolated restore and deletion/readiness gates |
-| [`bin/backup-cycle`](bin/backup-cycle), [`bin/backup-watch`](bin/backup-watch), [`systemd/`](systemd/) | [Scheduled backup cycle](#scheduled-backup-cycle-276) and its independent supervision; prepared, not installed |
+| [`bin/backup-cycle`](bin/backup-cycle), [`bin/backup-watch`](bin/backup-watch), [`systemd/`](systemd/) | [Scheduled backup cycle](#scheduled-backup-cycle-276) and its existing independent supervision |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
 | [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
@@ -350,7 +351,7 @@ These need later increments or the real host (#276):
 
 ## S3 transport preparation (#276)
 
-**Local preparation only; never activated.** The optional adapter behind `bin/recovery`
+**Operational in private production, as confirmed by the owner.** The adapter behind `bin/recovery`
 reuses the four-file encrypted pair, checksum verifier and staged local publication.
 It creates no backup, database dump, account, bucket, credential, timer or application
 change. The [platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
@@ -481,8 +482,8 @@ cloud attestation acceptance and real cloud-only recovery are required before ac
 **Active on private production since 2026-11-08** (owner activation; first supervised cycle captured,
 reopened and uploaded with about 2.5 minutes of unavailability). Nothing in the repository enables a
 timer, a workflow job or a provider resource; the host installation does. The installed units run
-`backup-cycle` from the active upgrade bundle's `candidate/`, so an in-place upgrade must repoint
-`ExecStart` to the new bundle. Both services also need `ReadWritePaths` on the public keyring: its
+`backup-cycle` from the active upgrade bundle's `candidate/`. The [Actions actor](#owner-approved-actions-deployment-467)
+reconciles only their two `ExecStart` paths after upgrade, preserving timers and all other unit settings. Both services also need `ReadWritePaths` on the public keyring: its
 `gpg --list-secret-keys` check starts `gpg-agent`, whose socket lives there because `ProtectHome`
 hides `/run/user`. The
 [platform recovery policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
@@ -1583,7 +1584,7 @@ its file no longer describes what runs.
 
 ### In-place upgrade of the installed runtime
 
-**Implemented for review; not executed on any host.**
+**Implemented and used for the latest owner-validated private deployment (#455).**
 [`private_production_upgrade.py`](../../scripts/private_production_upgrade.py) moves an
 [accepted](#post-acceptance-runtime-transition) private runtime to the validated publications
 of one newer trusted-main commit. It is not a first install, a deployment platform or
@@ -1805,6 +1806,245 @@ supplied and the localizer is only exercised as a failing optional service; a re
 (simulated receipt); operational publication, which needs a merged revision; or the installer's input
 contract against real protected paths, which has a contract test only. The rehearsal also accepts
 Docker Desktop's spelling of directory binds and skips the Docker data-root disk check.
+
+### Owner-approved Actions deployment (#467)
+
+**Repository implementation for review; no Actions deployment, secret upload or VPS access change
+has been executed.** Production, paired backups, S3 and timers already operate; the accepted public ingress is preserved. The owner
+explicitly authorizes a recovery-key copy in GitHub under
+[ADR-0036](../../docs/decisions/0036-use-protected-actions-for-production-recovery.md); its original
+WSL copy remains independent. There is no extra server or workstation availability dependency.
+The [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery)
+owns policy. The [workflow](../../.github/workflows/deploy-production.yml),
+[restricted host actor](../../scripts/production_deploy.py),
+[evidence verifier](../../scripts/production_deployment_evidence.py) and
+[ephemeral recovery adapter](../../scripts/production_recovery_executor.py) own mechanics.
+
+The exact dispatch SHA stays selected if `main` advances during approval. Existing CI, Security
+and all image-publication verifiers derive versions/digests/fingerprints; the host independently
+rechecks them and both approvals. It exports only authenticated operational trees and migrations
+from that Git commit. No workflow input supplies a shell command, root path, image or fingerprint.
+
+Two separately approved jobs run concurrently. The recovery job has only decryption material and
+the existing read-only S3 identity; it has no SSH/Tailscale secrets. The deployment job has only its
+restricted Tailscale/SSH identity; it never imports the key or receives S3 credentials. Before any
+fence, recovery proves the key/passphrase through a synthetic encrypt/decrypt, S3 admission, and
+actual runner capacity. The host also checks the installed backup cycle, clock, runtime, drift,
+work, forward migrations, access acknowledgements and free administrative backends.
+
+The host stages images and captures a fresh canonical pair under the existing recovery lease and
+cycle lock, without the scheduled cycle's ownership marker. It publishes the ciphertext to existing
+S3 and durably records its request, then releases SSH. Its continuous backup fence stays closed
+across jobs; scheduled capture/reconciliation cannot reopen a foreign fence. Timers remain enabled
+and can skip a busy/fenced slot. Recovery fetches the exact S3 versions, checks hashes and performs
+#455's real isolated PostgreSQL restore, schema and application/Keycloak identity checks. It removes
+GPG, passphrase, plaintext, ciphertext and disposable Docker resources before publishing success.
+The host requires **successful completion of that same recovery job**, not just an artifact or SSH
+exit zero, and checks run/attempt, request hash, nonce, plan and backup identity before #455 apply.
+Apply revalidates the plan and continuous fence. Verification, the two existing backup-service
+source paths and the independent #464 operator finish the rollout without changing timers or issuer.
+
+#### One-time protected environments and secrets
+
+These are owner-executed setup instructions after reviewing and merging the implementation.
+Nothing in this repository change creates environments, loads a key, changes SSH/policy or deploys.
+
+In **GitHub → Settings → Environments**, create **both** `production` and `production-recovery`:
+
+1. Required reviewer: the user `rubhern` only. Leave **Prevent self-review** disabled, because the
+   sole owner initiates and approves the run. Disable administrator bypass.
+2. Deployment branches and tags: **Selected branches and tags** with exactly one **branch** rule,
+   `main`. No tag, wildcard, wait timer or additional approval rule. The workflow checks both
+   policies and refuses a mismatch; do not weaken them to fix an admission failure.
+3. Use environment secrets, never repository/organization secrets, for the credentials below.
+   GitHub releases them only after that environment's approval. Both jobs can be selected together
+   when reviewing pending deployments. See [GitHub environment configuration](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+
+| Environment | Secrets | Variables |
+|---|---|---|
+| `production` | `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_KEY`, `PRODUCTION_SSH_KNOWN_HOSTS`, `PRODUCTION_TS_CLIENT_ID`, `PRODUCTION_TS_CLIENT_SECRET` | None required |
+| `production-recovery` | `RECOVERY_GPG_KEY`, `RECOVERY_GPG_PASSPHRASE` when protected, `RECOVERY_S3_CONFIG` | `RECOVERY_PRIMARY_FINGERPRINT`, `RECOVERY_DECRYPTION_FINGERPRINT`, `RECOVERY_KEY_SCOPE` (`subkey` by default) |
+
+`RECOVERY_S3_CONFIG` is the existing protected reader JSON for `recovery`, including its pinned
+endpoint/region/bucket/credentials/lifecycle fingerprint. It needs admission reads and exact-version
+object retrieval, never upload, deletion, retention bypass or account administration. Reuse the
+qualified storage and a suitably restricted existing reader. Do not copy the uploader/expiry identity
+or create another bucket. `PRODUCTION_SSH_KEY` is only the restricted deployment SSH key.
+
+#### Export and load the key safely from WSL
+
+Run this yourself in the reviewed repository on WSL, outside CI and with shell tracing disabled.
+The commands below do **not** remove or modify the original private key. Do not paste an exported
+key/passphrase into a chat, command argument, repository file, clipboard transcript or Actions input.
+Use [GnuPG's selected-subkey export](https://gnupg.org/documentation/manuals/gnupg/Operational-GPG-Commands.html)
+with the trailing `!`; exporting all secret keys would unnecessarily include more material.
+
+First inspect the **metadata** locally and identify the full primary fingerprint and the `[E]`
+subkey that decrypts the existing backups. Match the primary to the installed backup recipient:
+
+```bash
+gpg --homedir "$HOME/.gnupg" --list-secret-keys --with-subkey-fingerprint --keyid-format long
+```
+
+Then run the following as one shell block. Replace neither the keyring nor the original key;
+enter the fingerprints at the prompts. GPG may prompt for the existing passphrase during export.
+The temporary export and verification keyring stay on volatile `/dev/shm` with owner-only access.
+`gh secret set` reads the armored key from stdin and encrypts it for GitHub; it never appears in argv.
+
+```bash
+(
+  set -euo pipefail
+  set +x
+  umask 077
+  read -r -p 'Primary fingerprint: ' recovery_primary
+  read -r -p 'Decryption subkey fingerprint: ' recovery_subkey
+  [[ "$recovery_primary" =~ ^[A-F0-9]{40}$ && "$recovery_subkey" =~ ^[A-F0-9]{40}$ ]]
+  recovery_export_dir=$(mktemp -d /dev/shm/gameometro-key-export.XXXXXX)
+  trap 'gpgconf --homedir "$recovery_export_dir/check" --kill all >/dev/null 2>&1 || true; rm -rf -- "$recovery_export_dir"' EXIT
+  mkdir -m 700 "$recovery_export_dir/check"
+  gpg --homedir "$HOME/.gnupg" --armor --output "$recovery_export_dir/recovery.asc" \
+    --export-secret-subkeys "${recovery_subkey}!"
+  test -s "$recovery_export_dir/recovery.asc"
+  test "$(wc -c < "$recovery_export_dir/recovery.asc")" -le 48000
+  gpg --homedir "$recovery_export_dir/check" --batch --import "$recovery_export_dir/recovery.asc" 2>/dev/null
+  gpg --homedir "$recovery_export_dir/check" --with-colons --with-subkey-fingerprint --list-secret-keys 2>/dev/null |
+    python3 -B -c 'import sys; sys.path.insert(0,"scripts"); from production_recovery_executor import key_identity; key_identity(sys.stdin.buffer.read(),"subkey"); print("Decryption-subkey-only export verified.")'
+  gh secret set RECOVERY_GPG_KEY --repo rubhern/videogame-platform --env production-recovery \
+    < "$recovery_export_dir/recovery.asc"
+  gh variable set RECOVERY_PRIMARY_FINGERPRINT --repo rubhern/videogame-platform \
+    --env production-recovery --body "$recovery_primary"
+  gh variable set RECOVERY_DECRYPTION_FINGERPRINT --repo rubhern/videogame-platform \
+    --env production-recovery --body "$recovery_subkey"
+  gh variable set RECOVERY_KEY_SCOPE --repo rubhern/videogame-platform \
+    --env production-recovery --body subkey
+)
+```
+
+For a passphrase-protected export, set its passphrase using the CLI's interactive secret prompt
+(no `--body`, shell substitution or visible echo). Skip this secret only if the existing exported
+key is unprotected; the runner checks actual decryption before advertising readiness:
+
+```bash
+gh secret set RECOVERY_GPG_PASSPHRASE --repo rubhern/videogame-platform --env production-recovery
+```
+
+Load the **existing restricted reader configuration**, using its actual protected file path:
+
+```bash
+read -r -p 'Existing read-only recovery S3 JSON path: ' recovery_reader_config
+gh secret set RECOVERY_S3_CONFIG --repo rubhern/videogame-platform --env production-recovery \
+  < "$recovery_reader_config"
+```
+
+If metadata shows that existing backups were encrypted **directly to an encryption-capable primary
+key**, a decrypt-only subkey cannot recover them; adding a new subkey does not fix historical
+ciphertext. The owner-authorized fallback is an explicit `RECOVERY_KEY_SCOPE=primary-encryption`:
+export only that selected primary with `--export-secret-keys "${recovery_primary}!"`, verify with
+`key_identity(...,"primary-encryption")`, and set both fingerprint variables to that primary.
+The adapter rejects multiple usable secrets/unrelated keys. This fallback copies the broader primary
+capability; prefer the subkey route whenever it exists. Never silently switch modes to bypass a
+failed probe. Retain the original WSL copy in either case. The first `plan_only` run checks what was
+actually imported; a secret's existence alone proves neither usability nor recoverability.
+
+#### One-time restricted host access and administration transition
+
+Use the existing owner route only after separate authorization for VPS access changes.
+
+1. Keep a reviewed root-owned immutable bootstrap checkout at
+   `/srv/gameometro/operations/BOOTSTRAP_SHA`, with protected ancestors and a root-owned
+   `/srv/gameometro/repo` that can fetch the repository. The fixed entrypoint exports later verified
+   releases by SHA. Give it a dedicated repository-scoped read-only GitHub token file (`Contents: read`,
+   `Actions: read`, `Environments: read`) for artifacts, runs/jobs/approvals and policy metadata,
+   never root's global `gh` login.
+2. Reuse Tailscale/OpenSSH with a distinct ephemeral OAuth identity restricted to
+   `tag:gameometro-production-deploy`, permitting only SSH to this VPS. Deny both admin ports for
+   IPv4/IPv6; do not inherit the owner's rights or reuse private-dev's tag. The recovery runner
+   needs no tailnet identity or VPS connection. Pin the host key out of band.
+3. Create `vgp-production-deploy` without Docker membership, writable operational sources or a
+   general sudo grant. Its root-owned authorized-key entry must use `restrict` and exactly this
+   forced command, substituting the immutable bootstrap path once:
+
+   ```text
+   restrict,command="/usr/bin/sudo -n /usr/bin/python3 -B /srv/gameometro/operations/BOOTSTRAP_SHA/scripts/production_deploy.py" ssh-ed25519 DEPLOY_PUBLIC_KEY
+   ```
+
+   A root-owned sudoers fragment, checked with `visudo -cf`, permits only the exact entrypoint:
+
+   ```text
+   Cmnd_Alias GAMEOMETRO_DEPLOY = /usr/bin/python3 -B /srv/gameometro/operations/BOOTSTRAP_SHA/scripts/production_deploy.py
+   Defaults!GAMEOMETRO_DEPLOY env_keep += "SSH_ORIGINAL_COMMAND SSH_CONNECTION"
+   vgp-production-deploy ALL=(root) NOPASSWD: NOSETENV: GAMEOMETRO_DEPLOY
+   ```
+
+   Keep `env_reset` and the secure path; no wildcard, shell, `SETENV`, Python environment override
+   or unrestricted root command. Test shell/PTY/forwarding, malformed command, wrong SHA/tag/run and
+   rerun attempt: all refuse before runtime changes. Only `plan`, `prepare`, `apply` with the exact
+   approved run identity are accepted. The actor independently downloads recovery evidence.
+4. Retire the temporary Grafana bridge **once** under the scoped [#464 transition](#authorized-rollout):
+   inspect its exact listener/process, preserve product TCP 443, remove only a conflicting admin
+   handler and stop only the identified temporary process. The actor refuses occupied unowned
+   backends; it never kills a guessed PID. Review/test the effective additive tailnet policy with
+   real owner/non-owner/deployment/public probes and keep its hash and acknowledgement privately.
+5. Protect `/etc/gameometro/production/deploy.json` as root-owned `0600` with these fields:
+
+   | Field | Existing input |
+   |---|---|
+   | `githubTokenFile` | Dedicated read-only token file |
+   | `backupCycleConfig` | Existing installed backup-cycle JSON, with the same admin/project/state/work/lock used by the timers |
+   | `sourceTag` | `tag:gameometro-production-deploy` |
+   | `policySha256` | Hash of the effective owner-reviewed saved policy |
+   | `accessEvidenceFile` | Protected JSON acknowledgement of actual access probes |
+
+   The acknowledgement contains `policySha256` and boolean `true` for `ownerOnlyAdmin`,
+   `deploymentDeniedAdminIPv4`, `deploymentDeniedAdminIPv6`, `nonOwnerDeniedAdmin`,
+   `publicDeniedAdmin`, `temporaryGrafanaRetired`. These are owner attestations, not automated ACL
+   proof from a hash; repeat after policy/access changes. Missing evidence refuses deployment.
+   Both installed backup service units must have the documented fixed `ExecStart` pattern and no
+   drop-ins. The actor reconciles only their source paths after upgrade, preserving the timers.
+
+#### First execution and routine releases
+
+1. After setup and successful trusted-main CI/Security/publications, open **Actions → Deploy
+   Production → Run workflow**, choose `main` and check **plan_only**. Review/approve **both**
+   `production` and `production-recovery` before they run. This performs key/S3/capacity and host
+   admission checks without staging, capture, a fence or runtime change. Inspect the receipt's
+   exact SHA, digests, version, fingerprint and plan hash. It does write operational source/journals.
+2. For the first deployment, start a **new** run on `main`, leave **plan_only unchecked** and approve
+   both environments. No hash, image tag, version or backup path is entered. The maintenance period
+   starts only after the recovery runner is ready; it includes upload and isolated restore.
+3. Success requires #455's same-revision `mode: verified`, services/product/TLS/OIDC/authorization
+   checks, exact S3/restore proof, successful cleanup and recovery-job conclusion, existing backup
+   service reconciliation, and #464 verification. From the owner device, verify Gameómetro catalogue,
+   existing-account login/logout and rating access; Grafana login/dashboards at
+   `https://gameometro-prod.tailca0b11.ts.net:8443/`; Keycloak master login/realm navigation at
+   `https://gameometro-prod.tailca0b11.ts.net:10000/admin/`. Record first real-host/browser acceptance
+   privately. The deployment identity remains denied admin origins; public exposure is unchanged.
+
+Readiness/request/result artifacts retain **non-secret metadata for one day**: public fingerprints,
+nonce, run/SHA/plan/backup identities, sizes, S3 bucket/object/version/hash references and the cleaned
+restore attestation. Those references confer no S3 access; ciphertext stays in the existing durable
+bucket, never solely in Actions. Final allowlisted deployment receipts remain for 30 days. Keys,
+passphrases, S3/SSH credentials, plaintext, real database contents and raw child output are excluded.
+Protected host state stays in `/var/lib/gameometro/production/deployments/RUN_ID-1/`.
+
+On failure/cancellation, never click **Re-run jobs**: attempts after the first are refused. Before
+`capturing` no backup fence was created. At `capturing`/`publishing`/`awaiting-restore`, inspect the
+protected deployment and recovery journals; the source remains fenced, and no automatic thaw is
+attempted. At `applying`/`verifying`, use #455's existing inspect/resume/forward-fix decision. At
+`backup-services`/`admin`, the product may already be upgraded: repair only the failed administrative
+step with its protected operator, then verify again. Never roll back Flyway or apply an older image.
+Normal exit and handled interruption remove recovery resources; hard cancellation can prevent the
+cleanup step, but the GitHub-hosted VM is disposable and the failed job cannot authorize apply.
+The manual [runbook](../../docs/development/operations-runbook.md#private-production-in-place-upgrade)
+remains the incident route, not a routine per-release dependency.
+
+Local unit and disposable Docker tests exercise contracts, subkey-only encryption/decryption,
+actual paired PostgreSQL dumps/restoration, identity/schema checks, failures and cleanup. Their
+Actions/S3 transports are simulated; only an authorized first Actions run can qualify real secrets,
+policies, artifact transport, current capacity and provider connectivity. No application/frontend/API
+or PoC artifact changes: this operational enabler has a Git revision/fingerprint and needs no product
+version bump. Growing beyond hosted-runner disk/tmpfs capacity fails before capture and needs an
+explicit resource decision; this change never provisions a paid larger runner or weakens restoration.
 
 ### Private-production administration
 
@@ -2097,11 +2337,9 @@ MVP or migration change.
 
 ### Cloud transport dependency
 
-The [S3 preparation guide](#s3-transport-preparation-276) owns the locally prepared
-adapter and its inputs. The [evidence boundary](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
+The [S3 transport guide](#s3-transport-preparation-276) owns the installed adapter and its inputs. The [evidence boundary](../../docs/research/public-production-backup-storage.md#local-s3-adapter-evidence)
 distinguishes demonstrated local guarantees from missing provider, deletion,
-ledger/archive and scheduler acceptance. Install no [production timer](#scheduled-backup-cycle-276)
-until those gates and cloud-only recovery have passed. Credentials remain outside
+ledger/archive and public acceptance. The [production timers](#scheduled-backup-cycle-276) are already installed; reuse them. Public exposure remains a separate gate. Credentials remain outside
 application containers; Lenovo must be unavailable for the cloud-only proof.
 
 

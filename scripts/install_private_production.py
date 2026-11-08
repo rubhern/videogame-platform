@@ -45,6 +45,8 @@ OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_
                      'scripts/public_production_integration.py', 'scripts/private_production_acceptance.py',
                      'scripts/private_production_upgrade.py', 'scripts/production_registration_notice.py',
                      'scripts/private_production_admin.py', 'scripts/production_public_ingress.py',
+                     'scripts/production_deploy.py', 'scripts/production_recovery_executor.py',
+                     'scripts/production_deployment_evidence.py',
                      # Non-code inputs the post-acceptance transition applies to the installed runtime.
                      'deploy/private-dev/grafana/dashboards/vgp-synchronization.json',
                      'backend/src/main/resources/db/migration/V20261106_120000__observe_catalogue_localization.sql')

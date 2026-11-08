@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0036-use-protected-actions-for-production-recovery.md', 'Protected Actions recovery · accepted'],
     ['docs/decisions/0035-separate-private-production-admin-ingress.md', 'Private production admin ingress · proposed'],
     ['docs/decisions/0033-select-lite-3-and-immutable-offhost-storage.md', 'Production host & immutable storage · accepted'],
     ['docs/decisions/0032-checkpoint-historical-synchronization-by-month.md', 'Historical month checkpoints · proposed'],
@@ -44,7 +45,7 @@ export const groups = [
   ['Platform & operations', [
     ['docs/architecture/deployment/mvp-platform-and-delivery.md', 'Private platform design'],
     ['deploy/private-dev/README.md', 'Private-dev operator guide'],
-    ['deploy/public-production/README.md', 'Public-production runtime · prepared'],
+    ['deploy/public-production/README.md', 'Production runtime · private operations'],
     ['docs/development/observability.md', 'Observability'],
     ['docs/development/operations-runbook.md', 'Operations & acceptance evidence'],
     ['docs/development/data-protection.md', 'Data protection & rights procedures'],
