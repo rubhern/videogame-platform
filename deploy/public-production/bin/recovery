@@ -484,8 +484,10 @@ os.close(fd)
         for kind, cmd in [('containers', ['docker', 'ps', '-aq'])]:
             require(not run([*cmd, '--filter', f'label=com.docker.compose.project={self.project}']).strip(), 'Restore target already has ' + kind + '; overwrite refused.')
 
-    def restore(self, backup, keyring, grafana_password_file=None):
-        if self.project == 'gameometro-production':
+    def restore(self, backup, keyring, grafana_password_file=None, owner_local=False):
+        # owner_local: the owner's own engine, where the key already lives (owner decision 2026-11-08);
+        # never a runtime host, which holds no private key. Only the reconstruction tool sets it.
+        if self.project == 'gameometro-production' and not owner_local:
             endpoint = os.environ.get('DOCKER_HOST')
             if not endpoint:
                 context = json.loads(run(['docker', 'context', 'inspect']))

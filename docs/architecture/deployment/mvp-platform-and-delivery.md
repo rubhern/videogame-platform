@@ -24,7 +24,7 @@ owns post-MVP public-release direction and its pending decisions.
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
 | `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
-| `production` | Owner-approved release direction; accepted design below, configuration prepared, unbuilt and gated | Independent durable data and public product access only |
+| `production` | Public since 2026-11-08 on the design below; owner-accepted 2026-11-08 ([#276 record](../../research/public-production-release-acceptance.md)) | Independent durable data and public product access only |
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -339,7 +339,7 @@ preserve portability. Hosting reconsideration triggers belong to ADR-0019.
 
 ## Public production target
 
-**Owner-approved direction, unbuilt (#276, 2026-10-25):** netcup VPS Lite 3,
+**Owner-approved direction (#276, 2026-10-25); public since 2026-11-08, see the [release record](../../research/public-production-release-acceptance.md):** netcup VPS Lite 3,
 x86_64, advertised eight shared vCores / 16 GB RAM / 320 GB SSD, replaces Lite 2.
 Indicative EUR 16.95/month including VAT and a two-month minimum term are planning
 inputs; actual quote, terms, cancellation/renewal, availability and capacity are
@@ -568,7 +568,7 @@ owns the approved ordinary and remembered bounds and the signed mode distinction
 Both imports now prepare that policy, including aligning the local ordinary SSO
 maximum from ten to eight hours. Startup import still ignores existing realms;
 private-dev needs a reviewed image/application rollout and snapshotted identity
-alignment. Its live policy has not changed. Production remains unbuilt and gated.
+alignment. Its live policy has not changed.
 The [research](../../research/browser-session-lifetime.md#7-374-mode-distinction-design-gate)
 records why a narrow provider was approved rather than a browser flag or a built-in
 note mapper. [Local setup](../../development/local-setup.md#remember-me-verification)
@@ -737,7 +737,10 @@ filesystem selector uses seven daily copies plus four weekly copies. It is not a
 policy. **Owner policy approval (#276, 2026-10-29):** capture every 12 hours, bucket-default
 Compliance protection for 33 days, exact-version deletion verified within 35 days of the recovery
 point, independent integrity evidence no older than 24 hours and a full verified restore at least
-every 8 days. These are target guarantees, not operational acceptance or measured RPO/RTO.
+every 30 days (owner change on 2026-11-08 from 8 days, so that the restored pair is still inside its
+33-day lock). The weekly owner effort was judged disproportionate. The owner also accepted
+running that restore on the owner's own Docker engine, where the decryption key already lives,
+instead of a separate SSH target; runtime hosts still never hold the key. These are target guarantees, not operational acceptance or measured RPO/RTO.
 Provider-internal reclamation follows the contracted deletion terms; a missed exact-version deletion
 deadline is an incident, never an extension. The independent actor performs deletion; keys remain
 off the VPS. The

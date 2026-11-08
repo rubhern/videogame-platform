@@ -800,6 +800,21 @@ def command_ledger_fetch(arguments: argparse.Namespace, _host_command: list[str]
     return 0
 
 
+def command_ledger_init(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
+    """Record the empty production ledger in both cloud copies before any erasure exists.
+
+    Recovery refuses to reopen without two identical, locked cloud copies, including for an
+    intentionally empty ledger. Only an absent pair is initialized; any existing copy refuses.
+    """
+    if CLOUD is None:
+        raise LedgerError("ledger-init requires --cloud-copies")
+    if any(copy is not None for copy in CLOUD.current_ledgers()):
+        raise LedgerError("A cloud ledger copy already exists; use ledger-fetch or reconcile instead")
+    CLOUD.put_ledger(b"")
+    print("Recorded the empty ledger in both locked cloud copies.")
+    return 0
+
+
 def command_status(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
     with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
         for entry in ledger.entries():
@@ -917,6 +932,7 @@ def main() -> int:
     retry = commands.add_parser("retry", help="Run every incomplete erasure again")
     retry.add_argument("--maintenance-command", help="Deny/drain adapter for live erasure; required for cleanup recovery")
     commands.add_parser("status", help="List ledger entries (identifiers and states only)")
+    commands.add_parser("ledger-init", help="Record the empty ledger in both cloud copies (no erasure yet)")
     fetch = commands.add_parser("ledger-fetch", help="Rebuild the ledger from its two cloud copies for recovery")
     fetch.add_argument("--checkpoint", type=pathlib.Path, required=True)
     replay = commands.add_parser("replay", help="Reapply every erasure to a restored runtime before it reopens")
@@ -930,7 +946,7 @@ def main() -> int:
     if arguments.cloud_copies is not None:
         CLOUD = cloud_module.CloudCopies(arguments.cloud_copies)
     host_command = shlex.split(arguments.host_command) if arguments.host_command else None
-    if arguments.command not in ("status", "archive-verify", "archive-review", "archive-purge", "ledger-fetch") and not host_command:
+    if arguments.command not in ("status", "archive-verify", "archive-review", "archive-purge", "ledger-fetch", "ledger-init") and not host_command:
         parser.error(f"{arguments.command} requires --host-command")
     if arguments.command in ("erase", "retry", "cleanup-unverified") and arguments.ledger_copy is None:
         # No mutation may start unless its record is durable on two independent storages.
@@ -945,6 +961,7 @@ def main() -> int:
         "retry": command_retry,
         "status": command_status,
         "ledger-fetch": command_ledger_fetch,
+        "ledger-init": command_ledger_init,
         "replay": command_replay,
     }[arguments.command]
     return handler(arguments, host_command)

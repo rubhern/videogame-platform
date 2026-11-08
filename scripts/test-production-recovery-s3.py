@@ -350,7 +350,7 @@ class S3Tests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertTrue(result['absenceVerified'])
         self.assertEqual(result['outcome'], 'success')
-        self.assertEqual(result['adapterVersion'], '0.2.2')
+        self.assertEqual(result['adapterVersion'], '0.3.0')
         self.assertFalse(result['productionReady'])
 
     def test_cli_failed_execution_persists_sanitized_attempt(self):
@@ -553,7 +553,9 @@ class S3Tests(unittest.TestCase):
         proof = self.publish()
         restore = {'kind': 'recovery-rehearsal', 'outcome': 'success', 'deletionReplay': True, 'readiness': True,
                    'scope': 'owner-reconstructed-target', 'backupId': proof['backupId'], 'manifestSha256': proof['manifestSha256'],
-                   'verifiedAt': (self.now - dt.timedelta(days=9)).isoformat()}
+                   'verifiedAt': (self.now - dt.timedelta(days=29)).isoformat()}
+        self.assertNotIn('restore-warning', self.store.observe(self.lifecycle, 1000000, restore)['alerts'])
+        restore['verifiedAt'] = (self.now - dt.timedelta(days=31)).isoformat()
         self.assertIn('restore-warning', self.store.observe(self.lifecycle, 1000000, restore)['alerts'])
         self.now += dt.timedelta(hours=15); self.fake.now = self.now
         self.assertIn('missed-copy-warning', self.store.observe(self.lifecycle, 1000000)['alerts'])
@@ -612,7 +614,7 @@ class S3Tests(unittest.TestCase):
         proof = self.publish()
         restore = {'kind': 'recovery-rehearsal', 'outcome': 'success', 'deletionReplay': True, 'readiness': True,
                    'scope': 'owner-reconstructed-target', 'backupId': proof['backupId'], 'manifestSha256': proof['manifestSha256'],
-                   'verifiedAt': (self.now - dt.timedelta(days=15)).isoformat()}
+                   'verifiedAt': (self.now - dt.timedelta(days=33)).isoformat()}
         self.assertIn('restore-critical', self.store.observe(self.lifecycle, 1000000, restore)['alerts'])
         for field, value in [('scope', 'isolated-local'), ('manifestSha256', 'b'*64), ('deletionReplay', False)]:
             invalid = {**restore, field: value}
