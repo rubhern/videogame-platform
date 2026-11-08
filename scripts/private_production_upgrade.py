@@ -519,8 +519,12 @@ class Upgrade:
             value = json.loads(pointer.read_text())
             path = Path(value['configurationFile'])
             require(install.sha(path) == value['configurationSha256'], 'The active upgrade configuration changed.')
-            return {'file': path, 'config': json.loads(path.read_text()), 'revision': value['revision'],
-                    'source': path.parent / 'candidate', 'bundle': path.parent}
+            revision = value['revision']
+            require(re.fullmatch('[0-9a-f]{40}', revision or ''), 'The active source revision is invalid.')
+            # Public ingress relocates Compose, while recovery stays in the installed revision's bundle.
+            bundle = self.bundles / f'{revision[:12]}-private'
+            return {'file': path, 'config': json.loads(path.read_text()), 'revision': revision,
+                    'source': bundle / 'candidate', 'bundle': bundle}
         return {'file': accepted_file, 'config': json.loads(accepted_file.read_text()), 'revision': prepare.REVISION,
                 'source': self.installed_source, 'bundle': self.installed_source.parent}
 

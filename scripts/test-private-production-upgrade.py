@@ -73,6 +73,71 @@ def rendered(bundle=BUNDLE):
     return config(bundle, IMAGES['application'], IMAGES['keycloak'], IMAGES['caddy'], IMAGES['catalogue-localizer'])
 
 
+class ActiveLineage(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.admin = self.base / 'admin'
+        (self.admin / upgrade.UPGRADES).mkdir(parents=True)
+        self.bundles = self.base / 'installations'
+        self.bundle = self.bundles / f'{TARGET[:12]}-private'
+        self.source = self.bundle / 'candidate'
+        actor = self.source / 'deploy/public-production/bin/recovery'
+        actor.parent.mkdir(parents=True)
+        actor.write_text('IDENTITY = "installed-revision"\n')
+        self.actor = actor
+        self.path = self.admin / 'ingress/compose.public.json'
+        self.path.parent.mkdir()
+        self.path.write_text(json.dumps({'services': {'caddy': {'ports': upgrade.ingress.public_ports('62.83.73.32')}}}))
+        self.pointer = {'revision': TARGET, 'configurationFile': str(self.path),
+                        'configurationSha256': install.sha(self.path)}
+        self.pointer_file = self.admin / upgrade.UPGRADES / upgrade.ACTIVE
+        self.write_pointer()
+        self.value = upgrade.Upgrade(NEWER, admin=self.admin, bundles=self.bundles)
+
+    def write_pointer(self):
+        self.pointer_file.write_text(json.dumps(self.pointer))
+
+    def test_public_compose_keeps_recovery_in_the_installed_revision_bundle(self):
+        active = self.value.active_state(None)
+        self.assertEqual(active['file'], self.path)
+        self.assertEqual(active['source'], self.source)
+        self.assertEqual(active['bundle'], self.bundle)
+        self.assertEqual(acceptance.recovery_module(active['source']).IDENTITY, 'installed-revision')
+        self.assertEqual(active['config']['services']['caddy']['ports'], upgrade.ingress.public_ports('62.83.73.32'))
+
+    def test_private_compose_still_uses_the_same_installed_bundle(self):
+        private = self.bundle / upgrade.TARGET_CONFIG
+        private.write_text(self.path.read_text())
+        self.pointer['configurationFile'] = str(private)
+        self.write_pointer()
+        active = self.value.active_state(None)
+        self.assertEqual(active['file'], private)
+        self.assertEqual(active['source'], self.source)
+
+    def test_changed_configuration_and_invalid_revision_refuse(self):
+        with self.subTest('changed configuration'):
+            self.path.write_text('{}')
+            with self.assertRaises(trust.Refused):
+                self.value.active_state(None)
+        self.pointer['configurationSha256'] = install.sha(self.path)
+        for invalid in ('main', '../candidate', TARGET + '/x'):
+            with self.subTest(revision=invalid):
+                self.pointer['revision'] = invalid
+                self.write_pointer()
+                with self.assertRaises(trust.Refused):
+                    self.value.active_state(None)
+
+    def test_missing_installed_actor_never_falls_back_to_the_compose_directory(self):
+        self.actor.unlink()
+        decoy = self.path.parent / 'candidate/deploy/public-production/bin/recovery'
+        decoy.parent.mkdir(parents=True)
+        decoy.write_text('IDENTITY = "unrelated-compose-directory"\n')
+        with self.assertRaises(FileNotFoundError):
+            acceptance.recovery_module(self.value.active_state(None)['source'])
+
+
 class Pure(unittest.TestCase):
     def test_checksum_ignores_line_endings_and_bom_and_is_a_signed_integer(self):
         self.assertEqual(upgrade.flyway_checksum(b'a\nb\n'), upgrade.flyway_checksum(b'a\r\nb'))
