@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -412,6 +413,23 @@ class Host(install.Host):
         self.local = lambda path: path
         self.degraded = ()
 
+    def port_bindings_match(self, name, bindings):
+        published = self.config['services'][name].get('ports')
+        if not published:
+            return super().port_bindings_match(name, bindings)
+        if name != 'caddy' or not isinstance(published, list) or not isinstance(bindings, dict):
+            return False
+        ipv4 = published[0].get('host_ip')
+        try:
+            address = ipaddress.ip_address(ipv4)
+        except ValueError:
+            return False
+        if address.version != 4 or not address.is_global or published != ingress.public_ports(ipv4):
+            return False
+        expected = {str(p['target']) + '/tcp': [{'HostIp': ipv4, 'HostPort': p['published']}] for p in published}
+        # Docker can include unbound EXPOSE entries as null; only effective publications count.
+        return {port: rows for port, rows in bindings.items() if rows} == expected
+
     def bind_path(self, path):
         # A plan reviews inputs before the bundle exists; the bytes are in its scratch copy.
         return self.local(super().bind_path(path))
@@ -575,7 +593,8 @@ class Upgrade:
             if stopped:
                 value = json.loads(self.run(['docker', 'inspect', stopped[0]]))[0]
                 require(value['Config']['Image'] == host.config['services'][name]['image']
-                        and not value['HostConfig'].get('PortBindings'), 'A stopped service drifted from the active runtime.')
+                        and host.port_bindings_match(name, value['HostConfig'].get('PortBindings')),
+                        'A stopped service drifted from the active runtime.')
             result[name] = 'stopped'
         return result
 

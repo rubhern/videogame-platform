@@ -312,6 +312,44 @@ class RolloutTests(unittest.TestCase):
                 self.assertEqual(self.events.count(name), 1)
                 self.runtime.thaw.assert_not_called()
 
+    def test_preflight_failures_persist_only_a_specific_allowlisted_check(self):
+        import shutil
+        checks = [(deploy, 'access', 'access'), (deploy.evidence, 'read', 'recovery-ready'),
+                  (self.actor, 'load', 'installed-runtime'), (deploy, 'load_cycle', 'backup-cycle'),
+                  (self.cycle, 'exclusive', 'backup-lock'), (self.cycle, 'preflight', 'backup-runtime'),
+                  (self.cycle, 'admission', 'host-s3-admission'), (deploy, 'backup_units', 'backup-services'),
+                  (self.actor, 'plan', 'upgrade-plan')]
+        for target, method, check in checks:
+            with self.subTest(check=check):
+                shutil.rmtree(self.root/'deployments', ignore_errors=True)
+                with patch.object(target, method, side_effect=deploy.trust.Refused('SECRET child payload')):
+                    with self.assertRaises(deploy.trust.Refused):
+                        self.rollout().run('plan')
+                journal = (self.root/'deployments/123-1/deployment.json').read_text()
+                self.assertEqual(json.loads(journal)['check'], check)
+                self.assertNotIn('SECRET', journal)
+                self.runtime.backup.assert_not_called()
+                self.actor.apply.assert_not_called()
+
+    def test_host_failure_reports_stage_and_category_without_exception_or_token(self):
+        token = self.root/'read-token'
+        token.write_text('SECRET protected token')
+        self.config['githubTokenFile'] = str(token)
+        self.actor.load.side_effect = FileNotFoundError('SECRET /private/source/path')
+        output = io.StringIO()
+        with patch('sys.argv', ['production_deploy.py', '--host', 'plan', SHA, '123', '1']), \
+                patch.object(os, 'geteuid', return_value=0), patch.object(deploy, 'read_config', return_value=self.config), \
+                patch.object(deploy, 'admission'), patch.object(deploy.upgrade.control, 'signal_handlers'), \
+                patch.object(deploy.upgrade.control, 'watch_session'), contextlib.redirect_stdout(output):
+            self.assertEqual(deploy.main(), 1)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(receipt['check'], 'installed-runtime')
+        self.assertEqual(receipt['category'], 'missing-file')
+        self.assertNotIn('SECRET', output.getvalue())
+        self.assertNotIn('/private/', output.getvalue())
+        self.runtime.backup.assert_not_called()
+        self.actor.apply.assert_not_called()
+
     def test_same_dispatch_cannot_be_replayed(self):
         self.rollout().run('plan')
         with self.assertRaises(deploy.trust.Refused): self.rollout().run('prepare')
@@ -478,6 +516,38 @@ class ReceiptTests(unittest.TestCase):
                 self.assertEqual(json.loads(Path('deployment-receipt.json').read_text())['phase'], 'awaiting-restore')
             finally:
                 os.chdir(previous)
+
+    def test_failed_preflight_summary_retains_only_allowlisted_context(self):
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory() as name:
+            os.chdir(name)
+            try:
+                base = {'revision': SHA, 'runId': '123', 'attempt': '1', 'outcome': 'failure', 'phase': 'preflight'}
+                for check, category, expected in [('upgrade-plan', 'check-refused', True),
+                                                   ('SECRET child output', 'SECRET error', False),
+                                                   ({'SECRET': 'value'}, ['SECRET'], False)]:
+                    Path('raw').write_text(json.dumps({**base, 'check': check, 'category': category, 'reason': 'SECRET'}))
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(deploy.summarize(Path('raw'), SHA, '123', '1', 'true'), 1)
+                    receipt = Path('deployment-receipt.json').read_text()
+                    self.assertNotIn('SECRET', receipt + output.getvalue())
+                    self.assertEqual('check' in json.loads(receipt), expected)
+                Path('raw').write_text(json.dumps({**base, 'runId': '456', 'check': 'upgrade-plan'}))
+                with patch('builtins.print'):
+                    deploy.summarize(Path('raw'), SHA, '123', '1', 'true')
+                self.assertNotIn('check', json.loads(Path('deployment-receipt.json').read_text()))
+            finally:
+                os.chdir(previous)
+
+    def test_exception_categories_never_include_raw_exception_text(self):
+        for error, expected in [(FileNotFoundError('SECRET /private/path'), 'missing-file'),
+                                (PermissionError('SECRET'), 'permission-denied'),
+                                (subprocess.TimeoutExpired('SECRET', 10), 'timeout'),
+                                (KeyboardInterrupt('SECRET'), 'interrupted'),
+                                (deploy.trust.Refused('SECRET child output'), 'check-refused'),
+                                (RuntimeError('SECRET'), 'unexpected')]:
+            self.assertEqual(deploy.failure_category(error), expected)
 
     def test_raw_errors_and_secrets_never_enter_artifact(self):
         previous = Path.cwd()

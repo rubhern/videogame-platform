@@ -1777,6 +1777,10 @@ immutable bundle, `/srv/gameometro/installations/<revision12>-private/candidate`
 `ingress/compose.public.json`; its parent is not the operational source. The active configuration's
 fingerprint must still match. A missing installed actor refuses operation without falling back to
 another checkout. Older Compose files would revert images when they recreate a service.
+The upgrade checks both configured and effective Docker bindings, including a stopped edge under
+the fence: only Caddy's existing reviewed public IPv4 bindings on 80/443 are allowed. Extra bindings,
+IPv6 publication or a different address/port refuse the plan. First installation and private
+acceptance continue to reject all publication.
 
 **Deliberate trade-offs.**
 
@@ -1813,8 +1817,8 @@ Docker Desktop's spelling of directory binds and skips the Docker data-root disk
 
 ### Owner-approved Actions deployment (#467)
 
-**Repository implementation for review; no Actions deployment, secret upload or VPS access change
-has been executed.** Production, paired backups, S3 and timers already operate; the accepted public ingress is preserved. The owner
+**Implemented workflow; complete a successful `plan_only` admission before the first Actions deployment.**
+Production, paired backups, S3 and timers already operate; the accepted public ingress is preserved. The owner
 explicitly authorizes a recovery-key copy in GitHub under
 [ADR-0036](../../docs/decisions/0036-use-protected-actions-for-production-recovery.md); its original
 WSL copy remains independent. There is no extra server or workstation availability dependency.
@@ -1850,8 +1854,8 @@ source paths and the independent #464 operator finish the rollout without changi
 
 #### One-time protected environments and secrets
 
-These are owner-executed setup instructions after reviewing and merging the implementation.
-Nothing in this repository change creates environments, loads a key, changes SSH/policy or deploys.
+Perform this owner-authorized setup once after reviewing and merging the implementation.
+Workflow dispatch does not create environments, load a key or change SSH/policy.
 
 In **GitHub → Settings → Environments**, create **both** `production` and `production-recovery`:
 
@@ -2032,6 +2036,10 @@ restore attestation. Those references confer no S3 access; ciphertext stays in t
 bucket, never solely in Actions. Final allowlisted deployment receipts remain for 30 days. Keys,
 passphrases, S3/SSH credentials, plaintext, real database contents and raw child output are excluded.
 Protected host state stays in `/var/lib/gameometro/production/deployments/RUN_ID-1/`.
+Preflight failures retain an allowlisted check name and fixed failure category in the sanitized
+receipt and Actions summary, even when no complete plan exists. The host journals the check before
+running it. Raw exception text, subprocess output and file paths remain excluded; inspect protected
+journals for details, then correct the cause before dispatching a new run.
 
 On failure/cancellation, never click **Re-run jobs**: attempts after the first are refused. Before
 `capturing` no backup fence was created. At `capturing`/`publishing`/`awaiting-restore`, inspect the
