@@ -202,6 +202,27 @@ class LivePublicExposure(unittest.TestCase):
                     self.host.running(['caddy'])
                 self.info[field] = original
 
+    def test_probe_selects_system_roots_only_for_the_reviewed_public_edge(self):
+        self.assertIsNone(self.host.probe_ca_file())
+        self.host.config['services']['application'] = {'environment': {'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+            'OIDC_CONTRACT_CA_FILE': '/unreviewed/ca.crt'}}
+        self.host.config['networks']['telemetry'] = {'name': 'telemetry-network'}
+        self.host.source = Path('/reviewed/candidate')
+        with patch.object(install, 'run', return_value=b'') as run:
+            self.host.probe('synthetic-probe')
+        arguments = run.call_args.args[0]
+        self.assertFalse(any('OIDC_CONTRACT_CA_FILE=' in str(a) for a in arguments))
+        self.assertNotIn('/unreviewed/ca.crt', arguments)
+        self.host.config['services']['caddy']['ports'] = []
+        self.assertEqual(self.host.probe_ca_file(), '/run/private-tls/ca.crt')
+        private = object.__new__(install.Host)
+        self.assertEqual(private.probe_ca_file(), '/run/private-tls/ca.crt')
+
+    def test_unreviewed_publication_cannot_select_public_tls_mode(self):
+        self.host.config['services']['caddy']['ports'][0]['host_ip'] = '0.0.0.0'
+        with self.assertRaises(trust.Refused):
+            self.host.probe_ca_file()
+
     def test_first_install_still_rejects_public_bindings(self):
         private = object.__new__(install.Host)
         private.__dict__.update(self.host.__dict__)

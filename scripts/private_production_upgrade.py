@@ -430,6 +430,14 @@ class Host(install.Host):
         # Docker can include unbound EXPOSE entries as null; only effective publications count.
         return {port: rows for port, rows in bindings.items() if rows} == expected
 
+    def probe_ca_file(self):
+        published = self.config['services']['caddy'].get('ports')
+        if not published:
+            return super().probe_ca_file()
+        expected = {str(p['target']) + '/tcp': [{'HostIp': p['host_ip'], 'HostPort': p['published']}] for p in published}
+        require(self.port_bindings_match('caddy', expected), 'Public TLS probe requires the reviewed edge bindings.')
+        return None  # The public certificate must validate against the helper's system roots.
+
     def bind_path(self, path):
         # A plan reviews inputs before the bundle exists; the bytes are in its scratch copy.
         return self.local(super().bind_path(path))

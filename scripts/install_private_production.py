@@ -319,8 +319,8 @@ def bootstrap_lease(runtime, mode='initial'):
 
 
 PROBE = r'''
-import http.client,json,runpy,ssl
-ca='/run/private-tls/ca.crt'
+import http.client,json,os,runpy,ssl
+ca=os.environ.get('OIDC_CONTRACT_CA_FILE') or None
 ctx=ssl.create_default_context(cafile=ca)
 def get(host,path,context=ctx):
  c=http.client.HTTPSConnection(host,context=context,timeout=15)
@@ -333,9 +333,12 @@ assert s==200 or s==503 and json.loads(b).get('code')=='CATALOGUE_NOT_READY'
 assert get('gameometro.com','/actuator/health')[0]==404
 assert get('auth.gameometro.com','/admin/')[0]==404
 assert get('auth.gameometro.com','/realms/master/.well-known/openid-configuration')[0]==404
-try: get('auth.gameometro.com','/realms/gameometro/.well-known/openid-configuration',ssl.create_default_context())
-except ssl.SSLCertVerificationError: pass
-else: raise AssertionError('Private TLS was trusted without its CA')
+if ca:
+ try: get('auth.gameometro.com','/realms/gameometro/.well-known/openid-configuration',ssl.create_default_context())
+ except ssl.SSLCertVerificationError: pass
+ else: raise AssertionError('Private TLS was trusted without its CA')
+else:
+ assert get('auth.gameometro.com','/realms/gameometro/.well-known/openid-configuration')[0]==200
 runpy.run_path('/work/check-oidc-issuer-contract.py',run_name='__main__')
 '''
 
@@ -841,10 +844,16 @@ class Host:
     def smoke_services(self):
         return [n for n in self.config['services'] if n != 'migration']
 
+    def probe_ca_file(self):
+        return '/run/private-tls/ca.crt'
+
     def probe(self, script):
         env = self.config['services']['application']['environment']
         env = {k: v for k, v in env.items() if k.startswith(('OIDC_', 'APPLICATION_OIDC_'))}
-        env['OIDC_CONTRACT_CA_FILE'] = '/run/private-tls/ca.crt'
+        env.pop('OIDC_CONTRACT_CA_FILE', None)
+        ca_file = self.probe_ca_file()
+        if ca_file:
+            env['OIDC_CONTRACT_CA_FILE'] = ca_file
         env_args = [a for k, v in env.items() for a in ('-e', f'{k}={v}')]
         run(['docker', 'run', '--rm', '-i', '--network', self.config['networks']['telemetry']['name'],
              '--label', f'{control.RUN_LABEL}={self.run_id}', '--label', f'{control.CONFIG_LABEL}={self.configuration}',

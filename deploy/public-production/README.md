@@ -1781,6 +1781,11 @@ The upgrade checks both configured and effective Docker bindings, including a st
 the fence: only Caddy's existing reviewed public IPv4 bindings on 80/443 are allowed. Extra bindings,
 IPv6 publication or a different address/port refuse the plan. First installation and private
 acceptance continue to reject all publication.
+Smoke probes select trust from that reviewed edge mode. Private TLS requires the pinned private
+CA and must fail verification with system roots alone; the approved public edge requires system
+roots and successful certificate/hostname verification. Both modes keep the same issuer, BFF
+redirect, public API and hidden-admin checks. No unverified-TLS or private-CA fallback is used for
+the public edge.
 
 **Deliberate trade-offs.**
 

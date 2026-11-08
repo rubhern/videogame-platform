@@ -91,6 +91,45 @@ class FakeHost:
         return {'status': 'confirmed'}
 
 
+class SmokeTls(unittest.TestCase):
+    def run_probe(self, public, force_private=False):
+        import ssl
+        checked = []
+        class Connection:
+            def __init__(self, host, context, timeout):
+                self.host, self.context = host, context
+            def request(self, method, path):
+                self.path = path
+            def getresponse(self):
+                trusted = self.context['cafile'] is None if public else self.context['cafile'] == '/run/private-tls/ca.crt'
+                if not trusted:
+                    raise ssl.SSLCertVerificationError('Synthetic certificate does not match trust roots')
+                checked.append((self.host, self.path))
+                hidden = self.path in ('/actuator/health', '/admin/', '/realms/master/.well-known/openid-configuration')
+                return SimpleNamespace(status=404 if hidden else 200, read=lambda _: b'{}')
+            def close(self):
+                pass
+        environment = {} if public and not force_private else {'OIDC_CONTRACT_CA_FILE': '/run/private-tls/ca.crt'}
+        with patch.dict(os.environ, environment, clear=True), \
+                patch('ssl.create_default_context', side_effect=lambda cafile=None: {'cafile': cafile}), \
+                patch('http.client.HTTPSConnection', Connection), patch('runpy.run_path') as issuer:
+            exec(install.PROBE, {})
+            issuer.assert_called_once_with('/work/check-oidc-issuer-contract.py', run_name='__main__')
+        self.assertIn(('auth.gameometro.com', '/admin/'), checked)
+        self.assertIn(('gameometro.com', '/api/v1/releases?page=1&pageSize=1'), checked)
+
+    def test_private_tls_keeps_explicit_ca_and_negative_system_trust_check(self):
+        self.run_probe(False)
+
+    def test_public_tls_requires_system_roots_and_keeps_issuer_and_hidden_admin_checks(self):
+        self.run_probe(True)
+
+    def test_a_public_certificate_is_not_accepted_with_only_private_ca_trust(self):
+        import ssl
+        with self.assertRaises(ssl.SSLCertVerificationError):
+            self.run_probe(True, force_private=True)
+
+
 class Transition(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
