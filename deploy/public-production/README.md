@@ -1771,8 +1771,12 @@ never over live volumes, and it loses any writes made after reopening. Previous 
 configuration stay in the journal and the old bundle is kept; no image or bundle is deleted.
 
 **After an upgrade.** Use the `configurationFile` in `upgrades/ACTIVE.json` for any later Compose
-command and for `recovery --config`, with `recovery` from the same bundle. Older files would
-revert images when they recreate a service. The file is named from just before reopening.
+command and for `recovery --config`. Resolve the recovery actor from the installed revision's
+immutable bundle, `/srv/gameometro/installations/<revision12>-private/candidate`, using the full
+`revision` in that pointer. Public ingress can relocate the active Compose file to
+`ingress/compose.public.json`; its parent is not the operational source. The active configuration's
+fingerprint must still match. A missing installed actor refuses operation without falling back to
+another checkout. Older Compose files would revert images when they recreate a service.
 
 **Deliberate trade-offs.**
 
