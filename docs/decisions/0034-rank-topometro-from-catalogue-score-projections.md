@@ -29,8 +29,8 @@ decimal Gameómetro shows, which cannot rank `8,33` above `8,25`.
   `game_community_score` for the community, each walked through a partial index in ranking
   order, with an `EXISTS` over the current publication's releases that mirrors the rating
   eligibility policy. Each source declares its minimum sample in `RankGamesUseCase.Source` and
-  the query binds it: 100 ratings for IGDB players and one for the community (`RNK-002`, owner
-  decision of 2026-10-26). The page's games then receive their snapshot, compact release summary
+  the query binds it: 50 ratings for IGDB players and one for the community (`RNK-002`, owner
+  decision of 2026-10-26, IGDB lowered from 100 on 2026-10-27). The page's games then receive their snapshot, compact release summary
   and genres. Count and page run in one repeatable-read snapshot.
 - The community projection of ADR-0029 gains `exact_mean`, the unrounded mean at the eighteen
   places Ratings compares means at. `RecordCommunityScoresUseCase` now carries that exact mean

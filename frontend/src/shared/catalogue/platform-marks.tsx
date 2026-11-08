@@ -14,7 +14,8 @@ type PlatformMarksProps = {
 
 /**
  * A listing's platforms as their marks: every name stays announced and is the mark's tooltip, an
- * unrecognized platform keeps its name beside the generic mark, and the exact number of platforms
+ * unrecognized platform keeps its name beside the generic mark, Windows keeps its name beside
+ * its standalone brand symbol, and the exact number of platforms
  * not drawn follows as `+N`. Marks are decorative; their names carry the list.
  */
 export function PlatformMarks({ label, marks, visible = marks.length, more }: PlatformMarksProps) {
@@ -28,7 +29,7 @@ export function PlatformMarks({ label, marks, visible = marks.length, more }: Pl
           title={mark.name}
         >
           {index < visible ? <SelectIcon name={mark.icon} /> : null}
-          <span className={mark.icon === "platform" && index < visible ? "platform-mark-name" : "sr-only"}>
+          <span className={(mark.icon === "platform" || mark.icon === "windows") && index < visible ? "platform-mark-name" : "sr-only"}>
             {mark.name}
           </span>
         </li>

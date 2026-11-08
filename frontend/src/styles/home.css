@@ -1,0 +1,1281 @@
+/* The home (#382): Gameómetro's front page. The week's featured release leads on its own art, set as
+   a front page sets its cover story; the highlights calendar and TOPómetro follow side by side, then
+   the platforms' doors and the player's corner, each with its own shape so the page keeps a rhythm.
+   Every value comes from the shared families and tokens; docs/development/frontend-design.md owns
+   the rules. */
+
+@layer components {
+  .home-page {
+    position: relative;
+    /* The stage bleeds to the viewport's edges; nothing may scroll sideways because of it. */
+    overflow-x: clip;
+  }
+
+  /* A small chevron that leans into the direction an entry moves you. */
+  .home-chevron {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  /* ---------------------------------------------------------------- Stage */
+
+  .home-stage {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+  }
+
+  /* The stage's positioned frame: the art and its light are placed against it, up behind the
+     header and out to the viewport's edges. */
+  .home-stage > .page-container {
+    position: relative;
+    padding-block: 4px 0;
+  }
+
+  /* ---------------------------------------------------------------- Featured release */
+
+  /* The home's heading: one compact phrase and one line, secondary to the release beneath it. */
+  .home-intro {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 4px;
+    max-width: 40rem;
+  }
+
+  .home-lead {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    text-shadow: 0 1px 12px var(--color-night);
+  }
+
+  /* Destacados's hero (featured.css) leads the stage: the week's temporal G frames the release on
+     its own art, and the home's two ways out close the copy inside it. */
+  .home-feature {
+    position: relative;
+    margin-top: 14px;
+  }
+
+  .home-feature .featured-hero-section {
+    position: relative;
+  }
+
+  .home-page .featured-platform-marks :is(.app-select-icon-playstation-4, .app-select-icon-playstation-5, .app-select-icon-xbox-series-x-s) {
+    margin-inline: 5px;
+  }
+
+  /* Both ways out share one row inside the G's reading zone. */
+  .home-feature .featured-hero-actions {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .home-feature .featured-hero-actions .button {
+    min-height: 44px;
+    gap: 10px;
+    padding-inline: 14px;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  .home-feature .featured-hero-actions .home-feature-secondary {
+    background: color-mix(in srgb, var(--control) 78%, transparent);
+  }
+
+  /* Wide wordmarks are drawn beyond their box; keep their own room so neighbouring marks never
+     touch, as Destacados does. */
+  .home-page .platform-marks :is(.app-select-icon-playstation-4, .app-select-icon-playstation-5, .app-select-icon-xbox-series-x-s) {
+    margin-inline: 4px;
+  }
+
+  /* ---------------------------------------------------------------- More highlights */
+
+  .home-more {
+    position: relative;
+    z-index: 2;
+    margin-top: 40px;
+  }
+
+  .home-more-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 20px;
+    margin-bottom: 14px;
+  }
+
+  .home-more-heading {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+
+  .home-more-action,
+  .home-section-action {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-ice-light);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 40%, transparent);
+    text-underline-offset: 4px;
+  }
+
+  .home-more-action:hover,
+  .home-section-action:hover {
+    color: #fff;
+    text-decoration-color: var(--color-ice);
+  }
+
+  .home-more-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* One pointer target and one keyboard stop: the title link's target covers the card. */
+  .home-more-card {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .home-more-media {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-radius: 4px;
+    background: var(--color-raised);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-ink) 9%, transparent),
+      0 22px 36px -24px #000;
+  }
+
+  .home-more-logo {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    max-width: 48%;
+    max-height: 40%;
+    object-fit: contain;
+    object-position: left bottom;
+    filter: drop-shadow(0 2px 10px rgb(0 0 0 / 0.7));
+  }
+
+  .home-more-body {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .home-more-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--g-ember);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-more-needle {
+    width: 9px;
+    height: 12px;
+    color: var(--g-fire);
+  }
+
+  .home-more-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-stretch: 104%;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+
+  .home-more-title a {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--color-ink);
+    text-decoration: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .home-more-title a::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    content: "";
+  }
+
+  .home-more-title a:focus-visible {
+    outline: 0;
+  }
+
+  .home-more-card:has(.home-more-title a:is(:hover, :focus-visible)) .home-more-title a {
+    color: var(--g-ice);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--g-lit) 70%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  .home-more-card:has(.home-more-title a:hover) .home-more-media {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--g-ice) 60%, transparent),
+      0 22px 36px -24px #000;
+  }
+
+  .home-more-card:has(.home-more-title a:focus-visible) .home-more-media {
+    outline: 2px solid var(--g-ice);
+    outline-offset: 3px;
+  }
+
+  /* ---------------------------------------------------------------- Sections */
+
+  .home-sections {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(64px, 7vw, 96px);
+    padding-block: clamp(56px, 6vw, 80px) clamp(64px, 7vw, 104px);
+  }
+
+  .home-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 64px;
+  }
+
+  .home-pair > *,
+  .home-sections > * {
+    min-width: 0;
+  }
+
+  .home-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px 24px;
+    margin-bottom: 20px;
+  }
+
+  .home-section-intro {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .home-section-title {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.375rem, 2vw, 1.75rem);
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .home-section-lead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .home-section-readout {
+    color: var(--g-ice);
+    font-size: 0.9375rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A preview's state is a notice at the preview's own size, aligned with what it replaces. */
+  .home-notice {
+    margin: 8px 0 0;
+  }
+
+  .home-notice h3 {
+    font-size: 1.125rem;
+  }
+
+  .home-stage .home-notice {
+    margin-block: 28px 8px;
+  }
+
+  /* ---------------------------------------------------------------- Calendar preview */
+
+  /* The days as a row of instrument keys: weekday, date, month and the count with the calendar's
+     interest dot. The chosen day is ringed in ice, a shape as well as a light. */
+  .home-days {
+    display: grid;
+    grid-auto-columns: minmax(74px, 1fr);
+    grid-auto-flow: column;
+    gap: 8px;
+    margin: 0 0 22px;
+    padding: 3px 3px 6px;
+    overflow-x: auto;
+    list-style: none;
+    scrollbar-width: thin;
+  }
+
+  .home-day {
+    position: relative;
+    display: grid;
+    width: 100%;
+    justify-items: center;
+    gap: 2px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 10px 6px 9px;
+    color: var(--color-muted);
+    background: var(--control);
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-day:hover {
+    border-color: var(--line-ice-strong);
+    background: var(--control-hover);
+  }
+
+  .home-day[aria-pressed="true"] {
+    border-color: var(--g-ice);
+    color: var(--color-ice-light);
+    background: color-mix(in srgb, var(--color-ice) 9%, var(--control));
+    box-shadow:
+      inset 0 2px 0 var(--g-ice),
+      0 0 0 1px var(--g-ice);
+  }
+
+  .home-day-weekday {
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .home-day[data-today] .home-day-weekday {
+    color: var(--g-ice);
+    text-transform: none;
+  }
+
+  .home-day-number {
+    color: var(--color-ink);
+    font-size: 1.625rem;
+    line-height: 1.05;
+  }
+
+  .home-day-month {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .home-day-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+  }
+
+  .home-day-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--density, var(--g-steel));
+    box-shadow: 0 0 8px -1px var(--density, transparent);
+  }
+
+  .home-day[data-density="1"] { --density: var(--color-density-1); }
+  .home-day[data-density="2"] { --density: var(--color-density-2); }
+  .home-day[data-density="3"] { --density: var(--color-density-3); }
+  .home-day[data-density="4"] { --density: var(--color-density-4); }
+
+  .home-day-skeleton {
+    height: 96px;
+    border-radius: 6px;
+  }
+
+  .home-day-panel {
+    display: grid;
+    gap: 14px;
+  }
+
+  .home-day-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
+  }
+
+  .home-day-title {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .home-day-total {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .home-day-games {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-day-game {
+    display: grid;
+    align-content: start;
+    gap: 9px;
+  }
+
+  .home-day-game-title {
+    font-size: 0.875rem;
+  }
+
+  .home-day-game-title a {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .home-day-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 22px;
+  }
+
+  .home-day-action {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-ice-light);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .home-day-action:hover {
+    color: #fff;
+  }
+
+  .home-day-calendar {
+    font-size: 0.8125rem;
+  }
+
+  /* ---------------------------------------------------------------- TOPómetro preview */
+
+  .home-topometro-lockup {
+    display: block;
+    width: auto;
+    height: clamp(26px, 2.6vw, 32px);
+  }
+
+  .home-topometro-lockup svg {
+    display: block;
+    width: auto;
+    height: 100%;
+  }
+
+  /* One night control parted in two: the chosen source lit in ice and announced as pressed. */
+  .home-sources {
+    display: inline-flex;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 8px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 3px;
+    background: var(--control);
+  }
+
+  .home-source {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px 13px;
+    color: var(--color-muted);
+    background: transparent;
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .home-source:hover {
+    color: var(--color-ink);
+  }
+
+  .home-source[aria-pressed="true"] {
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
+    background: color-mix(in srgb, var(--color-ice) 10%, var(--control));
+  }
+
+  .home-source-mark {
+    display: block;
+    width: auto;
+    height: 18px;
+    flex: none;
+  }
+
+  .home-source-mark svg {
+    width: auto;
+    height: 100%;
+  }
+
+  .home-podium {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-podium > li + li {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .home-rank {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px 58px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding-block: 14px;
+  }
+
+  .home-rank[data-place="1"] {
+    grid-template-columns: 40px 78px minmax(0, 1fr) auto;
+    padding-top: 16px;
+  }
+
+  /* Places differ by scale and light only: the winner's numeral in the lockup's moonlit silver,
+     the others outlined in ice. Never a medal colour. */
+  .home-rank-place {
+    margin: 0;
+    color: transparent;
+    font-family: var(--font-display);
+    font-size: 2.375rem;
+    font-stretch: 125%;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    text-align: center;
+    -webkit-text-stroke: 1.25px color-mix(in srgb, var(--color-ice) 62%, transparent);
+  }
+
+  .home-rank[data-place="1"] .home-rank-place {
+    font-size: 3rem;
+    background: linear-gradient(180deg, #ffffff 0%, #e3eaff 46%, #9db3ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-stroke: 0;
+  }
+
+  .home-rank-record {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .home-rank-title {
+    font-size: 0.9375rem;
+  }
+
+  .home-rank[data-place="1"] .home-rank-title {
+    font-size: 1.0625rem;
+  }
+
+  .home-rank-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
+
+  .home-rank-year {
+    margin: 0;
+    color: var(--g-ice);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-rank .ranking-reading {
+    position: relative;
+    z-index: 2;
+  }
+
+  .home-rank[data-place="1"] .ranking-reading-value strong {
+    font-size: 1.875rem;
+  }
+
+  .home-rank-pending .skeleton-cover {
+    width: 100%;
+  }
+
+  .home-rank-pending .home-rank-place {
+    opacity: 0.35;
+  }
+
+  .home-rank-reading-skeleton {
+    width: 74px;
+    height: 34px;
+  }
+
+  /* ---------------------------------------------------------------- Platforms */
+
+  .home-platform-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Each platform by its own identity: the logo leads on a quiet cool stage, the name and one way
+     into its catalogue follow, and that way's target covers the card. */
+  .home-platform {
+    position: relative;
+    display: grid;
+    height: 100%;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    background:
+      radial-gradient(70% 60% at 50% 0%, color-mix(in srgb, var(--color-ice) 9%, transparent), transparent 72%),
+      var(--color-surface);
+  }
+
+  .home-platform[data-logo="nintendo-switch-2"] { --logo-width: 104px; --logo-height: 56px; }
+  .home-platform[data-logo="playstation-5"] { --logo-width: 160px; --logo-height: 48px; }
+  .home-platform[data-logo="xbox-series-x-s"] { --logo-width: 122px; --logo-height: 58px; }
+  .home-platform[data-logo="windows"] { --logo-width: 58px; --logo-height: 58px; }
+
+  .home-platform-stage {
+    display: grid;
+    height: 112px;
+    place-items: center;
+    padding-top: 10px;
+  }
+
+  .home-platform-stage .platform-logo-stage {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+  }
+
+  .home-platform-stage .platform-logo {
+    width: var(--logo-width);
+    max-width: 82%;
+    height: var(--logo-height);
+    color: var(--color-ink);
+  }
+
+  .home-platform-stage .platform-logo-text {
+    font-size: 1.25rem;
+  }
+
+  .home-platform-body {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 4px 16px 16px;
+  }
+
+  .home-platform-name {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-stretch: 108%;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .home-platform-primary {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-line) 85%, transparent);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--control) 80%, transparent);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .home-platform-primary::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border-radius: 6px;
+    content: "";
+  }
+
+  .home-platform-primary:focus-visible {
+    outline: 0;
+  }
+
+  .home-platform:has(.home-platform-primary:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  .home-platform-arrow {
+    color: var(--color-ice);
+  }
+
+  .home-platform-note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+  }
+
+  .home-platform:has(.home-platform-primary:is(:hover, :focus-visible)) {
+    border-color: var(--line-ice-strong);
+  }
+
+  .home-platform:has(.home-platform-primary:is(:hover, :focus-visible)) .home-platform-primary {
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
+  }
+
+  /* ---------------------------------------------------------------- Player's corner */
+
+  /* An opaque night plate with an ice top edge: the story on one side, the player's own ways in
+     (or what an account adds) on the other. */
+  .home-personal {
+    position: relative;
+    display: grid;
+    gap: 28px 56px;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-top: 2px solid color-mix(in srgb, var(--color-ice) 70%, transparent);
+    border-radius: 6px;
+    padding: clamp(24px, 4vw, 44px);
+    background:
+      radial-gradient(56rem 20rem at 0% 0%, color-mix(in srgb, var(--color-ice) 8%, transparent), transparent 64%),
+      var(--color-surface);
+  }
+
+  .home-personal-title {
+    display: grid;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.625rem, 2.8vw, 2.25rem);
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .home-personal-title span {
+    color: var(--color-muted);
+  }
+
+  .home-personal-lead {
+    max-width: 46ch;
+    margin: 14px 0 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .home-personal-skeleton {
+    width: min(100%, 360px);
+    height: 44px;
+    margin-top: 16px;
+  }
+
+  /* The keypad's key: ten steps from ice to fire, each value in its own temperature. */
+  .home-thermal-key {
+    max-width: 340px;
+    margin-top: 22px;
+  }
+
+  .home-thermal-steps {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-thermal-steps li {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    color: var(--color-subtle);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-thermal-steps li::before {
+    width: 100%;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--thermal);
+    box-shadow: 0 0 10px -3px var(--thermal);
+    content: "";
+  }
+
+  .home-personal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  .home-personal-actions .button {
+    min-width: 140px;
+  }
+
+  .home-personal-features {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-personal-feature {
+    border-top: 1px solid var(--color-line);
+    padding-block: 16px 18px;
+  }
+
+  .home-personal-feature h3 {
+    margin: 0 0 5px;
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .home-personal-feature p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+
+  .home-personal-links {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-personal-link {
+    display: grid;
+    min-height: 44px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 3px 16px;
+    border-top: 1px solid var(--color-line);
+    padding: 16px 6px;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .home-personal-links > li:last-child .home-personal-link {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .home-personal-link-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-stretch: 104%;
+    font-weight: 700;
+  }
+
+  .home-personal-link-text {
+    grid-row: 2;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .home-personal-link .home-chevron {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    color: var(--color-ice);
+  }
+
+  .home-personal-link:hover .home-personal-link-title {
+    color: var(--color-ice-light);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 50%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  /* ---------------------------------------------------------------- Loading */
+
+  .home-feature-pending {
+    min-height: clamp(400px, 34vw, 460px);
+  }
+
+  .home-section-skeleton {
+    width: min(70%, 280px);
+    height: 28px;
+    margin-bottom: 26px;
+  }
+
+  .home-week-loading .home-more-list {
+    margin-top: 34px;
+  }
+
+  .home-week-loading .home-more-card {
+    gap: 12px;
+  }
+
+  /* ---------------------------------------------------------------- Responsive */
+
+  @media (min-width: 1024px) {
+    .home-pair {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-items: start;
+      gap: 56px;
+    }
+
+    .home-personal {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      align-items: center;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .home-more-list {
+      gap: 14px;
+    }
+
+    .home-more-logo {
+      display: none;
+    }
+
+    .home-platform-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 719px) {
+    .home-personal-features {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Each further release reads as one line: its art, its day, its title and its platforms. */
+    .home-more-list {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .home-more-list > li + li {
+      border-top: 1px solid var(--color-line);
+    }
+
+    .home-more-card,
+    .home-week-loading .home-more-card {
+      grid-template-columns: 136px minmax(0, 1fr);
+      align-items: center;
+      gap: 14px;
+      padding-block: 12px;
+    }
+  }
+
+  /* Phones: one column read top to bottom, each preview at the size of a thumb's reach. */
+  @media (max-width: 619px) {
+    .home-feature .featured-hero-actions {
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .home-feature .featured-hero-actions .button {
+      flex: 1 1 140px;
+    }
+
+    .home-more {
+      margin-top: 30px;
+    }
+
+    .home-more-card,
+    .home-week-loading .home-more-card {
+      grid-template-columns: 120px minmax(0, 1fr);
+    }
+
+    .home-pair {
+      gap: 56px;
+    }
+
+    /* Covers run sideways inside the preview, never the page. */
+    .home-day-games {
+      grid-auto-columns: minmax(124px, 40%);
+      grid-auto-flow: column;
+      grid-template-columns: none;
+      padding-bottom: 6px;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      scrollbar-width: thin;
+    }
+
+    .home-day-games > li {
+      scroll-snap-align: start;
+    }
+
+    .home-days {
+      grid-auto-columns: minmax(66px, 1fr);
+    }
+
+    /* The two sources share the row equally; a long name wraps inside its half. */
+    .home-sources {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .home-source {
+      justify-content: center;
+      padding-inline: 8px;
+      line-height: 1.2;
+      text-align: left;
+    }
+
+    .home-day-number {
+      font-size: 1.375rem;
+    }
+
+    .home-rank,
+    .home-rank[data-place="1"] {
+      grid-template-columns: 30px 56px minmax(0, 1fr);
+      gap: 6px 12px;
+    }
+
+    .home-rank[data-place="1"] {
+      grid-template-columns: 30px 68px minmax(0, 1fr);
+    }
+
+    .home-rank-place {
+      font-size: 1.875rem;
+    }
+
+    .home-rank[data-place="1"] .home-rank-place {
+      font-size: 2.25rem;
+    }
+
+    .home-rank .ranking-reading {
+      grid-column: 3;
+      justify-content: start;
+    }
+
+    .home-platform-list {
+      gap: 12px;
+    }
+
+    .home-platform-stage {
+      height: 84px;
+    }
+
+    .home-platform[data-logo="nintendo-switch-2"] { --logo-width: 72px; --logo-height: 39px; }
+    .home-platform[data-logo="playstation-5"] { --logo-width: 108px; --logo-height: 32px; }
+    .home-platform[data-logo="xbox-series-x-s"] { --logo-width: 86px; --logo-height: 41px; }
+    .home-platform[data-logo="windows"] { --logo-width: 44px; --logo-height: 44px; }
+
+    .home-platform-body {
+      gap: 8px;
+      padding: 2px 12px 12px;
+    }
+
+    .home-platform-name {
+      font-size: 0.9375rem;
+    }
+
+    .home-platform-primary {
+      gap: 6px;
+      padding-inline: 10px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .home-personal-actions .button {
+      flex: 1 1 140px;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .home-platform-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-more-card,
+    .home-week-loading .home-more-card {
+      grid-template-columns: 108px minmax(0, 1fr);
+    }
+  }
+
+  /* ---------------------------------------------------------------- Motion */
+
+  /* Destacados's hero keeps its own orchestrated entrance; the further releases rise in turn; covers and logos ease a little closer on hover. Reduced motion shows the
+     settled page. */
+  @media (prefers-reduced-motion: no-preference) {
+    .home-more-list > li {
+      animation: rise-in 600ms var(--ease-out) backwards;
+    }
+
+    .home-more-list > li:nth-child(2) { animation-delay: 60ms; }
+    .home-more-list > li:nth-child(3) { animation-delay: 120ms; }
+    .home-more-list > li:nth-child(4) { animation-delay: 180ms; }
+
+    .home-more-media .featured-art-image {
+      transition: transform 480ms var(--ease-out);
+    }
+
+    .home-more-card:has(.home-more-title a:hover) .featured-art-image {
+      transform: scale(1.035);
+    }
+
+    .home-day,
+    .home-source,
+    .home-platform,
+    .home-platform-primary {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+
+    .home-day:active {
+      transform: translateY(1px);
+    }
+
+    .home-day-games > li,
+    .home-podium > li {
+      animation: fade-in 420ms var(--ease-out) backwards;
+    }
+
+    .home-platform .platform-logo-stage {
+      transition: transform var(--duration-normal) var(--ease-out);
+    }
+
+    .home-platform:has(.home-platform-primary:hover) .platform-logo-stage {
+      transform: translateY(-3px);
+    }
+
+    .home-primary-chevron,
+    .home-platform-primary .home-chevron,
+    .home-feature .featured-hero-actions .home-chevron,
+    .home-personal-link .home-chevron {
+      transition: translate var(--duration-normal) var(--ease-out);
+    }
+
+    .home-platform-primary:hover .home-chevron,
+    .home-feature .featured-hero-actions a:hover .home-chevron,
+    .home-personal-link:hover .home-chevron {
+      translate: 3px 0;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Forced colours */
+
+  /* Destacados's hero keeps its own forced-colour rules; every edge and name here stays in system
+     colours. */
+  @media (forced-colors: active) {
+    .home-thermal-steps li::before {
+      background: CanvasText;
+      box-shadow: none;
+    }
+
+    .home-day,
+    .home-source,
+    .home-platform,
+    .home-platform-primary,
+    .home-personal {
+      border-color: ButtonText;
+      background: Canvas;
+      box-shadow: none;
+    }
+
+    .home-day[aria-pressed="true"],
+    .home-source[aria-pressed="true"] {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+
+    .home-day-dot {
+      background: CanvasText;
+      box-shadow: none;
+    }
+
+    .home-rank-place,
+    .home-rank[data-place="1"] .home-rank-place {
+      color: CanvasText;
+      background: none;
+      -webkit-text-stroke: 0;
+    }
+  }
+}

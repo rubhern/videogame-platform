@@ -624,6 +624,35 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Automatic account-deletion executor requires a private capability",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{managementBaseUrl}}/actuator/accountdeletionexecutor",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"action\":\"claim\"}"
+        },
+        "description": "Contains no executor capability and can never claim a job. Disabled management routes may be absent or rejected by CSRF; an enabled route requires its dedicated private capability. Never store that secret in Postman."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('No job can be claimed without the private capability', () => pm.expect(pm.response.code).to.be.oneOf([401, 403, 404]));"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -19,6 +19,26 @@ export function SiteFooter() {
         </div>
         <LegalLinks />
       </div>
+      <div className="page-container">
+        <details className="platform-credits">
+          <summary>Créditos de marcas</summary>
+          <p>
+            The Android robot is reproduced or modified from work created and shared by Google
+            and used according to terms described in the{" "}
+            <a href="https://creativecommons.org/licenses/by/3.0/">Creative Commons 3.0 Attribution License</a>.
+            {" "}Android is a trademark of Google LLC.
+          </p>
+          <p>
+            Tux: Larry Ewing, Garrett LeSage e IFo Hancroft.{" "}
+            <a href="https://github.com/torvalds/linux/blob/master/Documentation/images/COPYING-logo">Permiso y autoría</a>.
+            {" "}Linux® es una marca registrada de Linus Torvalds en Estados Unidos y otros países.
+          </p>
+          <p>
+            Windows es una marca del grupo de empresas Microsoft. SteamVR es una marca de Valve Corporation.
+            {" "}Las demás marcas pertenecen a sus respectivos titulares. No implican afiliación ni patrocinio.
+          </p>
+        </details>
+      </div>
       <div className="site-footer-base">
         <div className="page-container">
           <p>© {new Date().getFullYear()} Gameómetro</p>

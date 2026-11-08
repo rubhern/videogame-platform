@@ -10,7 +10,7 @@ The private, non-commercial learning MVP was accepted end to end in private `dev
 and tagged `v0.1.0`: release discovery, bounded catalogue search, game details,
 same-origin Keycloak-backed authentication, personal ratings, `Mis puntuaciones`,
 operator-triggered IGDB synchronization, owner-triggered deployment, and proven
-backup/restore. The current environment remains private `dev`; further work is
+backup/restore. Gameómetro is public at `gameometro.com` since 2026-11-08; private `dev` remains private, and further work is
 post-MVP product evolution or maintenance, tracked in GitHub Issues. The
 [Product Brief](docs/product/product-brief.md) owns the positioning, trustworthy
 community quality signals, intended but gated public release, and exploratory
@@ -18,8 +18,8 @@ commercial sustainability.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
-The owner-approved public-release direction is gated and unbuilt; its budget,
-deferred purchase and best-effort mode belong to the
+Public production is best effort and owner-accepted (2026-11-08); its budget
+and best-effort mode belong to the
 [Product Brief](docs/product/product-brief.md#public-release-and-sustainability).
 Distributed architecture and live request-path provider calls are not approved.
 

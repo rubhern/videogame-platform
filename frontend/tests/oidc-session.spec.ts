@@ -1,4 +1,4 @@
-import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
+import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
 
@@ -26,7 +26,7 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   expect(browserRequests).not.toContainEqual(
     expect.stringMatching(/\/login-actions\/required-action(?:\?|$)/),
   );
@@ -93,7 +93,7 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
     sessionCookie?.value,
   );
   await page.goto("/auth/logout");
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
   expect(await sessionState(page)).toEqual({ authenticated: false });
   expect(await context.cookies(applicationOrigin)).toEqual([]);
   await page.goto("/auth/login/keycloak");
@@ -131,8 +131,8 @@ test("account entry returns to the game without inventing a rating and logout si
   await expect(page.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   // Keycloak returns only to the realm's exact post-logout URI, the landing page.
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page.getByRole("navigation", { name: "Acceso a tu cuenta" }).getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
 });
 
 /** The #290 theme keeps the brand identity: no glass, serif or mono voice and nothing perpetual. */
@@ -212,7 +212,7 @@ test("an external return target falls back to the landing page after real authen
   await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   const unicodeReturn = await page.request.get(
     "/auth/start?returnTo=" + encodeURIComponent("/search?q=Pokémon"),
@@ -233,19 +233,22 @@ test("direct personal-ratings account entry and logout return to sensible produc
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 950 });
+  // Phones carry the account actions in the Menú sheet (#358).
+  await page.getByRole("button", { name: "Menú" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(page.getByRole("button", { name: "Acceder a tu cuenta" })).toBeVisible();
+  await page.getByRole("group", { name: "Mi cuenta" }).getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await page.getByRole("button", { name: "Menú" }).click();
+  await expect(page.getByRole("group", { name: "Tu cuenta" }).getByRole("link", { name: "Iniciar sesión" })).toBeVisible();
 });
 
 for (const width of [1320, 390]) {
   test(`create account opens Keycloak registration directly at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem");
-    if (width < 620) await page.getByRole("button", { name: "Acceder a tu cuenta" }).click();
+    if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
     await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Empieza tu historia." })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("prompt")).toBe("create");
@@ -267,6 +270,7 @@ test("direct self-registration authenticates and returns to the game without a r
   await page.locator("#username").fill(unique);
   await page.locator("#password").fill("Str0ng-Passw0rd!");
   await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
+  await page.locator("#termsAccepted").check();
   await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
   await expect(page).toHaveURL(`${applicationOrigin}${game}`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });

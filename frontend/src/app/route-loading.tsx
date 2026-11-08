@@ -1,6 +1,8 @@
 import { useLocation } from "react-router-dom";
 
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
+import { HomeLoading } from "../features/home/home-loading";
+import { HOME_PATH, legacyHomeRedirect } from "../features/home/home-path";
 import { FeaturedReleasesShell } from "../features/releases/featured-releases-shell";
 import { FEATURED_PATH, readFeaturedSearch } from "../features/releases/featured-search";
 import { readReleasesSearch, RELEASES_PATH } from "../features/releases/releases-search";
@@ -16,7 +18,11 @@ export function RouteLoading() {
   const state = { status: "loading" } as const;
   const onRetry = () => undefined; // Loading surfaces do not expose a retry action.
 
-  if (location.pathname === "/" || location.pathname === FEATURED_PATH) {
+  // The home keeps its own surface; a former featured link still waits as Destacados.
+  if (location.pathname === HOME_PATH && legacyHomeRedirect(params) === null) {
+    return <HomeLoading />;
+  }
+  if (location.pathname === HOME_PATH || location.pathname === FEATURED_PATH) {
     return <FeaturedReleasesShell search={readFeaturedSearch(params)} state={state} onRetry={onRetry} />;
   }
   if (location.pathname === RELEASES_PATH) {

@@ -1,0 +1,101 @@
+@layer components {
+  .platform-credits {
+    padding-block: 16px;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+  }
+
+  .platform-credits summary {
+    width: fit-content;
+    min-height: 44px;
+    align-content: center;
+    cursor: pointer;
+  }
+
+  .platform-credits p {
+    max-width: 80ch;
+    overflow-wrap: anywhere;
+  }
+
+  .platform-credits a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* New sourced artwork keeps its original colours. Legacy masks are explicitly provisional. */
+  img.platform-logo {
+    object-fit: contain;
+  }
+
+  .platform-mark:has(.app-select-icon-windows) {
+    gap: 10px;
+  }
+
+  .platform-logo-legacy {
+    mask-image: var(--platform-logo-source);
+    -webkit-mask-image: var(--platform-logo-source);
+  }
+
+  .platform-logo-text {
+    display: inline-block;
+    flex: none;
+    color: var(--color-ink);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  /* Layout only: callers provide their own surface and visible product-owned heading. */
+  .platform-logo-stage {
+    display: inline-flex;
+    width: min(200px, 100%);
+    height: 200px;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+
+  .platform-logo-stage .platform-logo {
+    width: 200px;
+    max-width: 100%;
+    height: 200px;
+    margin: 0;
+    color: var(--color-ink);
+    transform: none;
+  }
+
+  /* Retained 360px source: cap at 180 CSS px so even 2× does not upscale it. */
+  :is(.platform-logo-stage-playstation, .platform-logo-stage-playstation-5) .platform-logo {
+    width: 180px;
+  }
+
+  /* These provisional sources cannot fill a 200px retina stage without upscaling. */
+  .platform-logo-stage-playstation-vr2 .platform-logo {
+    width: 100px;
+  }
+
+  .platform-logo-stage-meta-quest .platform-logo {
+    width: 128px;
+  }
+
+  .platform-logo-stage .platform-logo-text {
+    font-size: 1.75rem;
+  }
+
+  @media (forced-colors: active) {
+    img.platform-logo {
+      /* The original colours remain intact; names independently carry the meaning. */
+      forced-color-adjust: none;
+    }
+
+    .platform-logo-legacy {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
+
+    .platform-logo-text {
+      color: CanvasText;
+    }
+  }
+}

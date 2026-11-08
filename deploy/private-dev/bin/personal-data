@@ -26,6 +26,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -197,11 +198,16 @@ class Runtime:
         return json.loads(rows)
 
     def delete_ratings(self, user_id: str) -> int:
-        return int(self.sql(
-            "WITH deleted AS (DELETE FROM ratings.rating WHERE user_id = :'user_id' RETURNING 1)\n"
-            "SELECT count(*) FROM deleted;\n",
-            user_id,
-        ))
+        statement = (repository_root / "deploy/private-dev/lib/erase-rating-batch.sql").read_text()
+        total, deadline = 0, time.monotonic() + 120
+        for _ in range(100):
+            if time.monotonic() >= deadline:
+                raise ProvisioningError("Erasure batch budget reached; retry the same ledger entry")
+            deleted = int(self.sql(statement, user_id))
+            total += deleted
+            if deleted < 100:
+                return total
+        raise ProvisioningError("Erasure row budget reached; retry the same ledger entry")
 
     # Preferred platforms (#295) live in Catalogue beside the taxonomy they name. A database
     # restored from before they existed has no such table, which simply holds nothing to erase.

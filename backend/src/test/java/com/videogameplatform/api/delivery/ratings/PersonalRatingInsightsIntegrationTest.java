@@ -84,6 +84,9 @@ class PersonalRatingInsightsIntegrationTest {
         assertThat(empty.path("activity").get(11).path("month").stringValue()).isEqualTo("2026-11");
         assertThat(empty.path("bestRatedGenres").isEmpty()).isTrue();
         assertThat(empty.path("platforms").path("items").isEmpty()).isTrue();
+        assertThat(empty.path("platforms").path("distribution"))
+                .hasSize(5)
+                .allSatisfy(count -> assertThat(count.longValue()).isZero());
         assertThat(empty.path("platforms").path("gamesWithoutPlatforms").longValue()).isZero();
         game(1, "alice", 7, "2026-10-31T23:30:00Z"); // November in Madrid, UTC still October.
         var single = read("alice");
@@ -95,7 +98,65 @@ class PersonalRatingInsightsIntegrationTest {
         assertThat(single.path("activity").get(10).path("count").longValue()).isZero();
         // A direct rating without platforms stays valid and is never given one.
         assertThat(single.path("platforms").path("items").isEmpty()).isTrue();
+        assertThat(single.path("platforms").path("distribution"))
+                .allSatisfy(count -> assertThat(count.longValue()).isZero());
         assertThat(single.path("platforms").path("gamesWithoutPlatforms").longValue()).isEqualTo(1);
+    }
+
+    @Test
+    void distributesEveryAssociationByProductIdentityBeyondTopSixAndOnlyForPrincipal()
+            throws Exception {
+        // Labels deliberately disagree with identities: presentation names cannot decide grouping.
+        jdbc.update(
+                "INSERT INTO ratings.platform_label(platform_id,display_name) "
+                        + "SELECT platform_id,'Renamed platform' FROM catalogue.platform "
+                        + "WHERE platform_id::text LIKE '10000000-%' ON CONFLICT DO NOTHING");
+        for (int p = 1; p <= 7; p++) platform(p, p == 1 ? "PlayStation 5" : "Other " + p);
+        game(1, "alice", 8, "2026-10-05T10:00:00Z");
+        game(2, "alice", 7, "2026-10-05T10:00:00Z");
+        game(3, "alice", 6, "2026-10-05T10:00:00Z"); // No platform: no slice.
+        game(4, "bob", 1, "2026-10-05T10:00:00Z");
+        // Seven others outrank each featured platform, including two others on the same game.
+        for (int p = 1; p <= 7; p++) {
+            played(1, "alice", p, null);
+            played(2, "alice", p, null);
+        }
+        for (int p = 1; p <= 4; p++) {
+            featuredPlayed(1, "alice", p);
+            featuredPlayed(4, "bob", p);
+        }
+        var platforms = read("alice").path("platforms");
+        assertThat(platforms.path("items"))
+                .allSatisfy(item -> assertThat(item.path("playedGames").longValue()).isEqualTo(2));
+        assertThat(platforms.path("otherPlatforms").longValue()).isEqualTo(5);
+        assertThat(platforms.path("gamesWithoutPlatforms").longValue()).isEqualTo(1);
+        var distribution = platforms.path("distribution");
+        assertThat(distribution.path("ps5").longValue()).isEqualTo(1);
+        assertThat(distribution.path("switch2").longValue()).isEqualTo(1);
+        assertThat(distribution.path("xboxSeries").longValue()).isEqualTo(1);
+        assertThat(distribution.path("windowsPc").longValue()).isEqualTo(1);
+        assertThat(distribution.path("other").longValue()).isEqualTo(14);
+        assertThat(distribution)
+                .extracting(JsonNode::longValue)
+                .containsExactly(1L, 1L, 1L, 1L, 14L);
+        assertThat(read("bob").path("platforms").path("distribution").path("other").longValue())
+                .isZero();
+        // Removing a rating cascades its selections; another user's associations survive.
+        jdbc.update(
+                "DELETE FROM ratings.rating WHERE user_id=? AND game_id=?", user("alice"), id(1));
+        var after = read("alice").path("platforms").path("distribution");
+        assertThat(after.path("ps5").longValue()).isZero();
+        assertThat(after.path("other").longValue()).isEqualTo(7);
+        assertThat(read("bob").path("platforms").path("distribution").path("ps5").longValue())
+                .isEqualTo(1);
+    }
+
+    private void featuredPlayed(int game, String subject, int platform) {
+        jdbc.update(
+                "INSERT INTO ratings.rating_platform(user_id,game_id,platform_id) VALUES (?,?,?)",
+                user(subject),
+                id(game),
+                UUID.fromString("10000000-0000-4000-8000-" + String.format("%012d", platform)));
     }
 
     @Test
@@ -130,6 +191,9 @@ class PersonalRatingInsightsIntegrationTest {
         assertThat(platforms.path("gamesOnSeveralPlatforms").longValue()).isEqualTo(2);
         assertThat(platforms.path("otherPlatforms").longValue()).isZero();
         assertThat(platforms.path("items").size()).isEqualTo(2);
+        // These synthetic identities are Otras even when named PS5/Switch 2. Explicit scores
+        // neither add units nor suppress played-only selections: 3 + 2 associations.
+        assertThat(platforms.path("distribution").path("other").longValue()).isEqualTo(5);
         var first = platforms.path("items").get(0);
         assertThat(first.path("platform").path("name").stringValue()).isEqualTo("PlayStation 5");
         assertThat(first.path("platform").path("platformId").stringValue())

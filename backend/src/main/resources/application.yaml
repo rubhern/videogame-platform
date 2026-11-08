@@ -44,6 +44,10 @@ server:
         path: /
 
 identity:
+  deletion-executor:
+    completion-policy: ${ACCOUNT_DELETION_COMPLETION_POLICY:independent}
+    enabled: ${ACCOUNT_DELETION_EXECUTOR_ENABLED:false}
+    credential-file: ${ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE:}
   session:
     # Ordinary: from auth_time. Remembered: from BFF creation, capped from auth_time below.
     absolute-timeout: ${APPLICATION_SESSION_ABSOLUTE_TIMEOUT:8h}
@@ -143,7 +147,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation
+        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation,accountdeletionexecutor
   metrics:
     distribution:
       percentiles-histogram:

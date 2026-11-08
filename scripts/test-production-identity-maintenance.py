@@ -248,10 +248,13 @@ class KeycloakDrain(unittest.TestCase):
         maintenance = adapter.Maintenance(self.runtime())
         self.assertEqual(maintenance.keycloak_active(), 0, 'the scrape counted itself or idle work')
         # A login submission whose body has not finished arriving, as a slow client sends it.
-        held = subprocess.Popen(['docker', 'exec', self.container, 'bash', '-c',
+        # Keep the connection open until the assertion finishes. A fixed sleep can
+        # expire while real Docker scrapes advance the simulated drain clock.
+        held = subprocess.Popen(['docker', 'exec', '-i', self.container, 'bash', '-c',
                                  'exec 3<>/dev/tcp/127.0.0.1/8080; printf "POST /realms/master/login-actions/authenticate '
                                  'HTTP/1.1\\r\\nHost: l\\r\\nContent-Type: application/x-www-form-urlencoded\\r\\n'
-                                 'Content-Length: 1000\\r\\n\\r\\nusername=a" >&3; sleep 8'])
+                                 'Content-Length: 1000\\r\\n\\r\\nusername=a" >&3; read -r release'],
+                                stdin=subprocess.PIPE)
         try:
             deadline = time.monotonic() + 10
             while maintenance.keycloak_active() != 1:
@@ -263,7 +266,8 @@ class KeycloakDrain(unittest.TestCase):
                 bounded.drained(settle=False)
         finally:
             # The client then closes its connection without finishing the request.
-            held.wait(timeout=30)
+            held.communicate(input=b'release\n', timeout=30)
+        self.assertEqual(held.returncode, 0, 'the held client did not close cleanly')
         deadline = time.monotonic() + 30
         while maintenance.keycloak_active():
             self.assertLess(time.monotonic(), deadline, 'the ended request stayed counted')

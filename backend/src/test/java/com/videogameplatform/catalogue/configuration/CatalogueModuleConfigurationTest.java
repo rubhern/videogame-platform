@@ -68,6 +68,13 @@ class CatalogueModuleConfigurationTest {
                     assertThat(
                                     context.getBean(
                                             com.videogameplatform.catalogue.application.releases
+                                                    .BrowseUpcomingHighlightsUseCase.class))
+                            .isInstanceOf(
+                                    com.videogameplatform.catalogue.application.releases.internal
+                                            .UpcomingHighlightsService.class);
+                    assertThat(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application.releases
                                                     .BrowseReleaseCalendarUseCase.class))
                             .isInstanceOf(
                                     com.videogameplatform.catalogue.application.releases.internal
@@ -198,6 +205,12 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort
+                upcomingHighlightsReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
         com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort
                 releaseCalendarReadPort() {
             return criteria -> Optional.empty();
@@ -206,6 +219,12 @@ class CatalogueModuleConfigurationTest {
         @Bean
         com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort
                 gameRankingReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.platformgames.port.PlatformGamesReadPort
+                platformGamesReadPort() {
             return criteria -> Optional.empty();
         }
 

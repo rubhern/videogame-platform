@@ -15,7 +15,7 @@ const sections = {
 function blocks(text) {
   const result = [];
   for (const part of text.trim().split(/\n\s*\n/)) {
-    if (part.startsWith('**Borrador')) continue;
+    if (part.startsWith('**Texto aprobado por el titular;')) continue;
     if (part.startsWith('### ')) result.push({kind:'heading',text:part.slice(4).trim()});
     else if (part.startsWith('|')) {
       const rows = part.split('\n').filter(line=>!/^\|[-| ]+\|$/.test(line))
@@ -32,15 +32,25 @@ const documents = Object.fromEntries(Object.entries(sections).map(([route,title]
   if (/\[(?:nombre|identidad|por aprobar)/i.test(text)) throw new Error('Unresolved public identity');
   return [route,{title,blocks:blocks(text)}];
 }));
-const output = {status:'draft',revision:'privacy-274-review-1',documents};
-emit('../frontend/src/shared/legal/proposed-texts.json',output);
-// Staged overlay: never imported by the production realm until text/provider approval.
+const output = {documents};
+emit('../frontend/src/shared/legal/public-texts.json',output);
+// Only approved registration copy enters realm localization; no editorial metadata.
 const basic=source.split('## Información básica antes de crear una cuenta\n')[1].split('\n## ')[0]
-  .replace(/\*\*Borrador[^\n]+\n/,'').trim();
+  .replace(/\*\*Texto aprobado por el titular;[^\n]+\n/,'').trim();
 const escape = text => text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const basicHtml=basic.split(/\n\s*\n/).map(text=>'<p>'+escape(text.replaceAll('\n',' ')).replace(/\[([^\]]+)\]\((mailto:[^)]+|https:\/\/[^)]+)\)/g,'<a href="$2">$1</a>')+'</p>').join('');
-emit('../deploy/public-production/keycloak/legal-review.json',{
-  status:'draft',revision:output.revision,notForRealmImport:true,
-  localizationTexts:{es:{termsText:basicHtml+'<p>Consulta la <a href="https://gameometro.com/privacidad">política de privacidad</a> y las <a href="https://gameometro.com/condiciones">condiciones de uso</a> antes de registrarte.</p>'}},
-  basicInformationForReview:basic,
-});
+for (const [relative, origin] of [
+  ['../deploy/public-production/keycloak/import/gameometro-realm.json', 'https://${APPLICATION_PUBLIC_HOST}'],
+  ['../docker/keycloak/import/videogame-platform-realm.json', '${APPLICATION_PUBLIC_ORIGIN}'],
+]) {
+  const realm = JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
+  realm.localizationTexts ??= {};
+  realm.localizationTexts.es = {
+    ...realm.localizationTexts.es,
+    termsTitle: 'Antes de crear tu cuenta',
+    termsText: basicHtml + '<p>Consulta la <a href="' + origin + '/privacidad">política de privacidad</a> y las <a href="' + origin + '/condiciones">condiciones de uso</a> antes de registrarte.</p>',
+    acceptTerms: 'Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro.',
+    termsAcceptanceRequired: 'Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso.',
+  };
+  emit(relative, realm);
+}

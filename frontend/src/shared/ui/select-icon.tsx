@@ -1,6 +1,9 @@
 import { BrandMark } from "../brand/brand-logo";
+import { PlatformLogo } from "../catalogue/platform-logo";
+import { isPlatformLogoName, type PlatformLogoName } from "../catalogue/platform-logo-assets";
 
 export type SelectIconName =
+  | PlatformLogoName
   | "platform"
   | "region"
   | "worldwide"
@@ -14,22 +17,6 @@ export type SelectIconName =
   | "australia"
   | "region-area"
   | "region-unknown"
-  | "playstation"
-  | "nintendo-switch"
-  | "nintendo-switch-2"
-  | "android"
-  | "ios"
-  | "linux"
-  | "macos"
-  | "meta-quest"
-  | "playstation-4"
-  | "playstation-5"
-  | "playstation-vr2"
-  | "windows"
-  | "xbox"
-  | "xbox-one"
-  | "xbox-series-x-s"
-  | "steamvr"
   | "clock"
   | "title"
   | "rating"
@@ -40,12 +27,11 @@ export type SelectIconName =
   | "igdb";
 
 const maskedAssetIcons: readonly SelectIconName[] = [
-  "playstation", "nintendo-switch", "nintendo-switch-2", "android", "ios", "linux", "macos", "meta-quest",
-  "playstation-4", "playstation-5", "playstation-vr2", "windows", "xbox", "xbox-one", "xbox-series-x-s", "steamvr",
   "japan", "europe", "north-america", "asia", "korea", "new-zealand", "brazil", "australia",
 ];
 
 export function SelectIcon({ name }: { name: SelectIconName }) {
+  if (isPlatformLogoName(name)) return <PlatformLogo name={name} />;
   // Score sources show their own marks at their own colours, never tinted: the Gameómetro G and
   // IGDB's white attribution mark, kept proportional as its terms require.
   if (name === "gameometro") {

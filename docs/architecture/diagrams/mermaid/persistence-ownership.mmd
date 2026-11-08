@@ -4,6 +4,9 @@ title: Module-owned PostgreSQL schemas
 %% Ownership and relationship view only. Columns, constraints and indexes are owned
 %% by the Flyway SQL under backend/src/main/resources/db/migration/.
 erDiagram
+    account_deletion["identity.account_deletion"] {
+        uuid user_id "principal-derived admission/access fence; independent evidence stays off-host"
+    }
     publication["catalogue.catalogue_publication"]
     game["catalogue.game"]
     game_snapshot["catalogue.game_snapshot"]

@@ -167,11 +167,11 @@ for path in "${changed_paths[@]}"; do
       enable production_runtime dependency_images
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/test-production-cleanup.py | scripts/rehearse-production-cleanup.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
+    deploy/public-production/* | scripts/prepare_private_production.py | scripts/install_private_production.py | scripts/private_production_control.py | scripts/private_production_acceptance.py | scripts/private_production_upgrade.py | scripts/production_deploy.py | scripts/production_deployment_evidence.py | scripts/production_recovery_executor.py | scripts/test-production-deploy*.py | scripts/production_registration_notice.py | scripts/private_production_admin.py | scripts/production_public_ingress.py | scripts/test-production-public-ingress.py | scripts/rehearse-private-production-upgrade.py | scripts/validate_private_production_truststore.py | scripts/test-private-production-*.py | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/test-production-cleanup.py | scripts/rehearse-production-cleanup.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/reconstruct-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
       enable production_runtime
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py)
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py | scripts/test-private-dev-account-deletion-runner.py | scripts/test-account-deletion*.py)
       # The production realm and its BFF contract are proven only by the real Keycloak identity gate.
       enable identity
       matched=true
@@ -209,11 +209,11 @@ for path in "${changed_paths[@]}"; do
       enable documentation build backend migrations identity container dependency_images
       matched=true
       ;;
-    deploy/private-dev/lib/backup-common.sh | deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger)
+    deploy/private-dev/lib/backup-common.sh | deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger | deploy/private-dev/lib/personal_data_cloud.py | deploy/private-dev/lib/personal_data_archive.py | scripts/test-personal-data-cloud.py)
       enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-account-deletion.py | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;
@@ -221,11 +221,11 @@ for path in "${changed_paths[@]}"; do
       enable documentation build browser backend identity container
       matched=true
       ;;
-    scripts/local-dependencies.sh | scripts/test-local-observability.sh | scripts/test-local-localization.sh)
+    scripts/local-dependencies.sh | scripts/local-account-deletion.py | scripts/test-local-account-deletion.py | scripts/test-local-observability.sh | scripts/test-local-localization.sh)
       enable documentation build backend migrations identity container
       matched=true
       ;;
-    compose.yaml | compose.observability.yaml | compose.localization.yaml)
+    compose.yaml | compose.observability.yaml | compose.localization.yaml | compose.account-deletion.yaml)
       enable build container identity migrations backend
       matched=true
       ;;

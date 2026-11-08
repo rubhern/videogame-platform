@@ -1,4 +1,4 @@
-import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
+import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
 // Real Keycloak and BFF (#247): the operator authority comes only from the BFF client's
@@ -40,7 +40,7 @@ test("only a session signed in with the catalogue operator role reads catalogue 
   expect(await read(player, STATUS)).toMatchObject({ status: 403, code: "ACCESS_DENIED" });
   expect(await read(player, COVERAGE)).toMatchObject({ status: 403, code: "ACCESS_DENIED" });
   await player.getByRole("button", { name: "Mi cuenta" }).click();
-  await expect(player.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+  await expect(player.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
   await expect(player.getByRole("link", { name: "Panel de administrador" })).toHaveCount(0);
   await player.goto("/administracion/catalogo");
   await expect(player.getByRole("heading", { name: "Tu cuenta no puede administrar el catálogo" })).toBeVisible();
@@ -91,7 +91,7 @@ async function signIn(browser: Browser, account: Account): Promise<Page> {
   await page.getByLabel("Usuario", { exact: true }).fill(account.username);
   await page.locator("#password").fill(account.password);
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   return page;
 }
 

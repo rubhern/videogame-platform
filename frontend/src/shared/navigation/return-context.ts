@@ -1,5 +1,8 @@
+import { isPlatformCataloguePath } from "../../features/platform-catalogue/platform-catalogue-search";
+import { readPlatformRankingKey } from "../../features/rankings/ranking-search";
 import { FEATURED_PATH } from "../../features/releases/featured-search";
-import { legacyReleasesPath } from "../../features/releases/releases-search";
+import { readPlatformUpcomingKey } from "../../features/upcoming-highlights/upcoming-highlights-path";
+import { HOME_PATH, legacyHomeRedirect } from "../../features/home/home-path";
 import type { Location } from "react-router-dom";
 
 /**
@@ -11,8 +14,11 @@ import type { Location } from "react-router-dom";
  * so it is validated on every read and only ever names one of the product's own list routes.
  */
 export type ReturnOrigin =
+  | "home"
   | "featured"
   | "topometro"
+  | "platform-catalogue"
+  | "platform-upcoming"
   | "releases"
   | "release-calendar"
   | "search"
@@ -39,7 +45,7 @@ export type ReturnContext = {
 };
 
 const ORIGINS: Record<string, ReturnOrigin> = {
-  "/": "featured",
+  [HOME_PATH]: "home",
   [FEATURED_PATH]: "featured",
   "/lanzamientos": "releases",
   "/lanzamientos/calendario": "release-calendar",
@@ -50,10 +56,13 @@ const ORIGINS: Record<string, ReturnOrigin> = {
 };
 
 const LABELS: Record<ReturnOrigin, string> = {
+  home: "Volver al inicio",
   featured: "Volver a Destacados",
   releases: "Volver a lanzamientos",
   "release-calendar": "Volver al calendario",
   topometro: "Volver al TOPómetro",
+  "platform-catalogue": "Volver al catálogo",
+  "platform-upcoming": "Volver a Próximos destacados",
   search: "Volver a resultados",
   "my-ratings": "Volver a mis puntuaciones",
   "rating-insights": "Volver a tus estadísticas",
@@ -107,10 +116,22 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
     return null;
   }
   if (url.origin !== BASE) return null;
-  const legacy = url.pathname === "/" ? legacyReleasesPath(url.searchParams) : null;
-  if (legacy !== null) return { origin: "releases", path: legacy };
-  const origin = ORIGINS[url.pathname];
-  return origin === undefined ? null : { origin, path: `${url.pathname === "/" ? FEATURED_PATH : url.pathname}${url.search}` };
+  // A former landing link names the explorer or a featured period; the home itself has no state.
+  const legacy = url.pathname === HOME_PATH ? legacyHomeRedirect(url.searchParams) : null;
+  if (legacy !== null) {
+    return { origin: legacy.startsWith(FEATURED_PATH) ? "featured" : "releases", path: legacy };
+  }
+  // A platform's catalogue (#389), TOPómetro (#387) and upcoming highlights (#388) name their
+  // platform in the path.
+  const origin = isPlatformCataloguePath(url.pathname)
+    ? "platform-catalogue"
+    : readPlatformRankingKey(url.pathname) !== null
+      ? "topometro"
+      : readPlatformUpcomingKey(url.pathname) !== null
+        ? "platform-upcoming"
+        : ORIGINS[url.pathname];
+  if (origin === undefined) return null;
+  return { origin, path: origin === "home" ? HOME_PATH : `${url.pathname}${url.search}` };
 }
 
 /** The state a link into a game page carries from `location`, or none from any other screen. */

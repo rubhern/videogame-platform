@@ -4,7 +4,7 @@
 #
 # First the ledger driver against a fake runtime (every interruption point), then the real
 # procedure against disposable PostgreSQL, the private-dev Keycloak image and the packaged BFF on
-# an internal Docker network with no published port. Synthetic accounts only; no provider, mail
+# an internal Docker network; the authenticated executor port is published on loopback only. Synthetic accounts only; no provider, mail
 # or private-dev state is involved.
 #
 # PERSONAL_DATA_REUSE_PACKAGE=true reuses the JAR that scripts/package-application.sh already
@@ -19,6 +19,12 @@ postgres_image="postgres:18.4-bookworm"
 keycloak_image="videogame-platform/keycloak-identity:26.7.5"
 # The production runtime base, whose BusyBox wget the private management call uses.
 java_image="$(sed -n 's/^ARG JRE_IMAGE=//p' "$repository_root/Dockerfile")"
+completion_policy="${PERSONAL_DATA_COMPLETION_POLICY:-independent}"
+case "$completion_policy" in
+  independent) application_profiles=oidc ;;
+  private-dev) application_profiles=oidc,private-dev ;;
+  *) printf 'Unknown personal-data completion policy.\n' >&2; exit 2 ;;
+esac
 run_id="${RANDOM}-$$"
 network="videogame-platform-personal-data-${run_id}"
 access_network="videogame-platform-personal-data-access-${run_id}"
@@ -133,11 +139,16 @@ for _ in $(seq 1 180); do
 done
 [[ "$keycloak_ready" == true ]] || { echo "Keycloak did not become ready." >&2; exit 1; }
 
+executor_port="$(python3 -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
+executor_credential_file="$work_directory/executor.key"
+python3 -c 'import secrets; print(secrets.token_hex(32))' > "$executor_credential_file"
+chmod 0600 "$executor_credential_file"
+
 docker run --detach \
   --name "$application_container" \
-  --network "$network" \
+  --network "$access_network" \
   --network-alias application \
-  --env SPRING_PROFILES_ACTIVE=oidc \
+  --env SPRING_PROFILES_ACTIVE="$application_profiles" \
   --env APPLICATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
   --env APPLICATION_DB_USERNAME=videogame_app \
   --env APPLICATION_DB_PASSWORD="$application_password" \
@@ -152,10 +163,18 @@ docker run --detach \
   --env OIDC_TOKEN_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token \
   --env OIDC_JWK_SET_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs \
   --env OIDC_USER_INFO_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo \
+  --env ACCOUNT_DELETION_EXECUTOR_ENABLED=true \
+  --env ACCOUNT_DELETION_COMPLETION_POLICY="$completion_policy" \
+  --env ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE=/executor.key \
+  --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
+  --publish "127.0.0.1:${executor_port}:8081" \
+  --volume "$executor_credential_file:/executor.key:ro" \
   --env APPLICATION_SESSION_COOKIE_NAME=vgp_session \
   --env APPLICATION_SESSION_COOKIE_SECURE=false \
   --volume "$application_jar:/application.jar:ro" \
   "$java_image" java -jar /application.jar >/dev/null
+
+docker network connect --alias application "$network" "$application_container"
 
 application_ready=false
 for _ in $(seq 1 120); do
@@ -172,6 +191,9 @@ for _ in $(seq 1 120); do
 done
 [[ "$application_ready" == true ]] || { echo "The packaged application did not become ready." >&2; exit 1; }
 
+PD_COMPLETION_POLICY="$completion_policy" \
+PD_EXECUTOR_URL="http://127.0.0.1:${executor_port}/actuator/accountdeletionexecutor" \
+PD_EXECUTOR_CREDENTIAL="$executor_credential_file" \
 PD_KEYCLOAK_ORIGIN="$keycloak_origin" \
 PD_ADMIN_USERNAME=local-admin \
 PD_ADMIN_PASSWORD_FILE="$admin_password_file" \

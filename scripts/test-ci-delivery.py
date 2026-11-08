@@ -65,9 +65,13 @@ class DeliveryTests(unittest.TestCase):
 
         runtime = jobs['production-runtime']
         self.assertNotIn('matrix:', runtime)  # Avoid extra runner queues for these branches.
+        candidate = re.search(r"^REVISION = '([0-9a-f]{40})'", (ROOT / 'scripts/prepare_private_production.py').read_text(), re.M)[1]
+        self.assertIn('          ref: ' + candidate, runtime)
+        self.assertIn('git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD', runtime)
         proofs = {
-            'operations': ['test-public-production-deployment.py', 'test-public-production-integration.py',
-                           'test-production-recovery.py', 'test-production-recovery-lock.py',
+            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-production-deploy.py', 'test-private-production-admin.py',
+                           'test-public-production-deployment.py', 'test-public-production-integration.py',
+                           'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py'],
             'observability': ['test-production-observability.py --smoke'],
             'edge': ['test-public-production-runtime.py'],
@@ -183,7 +187,7 @@ python3() {
         jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
                 for i, match in enumerate(starts)}
         job, gate = jobs['identity-compatibility'], jobs['required-quality-gate']
-        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data']
+        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data', 'personal-data-private']
         self.assertIn("if: ${{ needs.detect-changes.outputs.identity == 'true' }}", job)
         self.assertIn('    needs: detect-changes\n', job)
         self.assertIn('      fail-fast: false\n', job)
@@ -206,7 +210,7 @@ python3() {
         # Execute the leg dispatch with a recording stand-in for bash.
         dispatch = re.search(r'^        run: \|\n((?:          .*\n)+)', job, re.M)[1]
         dispatch = re.sub(r'^          ', '', dispatch, flags=re.M)
-        recorder = 'bash() { printf "%s %s\\n" "$*" "${IDENTITY_REMEMBER_ME_PHASE:-}"; }\n'
+        recorder = 'bash() { printf "%s %s\\n" "$*" "${IDENTITY_REMEMBER_ME_PHASE:-${PERSONAL_DATA_COMPLETION_POLICY:-}}"; }\n'
         expected = {
             'private-dev': 'scripts/validate-private-dev-identity.sh',
             'core': 'scripts/validate-identity.sh core',
@@ -214,6 +218,7 @@ python3() {
             'idle': 'scripts/validate-identity.sh idle',
             'production': 'scripts/validate-production-identity.sh',
             'personal-data': 'scripts/validate-personal-data.sh',
+            'personal-data-private': 'scripts/validate-personal-data.sh private-dev',
         }
         self.assertEqual(sorted(expected), sorted(legs))
         for leg, command in expected.items():

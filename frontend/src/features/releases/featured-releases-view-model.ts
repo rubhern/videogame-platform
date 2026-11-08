@@ -1,10 +1,11 @@
 import {
   formatCalendarDay,
   formatDayRange,
+  formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
 import { toWordmark, type TitleWordmark } from "../../shared/catalogue/title-wordmark";
-import { releaseStatuses } from "../../shared/catalogue/release-labels";
+import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
 import type { FeaturedGranularity } from "./featured-search";
 import {
@@ -48,6 +49,8 @@ export type FeaturedItem = ReleaseListItem & {
   logo: FeaturedTitleLogo | null;
   /** Where the first presented release falls on the represented period's temporal scale. */
   mark: ReleaseMark;
+  /** `Acceso previo`, `Acceso anticipado`…: the kind of launch its date stands for, if not a full one. */
+  stage: string | null;
 };
 
 /**
@@ -270,6 +273,26 @@ function facts(release: FeaturedRelease | undefined): string[] {
   return notices;
 }
 
+/**
+ * The stage of the visible release row, stated only when it is not a plain full release. The row
+ * joins every platform sharing the date and region, so a stage shown for it must hold for them all.
+ */
+function visibleStage(releases: readonly FeaturedRelease[]): string | null {
+  const [first] = releases;
+  if (first === undefined || first.stage === "full_release" || first.stage === "unknown") {
+    return null;
+  }
+  const date = formatReleaseDate(first.releaseDate);
+  const shared = releases
+    .filter(
+      (release) =>
+        formatReleaseDate(release.releaseDate) === date &&
+        release.region.regionId === first.region.regionId,
+    )
+    .every((release) => release.stage === first.stage);
+  return shared ? releaseStages[first.stage] : null;
+}
+
 function fallbackArt(title: string): FeaturedArt {
   return {
     kind: "fallback",
@@ -280,7 +303,17 @@ function fallbackArt(title: string): FeaturedArt {
   };
 }
 
-function art(item: FeaturedResponseItem): FeaturedArt[] {
+/** What an art step list is built from: any ranked item carrying the featured-image contract. */
+export type FeaturedArtSource = Pick<
+  FeaturedResponseItem,
+  "featuredImage" | "primaryCover" | "canonicalTitle"
+>;
+
+/**
+ * A card's image steps: the contract's featured image, then the provider cover shown whole if a
+ * provider image fails to load, and the product-owned fallback always last.
+ */
+export function featuredCardArt(item: FeaturedArtSource): FeaturedArt[] {
   const image = item.featuredImage;
   const first: FeaturedArt = {
     kind: image.kind,
@@ -315,7 +348,7 @@ function toFeaturedItem(
   const first = item.releases[0];
   return {
     ...toReleaseListItem(item),
-    art: art(item),
+    art: featuredCardArt(item),
     logo:
       item.logo === undefined ? null : { url: item.logo.url, alt: item.logo.alternativeText },
     // The first presented release is the card's visible release row, so its date is the one the
@@ -324,6 +357,7 @@ function toFeaturedItem(
       first === undefined || timeline === null
         ? { kind: "unknown" }
         : toReleaseMark(first.releaseDate, timeline),
+    stage: visibleStage(item.releases),
   };
 }
 
@@ -334,10 +368,11 @@ export { toWordmark };
  * first, then the designed fallback, which the cover may light, and the cover shown whole only
  * when not even that can load.
  */
-function toFeaturedLead(
-  item: FeaturedResponseItem,
-  timeline: PeriodTimeline | null,
-): FeaturedLead {
+/**
+ * A lead's image steps: its landscape media, then the designed fallback, and the provider cover
+ * shown whole only when not even that can load. `light` is what may light the page's stage.
+ */
+export function featuredLeadArt(item: FeaturedArtSource): { art: FeaturedArt[]; light: string } {
   const image = item.featuredImage;
   const landscape: FeaturedArt[] =
     image.kind === "artwork" || image.kind === "screenshot"
@@ -365,11 +400,22 @@ function toFeaturedLead(
         ]
       : [];
   return {
-    ...toFeaturedItem(item, timeline),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
+    light: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
+  };
+}
+
+function toFeaturedLead(
+  item: FeaturedResponseItem,
+  timeline: PeriodTimeline | null,
+): FeaturedLead {
+  const { art, light } = featuredLeadArt(item);
+  return {
+    ...toFeaturedItem(item, timeline),
+    art,
     facts: facts(item.releases[0]),
     wordmark: toWordmark(item.canonicalTitle),
-    lightUrl: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
+    lightUrl: light,
   };
 }
 

@@ -85,6 +85,8 @@ public class IdentitySecurityConfiguration {
             RatingResumeAuthenticationSuccessHandler ratingResumeSuccessHandler,
             RatingIntentAuthenticationFailureHandler ratingIntentFailureHandler,
             SessionRegistry sessionRegistry,
+            ObjectProvider<com.videogameplatform.identity.application.AccountDeletionStore>
+                    deletionStores,
             Clock clock,
             @Value("${identity.session.absolute-timeout}") Duration absoluteSessionTimeout,
             @Value("${identity.session.remembered-maximum:30d}") Duration rememberedMaximum,
@@ -137,6 +139,7 @@ public class IdentitySecurityConfiguration {
                                         .permitAll())
                 .requestCache(cache -> cache.disable())
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
+                .addFilterBefore(new AccountDeletionFenceFilter(deletionStores), CsrfFilter.class)
                 .addFilterBefore(
                         new SameOriginStateChangeFilter(
                                 csrfProblemAccessDeniedHandler,
@@ -286,8 +289,15 @@ public class IdentitySecurityConfiguration {
     }
 
     @Bean
-    CurrentUser currentUser(SessionRevocation sessionRevocation) {
-        return new SecurityContextCurrentUser(sessionRevocation);
+    CurrentUser currentUser(
+            SessionRevocation sessionRevocation,
+            ObjectProvider<com.videogameplatform.identity.application.AccountDeletionStore>
+                    deletionStores) {
+        return new SecurityContextCurrentUser(
+                sessionRevocation,
+                id ->
+                        deletionStores.getIfAvailable() != null
+                                && deletionStores.getObject().blocked(id));
     }
 
     private static void endApplicationSessionOnly(

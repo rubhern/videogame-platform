@@ -29,12 +29,16 @@ final class AccountEntryAuthorizationRequestResolver implements OAuth2Authorizat
                 .additionalParameters(
                         parameters -> {
                             parameters.put("ui_locales", "es");
+                            if ("true".equals(request.getParameter("accountSecurity"))) {
+                                parameters.put("kc_action", "UPDATE_PASSWORD");
+                            }
                             if ("register".equals(request.getParameter("intent"))) {
                                 parameters.put("prompt", "create");
                             } else if ("true".equals(request.getParameter("reauthenticate"))) {
                                 // This parameter can only tighten authentication, never select a
                                 // longer session.
                                 parameters.put("prompt", "login");
+                                parameters.put("max_age", "0");
                             }
                         })
                 .build();

@@ -48,6 +48,10 @@ class CataloguePersistenceConfigurationTest {
                     assertThat(context.getBeansOfType(NamedParameterJdbcTemplate.class)).isEmpty();
                     assertThat(context.getBeansOfType(TransactionTemplate.class)).isEmpty();
                     assertThat(context).hasSingleBean(ReleaseBrowseReadPort.class);
+                    assertThat(context)
+                            .hasSingleBean(
+                                    com.videogameplatform.catalogue.application.preferences
+                                            .ExportPlatformPreferences.class);
                 });
     }
 

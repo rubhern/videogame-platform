@@ -5,12 +5,14 @@ import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CompactReleaseSummarySql;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
+import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Source;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
 import com.videogameplatform.catalogue.application.releases.ExternalPlayerScore;
 import com.videogameplatform.catalogue.domain.ExternalScore;
+import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -52,16 +54,22 @@ public final class JdbcGameRankingReadAdapter implements GameRankingReadPort {
             return Optional.empty();
         }
         CurrentPublicationReader.Publication publication = current.orElseThrow();
-        Map<String, Object> parameters = GameRankingSql.parameters(publication.id(), criteria);
+        List<String> platformIds = criteria.platformIds();
+        boolean scoped = !platformIds.isEmpty();
+        if (scoped && !allPlatformsExist(platformIds)) {
+            return Optional.of(new Result(publication.version(), false, List.of(), 0));
+        }
+        Map<String, Object> parameters =
+                GameRankingSql.parameters(publication.id(), criteria, platformIds);
 
         Long totalItems =
                 jdbcOperations.queryForObject(
-                        GameRankingSql.count(criteria.source()), parameters, Long.class);
+                        GameRankingSql.count(criteria.source(), scoped), parameters, Long.class);
         List<Item> items =
                 jdbcOperations.query(
-                        GameRankingSql.page(criteria.source()),
+                        GameRankingSql.page(criteria.source(), scoped),
                         parameters,
-                        (resultSet, row) -> item(resultSet, criteria.source()));
+                        (resultSet, row) -> item(resultSet, criteria.source(), scoped));
         var genres =
                 CatalogueGenresReader.read(
                         jdbcOperations,
@@ -78,13 +86,25 @@ public final class JdbcGameRankingReadAdapter implements GameRankingReadPort {
                             item.cover(),
                             genres.getOrDefault(item.gameId(), List.of()),
                             item.releaseSummary(),
+                            item.platformRelease(),
                             item.score()));
         }
         return Optional.of(
                 new Result(publication.version(), page, totalItems == null ? 0 : totalItems));
     }
 
-    private static Item item(ResultSet resultSet, Source source) throws SQLException {
+    /** Text comparison, so an identifier that is not a uuid is simply unknown. */
+    private boolean allPlatformsExist(List<String> platformIds) {
+        Integer known =
+                jdbcOperations.queryForObject(
+                        "SELECT count(*) FROM catalogue.platform WHERE platform_id::text IN (:ids)",
+                        Map.of("ids", platformIds),
+                        Integer.class);
+        return known != null && known == platformIds.size();
+    }
+
+    private static Item item(ResultSet resultSet, Source source, boolean scoped)
+            throws SQLException {
         try {
             return new Item(
                     resultSet.getString("game_id"),
@@ -93,12 +113,23 @@ public final class JdbcGameRankingReadAdapter implements GameRankingReadPort {
                     CatalogueCoverReferenceRowMapper.map(resultSet),
                     List.of(),
                     releaseSummary(CompactReleaseSummarySql.read(resultSet)),
+                    scoped ? Optional.of(platformRelease(resultSet)) : Optional.empty(),
                     score(resultSet, source));
         } catch (IllegalArgumentException
                 | IllegalStateException
                 | NullPointerException exception) {
             throw new CatalogueDataInvalidException(exception);
         }
+    }
+
+    private static PlatformRelease platformRelease(ResultSet resultSet) throws SQLException {
+        return new PlatformRelease(
+                new GameRanking.Taxonomy(
+                        resultSet.getString("platform_id"), resultSet.getString("platform_name")),
+                new GameRanking.Taxonomy(
+                        resultSet.getString("region_id"), resultSet.getString("region_name")),
+                ReleaseDateRowMapper.map(resultSet),
+                ReleaseStatus.fromValue(resultSet.getString("release_status")));
     }
 
     private static GameRanking.Score score(ResultSet resultSet, Source source) throws SQLException {

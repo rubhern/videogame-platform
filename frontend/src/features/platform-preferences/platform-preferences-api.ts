@@ -14,16 +14,18 @@ export class PlatformPreferencesError extends Error {
   constructor(
     readonly kind: PlatformPreferencesFailure,
     readonly correlationId: string | null,
+    /** The Problem Details code, when the response carried one (`CATALOGUE_NOT_READY`). */
+    readonly code: string | null = null,
   ) {
     super(`The platform preferences request failed (${kind}).`);
   }
 }
 
-function failure(status: number, correlationId: string | null): PlatformPreferencesError {
-  if (status === 401) return new PlatformPreferencesError("authentication", correlationId);
-  if (status === 403) return new PlatformPreferencesError("csrf", correlationId);
-  if (status === 400 || status === 422) return new PlatformPreferencesError("validation", correlationId);
-  return new PlatformPreferencesError("unavailable", correlationId);
+function failure(status: number, correlationId: string | null, code: string | null = null): PlatformPreferencesError {
+  if (status === 401) return new PlatformPreferencesError("authentication", correlationId, code);
+  if (status === 403) return new PlatformPreferencesError("csrf", correlationId, code);
+  if (status === 400 || status === 422) return new PlatformPreferencesError("validation", correlationId, code);
+  return new PlatformPreferencesError("unavailable", correlationId, code);
 }
 
 /** The platforms of the local taxonomy that a visitor may choose; a public, cacheable read. */
@@ -33,7 +35,11 @@ export async function listPlatforms(
 ): Promise<readonly PlatformOption[]> {
   const { data, error, response } = await client.GET("/platforms", signal ? { signal } : {});
   if (data !== undefined) return data.items;
-  throw failure(response.status, error?.correlationId ?? response.headers.get("X-Correlation-ID"));
+  throw failure(
+    response.status,
+    error?.correlationId ?? response.headers.get("X-Correlation-ID"),
+    error?.code ?? null,
+  );
 }
 
 /** The session user's own preferred platforms; the server derives the user. */

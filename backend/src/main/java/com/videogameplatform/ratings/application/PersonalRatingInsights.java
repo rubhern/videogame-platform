@@ -41,11 +41,17 @@ public record PersonalRatingInsights(
             List<Platform> items,
             long otherPlatforms,
             long gamesWithoutPlatforms,
-            long gamesOnSeveralPlatforms) {
+            long gamesOnSeveralPlatforms,
+            PlatformDistribution distribution) {
         public Platforms {
             items = List.copyOf(items);
+            Objects.requireNonNull(distribution, "distribution");
         }
     }
+
+    /** Five exhaustive association counts, independent of the limited per-platform insights. */
+    public record PlatformDistribution(
+            long ps5, long switch2, long xboxSeries, long windowsPc, long other) {}
 
     /**
      * One recorded platform: the games played there, how many of them carry an explicit score on

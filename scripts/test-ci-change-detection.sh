@@ -95,6 +95,11 @@ run_case production-identity \
   'identity,production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case private-production-admin \
+  $'scripts/production_registration_notice.py\nscripts/private_production_admin.py\nscripts/test-private-production-admin.py\nscripts/test-private-production-admin-docker.py\ndeploy/public-production/bin/configure-keycloak-admin' \
+  'production_runtime' \
+  'identity,backend,frontend,container,dependency_images'
+
 run_case public-production-runtime \
   $'deploy/public-production/compose.yaml\ndeploy/public-production/runtime.env.example\ndeploy/public-production/caddy/Caddyfile\ndeploy/public-production/bin/run-keycloak\nscripts/test-public-production-runtime.py\nscripts/probe-public-production-edge.py\nscripts/public_production_integration.py\nscripts/test-public-production-integration.py\nscripts/public_production_deployment.py\nscripts/test-public-production-deployment.py\nscripts/run-production-runtime-browser.sh\nscripts/test-production-recovery.py\nscripts/test-production-recovery-lock.py\nscripts/rehearse-production-recovery.py' \
   'production_runtime' \
@@ -237,6 +242,21 @@ run_case backend-artifact \
 
 run_case local-dependencies \
   $'scripts/local-dependencies.sh\nscripts/test-local-observability.sh' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case private-dev-account-deletion-activation \
+  $'deploy/private-dev/compose.account-deletion.yaml\nscripts/test-private-dev-account-deletion.py' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case private-dev-account-deletion-runner \
+  'scripts/test-private-dev-account-deletion-runner.py' \
+  'identity' \
+  'frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case local-account-deletion \
+  $'compose.account-deletion.yaml\nscripts/local-account-deletion.py\nscripts/test-local-account-deletion.py' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
@@ -404,6 +424,11 @@ run_case shared-telemetry \
 run_case production-cleanup-transport "deploy/public-production/bin/recovery-personal-data" "production_runtime" "frontend,backend,identity,browser"
 run_case production-cleanup-exercise "scripts/rehearse-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
 run_case production-cleanup-tests "scripts/test-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
+
+for private_source in scripts/production_deployment_evidence.py scripts/test-production-deploy-docker.py scripts/production_deploy.py scripts/production_recovery_executor.py scripts/test-production-deploy.py scripts/prepare_private_production.py scripts/install_private_production.py scripts/private_production_acceptance.py scripts/test-private-production-acceptance.py scripts/private_production_upgrade.py scripts/rehearse-private-production-upgrade.py scripts/test-private-production-upgrade.py scripts/test-private-production-preparation.py scripts/test-private-production-installation.py scripts/private_production_control.py scripts/validate_private_production_truststore.py scripts/test-private-production-control.py scripts/test-private-production-control-docker.py; do
+  run_case "private-production-${private_source##*/}" "$private_source" \
+    'production_runtime' 'backend,frontend,identity,container,build'
+done
 
 if ((failures > 0)); then
   printf 'CI change-detection tests failed with %d problem(s).\n' "$failures" >&2

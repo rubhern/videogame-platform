@@ -20,10 +20,10 @@ function trackProviderRequests(page: Page): string[] {
 test("the packaged featured releases read local PostgreSQL week by week and month by month", async ({ page }) => {
   const providerRequests = trackProviderRequests(page);
 
-  await page.goto("/");
+  await page.goto("/lanzamientos/destacados");
 
   // The browser gate pins the clock to Thursday 13 August 2026, and the deterministic seed holds
-  // no qualifying release in its ISO week: the landing route says so instead of failing.
+  // no qualifying release in its ISO week: Destacados says so instead of failing.
   await expect(
     page.getByRole("heading", { level: 1, name: "Destacados de la semana" }),
   ).toBeVisible();
@@ -51,26 +51,29 @@ test("the packaged featured releases read local PostgreSQL week by week and mont
   await expect(page.getByRole("article", { name: "Marvel's Wolverine" })).toBeVisible();
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
-  await page.getByRole("link", { name: "Mes siguiente: octubre de 2026" }).click();
-  const crimson = page.getByRole("article", { name: "Crimson Desert" });
-  await expect(crimson).toBeVisible();
-  // October holds a single ranked game: no slot is filled artificially.
+  const wolverine = page.getByRole("article", { name: "Marvel's Wolverine" });
+  // September holds a single ranked game: no slot is filled artificially.
   await expect(page.getByRole("region", { name: "Más lanzamientos destacados" })).toHaveCount(0);
-  // The month-precision date stays in the release metadata; the temporal G only echoes it.
   await expect(
-    crimson.getByRole("list", { name: "Lanzamiento" }).getByText("oct 2026", { exact: true }),
+    wolverine.getByRole("list", { name: "Lanzamiento" }).getByText("25 sep 2026", { exact: true }),
   ).toBeVisible();
 
-  await crimson.getByRole("link", { name: "Crimson Desert" }).click();
-  await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-00000000000a\/crimson-desert$/);
+  await wolverine.getByRole("link", { name: "Marvel's Wolverine" }).click();
+  await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-00000000000c\/[a-z0-9-]+$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-10$/);
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-09$/);
 
   // The game page's own way back names Destacados and returns to the month it was opened from.
-  await crimson.getByRole("link", { name: "Crimson Desert" }).click();
+  await wolverine.getByRole("link", { name: "Marvel's Wolverine" }).click();
   await page.getByRole("link", { name: "Volver a Destacados" }).click();
-  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-10$/);
-  await expect(page.getByRole("article", { name: "Crimson Desert" })).toBeVisible();
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-09$/);
+  await expect(page.getByRole("article", { name: "Marvel's Wolverine" })).toBeVisible();
+
+  // October is known only to the month and has not ended: as in the explorer's default, nothing
+  // is claimed for it, and the empty state says so rather than filling the page.
+  await page.getByRole("link", { name: "Mes siguiente: octubre de 2026" }).click();
+  await expect(page.getByRole("heading", { name: "No hay lanzamientos en octubre de 2026" })).toBeVisible();
+  await expect(page.getByText("con fecha confirmada dentro de este mes")).toBeVisible();
 
   await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
   await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Explorar", exact: true }).click();

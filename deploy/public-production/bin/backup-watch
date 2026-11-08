@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""Independent observer and expiry actor, run off the VPS by a protected workflow.
+
+The repository is public, so its logs and artefacts are readable: this tool prints only fixed
+lines and keeps receipts in temporary storage. Findings go to the owner's private channel.
+A channel failure fails the job, which is the second, independent route to the owner.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+sys.dont_write_bytecode = True
+RECOVERY = Path(__file__).resolve().parent / 'recovery'
+LIMIT = 200 * 1024 ** 3
+VERIFY_PAIRS_PER_RUN = 2
+HEARTBEAT_HOUR = 7
+# Findings that fail the job as well as reaching the channel.
+RESTORE_DUE = {'restore-missing', 'restore-warning', 'restore-critical'}
+RECONSTRUCT = 'bash ~/gameometro-276-release/reconstruct.sh'
+CRITICAL = {'integrity-critical', 'multiple-versions', 'delete-marker', 'expiry-critical', 'retention-incident', 'restore-critical'}
+
+
+def environment(name):
+    value = os.environ.get(name, '')
+    if not value.strip():
+        raise SystemExit('Backup watch is missing a protected input.')
+    return value
+
+
+def notify(text):
+    token, chat = environment('NOTIFY_TELEGRAM_TOKEN'), environment('NOTIFY_TELEGRAM_CHAT')
+    request = urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage',
+                                     data=json.dumps({'chat_id': chat, 'text': text}).encode(),
+                                     headers={'Content-Type': 'application/json'}, method='POST')
+    with urllib.request.urlopen(request, timeout=30):
+        pass
+
+
+def s3_configuration(directory):
+    path = directory / 's3.json'
+    path.write_text(json.dumps({'endpoint': environment('S3_ENDPOINT'), 'region': environment('S3_REGION'),
+                                'bucket': environment('S3_BUCKET'), 'accessKey': environment('S3_ACCESS_KEY'),
+                                'secretKey': environment('S3_SECRET_KEY'), 'lifecycleSha256': environment('S3_LIFECYCLE_SHA256')}))
+    return path
+
+
+def execute(command, directory, *arguments):
+    receipt = directory / 'receipt.json'
+    result = subprocess.run([sys.executable, '-I', str(RECOVERY), command, '--s3-config', str(s3_configuration(directory)),
+                             *map(str, arguments), '--receipt', str(receipt)],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3300)
+    evidence = json.loads(receipt.read_text()) if receipt.exists() else {}
+    return result.returncode, evidence
+
+
+def observe(directory, state_directory):
+    arguments = ['--max-copy-bytes', LIMIT, '--observer-state', state_directory / 'observer.json', '--max-verify-pairs', VERIFY_PAIRS_PER_RUN]
+    restore = os.environ.get('RESTORE_EVIDENCE', '')
+    if restore.strip():
+        path = directory / 'restore.json'
+        path.write_text(restore)
+        arguments += ['--verified-receipt', path]
+    return execute('observe', directory, *arguments)
+
+
+def expire(directory, _state_directory):
+    return execute('expire', directory, '--execute')
+
+
+def summary(actor, code, evidence):
+    """Fixed vocabulary only: alert names and refusal strings, never identifiers."""
+    if code not in (0, 2):
+        return f'Backup {actor} failed: {evidence.get("reason", "no receipt")}', True
+    alerts = sorted(evidence.get('alerts', []))
+    if not alerts:
+        return f'Backup {actor} healthy.', False
+    text = f'Backup {actor} findings: {", ".join(alerts)}'
+    if RESTORE_DUE & set(alerts):
+        text += f'. Run the owner reconstruction: {RECONSTRUCT}'
+    return text, bool(CRITICAL & set(alerts))
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('actor', choices=['observer', 'expiry'])
+    parser.add_argument('--state-directory', type=Path, required=True)
+    arguments = parser.parse_args()
+    arguments.state_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    arguments.state_directory.chmod(0o700)
+    for path in arguments.state_directory.iterdir():
+        path.chmod(0o600)  # A restored cache does not promise the modes the actors require.
+    with tempfile.TemporaryDirectory(prefix='gameometro-backup-watch-') as name:
+        action = observe if arguments.actor == 'observer' else expire
+        code, evidence = action(Path(name), arguments.state_directory)
+    text, failed = summary(arguments.actor, code, evidence)
+    memory = arguments.state_directory / f'{arguments.actor}-notified.txt'
+    previous = memory.read_text() if memory.exists() else None
+    # A changed finding is sent at once; the daily heartbeat is the minimum dead-man signal.
+    if text != previous or dt.datetime.now(dt.timezone.utc).hour == HEARTBEAT_HOUR:
+        notify(text)
+        memory.write_text(text)
+    print(f'Backup {arguments.actor} finished.')
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

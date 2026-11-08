@@ -3,18 +3,25 @@ import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { FeaturedReleasesPage } from "../pages/featured-releases-page";
-import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
+import { HomePage } from "../pages/home-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { PlatformCataloguePage } from "../pages/platform-catalogue-page";
+import { PlatformTopometroPage } from "../pages/platform-topometro-page";
+import { PlatformsPage } from "../pages/platforms-page";
+import { PlatformUpcomingPage } from "../pages/platform-upcoming-page";
 import { ReleaseCalendarPage } from "../pages/release-calendar-page";
 import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
 import { TopometroPage } from "../pages/topometro-page";
+import { MyProfilePage, AccountDeletionPage } from "../pages/my-profile-page";
 import { MyPlatformsPage } from "../pages/my-platforms-page";
 import { RatingInsightsPage } from "../pages/rating-insights-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { WelcomePage } from "../pages/welcome-page";
-import { legalPublicationApproved } from "../shared/legal/publication";
+import { PLATFORM_CATALOGUE_ROUTE } from "../features/platform-catalogue/platform-catalogue-search";
+import { PLATFORM_TOPOMETRO_ROUTE } from "../features/rankings/ranking-search";
+import { PLATFORM_UPCOMING_ROUTE } from "../features/upcoming-highlights/upcoming-highlights-path";
 import { legalRoutes } from "../shared/legal/legal-routes";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { routeReadiness } from "./route-readiness";
@@ -27,19 +34,25 @@ export const appRoutes: RouteObject[] = [
     path: "/",
     element: <AppShell />,
     children: [
-      { index: true, element: <DiscoveryPage /> },
+      { index: true, element: <HomePage /> },
       { path: "lanzamientos/destacados", element: <FeaturedReleasesPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
       { path: "topometro", element: <TopometroPage /> },
+      { path: "plataformas", element: <PlatformsPage /> },
+      { path: PLATFORM_CATALOGUE_ROUTE, element: <PlatformCataloguePage /> },
+      { path: PLATFORM_TOPOMETRO_ROUTE, element: <PlatformTopometroPage /> },
+      { path: PLATFORM_UPCOMING_ROUTE, element: <PlatformUpcomingPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
+      { path: "mi-perfil", element: <MyProfilePage /> },
+      { path: "mi-perfil/borrado", element: <AccountDeletionPage /> },
       { path: "mis-plataformas", element: <MyPlatformsPage /> },
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
-      ...(import.meta.env.DEV || legalPublicationApproved ? legalRoutes(true) : []),
+      ...legalRoutes(),
       { path: "*", element: <NotFoundPage /> },
     ],
   },

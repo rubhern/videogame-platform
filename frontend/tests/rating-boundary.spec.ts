@@ -196,6 +196,7 @@ test.describe("real Keycloak rating journey", () => {
     await page.locator("#username").fill(unique);
     await page.locator("#password").fill("Str0ng-Passw0rd!");
     await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
+    await page.locator("#termsAccepted").check();
     await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
 
     // First-time registration completes authentication and persists the chosen value.

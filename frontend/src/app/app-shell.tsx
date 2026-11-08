@@ -3,8 +3,10 @@ import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
 import { ReleasesNavigation } from "./releases-navigation";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
+import { useMediaQuery } from "../shared/browser/use-media-query";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
+import { NavigationMenu } from "./navigation-menu";
 import { SiteFooter } from "./site-footer";
 
 export function AppShell() {
@@ -13,6 +15,8 @@ export function AppShell() {
   const navigation = useNavigation();
   const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
+  // Below tablet width the sections and the account share one menu instead of shrinking links.
+  const compactHeader = useMediaQuery("(max-width: 719px)");
 
   useEffect(() => {
     if (previousPage.current === pageIdentity) {
@@ -48,11 +52,11 @@ export function AppShell() {
             <BrandLogo className="brand-logo" />
           </Link>
 
-          <ReleasesNavigation />
+          {compactHeader ? null : <ReleasesNavigation />}
 
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 
-          <AccountControl />
+          {compactHeader ? <NavigationMenu /> : <AccountControl />}
         </div>
       </header>
 

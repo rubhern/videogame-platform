@@ -1,7 +1,8 @@
 # VideoGame Platform frontend
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
-BFF/API. It implements the complete MVP journey: `UC-001` release discovery, `UC-010` monthly
+BFF/API. Its home at `/` (#382) composes previews of the features below. It implements the
+complete MVP journey: `UC-001` release discovery, `UC-010` monthly
 featured releases,
 `UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
 same-origin authentication boundary (direct BFF/OIDC navigation to hosted identity screens,
@@ -14,7 +15,8 @@ Keycloak), the
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
 Destacados, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
 `/lanzamientos/calendario`, the post-MVP `UC-018` player-rating ranking **TOPómetro** at
-`/topometro`, and
+`/topometro` and, per platform, at `/plataformas/<plataforma>/topometro`, the post-MVP `UC-020`
+platform ranking **Próximos destacados** at `/plataformas/<plataforma>/proximos`, and
 the operator-only `UC-011`–`UC-013` and historical `UC-017` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
 [frontend design guidelines](../docs/development/frontend-design.md); this README
@@ -48,16 +50,20 @@ Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
 
-## Legal-copy review
+## Public legal pages
 
-Vite development exposes `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies`
-with a draft notice and footer links. Production publication remains disabled in
-`src/shared/legal/publication.ts` pending the [recorded approval gates](../docs/development/data-protection.md#local-implementation-and-acceptance).
-Edit the canonical [Spanish proposals](../docs/legal/public-texts-es.md), then run
+`/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies` are anonymous routes in
+local, private-dev and production builds, linked from the shared footer alongside
+contact mail. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
+all public wording. After an approved source change, run
 `node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
-that both the safe React data and the staged, non-imported Keycloak review JSON match
-the source. Never edit generated copy or activate publication as a substitute for
-owner review and provider/operating verification.
+the generated safe React data and registration localization in both realm imports.
+Only public sections enter the application; editorial metadata and the administrative
+template stay in documentation. No cookie banner or privacy-consent control is added.
+Text approval and build availability do not authorize a public production deployment;
+the [release gates](../docs/development/delivery-lifecycle.md#public-production-gates)
+remain separate. Existing realms require explicit operator reconciliation because
+startup import does not update them; see [product integration](../docs/development/data-protection.md#publication-and-product-integration).
 
 ## Structure and ownership
 
@@ -107,16 +113,24 @@ React Router owns navigation. TanStack Query owns server state, caching, loading
 invalidation. Component state owns transient interaction state; URL parameters own
 navigable/shareable state when safe (the featured week or month, release view and filters,
 search query and page). The canonical featured destination is `/lanzamientos/destacados`; `week`, `month` and
-`granularity` keep the existing weekly/monthly URL state. Until #382 supplies a dedicated
-home, `/` replaces its history entry with that destination and carries its query; former
-`view=recent|upcoming` links retain their existing explorer migration. Saved game-return
-state for the old landing also resolves to Destacados, preserving the query and scroll-entry
-identity. A future home must retain migration of explicit legacy featured-period links;
-no former featured link may become a player-score ranking. The **Lanzamientos** disclosure
+`granularity` keep the existing weekly/monthly URL state. `/` is the home (#382), whose
+previews live in `src/features/home/` and keep no URL state of their own (TOPómetro's source
+and the calendar's chosen day stay in the preview). A former landing link keeps its destination:
+`week`, `month` or `granularity` replace their history entry with Destacados on that query, and
+`view=recent|upcoming` links retain their explorer migration; saved game-return state carrying
+them resolves the same way, so no former featured link becomes a player-score ranking. A game
+opened from the home returns with **Volver al inicio**. The **Lanzamientos** disclosure
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
 (`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
 only its source (`source=gameometro`), while its loaded pages stay in the document's query
-cache for Back and the game page's way back. The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
+cache for Back and the game page's way back; a platform's TOPómetro names its platform in the path
+and keeps the same `source`; a platform's Próximos destacados holds no URL state beyond its
+platform. **Plataformas** (`/plataformas`) holds only the
+open other platform (`plataforma=<platformId>`); its platform contexts and the three
+destinations and shared contextual navigation live in `src/features/platforms/`.
+The header's desktop disclosure and compact menu share `app/platform-shortcuts.tsx`; the
+[frontend design guidelines](../docs/development/frontend-design.md#shared-platform-navigation)
+own their interaction and visual rules. The glossary owns their [product meanings](../docs/product/glossary.md#user-facing-terms). Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
 tokens and personal responses are never stored in browser storage; same-origin

@@ -7,16 +7,24 @@ import { API_RANKING_SOURCE, type RankingSource } from "./ranking-search";
 export const RANKING_PAGE_SIZE = 20;
 
 /**
- * Each source is its own sequence and cache entry, so switching source starts again at its podium
- * and never shows the other ranking in its place. Pages continue by number until the API's
- * counted last page.
+ * Each source, globally or on one platform scope, is its own sequence and cache entry, so
+ * switching source or platform starts again at its podium and never shows another ranking in its
+ * place. The server ranks the scope; pages continue by number until the API's counted last page.
  */
-export function gameRankingQueryOptions(source: RankingSource) {
+export function gameRankingQueryOptions(source: RankingSource, platformIds: readonly string[] = []) {
+  const scoped = platformIds.length > 0;
   return infiniteQueryOptions({
-    queryKey: [...GAME_RANKING_KEY, source],
+    queryKey: scoped
+      ? [...GAME_RANKING_KEY, source, { platformIds: [...platformIds] }]
+      : [...GAME_RANKING_KEY, source],
     queryFn: ({ pageParam, signal }) =>
       rankGames(
-        { source: API_RANKING_SOURCE[source], page: pageParam, pageSize: RANKING_PAGE_SIZE },
+        {
+          source: API_RANKING_SOURCE[source],
+          ...(scoped ? { platformIds: [...platformIds] } : {}),
+          page: pageParam,
+          pageSize: RANKING_PAGE_SIZE,
+        },
         undefined,
         signal,
       ),
@@ -30,6 +38,6 @@ export function gameRankingQueryOptions(source: RankingSource) {
 }
 
 /** Failures surface as `GameRankingApiError`; anything else is an unexpected client fault. */
-export function useGameRankingQuery(source: RankingSource) {
-  return useInfiniteQuery(gameRankingQueryOptions(source));
+export function useGameRankingQuery(source: RankingSource, platformIds: readonly string[] = []) {
+  return useInfiniteQuery(gameRankingQueryOptions(source, platformIds));
 }

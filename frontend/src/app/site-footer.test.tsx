@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -29,5 +30,16 @@ describe("site footer", () => {
       screen.getByRole("link", { name: "IGDB" }),
     );
     expect(screen.getByRole("link", { name: "IGDB" })).toHaveAttribute("href", "https://www.igdb.com/");
+  });
+
+  it("makes the source credits available through a native disclosure", async () => {
+    const user = userEvent.setup();
+    renderFooter();
+    const summary = screen.getByText("Créditos de marcas");
+    await user.click(summary);
+    expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText(/Tux: Larry Ewing, Garrett LeSage e IFo Hancroft/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Creative Commons 3.0 Attribution License" }))
+      .toHaveAttribute("href", "https://creativecommons.org/licenses/by/3.0/");
   });
 });

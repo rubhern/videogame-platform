@@ -1,0 +1,16 @@
+# Owner-approved private-dev mode; never include this overlay in production.
+services:
+  application:
+    environment:
+      SPRING_PROFILES_ACTIVE: oidc,structured,private-dev
+      ACCOUNT_DELETION_EXECUTOR_ENABLED: 'true'
+      ACCOUNT_DELETION_COMPLETION_POLICY: private-dev
+      ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE: /run/secrets/account_deletion_executor_capability
+      MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+    secrets:
+      - account_deletion_executor_capability
+    ports:
+      - '127.0.0.1:8081:8081'
+secrets:
+  account_deletion_executor_capability:
+    file: ${PRIVATE_DEV_ACCOUNT_DELETION_DIRECTORY:-/etc/videogame-platform/dev/account-deletion}/application.key

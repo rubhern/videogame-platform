@@ -126,10 +126,14 @@ else
   temporary_directory="$(mktemp -d)"
 fi
 
+deletion_files=()
+if grep -qx 'PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true' "$runtime_env"; then
+  deletion_files+=(--file "$repository_root/deploy/private-dev/compose.account-deletion.yaml")
+fi
 rendered_config="$temporary_directory/compose.json"
 docker compose \
   --env-file "$runtime_env" \
-  --file "$compose_file" \
+  --file "$compose_file" "${deletion_files[@]}" \
   --profile application \
   --profile deployment \
   config --format json >"$rendered_config"
@@ -207,6 +211,11 @@ expected_secret_access = {
     "mailpit": set(),
 }
 
+private_deletion = services["application"]["environment"].get("ACCOUNT_DELETION_COMPLETION_POLICY") == "private-dev"
+if private_deletion:
+    expected_secret_access["application"].add("account_deletion_executor_capability")
+    assert services["application"]["environment"]["ACCOUNT_DELETION_EXECUTOR_ENABLED"] == "true"
+    assert "private-dev" in services["application"]["environment"]["SPRING_PROFILES_ACTIVE"].split(",")
 for service_name, service in services.items():
     expected_restart = "no" if service_name in {"migration", "deployment-smoke"} else "unless-stopped"
     assert service.get("restart") == expected_restart, f"{service_name} restart policy"
@@ -246,13 +255,16 @@ published = []
 for service_name, service in services.items():
     for port in service.get("ports") or []:
         published.append((service_name, port.get("host_ip"), int(port["published"]), int(port["target"])))
-assert sorted(published) == [
+expected_ports = [
     ("alloy", "127.0.0.1", syslog_port, 1514),
     ("application", "127.0.0.1", 8080, 8080),
     ("grafana", "127.0.0.1", 3000, 3000),
     ("keycloak", "127.0.0.1", 8180, 8080),
     ("mailpit", "127.0.0.1", 8025, 8025),
-], f"unexpected published ports: {published}"
+]
+if private_deletion:
+    expected_ports.append(("application", "127.0.0.1", 8081, 8081))
+assert sorted(published) == sorted(expected_ports), f"unexpected published ports: {published}"
 assert all(host_ip == "127.0.0.1" for _, host_ip, _, _ in published), (
     f"IPv4/IPv6 exposure boundary requires explicit IPv4 loopback binds: {published}"
 )
@@ -461,6 +473,8 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   python3 "$repository_root/scripts/test-private-dev-promotion.py"
   bash "$repository_root/scripts/test-local-observability.sh"
   bash "$repository_root/scripts/test-local-localization.sh"
+  python3 -I "$repository_root/scripts/test-local-account-deletion.py"
+  python3 -I "$repository_root/scripts/test-private-dev-account-deletion.py"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
   python3 "$repository_root/scripts/test-private-dev-identity-commands.py"
   python3 "$repository_root/scripts/test-historical-sync-pilot.py"
@@ -542,7 +556,7 @@ if [[ "$live" == false ]]; then
   exit 0
 fi
 
-compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
+compose=(docker compose --env-file "$runtime_env" --file "$compose_file" "${deletion_files[@]}")
 required_services=(postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer mailpit)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"

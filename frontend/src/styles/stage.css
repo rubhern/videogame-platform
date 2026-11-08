@@ -7,6 +7,10 @@
 
   .hero-page {
     position: relative;
+    /* Keep negative-z artwork behind this page's text in its own stacking context. */
+    isolation: isolate;
+    /* Editors may extend beyond the page and must remain above the following footer. */
+    z-index: 1;
     /* The stage bleeds to the viewport's edges; nothing may scroll sideways because of it. */
     overflow-x: clip;
   }
@@ -97,7 +101,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .stage-light-source {
-      animation: fade-in 1200ms var(--ease-out) both;
+      animation: fade-in 1200ms var(--ease-out) backwards;
     }
   }
 
@@ -151,11 +155,11 @@
     background: color-mix(in srgb, var(--color-ink) 6%, transparent);
   }
 
-  /* Opacity-only entrance: browser checks measure the opening and the filters, so they are never
-     caught mid-transform. */
+  /* Release the opacity animation after entry: retaining its compositing effect can leave
+     mobile text unpainted after scrolling out of view and back over the masked stage. */
   @media (prefers-reduced-motion: no-preference) {
     .page-head {
-      animation: fade-in 700ms var(--ease-out) both;
+      animation: fade-in 700ms var(--ease-out) backwards;
     }
   }
 

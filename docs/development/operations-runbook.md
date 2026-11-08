@@ -19,8 +19,9 @@ disposable operational history.
 
 The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 and [separate purchase/exposure gates](delivery-lifecycle.md#public-production-gates)
-follow the accepted ADR-0025 design; the gates remain open and no production
-procedure has been exercised on a real host. The [production recovery candidate](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+follow the accepted ADR-0025 design; the gates remain open. The
+[first private bootstrap failed](#failed-private-bootstrap) and grants no runtime
+acceptance. The [production recovery candidate](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
 owns prepared commands and the synthetic host-loss exercise, with its real-host limits. Record
 real-VPS evidence here only when those procedures are executed; private-dev evidence
 does not certify production networking, capacity, email or recovery.
@@ -65,7 +66,90 @@ Common local symptom: every login returns to the game as "not completed". Cause 
 fix are documented in [local setup](local-setup.md#disposable-reset) (the stored
 Keycloak client secret no longer matches `.env`; `verify` reports it).
 
+## Production host foundation
+
+**Foundation observed under #276; runtime qualification failed subsequently.** On
+2026-10-27 the owner supplied the production tailnet SSH route and loaded its key into
+the existing workstation agent. The agent inspected the host without `sudo`, changed
+no host configuration and started no container. Private addresses, provider identifiers
+and SSH material are deliberately omitted here.
+
+| Area | Observed evidence and limit |
+|---|---|
+| Foundation | Debian 13, x86_64, 8 visible CPUs, about 16 GiB RAM, 320 GiB virtual disk, cgroup v2; ample idle memory/disk. This is not workload/capacity acceptance |
+| Installed tooling | Owner confirms working Docker/Compose and no production containers/data. The initial unprivileged Docker API refusal does not contradict that confirmation; effective privileged configuration, isolation and workload qualification remain pending |
+| Checkout | Owner confirms a clean root-owned `/srv/gameometro/repo` at `77fb089f9b8f046be5d2c0720084183043290831`. This is an administration checkout, not the accepted product candidate. No global `safe.directory` exception was added |
+| Clock | Owner confirms NTP recovered after permitting provider-firewall UDP/123 replies. This supersedes the initial `NTPSynchronized=no` blocker. Recheck synchronization before timestamp/lease-sensitive operation; the installer agent changed no host time settings |
+| Network | No TCP 80/443 listener observed; SSH listens on all IPv4/IPv6 interfaces. Host routes showed no collision with the prepared fixed edge/telemetry subnets. Docker configuration explicitly selects bounded-runtime-compatible `local` logging; effective forwarding/NAT, IPv6, UDP listeners, provider firewall and external denial remain unverified |
+| Protected inputs | Production configuration/state parent directories are root-only. Their contents could not be inspected; secrets, model, metrics, recovery material and journals are unknown, not absent |
+
+The GitHub source comparison shows the checkout is 24 commits ahead of the
+[signed candidate](../research/public-production-candidate-acceptance.md#owner-acceptance-record),
+including changed realm/Remember Me integration and a new ranking migration. The
+checkout's [main build](https://github.com/rubhern/videogame-platform/actions/runs/40481303443)
+and [Security](https://github.com/rubhern/videogame-platform/actions/runs/40481303535)
+were successful. Neither source ancestry nor green CI transfers #275 acceptance or
+selects a production version. Exact publications/digests, retained artefacts, current
+scans, model and runtime fingerprints still need selection/review. The accepted
+candidate's eMudhra mitigation/positive-negative TLS condition remains a pre-opening
+gate. Its signed evidence is unchanged.
+
+The owner must run these **read-only** commands manually where privilege is needed;
+the agent must not request the sudo password, join the Docker group or loosen files:
+
+```bash
+sudo docker version --format '{{.Server.Version}}'
+sudo docker ps -a --format '{{.Names}} {{.State}} {{.Ports}}'
+sudo docker volume ls
+sudo docker network ls
+sudo docker info --format '{{.CgroupVersion}} {{.Driver}} {{.LoggingDriver}}'
+sudo git --no-optional-locks -C /srv/gameometro/repo status --porcelain
+sudo nft list ruleset
+sudo /usr/sbin/sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|pubkeyauthentication|listenaddress|allowusers|allowgroups) '
+sudo ss -H -lntup
+sudo journalctl -u systemd-timesyncd --no-pager -n 30
+sudo stat -c '%U:%G %a %n' /etc/gameometro/production /etc/gameometro/production/runtime.env /etc/gameometro/production/secrets /var/lib/gameometro/production /var/lib/gameometro/production/catalogue-models/tcbig-initial /var/lib/gameometro/production/metrics
+sudo find /etc/gameometro/production/secrets -maxdepth 1 -printf '%f %u:%g %m %y\n'
+```
+
+Keep raw firewall/socket/daemon metadata private and return sanitized findings.
+Network names alone do not prove subnet isolation: inspect each relevant Docker
+network privately, check every published binding and compare effective IPv4/IPv6
+rules with the netcup firewall and tailnet access policy. Review applicable SSH
+`Match` blocks with the actual connection context; `sshd -T` alone is insufficient.
+No listener is not proof of firewall enforcement. Independent external denial tests
+and Docker packet-path qualification remain pending. Metadata checks never read
+secret values; effective per-consumer access and independent reconstruction still
+need authorized qualification.
+
+The [next private stages](../../deploy/public-production/README.md#next-private-implementation-stages)
+own prepared operator work and the remaining proposed cloud/release stages. No purchase terms, bucket, backup, deployment,
+public exposure or production version is accepted by this foundation observation.
+
+### Failed private bootstrap
+
+**Owner-reported evidence, 2026-10-28 (#276); not independently re-inspected in
+this correction.** Attempt `41b0b52d-2c21-4c27-96a3-c886dc74c4a7` failed in phase
+`postgres`: PostgreSQL exited with code 2 because `/docker-entrypoint-initdb.d`
+was inaccessible (`Permission denied`). Four candidate directory bind sources had
+mode 0700; their files were readable. Shutdown was recorded as `confirmed` and the
+PostgreSQL volume was reported empty. No migration, working runtime, recovery or
+public acceptance follows from this attempt. These are historical observations,
+not proof of the host's current state or authorization to discard it.
+
+The [operator procedure](../../deploy/public-production/README.md#private-first-installation-and-validation)
+owns corrected bundle preparation and early preflight refusal. The
+[synthetic-state disposition proposal](../../deploy/public-production/README.md#failed-synthetic-bootstrap-disposition)
+separates preservation from exact-target disposal, requires renewed identity and
+emptiness checks and separate authorization, and has not been executed. Retain the
+original journal, intent, failure sidecar and gate evidence. The signed #275 candidate
+and its image identities and acceptance remain unchanged.
+
 ## Public-production manual deployment
+
+The [host foundation record](#production-host-foundation) owns observed and owner-confirmed prerequisites.
+The [private first-install procedure](../../deploy/public-production/README.md#private-first-installation-and-validation)
+owns the separate adapter; its [first attempt failed](#failed-private-bootstrap).
 
 **Prepared for local synthetic rehearsal; not exercised on a real host.** The
 [production operator procedure](../../deploy/public-production/README.md#manual-deployment-procedure)
@@ -220,7 +304,8 @@ never add addresses, accounts or tokens to notification text.
 For missing telemetry, inspect the Collector, scrape limits/targets, textfile timer,
 Caddy safe encoder schema and Grafana datasource health. Compare the last host/export
 heartbeat; an absent series is not healthy zero traffic. A stopped telemetry component
-must leave product reads and readiness available. For missing/failed/stale backup proof,
+must leave product reads and readiness available. For a stale upload or a cycle needing the owner, follow the
+[scheduled cycle procedure](../../deploy/public-production/README.md#when-the-owner-is-needed). For missing/failed backup proof,
 check the source backup attempt, independent pull, protected isolation review and the
 matching full restore/deletion-replay receipt. A local dump or checksum-only receipt
 must never reset the verified off-host recovery-point age.
@@ -923,8 +1008,10 @@ recorded and safe to repeat: **revoke** (disable the Keycloak account, end its
 Keycloak sessions, revoke its BFF sessions, repeat expecting zero), **delete-ratings**
 (which also deletes the preferred platforms, #295, under its existing recorded name),
 **delete-identity** and **verify** (no account, Keycloak session, rating, preferred
-platform or BFF session left). Public aggregates read ratings at request time, so nothing is
-recomputed. A step refuses to run out of order.
+platform or BFF session left). Live statistics read current ratings. The shared operational deletion adapter also
+replaces the persisted Catalogue community-score projection under Ratings' per-game
+lock in the same bounded transaction, including during restore replay. It removes a
+projection with no remaining votes. Existing public cache revalidation limits still apply. A step refuses to run out of order.
 
 On any failure the entry stays incomplete and the account stays disabled once
 revocation has run, so a half-erased account cannot act. Fix the cause and run
@@ -1083,6 +1170,344 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.
 
+### Private production localization and Grafana stabilization
+
+Prerequisite of the [bulk backfill](https://github.com/rubhern/videogame-platform/issues/448).
+The checklist below is **prepared, not executed**: it needs separate owner authorization
+for every host step, and a failed step stops the sequence.
+
+**Local evidence, 2026-11-06 (#452), no VPS access.** Accepted localizer and pinned Grafana
+images under the production CPU, PID and read-only limits, on a 16 GB WSL2 workstation with
+the local TC-big model and real IGDB summaries. These reproduce the reported symptoms; they
+do not prove what happened on the VPS or measure its speed.
+
+| Localizer workload | Ceiling | Observed |
+|---|---|---|
+| 800 real summaries, up to 1,238 characters | 768 MiB | Anonymous memory flat at 386 MiB after warmup, peak 410 MiB, no failure, 1.3 requests/s |
+| 200 longest real summaries, up to 3,432 characters | 768 MiB | Anonymous memory 447 to 460 MiB. Total reached the ceiling through reclaimable model cache: 641 reclaim events, no OOM |
+| Bounded 18–20k-character inputs, real words | 1536 MiB | Peak 617 MiB, 11–20 s per request |
+| One word repeated to 20k characters: decodes to the output bound and is rejected | 4 GiB | Peak 1,334 MiB, about 165 s per request |
+| The same degenerate input, repeated | 768 MiB | **Exit 137, `OOMKilled=true`**, on the second pass |
+| The same degenerate input, repeated | 1536 MiB | Survived, peak 1,482 MiB: only 54 MiB of headroom |
+| The degenerate input twice, then 400 real summaries including the longest | 1792 MiB | Peak 1,337 MiB, 455 MiB of headroom, no OOM or reclaim event. The two degenerate requests were rejected as designed. Anonymous memory then held at 510 to 517 MiB: retained after the spike, without progressive growth |
+
+| Finding | Status |
+|---|---|
+| Localizer exited 137 at 768 MiB while completing translations | Confirmed on the VPS |
+| A single bounded request can need nearly twice that ceiling | Reproduced locally. The production request that caused it is unknown |
+| Progressive retained growth | No evidence: real workloads stayed flat. Unproven on the VPS until the soak below |
+| Grafana exited 2 with `newosproc`, `errno=11`, `OOMKilled=false` | Confirmed on the VPS |
+| "have N already" counts one process, not the cgroup | Reproduced: the same message appeared with `have 7 already` under a lower PID ceiling, with exit 2 and no OOM |
+| Idle Grafana used 107 of 128 tasks, peak 112: 13 backend plugin processes at about 7 threads each | Measured locally. Disabling 11 unused plugins gave 32, peak 36. Thread counts may differ with the VPS core count |
+| VPS cause: 34 Grafana threads plus about 91 plugin threads reached `pids.max` | **Strong inference, not proven**: the crashed cgroup is gone. Step 1 tests it; `RLIMIT_NPROC` and host-wide limits are not excluded by repository evidence |
+
+Decisions from that evidence: the localizer ceiling is 1792 MiB, because 1.5 GiB leaves
+under the soak's 128 MiB margin at the measured worst case, and the host envelope has
+room. Grafana's PID and memory ceilings stay unchanged, because removing unused processes
+addresses the demonstrated demand. Neither model nor runtime changes.
+
+**Never during this procedure:** `down -v`, volume or journal deletion, `prune`, a manual
+`READY`, a Flyway revert, an image change or a full-catalogue backfill. Run every step as
+root on the host, with `runtime=/var/lib/gameometro/production/first-install/runtime.json`.
+
+```bash
+compose() { docker compose -p gameometro-production -f "$runtime" --profile '*' "$@"; }
+```
+
+1. **Capture evidence, read-only.** Record Grafana's actual limit before changing it. A low
+   `pids.current` plus a high thread count in one process does not match the local
+   mechanism: stop and reassess the plugin fix.
+
+   ```bash
+   grafana=$(compose ps -q grafana)
+   docker exec "$grafana" sh -c 'cat /sys/fs/cgroup/pids.current /sys/fs/cgroup/pids.peak /sys/fs/cgroup/pids.max /sys/fs/cgroup/pids.events; ulimit -u
+     for p in /proc/[0-9]*; do echo "$(cat $p/comm) $(ls $p/task | wc -l)"; done'
+   docker logs --since 240h "$grafana" 2>&1 | grep -c newosproc
+   cat /proc/sys/kernel/threads-max /proc/sys/kernel/pid_max
+   systemctl show docker.service --property=TasksMax
+   ```
+
+2. **Confirm nothing is running.** Both counts must be zero, and no backfill or scheduled
+   command may be active.
+
+   ```bash
+   compose exec -T postgres gosu postgres psql -XAt -d videogame_platform -c "SELECT count(*) FROM catalogue.synchronization_run WHERE run_status='running'; SELECT count(*) FROM catalogue.content_translation WHERE claimed_until > now();"
+   ```
+
+3. **Protect the imported catalogue.** Take a [paired backup](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+   with the protected public keyring, verify it, copy it off the host, verify the copy there,
+   and record its size against free `/dev/shm`, disk and the off-host destination. The earlier pair
+   predates the bulk import and does not protect it. Then `thaw`, restart the stopped
+   consumers and confirm readiness. Keep a root-owned 0600 copy of the pair's `manifest.json`
+   on the host: the transition requires it, no older than 24 hours.
+
+   ```bash
+   compose up -d --no-deps --wait --pull never keycloak application caddy grafana
+   ```
+
+4. **Stage the reviewed operator source.** After merge and green trusted-main CI, follow the
+   [root-owned checkout rules](../../deploy/public-production/README.md#future-authorized-host-sequence)
+   for `/srv/gameometro/operations/REVIEWED_SHA`, then record the fingerprint. This does not
+   touch the runtime.
+
+   ```bash
+   tool=/srv/gameometro/operations/REVIEWED_SHA/scripts
+   python3 "$tool/install_private_production.py" --print-adapter-fingerprint
+   ```
+
+5. **Review the plan, then apply.** The first command is read-only. Compare its changed
+   fields with the [transition table](../../deploy/public-production/README.md#post-acceptance-runtime-transition)
+   before running the second, which restarts only the localizer and Grafana. A refusal
+   changes nothing in the runtime: correct the cause, do not work around it.
+
+   ```bash
+   python3 "$tool/private_production_acceptance.py"
+   python3 "$tool/private_production_acceptance.py" --apply \
+     --accepted-configuration-sha256 "$REVIEWED_ACCEPTED_SHA256" \
+     --backup-manifest /var/lib/gameometro/private-qualification-evidence/manifest.json \
+     --acceptance-reference "$OWNER_DECISION_REFERENCE" \
+     --operational-revision REVIEWED_SHA --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256"
+   python3 "$tool/private_production_acceptance.py" --verify
+   ```
+
+   From here use `runtime=/var/lib/gameometro/production/compose.accepted.json`.
+
+6. **Confirm Grafana.** Expect about 30–40 tasks and only the PostgreSQL and Prometheus
+   plugins. Through the [private tunnel](../../deploy/public-production/README.md#production-observability-candidate),
+   check that every panel of the Catalogue Localization section loads: coverage should match
+   the issue's inventory, about 157k eligible summaries, and process panels may show no data until
+   work runs. Resource panels need the host sampler from this revision, which is a separate
+   authorization. Recheck `pids.peak` and `pids.events` after 24 hours and after opening the
+   dashboards: any `max` event means the diagnosis is incomplete.
+
+7. **Soak the localizer.** Select ordinary and the longest real sources, then run the
+   [bounded soak](../../tools/catalogue-localization/soak.py) against the helper's own
+   loopback. It writes nothing and starts no backfill. Sorting by length scans the summaries once.
+
+   ```bash
+   filter="summary_kind='sourced' AND summary_language='en' AND summary_source_kind='external_provider' AND summary_source_name='IGDB'"
+   compose exec -T postgres gosu postgres psql -XAt -d videogame_platform -c "SELECT json_agg(summary_text) FROM ((SELECT summary_text FROM catalogue.game_snapshot WHERE $filter ORDER BY game_id LIMIT 400) UNION ALL (SELECT summary_text FROM catalogue.game_snapshot WHERE $filter ORDER BY length(summary_text) DESC, game_id LIMIT 100)) s" > /root/localization-soak.json
+   docker exec -i "$(compose ps -q catalogue-localizer)" python -c "$(cat /srv/gameometro/operations/REVIEWED_SHA/tools/catalogue-localization/soak.py)" \
+     --max-requests 1000 --max-seconds 3600 --sample-every 5 < /root/localization-soak.json | tee /root/localization-soak-report.json
+   rm /root/localization-soak.json
+   ```
+
+   A non-zero exit or any `blocking` reason blocks #448. In particular,
+   `anonymous-memory-growth` is the retained-growth signal, and `oom-kill` or
+   `insufficient-ceiling-headroom` means the ceiling needs new evidence. Then run one small
+   real path, with the backfill's [existing checkpoint rules](#catalogue-localization), and watch
+   coverage move: `--batch-size 10 --max-batches 10`.
+
+8. **Exercise recovery.** Kill the localizer process from the host, not with `docker kill`,
+   which counts as an intentional stop. The restart count must rise, the model must become
+   ready and product reads must stay available. Repeat with Grafana. Then stop the localizer
+   with `compose stop catalogue-localizer` and confirm it stays stopped until
+   `compose up -d --no-deps --pull never catalogue-localizer`. A daemon restart or host reboot
+   is a separate owner decision with a maintenance window. Expect the
+   [documented behaviour](../../deploy/public-production/README.md#post-acceptance-runtime-transition),
+   then `--verify`, readiness and a catalogue read.
+
+   ```bash
+   kill -9 "$(docker inspect --format '{{.State.Pid}}' "$(compose ps -q catalogue-localizer)")"
+   docker inspect --format '{{.RestartCount}} {{.State.Health.Status}}' "$(compose ps -q catalogue-localizer)"
+   ```
+
+9. **Decide.** Record sanitized results on the issue. Only stable soak, stable Grafana and
+   the verified pair unblock #448, whose
+   [resource review](https://github.com/rubhern/videogame-platform/issues/448) still applies.
+   To return to the former restart state at any point, run
+   `private_production_acceptance.py --revert-restart`, which the
+   [rollback limits](../../deploy/public-production/README.md#post-acceptance-runtime-transition)
+   describe. An unrecoverable data problem follows the paired-recovery procedure on an empty
+   target, never a change to the live volume.
+
+### Private production maintenance plan
+
+**Executed for #276 through public opening (2026-11-07/08); owner-accepted 2026-11-08.** The
+[release record](../research/public-production-release-acceptance.md) holds the evidence and remaining items.
+Use this single sequence for the installed private production runtime. Detailed commands
+remain in their linked procedures; approval records, source identities and sanitized
+results belong in the issue and PR. This plan does not retire private-dev. Preparation
+and publication authorization does not authorize host mutation, cloud mutation or exposure.
+
+| Phase | Delegated work and exit evidence | Owner authorization, grouped for the phase |
+|---|---|---|
+| 1. Review and publication | Correct and review the notice migration; focused tests, portal checks and current-commit PR CI; record operational fingerprint and compatibility | Branch, commit, push and PR are authorized for this change. Present the complete review before a separate merge decision |
+| 2. Private maintenance window | After merge and fresh trusted-main publication, inspect host/source/permissions, stage the exact reviewed operator, target and images, review the new plan hash, take a fresh fenced pair, secure an independent copy and isolated restore, apply and verify the upgrade and private owner journey | One bounded authorization naming host, target/operator SHAs, reviewed plan hash, window, permitted service interruption, pair/copy destinations, key custody and reference. It may cover staging, capture, copy, isolated restore, apply and same-plan resume for diagnosed transient failures. An unexpected delta or forward fix returns for review |
+| 3. Manual cloud qualification | Verify effective credentials and provider retention/permission tests, fresh capacity admission, protected cost monitoring/alerts before first upload; capture/copy/restore-check a fresh pair from the current candidate if the earlier pair is ineligible, then upload and explicitly thaw only after required checks; verify independently and reconstruct into an empty isolated target with the source host and Lenovo unavailable; replay current deletions and prove archive/ledger durability | One separate bounded authorization naming test/production buckets, exact roles, synthetic test objects, allowed writes and exact-version test deletions, a fresh capture window and reopening scope, transfer/storage allowance, independent restore target and notification test recipient. Decide the proposed VPS list-only admission identity separately from approved retention parameters. It grants no recurring execution or deletion of live retained pairs |
+| 4. Automation activation | Qualify capture serialization, off-VPS observation/expiry, missing-job and firing/recovery delivery, restart/reboot, failed-run fencing and manual fallback. Verify current recovery evidence and separately protected reconstruction material | Separate explicit activation decision listing each timer, workflow variable/environment, cadence, uploader/observer/expiry credential scope and stop conditions. Include account cleanup only after its own deployed durability/fencing acceptance; merging prepared code activates nothing |
+| 5. Restricted launch qualification | Complete the remaining real-host capacity, IPv4/IPv6 isolation, abuse/shared-IP/spoofing, SMTP/quota, certificate, privacy/provider and synthetic external-journey checks required by the exposure gate. The [public ingress transition](../../deploy/public-production/README.md#public-ingress-transition-276) publishes with registration closed and reverts on failure | Separate authorization for any temporary DNS/ACME or public test route, exact scope and expiry, with real registration closed. Accept measured recovery and residual limitations only after reviewing evidence |
+| 6. Public opening | Present the complete release identity and evidence matrix, unresolved risks and closure/recovery procedure | Separate explicit public go/no-go naming the accepted release, hostnames and signup/ingress change. No maintenance or automation approval implies this decision |
+
+The [upgrade procedure](#private-production-in-place-upgrade),
+[S3 preparation guide](../../deploy/public-production/README.md#s3-transport-preparation-276),
+[scheduled-cycle contract](../../deploy/public-production/README.md#scheduled-backup-cycle-276)
+and [public-production gates](delivery-lifecycle.md#public-production-gates) own execution
+and acceptance. Reuse valid accepted evidence, including #275, and execute only missing
+or changed checks. Provider/account/contract decisions already recorded remain valid;
+verify effective access and current evidence instead of requesting them again.
+Generate the post-merge read-only plan before requesting approval of its exact hash.
+Prepare the maintenance and manual-cloud decisions together when their inputs are
+known; a fresh cloud capture must cover the upgraded runtime. Start authorized
+[provider tests](../research/public-production-backup-storage.md#tests-that-validate-the-semantics)
+early: the synthetic one-day-lock test must actually reach expiry before post-expiry
+deletion can be accepted. Use that waiting period for independent qualification work;
+do not shorten production retention to speed it up. The VPS list-only admission
+identity is [approved](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md) (2026-11-07),
+and public opening still requires effective privacy/processor safeguards and the
+owner's support/rights-contact coverage decision.
+
+**Risks and recovery.** Schedule interruption for the entire fenced period; a backup
+closes writers and an interrupted upgrade may keep them closed. Retain the original pair,
+source/configuration identities, journals and notice snapshots. Inspect before resuming;
+abandon only before schema/identity advancement, otherwise use a reviewed forward fix
+or an explicitly authorized paired restore into empty state. Never remove a fence or
+roll back an image over an advanced schema. A stale pair cannot qualify an upload:
+take a fresh pair within the transport's admission window, under the authorized window.
+Cloud lock/permission failures, ambiguous deletions, missing independent evidence or
+cost/capacity excursions stop that phase and keep exposure closed. Preserve intent
+receipts, reconcile exact versions, and restore with current independent deletion-ledger
+replay before reopening. Do not shorten retention or bypass Compliance protection.
+
+Stop recurring work when its acceptance fails; preserve evidence and protected state.
+Stopping an expiry worker needs incident handling and a manual qualified fallback so
+the retention deadline is still met. Missing notifications require an independent
+check; they are not a healthy result. Credentials and decryption/reconstruction
+material stay in protected stores, outside chat, Git and public CI output. Actual
+RPO/RTO and operator availability are measured acceptance inputs, not promises in this
+prepared plan. The owner retains credential/MFA entry and final risk/activation/exposure
+decisions; bounded technical preparation, execution and evidence collection can be delegated.
+
+### Private production in-place upgrade
+
+The [upgrade contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
+owns behaviour, refusals and forward-recovery limits. The owner reports #455 was used for the
+latest validated private deployment. Routine releases use the
+[owner-approved Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+after its one-time setup; the checklist below remains the manual contingency route.
+Every host step needs explicit owner authorization, which may be grouped under the
+[maintenance phase](#private-production-maintenance-plan); a failed step stops the sequence.
+
+**Prerequisites:**
+
+- The [stabilization checklist](#private-production-localization-and-grafana-stabilization)
+  is complete, so `private_production_acceptance.py --verify` passes.
+- This tool is merged with green trusted-main CI. Its revision and the target are separate identities:
+  the tool may be newer than the target.
+- The target has green build and security runs, and is still within its 30-day publication retention,
+  as is the operator revision. Past that, plan refuses; choose a newer target.
+- The target's realm import differs from the active one only by the
+  [reviewed session and registration-notice migrations](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime),
+  and contains the matching reviewed notice actor when that extension applies.
+- `control.SUPPORTED` lists the host's exact Docker and Compose pair. Otherwise the plan refuses.
+- The owner has a maintenance window for the whole fenced period, an independent destination, and a
+  machine with the decryption keyring, Docker and this repository for the restore check.
+
+**Never during this procedure:** the first installer, `down -v`, volume, journal or bundle deletion,
+`prune`, a manual `READY` or fence removal, `flyway repair`, an older image, an ad-hoc Compose start,
+a restore over live volumes, the account-deletion overlay, a backfill or public ingress.
+
+Run every host step as root, attached to the interactive SSH session: no `nohup`, and stdin stays open.
+
+1. **Stage the operator source and target commit.** Follow the
+   [root-owned checkout rules](../../deploy/public-production/README.md#future-authorized-host-sequence)
+   for `/srv/gameometro/operations/REVIEWED_SHA`, make the target commit available in the
+   administration checkout, and record the fingerprint. This does not touch the runtime.
+
+   ```bash
+   tool=/srv/gameometro/operations/REVIEWED_SHA/scripts
+   python3 "$tool/install_private_production.py" --print-adapter-fingerprint
+   git -C /srv/gameometro/repo fetch origin main
+   ```
+
+2. **Review the plan while the runtime is open.** It is read-only. Record `planSha256`, and compare
+   source SHAs, digests, Flyway change set, realm delta, changed services and setting names, and
+   prerequisites with the issue that authorizes this upgrade. `keycloakAdministratorAuthenticates`
+   must be `true` here: nothing can prove it once writers are fenced, and the realm migration needs it
+   after Flyway. Any refusal is a stop: correct the cause, not the check.
+
+   ```bash
+   upgrade() { python3 "$tool/private_production_upgrade.py" --target-revision "$TARGET_SHA" --operational-revision REVIEWED_SHA --adapter-fingerprint "$REVIEWED_ADAPTER_SHA256" "$@"; }
+   upgrade | python3 -m json.tool
+   ```
+
+3. **Stage the bundle.** Review `compose.target.json` and `upgrade-plan.json` in the bundle. The
+   runtime is still untouched.
+
+   ```bash
+   upgrade --stage --plan-sha256 "$REVIEWED_PLAN_SHA256"
+   ```
+
+4. **Take the pair; writers stay closed from here.** Use the active configuration and the recovery
+   actor of the same bundle. The first upgrade uses `compose.accepted.json` and the installed
+   candidate. Later ones use `configurationFile` from `upgrades/ACTIVE.json` and its bundle. Do **not** `thaw`.
+
+   ```bash
+   admin=/var/lib/gameometro/production
+   recovery=/srv/gameometro/installations/9ffc05a-private/candidate/deploy/public-production/bin/recovery
+   python3 "$recovery" backup --config "$admin/compose.accepted.json" --project gameometro-production \
+     --state "$admin/first-install/recovery" --keyring /protected/public-keyring --recipient OWNER_40_HEX_FINGERPRINT \
+     --destination /protected/backups/NEW_PAIR --receipt /protected/receipts/backup.json
+   python3 "$recovery" verify --backup /protected/backups/NEW_PAIR --receipt /protected/receipts/integrity.json
+   ```
+
+5. **Prove it elsewhere.** On the independent destination,
+   [pull and verify](../../deploy/public-production/README.md#independently-secured-copy-and-retention)
+   the pair. On the owner machine that holds the decryption keyring, restore it into a throwaway
+   PostgreSQL with synthetic role passwords. Compare its size with free `/dev/shm`, disk and the
+   destination first. Copy both sanitized receipts to the host, root-owned at 0600.
+
+   ```bash
+   python3 scripts/rehearse-private-production-upgrade.py --restore-check \
+     --backup /protected/independent-backups/NEW_PAIR --keyring /owner/private-keyring \
+     --receipt /protected/receipts/restore.json
+   ```
+
+6. **Confirm the fenced plan, then apply.** The hash must be unchanged and `writersFencedByBackup`
+   true. The apply needs the owner's separate authorization reference.
+
+   ```bash
+   upgrade --plan-sha256 "$REVIEWED_PLAN_SHA256" | python3 -m json.tool
+   upgrade --apply --plan-sha256 "$REVIEWED_PLAN_SHA256" --backup /protected/backups/NEW_PAIR \
+     --offhost-receipt /protected/receipts/pull.json --restore-receipt /protected/receipts/restore.json \
+     --owner-reference "$OWNER_DECISION_REFERENCE"
+   ```
+
+   A refusal before the claim changes nothing: to end the window, run `recovery thaw` and restart
+   the consumers as in the [stabilization checklist](#private-production-localization-and-grafana-stabilization).
+
+7. **Verify.** Expect the target version, zero published ports and every service healthy. Then, over
+   private access, sign in with the owner's existing account, with and without Remember Me, read the
+   catalogue, and check that the Grafana localization panels load. An `optionalDegraded` service is
+   recorded, not fenced: diagnose it, then start it from the active file.
+
+   ```bash
+   upgrade --verify
+   ```
+
+8. **Record the result.** Post sanitized results on the issue, including the final Flyway endpoint,
+   source and digests. Keep the pair and the old bundle. From now on use `configurationFile` from
+   `upgrades/ACTIVE.json`, as the [contract](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) requires.
+
+**If it stops.** Start read-only, and take the exit the
+[interruption table](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) gives:
+
+```bash
+upgrade --inspect | python3 -m json.tool
+```
+
+Do not start any service by hand; the
+[fence table](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime) shows
+why that gains nothing. If `migrationActorRunning` is true, wait for it. A closed SSH session or a reboot
+needs no other action before this step. After a reboot, confirm PostgreSQL is back first.
+
+Once the owner accepts the cause as transient, `--resume --plan-sha256 "$REVIEWED_PLAN_SHA256"` repeats the
+claimed upgrade. `--abandon` applies only before the schema or identity moved.
+Otherwise publish a fix on `main`, then plan, `--stage` and `--apply` the newer SHA with
+`--forward-fix-of "$FAILED_SHA"`, or request a paired restore on an empty target. No older image returns.
+A forward-fix target carries the same realm-delta limit, so a fix built on a commit with another realm
+change also needs the tool extended first.
+
 ## Documentation portal
 
 Owner: [Private-dev portal procedure](../../deploy/private-dev/README.md#documentation-portal).
@@ -1114,9 +1539,14 @@ records the synthetic restore-time container and origin/issuer/database pairing;
 
 ```bash
 personal-data-ledger --ledger <owner-ledger> --ledger-copy <independent-ledger> \
+  --cloud-copies <owner-only cloud.json> \
   --host-command "<reviewed production host command>" \
   cleanup-unverified
 ```
+
+Production mutation always needs `--cloud-copies`; the
+[runtime guide](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+owns the two-copy barrier and the `ledger-fetch` used before recovery replay.
 
 This probes only, reports candidates and never enters maintenance. For any profiled
 erasure/cleanup, add the following global options: `--archive-root <owner-archive>`,
@@ -1187,8 +1617,8 @@ hold/proof retention are separately verified operator responsibilities.
 
 Implemented under #246; owner review and deployed private-dev acceptance remain pending.
 Use **Sincronización y cobertura → Sincronización histórica** with a catalogue-operator
-session. Select explicit inclusive dates and whether completely covered months are omitted
-or reprocessed, then review the confirmation. The initial intended historical interval is
+session. Select explicit inclusive dates and whether months completely covered under the current import
+policy are omitted or reprocessed, then review the confirmation. The initial intended historical interval is
 recorded in the [pilot evidence](../research/historical-sync-pilot.md#completed-measurements-and-conclusion);
 never run that full interval merely to accept the mechanism.
 
@@ -1225,6 +1655,17 @@ wait for it to finish or stop it through its named controls; abandon only a stal
 process is confirmed gone. Read status after an ambiguous command before repeating it.
 An existing unfinished target cannot be replaced by a new date range.
 
+**Acquiring newly importable work types.** Widening the import policy (#456) affects only
+provider works seen by a later run, because a deferred work leaves no local trace. Coverage therefore
+records the import policy revision of each scan. Recurring windows pick up new works by themselves.
+For periods already covered, start a historical target over their dates: omitting covered months
+skips only those scanned under the current revision, so both choices acquire the new works, and
+every month covered before the change counts as work to do. **Cobertura** still shows it as
+scanned. Known Games resolve by reference and stay unchanged, except for
+whatever IGDB itself changed. Record the Games added, duration and failed Games per month, and
+the pending month as the resume point. The owner authorizes such a run, per environment; for #456
+the owner has left it undecided, so only recurring windows acquire these works for now.
+
 For owner-authorized private-dev acceptance after review and promotion, choose a small
 representative interval crossing a month boundary, record the target and run identifiers,
 stop while the second month is active, restart the application only under the existing
@@ -1236,3 +1677,140 @@ scheduled update takes its turn. Record duration/resource evidence with the
 [existing pilot procedure](../../deploy/private-dev/README.md#historical-synchronization-pilot).
 The present change provides automated local evidence; it does not claim this deployed
 acceptance or authorize deployment/full historical import.
+
+
+## Self-service account deletion
+
+**Functional implementation prepared for owner review (#272); production operational
+acceptance remains #276. No live installation, activation or credential provisioning is implied.**
+
+Owner decision (2026-10-29): private dev does not require backups, independent deletion
+ledgers, legal archives or suppression proofs. Its explicit `private-dev` completion policy
+reuses the same #274 idempotent `revoke`, `delete-ratings`, `delete-identity`, `verify` engine
+steps without evidence hooks. PostgreSQL retains admission, policy, access fences, leases
+and retries. Only current verified absence acknowledges completion; no fake evidence digest
+is produced. The private profile and non-production realm are both required at startup;
+the production realm rejects this policy. Claims and readiness are policy-scoped, and a
+private executor cannot acknowledge an independently governed request. Changing policy with
+pending independently governed requests requires explicit reconciliation, never silent downgrade.
+
+A same-host supervised administrative runner is sufficient for private dev. It reads existing
+protected host credentials and polls capability-authenticated management on loopback. Neither
+Docker access nor identity administration credentials enter the application. This policy has
+no host-loss or backup-replay guarantee. Do not restore a pre-deletion private-dev snapshot
+and reopen accounts assuming replay protection: recreate the disposable development data
+or reconcile all affected identities explicitly. Production retains the full independent
+pre-mutation evidence, legal-archive and replay sequence below. The
+[private-dev guide](../../deploy/private-dev/README.md#automatic-self-service-deletion)
+owns its one-time activation and supervision.
+
+The independent-evidence policy (mandatory in production) uses this sequence:
+
+1. The BFF validates the principal, deliberate confirmation, same-origin CSRF and a recent
+   signed OIDC authentication. No browser-supplied owner is accepted. Admission requires an
+   explicitly enabled protected executor with a fresh authenticated heartbeat.
+2. One intent per principal is committed to Identity's PostgreSQL table. It immediately fences
+   authenticated access and personal writes, survives application restart and is never itself
+   presented as erasure evidence. HTTP `202` means pending. A short-lived opaque HttpOnly
+   receipt permits status reads only after session revocation.
+3. `personal-data-self-service-runner`, running in the existing protected administrative
+   context, polls the private `accountdeletionexecutor` operation. It owns no web request and
+   the web application launches no process or SSH connection. A claim leases one row for
+   fifteen minutes, revokes all BFF sessions and verifies personal writes have drained before
+   returning the principal-derived work. An unsettled drain releases the claim for retry and
+   starts no destructive step.
+4. The runner invokes `personal-data-self-service`, which reuses the existing #274 ledger,
+   archive and erasure orchestration. The request is fsynced to both ledger copies before
+   identity/data mutations, the fixed legal profile and any relevant hold are sealed before
+   data removal, and every erasure step remains idempotent. Keycloak credentials, keys,
+   protected source and both evidence copies remain in the administrative environment.
+5. Only a completed matching ledger entry, sealed suppression proof and current verification
+   of absence produce a successful receipt. Its ledger/proof digests are acknowledged using
+   the private executor credential and exact request/claim. PostgreSQL requires evidence
+   digests for a complete row. Missing evidence, foreign/stale claims and failures cannot
+   certify completion; the public status never treats acceptance as success.
+6. Failure stays pending and blocked. A failed attempt waits five minutes; a crashed runner's
+   claim becomes eligible after its fifteen-minute lease. A restarted runner repeats that
+   same recorded request and first archive, including when the identity was already removed.
+   A lost acknowledgement never loses independent erasure evidence. Expired acknowledgements
+   are refused; the next claim re-verifies the completed engine operation. No account is
+   automatically re-enabled. Divergent ledgers, missing archive/holds and storage failures
+   require repair of that failed prerequisite, not manual fulfillment of normal requests.
+7. Acceptance ends the requesting BFF session and immediately returns the browser to the
+   anonymous home, without a waiting screen or success claim. Processing does not depend on
+   the browser. The restricted status API remains available through its receipt; old status-page
+   bookmarks redirect home. A lost/expired receipt neither completes nor cancels queued work.
+
+For a workstation rehearsal with synthetic accounts, use the explicit
+[local launcher](local-setup.md#automatic-account-deletion-with-synthetic-local-accounts).
+Its local evidence files exercise this protocol and do not qualify production storage.
+
+### Protected executor configuration
+
+The supported `identity.deletion-executor.enabled` and `credential-file` properties are
+initialized from `ACCOUNT_DELETION_EXECUTOR_ENABLED` and
+`ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE`. Both default to disabled/unconfigured.
+An enabled instance refuses startup unless the dedicated capability file is private and
+holds 32 random bytes encoded as 64 lowercase hexadecimal characters. The prepared `deploy/public-production/compose.account-deletion.yaml` overlay enables
+only this capability and mounts its file; it is absent from every default promotion command.
+This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
+The endpoint exists only with explicit enablement and a separate management port. It is
+never on the product port, edge allowlist or public OpenAPI, and rejects browser-originated
+commands. Every action also requires the dedicated Bearer capability, even on loopback.
+
+Start the runner with `personal-data-self-service-runner --config <private-json-file>` in
+the owner's existing protected administration context. It is the one added process because
+independent evidence/keys must survive loss of the web host. It serves no HTTP interface,
+introduces no broker/database/service and never polls from a browser. Supervision restarts
+this command; production durable state remains PostgreSQL and the existing #274 ledger.
+A source-only systemd unit is prepared for the owner-approved private-dev policy; no timer,
+service unit or real-host process has been installed by this change. The bounded `--once` option
+is for qualification/tests; ordinary operation continuously processes new requests.
+
+The private config pins `issuer`, an argument-array `host_command` for the existing runtime
+adapter, `ledger`, `ledger_copy`, `proof_root`, `archive_root`, `archive_copy`, `gnupg_home`,
+`recipient`, `signer`, `holds`, plus `credential_file` and the exact `management_url` ending
+in `/actuator/accountdeletionexecutor`. The URL must be HTTPS or loopback HTTP. The HTTP
+client disables environment proxies and redirects and bounds time/response bytes. Production
+must provide the existing protected administration path to the private management interface;
+no automatically provisioned destination is assumed. The runner may use existing owner-side
+administrative transport; no SSH client is added to the web application.
+
+Startup preflights both ledger/archive paths, signing/decryption keys and suppression/hold
+stores before announcing readiness. A heartbeat every twenty seconds remains fresh for sixty
+seconds, including during processing. Losing readiness stops new admissions; already accepted
+work remains blocked and recoverable. Each engine attempt has a ten-minute child deadline.
+Restart/forced interruption relies on the existing two-copy write-ahead/retry guarantees.
+Coordinate capability rotation by restarting the application and runner with the new protected
+file. Keep management inaccessible to browsers/other networks throughout qualification.
+
+### Production integration and cost
+
+The implementation reuses the existing administrative runtime and a single polling process.
+It requires no additional paid service by design, but actual availability, equipment and
+operating costs still need qualification; existing owner equipment is not an uptime promise.
+Production #276 must qualify the supervised execution context, protected management channel,
+secret ownership/rotation, independently durable storage failure domains, archive/key access,
+interruption recovery and restore replay before activation. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
+its installation and live acceptance remain pending. No production requirement is
+silently waived to enable a development demo.
+
+Local/CI can use disposable PostgreSQL/Keycloak and synthetic identities, keys and temporary
+ledger/archive paths. Those exercises prove protocol and recovery behavior, not physical
+storage independence. `AutomaticAccountDeletionIntegrationTest` exercises real PostgreSQL,
+management authentication, browser admission, GPG and the existing engine with a synthetic
+identity-provider seam. The personal-data gate additionally exercises the automatic runner
+against real disposable Keycloak/BFF/PostgreSQL, an interrupted deletion, runner restart and
+replay of a backup taken before admission. Functional implementation and production operating
+acceptance are separate; neither synthetic files nor a green test authorize production opening.
+
+Inspect pending age privately and `account.deletion.attempts` with bounded `verified`/`retry`
+outcomes. Metrics and application state are not independent erasure evidence. Pending intents
+are never purged. A rollback to a version without the access fence is unsafe during pending
+work: keep authenticated entry closed and resolve/verify it first. Admission is ordinary PostgreSQL durable state, subject to its established host-loss RPO
+until the protected runner has recorded it independently. A `202` is not an independent
+erasure receipt. No product/identity erasure starts in that interval; operators must reconcile
+restored intent and ledger state before reopening. Process restarts preserve committed intent;
+the pre-opening replay guarantee applies to every independently recorded erasure, even if its
+admission row was lost. A restored database is never sufficient: replay every independently recorded erasure before reopening, including operations
+whose admission row is absent from that backup.

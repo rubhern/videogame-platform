@@ -21,7 +21,7 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * All aggregation stays in PostgreSQL over one contribution per rating and the user's recorded
- * platforms; at most 43 result rows cross into Java.
+ * platforms; at most 44 result rows cross into Java.
  */
 public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRatingInsightsReadPort {
     private final NamedParameterJdbcOperations jdbc;
@@ -124,7 +124,18 @@ public final class JdbcPersonalRatingInsightsReadAdapter implements PersonalRati
                 rows.stream().map(PlatformRow::platform).toList(),
                 recorded - rows.size(),
                 withoutPlatforms,
-                onSeveralPlatforms);
+                onSeveralPlatforms,
+                Objects.requireNonNull(
+                        jdbc.queryForObject(
+                                PersonalRatingInsightsSql.PLATFORM_DISTRIBUTION,
+                                params,
+                                (rs, row) ->
+                                        new PersonalRatingInsights.PlatformDistribution(
+                                                rs.getLong("ps5"),
+                                                rs.getLong("switch2"),
+                                                rs.getLong("xbox_series"),
+                                                rs.getLong("windows_pc"),
+                                                rs.getLong("other")))));
     }
 
     private List<PersonalRatingInsights.Genre> genres(

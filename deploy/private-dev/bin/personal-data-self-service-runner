@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Automatically claim persisted requests and run the existing #274 engine in protected administration.
+
+No service is installed. The owner starts/supervises this process in the existing protected
+context. No SSH client or identity administration credentials live in the web application.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import pathlib
+import subprocess
+import sys
+import threading
+import time
+import urllib.parse
+import urllib.request
+
+sys.dont_write_bytecode = True
+loader = importlib.machinery.SourceFileLoader("account_erasure_bridge", str(pathlib.Path(__file__).with_name("personal-data-self-service")))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+bridge = importlib.util.module_from_spec(spec)
+loader.exec_module(bridge)
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        raise ValueError("Administration redirects are forbidden")
+
+
+class Runner:
+    def __init__(self, config_path):
+        bridge.ledger._require_private(config_path.parent, directory=True)
+        bridge.ledger._require_private(config_path, directory=False)
+        if config_path.stat().st_size > 16384:
+            raise ValueError("Configuration budget exceeded")
+        self.config_path = config_path
+        self.config = json.loads(config_path.read_text())
+        url = urllib.parse.urlsplit(self.config["management_url"])
+        if (url.username or url.password or url.query or url.fragment
+                or url.path != "/actuator/accountdeletionexecutor"
+                or (url.scheme != "https" and not (url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1", "::1")))):
+            raise ValueError("Use the exact protected management URL with HTTPS or loopback")
+        credential = pathlib.Path(self.config["credential_file"])
+        bridge.ledger._require_private(credential, directory=False)
+        if credential.stat().st_size > 128:
+            raise ValueError("Credential budget exceeded")
+        self.token = credential.read_text().strip()
+        if not __import__("re").fullmatch("[0-9a-f]{64}", self.token):
+            raise ValueError("Invalid executor credential")
+        self.client = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        self.stopped = threading.Event()
+
+    def exchange(self, body):
+        request = urllib.request.Request(self.config["management_url"], method="POST",
+            data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "Authorization": "Bearer " + self.token})
+        with self.client.open(request, timeout=15) as response:
+            raw = response.read(4097)
+            if len(raw) > 4096:
+                raise ValueError("Management response budget exceeded")
+            return json.loads(raw)
+
+    def preflight(self):
+        config = self.config
+        policy = config.get("policy", "independent")
+        if policy == "private-dev":
+            if not config["issuer"].endswith("/realms/videogame-platform"):
+                raise ValueError("Private-dev mode cannot target production")
+            return
+        if policy != "independent":
+            raise ValueError("Unknown completion policy")
+        paths = ("ledger", "ledger_copy", "archive_root", "archive_copy", "proof_root", "gnupg_home", "holds")
+        args = argparse.Namespace(**{key: pathlib.Path(config[key]) for key in paths}, recipient=config["recipient"], signer=config["signer"])
+        archive = bridge.ledger.archive_from(args)
+        bridge.ledger.require_proof(archive)
+        bridge.ledger.archive_preflight(archive)
+        with bridge.ledger.open_ledger(args.ledger, args.ledger_copy, create=True):
+            pass
+
+    def tick(self):
+        work = self.exchange({"action": "claim"})
+        if work.get("idle") is True:
+            return False
+        if set(work) != {"version", "issuer", "subject", "userId", "requestId", "claim"}:
+            raise ValueError("Invalid claimed envelope")
+        bridge.ledger.canonical_uuid(work["claim"], "claim")
+        envelope = {key: value for key, value in work.items() if key != "claim"}
+        verified, receipt = False, {}
+        try:
+            # Child deadline bounds one attempt. Existing write-ahead evidence survives interruption.
+            process = subprocess.run([sys.executable, "-I", str(pathlib.Path(__file__).with_name("personal-data-self-service")),
+                "--config", str(self.config_path)], input=json.dumps(envelope).encode(), capture_output=True, timeout=600)
+            if process.returncode != 0 or len(process.stdout) > 4096:
+                raise ValueError("Erasure not verified")
+            receipt = json.loads(process.stdout)
+            if receipt.get("verified") is not True or receipt.get("requestId") != work["requestId"] or receipt.get("userId") != work["userId"]:
+                raise ValueError("Unrelated completion receipt")
+            if self.config.get("policy", "independent") == "independent":
+                for key in ("ledgerSha256", "proofSha256"):
+                    if not __import__("re").fullmatch("[0-9a-f]{64}", receipt.get(key, "")):
+                        raise ValueError("Missing durable evidence digest")
+            elif receipt.get("policy") != "private-dev":
+                raise ValueError("Wrong completion policy")
+            verified = True
+        except Exception:
+            # Never log source, subprocess diagnostics, account identifiers or credentials.
+            pass
+        self.exchange({"action": "finish", "userId": work["userId"], "requestId": work["requestId"],
+            "claim": work["claim"], "verified": verified,
+            "ledgerSha256": receipt.get("ledgerSha256") if verified else None,
+            "proofSha256": receipt.get("proofSha256") if verified else None})
+        return True
+
+    def heartbeat(self):
+        while not self.stopped.wait(20):
+            try:
+                self.exchange({"action": "heartbeat"})
+            except Exception:
+                pass
+
+    def run(self, once=False):
+        self.preflight()
+        ready = self.exchange({"action": "heartbeat"})
+        if ready.get("policy") != self.config.get("policy", "independent"):
+            raise ValueError("Executor policy differs from application policy")
+        if once:
+            return self.tick()
+        thread = threading.Thread(target=self.heartbeat, daemon=True)
+        thread.start()
+        try:
+            while True:
+                try:
+                    self.tick()
+                except Exception:
+                    print("Account deletion runner unavailable; pending requests remain recoverable.", file=sys.stderr)
+                if self.stopped.wait(5):
+                    break
+        finally:
+            self.stopped.set()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=pathlib.Path, required=True)
+    parser.add_argument("--once", action="store_true", help="One bounded admission tick, for qualification/tests")
+    args = parser.parse_args()
+    runner = Runner(args.config)
+    import signal
+    signal.signal(signal.SIGTERM, lambda *_: runner.stopped.set())
+    runner.run(args.once)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        print("Account deletion runner refused; no completion claimed.", file=sys.stderr)
+        sys.exit(1)

@@ -21,14 +21,35 @@ class FrontendRouteController {
         "/lanzamientos/destacados",
         "/lanzamientos/calendario",
         "/topometro",
+        "/plataformas",
         "/search",
         "/mis-puntuaciones",
         "/mis-puntuaciones/estadisticas",
         "/mis-plataformas",
+        "/mi-perfil",
+        "/mi-perfil/borrado",
         "/bienvenida",
-        "/administracion/catalogo"
+        "/administracion/catalogo",
+        "/privacidad",
+        "/condiciones",
+        "/aviso-legal",
+        "/cookies"
     })
     String searchFrontendEntryPoint() {
+        return frontendEntryPoint();
+    }
+
+    /**
+     * A platform's catalogue (#389), TOPómetro (#387) or upcoming highlights (#388): a featured
+     * family's key or a platform's own identifier.
+     */
+    @GetMapping({
+        "/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/catalogo",
+        "/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/topometro",
+        "/plataformas/{platformKey:[a-z0-9]+(?:-[a-z0-9]+)*}/proximos"
+    })
+    String platformCatalogueFrontendEntryPoint(@PathVariable String platformKey) {
+        Objects.requireNonNull(platformKey, "platformKey");
         return frontendEntryPoint();
     }
 

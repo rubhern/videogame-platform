@@ -94,6 +94,8 @@ class PersonalRatingInsightsScalabilityIT {
             assertThat(result.highest().tiedGames()).isEqualTo(userCount / 10);
             assertThat(result.platforms().gamesWithoutPlatforms()).isEqualTo(userCount / 2);
             assertThat(result.platforms().gamesOnSeveralPlatforms()).isZero();
+            assertThat(result.platforms().distribution().other()).isEqualTo(userCount / 2);
+            assertThat(result.platforms().distribution().ps5()).isZero();
             long recorded =
                     jdbc.queryForObject(
                             "SELECT count(DISTINCT platform_id) FROM ratings.rating_platform WHERE user_id=?",
@@ -131,7 +133,9 @@ class PersonalRatingInsightsScalabilityIT {
                                     "activity",
                                     PersonalRatingInsightsSql.ACTIVITY,
                                     "platforms",
-                                    PersonalRatingInsightsSql.PLATFORMS)
+                                    PersonalRatingInsightsSql.PLATFORMS,
+                                    "platformDistribution",
+                                    PersonalRatingInsightsSql.PLATFORM_DISTRIBUTION)
                             .entrySet()) {
                 evidence.append("\n")
                         .append(userCount)

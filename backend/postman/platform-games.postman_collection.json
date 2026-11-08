@@ -1,0 +1,855 @@
+{
+  "info": {
+    "_postman_id": "fd69b8fd-8e04-5e90-b8d9-bfb0e6cea534",
+    "name": "VideoGame Platform Backend - Platform Games",
+    "description": "Executable examples for the OpenAPI GET /api/v1/platform-games contract (UC-019, Explorar catálogo) implemented through the Maven-generated PlatformCatalogueApi interface and one bounded PostgreSQL statement per page. Runs against the local database; no provider credential or request-path provider call is required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "platformGamesEtag",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Featured platform without a query",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-games-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page).to.have.all.keys(\"number\", \"size\", \"totalItems\", \"totalPages\");",
+              "    pm.expect(body.items.length).to.be.at.most(body.page.size);",
+              "    pm.expect(body.availableFilters.genres).to.be.an(\"array\");",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"genres\", \"platformRelease\", \"scores\");",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease).to.have.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\");",
+              "        pm.expect(item.platformRelease.status).to.not.eql(\"cancelled\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Each game appears once and only from the requested platform scope\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) { pm.expect(scope).to.include(item.platformRelease.platform.platformId); });",
+              "});",
+              "",
+              "pm.test(\"Public scores always revalidate and carry a strong validator\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"public, no-cache\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "    pm.collectionVariables.set(\"platformGamesEtag\", pm.response.headers.get(\"ETag\"));",
+              "});",
+              "",
+              "pm.test(\"The default order puts the latest known date first and an unknown date last\", function () {",
+              "    const items = pm.response.json().items;",
+              "    let seenUnknown = false;",
+              "    items.forEach(function (item) {",
+              "        const unknown = item.platformRelease.releaseDate.precision === \"unknown\";",
+              "        if (!unknown) pm.expect(seenUnknown).to.eql(false);",
+              "        seenUnknown = seenUnknown || unknown;",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&pageSize=24",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "pageSize",
+              "value": "24"
+            }
+          ]
+        },
+        "description": "UC-019: every locally known game of PlayStation 5, without typing. PostgreSQL keeps one presented release per game on the scope, filters, counts, orders by the latest presented date and pages; a fresh seeded database may hold few games, and an empty page is a valid outcome."
+      },
+      "response": []
+    },
+    {
+      "name": "Conditional platform games read",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"An unchanged page revalidates without a body\", function () {",
+              "    pm.response.to.have.status(304);",
+              "    pm.expect(pm.response.text()).to.eql(\"\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"platformGamesEtag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "{{platformGamesEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&pageSize=24",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "pageSize",
+              "value": "24"
+            }
+          ]
+        },
+        "description": "The validator covers every game, presented release and reading."
+      },
+      "response": []
+    },
+    {
+      "name": "Platform family scope, games already out",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-games-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page).to.have.all.keys(\"number\", \"size\", \"totalItems\", \"totalPages\");",
+              "    pm.expect(body.items.length).to.be.at.most(body.page.size);",
+              "    pm.expect(body.availableFilters.genres).to.be.an(\"array\");",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"genres\", \"platformRelease\", \"scores\");",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease).to.have.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\");",
+              "        pm.expect(item.platformRelease.status).to.not.eql(\"cancelled\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Each game appears once and only from the requested platform scope\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) { pm.expect(scope).to.include(item.platformRelease.platform.platformId); });",
+              "});",
+              "",
+              "pm.test(\"The scope names both platforms and every game is out at the evaluation date\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.platforms.length).to.eql(2);",
+              "    body.items.forEach(function (item) { pm.expect(item.platformRelease.status).to.eql(\"released\"); });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&platformIds=10000000-0000-4000-8000-000000000003&releaseState=released",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000003"
+            },
+            {
+              "key": "releaseState",
+              "value": "released"
+            }
+          ]
+        },
+        "description": "A family is sent as the product platform identifiers it groups; a game on both platforms still appears once."
+      },
+      "response": []
+    },
+    {
+      "name": "Games still to come, soonest first",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-games-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page).to.have.all.keys(\"number\", \"size\", \"totalItems\", \"totalPages\");",
+              "    pm.expect(body.items.length).to.be.at.most(body.page.size);",
+              "    pm.expect(body.availableFilters.genres).to.be.an(\"array\");",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"genres\", \"platformRelease\", \"scores\");",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease).to.have.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\");",
+              "        pm.expect(item.platformRelease.status).to.not.eql(\"cancelled\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Each game appears once and only from the requested platform scope\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) { pm.expect(scope).to.include(item.platformRelease.platform.platformId); });",
+              "});",
+              "",
+              "pm.test(\"No game still to come is presented as out\", function () {",
+              "    pm.response.json().items.forEach(function (item) { pm.expect(item.platformRelease.status).to.not.eql(\"released\"); });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&releaseState=upcoming&sort=release_date_asc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "releaseState",
+              "value": "upcoming"
+            },
+            {
+              "key": "sort",
+              "value": "release_date_asc"
+            }
+          ]
+        },
+        "description": "Expected, delayed and undated games; the evaluation date is the API's own, in Europe/Madrid."
+      },
+      "response": []
+    },
+    {
+      "name": "Year range and title order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-games-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page).to.have.all.keys(\"number\", \"size\", \"totalItems\", \"totalPages\");",
+              "    pm.expect(body.items.length).to.be.at.most(body.page.size);",
+              "    pm.expect(body.availableFilters.genres).to.be.an(\"array\");",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"genres\", \"platformRelease\", \"scores\");",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease).to.have.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\");",
+              "        pm.expect(item.platformRelease.status).to.not.eql(\"cancelled\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Each game appears once and only from the requested platform scope\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) { pm.expect(scope).to.include(item.platformRelease.platform.platformId); });",
+              "});",
+              "",
+              "pm.test(\"Every presented date lies in the range and none is unknown\", function () {",
+              "    pm.response.json().items.forEach(function (item) {",
+              "        const date = item.platformRelease.releaseDate;",
+              "        pm.expect(date.precision).to.not.eql(\"unknown\");",
+              "        const year = Number(String(date.value).slice(0, 4));",
+              "        pm.expect(year).to.be.within(2020, 2030);",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&fromYear=2020&toYear=2030&sort=title_asc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "fromYear",
+              "value": "2020"
+            },
+            {
+              "key": "toYear",
+              "value": "2030"
+            },
+            {
+              "key": "sort",
+              "value": "title_asc"
+            }
+          ]
+        },
+        "description": "The year range filters on the presented release's known year; the facet's years ignore it."
+      },
+      "response": []
+    },
+    {
+      "name": "Title search outside the scope's games",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-games-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page).to.have.all.keys(\"number\", \"size\", \"totalItems\", \"totalPages\");",
+              "    pm.expect(body.items.length).to.be.at.most(body.page.size);",
+              "    pm.expect(body.availableFilters.genres).to.be.an(\"array\");",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"genres\", \"platformRelease\", \"scores\");",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease).to.have.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\");",
+              "        pm.expect(item.platformRelease.status).to.not.eql(\"cancelled\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Each game appears once and only from the requested platform scope\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) { pm.expect(scope).to.include(item.platformRelease.platform.platformId); });",
+              "});",
+              "",
+              "pm.test(\"A plausible query without a local match is an empty page, never a provider lookup\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.items).to.eql([]);",
+              "    pm.expect(body.page.totalItems).to.eql(0);",
+              "    pm.expect(body.page.totalPages).to.eql(0);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&q=zzqx9 nothing",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "q",
+              "value": "zzqx9 nothing"
+            }
+          ]
+        },
+        "description": "Titles and approved aliases match under the catalogue search rule, inside the platform scope only."
+      },
+      "response": []
+    },
+    {
+      "name": "Missing platform scope",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable request problem\", function () {",
+              "    pm.response.to.have.status(400);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"REQUEST_MALFORMED\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?releaseState=released",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "releaseState",
+              "value": "released"
+            }
+          ]
+        },
+        "description": "The platform scope is required."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/platformIds\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=platform_invented",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "platform_invented"
+            }
+          ]
+        },
+        "description": "Only taxonomy platforms form a scope."
+      },
+      "response": []
+    },
+    {
+      "name": "Reversed year range",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/toYear\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&fromYear=2027&toYear=2026",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "fromYear",
+              "value": "2027"
+            },
+            {
+              "key": "toYear",
+              "value": "2026"
+            }
+          ]
+        },
+        "description": "A first year after the last one."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown genre",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/genreIds\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&genreIds=genre_invented",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "genreIds",
+              "value": "genre_invented"
+            }
+          ]
+        },
+        "description": "Genres are the existing localized product genres."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"SORT_INVALID\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/sort\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&sort=hype",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "sort",
+              "value": "hype"
+            }
+          ]
+        },
+        "description": "Hype is not a catalogue order."
+      },
+      "response": []
+    },
+    {
+      "name": "Search without a token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"SEARCH_QUERY_INVALID\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/q\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&q=%C2%BF%3F",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "q",
+              "value": "%C2%BF%3F"
+            }
+          ]
+        },
+        "description": "Punctuation alone cannot address the catalogue."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown platform games parameter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Rejected with a stable validation problem\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(JSON.stringify(pm.response.json())).to.include(\"/query/regionIds\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-games?platformIds=10000000-0000-4000-8000-000000000001&regionIds=region_europe",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-games"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "regionIds",
+              "value": "region_europe"
+            }
+          ]
+        },
+        "description": "Query parameters are closed."
+      },
+      "response": []
+    }
+  ]
+}

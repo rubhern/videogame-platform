@@ -35,6 +35,7 @@ Secret scanning remains applicable to every pull request.
 | Production telemetry, dashboard parity, privacy and notifications | `python3 scripts/test-production-observability.py --smoke` in the selective production-runtime gate; exact PromQL/timing, canonical dashboard and SQL queries, missing data, HTTPS Telegram mock and sanitized overhead receipt. Backend export-failure isolation is covered by `TelemetryFailureIsolationIntegrationTest` |
 | Public-production runtime contract (rendered Compose, adapted Caddyfile, disposable edge built from its recipe with upstream stand-ins: routes, per-source and aggregate limits, spoofing, IPv4/IPv6 sources, maintenance gate and deliberate violations) | `python3 -I scripts/test-public-production-runtime.py`; `--env-file <protected runtime.env>` checks a real host's inputs statically |
 | Public-production manual deployment, integration refusals and isolation | `python3 scripts/test-public-production-deployment.py` and `python3 scripts/test-public-production-integration.py`; the [disposable runtime exercise](../../deploy/public-production/README.md#disposable-integration-exercise) consumes retained trusted-main images locally |
+| Private first-install preparation, trust/permission/isolation refusals, ordered bootstrap, crash fencing, the post-acceptance restart transition and the in-place upgrade | `python3 scripts/test-private-production-preparation.py`, `python3 scripts/test-private-production-installation.py`, `python3 scripts/test-private-production-control.py`, `python3 scripts/test-private-production-acceptance.py` and `python3 scripts/test-private-production-upgrade.py` in the selective production-runtime gate; simulated host/storage checks use no VPS or real secret. Real disposable Docker mechanisms are a separate manually invoked `python3 scripts/test-private-production-control-docker.py --evidence /new/protected/report.json` campaign, `python3 scripts/test-private-production-restart-docker.py --evidence /new/report.json` proves restart and upgrade-fence semantics on a disposable real daemon, and `python3 scripts/rehearse-private-production-upgrade.py --target-revision <sha> --evidence /new/directory` proves the upgrade on real disposable services; none is target-host qualification. [Host procedure](../../deploy/public-production/README.md#private-first-installation-and-validation) remains separately authorized |
 | Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh`, then `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke`, `python3 deploy/private-dev/grafana/check-alerts.py --smoke` and `python3 scripts/private-dev-logs-check.py --smoke` |
 | Private-dev optimized registration metrics and notification routing | `python3 deploy/private-dev/grafana/check-product-growth.py` and `python3 deploy/private-dev/grafana/check-notifications.py --smoke` |
 | Workstation and private-dev translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional local `--smoke` with an installed model |
@@ -49,6 +50,8 @@ The separate [owner-approved promotion workflow](../../.github/workflows/deploy-
 derives the validated image from the exact dispatch SHA and uses dev environment
 credentials only after the owner dispatch (the sole human deployment approval); its policy and
 runtime boundary belong to the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+The [backup watch workflow](../../.github/workflows/backup-watch.yml) is not validation CI: it is an
+[independent production actor](../../deploy/public-production/README.md#independent-supervision), inert until the owner enables it.
 Private-dev validation uses
 disposable configuration, a fake deployment boundary to prove ordering/lock/failure
 semantics, and an in-memory Keycloak-admin double to prove smoke-account ownership
@@ -115,3 +118,15 @@ one packaging leg of each matrix retains tests. Local packaging retains tests by
 default. Cross-job build reuse must not
 introduce stale artifacts, mix source revisions, expose trusted credentials to PRs, or
 lengthen the critical path without measured benefit.
+
+
+### Automatic account deletion preparation (#272)
+
+The existing personal-data gate includes the automatically polled self-service journey with
+synthetic accounts on real disposable Keycloak/PostgreSQL/BFF, runner restart after a
+cross-system failure and pre-admission backup replay. Its `PERSONAL_DATA_COMPLETION_POLICY=private-dev`
+variant proves verified automatic processing and interruption recovery without ledger/archive/GPG
+configuration; CI runs both policies against separate disposable topologies. Its dedicated authenticated management
+port is published only on loopback in that disposable topology. No real private-dev or
+production configuration is changed. Temporary paired evidence tests the protocol, never
+physical storage independence; production qualification remains in the operations runbook.

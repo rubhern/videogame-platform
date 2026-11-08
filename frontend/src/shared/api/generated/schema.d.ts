@@ -4,6 +4,106 @@
  */
 
 export interface paths {
+    "/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read my private account summary
+         * @description Validated server-session identity projection only. Optional absent fields are unknown,
+         *     never inferred from browser input. No query parameters are accepted.
+         */
+        get: operations["getMyProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download my complete supported personal data
+         * @description One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
+         *     exportedAt, account (available session-validated name/email), ratings (gameId, title,
+         *     direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
+         *     and preferredPlatforms (configured, savedAt when configured, platforms). No credentials,
+         *     tokens, provider payloads or other users' data. Reads one consistent local snapshot.
+         *     Preparation is bounded to 10000 ratings, 16 MiB and 30 seconds; budget or source failure
+         *     returns an error before any successful download, never a truncated successful export.
+         *     Empty collections are valid. No query parameters are accepted.
+         */
+        get: operations["exportMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/account-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm and request deletion of my account
+         * @description Requires literal ELIMINAR confirmation, same-origin CSRF and validated original OIDC
+         *     auth_time within five minutes (missing/future time is refused). No user selector.
+         *     Atomically records one intent per principal and blocks authenticated access. An automatic protected
+         *     polling executor reuses the independent two-copy ledger and legal archive erasure engine.
+         *     Admission requires explicit enablement and fresh authenticated executor readiness; otherwise
+         *     503 changes nothing.
+         *     202 means pending, never erased, and ends the requesting BFF session immediately.
+         *     Completion requires verified absence and, in production, independent durable evidence.
+         *     Retries preserve the same intent. A fixed receipt cookie permits status reads after
+         *     session invalidation, expires after 24 hours and cannot authorize any mutation.
+         */
+        post: operations["requestMyAccountDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/account-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read only the deletion outcome authorized by my receipt
+         * @description No account identity or query parameters. Requires the opaque receipt cookie issued by
+         *     the authenticated confirmation. Missing/expired receipts are 401. The receipt permits
+         *     no commands or personal-data reads. Complete means the engine verified all erasure
+         *     steps and independent durable evidence; pending includes retryable failures.
+         */
+        get: operations["getAccountDeletionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/releases": {
         parameters: {
             query?: never;
@@ -120,18 +220,21 @@ export interface paths {
         /**
          * Read the automatic featured releases of one calendar week or month
          * @description Reads the automatic selection of one calendar period from the last valid local catalogue:
-         *     an ISO 8601 week, Monday to Sunday, or a calendar month. Candidates are the games with a
-         *     qualifying commercial release inside the period: its known date period lies entirely
-         *     inside it (an exact day of the period, or, for a month, month precision equal to the
-         *     month) and it is neither cancelled, delayed, nor pending review. A week therefore only
-         *     ever holds day-precision releases; a month, quarter, year or unknown date is never
-         *     assigned to a week. Only Full Release participates. A candidate must be an accepted
-         *     import type, not an edition, with its own known first release in this period and
-         *     positive locally stored IGDB Hypes. Candidates rank by Hypes descending, then `gameId`
-         *     ascending. A game without a usable popularity signal stays a normal catalogue and
-         *     discovery result but is not ranked, and no popularity value is ever invented. The first
-         *     item is the period's featured release and up to five more follow; fewer items are
-         *     returned rather than filling slots. Popularity measures provider-observed attention,
+         *     an ISO 8601 week, Monday to Sunday, or a calendar month.
+         *
+         *     Since 5.9.0 the selection is the head of the release explorer: for the same period and
+         *     platforms, the items are the first games of `GET /releases` with `from` and `to` set to
+         *     the period's window, `sort=hype` and approximate dates left out, in the same order, each
+         *     presenting the same releases and date, counting only games with positive locally stored
+         *     IGDB Hypes. A qualifying release is therefore any release that explorer range admits:
+         *     ports, remakes, editions and every release stage take part, including early and advance
+         *     access, whatever the game's first release was. Candidates rank by Hypes descending, then
+         *     the `releaseDate` order, whose last key is the unique `gameId`. A game without a usable
+         *     popularity signal stays a normal catalogue and discovery result but is not ranked, and no
+         *     popularity value is ever invented. The first item is the period's featured release and
+         *     up to five more follow; fewer items are returned rather than filling slots. Clients
+         *     should expect a port or an early access launch as the featured release and read its
+         *     `stage`. Popularity measures provider-observed attention,
          *     never quality, a rating, or an editorial recommendation, and the signal value itself is
          *     not exposed. The application derives the evaluation date, the current week and the
          *     current month in `Europe/Madrid`. Without parameters the current calendar month is
@@ -183,15 +286,128 @@ export interface paths {
          *     eligibility rules, then orders them by the unrounded mean descending, the number of
          *     ratings behind it descending and the unique `gameId` ascending, counts them and pages
          *     them. A game without a score from the source is not ranked and never counts as zero. An
-         *     IGDB players' score is ranked only from 100 ratings on; a community score from one
+         *     IGDB players' score is ranked only from 50 ratings on; a community score from one
          *     rating is ranked like any other and states its count. `position` is the
          *     game's place in that one sequence, so the first page's first three items are the
          *     podium and later pages continue it. Scores change independently of the catalogue, so a
          *     game may move between two page reads; a client that reads several pages keeps the first
          *     occurrence of a `gameId`. It never varies on the session or preferred platforms and
          *     never calls a provider.
+         *
+         *     Since 5.5.0, `platformIds` scopes the ranking to games released on those platforms
+         *     (`RNK-005`): only a release on one of them that proves rating eligibility at the
+         *     evaluation date makes a game a candidate, so a game released elsewhere years before is
+         *     not ranked on a platform until it has effectively come out there. The scope is applied
+         *     before ordering, counting and paging, never to a page of the global ranking. Each game
+         *     still appears once and keeps its global score from the source: no per-platform score
+         *     or mean is ranked or shown. Each scoped item adds `platformRelease`, the release that
+         *     presents the game on the scope at its own date precision. Without `platformIds` the
+         *     ranking and its items are unchanged.
          */
         get: operations["rankGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse the local catalogue of one platform
+         * @description Explorar catálogo (`UC-019`): a bounded page of the games of the last valid local catalogue
+         *     publication that hold a release on any of the requested platforms, without a search
+         *     query. A platform family such as Xbox Series X|S or a featured platform is sent as the
+         *     product platform identifiers it groups; no platform entity is invented for it. Cancelled
+         *     releases never associate a game with a platform.
+         *
+         *     Each game appears once, whatever its releases and regions on those platforms, and carries
+         *     one `platformRelease`: the release of the platform scope that presents it. A game with a
+         *     release that has effectively occurred at the evaluation date (`Europe/Madrid`) is presented
+         *     by one of those releases; otherwise by an expected release with a known date, otherwise by a
+         *     delayed or undated one. Occurrence derives from the effective date under the same rule as
+         *     game details (an exact day from that day on, a month, quarter or year once it has ended, an
+         *     unknown date only with explicit released evidence), never from a stored status, and delayed
+         *     evidence never occurs. Within that class the presentation precedence of `ReleaseItem`
+         *     chooses, ending with the earliest date and `releaseId`. Its `status` is therefore
+         *     `released` exactly for the games `releaseState=released` selects; `scheduled`, `announced`
+         *     (unknown date) and `delayed` are the games still to come, and `cancelled` never appears.
+         *     The date keeps its real precision and is never narrowed to an invented day.
+         *
+         *     `q` optionally narrows the scope to games whose canonical title or an approved alias
+         *     matches under the `searchGames` rules (normalized, all tokens, word prefixes, non-fuzzy);
+         *     it filters and never reorders. `releaseState`, the inclusive year range on the presented
+         *     release's known year and `genreIds` (OR within the dimension) combine with AND. A year
+         *     range excludes a presented release with an unknown date. `availableFilters` is faceted:
+         *     its genres are those of the games matching every other active filter, never narrowed by
+         *     the active genre selection, and a selected genre always stays representable; its years
+         *     span the presented releases matching every filter except the year range.
+         *
+         *     PostgreSQL selects, deduplicates, presents, filters, counts, orders and pages the games
+         *     before the page reaches the application. Scores, genres and the matched alias are read
+         *     for the returned page only. The total counts games, not releases, and makes no claim of
+         *     exhaustive historical coverage. It never varies on the session or preferred platforms and
+         *     never calls a provider.
+         */
+        get: operations["browsePlatformGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-upcoming-highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rank the most anticipated upcoming games of one platform
+         * @description Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
+         *     catalogue publication that are still to come on the requested platform scope inside a
+         *     moving six-calendar-month horizon, ranked by their locally stored positive IGDB Hypes
+         *     descending, then `gameId` ascending. A platform family is sent as the product platform
+         *     identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
+         *
+         *     The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
+         *     starts on it and ends on the day before the same day of the month six calendar months
+         *     later; when that day does not exist, it ends on the last day of that month (from 31 August
+         *     to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
+         *
+         *     A release qualifies on a scope platform when it is a Full Release, neither cancelled nor
+         *     delayed nor pending review, and its known date can only fall inside the horizon and after
+         *     the evaluation date: an exact day after the evaluation date and no later than `window.to`,
+         *     or a month or quarter that has not ended and ends no later than `window.to`. A year or
+         *     unknown (TBA) date never qualifies, and no date is narrowed to an invented day. A game is a
+         *     candidate when it has a qualifying release on the scope, no release on the scope that has
+         *     already effectively occurred (the `browsePlatformGames` occurrence rule, so released and
+         *     upcoming agree with Explorar catálogo), and is not known to be an edition rather than a
+         *     distinct product. A game already released on another platform may be a candidate: what
+         *     matters is that it is new to this platform. Only candidates with a positive Hypes count are
+         *     ranked; a candidate without one is not ranked and no value is ever invented.
+         *
+         *     Each item presents one qualifying release of the scope, chosen by the `ReleaseItem`
+         *     presentation precedence with the earliest date first, and carries the landscape image of
+         *     `FeaturedImage`: the first item uses the hero policy, the others the card policy. Hypes
+         *     measure provider-observed attention: never quality, a rating, a community opinion or an
+         *     editorial recommendation, and the value itself is not exposed. The selection never claims
+         *     that the local catalogue holds every release of the platform. PostgreSQL selects,
+         *     deduplicates, ranks and limits the games and presents their release before anything
+         *     reaches the application. It never varies on the session or preferred platforms and never
+         *     calls a provider.
+         */
+        get: operations["getPlatformUpcomingHighlights"];
         put?: never;
         post?: never;
         delete?: never;
@@ -725,6 +941,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        PrivateProfile: {
+            name?: string;
+            email?: string;
+            deletionAvailable: boolean;
+        };
+        AccountDeletionConfirmation: {
+            /** @enum {string} */
+            confirmation: "ELIMINAR";
+        };
+        AccountDeletionStatus: {
+            /** @enum {string} */
+            state: "pending" | "complete";
+        };
         /**
          * @description The order of the games, applied before pagination; every order ends in the unique
          *     `gameId`. `releaseDate` is ascending by each game's first presented release: the last
@@ -743,9 +972,33 @@ export interface components {
          */
         ReleaseSort: "releaseDate" | "hype" | "rating" | "externalPlayerScore";
         /**
+         * @description The order of the games, applied before pagination; every order ends in the unique
+         *     `gameId`. The date orders position each game by its presented release: the last day of
+         *     its known period (the day itself for an exact date), then an exact day before a month,
+         *     quarter or year ending the same day, then the normalized canonical title. A presented
+         *     release with an unknown date follows every dated one in both directions and is never
+         *     treated as a date. `release_date_desc` (the default) puts the latest first,
+         *     `release_date_asc` the earliest. The title orders use the normalized canonical title.
+         *     `community_score` puts the highest Gameómetro community mean, at the one decimal shown,
+         *     first, then more ratings; `external_player_score` the highest stored external player
+         *     score (currently IGDB players) at the one decimal of its /10 value, then more of that
+         *     source's ratings. A game without the chosen score follows every game with one and is
+         *     never treated as zero; ties continue with `release_date_desc`.
+         * @default release_date_desc
+         * @enum {string}
+         */
+        PlatformGamesSort: "release_date_desc" | "release_date_asc" | "title_asc" | "title_desc" | "community_score" | "external_player_score";
+        /**
+         * @description Whether a game's presented release on the platform scope has effectively occurred at the
+         *     evaluation date (`released`) or not yet (`upcoming`), derived from its effective date,
+         *     never from a stored status.
+         * @enum {string}
+         */
+        PlatformGameReleaseState: "released" | "upcoming";
+        /**
          * @description The one population whose ratings rank the games. `igdb_players` is the IGDB players'
          *     rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
-         *     when at least 100 ratings stand behind it; it is the default because it covers most
+         *     when at least 50 ratings stand behind it; it is the default because it covers most
          *     games. `gameometro_community` is the Gameómetro community mean of one contribution per
          *     rating and its number of ratings, ranked from the first rating. Sources are never
          *     combined, and
@@ -1062,7 +1315,9 @@ export interface components {
          *     ranking, and both popularity fields are present. `popularity_unavailable`: the period has
          *     qualifying releases but none of their games has a usable popularity signal, so nothing is
          *     ranked. `no_qualifying_releases`: the local catalogue holds no qualifying release inside
-         *     the period. A stale selection is still the last valid local ranking.
+         *     the period. A qualifying release is one the release explorer's range admits for the
+         *     period, with approximate dates left out. A stale selection is still the last valid local
+         *     ranking.
          */
         FeaturedSelection: {
             /** @enum {string} */
@@ -1099,9 +1354,9 @@ export interface components {
              * @description Ranked games, highest popularity first. The first item is the period's featured
              *     release and up to five other featured releases follow. Each item holds only the game's
              *     qualifying releases inside the period, at most one per platform, chosen by the
-             *     `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
-             *     before month precision, then the earlier date. Empty unless `selection.status` is
-             *     `ranked`.
+             *     `ReleaseItem` presentation precedence, in the order the release explorer presents
+             *     them: the last day of the known period first, then an exact day before a coarser
+             *     period ending that day. Empty unless `selection.status` is `ranked`.
              */
             items: components["schemas"]["FeaturedReleaseItem"][];
         };
@@ -1297,6 +1552,12 @@ export interface components {
             /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
             genres: components["schemas"]["Genre"][];
             releaseSummary: components["schemas"]["CompactReleaseSummary"];
+            /**
+             * @description Present exactly when the request names `platformIds`: the eligible release that
+             *     presents the game on that scope (`RNK-005`), with its own platform, region and date
+             *     precision; its status is the effective one, always `released`.
+             */
+            platformRelease?: components["schemas"]["ReleaseSummary"];
             score: components["schemas"]["RankingScore"];
         };
         /**
@@ -1316,6 +1577,90 @@ export interface components {
             scale: number;
             /** Format: int32 */
             count: number;
+        };
+        PlatformGamesPage: {
+            /** @description The requested platform scope, ordered by case-insensitive name then `platformId`. */
+            platforms: components["schemas"]["Platform"][];
+            availableFilters: components["schemas"]["PlatformGamesFilters"];
+            items: components["schemas"]["PlatformGameItem"][];
+            page: components["schemas"]["PageMetadata"];
+        };
+        /**
+         * @description Contextual choices for the platform scope. The years are the earliest and latest known
+         *     years of the presented releases matching every filter except the year range; both are
+         *     omitted when none has a known date.
+         */
+        PlatformGamesFilters: {
+            /**
+             * @description The genres of the games matching every other active filter, ordered by case-insensitive
+             *     name then `genreId`, always including a selected genre.
+             */
+            genres: components["schemas"]["Genre"][];
+            /** Format: int32 */
+            earliestYear?: number;
+            /** Format: int32 */
+            latestYear?: number;
+        };
+        PlatformGameItem: {
+            gameId: components["schemas"]["GameId"];
+            slug: string;
+            canonicalTitle: string;
+            /** @description Present only when `q` matched an approved alias and not the canonical title. */
+            matchedAlias?: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
+            genres: components["schemas"]["Genre"][];
+            /**
+             * @description The release that presents the game on the platform scope, with its own platform,
+             *     region, date precision and effective status; never `cancelled`.
+             */
+            platformRelease: components["schemas"]["ReleaseSummary"];
+            scores: components["schemas"]["DiscoveryScores"];
+        };
+        PlatformUpcomingHighlights: {
+            /** @description The requested platform scope, ordered by case-insensitive name then `platformId`. */
+            platforms: components["schemas"]["Platform"][];
+            /** Format: date */
+            evaluatedOn: string;
+            /**
+             * @description The six-calendar-month horizon, inclusive: from the evaluation date to the day before
+             *     the same day of the month six months later, or that month's last day when the day does
+             *     not exist in it.
+             */
+            window: components["schemas"]["ReleaseWindow"];
+            /**
+             * @description `ranked` when at least one candidate has positive Hypes; `popularity_unavailable`
+             *     when the scope has candidates but none has Hypes; `no_qualifying_releases` when the
+             *     local catalogue holds no candidate in the horizon. The freshness fields describe the
+             *     oldest Hypes evidence among the ranked games.
+             */
+            selection: components["schemas"]["FeaturedSelection"];
+            /**
+             * @description The ranking, highest Hypes first, then `gameId` ascending; each game appears once.
+             *     Empty unless `selection.status` is `ranked`, and shorter than ten when fewer
+             *     candidates have Hypes: no slot is filled artificially.
+             */
+            items: components["schemas"]["UpcomingHighlightItem"][];
+        };
+        UpcomingHighlightItem: {
+            /**
+             * Format: int32
+             * @description The game's place in the ranking, consecutive from 1.
+             */
+            position: number;
+            gameId: components["schemas"]["GameId"];
+            slug: string;
+            canonicalTitle: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @description The hero policy's image for the first item and the card policy's for the others. */
+            featuredImage: components["schemas"]["FeaturedImage"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
+            genres: components["schemas"]["Genre"][];
+            /**
+             * @description The qualifying release that presents the game on the scope, with its own platform,
+             *     region, date at its real precision and effective status (`scheduled`).
+             */
+            platformRelease: components["schemas"]["ReleaseSummary"];
         };
         GameSearchPage: {
             items: components["schemas"]["GameSummary"][];
@@ -1540,6 +1885,8 @@ export interface components {
          *     Says nothing about ownership, playing time or the platform's quality.
          */
         PersonalPlatformInsights: {
+            /** @description Added in 5.7.0; absent only on earlier servers, never inferred from items. */
+            distribution?: components["schemas"]["PersonalPlatformDistribution"];
             /**
              * @description Up to six platforms by playedGames descending, then scoredGames descending, then
              *     name case-insensitively ascending and platformId ascending.
@@ -1560,6 +1907,41 @@ export interface components {
              * @description Rated games recorded on two or more platforms.
              */
             gamesOnSeveralPlatforms: number;
+        };
+        /**
+         * @description Exhaustive distribution of recorded game–platform associations, independent of the top-six
+         *     items. Each saved selection contributes one, including unscored selections. A game on PS5
+         *     and Windows contributes to both; two other platforms contribute two to other. The sum is
+         *     the percentage denominator, never the number of rated games. Missing selections contribute
+         *     nothing. All five counts are zero when no platforms are recorded. Product taxonomy IDs,
+         *     not provider identifiers, define the four featured categories; every other ID is other.
+         */
+        PersonalPlatformDistribution: {
+            /**
+             * Format: int64
+             * @description PS5: product platform 10000000-0000-4000-8000-000000000001.
+             */
+            ps5: number;
+            /**
+             * Format: int64
+             * @description Switch 2: product platform 10000000-0000-4000-8000-000000000002.
+             */
+            switch2: number;
+            /**
+             * Format: int64
+             * @description Xbox Series X|S: product platform 10000000-0000-4000-8000-000000000004.
+             */
+            xboxSeries: number;
+            /**
+             * Format: int64
+             * @description PC Windows: product platform 10000000-0000-4000-8000-000000000003.
+             */
+            windowsPc: number;
+            /**
+             * Format: int64
+             * @description All explicitly recorded selections outside the four featured product IDs.
+             */
+            other: number;
         };
         PersonalPlatformInsight: {
             platform: components["schemas"]["Platform"];
@@ -1715,7 +2097,10 @@ export interface components {
             /** Format: date */
             to: string;
             /**
-             * @description Explicit intent for completely covered chunks; never skip partial coverage.
+             * @description Explicit intent for completely covered chunks; never skip partial coverage. Since 5.10.0,
+             *     `skip` trusts only coverage scanned under the current import policy: a chunk covered
+             *     before the policy last widened is processed, because that scan may have deferred
+             *     works now admitted.
              * @enum {string}
              */
             coveredMonths: "skip" | "rerun";
@@ -1819,7 +2204,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1846,6 +2231,39 @@ export interface components {
         };
     };
     responses: {
+        /** @description REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted. */
+        ProfileValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description ACCOUNT_OPERATION_UNAVAILABLE; source, budget or protected erasure capability unavailable. No successful partial export or deletion claimed. */
+        AccountUnavailable: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description CSRF_VALIDATION_FAILED or RECENT_AUTHENTICATION_REQUIRED; no deletion admitted. */
+        AccountDeletionForbidden: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description HISTORICAL_SYNCHRONIZATION_RANGE_INVALID; the operation changed no historical target. */
         HistoricalSynchronizationRejected: {
             headers: {
@@ -2210,7 +2628,34 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description The ranking source, the pagination or a request parameter is invalid. */
+        /**
+         * @description The platform scope, search query, year range, genres, order, pagination or request
+         *     parameters are invalid: an unknown platform, a query without a token, a
+         *     `fromYear` after `toYear`, an unknown genre, an unsupported sort or release state, or an
+         *     unknown parameter.
+         */
+        PlatformGamesValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The platform scope names an unknown platform, or a request parameter is unknown. */
+        UpcomingHighlightsValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The ranking source, the platform scope, the pagination or a request parameter is invalid. */
         RankingValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -2458,6 +2903,51 @@ export interface components {
          */
         FeaturedPlatformIdsQuery: components["schemas"]["PlatformId"][];
         /**
+         * @description Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+         *     identifiers of one platform or one platform family, combined with OR. At least one is
+         *     required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+         *     trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+         * @example [
+         *       "platform_switch2"
+         *     ]
+         */
+        PlatformScopeQuery: components["schemas"]["PlatformId"][];
+        /**
+         * @description Optional title search inside the platform scope, trimmed, with 1 to 100 Unicode code
+         *     points. A query whose normalized form holds no token yields 422 `SEARCH_QUERY_INVALID`.
+         * @example zelda
+         */
+        PlatformGamesQuery: string;
+        /**
+         * @description Omit it for every game of the scope. `released` keeps the games whose presented release
+         *     has effectively occurred at the evaluation date; `upcoming` keeps the others: expected,
+         *     delayed or still undated.
+         * @example upcoming
+         */
+        PlatformGamesReleaseState: components["schemas"]["PlatformGameReleaseState"];
+        /**
+         * @description First calendar year, inclusive, of the presented release's known date. Either bound may be
+         *     sent alone; a `fromYear` after `toYear` yields 422 `FILTER_INVALID` for `/query/toYear`.
+         * @example 2026
+         */
+        PlatformGamesFromYear: number;
+        /**
+         * @description Last calendar year, inclusive, of the presented release's known date.
+         * @example 2027
+         */
+        PlatformGamesToYear: number;
+        /**
+         * @description Repeatable multi-select genre filter (`genreIds=a&genreIds=b`) over the existing
+         *     localized product genres; values combine with OR. Values are trimmed and de-duplicated; an
+         *     unknown value yields 422 `FILTER_INVALID` for `/query/genreIds`.
+         * @example [
+         *       "genre_adventure"
+         *     ]
+         */
+        GenreIdsQuery: components["schemas"]["GenreId"][];
+        /** @example release_date_asc */
+        PlatformGamesSortQuery: components["schemas"]["PlatformGamesSort"];
+        /**
          * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
          *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
          *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
@@ -2578,6 +3068,158 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private account summary with optional available identity fields. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "deletionAvailable": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PrivateProfile"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete versioned JSON attachment. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    /** @description Fixed safe attachment filename gameometro-datos.json. */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["AccountUnavailable"];
+        };
+    };
+    requestMyAccountDeletion: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "confirmation": "ELIMINAR"
+                 *     }
+                 */
+                "application/json": components["schemas"]["AccountDeletionConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Deletion accepted, requesting BFF session ended and access blocked; completion remains unverified. */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    /** @description HttpOnly SameSite=Strict path-scoped receipt; Secure outside loopback. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "state": "pending"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["AccountDeletionStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccountDeletionForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["AccountUnavailable"];
+        };
+    };
+    getAccountDeletionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restricted deletion outcome. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "state": "pending"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["AccountDeletionStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
     listReleases: {
         parameters: {
             query?: {
@@ -2818,6 +3460,16 @@ export interface operations {
                 /** @example gameometro_community */
                 source?: components["parameters"]["RankingSourceQuery"];
                 /**
+                 * @description Repeatable platform restriction (`platformIds=a&platformIds=b`) applied before ranking:
+                 *     values combine with OR. Omit it for every platform. Values are trimmed and
+                 *     de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["FeaturedPlatformIdsQuery"];
+                /**
                  * @description One-based page; a page beyond the last returns an empty page.
                  * @example 1
                  */
@@ -2854,6 +3506,144 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["RankingValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    browsePlatformGames: {
+        parameters: {
+            query: {
+                /**
+                 * @description Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+                 *     identifiers of one platform or one platform family, combined with OR. At least one is
+                 *     required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+                 *     trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds: components["parameters"]["PlatformScopeQuery"];
+                /**
+                 * @description Optional title search inside the platform scope, trimmed, with 1 to 100 Unicode code
+                 *     points. A query whose normalized form holds no token yields 422 `SEARCH_QUERY_INVALID`.
+                 * @example zelda
+                 */
+                q?: components["parameters"]["PlatformGamesQuery"];
+                /**
+                 * @description Omit it for every game of the scope. `released` keeps the games whose presented release
+                 *     has effectively occurred at the evaluation date; `upcoming` keeps the others: expected,
+                 *     delayed or still undated.
+                 * @example upcoming
+                 */
+                releaseState?: components["parameters"]["PlatformGamesReleaseState"];
+                /**
+                 * @description First calendar year, inclusive, of the presented release's known date. Either bound may be
+                 *     sent alone; a `fromYear` after `toYear` yields 422 `FILTER_INVALID` for `/query/toYear`.
+                 * @example 2026
+                 */
+                fromYear?: components["parameters"]["PlatformGamesFromYear"];
+                /**
+                 * @description Last calendar year, inclusive, of the presented release's known date.
+                 * @example 2027
+                 */
+                toYear?: components["parameters"]["PlatformGamesToYear"];
+                /**
+                 * @description Repeatable multi-select genre filter (`genreIds=a&genreIds=b`) over the existing
+                 *     localized product genres; values combine with OR. Values are trimmed and de-duplicated; an
+                 *     unknown value yields 422 `FILTER_INVALID` for `/query/genreIds`.
+                 * @example [
+                 *       "genre_adventure"
+                 *     ]
+                 */
+                genreIds?: components["parameters"]["GenreIdsQuery"];
+                /** @example release_date_asc */
+                sort?: components["parameters"]["PlatformGamesSortQuery"];
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A deterministic page of the platform scope's games, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformGamesPage"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PlatformGamesValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getPlatformUpcomingHighlights: {
+        parameters: {
+            query: {
+                /**
+                 * @description Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+                 *     identifiers of one platform or one platform family, combined with OR. At least one is
+                 *     required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+                 *     trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+                 * @example [
+                 *       "platform_switch2"
+                 *     ]
+                 */
+                platformIds: components["parameters"]["PlatformScopeQuery"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The platform scope's upcoming highlights, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUpcomingHighlights"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["UpcomingHighlightsValidationFailed"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];

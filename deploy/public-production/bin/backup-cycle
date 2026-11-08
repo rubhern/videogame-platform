@@ -1,0 +1,455 @@
+#!/usr/bin/env python3
+"""One scheduled backup: capture, reopen and upload around the existing recovery actor.
+
+The journal makes every step resumable, so a crash, a reboot or a failed step converges on
+an open product. A predictable failure refuses before the fence, and an upload runs only
+after reopening, so storage trouble never costs availability. Only a fence this tool
+created reopens by itself; every other fence stays closed for its owner.
+"""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import datetime as dt
+import fcntl
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import uuid
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+RECOVERY = HERE / 'recovery'
+FIELDS = {'authorized', 'admin', 'project', 'state', 'keyring', 'recipient', 'work', 'uploaderConfig',
+          'admissionConfig', 's3Python', 'status', 'maxRetainedBytes', 'maxFenceSeconds'}
+PATHS = ('admin', 'state', 'keyring', 'work', 'uploaderConfig', 'admissionConfig', 's3Python', 'status')
+# What the fence stops, in the order the product needs them back: identity, then the edge
+# the BFF validates its issuer through, then the application.
+REQUIRED = ('keycloak', 'caddy', 'application')
+OPTIONAL = ('grafana',)
+READINESS = 'http://127.0.0.1:8081/actuator/health/readiness'
+ADMISSION_WINDOW = dt.timedelta(hours=6)
+DEFAULT_LIMIT = 200 * 1024 ** 3  # Owner-approved D7 refusal threshold.
+DEFAULT_FENCE_SECONDS = 1800
+MAX_REOPEN_ATTEMPTS = 3
+UPLOAD_BACKOFF_SECONDS = 900
+READINESS_SECONDS = 180
+START_SECONDS = 300
+RECEIPT_DAYS = 40
+MAX_ENTRIES = 1024
+FREE_DISK_RESERVE = 0.15  # Matches the platform's critical free-disk alert.
+PAIR_NAME = re.compile(r'\d{8}T\d{6}Z-[0-9a-f]{32}(\.partial)?')
+FENCING = ('capturing', 'reopening')
+
+
+def load_core():
+    loader = importlib.machinery.SourceFileLoader('backup_cycle_recovery', str(RECOVERY))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def load_configuration(core, path):
+    core.private(path)
+    core.require(path.stat().st_size <= 65536, 'Oversized backup cycle configuration.')
+    config = json.loads(path.read_text())
+    core.require(not set(config) - FIELDS, 'Unknown backup cycle setting.')
+    core.require(FIELDS - {'maxRetainedBytes', 'maxFenceSeconds'} <= set(config), 'Incomplete backup cycle configuration.')
+    core.require(all(isinstance(config[k], str) and config[k].startswith('/') for k in PATHS), 'Backup cycle paths must be absolute.')
+    return config
+
+
+class Cycle:
+    def __init__(self, config, core, runtime=None, invoke=None, sleep=time.sleep, usage=shutil.disk_usage):
+        self.config, self.core = config, core
+        self.work = Path(config['work'])
+        self.journal_path = self.work / 'CYCLE.json'
+        self.pairs, self.receipts = self.work / 'pairs', self.work / 'receipts'
+        self.limit = config.get('maxRetainedBytes', DEFAULT_LIMIT)
+        self.fence_seconds = config.get('maxFenceSeconds', DEFAULT_FENCE_SECONDS)
+        self.runtime_factory = runtime or self.load_runtime
+        self.invoke = invoke or self.recovery_process
+        self.sleep, self.usage = sleep, usage
+        self.journal = {'status': 'idle', 'reopenAttempts': 0}
+
+    # --- durable state ---
+    def load(self):
+        self.core.private(self.work, directory=True)
+        for directory in (self.pairs, self.receipts):
+            directory.mkdir(mode=0o700, exist_ok=True)
+        if self.journal_path.exists():
+            self.journal = json.loads(self.journal_path.read_text())
+        return self
+
+    def save(self):
+        self.core.write(self.journal_path, self.journal)
+        self.report()
+
+    def report(self):
+        """The status the host sampler reads. A monitoring fault never changes the backup."""
+        j = self.journal
+        status = {'kind': 'backup-cycle', 'outcome': 'failure' if j.get('lastFailure') else 'success', 'status': j['status'],
+                  # A normal capture is fenced too; attention means a reopening has already failed.
+                  'attention': j['status'] == 'owner-required' or (j['status'] in FENCING and j.get('lastFailure') == 'reopen-failed'),
+                  'lastFailure': j.get('lastFailure'), 'lastCaptureAt': j.get('lastCaptureAt'),
+                  'lastUploadAt': j.get('lastUploadAt'), 'lastUploadRecoveryPoint': j.get('lastUploadRecoveryPoint'),
+                  'optionalDegraded': j.get('optionalDegraded', []), 'capacityWarning': j.get('capacityWarning', False)}
+        with contextlib.suppress(OSError):
+            self.core.write(Path(self.config['status']), status)
+
+    def fail(self, code):
+        self.journal['lastFailure'] = code
+
+    @contextlib.contextmanager
+    def exclusive(self):
+        with (self.work / 'LOCK').open('a') as stream:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise self.core.Refused('Another backup cycle step is active.') from None
+            yield
+
+    # --- seams ---
+    def load_runtime(self):
+        admin = Path(self.config['admin'])
+        pointer = admin / 'upgrades/ACTIVE.json'
+        if pointer.exists():
+            # After an upgrade the accepted configuration names superseded images.
+            active = json.loads(pointer.read_text())
+            path = Path(active['configurationFile'])
+            self.core.require(self.core.digest(path) == active['configurationSha256'], 'The active upgrade configuration changed.')
+        else:
+            path = admin / 'compose.accepted.json'
+        return self.core.Runtime(path, self.config['project'], Path(self.config['state']))
+
+    def recovery_process(self, command, config, *arguments, timeout=2000):
+        receipt = self.receipts / f'{self.core.utc().strftime("%Y%m%dT%H%M%SZ")}-{command}-{uuid.uuid4().hex}.json'
+        result = subprocess.run([self.config['s3Python'], '-I', str(RECOVERY), command, '--s3-config', config,
+                                 '--max-copy-bytes', str(self.limit), *map(str, arguments), '--receipt', str(receipt)],
+                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
+        self.core.require(result.returncode in (0, 2), f'S3 {command} failed; see its protected receipt.')
+        return receipt
+
+    # --- checks that need no fence ---
+    def credentials(self):
+        keys = []
+        for name in ('uploaderConfig', 'admissionConfig'):
+            path = Path(self.config[name])
+            self.core.private(path)
+            keys.append(json.loads(path.read_text()).get('accessKey'))
+        self.core.require(all(keys) and keys[0] != keys[1], 'The uploader and admission reader need separate credentials.')
+
+    def unfinished_upgrade(self):
+        root = Path(self.config['admin']) / 'upgrades'
+        return any(json.loads(path.read_text()).get('status') in ('running', 'failed') for path in root.glob('*/upgrade.json'))
+
+    def preflight(self, runtime):
+        core = self.core
+        core.public_key(Path(self.config['keyring']), self.config['recipient'])
+        self.credentials()
+        core.require(not (runtime.state / 'PENDING.json').exists(), 'A recovery journal is pending.')
+        core.require(runtime.gate('check') == b'open', 'The recovery gate is closed.')
+        core.require(runtime.gate('maintenance-check') == b'none', 'Identity maintenance is active.')
+        core.require(not self.unfinished_upgrade(), 'An upgrade is unfinished.')
+        for name in REQUIRED:
+            core.require(runtime.compose('ps', '-q', '--status', 'running', name).strip(), 'A required service is not running.')
+        core.require(runtime.sql(core.DATABASES[0], "SELECT count(*) FROM catalogue.synchronization_run WHERE run_status='running';").strip() == b'0',
+                     'A synchronization is running; the capture is deferred.')
+        names = ','.join(f"'{database}'" for database in core.DATABASES)
+        sizes = runtime.sql('postgres', 'SELECT coalesce(sum(pg_database_size(datname)),0)::bigint, coalesce(max(pg_database_size(datname)),0)::bigint '
+                                        f'FROM pg_database WHERE datname IN ({names});').decode().strip().split('|')
+        total, largest = int(sizes[0]), int(sizes[1])
+        disk, memory = self.usage(self.work), self.usage('/dev/shm')
+        core.require(disk.free - total >= disk.total * FREE_DISK_RESERVE, 'Insufficient free disk for a capture.')
+        # Dumps pass through tmpfs one at a time; a custom-format dump is not larger than its database.
+        core.require(memory.free >= largest, 'Insufficient tmpfs for a capture.')
+
+    def admission(self):
+        receipt = self.invoke('admission', self.config['admissionConfig'])
+        evidence = json.loads(Path(receipt).read_text())
+        self.journal['capacityWarning'] = 'capacity-warning' in evidence.get('alerts', [])
+        return receipt
+
+    # --- reopening ---
+    def start_services(self, runtime):
+        def start(name):
+            runtime.compose('up', '-d', '--no-deps', '--no-recreate', '--wait', '--wait-timeout', str(START_SECONDS),
+                            '--pull', 'never', name, timeout=START_SECONDS + 60)
+        for name in REQUIRED:
+            start(name)
+        degraded = []
+        for name in self.journal.get('optionalRunning', []):
+            # Optional for product readiness: reported, and never a reason to fence the product.
+            try:
+                start(name)
+            except self.core.Refused:
+                degraded.append(name)
+        self.journal['optionalDegraded'] = degraded
+
+    def smoke(self, runtime):
+        deadline = time.monotonic() + READINESS_SECONDS
+        while True:
+            try:
+                runtime.compose('exec', '-T', 'application', 'wget', '-q', '--spider', '-T', '3', READINESS, timeout=30)
+                break
+            except self.core.Refused:
+                self.core.require(time.monotonic() < deadline, 'The application did not become ready after the capture.')
+                self.sleep(5)
+        self.core.require(runtime.gate('check') == b'open' and runtime.gate('maintenance-check') == b'none',
+                          'The recovery gate did not stay open after the capture.')
+
+    def captured(self):
+        """Publication is atomic and follows the final drain check, so a verified pair is a valid point."""
+        pair = Path(self.journal['pair'])
+        if not pair.is_dir():
+            return None
+        try:
+            return self.core.verify(pair)
+        except (self.core.Refused, OSError, KeyError, ValueError):
+            return None
+
+    def reopen(self, runtime, thawed=False):
+        """Called under the lease. Failure leaves the journal for the reconcile timer to retry."""
+        self.journal['status'] = 'reopening'
+        self.save()
+        try:
+            if not thawed:
+                runtime.reopen_capture(self.journal['runId'])
+            self.start_services(runtime)
+            self.smoke(runtime)
+        except Exception:
+            self.journal['reopenAttempts'] = self.journal.get('reopenAttempts', 0) + 1
+            self.fail('reopen-failed')
+            if self.journal['reopenAttempts'] >= MAX_REOPEN_ATTEMPTS:
+                self.journal['status'] = 'owner-required'
+            self.save()
+            return False
+        manifest = self.captured()
+        if manifest:
+            self.journal.update(status='upload-pending', recoveryPoint=manifest['recoveryPoint'], uploadAttempts=0,
+                                nextUploadAt=None, reopenAttempts=0, lastCaptureAt=manifest['recoveryPoint'])
+        else:
+            self.journal.update(status='idle', reopenAttempts=0)
+            self.fail('capture-failed')
+        self.save()
+        return True
+
+    def capture(self, runtime):
+        core, run_id = self.core, uuid.uuid4().hex
+        pair = self.pairs / f'{core.utc().strftime("%Y%m%dT%H%M%SZ")}-{run_id}'
+        self.journal.update(status='capturing', runId=run_id, pair=str(pair), fenceEntered=False, reopenAttempts=0,
+                            recoveryPoint=None, optionalRunning=[n for n in OPTIONAL if getattr(runtime, 'monitoring', False)
+                                                                 and runtime.compose('ps', '-q', '--status', 'running', n).strip()])
+        self.save()
+        runtime.cycle_run = run_id
+        try:
+            with runtime.lock():
+                # Everything before this point ran without the lease: check again under it.
+                core.require(not (runtime.state / 'PENDING.json').exists() and runtime.gate('check') == b'open',
+                             'The recovery gate closed before the capture.')
+                self.journal['fenceEntered'] = True
+                self.save()
+                thawed = False
+                try:
+                    with self.budget():
+                        runtime.backup(pair, Path(self.config['keyring']), self.config['recipient'])
+                        runtime.thaw()
+                        thawed = True
+                except (Exception, KeyboardInterrupt):
+                    self.fail('capture-failed')  # Reopening below decides what remains of it.
+                return self.reopen(runtime, thawed)
+        except core.Refused:
+            if self.journal['fenceEntered']:
+                raise
+            # The lease was unavailable or the gate closed: nothing was fenced by this run.
+            self.journal.update(status='idle')
+            self.fail('capture-skipped')
+            self.save()
+            return False
+
+    @contextlib.contextmanager
+    def budget(self):
+        def expired(*_):
+            raise self.core.Refused('The capture exceeded its fence budget.')
+        previous = signal.signal(signal.SIGALRM, expired)
+        signal.alarm(self.fence_seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
+
+    # --- upload ---
+    def upload(self):
+        core, j = self.core, self.journal
+        now = core.utc()
+        if now >= core.timestamp(j['recoveryPoint']) + ADMISSION_WINDOW:
+            # A late pair would lock past the retention ceiling; the next capture replaces it.
+            j.update(status='idle')
+            self.fail('upload-window-closed')
+            self.save()
+            return False
+        if j.get('nextUploadAt') and now < core.timestamp(j['nextUploadAt']):
+            return False
+        j['uploadAttempts'] = j.get('uploadAttempts', 0) + 1
+        self.save()
+        try:
+            admission = self.admission()
+            self.invoke('publish', self.config['uploaderConfig'], '--backup', j['pair'], '--observer-receipt', admission)
+        except (Exception, KeyboardInterrupt):
+            wait = UPLOAD_BACKOFF_SECONDS * 2 ** (j['uploadAttempts'] - 1)
+            j['nextUploadAt'] = (now + dt.timedelta(seconds=wait)).isoformat()
+            self.fail('upload-failed')
+            self.save()
+            return False
+        j.update(status='idle', lastUploadAt=core.utc().isoformat(), lastUploadRecoveryPoint=j['recoveryPoint'],
+                 lastUploadedPair=j['pair'], nextUploadAt=None)
+        j.pop('lastFailure', None)
+        self.save()
+        self.prune()
+        return True
+
+    def prune(self):
+        """Keep the last uploaded pair and the one in flight; only names this tool creates."""
+        keep = {self.journal.get('lastUploadedPair')}
+        if self.journal['status'] in (*FENCING, 'upload-pending'):
+            keep.add(self.journal.get('pair'))
+        for index, entry in enumerate(self.pairs.iterdir()):
+            self.core.require(index < MAX_ENTRIES, 'Too many local pairs; reconcile storage.')
+            if str(entry) not in keep and PAIR_NAME.fullmatch(entry.name) and entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+        cutoff = time.time() - RECEIPT_DAYS * 86400
+        for index, entry in enumerate(self.receipts.iterdir()):
+            self.core.require(index < MAX_ENTRIES * 4, 'Too many local receipts; reconcile storage.')
+            if entry.is_file() and entry.stat().st_mtime < cutoff:
+                entry.unlink()
+
+    # --- commands ---
+    def converge(self):
+        """Finish whatever an earlier step left. Cheap when there is nothing to do."""
+        j = self.journal
+        if j['status'] in FENCING:
+            runtime = self.runtime_factory()
+            runtime.cycle_run = j['runId']
+            with runtime.lock():
+                closed = (runtime.state / 'PENDING.json').exists() or runtime.gate('check') != b'open'
+                if not j.get('fenceEntered') and closed:
+                    # This run never fenced, so the closed gate belongs to someone else.
+                    j.update(status='idle')
+                    self.fail('capture-skipped')
+                    self.save()
+                    return
+                pending = runtime.state / 'PENDING.json'
+                if pending.exists() and not self.owned(json.loads(pending.read_text())):
+                    # Another actor replaced the fence after a crash: only its owner may reopen it.
+                    j.update(status='owner-required')
+                    self.fail('foreign-fence')
+                    self.save()
+                    return
+                self.reopen(runtime, thawed=not closed)
+        if self.journal['status'] == 'upload-pending':
+            self.upload()
+
+    def owned(self, pending):
+        return pending.get('cycleRun') == self.journal['runId'] and pending.get('phase') in self.core.CAPTURE_PHASES
+
+    def run(self):
+        core = self.core
+        core.require(self.config.get('authorized') is True, 'Scheduled captures are not authorized in this configuration.')
+        with self.exclusive():
+            self.converge()
+            status = self.journal['status']
+            if status != 'idle':
+                return self.skip('owner-required' if status == 'owner-required' else 'previous-cycle-unfinished')
+            self.prune()
+            try:
+                runtime = self.runtime_factory()
+                self.preflight(runtime)
+                self.admission()
+            except (Exception, KeyboardInterrupt):
+                return self.skip('preflight-refused')
+            self.journal.pop('lastFailure', None)
+            self.capture(runtime)
+            if self.journal['status'] == 'upload-pending':
+                self.upload()
+            return 0 if not self.journal.get('lastFailure') else 1
+
+    def skip(self, code):
+        # The product is untouched, and a skip still ages the upload the alerts watch.
+        self.fail(code)
+        self.save()
+        return 1
+
+    def reconcile(self):
+        try:
+            with self.exclusive():
+                self.converge()
+        except self.core.Refused:
+            return 0  # A cycle step or recovery actor is active and owns the state; retry on the next tick.
+        return 0 if self.journal['status'] != 'owner-required' else 1
+
+    def check(self):
+        """Read-only activation check. Prints fixed outcomes and never fences or uploads."""
+        results = {}
+        def probe(name, action):
+            try:
+                action()
+                results[name] = 'ok'
+            except (Exception, KeyboardInterrupt):
+                results[name] = 'refused'
+        runtime = []
+        probe('runtime', lambda: runtime.append(self.runtime_factory()))
+        probe('preflight', lambda: self.preflight(runtime[0]))
+        probe('admission', self.admission)
+        results['authorized'] = 'ok' if self.config.get('authorized') is True else 'not-authorized'
+        results['journal'] = 'ok' if self.journal['status'] == 'idle' else self.journal['status']
+        print(json.dumps(results, sort_keys=True))
+        return 0 if set(results.values()) == {'ok'} else 1
+
+    def acknowledge(self):
+        """After the owner has resolved a fence by hand, let scheduled captures resume."""
+        with self.exclusive():
+            runtime = self.runtime_factory()
+            self.core.require(self.journal['status'] == 'owner-required', 'Nothing needs acknowledgement.')
+            self.core.require(not (runtime.state / 'PENDING.json').exists() and runtime.gate('check') == b'open',
+                              'The recovery gate is still closed.')
+            self.journal.update(status='idle', reopenAttempts=0)
+            self.journal.pop('lastFailure', None)
+            self.save()
+        return 0
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('command', choices=['run', 'reconcile', 'check', 'acknowledge'])
+    parser.add_argument('--config', type=Path, required=True, help='Protected backup cycle configuration')
+    arguments = parser.parse_args()
+    core = load_core()
+
+    def interrupted(*_):
+        raise core.Refused('Interrupted; the reconcile timer finishes this cycle.')
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    try:
+        cycle = Cycle(load_configuration(core, arguments.config), core).load()
+        return getattr(cycle, arguments.command)()
+    except core.Refused as error:
+        print(str(error), file=sys.stderr)  # Refusals are fixed strings; raw diagnostics never reach logs.
+        return 1
+    except Exception:
+        print('Backup cycle failed; raw diagnostics withheld. Inspect the protected journal.', file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

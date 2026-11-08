@@ -96,6 +96,7 @@ class CatalogueReadTransactionTimeoutTest {
                                                 new FeaturedReleaseReadPort.Criteria(
                                                         LocalDate.of(2026, 10, 1),
                                                         LocalDate.of(2026, 10, 31),
+                                                        LocalDate.of(2026, 10, 15),
                                                         6,
                                                         3))),
                 read(

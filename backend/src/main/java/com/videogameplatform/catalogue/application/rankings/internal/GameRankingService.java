@@ -2,18 +2,22 @@ package com.videogameplatform.catalogue.application.rankings.internal;
 
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
+import com.videogameplatform.catalogue.application.internal.CatalogueReadMapping;
 import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
+import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Framework-independent implementation of UC-018. It derives the evaluation date and the page's
- * offset; the store ranks. Positions are the offset plus the place on the page, so pages of one
- * sequence never restart or overlap their numbering.
+ * offset and normalizes a platform scope; the store ranks. Positions are the offset plus the place
+ * on the page, so pages of one sequence never restart or overlap their numbering.
  */
 public final class GameRankingService implements RankGamesUseCase {
 
@@ -39,11 +43,16 @@ public final class GameRankingService implements RankGamesUseCase {
                 readPort.findRankedGames(
                                 new GameRankingReadPort.Criteria(
                                         query.source(),
+                                        normalize(query.platformIds()),
                                         evaluatedOn,
                                         new GameRankingReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
                                         SUMMARY_PLATFORM_LIMIT))
                         .orElseThrow(CatalogueNotReadyException::new);
+        if (!result.platformsSupported()) {
+            throw new ReleaseQueryValidationException(
+                    ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
+        }
 
         List<GameRanking.Item> items = new ArrayList<>(result.items().size());
         for (GameRankingReadPort.Item item : result.items()) {
@@ -56,6 +65,8 @@ public final class GameRankingService implements RankGamesUseCase {
                             coverPolicy.resolve(item.cover()),
                             item.genres(),
                             item.releaseSummary(),
+                            item.platformRelease()
+                                    .map(release -> toPlatformRelease(release, evaluatedOn)),
                             item.score()));
         }
         long totalPages =
@@ -67,5 +78,27 @@ public final class GameRankingService implements RankGamesUseCase {
                 items,
                 new GameRanking.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
+    }
+
+    /** The same deterministic normalization as release discovery: trimmed, distinct, sorted. */
+    private static List<String> normalize(List<String> values) {
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private static GameRanking.PlatformRelease toPlatformRelease(
+            GameRankingReadPort.PlatformRelease release, LocalDate evaluatedOn) {
+        return new GameRanking.PlatformRelease(
+                release.platform(),
+                release.region(),
+                CatalogueReadMapping.toReleaseDate(release.releaseDate()),
+                CatalogueReadMapping.toStatus(
+                        EffectiveReleaseStatusPolicy.effectiveStatus(
+                                release.status(), release.releaseDate(), evaluatedOn)));
     }
 }

@@ -31,6 +31,7 @@ export function ratingInsightsFixture(): RatingInsights {
         platform("10000000-0000-4000-8000-000000000004", "Xbox Series X|S", 4, 0, null),
         platform("30000000-0000-4000-8000-000000000006", "Sega Mega Drive/Genesis (Mini Edition)", 2, 1, 3),
       ],
+      distribution: { ps5: 31, switch2: 9, xboxSeries: 4, windowsPc: 18, other: 11 },
       otherPlatforms: 2, gamesWithoutPlatforms: 22, gamesOnSeveralPlatforms: 9,
     },
   };
@@ -45,5 +46,5 @@ export function emptyRatingInsightsFixture(): RatingInsights {
   return { ...data, total: 0, mean: null, distribution: Array.from({ length: 10 }, () => 0),
     mostRatedGenres: [], bestRatedGenres: [], gamesWithoutGenres: 0, highest: null, lowest: null,
     activity: data.activity.map(month => ({ ...month, count: 0 })), olderRatings: 0,
-    platforms: { items: [], otherPlatforms: 0, gamesWithoutPlatforms: 0, gamesOnSeveralPlatforms: 0 } };
+    platforms: { distribution: { ps5: 0, switch2: 0, xboxSeries: 0, windowsPc: 0, other: 0 }, items: [], otherPlatforms: 0, gamesWithoutPlatforms: 0, gamesOnSeveralPlatforms: 0 } };
 }

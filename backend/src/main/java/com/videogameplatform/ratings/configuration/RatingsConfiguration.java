@@ -26,6 +26,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 @EnableConfigurationProperties(RatingJdbcProperties.class)
 class RatingsConfiguration {
     @Bean
+    com.videogameplatform.ratings.application.ExportPersonalRatings exportPersonalRatings(
+            RatingJdbcExecution execution) {
+        return new com.videogameplatform.ratings.adapter.persistence.JdbcRatingExport(
+                execution.jdbc());
+    }
+
+    @Bean
     com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection
             gameListingProjection(
                     RatingJdbcExecution execution,

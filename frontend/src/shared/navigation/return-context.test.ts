@@ -9,7 +9,7 @@ const at = (path: string, state: unknown = null, key = "entry-1") => {
 
 describe("game page return context", () => {
   it.each([
-    ["/", "Volver a Destacados"],
+    ["/", "Volver al inicio"],
     ["/lanzamientos/destacados?week=2026-W42", "Volver a Destacados"],
     ["/?month=2026-12", "Volver a Destacados"],
     ["/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&page=2", "Volver a lanzamientos"],
@@ -19,11 +19,18 @@ describe("game page return context", () => {
     ["/mis-puntuaciones/estadisticas", "Volver a tus estadísticas"],
     ["/topometro", "Volver al TOPómetro"],
     ["/topometro?source=gameometro", "Volver al TOPómetro"],
+    ["/plataformas/nintendo-switch-2/catalogo?releaseState=upcoming&genreIds=adventure&page=2", "Volver al catálogo"],
+    ["/plataformas/14700e95-9202-420b-9a03-2ec2ce6250c7/catalogo?q=final", "Volver al catálogo"],
+    ["/plataformas/playstation-5/topometro", "Volver al TOPómetro"],
+    ["/plataformas/ps4-id/topometro?source=gameometro", "Volver al TOPómetro"],
+    ["/plataformas/xbox-series-x-s/proximos", "Volver a Próximos destacados"],
+    ["/plataformas/ps4-id/proximos", "Volver a Próximos destacados"],
   ])("names and keeps the whole origin %s", (path, label) => {
     const context = readReturnContext(gameLinkState(at(path)));
 
     expect(context?.label).toBe(label);
-    expect(context?.path).toBe(path.replace(/^\/(?=\?|$)/, "/lanzamientos/destacados"));
+    // A former landing link with a featured period opens Destacados on it; the home has no state.
+    expect(context?.path).toBe(path.replace(/^\/(?=\?)/, "/lanzamientos/destacados"));
     expect(context?.state).toEqual({ restoreEntry: "entry-1" });
   });
 
@@ -36,10 +43,20 @@ describe("game page return context", () => {
     });
   });
 
+  it("returns to the home itself, which keeps no state of its own", () => {
+    expect(readReturnContext(gameLinkState(at("/?utm=x")))).toEqual({
+      origin: "home", path: "/", label: "Volver al inicio", state: { restoreEntry: "entry-1" },
+    });
+  });
+
   it("carries no origin from screens without a way back", () => {
     expect(gameLinkState(at("/games/game-1/a-game"))).toBeUndefined();
     expect(gameLinkState(at("/administracion/catalogo"))).toBeUndefined();
+    expect(gameLinkState(at("/plataformas/ps5/proximos/extra"))).toBeUndefined();
     expect(gameLinkState(at("/aviso-legal"))).toBeUndefined();
+    // The Plataformas index has no way back of its own; only a platform's destinations do.
+    expect(gameLinkState(at("/plataformas?plataforma=ps4-id"))).toBeUndefined();
+    expect(gameLinkState(at("/plataformas/ps4-id/otra-cosa"))).toBeUndefined();
   });
 
   it.each([

@@ -10,6 +10,7 @@ metrics_compose_file="$repository_root/compose.observability.yaml"
 localization_compose_file="$repository_root/compose.localization.yaml"
 with_observability=false
 with_localization=false
+with_account_deletion=false
 reset_confirmed=false
 recreate_observability=false
 source "$repository_root/scripts/backend-artifact.sh"
@@ -45,6 +46,8 @@ Commands:
 
 Add --observability to up or application to include the metrics and logs stack.
 Add --localization to up or application to include catalogue translation.
+Add --account-deletion to application for real automatic deletion of synthetic local accounts.
+Requires host GnuPG; keeps the protected executor in this terminal and evidence in .local-secrets.
 Add --recreate to observability to repair stale Docker Desktop bind mounts, preserving data.
 Both flags can be combined. Install the pinned model using backend/README.md first.
 Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
@@ -225,6 +228,10 @@ compose() {
   fi
   if [[ "$with_localization" == true ]]; then
     files+=(--file "$localization_compose_file" --profile localization)
+  fi
+  if [[ "$with_account_deletion" == true ]]; then
+    files+=(--file "$repository_root/compose.account-deletion.yaml")
+    export LOCAL_ACCOUNT_DELETION_UID="$(id -u)" LOCAL_ACCOUNT_DELETION_GID="$(id -g)"
   fi
   APPLICATION_VERSION="$application_version" \
     CATALOGUE_TRANSLATION_MODEL_DIR="$(local_model_directory)" \
@@ -418,6 +425,9 @@ for option in "$@"; do
     up:--localization | application:--localization)
       [[ "$with_localization" == false ]] || die "Duplicate --localization"
       with_localization=true ;;
+    application:--account-deletion)
+      [[ "$with_account_deletion" == false ]] || die "Duplicate --account-deletion"
+      with_account_deletion=true ;;
     reset:--yes)
       [[ "$reset_confirmed" == false ]] || die "Duplicate --yes"
       reset_confirmed=true ;;
@@ -459,7 +469,17 @@ case "$command_name" in
     # Startup import skips an existing realm. Reconcile session policy before the BFF starts.
     compose up --detach --wait --build postgres mailpit keycloak
     keycloak_session_configuration
-    compose --profile full up --build
+    if [[ "$with_account_deletion" == true ]]; then
+      require_command gpg
+      [[ "$(id -u)" != 0 ]] || die "Run synthetic account deletion as the workstation owner, not root"
+      printf 'Automatic deletion will erase accounts in this local topology. Use synthetic accounts only.\n'
+      env_value KEYCLOAK_ADMIN_PASSWORD | python3 -I "$repository_root/scripts/local-account-deletion.py" prepare \
+        --origin "$(env_value KEYCLOAK_HOSTNAME)" --admin-username "$(env_value KEYCLOAK_ADMIN_USERNAME)"
+      compose --profile full up --build --detach --wait
+      python3 -I "$repository_root/scripts/local-account-deletion.py" run
+    else
+      compose --profile full up --build
+    fi
     ;;
   observability)
     ensure_compose_available

@@ -96,7 +96,7 @@ jobs:
         run: bash scripts/validate-actions.sh
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -158,7 +158,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -194,7 +194,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -220,7 +220,7 @@ jobs:
 
       - name: Preserve browser diagnostics
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
@@ -239,7 +239,7 @@ jobs:
       # Every leg is part of one required result; one failure must not hide another.
       fail-fast: false
       matrix:
-        leg: [private-dev, core, renewal, idle, production, personal-data]
+        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -247,7 +247,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
@@ -278,12 +278,13 @@ jobs:
             core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
             production) bash scripts/validate-production-identity.sh ;;
             personal-data) bash scripts/validate-personal-data.sh ;;
+            personal-data-private) PERSONAL_DATA_COMPLETION_POLICY=private-dev bash scripts/validate-personal-data.sh ;;
             *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
           esac
 
       - name: Preserve sanitized identity-browser diagnostics
         if: ${{ failure() && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: identity-browser-diagnostics-${{ matrix.leg }}
           path: frontend/test-results/
@@ -323,14 +324,36 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check out the immutable accepted candidate for static preparation tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 9ffc05a2ff30e261564ddbfd412826cdec504137
+          path: .accepted-private-candidate
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Import only the accepted source object without fetching repository history
+        run: git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD
+
       - name: Prove independent runtime contracts in parallel without retries
         run: |
           # Each branch owns disposable containers/networks and synthetic inputs.
           # Keep one runner: recent runs already show substantial runner queueing.
           (
+            python3 scripts/test-private-production-preparation.py
+            python3 scripts/test-private-production-installation.py
+            python3 scripts/test-private-production-control.py
+            python3 scripts/test-private-production-acceptance.py
+            python3 scripts/test-production-deploy.py
+            python3 scripts/test-private-production-upgrade.py
+            python3 scripts/test-private-production-admin.py
             python3 scripts/test-public-production-deployment.py
             python3 scripts/test-public-production-integration.py
             python3 scripts/test-production-recovery.py
+            python3 scripts/test-production-recovery-s3.py
+            python3 scripts/test-personal-data-cloud.py
+            python3 scripts/test-production-public-ingress.py
+            python3 scripts/test-production-backup-cycle.py
             python3 scripts/test-production-recovery-lock.py
             python3 scripts/test-production-identity-maintenance.py
             python3 scripts/test-production-cleanup.py
@@ -383,7 +406,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -478,7 +501,7 @@ jobs:
 
       - name: Preserve manifest, runtime, scan and CycloneDX evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-evidence-${{ github.sha }}
           path: |
@@ -489,7 +512,7 @@ jobs:
 
       - name: Preserve the exact scanned OCI archive for trusted publication
         if: ${{ github.event_name == 'push' && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-oci-${{ github.sha }}
           compression-level: 0
@@ -533,7 +556,7 @@ jobs:
 
       - name: Preserve content, scan and CycloneDX evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-evidence-${{ matrix.image }}-${{ github.sha }}
           path: |
@@ -544,7 +567,7 @@ jobs:
 
       - name: Preserve the exact scanned OCI archive for trusted publication
         if: ${{ github.event_name == 'push' && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-oci-${{ matrix.image }}-${{ github.sha }}
           compression-level: 0
@@ -588,7 +611,7 @@ jobs:
         run: ./mvnw -Dsource.revision="${GITHUB_SHA}" clean verify
 
       - name: Preserve JaCoCo XML and HTML reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-jacoco
           path: backend/target/site/jacoco/
@@ -698,7 +721,7 @@ jobs:
 
       - name: Set up Node.js 24 for JavaScript and TypeScript analysis
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
 
@@ -821,7 +844,7 @@ jobs:
         run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
 
       - name: Download the exact scanned OCI archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: application-image-oci-${{ github.sha }}
           path: target/container-evidence
@@ -831,7 +854,7 @@ jobs:
         run: sha256sum --check SHA256SUMS
 
       - name: Authenticate to GHCR with the workflow token
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -878,7 +901,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Preserve the publication record
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-publication-${{ github.sha }}
           path: target/container-evidence/published-image.txt
@@ -915,7 +938,7 @@ jobs:
         run: python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"
 
       - name: Download the exact scanned OCI archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dependency-image-oci-${{ matrix.image }}-${{ github.sha }}
           path: target/dependency-image-evidence
@@ -925,7 +948,7 @@ jobs:
         run: sha256sum --check SHA256SUMS
 
       - name: Authenticate to GHCR with the workflow token
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -979,7 +1002,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Preserve the publication record
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-publication-${{ matrix.image }}-${{ github.sha }}
           path: target/dependency-image-evidence/published-image.txt

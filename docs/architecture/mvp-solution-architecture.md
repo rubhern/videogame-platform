@@ -290,3 +290,23 @@ History never auto-resumes at startup. The
 owns lifecycle guarantees and the [runbook](../development/operations-runbook.md#historical-synchronization)
 owns operator recovery. [ADR-0032](../decisions/0032-checkpoint-historical-synchronization-by-month.md)
 records the proposal's tradeoffs for owner review.
+
+
+## Prepared private profile and account lifecycle (#272)
+
+Pending owner review and runtime qualification. API delivery composes private session
+identity with Ratings-owned bounded export reads and Catalogue-owned preferences through
+their public application contracts. Export preparation uses one repeatable-read snapshot
+and fixed row/byte/time budgets; the file is delivered only after complete preparation.
+Identity owns the durable deletion admission/access fence, executor heartbeat and bounded
+leases. A single protected administrative runner automatically polls an authenticated private
+management operation and invokes the existing #274 engine. Production requires verified independent
+evidence; the owner-approved explicit private-dev profile/realm uses the same steps and PostgreSQL
+retry state without external evidence or backup/replay guarantees. Admission ends the requesting
+session and the UI returns directly to anonymous home; background verification continues. This integration is implemented; default activation remains off until configuration
+and qualification. Local/CI exercise it with disposable resources and synthetic accounts.
+The application establishes no SSH connection; no credentials, deletion SQL or legal keys cross into domain/application code.
+The [use case](application/mvp-use-cases.md#private-account-lifecycle-uc-021-post-mvp-272),
+[prepared revocation amendment](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
+and [runbook](../development/operations-runbook.md#self-service-account-deletion) own
+behavior, decision review and operational qualification. Production remains gated.

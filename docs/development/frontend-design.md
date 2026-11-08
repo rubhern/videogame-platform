@@ -22,6 +22,49 @@ must still preserve functional availability, rating eligibility, score provenanc
 operational outcomes. The [product glossary](../product/glossary.md#user-facing-terms)
 owns terminology, including rating values, controls and accessible announcements.
 
+## Platform identities and logos
+
+Owner decision (#288, 2026-10-27): preserve recognizable platform/brand identities.
+Windows PC uses Windows; macOS uses Apple/macOS; Steam is used only for an actual Steam
+context, never as an operating system or a substitute for SteamVR. Nintendo generations,
+PS5 versus PS5 Pro and combined Xbox Series X|S remain distinct. Known platforms are
+never replaced by generic computer, controller or device artwork for visual uniformity.
+The existing #178 identity mapping remains authoritative; a logo is presentation only.
+
+The shared [`PlatformLogo`](../../frontend/src/shared/catalogue/platform-logo.tsx) renders
+compact marks through `SelectIcon` and a large stage, which [Plataformas](#plataformas) sizes
+per identity. Use one master across sizes
+when legible; source separate variants only where needed. Preserve proportions, original
+colours and required clear space. Do not trace, stretch, crop, invert or tint newly
+sourced logos into consistency. The Night stage, spacing and visible names unify their
+presentation; Ice and Fire keep their existing product meanings.
+
+The [platform asset register](../../frontend/public/assets/platforms/README.md) owns the
+selected files, provenance, credit, provisional legacy treatment and blocked alternatives.
+Android and Linux use original sourced SVGs. Windows uses Microsoft's modern, unmodified
+blue four-pane SVG with the Windows name visible alongside it in compact card lists;
+there is no edition wordmark or product-ID change. Its bounded private-development
+referential basis and unresolved public-use risks are recorded in the register.
+Other retained artwork remains provisional. SteamVR's final selection for this increment
+is its explicit name, not the generic Steam symbol: the official black/white lockups
+are isolated for review because their permission and minimum-size conditions do not
+support the intended compact use. This supported name-based alternative does not leave
+an unfinished graphical implementation in #288. The existing PS5 raster is capped at
+180 CSS px in the large treatment to avoid upscaling on a 2× display; prominent VR2 and
+Meta Quest artwork still needs a higher-resolution cleared source. An available download
+does not itself establish rights. Manufacturer licence policies, honest referential use,
+copyright and contractual terms must be distinguished; private-development acceptance
+does not authorize public release. Public-use review follows the existing release gates
+and does not keep this implementation issue open after owner acceptance.
+
+Every containing control, heading or list keeps the full product-owned name; logos are
+decorative and never add duplicate screen-reader names. Failed newly sourced artwork
+keeps the known brand name. Only genuinely unknown platforms use the named generic
+controller fallback. The shared footer exposes required artist/licence notices through
+the native **Créditos de marcas** disclosure. Forced colours preserve names independently
+of the artwork. Review compact contexts and large specimens at 320, 390, 834 and 1320px,
+including 2× density, keyboard access and the accessibility tree.
+
 ## Brand identity
 
 - **Status:** Approved by the owner on 2026-10-16 and implemented on Destacados, the shared
@@ -136,51 +179,23 @@ known only to a month, quarter or year take no needle; the bar never invents a d
 decorative: the readout beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
-where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
-the release explorer a cover wall under its day bar, search a catalogue index, the game page
-its own cover's stage, `Mis puntuaciones` a thermal ledger and TOPómetro a podium over a
-ledger. No screen repeats the temporal G or
-becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
+where they carry meaning, and each keeps its own composition: the [home](#home) a front page led by
+the week's featured release, Destacados the period's stage, the release explorer a cover wall under its day bar, search a catalogue index, the game page
+its own cover's stage, `Mis puntuaciones` a thermal ledger, TOPómetro a podium over a
+ledger, Plataformas a showcase of platform stages, a platform's
+Explorar catálogo the release explorer's cover wall under that platform's own mark and its
+Próximos destacados a horizon over a numbered run of art. Only Destacados draws the temporal G and
+opens on a featured release's hero, and the home leads with that same hero (owner decision,
+2026-10-28); no other screen repeats either. Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React or hosted identity screen uses them, and new
 work never brings them back.
 
 ## Mandatory composition
 
-- Use the full-width header with the Gameómetro mark and wordmark, primary
-  navigation, integrated catalogue search and the server-owned account control. It floats
-  over the page's stage on a soft scrim rather than a solid bar, in the
-  [brand identity](#brand-identity): the current section carries a short fire rule, and search
-  and account sit on night with ice edges. Post-MVP (#385), the primary
-  navigation is one **Lanzamientos** disclosure containing **Destacados**, **Explorar** and
-  **Calendario**, in that order, named in the
-  [product glossary](../product/glossary.md#user-facing-terms). The active release section keeps
-  the short fire rule; the active destination is highlighted and announced as the current page.
-  The native button exposes its expanded state and controlled panel; native links use Tab,
-  Enter and normal browser navigation. Escape closes and returns focus to the button; leaving
-  the disclosure, pressing outside or navigating closes it. Preserve the account panel’s
-  surface, spacing and focus language. Post-MVP (#386), **TOPómetro** follows the disclosure as
-  a native link of its own, outside it, so leaving the disclosure for it closes the disclosure;
-  it is named by the TOPómetro lockup at the labels' cap height, dimmed like a muted label and
-  lit when hovered or current, and carries the same fire rule and `aria-current` while its page
-  is shown. The account
-  control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
-  ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
-  authenticated session, and **Panel de administrador** only when the session names
-  that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
-  `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
-  directly to the hosted Gameómetro identity screens;
-  discovery stays anonymous and the inline rating authentication boundary remains available.
-  Keep catalogue search prominent within the
-  header and omit the explanatory context strip. On phones below 620px, the compact mark,
-  the release disclosure with TOPómetro, search and account icons share one row from 360px;
-  below 360px the two entries take a full-width row of their own under that row. Search opens the
-  existing catalogue search in a keyboard-accessible dialog; the account icon opens
-  either the two anonymous entry links or the authenticated account actions in a
-  keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
-  the account control share the first row, with navigation beside the identity, and search
-  spans the next row; below 720px the identity is the compact mark and the sections and
-  entry links tighten, so the account control never wraps onto a row of its own. The
-  single desktop row keeps the compact mark until 1180px for the same reason.
+- Use the full-width header with the Gameómetro identity, primary navigation, integrated
+  catalogue search and the server-owned account control, under the
+  [header and navigation](#header-and-navigation) rules. Keep catalogue search prominent within
+  the header and omit the explanatory context strip.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
   desktop, 24px tablet and 16px phone gutters. The release explorer opens with the title and
   the API's evaluated range as its readout, the [day bar](#brand-identity), then its controls in
@@ -228,6 +243,86 @@ work never brings them back.
   accessible popover preserving each hidden release's date, platform and region. The API
   presents at most one release per platform, so a platform never repeats on a card. The card
   height never grows with the number of releases.
+
+## Header and navigation
+
+- **Status:** Post-MVP (#358, owner-requested; implemented, awaiting owner review). These
+  responsive rules supersede the earlier phone and tablet header layouts.
+
+**Surface.** The header floats over the page's stage on a soft scrim rather than a solid bar, in
+the [brand identity](#brand-identity): the current section carries a short fire rule, and search
+and account sit on night with ice edges. Its labels keep their size at every width; when space
+runs out the layout changes, never the type.
+
+**Sections.** The primary navigation holds three sections, in this order on every width and named
+in the [product glossary](../product/glossary.md#user-facing-terms):
+
+1. **Lanzamientos** (#385), one disclosure containing **Destacados**, **Explorar** and
+   **Calendario**, in that order. The native button exposes its expanded state and controlled
+   panel; native links use Tab, Enter and normal browser navigation. Escape closes it and returns
+   focus to the button; leaving it, pressing outside or navigating closes it. The active release
+   section keeps the short fire rule and is announced as current; its active destination is
+   highlighted and announced as the current page. Preserve the account panel's surface, spacing
+   and focus language.
+2. **TOPómetro** (#386), a native link of its own outside the disclosure, so leaving the
+   disclosure for it closes the disclosure. It is named by the TOPómetro lockup at the labels'
+   cap height, dimmed like a muted label and lit when hovered or current.
+3. **Plataformas**, a disclosure in the same interaction and surface language as Lanzamientos.
+   **Descubre juegos para tu plataforma** introduces four compact logo/name links, in the featured
+   order, directly to their catalogues, followed by **Ver todas las plataformas** to the index.
+   The dropdown offers one destination per platform; switching experiences belongs to the
+   [shared platform navigation](#shared-platform-navigation). Escape restores trigger focus;
+   blur, outside press and navigation close it.
+
+A section whose page is shown carries the fire rule and `aria-current="page"`; **Plataformas** also
+carries the rule, as `aria-current="true"`, on a platform's destination such as
+[Explorar catálogo](#explorar-catálogo).
+
+**Account.** For an authenticated session the account control provides `Mi cuenta`,
+`Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
+([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout, and
+**Panel de administrador** only when the session names that capability (#247). Post-MVP (#162),
+anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
+BFF/OIDC navigation directly to the hosted Gameómetro identity screens; discovery stays anonymous
+and the inline rating authentication boundary remains available.
+
+**Desktop, from 1024px.** One row: identity, the three sections, search and account. Search
+gives way first, from 680px down to 200px, before the sections lose anything; the compact mark
+replaces the lockup until 1180px so the row keeps that minimum.
+
+**Tablet, 720–1023px.** Two rows: the lockup and the account control above, the sections and
+search below, where search takes the remaining width. The anonymous entry links stay visible.
+
+**Compact, below 720px.** One row: the lockup, never the lone mark, then search and the **Menú**
+button. Below 620px search is an icon that opens the existing catalogue search in a
+keyboard-accessible dialog; from 620px it is the field itself. The visible sections and the
+account control are absent: the menu carries both.
+
+**The menu.** A disclosure, not a modal: a native button named **Menú** with its expanded state
+and controlled sheet. Its glyph is a long and a short tick of a scale that cross into a close
+mark while it is open; a small ice point on it shows a signed-in session. It opens an opaque night
+sheet under the header row, with an ice top edge, over a scrim that dims the page and takes the
+tap that closes it, so nothing beneath acts; the header row stays usable above the scrim. The
+sheet holds, in reading order:
+
+- the `Principal` navigation: **Lanzamientos** in the page titles' wide voice with its three
+  destinations beneath in Destacados's **Semana | Mes** voice, then **TOPómetro**, by its lockup,
+  and **Plataformas** with its four logo/name catalogue links in a compact two-column grid and
+  **Ver todas las plataformas** beneath. All shortcuts are visible in the sheet without nested menus;
+- the account, apart from discovery in a dock on its own surface: **Tu cuenta** with
+  `Iniciar sesión` and `Crear cuenta` side by side, or **Mi cuenta** with its avatar and the
+  account actions, logout last after a hairline.
+
+Focus stays on the button when the sheet opens, and the sheet follows it in the tab order.
+Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
+or showing another page closes it, and a link to the page already shown returns focus to the
+button. A query change on the same page, such as the **Mis plataformas** checkbox on the
+explorer, keeps it open. A sheet taller than the viewport scrolls inside itself.
+
+**Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
+reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);
+nothing moves under reduced motion. Forced colours outline the current page in `Highlight` and
+return every header surface to system colours.
 
 ## Visual language and tokens
 
@@ -407,10 +502,11 @@ the executable values; these constraints hold wherever they are used:
   gradients from banding. It follows the document and never sits above readable content.
   Do not implement it as a viewport-sized fixed translucent layer: deep scrolling and the
   mobile browser toolbar must not invalidate the header or page content.
-- Featured, search, personal ratings and game details open on a stage lit by art they already
-  show, anchored to the top of the document so it runs behind the header: Destacados by its
-  featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
-  three of the covers the page presents; TOPómetro by its podium's covers; a game's page by its own cover. The release explorer
+- The home, featured, search, personal ratings and game details open on a stage lit by art they
+  already show, anchored to the top of the document so it runs behind the header: the
+  [home](#home) and Destacados by their featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
+  three of the covers the page presents; TOPómetro by its podium's covers; Próximos destacados by its
+  most anticipated game's art and the next covers; a game's page by its own cover. The release explorer
   keeps the plain night canvas under its opening and cover wall. Each image's hue, not
   its luminance, is blown up, blurred and capped in brightness, the copy's side stays in shade,
   and the light falls away into night before the content. It adds no request, stores and
@@ -422,10 +518,10 @@ the executable values; these constraints hold wherever they are used:
   and there is one easing curve, one overshoot for presses and three durations. Do not add a
   per-component shadow scale, a backdrop blur or a halo.
 - Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
-  entrance and parallax ([below](#featured-releases)); a quiet entrance for arriving content;
+  entrance and parallax ([below](#featured-releases)); the home's entrance ([below](#home)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
-  release a visitor points at; TOPómetro's podium rising onto its steps; a cover easing a little
-  closer on hover; feedback on press and
+  release a visitor points at; TOPómetro's podium rising onto its steps; Plataformas's four
+  stages rising in turn; Próximos destacados' arrivals landing on its horizon; a cover easing a little closer on hover; feedback on press and
   selection; a G-meter needle sweeping to its reading and the brand needle's twitch on hover and
   focus. Declare it inside `@media (prefers-reduced-motion: no-preference)` instead of disabling
   it afterwards, so reduced motion is the default and nothing animates or transitions there.
@@ -554,8 +650,8 @@ skip link, but never draws a page-sized focus outline; visible keyboard-focus in
 remain on interactive controls.
 
 Post-MVP (#285, implemented; awaiting owner review), a game page's way back names the screen it
-was opened from — **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
-(#250), **Volver al TOPómetro** (#386), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
+was opened from — **Volver al inicio** (#382), **Volver a Destacados**, **Volver a lanzamientos**, **Volver al calendario**
+(#250), **Volver al TOPómetro** (#386), **Volver al catálogo** (#389), **Volver a Próximos destacados** (#388), **Volver a resultados**, **Volver a mis puntuaciones** or **Volver a tus estadísticas** —
 and returns to it with the same period, range, order, filters,
 search and page, restoring that screen's reading position while the document keeps it. Every
 link into a game page from those screens, including a header suggestion opened on them, carries
@@ -611,6 +707,87 @@ documents and **Contacto** follow the
 shows the identity and the closing lines alone until then. **Sobre Gameómetro** links to
 `/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
 not found.
+
+## Home
+
+Post-MVP (#382, implemented; awaiting owner review), `/` is Gameómetro's home: a front page that
+opens the features Gameómetro already has from one place. The owner's mockup is a reference, not a
+specification. The home adds no contract: each preview reads the same bounded public API as its
+destination, with the same request and the same preferred platforms, so it shares that
+destination's cache entry and shows the same games, order and period. A former landing link keeps
+its destination: `view=` opens the explorer, and a featured period (`week`, `month`, `granularity`)
+opens Destacados; no former featured link becomes a ranking. The home is a doorway: besides the
+featured hero it never repeats a full calendar, the podium or a destination's own controls.
+
+**Opening.** A compact heading opens the stage, secondary to the release beneath it: the `h1`
+**Descubre tu próximo juego** in the page-title voice and one muted line, *Lanzamientos, destacados y
+los juegos mejor valorados.* (owner request, 2026-10-28). The stage is Destacados's current week,
+whatever granularity Destacados opens on, set as [Destacados's hero](#featured-releases) itself: the
+featured release's art, the week's temporal G framing its copy on wide screens and becoming the
+release's seal on phones, the wordmark as the game link, the release facts, the genres and the
+readings. Only the home closes that copy with two ways out inside the hero, above the title's
+stretched target: **Ver ficha**, the primary ice action named with the game, and **Ver destacados**.
+They share one row inside the G and take the full width on phones. Destacados keeps its hero
+without them. **Más destacados de la semana** follows, with **Ver todos los lanzamientos de la
+semana** (the explorer on the represented week) and up to four further featured releases of the week:
+the landscape art (a screenshot keeps the game's logo), the compact date after the fire needle with
+the [release-kind label](#featured-releases) beside it when there is one, the
+title as the card's only keyboard stop and pointer target, and up to three platform marks. They stand
+four in a row from 720px and read one line each, art beside the facts, below it.
+
+**Calendario de destacados.** Beside TOPómetro from 1024px and above it on narrower screens, the
+preview takes the calendar's own name, since the [glossary](../product/glossary.md#user-facing-terms)
+keeps `Próximos` out of section names, with **Ver calendario** and the readout of the days it covers.
+It offers up to seven days, from the API's evaluation date on, that hold highlighted games under
+`UC-016`: the calendar's current month and, only while that month runs short, the API's next month.
+A day without highlights is left out rather than shown as an empty slot. Each day is a native toggle
+button in the instrument's voice — the weekday or `hoy`, the date, the month and the count beside the
+calendar's interest dot — named in full with its count; the chosen day is ringed in ice and announced
+as pressed, and the preview opens on the day with the most highlights, the earliest among equals.
+Beneath come the chosen day's heading and count, up to four of its games in the calendar's Hype order
+(cover, title and platform marks), **Ver todos los lanzamientos del día** (the explorer on that day)
+and **Abrir este día en el calendario**. Phones scroll the days and the covers sideways inside the
+preview, never the page.
+
+**TOPómetro.** The lockup heads the preview, with **Ver TOPómetro** and the source switch: two native
+toggle buttons, **Jugadores IGDB** (the default) and **Comunidad Gameómetro**, each with its own
+untinted mark. The choice stays in the preview, never the URL, and the preview's link opens that
+source's ranking. Places 1–3 of the chosen source read as a short ledger: the place numeral (the
+winner's in the lockup's moonlit silver, the others outlined in ice, never a medal colour), the cover,
+the title as the only keyboard stop besides the IGDB attribution, the known years and platform marks,
+and the reading that placed the game with its exact count, under [TOPómetro](#topómetro)'s reading
+rules. The sources never mix and Hype never enters. The preview reads TOPómetro's own first page, so
+the full ranking opens on the same places; an empty source says so and offers the other.
+
+**Explora por plataforma.** A compact preview, not a second index (owner request, 2026-10-28): the
+four featured platforms in the owner's order, each by its own logo on a quiet cool stage, its name
+and one way in, **Explorar catálogo**, whose target covers the card; four in a row from 1024px and
+two by two below, one per row under 360px. Each platform's TOPómetro and Próximos destacados, and
+every other platform, stay on the platform pages and **Ver todas las plataformas**. A featured
+platform without games adds **Aún sin juegos en Gameómetro** from the public directory, whose
+failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
+
+**Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
+A signed-in player gets **Mis puntuaciones**, **Tus estadísticas** and **Mis plataformas** as a short
+ledger of links. An anonymous visitor gets one invitation, the keypad's ice-to-fire key, **Crear
+cuenta** (primary) and **Iniciar sesión** through the BFF, both returning to the home, and four short
+lines on what an account adds, each an implemented feature. The home never reads personal data:
+while the session is unknown the plate waits, and an unavailable session read offers the personal
+links without claiming the visitor is signed out.
+
+**States.** Each preview owns its states in the [server-backed states](#server-backed-states)
+language at a preview's size: placeholders shaped like it while it loads; an empty or unranked
+notice that names what is missing and offers the full feature (and **Ver todas las plataformas**
+when preferred platforms empty the week); and a catalogue not ready or a technical failure with its
+retry. One preview's failure never blanks or blocks another, and an unexpected rendering fault stays
+inside its own preview. The route reads the featured week, the calendar's month and TOPómetro's first
+page and the platform directory side by side before it renders, so Back restores the reading
+position; the chosen day's games and the following month follow on their own.
+
+**Motion.** The hero keeps Destacados's own entrance, the further releases rise in turn and each
+preview's content fades in once; covers ease a little closer on hover and chevrons lean into
+their direction. Reduced motion shows the settled page. Forced colours keep the hero's own rules,
+outline the chosen day and source, and return the key and the numerals to system colours.
 
 ## Release calendar
 
@@ -692,7 +869,7 @@ and the next-period step. A week reads as its exact days at the precision they n
 a month reads as `Octubre 2026`. While another period is shown, a quiet underlined **Semana
 actual** or **Mes actual** link follows and returns to the current one. Switching granularity
 always opens that granularity's current period. Every choice is a native link, so the period
-lives in the URL and in browser history: `/` is the current period of the default granularity,
+lives in the URL and in browser history: the Destacados route is the current period of the default granularity,
 `?granularity=` names the current period of the other one, and `?week=YYYY-Www` or
 `?month=YYYY-MM` names a period. Only the API states the navigation bounds and the
 adjacent periods. A step at a bound, or a step whose bounds are still loading, stays in place
@@ -731,7 +908,9 @@ keeping its name, and its region), up to two localized genres as quiet text, and
 readings. The hero shows no summary: the game page owns it, and the response keeps it. Missing
 enrichment is omitted without invented values. Ordinary lifecycle and Full Release labels are
 absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a
-chip. The canonical title is the native game link, its pointer target stretched over the hero,
+chip. A release that is not a full launch (#457) says so in the meta row, right after its date, as
+a quiet outlined label in ink (**Acceso previo**, **Acceso anticipado**, **Beta**, **Alfa**) and
+never in a warning's colours; the label appears only when it holds for every platform of that row. The canonical title is the native game link, its pointer target stretched over the hero,
 its keyboard focus outlining it, and pointing anywhere on it underlines the title. The IGDB score
 attribution remains a separate native link above that target; links never nest. Further
 release dates keep their overflow control immediately below and outside the linked frame.
@@ -757,7 +936,7 @@ context-selected media under `FEAT-003` in the
 existing decorative logo, and artwork is shown as it is. Beneath the frame come the compact
 period scale with the release's compact date, the title on one line (its full text stays the link
 and its tooltip) as the only keyboard stop, the readings, one release line with up to three
-platform marks, the exact `+N` and the region, then up to two localized genres and the overflow
+platform marks, the exact `+N`, the region and the same release-kind label, then up to two localized genres and the overflow
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
 period replaces the hero and the row with an informational or empty notice that names the
@@ -849,6 +1028,210 @@ is public: it never varies on the session or `Mis plataformas`.
 **Motion.** The podium enters once: third, second, then the winner rising onto steps that grow
 from the floor, each G-meter sweeping to its reading; newly read lines fade in. Reduced motion
 shows the settled page; forced colours keep the steps, numerals and edges in system colours.
+
+**Per platform.** Post-MVP (#387, implemented; awaiting owner review), every platform of
+[Plataformas](#plataformas) has the same TOPómetro at `/plataformas/<plataforma>/topometro`,
+ranking only the games released there by their global score (`RNK-005`). The path names a
+featured family by its key or another platform by its own ID, as
+[Explorar catálogo](#explorar-catálogo) does, and a key not on offer reads **Esa plataforma no
+tiene juegos en Gameómetro ahora mismo** with **Ver todas las plataformas**. Everything above
+holds unchanged; only the opening and the dates differ. The
+[shared platform navigation](#shared-platform-navigation) leads; the `h1` reads
+`TOPómetro de <plataforma>` to assistive technology and shows the TOPómetro lockup without
+repeating the platform mark. The source selector keeps its place and keeps the platform. Because the platform
+is the page's context, no place repeats its platform marks; a family of several platforms marks
+the platform each game came out on. Each place reads its platform release's compact date at its
+own precision instead of the known years (`Lanzado en PlayStation 5: 11 de junio de 2021` for
+assistive technology). An empty source says no game released on the platform has a score from
+it yet and offers the other source on the same platform and the global TOPómetro. **Volver al
+TOPómetro** returns to the same platform, source and places. The shared navigation keeps the platform visible above the podium.
+
+## Plataformas
+
+Post-MVP (#287, implemented; awaiting owner review), **Plataformas** (`/plataformas`) is a
+showcase of platforms that leads to each one's destinations. It reads the public
+[`listPlatforms`](../architecture/api/openapi.yaml) directory, the platforms at least one current
+release uses, and adds no contract. The owner gave a direction without a mockup; the
+composition below is this implementation's.
+
+**Opening.** The `h1` **Plataformas** alone, without a lead (owner decision, 2026-10-27), on the
+plain night canvas: logos are not game art, so no stage light and no G.
+
+**Featured platforms.** Four cards, in the owner's order: **Nintendo Switch 2**, **PlayStation 5**,
+**Xbox Series X|S** and **Windows PC**, each by the catalogue's own name, the same everywhere
+(owner decision, 2026-10-27). [`platform-context.ts`](../../frontend/src/features/platforms/platform-context.ts)
+owns this small presentation mapping: each family resolves to product taxonomy IDs (#178), today
+one seeded ID each, and may group several later; nothing is merged by name and no provider ID
+reaches the browser. Featured versus other is curation, never a domain subtype. Each card is a
+night surface whose upper stage holds the platform's large logo in its own optical box, sized per
+identity within the [asset register](../../frontend/public/assets/platforms/README.md)'s 2× limits,
+so the four read at one weight. A quiet cool light falls from above and pools under the logo; it
+never takes a brand colour. The name heads the body, then the destinations. The cards render without waiting for the directory; once it is
+read, a family without games adds **Aún sin juegos en Gameómetro** after its destinations, so rows
+stay aligned. One row of four from 1024px, two by two from 560px and one per row on phones, where
+the stage keeps the logo large.
+
+**Destinations.** Every platform offers **Explorar catálogo** first as a full-width ice entry,
+then **TOPómetro** and **Próximos destacados** as secondary links. The logo and the name also
+link directly to the catalogue, with separate semantic targets and no nested anchors.
+[`platform-destinations.ts`](../../frontend/src/features/platforms/platform-destinations.ts)
+owns the existing destination paths. Every link keeps a comfortable touch target and visible
+focus. The stages, logos and four-card composition remain the index's discovery surface.
+
+**Otras plataformas.** Below a hairline, quieter than the featured cards: its `h2` alone, without a
+lead, then only the owner's other platforms (owner decision, 2026-10-27), in this order, when the
+directory holds games for them: Android, iOS, Linux, Mac, PlayStation 4, Meta Quest 3, Nintendo
+Switch and Xbox One; PlayStation VR2 is not offered in the section, so it has no index entry, TOPómetro or catalogue (owner decision, 2026-10-27). These are acquired per environment, so the presentation
+mapping recognizes them by their catalogue name, as it does their marks; two platforms sharing a
+name stay two, and the catalogue's own name is shown. Each compact item has a logo/name link
+straight to its catalogue and a separate **Más destinos de <plataforma>** disclosure. The disclosure
+opens the same primary catalogue and two secondary links inside that item. The selected item
+stays shareable through `?plataforma=<platformId>`, and Back restores it. Focus stays on the
+button and the links follow it. The grid reflows from one column on phones, keeping every name
+and target visible. A featured family named in the URL is already on the page; a platform not
+on offer reads **Esa plataforma no tiene juegos en Gameómetro ahora mismo** with
+**Ver todas las plataformas** and never opens.
+
+**States.** The featured cards stay through every directory state. Loading keeps the directory's
+shape as placeholders under one status; no other platform is an empty notice; a catalogue not
+ready and a technical failure use the [server-backed states](#server-backed-states) inside Otras,
+with their retry. The index is public and never varies on the session or `Mis plataformas`.
+
+**Motion.** The four cards rise in turn once and an opened platform's destinations fade in; reduced motion shows the
+settled page and forced colours keep every edge and name in system colours.
+
+## Shared platform navigation
+
+Implemented for owner review: catalogue, platform TOPómetro and Próximos destacados share
+[`PlatformNavigation`](../../frontend/src/features/platforms/platform-navigation.tsx). A compact
+row identifies the platform with its existing mark and full catalogue name, with **Cambiar
+plataforma** alongside. Beneath it, native links **Catálogo | TOPómetro | Próximos destacados**
+use the existing destinations and identify the current page with `aria-current="page"` and an
+ice underline. The row wraps names when necessary; on phones the three links fit on one line
+without page overflow and retain comfortable targets. There are no visible platform breadcrumbs
+or duplicate platform plates. Each screen keeps one accessible `h1` and its document title.
+The platform switch retains the current experience (and TOPómetro source or catalogue filters).
+Browser history, direct refresh and game-return state continue to use the existing URLs.
+The upcoming ranking omits the former long Hype explanation; ranking and game-page source
+attribution retain their existing owners.
+
+## Explorar catálogo
+
+Post-MVP (#389, implemented; awaiting owner review), **Explorar catálogo**
+(`/plataformas/<plataforma>/catalogo`) lists every game Gameómetro knows on one platform, without
+typing, under [`UC-019`](../architecture/application/mvp-use-cases.md) and `PCAT-001`–`PCAT-003` in
+the [domain model](../architecture/domain/mvp-domain-model.md). The path names a featured family by
+its key or another platform by its own ID, resolved through
+[`platform-context.ts`](../../frontend/src/features/platforms/platform-context.ts); a key not on offer
+reads **Esa plataforma no tiene juegos en Gameómetro ahora mismo** with **Ver todas las
+plataformas**. The owner's mockup is a reference, not a specification.
+
+**Opening.** The [shared platform navigation](#shared-platform-navigation) identifies the platform
+once, above **Explorar catálogo**. The accessible `h1` includes its platform name. Logos are no
+game art, so the canvas stays plain night, without a stage, a lead or a claim.
+
+**Controls.** Always at hand, in this order: **Todos | Ya lanzados | Próximos**, one night control
+parted in three native links with the chosen one lit in ice; the platform's own title search
+(**Buscar en <plataforma>…**), applied on Enter and explained in place when it could not be sent;
+**Ordenar por** — **Fecha (descendente)**, **Fecha (ascendente)**, **Título (A-Z)**, **Título
+(Z-A)**, **Puntuación Gameómetro** and **Jugadores IGDB**, each with its mark — and **Filtros**,
+which counts what it holds. Without a chosen order the latest dates lead, and among **Próximos** the
+soonest. One row from 1024px; from 620px the state beside the search and the order with **Filtros**
+beneath; on phones the search leads, the state spans its row and the order shares the next with
+**Filtros**, its `Ordenar por` read but not drawn.
+
+**Filters.** Folded by default under **Filtros**, an opaque night panel with an ice top edge holds
+**Año de lanzamiento** (**Desde** and **Hasta** over the years the API reports) and **Géneros** as
+pressable chips with a check, each applied at once. **Quitar filtros avanzados** and **Ver N juegos**,
+full width on phones, close it. The search and active filters stay visible under the controls as
+removable chips with **Quitar todo**; the release state is never a chip.
+
+**Cards.** The release explorer's cover grid and card language: six columns from 1200px, five from
+1024px, four from 780px, three from 620px and two on phones, 24 games a page. Under the cover come
+the presented release's compact date at its own precision after the fire needle, with **Próximo**
+in ice for a game still to come, or **Retrasado** in the lifecycle warning, and nothing for a game
+that is out; then the title, the game link and only keyboard stop; **Coincidencia: <alias>** when a
+search matched an alias; the score readings; the release's region, with its platform's mark only for
+a family; and up to two genres. Assistive technology reads the release in full (`Lanzado: 5 de junio
+de 2026, Mundial`).
+
+**Results.** The total opens the results — `496 juegos en Gameómetro`, never a claim of every game
+the platform has — with the page position from 620px. **Cambiar plataforma** belongs to the
+[shared navigation](#shared-platform-navigation) above the title and keeps the search, state,
+order and filters. The closing row states the page and the pager. Every choice lives in the URL and returns to the first page; while a choice's page loads, the
+next choice builds on it. A game page returns with **Volver al catálogo** to the same selection and
+reading position.
+
+**States.** Loading keeps the cover grid's frame; an empty selection offers **Quitar filtros** or
+**Ver todos**, an empty platform says it has no games in Gameómetro yet, and a catalogue not ready,
+an invalid search, an unsupported filter and a technical failure use the
+[server-backed states](#server-backed-states). The page is public and never varies on the session
+or `Mis plataformas`.
+
+**Motion.** The mark and controls fade in once and results rise as on the release explorer; reduced
+motion shows the settled page and forced colours outline the chosen state, genres and platform.
+
+## Próximos destacados
+
+Post-MVP (#388, implemented; awaiting owner review), **Próximos destacados**
+(`/plataformas/<plataforma>/proximos`) shows the games still to come on one platform in the next six
+months that draw the most attention, under [`UC-020`](../architecture/application/mvp-use-cases.md)
+and `UPC-001`–`UPC-003` in the [domain model](../architecture/domain/mvp-domain-model.md). The path
+names a featured family by its key or another platform by its own ID, as
+[Explorar catálogo](#explorar-catálogo) does, and a key not on offer reads **Esa plataforma no tiene
+juegos en Gameómetro ahora mismo** with **Ver todas las plataformas**. The horizon and the ranking are
+fixed: the page has no date, genre or order control and no URL state beyond the platform. The owner
+gave a direction without a mockup; the composition below is this implementation's. Its own language
+is the horizon and the outlined place numeral: never TOPómetro's podium or Destacados's temporal G.
+
+**Opening.** The [shared platform navigation](#shared-platform-navigation) leads, followed by
+**Próximos destacados** in the page-title voice. The accessible `h1` reads
+`Próximos destacados de <plataforma>`; there is no repeated platform plate. The stage is lit by the
+most anticipated game's art and the next covers; a product fallback never lights it.
+
+**Horizon.** **Próximos 6 meses** and the API's window as the instrument's readout in ice
+(`27 oct 2026 – 26 abr 2027`, read in full by assistive technology), then the horizon itself: one
+ice line from today's notch, labelled `hoy`, fading as it reaches further ahead, divided at each month
+with its short name and the year on the first named month and every January; a sliver of a month too
+narrow for its name keeps only its division. Each ranked game lands on it: an exact day as the
+brand's tapered fire needle on the line, the most anticipated taller with its hub and its place
+number; a month or a quarter as a dashed ember band beneath the line over the part of it inside the
+horizon, never pinned to a day. Pointing at or focusing a game lifts its arrival, shows its number
+and quiets the others. The horizon is decorative; the readout and every place state the same dates
+in words.
+
+**Ranking.** One ordered list named `Los más esperados en <plataforma>`. The most anticipated leads:
+its art under the hero image policy, full-bleed on phones and fading into night, beside the copy
+from 1024px; the place numeral `1`, outlined in ice and never filled, on the art's lower edge or
+heading the copy's column; then **El más esperado**, the canonical title in the page-title voice,
+the arrival and one quiet facts line (the region, the release's platform for a family, up to two
+genres). The others follow under the card image policy: on phones each place is one line between
+hairlines (its numeral, a 16:9 thumbnail, the title on up to two lines and the arrival beneath),
+from 620px a wall of art in two and from 780px three columns, each numeral standing on its frame's
+lower edge. Every place keeps one pointer target and one keyboard stop, its title link, whose focus
+ring outlines the art. The arrival is the brand's fire needle, the release's date at its own
+precision in ember (`19 nov 2026`, `mar 2027`, `T1 2027`) and how near it is in ice, only when it can
+be said honestly: `Faltan 23 días` or `Mañana` for an exact day, `Este mes` or `Este trimestre`
+while the named period is the current one, nothing for a later month or quarter. Assistive
+technology reads it in full (`Llega a PlayStation 5 el 19 de noviembre de 2026, Mundial.`). Places
+show no score, Hype value, status chip or provenance, and fewer games show fewer places.
+
+**Close.** **Ver todos los próximos juegos**, a native link in the control voice with an ice edge,
+full width on phones, opening the platform's [Explorar catálogo](#explorar-catálogo) on **Próximos** with its own soonest
+first order. A game page returns with **Volver a Próximos destacados** to the same platform and
+reading position.
+
+**States.** Loading keeps the horizon's readout and line and the ranking's frames as placeholders
+under one status. A horizon whose candidates have no Hype reads **Sin datos de Hype** and says so
+without a value; a horizon without candidates says Gameómetro knows no dated release of the platform
+in the next six months, never that none exists; both offer **Ver todos los próximos juegos** and
+**Ver todas las plataformas**, and neither draws the horizon's line. A catalogue not ready and a
+technical failure use the [server-backed states](#server-backed-states) with their retry. The page is
+public and never varies on the session or `Mis plataformas`.
+
+**Motion.** The arrivals land on the line once and the places fade in after the lead; reduced
+motion shows the settled page. Forced colours draw the numerals filled in system text and keep the
+line, needles and bands in system colours.
 
 ## Public game details
 
@@ -1142,16 +1525,17 @@ one **Volver a Gameómetro** link to the landing page at its foot. Actions take 
 the [server-backed states](#server-backed-states); a failed save keeps the selection.
 
 **The offer.** The welcome is product UI after Keycloak, never a registration step. A signed-in
-player who has never chosen is sent to it once per document on the way into Destacados, the
-explorer or the calendar, carrying the destination, which it restores after saving or skipping; a rating return
-or any other page never redirects. Skipping records an empty choice and never blocks discovery.
+player who has never chosen is sent to it once per document on the way into the home (#382),
+Destacados, the explorer or the calendar, carrying the destination, which it restores after saving
+or skipping; the home is its default destination. A rating return or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
 **Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
-never in the URL, history or browser storage, so Destacados, the explorer and the calendar always
-agree and a shared link resolves with the reader's own preferences. Discovery screens carry no
+never in the URL, history or browser storage, so the home's Destacados and calendar previews,
+Destacados, the explorer and the calendar always agree and a shared link resolves with the reader's
+own preferences. Discovery screens carry no
 control or shortcut of their own, and no screen prints the list of applied platforms: only the
 explorer's and the calendar's **Plataforma** summarize them as `Mis plataformas` (and the
 explorer's folded phone controls name it). Choosing platforms by hand in **Plataforma** starts
@@ -1242,7 +1626,8 @@ a native link, marks it with `aria-current`, and moves focus to the level that c
 Post-MVP (#246, implementation prepared; owner review and private-dev acceptance pending),
 **Sincronización histórica** is a third URL-selected tab within the same plain administration
 ledger. Tabs wrap on narrow screens. This tab has its own lifecycle and controls: explicit
-inclusive date fields, a required skip/reprocess choice for covered months, then a confirmation
+inclusive date fields, a required skip/reprocess choice for covered months, whose note says that a
+month covered before the imported types widened is processed either way, then a confirmation
 with the safe **Cancelar** action first and focused. Escape returns focus to its trigger.
 Start, stop and resume each name their consequences; command feedback takes focus and reports
 conflicts without losing persisted progress. Historical controls never issue ordinary stop
@@ -1286,24 +1671,22 @@ chart.
   `Media 7,2` in the readout voice. It runs behind the columns, so counts stay legible; the
   readout states that the needle is the unrounded mean while each column gathers the
   scores that round to it. Empty columns keep a quiet `0` and draw no bar.
-- **Dónde has jugado.** The coverage of the collection comes first as the page's one pie,
-  a ring, because it is the only partition the section has: every rated game falls in
-  exactly one slice — recorded on one platform (ice), on several (ice-light) or on none,
-  left as the empty, outlined part of the ring. Its centre states the share with a platform,
-  and beside it the figure (`62 de 84 juegos con plataforma`) and a legend give each slice's
-  count and share. Platform counts overlap, so they never become slices of a pie. Then come up to six
-  platforms as a ledger, each with its mark and name, one ice bar and that platform's
-  personal mean. The bar's length is the games played there. Its solid part is the games
-  scored on that platform, and its outlined, hatched part the games only marked as played;
-  a key names both, so the two never depend on colour. The counts follow in words
-  (`31 juegos`, `14 con puntuación`). The mean takes its temperature, with the band in
-  words, or reads `Sin puntuar`. Counts are measures, so they stay ice; only the mean is
-  thermal. Further platforms are counted beneath, and a note states that platform counts
-  overlap and that each mean uses only that platform's scores. On phones the ring sits beside
-  its legend and each platform reads down its own column beside its mean; from 620px the bar
-  takes the middle column, and from 1000px the ring and its legend lead a column of their own. Without any recorded platform the section
-  says so and explains **Puntuar por plataforma**, with no empty chart. Nothing in it claims
-  ownership, playing time or a favourite platform.
+- **Dónde has jugado.** A doughnut shows exactly PS5, Switch 2, Xbox Series X|S,
+  PC Windows and Otras (#398, implemented; awaiting owner review). The centre names the
+  total recorded platform selections; the permanent five-row legend gives every count
+  and percentage, including zeros. Arcs use exact proportions, without minimum slice
+  sizes; displayed shares use largest remainders at one decimal, with fixed-order ties,
+  to sum to 100%. The caption explains that each game counts on every platform indicated,
+  so these are shares of selections rather than distinct games. Zero selections draw no
+  ring and keep five zero readouts beside an invitation to record platforms. Games without
+  a selection stay in a separate quiet note. Categorical hues use restrained ice, orange
+  and neutral accents; they never imply score temperatures. The ring and ledger sit side
+  by side on wide screens and stack on narrow phones.
+  **Tus puntuaciones por plataforma** is a native keyboard-operable disclosure for the
+  secondary top-six ledger. It preserves marks, exact played/scored counts and personal
+  means, thermal only for scores; solid versus hatched bars distinguish scored from
+  played-only selections. Its scope and any omitted platforms remain explicit. Nothing
+  claims ownership, playing time or a favourite platform.
 - **Extremes.** Two game covers anchor the extremes, with full title links and personal
   scores, a platform mean with its decimal (#359). Coincident extremes present one game with
   the shared reading. On phones the covers shrink and the two games stack.
@@ -1318,8 +1701,8 @@ chart.
 Text and native controls carry every reading without SVG, colour, hover or a tooltip; touch
 selects. Only the opening enters once and bar changes transition, and reduced motion removes
 both. Forced colours use system text for bars, the needle and their counts, keep the
-platform bars' fill-and-outline contrast, stripe the ring's several-platform slice and outline a
-selection. Empty collections show a
+platform bars' fill-and-outline contrast, give the ring distinct categorical patterns and outline a
+selection. The permanent numerical legend carries every category without colour. Empty collections show a
 quiet invitation to find a game, with no simulated charts or meaningless instrument. Loading
 and failures use the shared server-backed state language below.
 
@@ -1364,3 +1747,27 @@ identity's instruments and the absence of the retired language. For material vis
 
 Do not add a component library, Storybook, theme engine or speculative abstraction for this
 visual direction.
+
+
+## Private profile
+
+Post-MVP (#272), prepared for owner review: **Mi perfil** opens from the shared
+**Mi cuenta** actions at `/mi-perfil`. Use the plain night canvas, shared page opening
+and one narrow reading column, without artwork or instruments that have no value to show.
+Separate **Tu cuenta**, **Tus datos, contigo** and **Eliminar mi cuenta** with hairlines.
+Account facts show only email in a definition list, with an honest **No disponible**
+when absent; registration collects no name. **Mi perfil** carries a decorative account
+icon in both account menus. Existing personal
+and Keycloak security actions are links; export is one primary button with preparation,
+completion and failure states. Never render cached personal details without a current session.
+
+Deletion is a restrained danger outline, with consequences and backup/legal limitations in
+words. Keep its trigger visible when automation is unavailable, disabled and associated
+with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
+literal **ELIMINAR**, offers recent authentication, and keeps the destructive action disabled
+until deliberate confirmation. Escape and cancellation restore trigger focus without a request.
+A failed command focuses its alert and cautions against repeating an uncertain request.
+Acceptance clears personal caches and returns immediately to anonymous home with no waiting
+screen or deletion-completed notice. The server ends the requesting BFF session; background
+execution continues independently. Old status-page bookmarks redirect home. Actions wrap and
+stack on phones, fields fit at 320px, focus/forced colours and keyboard access remain native.

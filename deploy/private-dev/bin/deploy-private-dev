@@ -215,6 +215,11 @@ compose=(
   --profile deployment
 )
 
+# Opt-in is persistent owner configuration, preserved by every later promotion.
+if grep -qx 'PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true' "$runtime_env"; then
+  compose+=(--file "$repository_root/deploy/private-dev/compose.account-deletion.yaml")
+fi
+
 phase="target-and-runtime-preflight"
 docker info >/dev/null
 bash "$runtime_validator" --env-file "$runtime_env"

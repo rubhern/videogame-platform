@@ -96,12 +96,17 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
      */
     private static boolean isClosedQueryOperation(HandlerMethod method) {
         Class<?> beanType = method.getBeanType();
-        return com.videogameplatform.api.generated.HistoricalSynchronizationApi.class
+        return com.videogameplatform.api.generated.ProfileApi.class.isAssignableFrom(beanType)
+                || com.videogameplatform.api.generated.HistoricalSynchronizationApi.class
                         .isAssignableFrom(beanType)
                 || ReleasesApi.class.isAssignableFrom(beanType)
                 || RankingsApi.class.isAssignableFrom(beanType)
+                || com.videogameplatform.api.generated.PlatformCatalogueApi.class.isAssignableFrom(
+                        beanType)
                 || ReleaseCalendarApi.class.isAssignableFrom(beanType)
                 || FeaturedReleasesApi.class.isAssignableFrom(beanType)
+                || com.videogameplatform.api.generated.UpcomingHighlightsApi.class.isAssignableFrom(
+                        beanType)
                 || CatalogueApi.class.isAssignableFrom(beanType)
                 || RatingsApi.class.isAssignableFrom(beanType)
                 || PlatformPreferencesApi.class.isAssignableFrom(beanType)

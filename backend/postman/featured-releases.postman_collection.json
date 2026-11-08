@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "5a1f2b9c-1510-4e1a-9f0d-151151151151",
     "name": "VideoGame Platform Backend - Featured Releases",
-    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking of one ISO week or calendar month. An explicit platformIds restriction ranks only the candidates with a qualifying release on those platforms. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking of one ISO week or calendar month, which is the head of the release explorer's Hype order for the same period and platforms. An explicit platformIds restriction ranks only the candidates with a qualifying release on those platforms. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -34,17 +34,16 @@
               "        pm.expect(body.items).to.be.empty;",
               "    }",
               "});",
-              "pm.test(\"Each featured game presents only qualifying releases inside the month, one per platform\", function () {",
+              "pm.test(\"Each featured game presents only releases the explorer's range admits, one per platform\", function () {",
               "    const body = pm.response.json();",
               "    body.items.forEach(function (item) {",
               "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"releases\");",
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
               "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
-              "            pm.expect([\"day\", \"month\"]).to.include(release.releaseDate.precision);",
-              "            pm.expect(release.releaseDate.value.slice(0, 7)).to.eql(body.month);",
-              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
-              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect(release.status).to.not.eql(\"cancelled\");",
+              "            pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(release.stage);",
               "        });",
               "    });",
               "});",
@@ -142,7 +141,7 @@
             "featured-releases"
           ]
         },
-        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow: the head of the release explorer's Hype order for the same period, counting only games with positive locally stored IGDB Hypes, with ties following the explorer's date order and gameId last. Ports, remakes, editions and every release stage take part. No provider is called."
       },
       "response": []
     },
@@ -221,17 +220,16 @@
               "        pm.expect(body.items).to.be.empty;",
               "    }",
               "});",
-              "pm.test(\"Each featured game presents only qualifying releases inside the month, one per platform\", function () {",
+              "pm.test(\"Each featured game presents only releases the explorer's range admits, one per platform\", function () {",
               "    const body = pm.response.json();",
               "    body.items.forEach(function (item) {",
               "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"releases\");",
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
               "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
-              "            pm.expect([\"day\", \"month\"]).to.include(release.releaseDate.precision);",
-              "            pm.expect(release.releaseDate.value.slice(0, 7)).to.eql(body.month);",
-              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
-              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect(release.status).to.not.eql(\"cancelled\");",
+              "            pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(release.stage);",
               "        });",
               "    });",
               "});",
@@ -299,6 +297,17 @@
               "            pm.expect(item).to.not.have.property(\"summary\");",
               "        }",
               "    });",
+              "});",
+              "const featured = pm.response.json();",
+              "pm.sendRequest({",
+              "    url: pm.variables.replaceIn(\"{{baseUrl}}\") + \"/api/v1/releases?sort=hype&from=\" + featured.window.from + \"&to=\" + featured.window.to,",
+              "    header: { Accept: \"application/json\" }",
+              "}, function (error, response) {",
+              "    pm.test(\"The selection is the head of the explorer's Hype order\", function () {",
+              "        pm.expect(error).to.eql(null);",
+              "        const head = response.json().items.slice(0, featured.items.length);",
+              "        pm.expect(featured.items.map(function (item) { return item.gameId; })).to.eql(head.map(function (item) { return item.gameId; }));",
+              "    });",
               "});"
             ],
             "type": "text/javascript",
@@ -332,7 +341,7 @@
             }
           ]
         },
-        "description": "A visitor may select another month of the current calendar year in Europe/Madrid, here October; it is ranked with the same current local popularity evidence because no popularity history is kept. With the development seed, October 2026 features Crimson Desert."
+        "description": "A visitor may select another month inside the navigation bounds; it is ranked with the same current local popularity evidence because no popularity history is kept. With the development seed on its pinned clock, September 2026 features Marvel's Wolverine, while October 2026 is empty because Crimson Desert is known only to a month that has not ended."
       },
       "response": []
     },
@@ -368,10 +377,10 @@
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
               "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
-              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"]).to.include(release.releaseDate.precision);",
               "            pm.expect(release.releaseDate.value >= body.window.from && release.releaseDate.value <= body.window.to).to.be.true;",
-              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
-              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "            pm.expect(release.status).to.not.eql(\"cancelled\");",
+              "            pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(release.stage);",
               "        });",
               "    });",
               "});",
@@ -418,7 +427,7 @@
             }
           ]
         },
-        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+        "description": "Reads the automatic selection of one ISO week, Monday to Sunday in Europe/Madrid, from local PostgreSQL state: the head of the release explorer's Hype order for that week, counting only games with positive locally stored IGDB Hypes. Ports, remakes, editions and every release stage take part. No provider is called."
       },
       "response": []
     },
@@ -454,10 +463,10 @@
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
               "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
               "        item.releases.forEach(function (release) {",
-              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\"]).to.include(release.releaseDate.precision);",
               "            pm.expect(release.releaseDate.value >= body.window.from && release.releaseDate.value <= body.window.to).to.be.true;",
-              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
-              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "            pm.expect(release.status).to.not.eql(\"cancelled\");",
+              "            pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(release.stage);",
               "        });",
               "    });",
               "});",
@@ -504,7 +513,7 @@
             }
           ]
         },
-        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+        "description": "Reads the automatic selection of one ISO week, Monday to Sunday in Europe/Madrid, from local PostgreSQL state: the head of the release explorer's Hype order for that week, counting only games with positive locally stored IGDB Hypes. Ports, remakes, editions and every release stage take part. No provider is called."
       },
       "response": []
     },

@@ -20,6 +20,21 @@ is explanatory and must follow the SQL, not replace it.
 - Assess locks, duration, storage, backfill bounds, concurrency, and recovery for
   large or destructive changes.
 
+On the installed private runtime, migrations reach the database only through the
+owner-run [in-place upgrade](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime):
+the target image's one-shot actor runs behind the still-closed backup fence, before any application
+starts. Its plan refuses an applied file whose checksum differs, a failed Flyway row, a
+database ahead of the target and an out-of-order pending version. A view applied ahead
+of its history, as the post-acceptance transition does, must stay idempotent under the
+migrator role, so that the later Flyway run replaces it with itself.
+
+If startup reports a checksum mismatch, recover the original applied SQL and put
+schema additions in a later migration. Do not use `repair` to bless edited SQL or
+reset a persistent local database. The deletion admission upgrade preserves its
+original checksum and request identities; legacy completions without stored
+verification digests return to pending so the protected executor must reverify the
+same operation before reporting completion.
+
 Development seed SQL belongs under `db/dev-seed/`, must be deterministic and
 idempotent for disposable use, and is excluded from production-image packaging.
 

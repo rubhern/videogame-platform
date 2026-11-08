@@ -48,6 +48,7 @@ class GameRankingApiIntegrationTest {
     private static final String GAME_ONE = "30000000-0000-4000-8000-000000000386";
     private static final String GAME_TWO = "30000000-0000-4000-8000-000000000387";
     private static final String GAME_THREE = "30000000-0000-4000-8000-000000000388";
+    private static final String PS5 = "10000000-0000-4000-8000-000000000001";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final OpenApiResponseContract CONTRACT =
             OpenApiResponseContract.load("/game-rankings");
@@ -166,7 +167,41 @@ class GameRankingApiIntegrationTest {
                 "SORT_INVALID");
         assertProblem(get(PATH + "?pageSize=101", null), "PAGINATION_INVALID");
         assertProblem(get(PATH + "?page=0", null), "PAGINATION_INVALID");
-        assertProblem(get(PATH + "?platformIds=x", null), "REQUEST_PARAMETER_UNKNOWN");
+        assertProblem(get(PATH + "?platformId=x", null), "REQUEST_PARAMETER_UNKNOWN");
+        assertProblem(get(PATH + "?platformIds=x", null), "PLATFORM_NOT_SUPPORTED");
+    }
+
+    @Test
+    void ranksAPlatformByTheGlobalScoreOfGamesAlreadyReleasedThere() throws Exception {
+        external(GAME_ONE, "80", 200);
+        external(GAME_TWO, "95", 200);
+        external(GAME_THREE, "85", 200);
+        // GAME_TWO leads globally, but its PlayStation 5 port is still to come.
+        release(GAME_ONE, 4, PS5, "2021-06-11");
+        release(GAME_ONE, 5, PS5, "2022-01-01");
+        release(GAME_TWO, 6, PS5, "2026-12-01");
+
+        var scoped = get(PATH + "?platformIds=" + PS5, null);
+        CONTRACT.assertJsonResponse(scoped, 200, "GameRankingPage");
+        JsonNode body = JSON.readTree(scoped.body());
+        assertThat(ids(body)).containsExactly(GAME_ONE);
+        assertThat(body.path("page").path("totalItems").asLong()).isEqualTo(1);
+        JsonNode item = body.path("items").get(0);
+        assertThat(item.path("position").asLong()).isEqualTo(1);
+        assertThat(item.path("score").path("value").asDouble()).isEqualTo(8.0);
+        assertThat(item.path("platformRelease").path("platform").path("platformId").stringValue())
+                .isEqualTo(PS5);
+        assertThat(item.path("platformRelease").path("releaseDate").path("value").stringValue())
+                .isEqualTo("2021-06-11");
+        assertThat(item.path("platformRelease").path("status").stringValue()).isEqualTo("released");
+
+        var global = JSON.readTree(get(PATH, null).body());
+        assertThat(ids(global)).containsExactly(GAME_TWO, GAME_THREE, GAME_ONE);
+        assertThat(global.path("items").get(0).has("platformRelease")).isFalse();
+
+        var community = get(PATH + "?source=gameometro_community&platformIds=" + PS5, null);
+        CONTRACT.assertJsonResponse(community, 200, "GameRankingPage");
+        assertThat(JSON.readTree(community.body()).path("items")).isEmpty();
     }
 
     private void assertProblem(HttpResponse<String> response, String code) throws Exception {
@@ -207,6 +242,24 @@ class GameRankingApiIntegrationTest {
                 """,
                 release,
                 id);
+    }
+
+    private void release(String game, int number, String platform, String day) {
+        String release = "40000000-0000-4000-8000-00000000039" + number;
+        jdbc.update(
+                "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, ?::uuid, now())",
+                release,
+                game);
+        jdbc.update(
+                """
+                INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status)
+                SELECT publication_id, ?::uuid, ?::uuid, ?::uuid, '20000000-0000-4000-8000-000000000386', 'day', ?::date, 'announced', 'external_provider', 'IGDB', 'release_date', now(), 'provider_only', 'not_required'
+                FROM catalogue.catalogue_publication WHERE is_current
+                """,
+                release,
+                game,
+                platform,
+                day);
     }
 
     private void external(String game, String score, long count) {
