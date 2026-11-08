@@ -378,7 +378,7 @@ receipts keep the remaining validation boundary explicit.
 | Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
 | Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
 | Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
-| Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Approved target, not implemented; Lenovo is optional and expendable |
+| Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Operational; real-host acceptance is recorded under #276; Lenovo is optional and expendable |
 
 Use separate edge, data/acquisition and telemetry networks with only required
 membership; the proxy never joins the database network. Network names alone are
@@ -683,8 +683,11 @@ defines the bounded experiment. No Lenovo result substitutes for VPS measurement
 
 ### Independent secrets, data and recovery
 
-Production secrets are separate from local/private-dev and CI, stored in protected
-host files outside Git, mounted only into their consumers. Compose secrets on one
+Production runtime secrets are separate from local/private-dev and CI, stored in protected
+host files outside Git, mounted only into their consumers. The owner-approved
+[ADR-0036](../../decisions/0036-use-protected-actions-for-production-recovery.md) permits only
+a recovery decryption-key copy and read-only S3 identity in the protected `production-recovery`
+environment, consumed by an approved ephemeral GitHub-hosted job; the original key remains in WSL. Compose secrets on one
 host are file delivery, not an encrypted vault. Keep restricted owner permissions,
 no secret values in container metadata/arguments/logs, and coordinated role/client/file
 rotation. Securely retain reconstruction material and the backup decryption key
@@ -702,7 +705,7 @@ Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
 bounded retention and isolated restore. Proposed initial recovery objectives for
 owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
 **RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
-**Owner storage decision (#276, 2026-10-25), approved target, locally prepared transport only:**
+**Owner storage decision (#276, 2026-10-25), implemented in current private production:**
 upload encrypted paired backups directly from the production VPS to OVHcloud Object
 Storage Standard, full 1-AZ region Gravelines, using Object Lock Compliance retention,
 least-privilege upload credentials, independent integrity verification and missed-job
@@ -717,7 +720,7 @@ This explicitly permits a restricted upload credential on the VPS, replacing the
 source has no destination credential. It does not permit application or identity runtime credentials
 to read/delete history, change retention/ACLs or manage provider credentials. The expiry actor runs
 independently of the VPS with separate credentials limited to exact-version deletion and preflight
-reads; jobs remain uninstalled. Keep cloud management/recovery access, decryption and signing
+reads. The owner confirms the private-production backup/S3 services and recovery controls are installed; public acceptance remains separate. Keep cloud management/recovery access, decryption and signing
 material, and reconstruction unlock material independent of VPS, Lenovo and agents.
 Provider-enforced protection of existing versions, independent detection and clean-context
 cloud-only restore must be proved before operation. Direct uploads cannot authenticate future
@@ -740,7 +743,7 @@ point, independent integrity evidence no older than 24 hours and a full verified
 every 30 days (owner change on 2026-11-08 from 8 days, so that the restored pair is still inside its
 33-day lock). The weekly owner effort was judged disproportionate. The owner also accepted
 running that restore on the owner's own Docker engine, where the decryption key already lives,
-instead of a separate SSH target; runtime hosts still never hold the key. These are target guarantees, not operational acceptance or measured RPO/RTO.
+instead of a separate SSH target; runtime hosts still never hold the key. The per-deployment Actions restore below is additional to that periodic host-loss reconstruction; it does not replace its ledger replay/readiness proof.
 Provider-internal reclamation follows the contracted deletion terms; a missed exact-version deletion
 deadline is an incident, never an extension. The independent actor performs deletion; keys remain
 off the VPS. The
@@ -749,12 +752,10 @@ records the bounded local slice and remaining provider tests. The
 [subsequent owner decision](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
 approves D3 (expiry wins over the rehearsal pin), D6 (separate-store locks) and D7 (spend/storage
 thresholds), detailed in the
-[decision table](../../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation). Cloud expiry defaults to planning; explicit execution is locally prepared with
+[decision table](../../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation). Cloud expiry defaults to planning; explicit execution uses
 configuration/protection preflight, durable intent and verified exact-version absence. The
-[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is prepared
-and uninstalled: it refuses predictable failures before fencing, uploads only after reopening, and
-reopens only a fence it created. Every other fence stays closed for its owner. Provider
-qualification, deletion-ledger barriers and archive-specific duties still block activation. Size the
+[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is installed in private production: it refuses predictable failures before fencing, uploads only after reopening, and
+reopens only a fence it created. Every other fence stays closed for its owner. Public exposure, deletion-ledger barriers and archive-specific duties retain their separate acceptance requirements; do not rebuild the installed backup infrastructure. Size the
 independent destination and prove the scheduled copy/check cadence; a dump left on the VPS is not a
 backup against host/account loss. Failure/age must reach the owner through a tested private channel.
 If this cannot operate within the budget, do not open accounts.
@@ -773,15 +774,15 @@ driver records each step in both before running it on the host. A restore starts
 restored Keycloak without the application and the replay refuses while the application
 runs; host-loss recovery is the only restore into the live project, only on a host
 without that project's state, and deployments stay refused until its replay is
-verified. **Prepared production candidate (#275 increment 5), not operated on a host:**
+verified. **Production recovery implementation, reused by the operational private installation:**
 [production recovery commands](../../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
 add durable role fences and a startup authorization volume, paired encrypted dumps,
 owner-side SSH-context restoration, destination-side bounded pull/retention and the
 same Keycloak-only deletion replay gate. Local rehearsal is synthetic evidence only;
 cloud access/version isolation, physical/account independence, transfer cadence,
 expiry and cloud-only VPS recovery remain #276 gates. The prepared filesystem commands retain their original contract. The
-[optional S3 transport](../../../deploy/public-production/README.md#s3-transport-preparation-276)
-reuses their encrypted pair and verifier; it does not qualify the cloud target. The
+[S3 transport](../../../deploy/public-production/README.md#s3-transport-preparation-276)
+reuses their encrypted pair and verifier. The owner confirms private operation; public qualification is separate. The
 [data-protection record](../../development/data-protection.md#phase-1-design-for-approval)
 owns the future cleanup/archive design; the existing ledger design evidence remains
 in [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion), and the
@@ -828,20 +829,38 @@ images indefinitely on upstream content. Keeping the bases on their latest patch
 releases stays an owner duty; the inherited findings are a release-gate input, not an
 accepted risk.
 
-Initially use owner-triggered manual promotion over private administration, reusing
-the current preflight/lock/migration/readiness/smoke pattern in a production-specific
-contract. The [manual procedure](../../../deploy/public-production/README.md#manual-deployment-procedure)
-is implemented for disposable synthetic rehearsal only; real-host execution remains
-blocked pending recovery and release prerequisites. Private-dev Actions credentials/forced commands authorize only private-dev;
-do not reuse them for production or add unattended deployment. A production Actions
-promotion path is optional later, not a launch prerequisite. Migration is a one-shot
-actor before application replacement; dependencies/config/secrets have separate
-reviewed rollouts. No automatic merge-to-production or extra staging environment.
+Production is operational, with [public acceptance recorded under #276](../../research/public-production-release-acceptance.md). The #455 updater remains the runtime update boundary.
+The [manual rehearsal](../../../deploy/public-production/README.md#manual-deployment-procedure)
+retains its synthetic-only scope. Routine private-production delivery is now implemented through
+[owner-approved Actions](../../../deploy/public-production/README.md#owner-approved-actions-deployment-467):
+manual dispatch of exact `main`, protected production approval, distinct restricted Tailscale/SSH
+identity, and the existing forward-only in-place upgrade. This repository change does not execute
+a deployment or authorize host-access changes; initial setup and real-host acceptance remain separate.
+Private-dev credentials/forced commands authorize only private-dev. No automatic merge-to-production,
+extra environment or general root command interface is introduced.
 
-The installed private runtime upgrades only through the owner-run, forward-only
-[in-place upgrade](../../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime),
-which consumes the write fence of a verified paired backup and never restores over live
-volumes or returns to an older image after its migrations or realm change.
+The actor derives validated immutable publications and operational fingerprints for the selected
+SHA, then consumes a fresh paired backup's continuous write fence, existing durable S3 publication
+and a real isolated restore by a separate ephemeral GitHub-hosted job in the protected
+`production-recovery` environment. Both it and `production` require owner approval and `main` only.
+The recovery job alone imports the owner-authorized key copy and existing read-only S3 identity;
+the original WSL copy remains independent, and no decryption key reaches the VPS/deployment job.
+Prefer a decrypt-only subkey export; the explicit primary-encryption fallback and custody risk are
+recorded in [ADR-0036](../../decisions/0036-use-protected-actions-for-production-recovery.md).
+Readiness proves key usability, S3 admission and runner capacity before fencing. Immutable same-run
+artifacts bind request, backup, plan and recovery nonce; apply independently requires successful
+recovery-job completion after verified cleanup. The recovery fence persists across job/SSH handoffs.
+Scheduled backup locks and recovery leases are reused without changing timers; their foreign-fence
+checks prevent scheduled reconciliation from reopening a deployment's backup.
+After verified activation, the same rollout reconciles
+existing backup-service paths and the independent #464 admin operator under an owner-accepted
+access policy. It preserves the installed product ingress and issuer, including the accepted public edge. Neither the workflow nor its
+receipts replace real effective-policy/owner-browser acceptance or grant public exposure.
+
+The [in-place upgrade](../../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
+remains the sole data/runtime updater: it never restores over live volumes or returns to an older
+image after its migrations or realm change. Interruptions retain journals and recovery fences;
+owner inspection chooses resume, forward fix or isolated recovery, without blind retries.
 
 Retain the previous digest and recovery point. Failed migration prevents activation;
 failed readiness/smoke is recorded as failure. An application rollback requires

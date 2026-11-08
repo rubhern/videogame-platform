@@ -419,11 +419,12 @@ def keyrings(work):
     return private, public, fingerprint
 
 
-def restore_check(backup, keyring, receipt, work):
+def restore_check(backup, keyring, receipt, work, *, project=None):
     """A real restore of one pair into a throwaway target; the role passwords are synthetic."""
     manifest = json.loads((backup / 'manifest.json').read_text())
     require(not receipt.exists(), 'Receipt already exists.')
-    project = 'vgp-production-test-' + secrets.token_hex(6)
+    project = project or 'vgp-production-test-' + secrets.token_hex(6)
+    require(__import__('re').fullmatch('vgp-production-test-[0-9a-f]{12}', project), 'Unsafe isolated restore project.')
     secret_dir = work / 'restore-secrets'
     synthetic_secrets(secret_dir)
     # Exactly the pair's three identities; the other services are never started.

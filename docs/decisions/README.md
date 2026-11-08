@@ -11,6 +11,8 @@ historical decision.
 
 ## Accepted
 
+- [ADR-0036: Use protected Actions for private-production recovery](0036-use-protected-actions-for-production-recovery.md) — #467; explicit owner approval for an environment-protected recovery-key copy on ephemeral GitHub runners; original WSL copy retained.
+
 - [ADR-0001: Reference IGDB cover images without copying binaries](0001-reference-igdb-cover-images.md)
 - [ADR-0002: Use a modular monolith and relational data boundary](0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](0003-use-a-same-origin-bff-and-http-json-api.md)
