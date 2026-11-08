@@ -7,6 +7,7 @@ import contextlib
 import io
 import sys
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -201,6 +202,46 @@ class LivePublicExposure(unittest.TestCase):
                 with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
                     self.host.running(['caddy'])
                 self.info[field] = original
+
+    def test_probe_selects_system_roots_only_for_the_reviewed_public_edge(self):
+        self.assertIsNone(self.host.probe_ca_file())
+        self.host.config['services']['application'] = {'environment': {'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+            'OIDC_CONTRACT_CA_FILE': '/unreviewed/ca.crt'}}
+        self.host.config['networks']['telemetry'] = {'name': 'telemetry-network'}
+        self.host.source = Path('/reviewed/candidate')
+        with patch.object(install, 'run', return_value=b'') as run:
+            self.host.probe('synthetic-probe')
+        arguments = run.call_args.args[0]
+        self.assertFalse(any('OIDC_CONTRACT_CA_FILE=' in str(a) for a in arguments))
+        self.assertNotIn('/unreviewed/ca.crt', arguments)
+        self.host.config['services']['caddy']['ports'] = []
+        self.assertEqual(self.host.probe_ca_file(), '/run/private-tls/ca.crt')
+        private = object.__new__(install.Host)
+        self.assertEqual(private.probe_ca_file(), '/run/private-tls/ca.crt')
+
+    def test_authorization_probe_uses_the_selected_trust_roots(self):
+        import ssl
+        from types import SimpleNamespace
+        class Connection:
+            def __init__(self, *args, **kwargs):
+                pass
+            def request(self, method, path):
+                self.path = path
+            def getresponse(self):
+                return SimpleNamespace(status=401 if self.path == '/api/v1/me/ratings' else 200, read=lambda _: b'{}')
+            def close(self):
+                pass
+        for ca in (None, '/run/private-tls/ca.crt'):
+            environment = {'OIDC_CONTRACT_CA_FILE': ca} if ca else {}
+            with self.subTest(ca=ca), patch.dict(os.environ, environment, clear=True), \
+                    patch('http.client.HTTPSConnection', Connection), patch.object(ssl, 'create_default_context') as context:
+                exec(upgrade.AUTHORIZATION_PROBE, {})
+                context.assert_called_once_with(cafile=ca)
+
+    def test_unreviewed_publication_cannot_select_public_tls_mode(self):
+        self.host.config['services']['caddy']['ports'][0]['host_ip'] = '0.0.0.0'
+        with self.assertRaises(trust.Refused):
+            self.host.probe_ca_file()
 
     def test_first_install_still_rejects_public_bindings(self):
         private = object.__new__(install.Host)

@@ -88,9 +88,8 @@ GATE_STATE = ("import json,os\np='/gate/'\ndef read(n):\n try:\n  return json.lo
               "'owner':read('INSTALLATION-OWNER.json')}))")
 # Anonymous only: personal routes refuse, the public catalogue answers from local state.
 AUTHORIZATION_PROBE = r'''
-import http.client,ssl
-ctx=ssl.create_default_context()
-ctx.load_verify_locations('/run/private-tls/ca.crt')
+import http.client,os,ssl
+ctx=ssl.create_default_context(cafile=os.environ.get('OIDC_CONTRACT_CA_FILE') or None)
 def get(path):
  c=http.client.HTTPSConnection('gameometro.com',context=ctx,timeout=15)
  c.request('GET',path);r=c.getresponse();b=r.read(262145);c.close()
@@ -429,6 +428,14 @@ class Host(install.Host):
         expected = {str(p['target']) + '/tcp': [{'HostIp': ipv4, 'HostPort': p['published']}] for p in published}
         # Docker can include unbound EXPOSE entries as null; only effective publications count.
         return {port: rows for port, rows in bindings.items() if rows} == expected
+
+    def probe_ca_file(self):
+        published = self.config['services']['caddy'].get('ports')
+        if not published:
+            return super().probe_ca_file()
+        expected = {str(p['target']) + '/tcp': [{'HostIp': p['host_ip'], 'HostPort': p['published']}] for p in published}
+        require(self.port_bindings_match('caddy', expected), 'Public TLS probe requires the reviewed edge bindings.')
+        return None  # The public certificate must validate against the helper's system roots.
 
     def bind_path(self, path):
         # A plan reviews inputs before the bundle exists; the bytes are in its scratch copy.
