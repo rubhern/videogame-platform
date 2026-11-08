@@ -651,6 +651,45 @@ separate timeout from unavailable/invalid runtime responses; durable pending sta
 last-valid links support diagnosis and retries through the [operations runbook](operations-runbook.md#catalogue-localization).
 Helper failure never participates in liveness/readiness.
 
+`catalogue.observability_localization_coverage` is the durable coverage read contract:
+aggregate counts by `kind`, `status`, `origin` and `last_valid_retained`, with no Game,
+label, fingerprint or text identity and no stored state of its own. Each target has
+exactly one status, evaluated in this order:
+
+| Status | Meaning, from stored source and translation evidence |
+|---|---|
+| `not_applicable` | Outside enrichment ownership: not a sourced English IGDB summary, or a taxonomy term without a provider source label |
+| `current` | The published link matches the current source. `origin` separates `machine` from `curated` |
+| `busy` | A live lease on this exact source: inference may be running now |
+| `reusable` | Translated already, usually for another target, but not linked here. The next pass needs no inference |
+| `retryable` | Attempted without a result: a released failure or an expired lease |
+| `stale` | Only an earlier source has a published translation, and the current source has no attempt |
+| `missing` | No published translation and no attempt |
+
+`last_valid_retained` marks a non-current target that still serves its earlier
+translation, whichever pending status applies. Eligible means every status except
+`not_applicable`. Attempts match exact source bytes, because hashing every summary
+exceeds the reader's statement limit at the current catalogue size. A source that differs
+from an attempt only in whitespace therefore reads `missing`, although the next pass
+reuses that attempt without inference; it can never read `current` by mistake.
+
+The Catalogue Synchronization dashboard's localization section combines that stored
+coverage with process counters and, in production, the host sampler's localizer and
+Grafana series. Missing process or sampler telemetry renders as no data, never as zero
+failures. Private-dev has no host sampler, so its resource panels stay empty. A view
+added by a migration still needs the
+[reader command](../../deploy/private-dev/README.md#metrics-dashboards) to grant it.
+
+Existing production rules already cover a localizer or Grafana restart or OOM
+(`prod-oom-restarts`), a stopped container (`prod-container-missing`), memory and CPU
+pressure and a stale sampler, once the sampler is installed. Automatic restart does not
+hide an incident: `prod-oom-restarts` fires on the increased restart count. Memory
+pressure rules divide total cgroup usage, including reclaimable cache, so a healthy Grafana or
+freshly loaded localizer can sit near them; judge those with the anonymous-memory series.
+Sustained localizer unavailability, translation failure rates and the daily synchronization
+ratio stay with [#451](https://github.com/rubhern/videogame-platform/issues/451), which
+adds any new rule. This section adds none.
+
 ## Public production observability proposal
 
 **Implemented local candidate (#275 increment 7), not deployed or accepted on a VPS.**
@@ -665,13 +704,21 @@ and Growth remain complete; Production / Capacity, security and recovery adds th
 operational signals. No Loki, Alloy or retained trace store is added. Their extra
 memory, disk and log-ingestion privileges have no demonstrated production need here.
 
+Production Grafana disables every bundled backend datasource plugin except PostgreSQL and
+Prometheus, because each one is a separate process with about seven threads that counts
+against the container's PID ceiling. The
+[stabilization evidence](operations-runbook.md#private-production-localization-and-grafana-stabilization)
+records the failure this prevents. A new datasource type must be removed from that list.
+
 Telemetry has no product startup, readiness or request dependency. Management stays
 on application loopback. None of the monitoring services publishes a host port;
 Grafana administration needs the existing private host/tunnel boundary. Only Grafana
 joins the separate notification egress bridge. Its analytics network reaches the
 application database with the existing restricted reader and approved observability
 views, two connections and short query limits; no identity database privileges or
-new analytics queries across base tables are granted.
+new analytics queries across base tables are granted. The reader runs without JIT or
+parallel workers because PostgreSQL has a single CPU here: with them, two dashboard panels
+querying the localization coverage view at once exceeded the statement limit.
 
 Standard node_exporter collects host CPU/steal, memory, swap, pressure, root filesystem
 and disk I/O; blackbox_exporter probes Keycloak readiness and both HTTPS certificates
@@ -679,7 +726,8 @@ through the private edge. Those TLS probes verify SNI and trust but do not prove
 DNS, IPv6 ingress or ACME renewal. Caddy's private listener exports only bounded native
 HTTP families; its per-client limiter metrics and refusal logger remain disabled.
 
-A bounded host-only textfile sampler bridges cgroup v2 resource ceilings/usage,
+A bounded host-only textfile sampler bridges cgroup v2 resource ceilings/usage, including
+anonymous and peak memory and the task count against each PID ceiling,
 Docker lifecycle fields, sanitized edge response origins, backup evidence and optional
 capacity evidence. Its fixed service inventory never exports container IDs, PIDs,
 addresses, paths or account information. It has no listener or long-running buffer.
@@ -733,7 +781,9 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 | Disk free reserve and predicted depletion | Validate the filesystem mapping, growth lookback/prediction horizon, reserves, WAL/image/backup overlap and job stop response. Root filesystem collection assumes the proposed single data filesystem; another mount needs explicit collection before acceptance |
 | Identity failures, lockout, mail sending/failure and health | Calibrate aggregate count windows against legitimate/shared-source traffic and actual relay allowance. These signals are indicators, not proof of distinct attackers or inbox delivery |
 | Telemetry target, host sampler and edge-window availability | Exercise missing/down/removed targets, frozen exports, malformed textfiles, dropped records and delayed timers. Scrape success alone does not prove fresh application exports |
-| Failed, missing or stale verified off-host backups | Verify the schedule, recovery-point age, independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
+| Failed or missing verified off-host backups | Verify the independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
+| Stale off-host upload, warning at 14 hours and critical at 24 | Fed by the [scheduled cycle](../../deploy/public-production/README.md#scheduled-backup-cycle-276). The host reports its own upload, so this is a second route: only the independent observer proves integrity. Validate slots, deferral by a running synchronization and the admission window |
+| Backup cycle needs the owner | A reopening failed or a fence belongs to someone else. The cycle stops acting at `owner-required`; validate delivery in the failure drills |
 | TLS expiry and failed probes | Verify both hostname chains, warning/critical lead times, local probe failure, actual ACME renewal failure and recovery with the real domains before exposure |
 | Series budget and monitoring resources | Review active/head series, refresh/query concurrency, rule evaluations, retention/compaction and disk growth at the qualified workload; stop ingestion before threatening durable product state |
 

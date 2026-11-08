@@ -22,7 +22,8 @@ spec=importlib.util.spec_from_loader(loader.name,loader);recovery=importlib.util
 
 
 def attest(manifest,pull,restore,isolation,now):
-    if not (pull.get('kind')=='encrypted-pull' and pull.get('outcome')=='success' and pull.get('ciphertextIntegrity') is True
+    # An exact-version cloud fetch verifies the same pair a filesystem pull does.
+    if not (pull.get('kind') in ('encrypted-pull','s3-fetch') and pull.get('outcome')=='success' and pull.get('ciphertextIntegrity') is True
             and restore.get('kind')=='recovery-rehearsal' and restore.get('outcome')=='success'
             and restore.get('deletionReplay') is True and restore.get('readiness') is True
             and restore.get('scope')=='owner-reconstructed-target'

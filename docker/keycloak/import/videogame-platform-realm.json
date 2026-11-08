@@ -114,5 +114,63 @@
     }
   ],
   "ssoSessionIdleTimeoutRememberMe": 604800,
-  "ssoSessionMaxLifespanRememberMe": 2592000
+  "ssoSessionMaxLifespanRememberMe": 2592000,
+  "registrationFlow": "gameometro registration",
+  "authenticationFlows": [
+    {
+      "alias": "gameometro registration",
+      "description": "Self-registration with the mandatory adult and terms declaration",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-page-form",
+          "authenticatorFlow": true,
+          "flowAlias": "gameometro registration form",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "gameometro registration form",
+      "description": "Native local registration fields, password and adult/terms declaration",
+      "providerId": "form-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-user-creation",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "registration-password-action",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 50,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "registration-terms-and-conditions",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 70,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "localizationTexts": {
+    "es": {
+      "termsTitle": "Antes de crear tu cuenta",
+      "termsText": "<p>Responsable: Rubén Hernández López. Trataremos tu email, los datos necesarios para proteger tu cuenta y tus puntuaciones para prestarte el servicio que solicitas. La gestión de cuenta y puntuaciones se basa en la ejecución de las condiciones de uso; la seguridad, en nuestro interés legítimo, según se explica en la política de privacidad. Puedes ejercer tus derechos en <a href=\"mailto:hola@gameometro.com\">hola@gameometro.com</a>. Consulta la política de privacidad para conocer destinatarios, conservación, transferencias y todos tus derechos.</p><p>Para prestar el servicio utilizamos proveedores externos de alojamiento y correo. Las imágenes pueden cargarse desde un servicio externo. Algunos tratamientos pueden implicar transferencias internacionales, detalladas en la política de privacidad.</p><p>Crear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso. La información de privacidad se facilita para que conozcas el tratamiento; no te pedimos que consientas tratamientos opcionales para utilizar tu cuenta.</p><p>Consulta la <a href=\"${APPLICATION_PUBLIC_ORIGIN}/privacidad\">política de privacidad</a> y las <a href=\"${APPLICATION_PUBLIC_ORIGIN}/condiciones\">condiciones de uso</a> antes de registrarte.</p>",
+      "acceptTerms": "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro.",
+      "termsAcceptanceRequired": "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
+    }
+  }
 }

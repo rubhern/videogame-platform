@@ -96,6 +96,13 @@ owner, and expiry/removal condition.
   localizer, require their own reviewed operational decision and applied-runtime
   acknowledgement before application promotion;
   see the [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+- Private-production deployment requires manual dispatch of exact `main` and owner approval
+  in the protected `production` environment. The
+  [Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+  reuses the existing forward-only updater, durable S3 pair and isolated restore in a separate
+  protected `production-recovery` job, under [ADR-0036](../decisions/0036-use-protected-actions-for-production-recovery.md).
+  That environment requires its own owner approval; its key copy never reaches the deployment job/VPS. Initial access setup and first real-host acceptance require separate authorization;
+  workflow implementation alone passes no public gate.
 - The owner-approved public-release direction does not authorize contracting or
   exposure. Apply the [public-production gates](#public-production-gates); no service,
   DNS/ingress or existing infrastructure is changed during the #252 investigation.

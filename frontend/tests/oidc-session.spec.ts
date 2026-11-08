@@ -270,6 +270,7 @@ test("direct self-registration authenticates and returns to the game without a r
   await page.locator("#username").fill(unique);
   await page.locator("#password").fill("Str0ng-Passw0rd!");
   await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
+  await page.locator("#termsAccepted").check();
   await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
   await expect(page).toHaveURL(`${applicationOrigin}${game}`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });

@@ -40,6 +40,16 @@ _archive_spec = importlib.util.spec_from_file_location(
 archive_module = importlib.util.module_from_spec(_archive_spec)
 _archive_spec.loader.exec_module(archive_module)
 ArchiveError = archive_module.ArchiveError
+_cloud_spec = importlib.util.spec_from_file_location(
+    "personal_data_cloud", pathlib.Path(__file__).resolve().parents[1] / "lib/personal_data_cloud.py")
+cloud_module = importlib.util.module_from_spec(_cloud_spec)
+_cloud_spec.loader.exec_module(cloud_module)
+CloudError = cloud_module.CloudError
+# Set from --cloud-copies. When present, every ledger append and legal-archive write returns only
+# after both independent S3 copies acknowledge it (#276, L8). Production mutation requires it.
+CLOUD = None
+MUTATING = False
+PRODUCTION_ISSUER = "https://auth.gameometro.com/realms/gameometro"
 MAX_LEDGER_BYTES = 128 * 1024 * 1024
 MAX_EVENT_BYTES = 8192
 
@@ -177,6 +187,8 @@ class Ledger:
                     raise LedgerError("--ledger-copy must be a separate file on independent storage")
                 self.files.append(LedgerFile(copy, "ledger copy", create=create or primary_exists))
             self._reconcile()
+            if CLOUD is not None:
+                self._sync_cloud()
         except BaseException:
             self.close()
             raise
@@ -205,6 +217,30 @@ class Ledger:
                         output.flush()
                         os.fsync(output.fileno())
                     print(f"Brought the {file.label} up to date from the other copy.", file=sys.stderr)
+
+    def _bytes(self) -> bytes:
+        with self.files[0].path.open("rb") as stream:
+            return stream.read(MAX_LEDGER_BYTES + 1)
+
+    def _sync_cloud(self) -> None:
+        # Local copies are already equal. The cloud copies may lag by an unacknowledged append
+        # or lead after a workstation loss; only prefixes reconcile, anything else stops.
+        local = self._bytes()
+        longest = local
+        for copy in CLOUD.current_ledgers():
+            remote = b"" if copy is None else copy[0]
+            if remote.startswith(longest):
+                longest = remote
+            elif not longest.startswith(remote):
+                raise LedgerError("A cloud ledger copy diverges from the local ledger; compare before any run")
+        if len(longest) > len(local):
+            suffix = longest[len(local):]
+            _parse(suffix.decode(), "cloud ledger")
+            for ledger_file in self.files:
+                ledger_file.write(suffix.decode())
+            print("Brought the local ledger up to date from its cloud copies.", file=sys.stderr)
+        if longest and any(copy is None or copy[0] != longest for copy in CLOUD.current_ledgers()):
+            CLOUD.put_ledger(longest)
 
     def events(self, source: LedgerFile | None = None) -> Iterator[dict[str, object]]:
         with (source or self.files[0]).path.open("r", encoding="utf-8") as stream:
@@ -244,6 +280,9 @@ class Ledger:
                 raise LedgerError("Ledger byte budget exhausted")
         for ledger_file in self.files:
             ledger_file.write(line)
+        if CLOUD is not None:
+            # Synchronous barrier: no caller proceeds to a mutation without both acknowledgements.
+            CLOUD.put_ledger(self._bytes())
 
     def digest(self) -> str:
         digest = hashlib.sha256()
@@ -328,6 +367,7 @@ def run_steps(
             if archive is None:
                 raise LedgerError("This erasure requires its protected two-copy legal archive")
             receipt = ensure_archive(archive, host_command, entry)
+            mirror_archive(archive, entry["request"])
             if ledger is not None:
                 ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"],
                                "step": "archive", "outcome": "done",
@@ -357,10 +397,22 @@ def run_steps(
     return results
 
 
+def require_cloud(issuer: object) -> None:
+    # The production realm never mutates without the two-copy cloud ledger and archive.
+    if MUTATING and CLOUD is None and issuer == PRODUCTION_ISSUER:
+        raise LedgerError("Production erasure requires --cloud-copies (two independent S3 copies)")
+
+
 def identify(host_command: list[str], keycloak_user_id: str) -> dict[str, object]:
     answer = run_host(host_command, ["identify", "--keycloak-user-id", keycloak_user_id])
     canonical_uuid(str(answer.get("userId", "")), "The derived UserId")
+    require_cloud(answer.get("issuer"))
     return answer
+
+
+def mirror_archive(archive, reference: str) -> None:
+    if CLOUD is not None:
+        CLOUD.put_archive(reference, archive.dirs(reference, create=False)[0])
 
 
 def archive_from(arguments):
@@ -448,6 +500,7 @@ def candidate_page(host_command, cutoff, maximum):
     if (not isinstance(issuer, str) or not issuer.endswith("/realms/gameometro") or
             not issuer.startswith("https://") or not isinstance(candidates, list) or len(candidates) > maximum):
         raise LedgerError("Invalid production candidate response")
+    require_cloud(issuer)
     return issuer, candidates
 
 
@@ -544,10 +597,13 @@ def command_archive(arguments, _host_command):
     elif arguments.command == "archive-review":
         review = archive.review(arguments.request, hold_reason=arguments.hold_reason,
                                 extend_until=arguments.extend_until, release_hold=arguments.release_hold)
+        mirror_archive(archive, arguments.request)
         answer = {key: review[key] for key in ("reference", "reviewedAt", "reviewAt", "expiresAt")}
         answer["held"] = bool(review["holdReason"])
     else:
         answer = archive.purge(arguments.request, arguments.execute)
+        if arguments.execute and CLOUD is not None:
+            answer["cloudVersionsRemoved"] = CLOUD.purge_archive(arguments.request)
     print(json.dumps(answer, sort_keys=True))
     return 0
 
@@ -712,6 +768,53 @@ def command_retry(arguments: argparse.Namespace, host_command: list[str]) -> int
     return 0
 
 
+def command_ledger_fetch(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
+    """Rebuild both local ledger files from the cloud copies for recovery, with its checkpoint.
+
+    Refuses unless both cloud copies exist, pass their integrity check and are identical, so a
+    restore can never reopen on a ledger it could not reconstruct and verify.
+    """
+    if CLOUD is None or arguments.ledger_copy is None:
+        raise LedgerError("ledger-fetch requires --cloud-copies, --ledger and --ledger-copy")
+    data, copies = CLOUD.reconstruct()
+    _parse(data.decode(), "cloud ledger")
+    targets = (arguments.ledger, arguments.ledger_copy, arguments.checkpoint)
+    for path in targets:
+        _require_private(path.parent.absolute(), directory=True)
+        if path.exists() or path.is_symlink():
+            raise LedgerError(f"{path} already exists; fetch into new files")
+    if arguments.ledger.parent.resolve() == arguments.ledger_copy.parent.resolve():
+        raise LedgerError("--ledger and --ledger-copy must be in separate directories")
+    digest = hashlib.sha256(data).hexdigest()
+    checkpoint = {"environment": "production", "asOf": now(), "ledgerSha256": digest,
+                  "source": "cloud-ledger", "copies": copies}
+    for path, content in ((arguments.ledger, data), (arguments.ledger_copy, data),
+                          (arguments.checkpoint, (json.dumps(checkpoint, indent=2, sort_keys=True) + "\n").encode())):
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_directory(path.parent.absolute())
+    print(f"Rebuilt the ledger from two identical cloud copies ({len(data)} bytes); checkpoint {arguments.checkpoint}.")
+    return 0
+
+
+def command_ledger_init(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
+    """Record the empty production ledger in both cloud copies before any erasure exists.
+
+    Recovery refuses to reopen without two identical, locked cloud copies, including for an
+    intentionally empty ledger. Only an absent pair is initialized; any existing copy refuses.
+    """
+    if CLOUD is None:
+        raise LedgerError("ledger-init requires --cloud-copies")
+    if any(copy is not None for copy in CLOUD.current_ledgers()):
+        raise LedgerError("A cloud ledger copy already exists; use ledger-fetch or reconcile instead")
+    CLOUD.put_ledger(b"")
+    print("Recorded the empty ledger in both locked cloud copies.")
+    return 0
+
+
 def command_status(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
     with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
         for entry in ledger.entries():
@@ -754,6 +857,7 @@ def command_replay(arguments: argparse.Namespace, host_command: list[str]) -> in
                 # No fresh snapshot is allowed here. Recover only the original first capture;
                 # otherwise replay could erase the last remaining source and make retry impossible.
                 archive.seal(entry)
+                mirror_archive(archive, entry["request"])
                 if "cleanupCutoffMs" in entry or (entry["archiveProfile"] == "pending-signup-v1"
                                                   and entry["request"].startswith("CLEAN-")):
                     cutoff = entry.get("cleanupCutoffMs")
@@ -801,6 +905,8 @@ def main() -> int:
     parser.add_argument("--signer")
     parser.add_argument("--holds", type=pathlib.Path, help="Protected per-subject particular-case files")
     parser.add_argument("--host-command", help="Command line that runs personal-data in the target runtime")
+    parser.add_argument("--cloud-copies", type=pathlib.Path,
+                        help="Owner-only JSON naming the two S3 ledger and two S3 archive copies; required in production")
     commands = parser.add_subparsers(dest="command", required=True)
     export = commands.add_parser("export", help="Write one account's data export (no ledger entry)")
     export.add_argument("--request", required=True)
@@ -826,12 +932,21 @@ def main() -> int:
     retry = commands.add_parser("retry", help="Run every incomplete erasure again")
     retry.add_argument("--maintenance-command", help="Deny/drain adapter for live erasure; required for cleanup recovery")
     commands.add_parser("status", help="List ledger entries (identifiers and states only)")
+    commands.add_parser("ledger-init", help="Record the empty ledger in both cloud copies (no erasure yet)")
+    fetch = commands.add_parser("ledger-fetch", help="Rebuild the ledger from its two cloud copies for recovery")
+    fetch.add_argument("--checkpoint", type=pathlib.Path, required=True)
     replay = commands.add_parser("replay", help="Reapply every erasure to a restored runtime before it reopens")
     replay.add_argument("--receipt", type=pathlib.Path, required=True)
     arguments = parser.parse_args()
 
+    global CLOUD, MUTATING
+    # Replay runs on a ledger rebuilt by ledger-fetch; recovery verifies that checkpoint itself.
+    MUTATING = arguments.command in ("erase", "retry") or (
+        arguments.command == "cleanup-unverified" and arguments.execute)
+    if arguments.cloud_copies is not None:
+        CLOUD = cloud_module.CloudCopies(arguments.cloud_copies)
     host_command = shlex.split(arguments.host_command) if arguments.host_command else None
-    if arguments.command not in ("status", "archive-verify", "archive-review", "archive-purge") and not host_command:
+    if arguments.command not in ("status", "archive-verify", "archive-review", "archive-purge", "ledger-fetch", "ledger-init") and not host_command:
         parser.error(f"{arguments.command} requires --host-command")
     if arguments.command in ("erase", "retry", "cleanup-unverified") and arguments.ledger_copy is None:
         # No mutation may start unless its record is durable on two independent storages.
@@ -845,6 +960,8 @@ def main() -> int:
         "erase": command_erase,
         "retry": command_retry,
         "status": command_status,
+        "ledger-fetch": command_ledger_fetch,
+        "ledger-init": command_ledger_init,
         "replay": command_replay,
     }[arguments.command]
     return handler(arguments, host_command)
@@ -853,6 +970,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, LedgerError, ArchiveError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+    except (OSError, LedgerError, ArchiveError, CloudError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
         print(f"personal-data-ledger failed: {error}", file=sys.stderr)
         raise SystemExit(1) from None

@@ -50,16 +50,20 @@ Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
 
-## Legal-copy review
+## Public legal pages
 
-Vite development exposes `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies`
-with a draft notice and footer links. Production publication remains disabled in
-`src/shared/legal/publication.ts` pending the [recorded approval gates](../docs/development/data-protection.md#local-implementation-and-acceptance).
-Edit the canonical [Spanish proposals](../docs/legal/public-texts-es.md), then run
+`/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies` are anonymous routes in
+local, private-dev and production builds, linked from the shared footer alongside
+contact mail. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
+all public wording. After an approved source change, run
 `node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
-that both the safe React data and the staged, non-imported Keycloak review JSON match
-the source. Never edit generated copy or activate publication as a substitute for
-owner review and provider/operating verification.
+the generated safe React data and registration localization in both realm imports.
+Only public sections enter the application; editorial metadata and the administrative
+template stay in documentation. No cookie banner or privacy-consent control is added.
+Text approval and build availability do not authorize a public production deployment;
+the [release gates](../docs/development/delivery-lifecycle.md#public-production-gates)
+remain separate. Existing realms require explicit operator reconciliation because
+startup import does not update them; see [product integration](../docs/development/data-protection.md#publication-and-product-integration).
 
 ## Structure and ownership
 

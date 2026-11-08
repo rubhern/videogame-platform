@@ -1,6 +1,4 @@
 {
-  "status": "draft",
-  "revision": "privacy-274-review-1",
   "documents": {
     "privacidad": {
       "title": "Política de privacidad",
@@ -39,7 +37,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Si nos escribes, tratamos tu dirección y el contenido necesario para responder. Las solicitudes de derechos y la gestión de brechas se atienden para cumplir las obligaciones de protección de datos (artículo 6.1.c RGPD). No envíes contraseñas, códigos de recuperación ni documentación personal innecesaria."
+          "text": "Si nos escribes para consultar algo relacionado con tu cuenta o el servicio, tratamos tu dirección de correo electrónico y el contenido necesario para responder, sobre la base de la ejecución de las condiciones de uso (artículo 6.1.b RGPD). Para consultas generales no relacionadas con una cuenta, utilizamos nuestro interés legítimo en atender las comunicaciones recibidas (artículo 6.1.f RGPD). Las solicitudes de ejercicio de derechos y la gestión de brechas de datos personales se atienden para cumplir obligaciones legales (artículo 6.1.c RGPD). No envíes contraseñas, códigos de recuperación ni documentación personal innecesaria."
         },
         {
           "kind": "heading",
@@ -47,19 +45,19 @@
         },
         {
           "kind": "paragraph",
-          "text": "La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL, alojados bajo el control del titular. Los proyectos que desarrollan ese software no reciben tus datos simplemente por usar sus programas. Los proveedores del servicio son netcup para el alojamiento, OVHcloud para el dominio y el correo de contacto, y Mailjet para el envío de mensajes exclusivamente transaccionales de verificación y recuperación. Estos mensajes incluyen tu dirección, el contenido necesario y datos de entrega; no son boletines ni publicidad."
+          "text": "La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL, alojados bajo el control del titular. Los proyectos que desarrollan ese software no reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para los mensajes transaccionales de verificación y recuperación. Estos mensajes incluyen tu dirección de email, el contenido necesario y datos de entrega; no son boletines ni publicidad."
         },
         {
           "kind": "paragraph",
-          "text": "Las copias cifradas y la información legal restringida se guardan en equipos y soportes administrados por el responsable, separados del servidor de producción. No se utilizan para elaborar perfiles ni para seguir prestando el servicio con datos que deban permanecer bloqueados. Los proveedores pueden tratar datos para sus propias obligaciones contractuales y legales, según su función."
+          "text": "Las copias de seguridad cifradas se almacenan separadas del servidor de producción. La información legal restringida y los registros necesarios para acreditar borrados se mantienen fuera del uso ordinario, con acceso limitado. Los proveedores pueden tratar datos para prestar los servicios contratados y, cuando corresponda, para sus propias obligaciones legales y de seguridad."
         },
         {
           "kind": "paragraph",
-          "text": "Mailjet forma parte de Sinch, cuya información contractual contempla subencargados fuera del Espacio Económico Europeo, incluido soporte en Estados Unidos. La ubicación europea de un centro de datos no significa que todos los accesos se produzcan allí. Puedes solicitar información sobre los destinatarios y las garantías de transferencia aplicables a tu caso en hola@gameometro.com y consultar la [información de protección de datos de Sinch](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/)."
+          "text": "Mailjet/Sinch contempla la intervención de subencargados y posibles accesos desde fuera del Espacio Económico Europeo, incluido Estados Unidos. Su [acuerdo de tratamiento de datos](https://sinch.com/es/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/) prevé, para las transferencias a las que resulten aplicables, cláusulas contractuales tipo de la Comisión Europea y, en el ámbito de Sinch Email, el Marco de Privacidad de Datos UE-EE. UU. cuando proceda. Las garantías concretas dependen del destinatario y de la transferencia. OVHcloud publica su [documentación de protección de datos](https://www.ovhcloud.com/es-es/personal-data-protection/) y sus [contratos europeos de tratamiento de datos](https://www.ovhcloud.com/es-es/terms-and-conditions/contracts/). Puedes solicitar información sobre destinatarios y garantías aplicables escribiendo a [hola@gameometro.com](mailto:hola@gameometro.com)."
         },
         {
           "kind": "paragraph",
-          "text": "Al cargar portadas e imágenes, tu navegador conecta directamente con `images.igdb.com`, servido mediante una red de distribución de contenidos. Esto comunica tu IP, datos del navegador y el origen `gameometro.com`; no enviamos al CDN tu email ni tus puntuaciones. Twitch informa de tratamiento de datos en Estados Unidos en su [política de privacidad](https://legal.twitch.com/en/legal/privacy-notice/). La información sobre estas conexiones forma parte de tu derecho de acceso y puedes plantear una oposición al tratamiento en el contacto indicado."
+          "text": "Para mostrar portadas, capturas y otras imágenes del catálogo, tu navegador se conecta directamente con `images.igdb.com`, un servicio de IGDB/Twitch. Esta conexión puede transmitir datos técnicos, incluida la dirección IP, información del navegador y el origen de la solicitud. Gameómetro no envía tu email ni tus puntuaciones en esas solicitudes. Utilizamos esta entrega de imágenes sobre la base de nuestro interés legítimo en ofrecer un catálogo visual de videojuegos (artículo 6.1.f RGPD), con minimización de los datos enviados desde la aplicación. Twitch informa de posibles tratamientos en Estados Unidos en su [política de privacidad](https://legal.twitch.com/en/legal/privacy-notice/). Puedes solicitar información sobre esta conexión y ejercer, cuando proceda, tu derecho de oposición en el contacto anterior."
         },
         {
           "kind": "paragraph",
@@ -75,7 +73,11 @@
         },
         {
           "kind": "paragraph",
-          "text": "Las sesiones tienen un límite de 30 minutos de inactividad y 8 horas de duración máxima. Los logs del servicio tendrán una conservación máxima de 7 días. Las copias de seguridad estarán cifradas y caducarán como máximo a los 35 días, incluidas las copias externas. Una restauración debe reaplicar los borrados antes de reabrir. Estos límites corresponden a la operación de Gameómetro. Mailjet publica una conservación de 90 días para estadísticas y campañas del plan Free, y mantiene contactos y plantillas durante la vida de la cuenta. No creamos listas de contactos para publicidad. Ese plazo no equivale al de todos los datos de entrega SMTP o del CDN; puedes pedir los plazos o criterios aplicables en el contacto indicado."
+          "text": "Las sesiones de Gameómetro finalizan tras 30 minutos de inactividad o un máximo de 8 horas. Si seleccionas «Seguir conectado», el proveedor de identidad puede recordar tu acceso durante un máximo de 30 días, sujeto a sus propios límites de inactividad. Cada nueva sesión de Gameómetro conserva sus límites de 30 minutos de inactividad y 8 horas de duración máxima. Puedes consultar los detalles en «Cookies y almacenamiento del navegador»."
+        },
+        {
+          "kind": "paragraph",
+          "text": "Los logs del servicio tendrán una conservación máxima de 7 días. Las copias de seguridad estarán cifradas y caducarán como máximo a los 35 días, incluidas las copias externas. Una restauración debe reaplicar los borrados antes de reabrir. Estos límites corresponden a la operación de Gameómetro. Mailjet publica una conservación de 90 días para estadísticas y campañas del plan Free, y mantiene contactos y plantillas durante la vida de la cuenta. No creamos listas de contactos para publicidad. Ese plazo no equivale al de todos los datos de entrega SMTP o del CDN; puedes pedir los plazos o criterios aplicables en el contacto indicado."
         },
         {
           "kind": "paragraph",
@@ -116,7 +118,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Puedes puntuar los juegos disponibles que admitan valoración, consultar, cambiar o borrar tus puntuaciones. Se permite una puntuación activa de 1 a 10 por cuenta y juego. Tu puntuación personal y los resultados agregados se presentan por separado. Las puntuaciones externas de IGDB se identifican como tales y no se mezclan con las de Gameómetro. No publiques material ilegal ni intentes acceder a cuentas ajenas, eludir protecciones o perjudicar la disponibilidad del servicio."
+          "text": "Puedes puntuar los juegos disponibles que admitan valoración, consultar, cambiar o borrar tus puntuaciones. Se permite una puntuación general activa de 1 a 10 por cuenta y juego. También puedes indicar las plataformas en las que lo has jugado y, de forma opcional, asignar una puntuación de 1 a 10 a cada una. Tu puntuación personal y los resultados agregados se presentan por separado. Las puntuaciones externas de IGDB se identifican como tales y no se mezclan con las de Gameómetro. No intentes acceder a cuentas ajenas, eludir protecciones ni perjudicar la disponibilidad del servicio."
         },
         {
           "kind": "paragraph",
@@ -223,7 +225,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "«Seguir conectado» es voluntario y empieza desmarcado. El acceso normal termina tras 30 minutos de inactividad o, como máximo, 8 horas desde la autenticación. Con esa opción, la sesión de acceso único termina tras 7 días sin visitar el proveedor o, como máximo, 30 días desde la autenticación original. Cada sesión del BFF dura 30 minutos sin actividad y como máximo 8 horas desde su creación, sin superar esos 30 días. Tras reiniciar el navegador puedes seleccionar «Iniciar sesión» y volver sin credenciales mientras el acceso recordado siga vigente. En un equipo compartido, deja la opción desmarcada y cierra sesión al terminar. Si la sesión del BFF ya ha caducado, «Cerrar sesión» solicita confirmación en el proveedor. La cookie de recordatorio de identificador puede durar más que el acceso recordado; esa duración no amplía la autenticación. Estos cambios están preparados, sin activar un servicio público ni aprobar estos textos para publicación."
+          "text": "«Seguir conectado» es voluntario y empieza desmarcado. El acceso normal termina tras 30 minutos de inactividad o, como máximo, 8 horas desde la autenticación. Con esa opción, la sesión de acceso único termina tras 7 días sin visitar el proveedor o, como máximo, 30 días desde la autenticación original. Cada sesión del BFF dura 30 minutos sin actividad y como máximo 8 horas desde su creación, sin superar esos 30 días. Tras reiniciar el navegador puedes seleccionar «Iniciar sesión» y volver sin credenciales mientras el acceso recordado siga vigente. En un equipo compartido, deja la opción desmarcada y cierra sesión al terminar. Si la sesión del BFF ya ha caducado, «Cerrar sesión» solicita confirmación en el proveedor. La cookie de recordatorio de identificador puede durar más que el acceso recordado; esa duración no amplía la autenticación."
         },
         {
           "kind": "paragraph",

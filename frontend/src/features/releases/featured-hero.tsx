@@ -169,6 +169,11 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase, action
                       <span aria-hidden="true">{primaryGroup.shortDate}</span>
                       <span className="sr-only">{primaryGroup.date}</span>
                     </li>
+                    {lead.stage === null ? null : (
+                      <li className="featured-hero-stage">
+                        <span className="featured-release-stage">{lead.stage}</span>
+                      </li>
+                    )}
                     <li className="featured-hero-platforms">
                       {/* Recognized platforms show their marks, named for assistive technology and
                           as a tooltip; an unrecognized one keeps its name beside the generic mark.

@@ -155,26 +155,25 @@ acquisition horizon, the widest future window of the recurring
 policies that are not disabled. That bound says what acquisition is configured to cover,
 not that a period was scanned or that the catalogue is complete; coverage stays the
 operational evidence ADR-0017 owns. A period outside the bounds is rejected as an invalid
-filter, and the response names the adjacent periods still inside them. A release qualifies for the period when its known date lies
-wholly inside it (an exact day of it or, for a month, month precision equal to the month;
-quarter, year and unknown dates never do, and a week admits exact days only) and it is
-neither cancelled, delayed nor pending
-review, the same negative evidence that blocks rating eligibility. Only Full Release
-qualifies. A candidate also satisfies `FEAT-001`: an accepted import type, no edition
-parent, its own known first release in the period, and positive Hypes. A game whose
-first-release evidence falls in another week than its catalogued day therefore features in
-its month but in no week; nothing assigns it to an invented week. These gates affect
-only featured discovery; the normal catalogue and the release explorer remain unchanged.
+filter, and the response names the adjacent periods still inside them. Since #457 (owner decision,
+2026-11-06) the selection is the head of the release explorer's Hype order for the same period and
+platforms (`FEAT-001`, `FEAT-002`): a release qualifies exactly as `UC-001` admits it with approximate
+dates left out, and both reads share one SQL definition so they cannot drift apart. A port, a remake,
+an edition and every release stage therefore take part, whatever the game's first release, and a
+game may feature again in a later period for another platform's release. Only positive Hypes is
+added. Up to the evaluation date a release must have happened, so a past period also holds the month,
+quarter or year periods that ended and overlap it, never placed on an invented day. After it an exact
+day is expected, a delayed one included, and a period known only by an open month is not claimed.
 Post-MVP (#295), a request may name explicit platforms: only a qualifying release on one of them makes
 its game a candidate and is presented, before ranking and limiting, so a restricted selection is
 the ranking of the restricted candidates and never a filtered copy of the unrestricted six.
 Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
-with the unique `gameId` as the only tie-breaker. A candidate without a signal is not
+then by the explorer's date order, which ends in the unique `gameId`. A candidate without a signal is not
 ranked and nothing is invented for it; it remains a normal catalogue and discovery
 result. The first ranked game is the period's featured release (*Lanzamiento de la
-semana* or *Lanzamiento del mes*) and up to five more follow; fewer are shown rather than filling slots. Each presents,
+semana* or *Lanzamiento del mes*), whatever kind of release it is, and up to five more follow; fewer are shown rather than filling slots. Each presents,
 of its qualifying releases in the period, at most one per platform under the shared
-presented-release precedence with the earliest date first. The selection states why it
+presented-release precedence, in the explorer's order. The selection states why it
 holds what it holds: ranked, popularity unavailable (qualifying releases without any
 signal) or no qualifying releases. A ranked selection carries the freshness of its
 oldest signal under the catalogue freshness policy; a stale ranking is still the last
@@ -182,7 +181,7 @@ valid local one. Any other period is ranked with the same current local signals,
 no popularity history is kept, so consecutive periods may legitimately repeat games. Popularity measures provider-observed attention, never
 quality, a rating or an editorial recommendation, and its value is not exposed. Work is
 bounded by the period's releases and request memory by the six ranked games and their
-bounded release groups; the popularity table is never scanned. Each ranked game presents
+bounded release groups; each candidate probes its signal by key, so the popularity table is never scanned. Each ranked game presents
 its stored context-selected landscape image and optional secondary-card logo
 (`FEAT-003`, `FEAT-004`); the hero always renders the canonical title as product-owned text.
 Without a suitable stored image a card shows its cover whole, and without a provider cover the
@@ -255,7 +254,7 @@ measured platform scope makes the page read exceed its budget.
 Post-MVP (#388, implemented; awaiting owner review), `UC-020` is **Próximos destacados**, the
 third platform destination of the Plataformas section, beside its TOPómetro and Explorar catálogo.
 It ranks attention, never quality: the same locally stored IGDB Hypes `UC-010` ranks with, whose
-value is never exposed, without `UC-010`'s first-release gate, so a game released years ago on
+value is never exposed, so a game released years ago on
 another platform qualifies while it is still to come on this one. The horizon runs from the
 evaluation date to the day before the same day six calendar months later, or to the last day of
 that month when the day does not exist in it, and the visitor never chooses it. The ten-game limit
@@ -324,7 +323,9 @@ scheduled adapter, outside application reconciliation and domain rules; the
 provider returns `SKIPPED / SYNCHRONIZATION_ALREADY_RUNNING` without provider work;
 no credentials returns `SKIPPED / SYNCHRONIZATION_DISABLED` without persistence work.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns Game selection, import policy, stable Release identity and per-Game atomicity.
+owns Game selection, import policy, stable Release identity and per-Game atomicity. Since #456 a
+port or an expanded game is imported as a Game of its own, like a main game, so it can be
+rated and ranked separately from its parent; identical titles keep distinct slugs.
 It also acquires the platform and region taxonomy that accepted releases use, resolving
 each provider entity through a typed external reference and creating the product entity
 when the reference is unknown, per
@@ -637,7 +638,8 @@ maintenance on private management, not a product-facing endpoint or historical l
 
 Owner-requested extension, implemented subject to review and private-dev acceptance. The
 catalogue operator explicitly starts one historical target and chooses whether already-covered
-months are skipped or re-run. Deterministic calendar-month chunks clip the first and last
+months are skipped or re-run. A skip trusts only coverage scanned under the current import policy
+(#456), so a month covered before the policy widened is processed either way. Deterministic calendar-month chunks clip the first and last
 month to the requested dates. Only UC-009 acquires provider data, with all supported Games
 and platforms and unchanged per-Game reconciliation. Completed months, including empty ones,
 are durable checkpoints independent of run-history retention. Known data-quality failures

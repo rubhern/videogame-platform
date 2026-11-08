@@ -1,0 +1,10 @@
+[Unit]
+Description=Capture and upload a paired backup every 12 hours
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+OnCalendar=*-*-* 14:30:00 UTC
+# A slot missed while the host was down runs once after boot.
+Persistent=true
+AccuracySec=1min
+[Install]
+WantedBy=timers.target

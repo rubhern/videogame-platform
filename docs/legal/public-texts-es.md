@@ -1,20 +1,20 @@
-# Gameómetro: borradores públicos de privacidad y condiciones
+# Gameómetro: textos legales aprobados
 
-- **Status:** Draft for owner review; not approved for public product use.
-- **Owner:** Rubén Hernández López; legal-name publication authorized; final text and publication approval pending.
-- **Scope:** Future public, free, non-commercial, adult-only service; not a description of deployed production.
+- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision.
+- **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
+- **Scope:** Approved wording for a public, free, non-commercial, adult-only service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
-These Spanish texts are the canonical review copy, as explicitly requested by the
-owner. The editorial checklist at the end is internal; it is not public-facing copy.
-Do not copy this page into the product or deploy links to it. The
+These Spanish texts are the canonical owner-approved source for public legal pages.
+Publish only the corresponding public sections through product routes; do not expose
+this combined source document or the editorial checklist at the end. The
 [publication checklist and integration plan](../development/data-protection.md#publication-and-product-integration)
-own prerequisites, roles, provider evidence and proposed destinations. The
+own deployment prerequisites, roles, provider evidence and destinations. The
 [legal research](../research/public-release-rights-and-privacy.md#9-legal-and-operational-increment-2026-10-17)
 owns sources and uncertainty. No compliance certification is implied.
 
 ## Información básica antes de crear una cuenta
 
-**Borrador para aprobación antes de mostrarlo en Keycloak.**
+**Texto aprobado por el titular; visible en los entornos donde se integre.**
 
 Responsable: Rubén Hernández López. Trataremos tu email, los datos
 necesarios para proteger tu cuenta y tus puntuaciones para prestarte el servicio
@@ -23,13 +23,17 @@ condiciones de uso; la seguridad, en nuestro interés legítimo, según se expli
 [hola@gameometro.com](mailto:hola@gameometro.com). Consulta la política de privacidad
 para conocer destinatarios, conservación, transferencias y todos tus derechos.
 
+Para prestar el servicio utilizamos proveedores externos de alojamiento y correo.
+Las imágenes pueden cargarse desde un servicio externo. Algunos tratamientos pueden
+implicar transferencias internacionales, detalladas en la política de privacidad.
+
 Crear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso.
 La información de privacidad se facilita para que conozcas el tratamiento; no te
 pedimos que consientas tratamientos opcionales para utilizar tu cuenta.
 
 ## Política de privacidad
 
-**Borrador para el futuro lanzamiento; no está en vigor.**
+**Texto aprobado por el titular; entrará en vigor para el servicio público cuando se publique.**
 
 ### Responsable y contacto
 
@@ -71,41 +75,55 @@ individuales automatizadas con efectos jurídicos o similares ni perfiles comerc
 Las protecciones automáticas pueden bloquear temporalmente intentos de acceso;
 puedes pedir asistencia por email.
 
-Si nos escribes, tratamos tu dirección y el contenido necesario para responder.
-Las solicitudes de derechos y la gestión de brechas se atienden para cumplir las
-obligaciones de protección de datos (artículo 6.1.c RGPD). No envíes contraseñas,
-códigos de recuperación ni documentación personal innecesaria.
+Si nos escribes para consultar algo relacionado con tu cuenta o el servicio,
+tratamos tu dirección de correo electrónico y el contenido necesario para responder,
+sobre la base de la ejecución de las condiciones de uso (artículo 6.1.b RGPD).
+Para consultas generales no relacionadas con una cuenta, utilizamos nuestro
+interés legítimo en atender las comunicaciones recibidas (artículo 6.1.f RGPD).
+Las solicitudes de ejercicio de derechos y la gestión de brechas de datos
+personales se atienden para cumplir obligaciones legales (artículo 6.1.c RGPD).
+No envíes contraseñas, códigos de recuperación ni documentación personal innecesaria.
 
 ### Destinatarios y transferencias internacionales
 
 La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL,
 alojados bajo el control del titular. Los proyectos que desarrollan ese software no
-reciben tus datos simplemente por usar sus programas. Los proveedores del servicio
-son netcup para el alojamiento, OVHcloud para el dominio y el correo de contacto, y
-Mailjet para el envío de mensajes exclusivamente transaccionales de verificación y
-recuperación. Estos mensajes incluyen tu dirección, el contenido necesario y datos
-de entrega; no son boletines ni publicidad.
+reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el
+alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de
+copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para
+los mensajes transaccionales de verificación y recuperación. Estos mensajes incluyen
+tu dirección de email, el contenido necesario y datos de entrega; no son boletines
+ni publicidad.
 
-Las copias cifradas y la información legal restringida se guardan en equipos y
-soportes administrados por el responsable, separados del servidor de producción.
-No se utilizan para elaborar perfiles ni para seguir prestando el servicio con datos
-que deban permanecer bloqueados. Los proveedores pueden tratar datos para sus propias
-obligaciones contractuales y legales, según su función.
+Las copias de seguridad cifradas se almacenan separadas del servidor de producción.
+La información legal restringida y los registros necesarios para acreditar borrados
+se mantienen fuera del uso ordinario, con acceso limitado. Los proveedores pueden
+tratar datos para prestar los servicios contratados y, cuando corresponda, para sus
+propias obligaciones legales y de seguridad.
 
-Mailjet forma parte de Sinch, cuya información contractual contempla subencargados
-fuera del Espacio Económico Europeo, incluido soporte en Estados Unidos. La ubicación
-europea de un centro de datos no significa que todos los accesos se produzcan allí.
-Puedes solicitar información sobre los destinatarios y las garantías de transferencia
-aplicables a tu caso en hola@gameometro.com y consultar la
-[información de protección de datos de Sinch](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/).
+Mailjet/Sinch contempla la intervención de subencargados y posibles accesos desde
+fuera del Espacio Económico Europeo, incluido Estados Unidos. Su
+[acuerdo de tratamiento de datos](https://sinch.com/es/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/)
+prevé, para las transferencias a las que resulten aplicables, cláusulas contractuales
+tipo de la Comisión Europea y, en el ámbito de Sinch Email, el Marco de Privacidad de
+Datos UE-EE. UU. cuando proceda. Las garantías concretas dependen del destinatario
+y de la transferencia. OVHcloud publica su
+[documentación de protección de datos](https://www.ovhcloud.com/es-es/personal-data-protection/)
+y sus [contratos europeos de tratamiento de datos](https://www.ovhcloud.com/es-es/terms-and-conditions/contracts/).
+Puedes solicitar información sobre destinatarios y garantías aplicables escribiendo
+a [hola@gameometro.com](mailto:hola@gameometro.com).
 
-Al cargar portadas e imágenes, tu navegador conecta directamente con
-`images.igdb.com`, servido mediante una red de distribución de contenidos. Esto
-comunica tu IP, datos del navegador y el origen `gameometro.com`; no enviamos al CDN
-tu email ni tus puntuaciones. Twitch informa de tratamiento de datos en Estados
-Unidos en su [política de privacidad](https://legal.twitch.com/en/legal/privacy-notice/).
-La información sobre estas conexiones forma parte de tu derecho de acceso y puedes
-plantear una oposición al tratamiento en el contacto indicado.
+Para mostrar portadas, capturas y otras imágenes del catálogo, tu navegador se
+conecta directamente con `images.igdb.com`, un servicio de IGDB/Twitch. Esta conexión
+puede transmitir datos técnicos, incluida la dirección IP, información del navegador
+y el origen de la solicitud. Gameómetro no envía tu email ni tus puntuaciones en esas
+solicitudes. Utilizamos esta entrega de imágenes sobre la base de nuestro interés
+legítimo en ofrecer un catálogo visual de videojuegos (artículo 6.1.f RGPD), con
+minimización de los datos enviados desde la aplicación. Twitch informa de posibles
+tratamientos en Estados Unidos en su
+[política de privacidad](https://legal.twitch.com/en/legal/privacy-notice/).
+Puedes solicitar información sobre esta conexión y ejercer, cuando proceda, tu
+derecho de oposición en el contacto anterior.
 
 No se venden tus datos ni se comunican a otros destinatarios salvo las necesidades
 indicadas o una obligación legal. No solicitamos tu consentimiento para publicidad
@@ -127,8 +145,14 @@ está disponible o necesitas ayuda, escribe al contacto anterior. Si no verifica
 en la siguiente ejecución periódica de limpieza. Puedes volver a registrarte después;
 los enlaces de la cuenta eliminada dejarán de funcionar.
 
-Las sesiones tienen un límite de 30 minutos de inactividad y 8 horas de duración
-máxima. Los logs del servicio tendrán una conservación máxima de 7 días. Las copias
+Las sesiones de Gameómetro finalizan tras 30 minutos de inactividad o un máximo
+de 8 horas. Si seleccionas «Seguir conectado», el proveedor de identidad puede
+recordar tu acceso durante un máximo de 30 días, sujeto a sus propios límites de
+inactividad. Cada nueva sesión de Gameómetro conserva sus límites de 30 minutos
+de inactividad y 8 horas de duración máxima. Puedes consultar los detalles en
+«Cookies y almacenamiento del navegador».
+
+Los logs del servicio tendrán una conservación máxima de 7 días. Las copias
 de seguridad estarán cifradas y caducarán como máximo a los 35 días, incluidas las
 copias externas. Una restauración debe reaplicar los borrados antes de reabrir.
 Estos límites corresponden a la operación de Gameómetro. Mailjet publica una conservación de 90 días para estadísticas y campañas del plan
@@ -192,7 +216,7 @@ renunciar a tus derechos.
 
 ## Condiciones de uso
 
-**Borrador para el futuro lanzamiento; no está en vigor.**
+**Texto aprobado por el titular; entrará en vigor para el servicio público cuando se publique.**
 
 Gameómetro es un proyecto personal, gratuito y sin actividad económica gestionado por
 Rubén Hernández López, para descubrir videojuegos y conservar puntuaciones personales.
@@ -206,11 +230,13 @@ se realiza mediante los mensajes del proveedor de identidad; nunca te pediremos 
 contraseña por email.
 
 Puedes puntuar los juegos disponibles que admitan valoración, consultar, cambiar o
-borrar tus puntuaciones. Se permite una puntuación activa de 1 a 10 por cuenta y
-juego. Tu puntuación personal y los resultados agregados se presentan por separado.
-Las puntuaciones externas de IGDB se identifican como tales y no se mezclan con las
-de Gameómetro. No publiques material ilegal ni intentes acceder a cuentas ajenas,
-eludir protecciones o perjudicar la disponibilidad del servicio.
+borrar tus puntuaciones. Se permite una puntuación general activa de 1 a 10 por
+cuenta y juego. También puedes indicar las plataformas en las que lo has jugado y,
+de forma opcional, asignar una puntuación de 1 a 10 a cada una. Tu puntuación
+personal y los resultados agregados se presentan por separado. Las puntuaciones
+externas de IGDB se identifican como tales y no se mezclan con las de Gameómetro.
+No intentes acceder a cuentas ajenas, eludir protecciones ni perjudicar la
+disponibilidad del servicio.
 
 El catálogo procede de fuentes externas, puede contener errores y no garantiza
 cobertura completa ni fechas definitivas. Los resúmenes traducidos automáticamente
@@ -240,7 +266,7 @@ competentes según las normas aplicables.
 
 ## Aviso legal
 
-**Borrador para aprobación del propietario.**
+**Texto aprobado por el titular; entrará en vigor para el servicio público cuando se publique.**
 
 Titular y responsable de Gameómetro (`gameometro.com`): Rubén Hernández López. Contacto: [hola@gameometro.com](mailto:hola@gameometro.com).
 
@@ -254,7 +280,7 @@ sobre cookies del servicio. Para errores o reclamaciones utiliza el contacto ind
 
 ## Cookies y almacenamiento del navegador
 
-**Borrador para el futuro lanzamiento; no está en vigor.**
+**Texto aprobado por el titular; entrará en vigor para el servicio público cuando se publique.**
 
 Utilizamos cookies para el acceso que solicitas, su seguridad y el idioma de los
 formularios. No utilizamos cookies de publicidad ni analítica. No añadimos un banner
@@ -283,8 +309,7 @@ y volver sin credenciales mientras el acceso recordado siga vigente. En un equip
 compartido, deja la opción desmarcada y cierra sesión al terminar. Si la sesión del
 BFF ya ha caducado, «Cerrar sesión» solicita confirmación en el proveedor.
 La cookie de recordatorio de identificador puede durar más que el acceso recordado;
-esa duración no amplía la autenticación. Estos cambios están preparados, sin activar
-un servicio público ni aprobar estos textos para publicación.
+esa duración no amplía la autenticación.
 
 Todas utilizan `Secure` y sin atributo `Domain`. Las cookies de Keycloak
 se limitan a `/realms/gameometro/`; la de sesión del BFF, a `/`, y el recibo de
@@ -319,29 +344,35 @@ la operación solicitada.
 
 ## Internal editorial release checklist
 
-This section is not part of the public pages. Legal-name publication and the initial
-non-economic/LSSI interpretation are owner decisions, not pending identity questions.
-The foundation and reopening condition for omitting domicile/NIF belong in the
-internal record/research, not a debate in the public notice.
-Mailjet commercial eligibility is an internally accepted contractual risk, never
-public copy. The supplier paragraphs describe the approved future topology, not a
-claim that public production is deployed. Before publication:
+**Internal only: never publish this section.** The owner approved the final public
+wording for pre-registration, privacy policy, terms of use, legal notice and cookies
+on 2026-10-29, including the removal of the internal deployment sentence from the
+cookie section. Integrating the approved public pages and their footer links in
+local, private-dev and production configurations is authorized. This does not
+establish that public production has been deployed, provider terms have been verified
+for the actual accounts or the IGDB partnership agreement has been executed.
 
-- Approve this wording/version and effective date. C design is owner-approved
-  conditionally on final text/provider/operational verification; revised A/B
-  are now owner-authorized and prepared locally under the
-  [data-protection record](../development/data-protection.md#phase-1-design-for-approval).
-- Confirm actual OVHcloud receiving-mail product, entities/locations and applicable
-  DPAs; replace generic supplier-retention language with verified periods or usable
-  criteria. Determine actual Mailjet and CDN transfer roles/mechanisms and add the
-  necessary concrete information to the transfer paragraphs. A link to a supplier's
-  privacy policy and an email enquiry route do not establish Article 13 completeness
-  or lawful transfers. No automatic all-EU/DPF/SCC assurance is approved here.
-- Confirm the field-level legal-blocking/hold schedule and separate minimised
-  administrative-proof retention. Complete CI and deployed acceptance of cleanup/archive before presenting
-  these safeguards as operating facts; test actual cookies on the final
-  hosts, including necessity/purpose of persistent Keycloak cookies and any actual
-  CDN storage. The cookie text describes the intended verified release inventory;
-  preparation observations alone are not its final production proof. No extra public paragraph about internal supplier eligibility discussions.
-- Publish only the approved public sections through the product integration; never
-  serve this editorial checklist, the internal register or operating storage paths.
+- **Owner decisions:** direct IGDB CDN delivery is proportionate for catalogue images
+  under the documented legitimate-interest rationale; the owner has accepted that
+  assessment. The email exchange with Christian Frithiof (IGDB/Twitch, 23 October
+  2026) confirms the proposed CDN/image use from IGDB's perspective within the
+  partnership process, but explicitly does not provide privacy-law assurances or
+  replace third-party intellectual-property rights. A draft partnership agreement
+  and owner acceptance to proceed do not evidence a signed agreement.
+- **Supplier references:** Mailjet/Sinch DPA and OVHcloud European data-protection
+  and contracts pages are linked above. The OVHcloud US agreement (OVH US LLC) is
+  not presented as the agreement for the European account. Actual account/order
+  conditions control; no blanket claim that all international accesses fall under
+  DPF or contractual clauses is made.
+- **Operational premise accepted by owner:** the stated retention, cleanup and
+  erasure guarantees are treated as validated for this editorial approval, per
+  owner instruction; no independent production test evidence is attached to this
+  file. The deployment/release acceptance process retains its own responsibility
+  for alignment of real services, cookies, contracts and runtime claims.
+- **Publication:** approved public sections and corresponding navigation links
+  may be integrated in local, private-dev and production application builds.
+  Actual public production go-live, its effective date and operational acceptance
+  remain governed by the separate release decision. Do not expose this checklist,
+  internal records, correspondence or infrastructure details as public pages.
+  Canonical release process:
+  [data protection and product integration](../development/data-protection.md#publication-and-product-integration).

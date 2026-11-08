@@ -24,6 +24,7 @@ import com.videogameplatform.catalogue.application.synchronization.Synchronizati
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.HistoricalBackfillService;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.ImportPolicyRevision;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Clock;
 import java.time.Duration;
@@ -205,6 +206,36 @@ class HistoricalBackfillIntegrationTest {
         service.start(date("2024-01-01"), date("2024-01-31"), CoveredMonths.RERUN);
         work.remove().run();
         verify(synchronization).start(window("2024-01-01", "2024-01-31"));
+    }
+
+    @Test
+    void skipReprocessesMonthsCoveredUnderAnEarlierImportPolicy() {
+        // January was scanned before the policy widened, February after it. March mixes both.
+        coverage("2024-01-01", "2024-01-31", ImportPolicyRevision.CURRENT - 1);
+        coverage("2024-02-01", "2024-02-29");
+        coverage("2024-03-01", "2024-03-15", ImportPolicyRevision.CURRENT - 1);
+        coverage("2024-03-16", "2024-03-31");
+        assertThat(store.covered(date("2024-01-01"), date("2024-01-31"))).isFalse();
+        assertThat(store.covered(date("2024-02-01"), date("2024-02-29"))).isTrue();
+        assertThat(store.covered(date("2024-03-01"), date("2024-03-31"))).isFalse();
+        when(synchronization.start(any()))
+                .thenAnswer(
+                        call ->
+                                started(
+                                        call.getArgument(0),
+                                        SynchronizationOutcome.SUCCEEDED,
+                                        "SYNCHRONIZATION_COMPLETED",
+                                        1,
+                                        0,
+                                        0));
+
+        service.start(date("2024-01-01"), date("2024-03-31"), CoveredMonths.SKIP);
+        work.remove().run();
+
+        verify(synchronization).start(window("2024-01-01", "2024-01-31"));
+        verify(synchronization).start(window("2024-03-01", "2024-03-31"));
+        verify(synchronization, never()).start(window("2024-02-01", "2024-02-29"));
+        assertThat(service.status().skippedMonths()).isEqualTo(1);
     }
 
     @Test
@@ -618,14 +649,22 @@ class HistoricalBackfillIntegrationTest {
         assertThat(service.status().state()).isEqualTo(State.NOT_STARTED);
     }
 
+    /** Coverage scanned under the current import policy. */
     private void coverage(String from, String to) {
+        coverage(from, to, ImportPolicyRevision.CURRENT);
+    }
+
+    private void coverage(String from, String to, int revision) {
         jdbc.update(
-                "INSERT INTO catalogue.synchronization_coverage VALUES('IGDB',?::date,?::date,?,?::timestamptz,?::timestamptz,0)",
+                "INSERT INTO catalogue.synchronization_coverage(provider,covered_from,covered_to,"
+                        + "run_id,scan_started_at,scan_completed_at,failed_games,import_policy_revision)"
+                        + " VALUES('IGDB',?::date,?::date,?,?::timestamptz,?::timestamptz,0,?)",
                 from,
                 to,
                 UUID.randomUUID(),
                 NOW.toString(),
-                NOW.toString());
+                NOW.toString(),
+                revision);
     }
 
     private static SynchronizationStart started(

@@ -441,6 +441,8 @@ class Contracts(unittest.TestCase):
     def test_operational_inventory_covers_every_local_operator_import(self):
         imported = set()
         for name in install.OPERATIONAL_FILES:
+            if not name.endswith('.py'):
+                continue
             tree = ast.parse((install.ROOT / name).read_text())
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):

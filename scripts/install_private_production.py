@@ -42,7 +42,14 @@ TLS = Path('/etc/gameometro/production/private-tls')
 HELPER = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258'
 OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_private_production_truststore.py', 'scripts/install_private_production.py', 'scripts/prepare_private_production.py',
                      'scripts/private_dev_promotion.py', 'scripts/public_production_deployment.py',
-                     'scripts/public_production_integration.py')
+                     'scripts/public_production_integration.py', 'scripts/private_production_acceptance.py',
+                     'scripts/private_production_upgrade.py', 'scripts/production_registration_notice.py',
+                     'scripts/private_production_admin.py', 'scripts/production_public_ingress.py',
+                     'scripts/production_deploy.py', 'scripts/production_recovery_executor.py',
+                     'scripts/production_deployment_evidence.py',
+                     # Non-code inputs the post-acceptance transition applies to the installed runtime.
+                     'deploy/private-dev/grafana/dashboards/vgp-synchronization.json',
+                     'backend/src/main/resources/db/migration/V20261106_120000__observe_catalogue_localization.sql')
 require = trust.require
 
 
@@ -116,7 +123,7 @@ def verify_export(source, tree):
     require(found == set(expected), 'Incomplete candidate export.')
 
 
-def verify_candidate_mounts(config, source):
+def verify_candidate_mounts(config, source, bundle=None):
     """Read-only DAC check for public candidate resources, without a Docker probe.
 
     Rootful/no-userns Docker resolves the protected host ancestors. Inside each
@@ -133,7 +140,7 @@ def verify_candidate_mounts(config, source):
         if not directory and mode & 0o111:
             require(mode & 0o001, 'Candidate executable bind is not executable by non-root consumers.')
 
-    for path in prepare.candidate_binds(config, source):
+    for path in prepare.candidate_binds(config, source, bundle):
         if path.is_dir():
             for parent, dirs, files in os.walk(path, followlinks=False):
                 check(Path(parent), directory=True)
@@ -343,6 +350,7 @@ class Host:
         self.evidence_dir = evidence_dir
         self.base = ['docker', 'compose', '-p', prepare.PROJECT, '-f', str(self.file), '--profile', '*']
         self.check = 'platform'
+        self.expected_revision, self.expected_version = prepare.REVISION, prepare.VERSION
 
     def compose(self, *args, **kwargs):
         if hasattr(self, 'recovery'):
@@ -504,13 +512,7 @@ class Host:
         require(der in [ssl.PEM_cert_to_DER_cert(p) for p in re.findall(
             r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', public_certs, re.S)],
             'JVM truststore lacks the reviewed private CA.')
-        import validate_private_production_truststore as stores
-        evidence = TLS / 'truststore.validation.json'
-        secure(evidence, mode=0o600)
-        require(self.truststore_evidence and sha(evidence) == self.truststore_evidence,
-                'Independently reviewed JVM truststore evidence hash is required.')
-        stores.verify_receipt(json.loads(evidence.read_text()), store, TLS / 'ca.crt',
-                              self.config['services']['application']['image'])
+        self.verify_truststore(store)
         services = self.config['services']
         secret_root = Path('/etc/gameometro/production/secrets')
         groups = services['application']['group_add']
@@ -556,8 +558,20 @@ class Host:
         for service in services.values():
             for mount in service.get('volumes', []):
                 if mount['type'] == 'bind':
-                    path = Path(mount['source'])
+                    path = self.bind_path(Path(mount['source']))
                     require(path.exists() and path.resolve() == path and mount.get('read_only'), 'Unsafe/missing runtime bind.')
+
+    def bind_path(self, path):
+        return path
+
+    def verify_truststore(self, store):
+        import validate_private_production_truststore as stores
+        evidence = TLS / 'truststore.validation.json'
+        secure(evidence, mode=0o600)
+        require(self.truststore_evidence and sha(evidence) == self.truststore_evidence,
+                'Independently reviewed JVM truststore evidence hash is required.')
+        stores.verify_receipt(json.loads(evidence.read_text()), store, TLS / 'ca.crt',
+                              self.config['services']['application']['image'])
 
     def fresh(self, *, allow_gate=False):
         for cmd in (['docker', 'ps', '-aq'], ['docker', 'volume', 'ls', '-q'], ['docker', 'network', 'ls', '-q']):
@@ -709,7 +723,9 @@ class Host:
             require(value['State']['Running'] and value['State'].get('Health', {}).get('Status', 'healthy') == 'healthy'
                     and value['Config']['Image'] == self.config['services'][name]['image']
                     and not value['HostConfig'].get('PortBindings')
-                    and value['HostConfig']['RestartPolicy']['Name'] == 'no', 'Live image, health, restart or exposure mismatch.')
+                    # prepare.validate pins 'no' for first install; only the reviewed acceptance differs.
+                    and value['HostConfig']['RestartPolicy']['Name'] == self.config['services'][name].get('restart', 'no'),
+                    'Live image, health, restart or exposure mismatch.')
             host = value['HostConfig']; intended_service = self.config['services'][name]
             require(not host.get('Privileged') and not host.get('PublishAllPorts')
                     and not host.get('Devices') and host.get('NetworkMode') not in ('host', 'container')
@@ -751,7 +767,7 @@ class Host:
                 require(actual_mount['Type'] == mount['type']
                         and bool(actual_mount['RW']) == (not mount.get('read_only', False)), 'Effective mount type/access drift.')
                 if mount['type'] == 'bind':
-                    require(actual_mount['Source'] == mount['source'], 'Effective bind source drift.')
+                    require(self.same_bind(actual_mount['Source'], mount['source']), 'Effective bind source drift.')
                 else:
                     require(actual_mount.get('Name') == self.config['volumes'][mount['source']]['name'], 'Effective durable volume drift.')
             for secret in intended_service.get('secrets', []):
@@ -780,6 +796,10 @@ class Host:
                 fixed = (intended_service['networks'][network] or {}).get('ipv4_address')
                 if fixed: require(endpoint['IPAddress'] == fixed, 'Fixed trusted proxy address drift.')
 
+    @staticmethod
+    def same_bind(actual, intended):
+        return actual == intended
+
     def migrate(self):
         self.gate_open()
         self.compose('run', '--rm', '--no-deps', '--pull', 'never', 'migration', timeout=900, output=False)
@@ -802,15 +822,22 @@ class Host:
 
     def smoke(self):
         self.gate_open()
-        self.running([n for n in self.config['services'] if n != 'migration'])
+        self.running(self.smoke_services())
         info = json.loads(self.compose('exec', '-T', 'application', 'wget', '-qO-', '-T', '15',
                                        'http://127.0.0.1:8081/actuator/info'))
-        require(info.get('build', {}).get('sourceRevision') == prepare.REVISION
-                and info.get('build', {}).get('version') == prepare.VERSION, 'Running BFF build mismatch.')
+        require(info.get('build', {}).get('sourceRevision') == self.expected_revision
+                and info.get('build', {}).get('version') == self.expected_version, 'Running BFF build mismatch.')
         # The accepted application is a JRE image. Verify the configured store as
         # its actual consumer, without injecting a JDK or modifying that image.
         self.compose('exec', '-T', 'application', 'keytool', '-list', '-keystore',
                      '/run/private-tls/truststore.p12', '-storepass', 'changeit', output=False)
+        self.probe(PROBE)
+        self.gate_open()
+
+    def smoke_services(self):
+        return [n for n in self.config['services'] if n != 'migration']
+
+    def probe(self, script):
         env = self.config['services']['application']['environment']
         env = {k: v for k, v in env.items() if k.startswith(('OIDC_', 'APPLICATION_OIDC_'))}
         env['OIDC_CONTRACT_CA_FILE'] = '/run/private-tls/ca.crt'
@@ -823,8 +850,7 @@ class Host:
              '--security-opt', 'no-new-privileges:true', '--memory', '128m', '--pids-limit', '32',
              '-v', f'{TLS}/ca.crt:/run/private-tls/ca.crt:ro',
              '-v', f'{self.source}/scripts/check-oidc-issuer-contract.py:/work/check-oidc-issuer-contract.py:ro',
-             *env_args, HELPER, 'python3', '-'], data=PROBE.encode(), output=False, timeout=180)
-        self.gate_open()
+             *env_args, HELPER, 'python3', '-'], data=script.encode(), output=False, timeout=180)
 
     def close(self, phase):
         def stop():

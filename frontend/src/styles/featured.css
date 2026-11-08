@@ -938,6 +938,23 @@
     line-height: 1.4;
   }
 
+  /* The kind of launch a date stands for: a plain fact, so quiet ink rather than a warning. */
+  .featured-release-stage {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 42%, transparent);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--color-ink);
+    font-size: 0.75rem;
+    font-stretch: 100%;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.4;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
   .featured-hero-overflow {
     position: relative;
     z-index: 2;
@@ -1917,6 +1934,7 @@
     }
 
     .featured-card-media,
+    .featured-release-stage,
     .featured-chip {
       border: 1px solid ButtonText;
       color: CanvasText;

@@ -91,6 +91,7 @@ try {
       await page.locator('#password').fill('fixture-password-123');
       await page.locator('#password-confirm').fill('fixture-password-123');
     }
+    await page.locator('#termsAccepted').check();
     await page.getByRole('button',{name:/^(Register|Crear cuenta)$/}).click();
     if(index===1) {
       assert.equal(value(await metrics(),'register'),0,'Rejected registration cannot increment successful register');
@@ -99,6 +100,8 @@ try {
         await page.locator('#password').fill('fixture-password-123');
         await page.locator('#password-confirm').fill('fixture-password-123');
       }
+      // Native validation rerenders the declaration unchecked after the duplicate rejection.
+      await page.locator('#termsAccepted').check();
       await page.getByRole('button',{name:/^(Register|Crear cuenta)$/}).click();
     }
     await page.waitForURL(/login-actions/);

@@ -34,6 +34,9 @@
 - **Refined:** 2026-10-16, owner-requested #313: a stage-less provider reference that
   restates the only staged reference of one release tuple is redundant evidence, not a
   colliding Release; see [Stable identity and reconciliation](#stable-identity-and-reconciliation) and `REL-014`
+- **Refined:** 2026-11-06, owner-requested #456: Port and Expanded Game works become Games of
+  their own; see [Stable identity and reconciliation](#stable-identity-and-reconciliation). Coverage
+  records the import policy revision of each scan; see [Coverage and freshness](#coverage-and-freshness)
 
 ## Context
 
@@ -89,9 +92,14 @@ reference, current state, supported releases and valid cover atomically. A known
 reference resolves the same Game. Provider IDs never become product IDs or slugs;
 no title matching occurs.
 
-The import policy admits main Games, remakes, remasters and standalone expansions.
-Add-ons, seasons, episodes, bundles, packs, updates, mods, forks and ports are
-deferred rather than silently creating duplicate product works.
+The import policy admits main Games, remakes, remasters, standalone expansions, ports and
+expanded games. Add-ons, expansions, seasons, episodes, bundles, packs, updates, mods and
+forks are deferred. Ports and expanded games were deferred until #456 to avoid duplicate
+product works, but IGDB keeps their releases on their own records, so a launch such as a
+Switch 2 edition reached no product surface. Each is now a Game of its own, with its own
+ratings and scores and no relationship to its parent (#449). The owner accepts that a port may
+repeat a title or launch day in discovery; the slug stays distinct because it carries the
+`GameId`, and no title or quality filter narrows the types.
 
 An IGDB `release_date.id` identifies an external Release reference independently
 of its mutable date, platform, region and status. Unknown references create an
@@ -213,8 +221,10 @@ interrupted run that still committed Games reports `PARTIAL` with
 Before #245 that code also named page interruptions.
 
 PostgreSQL keeps coverage as disjoint inclusive date intervals per provider. Each interval
-records the run that last covered it, when that scan started and completed, and its failed
-Game count. The
+records the run that last covered it, when that scan started and completed, its failed
+Game count and the import policy revision it ran under (#456). A deferred work leaves no local
+trace, so a historical target that skips covered months trusts only the current revision; raising
+the revision whenever the importable types grow makes those months work to do again. The
 covering run's completion writes it in the same fenced transaction, so a run's outcome and
 its coverage commit together and an abandoned worker cannot record either. A newer covering
 run replaces the overlapped part of earlier intervals and leaves their remainder untouched,

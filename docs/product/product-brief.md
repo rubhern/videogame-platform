@@ -217,10 +217,11 @@ storage only.
 
 ## Public release and sustainability
 
-A public Gameómetro environment is the owner-approved next release direction:
+A public Gameómetro environment is the owner-approved release direction:
 **open, non-commercial and best effort**, without a commercial SLA or staffed support.
-The deployed environment remains private `dev`; production is unbuilt and exposure
-is not authorized by this direction alone. **Owner decision, 2026-10-25 (#276):**
+Public production has served `gameometro.com` with open registration since 2026-11-08, by
+explicit owner go; private `dev` remains private. Its evidence and the signed owner acceptance (2026-11-08)
+are in the [#276 release acceptance](../research/public-production-release-acceptance.md). **Owner decision, 2026-10-25 (#276):**
 select netcup VPS Lite 3 instead of Lite 2, subject to final contractual quote and
 real-host qualification. The **total recurring ceiling is EUR 25/month**, including
 VAT, domain renewal, email, storage, administration and every recurring extra. This
@@ -265,7 +266,8 @@ unless a legal obligation applies. Never-verified accounts are to be deleted aft
 30 days from creation; cleanup is prepared locally with a mandatory verified
 maintenance fence and is not scheduled on a real environment. Access,
 export, rectification and deletion use manual administrative procedures; no privacy
-portal is built for launch. The [public legal drafts](../legal/public-texts-es.md) await owner review; the
+portal is built for launch. The [public legal texts](../legal/public-texts-es.md) are owner-approved for integration
+in every environment; public production exposure remains separately gated. The
 [data-protection record](../development/data-protection.md) owns operational duties,
 the initial legal-blocking schedule, owner-approved A/B/C and the local
 implementation/remaining production evidence.

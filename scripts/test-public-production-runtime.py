@@ -91,9 +91,9 @@ SECRET_FILES = {
     "igdb_client_secret": "igdb-client-secret",
 }
 # Ceilings from the platform design's qualification envelope, in MiB.
-MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 768, "application": 1536,
+MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 1792, "application": 1536,
           "migration": 512}
-STEADY_MEMORY_BUDGET_MIB = 3968  # 3.875 GiB: the envelope's steady services without telemetry.
+STEADY_MEMORY_BUDGET_MIB = 4992  # 4.875 GiB: the envelope's steady services without telemetry.
 # Read-only wrappers outside this directory that production may mount, and nothing else.
 SHARED_MOUNTS = {
     ROOT / "docker/postgres/init",

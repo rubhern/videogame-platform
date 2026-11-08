@@ -3,7 +3,6 @@ package com.videogameplatform.catalogue.adapter.persistence.releases;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
-import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.Sort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import java.util.ArrayList;
@@ -26,25 +25,6 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     // filtered releases is also the count of presented games.
     private static final String COUNT_SELECT =
             "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs";
-    private static final String FILTERED_RELEASE_PREFIX =
-            "WITH filtered_release AS MATERIALIZED ("
-                    + "SELECT * FROM catalogue.release_snapshot rs";
-    private static final String GAME_SNAPSHOT_LATERAL =
-            """
-            JOIN LATERAL (
-                SELECT snapshot.slug,
-                       snapshot.canonical_title,
-                       snapshot.cover_reference,
-                       snapshot.cover_source,
-                       snapshot.cover_usage_mode,
-                       snapshot.cover_alternative_text,
-                       snapshot.cover_source_url
-                FROM catalogue.game_snapshot snapshot
-                WHERE snapshot.publication_id = fr.publication_id
-                  AND snapshot.game_id = fr.game_id
-                LIMIT 1
-            ) gs ON true
-            """;
     private static final String PUBLICATION_PREDICATE = ReleaseRangeSql.PUBLICATION_PREDICATE;
     private static final String PLATFORM_ID_COLUMN = ReleaseRangeSql.PLATFORM_ID_COLUMN;
     private static final String REGION_ID_COLUMN = ReleaseRangeSql.REGION_ID_COLUMN;
@@ -188,81 +168,20 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         return builder.build(criteria.sort());
     }
 
-    /**
-     * The ascending date order: the last day of the known period, which is the day itself for an
-     * exact date, then an exact day before a month, quarter or year ending the same day. It never
-     * places a partial date on an invented day.
-     */
-    private static String dateOrder(String alias) {
-        return alias + ".period_end ASC, " + ReleasePresentationOrder.precisionRank(alias);
-    }
-
-    /** Ordering of the releases inside one game; ends in the unique release id. */
-    private static String releaseOrder(String alias) {
-        return dateOrder(alias) + ", " + alias + ".release_id";
-    }
-
-    /**
-     * Ordering of the games, each positioned by its first presented release; ends in the unique
-     * game id. Hype and rating lead when chosen, and a game without the signal follows every game
-     * with one rather than counting as zero.
-     */
-    private static String gameOrder(Sort sort, String alias) {
-        String dateOrder =
-                dateOrder(alias) + ", lower(" + alias + ".canonical_title), " + alias + ".game_id";
-        return switch (sort) {
-            case RELEASE_DATE -> dateOrder;
-            case HYPE -> alias + ".hypes DESC NULLS LAST, " + dateOrder;
-            case RATING ->
-                    alias
-                            + ".community_mean DESC NULLS LAST, "
-                            + alias
-                            + ".community_rating_count DESC NULLS LAST, "
-                            + dateOrder;
-            case EXTERNAL_PLAYER_SCORE ->
-                    alias
-                            + ".player_score DESC NULLS LAST, "
-                            + alias
-                            + ".player_score_count DESC NULLS LAST, "
-                            + dateOrder;
-        };
-    }
-
-    // The presented release of a game and platform is the first of its filtered releases under the
-    // shared presentation precedence, which ends in the earliest date. Only presented releases
-    // position, group and fill the page; the others stay stored and in game details. The order's
-    // signals join Catalogue-owned tables only: the Hypes evidence TOPómetro ranks with, the
-    // stored external player score and the community score projection Ratings maintains through
+    // The order's signals join Catalogue-owned tables only: the Hypes evidence TOPómetro ranks
+    // with,
+    // the stored external player score and the community score projection Ratings maintains through
     // a Catalogue contract (ADR-0029).
     private static String pageSql(Sort sort, String where) {
-        return FILTERED_RELEASE_PREFIX
-                + where
-                + "),\n"
-                + "presented_release AS MATERIALIZED (\n"
-                + "    SELECT DISTINCT ON (fr.game_id, fr.platform_id) fr.*\n"
-                + "    FROM filtered_release fr\n"
-                + "    JOIN catalogue.region release_region"
-                + " ON release_region.region_id = fr.region_id\n"
-                + "    ORDER BY fr.game_id, fr.platform_id, "
-                + ReleasePresentationOrder.of("fr", "release_region", dateOrder("fr"))
-                + "\n),\n"
-                + "game_top AS (\n"
-                + "    SELECT DISTINCT ON (fr.game_id)\n"
-                + "        fr.game_id, fr.period_end, fr.period_start, fr.date_precision,\n"
-                + "        gs.slug, gs.canonical_title, gs.cover_reference, gs.cover_source,\n"
-                + "        gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url\n"
-                + "    FROM presented_release fr\n"
-                + GAME_SNAPSHOT_LATERAL
-                + "    ORDER BY fr.game_id, "
-                + releaseOrder("fr")
-                + "\n),\n"
+        return ReleaseRangeGameSql.presentedGames(where)
+                + ",\n"
                 + "game_signal AS (\n"
                 + signalSql(sort)
                 + "),\n"
                 + "game_page AS (\n"
                 + "    SELECT * FROM game_signal gt\n"
                 + "    ORDER BY "
-                + gameOrder(sort, "gt")
+                + ReleaseRangeGameSql.gameOrder(sort, "gt")
                 + "\n    LIMIT :pageSize OFFSET :offset\n)\n"
                 + "SELECT gp.game_id::text AS game_id,\n"
                 + "       gp.slug AS slug,\n"
@@ -290,13 +209,13 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "    JOIN catalogue.region r ON r.region_id = fr.region_id\n"
                 + "    WHERE fr.game_id = gp.game_id\n"
                 + "    ORDER BY "
-                + releaseOrder("fr")
+                + ReleaseRangeGameSql.releaseOrder("fr")
                 + "\n    LIMIT :releaseGroupLimit\n"
                 + ") rel ON true\n"
                 + "ORDER BY "
-                + gameOrder(sort, "gp")
+                + ReleaseRangeGameSql.gameOrder(sort, "gp")
                 + ", "
-                + releaseOrder("rel");
+                + ReleaseRangeGameSql.releaseOrder("rel");
     }
 
     /** Each game's first presented release with the one signal the chosen order needs. */

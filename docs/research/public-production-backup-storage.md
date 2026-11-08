@@ -1,6 +1,6 @@
 # Automated off-host backup storage (#276)
 
-- **Status:** Provider/topology approved 2026-10-25; summarized target retention policy and local S3 implementation authorized 2026-10-29; D3/D6/exact D7 values pending; no operational acceptance
+- **Status:** Provider/topology approved 2026-10-25; target retention policy including D3/D6/D7 approved and local S3 implementation authorized 2026-10-29; no operational acceptance
 - **Research date:** 2026-10-25
 - **Repository inspected:** `147f7f28c0b637f89314aa997303a0847f1617c3`
 - **Consumer:** Owner decision within [#276](https://github.com/rubhern/videogame-platform/issues/276)
@@ -47,10 +47,15 @@ Public documentation establishes alerts, resource quotas and prepaid credit, not
 hard aggregate charge limit. The owner has [accepted that residual risk](#owner-accepted-uncapped-payg-risk)
 as a scoped exception; it is not a purchase authorization.
 
-The table records the 2026-10-25 approval. The later scoped approval and local evidence are recorded [below](#local-s3-adapter-evidence). The [Object Lock retention recommendation](#object-lock-retention-recommendation)
-reconciles lock duration, capture cadence, copy count, expiry ownership and
-ledger/archive placement with the canonical 35-day and privacy/recovery requirements.
-Its full detail was not approved on 2026-10-25. The 2026-10-29 approval covers the summarized policy only; D3, D6 and precise D7 thresholds still await ratification. The watchdog remains uninstalled.
+The table records the 2026-10-25 approval. The later scoped approval and local evidence are recorded
+[below](#local-s3-adapter-evidence) . The
+[Object Lock retention recommendation](#object-lock-retention-recommendation) reconciles lock
+duration, capture cadence, copy count, expiry ownership and ledger/archive placement with the
+canonical 35-day and privacy/recovery requirements. Its full detail was not approved on 2026-10-25.
+The later
+[owner ratification](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
+approves D3, D6 and the exact D7 thresholds as target policy, superseding their earlier pending
+status. The watchdog remains uninstalled.
 
 ## Evidence and current implementation
 
@@ -283,7 +288,7 @@ its effect.
 | Conditions | Bounded operation, consumption monitoring and alerts configured and tested before the first upload: local byte guard, least-privilege credentials, independent inventory, forecast alerts, key revocation and incident escalation |
 | Not changed | Recurring ceiling, other services' capped-overage requirement, purchase/account/exposure authorizations, retention policy |
 
-Proposed operating values, **not yet owner-set** ([D7](#owner-decisions-before-bucket-creation)):
+Owner-approved target operating values ([D7](#owner-decisions-before-bucket-creation)); implementation and operational monitoring remain to qualify:
 the thresholds above, review after the first invoice or 30 days (whichever is first),
 and on any pricing, credential, retention or architecture change. No finite
 incident-loss maximum is derived from notification timing. Deliberate non-payment or
@@ -316,7 +321,7 @@ thaw alerts/retries without falsely claiming off-host success.
   bypass, retention/hold changes, ACL/policy/bucket/configuration and key creation.
   Prove that explicit shorter/absent retention headers cannot defeat the default.
 - **Expiry worker:** separate scoped credential, only list/delete versions in the
-  rolling bucket, never bypass or configuration/retention rights. Compromise can
+  rolling bucket, with protection and configuration reads for preflight; never bypass or configuration/retention writes. Compromise can
   delete only versions whose lock has ended. The
   [recommendation](#credentials-verification-and-cleanup-ownership) places it off the
   VPS so that expiry continues after host loss. It cannot touch archive/ledger buckets.
@@ -342,8 +347,8 @@ continues to govern field profiles, lawful access, review, holds, expiry and rep
 
 | Material | Proposed independent protection |
 |---|---|
-| Deletion ledger and current checkpoint | Trusted owner administration storage plus separate encrypted S3 ledger bucket with owner-only publisher. Durable remote version/receipt acknowledgement **before each destructive step**, maintaining current two-copy refusal semantics; daily async copying is insufficient. Use append-only encrypted checkpoints/events and bounded reconciliation, not repeated unbounded full-history uploads. Retention follows the ledger policy, not rolling-backup expiry; [recommended lock](#separate-stores-and-replay) |
-| Restricted legal archive and suppression/destruction/hold proofs | Trusted owner storage plus separate owner-only S3 archive/proof buckets. Preserve signed sealed two-copy acknowledgement before erasure. No Object Lock retention: case-specific narrowing/purge must take effect when decided ([recommendation](#separate-stores-and-replay)). Automate transfer/verification, retain required owner authorization for legal review and destruction |
+| Deletion ledger and current checkpoint | Trusted owner administration storage plus separate encrypted S3 ledger bucket with owner-only publisher. Durable remote version/receipt acknowledgement **before each destructive step**, maintaining current two-copy refusal semantics; daily async copying is insufficient. Use append-only encrypted checkpoints/events and bounded reconciliation, not repeated unbounded full-history uploads. Retention follows the ledger policy, not rolling-backup expiry; [approved target lock](#separate-stores-and-replay) |
+| Restricted legal archive and suppression/destruction/hold proofs | Trusted owner storage plus separate owner-only S3 archive/proof buckets. Preserve signed sealed two-copy acknowledgement before erasure. No Object Lock retention: case-specific narrowing/purge must take effect when decided ([approved target](#separate-stores-and-replay)). Automate transfer/verification, retain required owner authorization for legal review and destruction |
 | Pair manifests and verification/recovery receipts | Cloud locked exact versions plus independent observer receipts in protected owner storage, with monotonic checkpoint/version history. Never accept a mutable `latest.json` as sole evidence. Sanitized monitoring output must not include personal IDs/secrets |
 | Reconstruction bundle | Independently encrypted production config/secrets, trusted source and OCI digest/provenance receipts, bootstrap inputs and remote-access recovery instructions; off both runtime hosts. Protected owner copy plus separate S3 prefix inaccessible to uploader/pruner; test image availability or a bounded retained image copy |
 | Decryption/signing/reconstruction-unlock keys | Owner-controlled independent recovery storage separate from ciphertext and provider login; protected second key/recovery copy and tested passphrase/MFA recovery. No private key on VPS, Lenovo, Actions or in the bundle it unlocks |
@@ -368,10 +373,10 @@ existing private Grafana/Telegram notices as a second route. A successful hash c
 is transport integrity, not successful decryption/restore or truthful source data.
 Hash each newly published version set once by streaming it; subsequent hourly checks
 inspect metadata and continuity, rather than downloading the entire retained history.
-Bound pagination/object counts and stop/alert on overflow. Keep sanitized observer
-receipts in private immutable-per-run Actions artefacts for the applicable bounded
-period and copy accepted recovery proofs to protected owner storage; no plaintext
-dumps or secrets enter Actions artefacts. Confirm actual artefact access/expiry.
+Bound pagination/object counts and stop/alert on overflow. **Corrected 2026-11-07:** the
+repository is public, so Actions logs and artefacts are readable and cannot hold observer receipts.
+The prepared workflow uploads none and sends findings to the private channel only. Accepted recovery
+proofs still go to protected owner storage.
 
 Send the observer's daily heartbeat to the owner's existing private channel and
 configure independent failed-workflow notifications; test missed-schedule/disabled-job
@@ -547,7 +552,8 @@ This replaces the expiry-worker placement in [identity separation](#identity-sep
 |---|---|---|---|
 | Uploader | VPS backup actor | PUT and multipart create/part/complete/abort under `pairs/` in the rolling bucket | Every read, list and delete; retention, legal hold, bypass; lock, lifecycle, ACL and versioning configuration; other buckets |
 | Observer | Independent protected scheduled workflow, trusted default-branch code | List versions; read exact versions, retention and holds; read lock and lifecycle configuration | Every write and delete |
-| Expiry worker | Same independent environment as the observer, separate job and secret; the owner can run it manually | List versions, read retention and holds, delete by version ID in the rolling bucket only | PUT, retention, legal hold, bypass, configuration, other buckets |
+| Admission reader (proposed 2026-11-07, [awaiting owner review](../decisions/0033-select-lite-3-and-immutable-offhost-storage.md#amendment-2026-11-07-scheduled-cycle-availability)) | VPS, separate credential | List versions; read lock, versioning and lifecycle configuration | Object content, every write and delete |
+| Expiry worker | Same independent environment as the observer, separate job and secret; the owner can run it manually | List versions, read retention/holds and lock/versioning/lifecycle configuration, delete by version ID in the rolling bucket only | PUT, retention/hold changes, bypass, configuration writes, other buckets |
 | Owner administration | Trusted owner context | Bucket creation, lock and lifecycle configuration, credential issuance, recovery reads | Routine use; any legal hold on the rolling bucket |
 
 The VPS keeps at most the last uploaded pair locally and removes it after the next
@@ -656,6 +662,25 @@ P1–P5 block activation.
 If P2 fails (the uploader can set a lock or a hold), this bucket design is **NO-GO**.
 A compromised VPS could then lock personal data past the ceiling.
 
+**Provider test results: P1–P5 PASS** on `gameometro-lock-test` (Gravelines, Compliance
+1-day default) with distinct restricted uploader, observer and worker identities.
+
+| Test | Executed | Result |
+|---|---|---|
+| P1 | 2026-10-25; real multipart repeated 2026-10-29 | Single PUT: retain-until is upload + exactly 1 day, no rounding. Multipart: the lock anchors at **initiation**, not completion |
+| P2 | 2026-10-25 | Uploader PUTs with earlier/later retain-until or legal hold, and retention/hold changes on its own version, all 403; effective retention is the default, read by the observer |
+| P3 | 2026-10-25 | Owner shortening and switching to Governance return 403; extension is accepted |
+| P4 | Pre-expiry 2026-10-25; post-expiry 2026-11-07 | Before expiry: version-ID DELETE 403, simple DELETE adds a marker, the version stays readable. After expiry: the worker's version-ID DELETE returns 204 and the observer lists the version as absent |
+| P5 | Pre-expiry 2026-10-25 (67 allow/deny cases); post-expiry 2026-11-07 | Uploader: PUT/multipart only. Observer: read-only. Worker: list, protection reads and version deletes only. After expiry the observer and uploader still get 403 on an exact-version DELETE, and the worker deletes an uploader-owned expired version (204) |
+
+Findings that bind the design: the bucket owner cannot read uploader-owned objects, so
+recovery needs a separate reader with an explicit allow; the worker can delete
+delete-markers created by another identity; Compliance retention can be extended. The
+2026-10-29 run also found that a prefix-scoped worker can list keys outside its prefix,
+so listing is bucket-wide and must not be relied on for confidentiality between prefixes.
+Sanitized post-expiry output is retained by the owner outside Git. P6–P8 remain
+unexecuted and are activation or monitoring checks, not P1–P5 prerequisites.
+
 ### Original implementation proposal (2026-10-25)
 
 - `deploy/public-production/bin/recovery`: add `publish` (upload the existing
@@ -675,19 +700,19 @@ A compromised VPS could then lock personal data past the ceiling.
 
 Object Lock is fixed when a bucket is created, so these decisions precede creation.
 
-| ID | Decision | Recommendation |
+| ID | Decision | Approved target policy |
 |---|---|---|
 | D1 | How the 35-day ceiling is measured for provider storage | Exact-version deletion verified by recovery point + 35 d; provider reclamation per processor terms; a missed deadline is an incident |
 | D2 | Retention parameters | 12-hour cadence, 6-hour admission, 33-day Compliance default, keep all pairs (about 67); no cloud daily/weekly selection |
 | D3 | Expiry versus the rehearsed-pair pin | Expiry wins; alert ladder on full-restore age |
 | D4 | Expiry-worker location | Independent scheduled environment with a delete-only credential, plus a manual owner fallback; not the VPS |
-| D5 | Restore-evidence contract | Integrity-verified pair at most 24 h old, plus a full restore at most 8 days old with the same tooling, format and key |
+| D5 | Restore-evidence contract | Integrity-verified pair at most 24 h old, plus a full restore at most 8 days old with the same tooling, format and key (owner changed the restore age to 30 days on 2026-11-08; the [platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery) is current) |
 | D6 | Ledger and archive locks | Ledger bucket COMPLIANCE 36 days; archive, proof and reconstruction buckets created without Object Lock |
 | D7 | PAYG operating values | 180/200 GiB, forecast EUR 2/3, review after the first invoice or 30 days |
 
-**Verdict: CONDITIONAL GO.** Approve D1–D7 as the target policy. Activation stays
-blocked until P1–P5 pass on a test bucket. If P1 shows rounding beyond one day, or
-P2 or P5 fail, the policy returns for revision before any personal data.
+**Verdict: CONDITIONAL GO.** D1–D7 are approved as target policy, including the explicit D3/D6/D7 ratification linked above. P1–P5 passed on the
+test bucket (see the provider test results above), so they no longer block activation;
+the remaining activation gates are owned by the platform recovery policy.
 
 ## Decision alignment and next bounded slice
 
@@ -711,8 +736,8 @@ Product Brief/platform/privacy records are aligned in this documentation change;
 - Actual domain/DNS renewal and contact-mailbox charges, Mailjet Free/account terms,
   CI/monitor/administration extras and final combined recurring/initial cash quote.
   The EUR 2 email contingency stays reserved; no fallback service purchase is approved.
-- Ratification of outstanding [D3, D6 and exact D7 values](#owner-decisions-before-bucket-creation)
-  before any bucket is created; private storage and key locations.
+- Effective implementation of the approved [D1–D7 policy](#owner-decisions-before-bucket-creation),
+  including independent private storage and key locations.
   No silent widening of retention or weakening of two-copy barriers.
 
 **Actions requiring separate owner authorization:** any account/project/credential
@@ -747,17 +772,20 @@ purchase, infrastructure/DNS change, deployment, commit or merge occurred.
 
 ## Local S3 adapter evidence
 
-**Prepared locally for #276, 2026-10-29; no provider or production acceptance.**
-The [owner approval](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
-authorizes this bounded adapter and fake-S3 tests. It approves the summarized target
-policy: 12-hour capture, 33-day Compliance, verified exact-version deletion within
-35 days, integrity age at most 24 hours, full restore at least every 8 days,
-independent expiry actor, off-VPS recovery keys and spend monitoring within the
-approved planning budget. The [platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
-and [privacy record](../development/data-protection.md#b-restricted-legal-archive)
-own those guarantees. D3, D6 and D7's precise values remain recommendations.
-The runtime [S3 preparation guide](../../deploy/public-production/README.md#s3-transport-preparation-276)
-owns commands, protected inputs and limitations.
+**Prepared locally for #276, 2026-10-29; no provider or production acceptance.** The
+[owner approval](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
+authorizes this bounded adapter and fake-S3 tests. It approves the summarized target policy: 12-hour
+capture, 33-day Compliance, verified exact-version deletion within 35 days, integrity age at most 24
+hours, full restore at least every 8 days (30 days since 2026-11-08), independent expiry actor, off-VPS recovery keys and spend
+monitoring within the approved planning budget. The
+[platform policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+and [privacy record](../development/data-protection.md#b-restricted-legal-archive) own those
+guarantees. The subsequent
+[owner ratification](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
+approves D3, D6 and the precise D7 values in the decision table above; it grants no provider or
+activation authorization. The runtime
+[S3 preparation guide](../../deploy/public-production/README.md#s3-transport-preparation-276) owns
+commands, protected inputs and limitations.
 
 [`test-production-recovery-s3.py`](../../scripts/test-production-recovery-s3.py)
 uses an in-process fake and frozen clock. It reuses the existing pair verifier;
@@ -768,24 +796,32 @@ synthetic bytes do not establish encryption or provider enforcement.
 | L1 | Refuses admission at six hours, future recovery points, stale capacity evidence and clock skew; rechecks between parts/objects and after completion. An already accepted late write cannot be undone; no success receipt is issued |
 | L2 | Unique attempt prefixes; observer detects multiple versions; fetch reads the recorded version even when another exists |
 | L3 | Receipt last, binds four exact version IDs/sizes/SHA-256; multipart failure attempts abort; missing acknowledgement and corruption never publish a complete local destination. Process death or failed abort leaves an orphan for later reconciliation |
-| L4 | Bounded version/marker inventory and expiry selection demonstrated; **planning only**. Exact-version DELETE, post-delete absence and bypass rejection remain unimplemented and unproven |
+| L4 | Default planning sends no DELETE. Explicit execution reuses the fresh plan, checks configuration/protection, deletes only exact version IDs and confirms absence by a complete final inventory. Tests cover markers/noncurrent/orphan versions, unknown/incomplete inventories, retention/hold changes, provider failures, lost acknowledgement, interruptions, durable intent, bounds and idempotent retry. No bypass parameter is sent; real enforcement remains P4/P5 evidence |
 | L5 | Frozen-clock alerts at due + 2 hours, recovery point + 34 days 12 hours and + 35 days; no automatic notification channel installed |
 | L6 | Observer refuses mode/hold/retention/configuration drift, unknown keys and missing versions; streams exact ciphertext versions through the existing checksum verifier |
-| L7 | Integrity and restore ages are separate; missed-copy and restore-age alerts demonstrated. Pin override remains unimplemented pending D3; no deletion occurs |
-| L8 | Not implemented: synchronous remote ledger/archive durability and crash-boundary tests remain a separate required slice. Pair version-acknowledgement tests do not satisfy this barrier |
-| L9 | Caller-specified projected byte budget enforced using fresh protected observer evidence, without deletion. No fixed 200 GiB enforcement decision: exact D7 values remain pending. Concurrent attempts, incomplete multipart bytes and account-wide consumption still require operational reconciliation |
+| L7 | Integrity and restore ages are separate; missed-copy and restore-age alerts demonstrated. Cloud expiry does not consult a rehearsal pin, following D3; filesystem `retain` keeps its existing contract |
+| L8 | Implemented for review (`personal_data_cloud.py`): two-copy synchronous ledger/archive barrier with read-back, lock check, prefix reconciliation, cloud-only `ledger-fetch` and recovery refusal; fake-S3 tests in `test-personal-data-cloud.py`. Real OVHcloud check 2026-11-07 with synthetic data: both ledger copies (GRA, SBG) acknowledged exact versions with read-back and Compliance lock; both archive copies accepted and fully purged a reference |
+| L9 | Caller-specified projected byte budget enforced using fresh protected observer evidence, without deletion. D7 is approved; the caller must supply the approved admission budget. Fixed policy wiring, warning/forecast delivery and independent account-wide monitoring remain activation work. Concurrent attempts, incomplete multipart bytes and account-wide consumption still require operational reconciliation |
 
-P1–P8 remain entirely unexecuted. SDK and fake behaviour do not establish OVHcloud
-semantics, effective IAM/ACL denies, provider clocks, physical deletion, lifecycle,
-billing or monitored consumption. P1–P5 block activation; retain P6–P8 as qualification
-requirements. No cloud-only restore, achieved RPO/RTO, independent environment/key
+[`test-production-backup-cycle.py`](../../scripts/test-production-backup-cycle.py) adds the scheduled
+cycle's decisions on a fake runtime, and the opt-in
+[`rehearse-production-backup-cycle.py`](../../scripts/rehearse-production-backup-cycle.py) runs them on a
+disposable real runtime with S3 replaced. They cover refusal without a fence, reopening after capture
+failure and crash, fences owned by others, upload retries and the window. The observer now hashes each
+pair once, and L9 enforces the approved 180/200 GiB values through the admission reader. The minimum
+lock is anchored at the recovery point, because a multipart lock may start before `LastModified`.
+Real-host fence duration, recovery and alert delivery are unproven.
+
+P1–P5 passed on the provider (see the provider test results). P7 version inventory and a
+preliminary P8 clock check passed on 2026-10-29; P6 and incomplete-multipart inventory (P7)
+remain unevaluated. SDK and fake behaviour still establish nothing about physical deletion,
+lifecycle, billing or monitored consumption. No cloud-only restore, achieved RPO/RTO, independent environment/key
 isolation, observer heartbeat delivery, real missed-job notification or cloud
-ledger/archive barriers are proven. `verify-offhost.py` retains its accepted
-filesystem-only attestation contract; S3 observation cannot set its green recovery
-flag. Scheduler/attestation integration and real deletion require a later reviewed
-slice, ratification of pending decisions and separate provider authorization.
+ledger/archive barriers are proven. `verify-offhost.py` also accepts an `s3-fetch` receipt, but
+only a full owner restore can set its green recovery flag; S3 observation cannot. Installing the
+scheduler and real-provider deletion require later reviewed qualification and separate provider
+authorization. The explicit local executor is not activation.
 
-The optional adapter starts its own operational version at `0.1.0` (new compatible
-capability); application, frontend, candidate #275 and migration versions are unchanged.
+The optional adapter is at operational version `0.2.2`: `0.2.0` added compatible explicit expiry execution, the admission reader and incremental observation, and `0.2.1` accepts the `url` listing encoding that botocore requests and real providers echo, `0.2.2` reads the `NoSuchObjectLockConfiguration` answer OVHcloud returns for a version that never had a legal hold as hold `OFF`, and `0.3.0` moves the restore-age alerts to the owner's 30-day policy (warning after 30 days, critical after 32); application, frontend, candidate #275 and migration versions are unchanged.
 #276 remains open. No account, bucket, credential, deployment, job, commit or publication
 is created by this increment.

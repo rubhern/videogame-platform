@@ -14,6 +14,10 @@ ARG CADDY_RATELIMIT_MODULE=github.com/mholt/caddy-ratelimit@5625512f24f6f59d6f64
 # Caddy's public HTTP/2 server is golang.org/x/net/http2; v0.59.0 has reachable denial-of-service
 # advisories; v0.62.0 also fixes GO-2026-6860 and GO-2026-6866.
 ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.62.0
+# GO-2026-6865: panic on two-block frames. Stock Caddy's compression stack uses this module.
+ARG CADDY_COMPRESS_OVERRIDE=github.com/klauspost/compress=github.com/klauspost/compress@v1.20.2
+# GO-2026-5932: the unmaintained x/crypto/openpgp package. The fix has no tagged release yet.
+ARG CADDY_CRYPTO_OVERRIDE=golang.org/x/crypto=golang.org/x/crypto@v0.58.1-0.20261009181718-2f1f834330b2
 ENV CGO_ENABLED=0 \
     GOFLAGS=-trimpath \
     GOPROXY=https://proxy.golang.org \
@@ -21,7 +25,7 @@ ENV CGO_ENABLED=0 \
     GOPRIVATE= \
     GOSUMDB=sum.golang.org
 RUN xcaddy build "$CADDY_VERSION" --output /out/caddy --with "$CADDY_RATELIMIT_MODULE" \
-        --replace "$CADDY_NET_OVERRIDE" \
+        --replace "$CADDY_NET_OVERRIDE" --replace "$CADDY_COMPRESS_OVERRIDE" --replace "$CADDY_CRYPTO_OVERRIDE" \
     && /out/caddy list-modules | grep -qx 'http.handlers.rate_limit'
 
 FROM ${CADDY_IMAGE}

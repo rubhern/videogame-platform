@@ -218,7 +218,9 @@ services:
     networks:
       - application-data
     restart: unless-stopped
-    mem_limit: 768m
+    # Covers the largest bounded request plus model file cache: the operations runbook owns
+    # the measurements and the soak that must stay stable before a larger run.
+    mem_limit: 1792m
     cpus: 1.0
     pids_limit: 64
     logging: *bounded-logging

@@ -15,6 +15,7 @@ import tarfile
 import private_dev_promotion as trust
 import public_production_deployment as deployment
 import public_production_integration as integration
+import private_production_admin as admin
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = '9ffc05a2ff30e261564ddbfd412826cdec504137'
@@ -40,7 +41,7 @@ def private_caddy(source):
                                host + ' {\n\ttls /run/private-tls/edge.crt /run/private-tls/edge.key',
                                source, flags=re.M)
         require(count == 1, 'Candidate canonical TLS host is missing or ambiguous.')
-    return source
+    return source + admin.caddy()
 
 
 def bind(source, target):
@@ -68,7 +69,7 @@ def adapt(base, caddyfile, tls):
     require('JAVA_TOOL_OPTIONS' not in app['environment'], 'Unexpected candidate JVM options.')
     app['environment']['JAVA_TOOL_OPTIONS'] = JAVA_TLS
     app['volumes'].append(bind(tls / 'truststore.p12', '/run/private-tls/truststore.p12'))
-    return config
+    return admin.adapt(config)
 
 
 def validate(base, config, caddyfile, tls):
@@ -87,7 +88,7 @@ def validate(base, config, caddyfile, tls):
             'Migration must use the application image.')
 
 
-def registry_images(images, runner=command):
+def registry_images(images, runner=command, *, revision=REVISION, version=VERSION):
     result = {}
     cache = {}
     for name, image in sorted(images.items()):
@@ -102,14 +103,15 @@ def registry_images(images, runner=command):
         require(value.get('os') == 'linux' and value.get('architecture') == 'amd64',
                 'Published image is unavailable for linux/amd64.')
         if name in ('application', 'keycloak', 'caddy', 'catalogue-localizer'):
-            require(labels.get('org.opencontainers.image.revision') == REVISION,
+            require(labels.get('org.opencontainers.image.revision') == revision,
                     'Published image source differs from the accepted candidate.')
         if name == 'application':
-            require(labels.get('org.opencontainers.image.version') == VERSION,
+            require(version is None or labels.get('org.opencontainers.image.version') == version,
                     'Published application version differs from acceptance.')
         result[name] = {'image': image, 'os': value['os'], 'architecture': value['architecture'],
                         'user': value.get('config', {}).get('User') or '0',
-                        'sourceRevision': labels.get('org.opencontainers.image.revision')}
+                        'sourceRevision': labels.get('org.opencontainers.image.revision'),
+                        'version': labels.get('org.opencontainers.image.version')}
     return result
 
 
@@ -122,20 +124,60 @@ def fingerprint(source):
         deployment.ROOT = previous
 
 
-def candidate_binds(config, source):
+def candidate_binds(config, source, bundle=None):
     """Map only immutable candidate bind sources to the local exported tree."""
-    target = TARGET / 'candidate'
+    target = (bundle or TARGET) / 'candidate'
     return sorted({source / Path(m['source']).relative_to(target)
                    for service in config['services'].values()
                    for m in service.get('volumes', [])
                    if m['type'] == 'bind' and Path(m['source']).is_relative_to(target)})
 
 
-def prepare_mount_directories(config, source):
+def export_source(repository, revision, source):
+    """Only the reviewed operational trees of one exact commit; the caller verifies the bytes."""
+    archive = command(['git', '-C', repository, 'archive', revision, 'deploy', 'docker', 'scripts', 'tools'])
+    with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
+        members = bundle.getmembers()
+        require(len(members) <= 10000 and all(m.isfile() or m.isdir() for m in members),
+                'Candidate archive contains unsupported sources.')
+        bundle.extractall(source, filter='data')
+
+
+def parse_runtime_env(text):
+    """Parse non-secret inputs as data; never source a shell file or inherit Compose overrides."""
+    values = {}
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        key, sep, value = line.partition('=')
+        require(sep and re.fullmatch('[A-Z][A-Z0-9_]*', key) and key not in values
+                and value and not any(c in value for c in ('$', '"', "'", '\x00')),
+                'Invalid or duplicate non-secret runtime input.')
+        values[key] = value
+    return values
+
+
+def render_base(runtime, source):
+    return json.loads(command(['docker', 'compose', '--env-file', runtime,
+                               '-f', source / 'deploy/public-production/compose.yaml',
+                               '-f', source / 'deploy/public-production/compose.observability.yaml',
+                               '--profile', '*', 'config', '--format', 'json'],
+                              env={k: os.environ[k] for k in ('PATH', 'HOME', 'DOCKER_CONFIG') if k in os.environ}))
+
+
+def rebind_source(base, source, target):
+    """Render locally, but bind only the separate immutable host bundle."""
+    for service in base['services'].values():
+        for mount in service.get('volumes', []):
+            if mount['type'] == 'bind' and Path(mount['source']).is_relative_to(source):
+                mount['source'] = str(target / 'candidate' / Path(mount['source']).relative_to(source))
+
+
+def prepare_mount_directories(config, source, bundle=None):
     # tar's data filter leaves directory modes to the restrictive process umask.
     # Docker mounts the source itself: host-only ancestors need no public access.
     # Keep file bytes/executable modes and all administrative directories intact.
-    for path in candidate_binds(config, source):
+    for path in candidate_binds(config, source, bundle):
         if path.is_dir():
             for parent, dirs, _ in os.walk(path, followlinks=False):
                 require(not Path(parent).is_symlink()
@@ -161,23 +203,9 @@ def prepare(output, env_file, tls):
     output.mkdir(mode=0o700)
     source = output / 'candidate'
     source.mkdir(mode=0o700)
-    archive = command(['git', '-C', ROOT, 'archive', REVISION, 'deploy', 'docker', 'scripts', 'tools'])
-    with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
-        members = bundle.getmembers()
-        require(len(members) <= 10000 and all(m.isfile() or m.isdir() for m in members),
-                'Candidate archive contains unsupported sources.')
-        bundle.extractall(source, filter='data')
+    export_source(ROOT, REVISION, source)
     require(fingerprint(source) == FINGERPRINT, 'Exported operational sources differ from signed candidate.')
-    values = {}
-    # Parse non-secret inputs as data; never source a shell file or inherit Compose overrides.
-    for line in env_file.read_text().splitlines():
-        if not line.strip() or line.lstrip().startswith('#'):
-            continue
-        key, sep, value = line.partition('=')
-        require(sep and re.fullmatch('[A-Z][A-Z0-9_]*', key) and key not in values
-                and value and not any(c in value for c in ('$', '"', "'", '\x00')),
-                'Invalid or duplicate non-secret runtime input.')
-        values[key] = value
+    values = parse_runtime_env(env_file.read_text())
     expected_keys = set(re.findall(r'^([A-Z][A-Z0-9_]*)=',
                                   (source / 'deploy/public-production/runtime.env.example').read_text(), re.M))
     require(set(values) == expected_keys, 'Supply exactly the candidate runtime.env input inventory.')
@@ -194,17 +222,9 @@ def prepare(output, env_file, tls):
     require(values['PRODUCTION_TELEGRAM_ENABLED'] == 'false', 'Owner notification activation is separate.')
     runtime = output / 'runtime.env'
     runtime.write_text(''.join(f'{k}={v}\n' for k, v in sorted(values.items())))
-    base = json.loads(command(['docker', 'compose', '--env-file', runtime,
-                              '-f', source / 'deploy/public-production/compose.yaml',
-                              '-f', source / 'deploy/public-production/compose.observability.yaml',
-                              '--profile', '*', 'config', '--format', 'json'],
-                             env={k: os.environ[k] for k in ('PATH', 'HOME', 'DOCKER_CONFIG') if k in os.environ}))
-    # Render locally, but bind only the future, separate immutable host bundle.
+    base = render_base(runtime, source)
     # The host's existing /srv/gameometro/repo checkout is never an operational input.
-    for service in base['services'].values():
-        for mount in service.get('volumes', []):
-            if mount['type'] == 'bind' and Path(mount['source']).is_relative_to(source):
-                mount['source'] = str(TARGET / 'candidate' / Path(mount['source']).relative_to(source))
+    rebind_source(base, source, TARGET)
     caddyfile = output / 'Caddyfile.private'
     caddyfile.write_text(private_caddy((source / 'deploy/public-production/caddy/Caddyfile').read_text()))
     # Public configuration bytes must be readable after the daemon bind-mounts the

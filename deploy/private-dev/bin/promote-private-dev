@@ -77,6 +77,11 @@ from private_dev_promotion import (  # noqa: E402
 )
 
 
+def account_deletion_enabled():
+    # Same exact-line test as deploy-private-dev, which adds the overlay from this flag.
+    return "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true" in RUNTIME_ENV.read_text(encoding="utf-8").splitlines()
+
+
 def verify_base_application():
     containers = subprocess.check_output(
         ["docker", "ps", "--all", "--filter", "label=com.docker.compose.project=videogame-platform-dev",
@@ -90,11 +95,15 @@ def verify_base_application():
             env=SAFE_ENV, stderr=subprocess.DEVNULL,
         ).decode().strip().split(",")
         # A container created with the retired localization overlay can transition
-        # to base Compose: the endpoint now lives there. All other overlays fail closed.
+        # to base Compose: the endpoint now lives there. The account-deletion overlay is
+        # the one deploy-private-dev itself selects from the persistent owner flag, so it
+        # counts only while that flag is set. All other overlays fail closed.
         base = Path(config_files[0])
         allowed = [str(base)] if base.parts[-3:] == ("deploy", "private-dev", "compose.yaml") else []
-        require(config_files == allowed or (
-                    allowed and config_files == [str(base), str(base.with_name("compose.localization.yaml"))]),
+        require(config_files == allowed or (allowed and (
+                    config_files == [str(base), str(base.with_name("compose.localization.yaml"))]
+                    or (config_files == [str(base), str(base.with_name("compose.account-deletion.yaml"))]
+                        and account_deletion_enabled()))),
                 "The application uses a Compose overlay or different runtime; use its separate reviewed deployment procedure.")
 
 

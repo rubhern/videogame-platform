@@ -29,7 +29,11 @@ class FrontendRouteController {
         "/mi-perfil",
         "/mi-perfil/borrado",
         "/bienvenida",
-        "/administracion/catalogo"
+        "/administracion/catalogo",
+        "/privacidad",
+        "/condiciones",
+        "/aviso-legal",
+        "/cookies"
     })
     String searchFrontendEntryPoint() {
         return frontendEntryPoint();

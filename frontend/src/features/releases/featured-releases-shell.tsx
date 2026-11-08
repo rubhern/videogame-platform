@@ -139,7 +139,7 @@ function UnrankedNotice({
             ? `Gameómetro no tiene lanzamientos para tus plataformas en ${period}. Prueba con todas las plataformas.`
             : week
               ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
-              : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
+              : "Gameómetro no tiene lanzamientos con fecha confirmada dentro de este mes."}
       </p>
       <div className="notice-actions">
         {interestsOn ? (

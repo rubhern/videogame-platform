@@ -107,17 +107,53 @@ The exception covers OVHcloud Object Storage only. It changes neither the EUR 25
 recurring ceiling, the netcup or email terms, nor any other gate, and it authorizes
 no purchase, account, credential, bucket, deployment or exposure. The
 [#276 research](../research/public-production-backup-storage.md#owner-accepted-uncapped-payg-risk)
-holds the proposed thresholds and the open operating parameters.
+holds the approved target thresholds and the outstanding implementation/qualification boundaries.
 
 
 ## Amendment 2026-10-29: scoped recovery policy approval
 
-The [owner decision in #276](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
+The
+[owner decision in #276](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6483692685)
 approves the summarized target policy now recorded by the
-[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery),
-and authorizes local adapter preparation and fake-S3 testing. It grants no operational
-acceptance, provider setup, purchase, job installation or deployment. D3, D6 and the
-precise D7 operating thresholds remain recommendations pending ratification; no
-research table is approved in full by implication. The
+[platform recovery policy](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery), and authorizes local adapter preparation and fake-S3 testing. It grants no operational acceptance,
+provider setup, purchase, job installation or deployment. The
+[subsequent explicit owner ratification](https://github.com/rubhern/videogame-platform/issues/276#issuecomment-6491045114)
+approves D3, D6 and the precise D7 operating thresholds as target policy, superseding their earlier
+recommendation status. The
+[decision table](../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation)
+owns those details; remaining qualification gates are unchanged. The
 [local evidence boundary](../research/public-production-backup-storage.md#local-s3-adapter-evidence)
 records what is prepared and what still blocks activation. #275 remains unchanged.
+
+## Amendment 2026-11-07: scheduled cycle availability
+
+The owner required scheduled backups that never leave Gameómetro blocked, which replaces the earlier
+recommendation to leave a failed capture fenced for owner action. A scheduled cycle may undo a fence it
+created, because a capture only reads the databases. Every other fence, manual backups included, keeps
+its existing refusal. The
+[runtime guide](../../deploy/public-production/README.md#scheduled-backup-cycle-276) owns the mechanics.
+
+**Owner decision, 2026-11-07 (#276): approved.** A list-only admission reader on the VPS replaces moving
+observer evidence to the host, which had no transport from a public workflow to a private host. It reads
+listings and configuration, never object content, so the host still cannot read history, and it does not
+replace the independent observer. Approval grants no provider setup, installation or activation by itself.
+
+## Amendment 2026-11-07: ledger and legal archive copies in one OVHcloud account
+
+**Owner decision (#276).** The deletion ledger and the legal archive each keep two synchronous
+S3 copies inside the **same OVHcloud account**, in two separate Public Cloud projects with buckets
+in distinct European regions. Each copy has its own S3 identity. The ledger buckets keep the D6
+Compliance default of 36 days; the archive buckets have no Object Lock, so an archive purge can
+remove its source.
+
+This **reduces the administrative independence approved earlier**: one account compromise, closure
+or billing suspension can reach both copies and the rolling backups together. The owner explicitly
+accepts that residual risk for the MVP to avoid a second account or provider. Regions and
+identities still separate provider-region failures and credential misuse; Object Lock still
+protects existing ledger versions from deletion.
+
+The owner-side driver refuses any production mutation unless both copies acknowledge an exact,
+read-back version first. Recovery reopens only on a ledger rebuilt from both identical cloud copies.
+The [runtime guide](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+owns the mechanics. Reconsider when the service holds enough accounts that one account failure
+would be unacceptable, or when a second provider is contracted for another reason.

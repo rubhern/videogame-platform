@@ -82,6 +82,9 @@ function HomeHighlightCard({ item }: { item: FeaturedItem }) {
             <NeedleIcon className="home-more-needle" />
             <span aria-hidden="true">{group.shortDate}</span>
             <span className="sr-only">{group.date}</span>
+            {item.stage === null ? null : (
+              <span className="featured-release-stage">{item.stage}</span>
+            )}
           </p>
         )}
         <h4 className="home-more-title">

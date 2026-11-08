@@ -28,6 +28,16 @@ class FrontendRouteControllerTest {
     }
 
     @Test
+    void publicLegalPagesSurviveDirectNavigationAndReload() throws Exception {
+        for (String path :
+                java.util.List.of("/privacidad", "/condiciones", "/aviso-legal", "/cookies")) {
+            mockMvc.perform(get(path))
+                    .andExpect(status().isOk())
+                    .andExpect(forwardedUrl("/index.html"));
+        }
+    }
+
+    @Test
     void forwardsOnlyApprovedBrowserRoutesToThePackagedSpa() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/search"))
