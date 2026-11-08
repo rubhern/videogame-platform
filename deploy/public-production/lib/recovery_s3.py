@@ -16,7 +16,7 @@ import uuid
 import urllib.request
 import urllib.error
 
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 
 PART = 16 * 1024 * 1024
 MAX_VERSIONS = 2048
@@ -182,7 +182,14 @@ class Store:
     def protection(self, entry):
         args = {'Key': entry['Key'], 'VersionId': entry['VersionId']}
         retention = self.call('get_object_retention', **args)['Retention']
-        hold = self.call('get_object_legal_hold', **args)['LegalHold']['Status']
+        try:
+            hold = self.call('get_object_legal_hold', **args)['LegalHold']['Status']
+        except Exception as error:
+            # OVHcloud answers NoSuchObjectLockConfiguration for a version that never had a legal
+            # hold. The bucket lock configuration is verified separately, so this means OFF.
+            if getattr(error, 'response', {}).get('Error', {}).get('Code') != 'NoSuchObjectLockConfiguration':
+                raise
+            hold = 'OFF'
         point = dt.datetime.strptime(KEY.fullmatch(entry['Key'])[1], '%Y%m%dT%H%M%SZ').replace(tzinfo=dt.timezone.utc)
         modified, until = entry['LastModified'], retention['RetainUntilDate']
         self.c.require(isinstance(until, dt.datetime) and until.utcoffset() is not None

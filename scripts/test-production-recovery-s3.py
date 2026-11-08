@@ -77,7 +77,12 @@ class Fake:
             elif operation == 'get_object_retention':
                 _, modified = self.objects[kw['Key'], kw['VersionId']]
                 result = {'Retention': {'Mode': self.mode, 'RetainUntilDate': modified + dt.timedelta(days=33) + self.extra}}
-            elif operation == 'get_object_legal_hold': result = {'LegalHold': {'Status': self.hold}}
+            elif operation == 'get_object_legal_hold':
+                if self.hold is None:  # OVHcloud: a version that never had a legal hold.
+                    error = RuntimeError('NoSuchObjectLockConfiguration')
+                    error.response = {'Error': {'Code': 'NoSuchObjectLockConfiguration'}}
+                    raise error
+                result = {'LegalHold': {'Status': self.hold}}
             else: raise AssertionError(operation)
             return {**result, 'ResponseMetadata': {'HTTPStatusCode': 204 if operation == 'delete_object' else 200,
                                                   'HTTPHeaders': {'date': email.utils.format_datetime(self.now, usegmt=True)}}}
@@ -345,7 +350,7 @@ class S3Tests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertTrue(result['absenceVerified'])
         self.assertEqual(result['outcome'], 'success')
-        self.assertEqual(result['adapterVersion'], '0.2.1')
+        self.assertEqual(result['adapterVersion'], '0.2.2')
         self.assertFalse(result['productionReady'])
 
     def test_cli_failed_execution_persists_sanitized_attempt(self):
@@ -654,6 +659,17 @@ class S3Tests(unittest.TestCase):
                           side_effect=lambda **kw: {**original(**kw), 'EncodingType': 'base64'}):
             with self.assertRaises(core.Refused):
                 self.store.admission_evidence(self.lifecycle, 1000000)
+
+    def test_never_held_version_reads_as_legal_hold_off_but_other_errors_still_refuse(self):
+        # Regression (#276, first real OVHcloud observation): GetObjectLegalHold on a version that
+        # never had a hold answers NoSuchObjectLockConfiguration instead of Status OFF.
+        self.publish()
+        self.fake.hold = None
+        self.assertNotIn('retention-incident', self.store.observe(self.lifecycle, 1000000).get('alerts', []))
+        def denied(**kw):
+            error = RuntimeError('AccessDenied'); error.response = {'Error': {'Code': 'AccessDenied'}}; raise error
+        with patch.object(self.fake, 'get_object_legal_hold', side_effect=denied), self.assertRaises(RuntimeError):
+            self.store.observe(self.lifecycle, 1000000)
 
     def test_admission_refuses_configuration_drift_and_clock_skew(self):
         self.fake.lock['Rule']['DefaultRetention']['Days'] = 34

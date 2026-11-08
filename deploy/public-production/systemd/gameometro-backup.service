@@ -16,4 +16,6 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/gameometro/production /etc/gameometro/production/observability
+# gpg --list-secret-keys starts gpg-agent, whose socket lives in the keyring home (ProtectHome hides /run/user).
+ReadWritePaths=/etc/gameometro/production/backup-public-keyring
 # Docker administration is root-equivalent; this unit must stay root-only.
