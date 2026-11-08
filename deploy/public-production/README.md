@@ -1999,8 +1999,10 @@ Use the existing owner route only after separate authorization for VPS access ch
    `deploymentDeniedAdminIPv4`, `deploymentDeniedAdminIPv6`, `nonOwnerDeniedAdmin`,
    `publicDeniedAdmin`, `temporaryGrafanaRetired`. These are owner attestations, not automated ACL
    proof from a hash; repeat after policy/access changes. Missing evidence refuses deployment.
-   Both installed backup service units must have the documented fixed `ExecStart` pattern and no
-   drop-ins. The actor reconciles only their source paths after upgrade, preserving the timers.
+   Both installed backup service units must have the documented fixed `ExecStart` pattern. The
+   approved #471 `keyring.conf` drop-in may grant only the existing public-keyring write path; it
+   is validated and preserved. Other drop-ins or directives refuse deployment. The actor reconciles
+   only their source paths after upgrade, preserving the timers.
 
 #### First execution and routine releases
 
