@@ -420,8 +420,9 @@ protected break-glass path.
 
 ### Private-production administration
 
-**Implemented in repository; review and separately authorized VPS acceptance pending
-(#464).** [ADR-0035](../../decisions/0035-separate-private-production-admin-ingress.md)
+**Installed on the production VPS on 2026-11-08 by owner go (#464); reboot verified;
+browser-session acceptance pending, see the
+[operator guide](../../../deploy/public-production/README.md#private-production-administration).** [ADR-0035](../../decisions/0035-separate-private-production-admin-ingress.md)
 records the design and the owner's narrow master-realm exception. Two dedicated
 owner-only Tailscale Serve HTTPS origins terminate TLS ahead of hardened host-loopback
 bridges to Caddy's existing fixed application-edge address. Caddy resolves upstreams by

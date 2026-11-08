@@ -2048,7 +2048,20 @@ explicit resource decision; this change never provisions a paid larger runner or
 
 ### Private-production administration
 
-**Repository implementation (#464); not deployed or accepted on the VPS.** The
+**Installed on the VPS on 2026-11-08 by owner go (#464), from the dedicated root-owned export
+`/srv/gameometro/operations/<20311c8>-admin-ingress` (files 0644; the helper refuses a 0600 export).**
+Verified then: the owner policy grants only the owner on 8443/10000 and its saved tests deny
+`tag:vgp-deploy`. From an owner device, both origins serve trusted HTTPS. Grafana
+returns `/login` 200 and an unauthenticated API 401; Keycloak's console 200 and Admin REST
+unauthenticated 401, with master's issuer on the private origin. `auth.gameometro.com` still
+returns 404 for every administration and master path, including with spoofed `Forwarded`
+(and 421 for a spoofed Host). The product issuer is unchanged and 8443/10000/18445/18446 are
+closed on the public IPv4. A host reboot the same day (19:00 UTC) brought the bridges, the
+boot Serve reconciler and both routes back unattended: product, Grafana and Keycloak answered
+again about two minutes after the request, and the helper's `--verify` passed. **Pending:** owner browser
+login/logout on both and the container recreation check below. No non-owner tailnet identity exists, so non-owner
+denial rests on the policy review alone (evidence limitation). The policy grants by user, so
+the owner-user `vgpdev` node is also admitted. The
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-production-administration)
 owns the boundary and [ADR-0035](../../docs/decisions/0035-separate-private-production-admin-ingress.md)
 records the master's frontend exception approved by the owner. The earlier manual
