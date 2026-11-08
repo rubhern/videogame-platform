@@ -192,7 +192,16 @@ def backup_units(config_path, target_source, apply=False):
         install.secure(path, mode=0o644)
         fragment = invoke(['/usr/bin/systemctl', 'show', name, '--property=FragmentPath', '--value']).decode().strip()
         drops = invoke(['/usr/bin/systemctl', 'show', name, '--property=DropInPaths', '--value']).strip()
-        require(fragment == str(path) and not drops, 'Backup service has an unexpected source or override.')
+        require(fragment == str(path), 'Backup service has an unexpected source.')
+        override = path.parent / (name + '.d') / 'keyring.conf'
+        require(drops.decode().split() in ([], [str(override)]), 'Backup service has an unreviewed override.')
+        if drops:
+            install.secure(override, mode=0o644)
+            require(override.stat().st_size <= 4096, 'Oversized backup override.')
+            directives = [line.strip() for line in override.read_text().splitlines()
+                          if line.strip() and not line.lstrip().startswith(('#', ';'))]
+            require(directives == ['[Service]', 'ReadWritePaths=/etc/gameometro/production/backup-public-keyring'],
+                    'Only the approved #471 keyring write-path override is allowed.')
         text = path.read_text()
         lines = re.findall(r'^ExecStart=(.+)$', text, re.M)
         require(len(lines) == 1, 'Unexpected backup service command inventory.')

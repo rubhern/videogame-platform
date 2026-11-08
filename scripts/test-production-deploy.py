@@ -386,6 +386,36 @@ class BackupUnitTests(unittest.TestCase):
                 path.write_text(path.read_text() + 'ExecStart=/bin/sh -c evil\n')
                 with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
 
+    def test_accepted_keyring_override_is_preserved_and_other_directives_refuse(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            config = Path('/etc/gameometro/production/backup-cycle.json')
+            original = {}
+            overrides = {}
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                source = '[Service]\nExecStart=/usr/bin/python3 /srv/gameometro/installations/'+'a'*12+'-private/candidate/deploy/public-production/bin/backup-cycle '+command+' --config '+str(config)+'\n'
+                (root/unit).write_text(source)
+                original[unit] = source
+                dropin = root/(unit+'.d')/'keyring.conf'
+                dropin.parent.mkdir()
+                dropin.write_text('[Service]\n# Approved #471 gpg-agent socket path.\nReadWritePaths=/etc/gameometro/production/backup-public-keyring\n')
+                overrides[unit] = dropin
+            def systemctl(args, **_):
+                if 'FragmentPath' in ' '.join(map(str,args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str,args)): return str(overrides[args[2]]).encode()
+                return b''
+            with patch.object(deploy,'BACKUP_UNITS',root), patch.object(deploy.install,'secure'), patch.object(deploy,'invoke',side_effect=systemctl):
+                before = {unit:path.read_bytes() for unit,path in overrides.items()}
+                deploy.backup_units(config,target,apply=True)
+                for unit,path in overrides.items():
+                    self.assertEqual(path.read_bytes(),before[unit])
+                    self.assertEqual((root/unit).read_text(),original[unit].replace('a'*12,'b'*12))
+                modified = overrides['gameometro-backup-reconcile.service']
+                modified.write_text(modified.read_text()+'ExecStart=/bin/sh -c unwanted\n')
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(config,target,apply=True)
+
+
 
 class TransportTests(unittest.TestCase):
     def test_ssh_stdin_remains_open_until_remote_finishes(self):
