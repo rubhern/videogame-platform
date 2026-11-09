@@ -218,7 +218,7 @@ services = {
         "unless-stopped",
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
-        environment={"KC_HOSTNAME": keycloak_origin, "KC_LOG_LEVEL": "info", "KC_HTTP_ACCESS_LOG_ENABLED": "false",
+        environment={"KC_HOSTNAME": keycloak_origin, "KC_HTTP_ACCESS_LOG_ENABLED": "false",
                      **dict(line.split("=", 1) for line in (repository / "deploy/public-production/keycloak/abuse.env")
                             .read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))},
         networks={"edge": None, "data": None, "mail": None},

@@ -399,7 +399,6 @@ production_keycloak_policy = dict(
 keycloak_environment = services["keycloak"]["environment"]
 for name, value in production_keycloak_policy.items():
     require(keycloak_environment.get(name) == value, f"Keycloak {name} must equal the production runtime policy")
-require(keycloak_environment.get("KC_LOG_LEVEL") == "info", "Keycloak must log at production's info level")
 require(keycloak_environment.get("KC_HTTP_ACCESS_LOG_ENABLED") == "false", "Keycloak access logging must stay off as in production")
 require(application_oidc.get("SPRING_PROFILES_ACTIVE", "").startswith("oidc,structured"),
         "application must run production's oidc,structured profiles")

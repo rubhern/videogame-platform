@@ -74,7 +74,6 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
-      KC_LOG_LEVEL: info
       KC_HTTP_ACCESS_LOG_ENABLED: "false"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}

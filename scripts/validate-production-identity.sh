@@ -209,7 +209,6 @@ docker run --detach \
   --env KC_HTTPS_CERTIFICATE_FILE="/run/pki/$identity_host.crt" \
   --env KC_HTTPS_CERTIFICATE_KEY_FILE="/run/pki/$identity_host.key" \
   --env KC_TRUSTSTORE_PATHS=/run/pki/ca.crt \
-  --env KC_LOG_LEVEL=info \
   --env-file "$repository_root/deploy/public-production/keycloak/abuse.env" \
   --env APPLICATION_PUBLIC_HOST="$application_host" \
   --env APPLICATION_PUBLIC_ORIGIN="https://$application_host" \

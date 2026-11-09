@@ -82,10 +82,9 @@ try {
     const params=new URLSearchParams({client_id:'fixture',redirect_uri:origin+'/callback',response_type:'code',scope:'openid',state:'fixture'});
     await page.goto(realm+'/protocol/openid-connect/auth?'+params);
     await page.getByRole('link',{name:/^(Register|Crear cuenta)$/}).click();
-    await page.locator('#username').fill(index===1?'seed':'fixture'+index);
-    await page.locator('#email').fill('fixture'+index+'@example.invalid');
-    await page.locator('#firstName').fill('Fixture');
-    await page.locator('#lastName').fill('Test');
+    // The shared realm imports production's email-only registration; the first attempt reuses
+    // the seed account's address so the duplicate is rejected before any account is created.
+    await page.locator('#email').fill(index===1?'seed@example.invalid':'fixture'+index+'@example.invalid');
     // Keycloak 26.7 can defer password creation until after email verification.
     if(await page.locator('#password').count()) {
       await page.locator('#password').fill('fixture-password-123');
@@ -95,7 +94,7 @@ try {
     await page.getByRole('button',{name:/^(Register|Crear cuenta)$/}).click();
     if(index===1) {
       assert.equal(value(await metrics(),'register'),0,'Rejected registration cannot increment successful register');
-      await page.locator('#username').fill('fixture'+index);
+      await page.locator('#email').fill('fixture'+index+'@example.invalid');
       if(await page.locator('#password').count()) {
         await page.locator('#password').fill('fixture-password-123');
         await page.locator('#password-confirm').fill('fixture-password-123');

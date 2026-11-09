@@ -54,8 +54,9 @@ host_command = shlex.join([
     "--postgres-container", postgres, "--application-container", application,
 ])
 accounts = {
-    "target": {"username": "pd-target", "email": "pd-target@example.test", "password": secrets.token_hex(16)},
-    "other": {"username": "pd-other", "email": "pd-other@example.test", "password": secrets.token_hex(16)},
+    # The realm uses the email as username, as production does.
+    "target": {"username": "pd-target@example.test", "email": "pd-target@example.test", "password": secrets.token_hex(16)},
+    "other": {"username": "pd-other@example.test", "email": "pd-other@example.test", "password": secrets.token_hex(16)},
 }
 
 
@@ -358,7 +359,7 @@ assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 
 # The freed address registers again as a new subject, which a later replay leaves alone.
-reregistered = admin.create("pd-target-again", accounts["target"]["email"], secrets.token_hex(16))
+reregistered = admin.create(accounts["target"]["email"], accounts["target"]["email"], secrets.token_hex(16))
 assert reregistered != target_id
 ledger_run("replay", "--receipt", str(receipts / "replay-after-reregistration.json"))
 assert admin.account(reregistered)["enabled"] is True

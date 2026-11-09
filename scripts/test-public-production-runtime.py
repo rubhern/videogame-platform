@@ -135,7 +135,7 @@ KEYCLOAK_ENVIRONMENT = {
     "KC_HTTP_ENABLED": "true",
     "KC_PROXY_HEADERS": "xforwarded",
     "KC_PROXY_TRUSTED_ADDRESSES": EDGE_ADDRESSES["identity-edge"],
-    "KC_LOG_LEVEL": "info",
+    "KC_LOG_LEVEL": "info,org.keycloak.services.managers.AuthenticationManager:error",
     "KC_HTTP_ACCESS_LOG_ENABLED": "false",
     "APPLICATION_PUBLIC_HOST": "gameometro.com",
     "APPLICATION_PUBLIC_ORIGIN": APPLICATION_ORIGIN,

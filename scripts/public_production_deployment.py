@@ -37,9 +37,14 @@ RUNTIME_FILES = frozenset((
 ))
 
 
+# Runtime sources that current revisions no longer carry but signed historical candidates do
+# (private-dev backups were removed by ADR-0037). They count when present and are never required.
+HISTORICAL_RUNTIME_FILES = frozenset(('deploy/private-dev/lib/backup-common.sh',))
+
+
 def runtime_path(path):
     return (any(path.startswith(d) for d in RUNTIME_DIRECTORIES) and not path.endswith('.md')
-            or path in RUNTIME_FILES)
+            or path in RUNTIME_FILES or path in HISTORICAL_RUNTIME_FILES)
 
 
 def inventory(tree, predicate):
@@ -67,6 +72,7 @@ def local_configuration():
                     'Unsafe runtime source directory.')
             paths.update(Path(parent) / name for name in files)
     paths.update(ROOT / p for p in RUNTIME_FILES)
+    paths.update(ROOT / p for p in HISTORICAL_RUNTIME_FILES if (ROOT / p).exists() or (ROOT / p).is_symlink())
     tree = {'truncated': False, 'tree': []}
     for path in sorted(paths):
         relative = path.relative_to(ROOT).as_posix()
