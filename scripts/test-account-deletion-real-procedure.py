@@ -14,7 +14,7 @@ if not private_mode:
     listing=run(["gpg","--homedir",str(keys),"--with-colons","--list-secret-keys"]).stdout.decode()
     fingerprint=next(line.split(":")[9] for line in listing.splitlines() if line.startswith("fpr:"))
     run(["gpg","--homedir",str(keys),"--batch","--pinentry-mode","loopback","--passphrase","", "--quick-add-key",fingerprint,"cv25519","encr","0"])
-accounts["automatic"]={"username":"pd-automatic","email":"pd-automatic@example.test","password":secrets.token_hex(16)}
+accounts["automatic"]={"username":"pd-automatic@example.test","email":"pd-automatic@example.test","password":secrets.token_hex(16)}
 automatic_id=admin.create(accounts["automatic"]["username"],accounts["automatic"]["email"],accounts["automatic"]["password"])
 automatic_user=str(uuid.UUID(bytes=hashlib.md5(f"{issuer}\n{automatic_id}".encode()).digest(),version=3))
 sessions_helper("login","automatic:AUTOMATIC_USERNAME:AUTOMATIC_PASSWORD:9")

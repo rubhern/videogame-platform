@@ -151,7 +151,7 @@ try {
   assert(adminToken.access_token);
   const adminCreated=await fetch(origin+'/admin/realms/videogame-platform/users',{
     method:'POST',headers:{Authorization:'Bearer '+adminToken.access_token,'Content-Type':'application/json'},
-    body:JSON.stringify({username:'admin-created',enabled:true,emailVerified:true})
+    body:JSON.stringify({username:'admin-created@example.invalid',email:'admin-created@example.invalid',enabled:true,emailVerified:true})
   });
   assert.equal(adminCreated.status,201);
   const lines=await metrics();
@@ -169,7 +169,8 @@ try {
   assert(scraped.every(sample=>(sample.metric.error ?? '')==='' && sample.metric.realm==='videogame-platform'));
   assert(scraped.every(sample=>Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))));
   const security=await query('keycloak_user_events_total{job="keycloak-security"}');
-  assert(security.some(sample=>sample.metric.event==='register' && sample.metric.error==='username_in_use'),
+  // With the email as username Keycloak may report the duplicate as either identifier.
+  assert(security.some(sample=>sample.metric.event==='register' && ['username_in_use','email_in_use'].includes(sample.metric.error)),
     'The separate security scrape must retain the rejected registration signal');
   assert(security.every(sample=>sample.metric.realm==='videogame-platform' &&
     Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))),
