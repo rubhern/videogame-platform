@@ -27,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -62,7 +63,6 @@ import org.springframework.security.web.session.SessionInformationExpiredEvent;
 public class IdentitySecurityConfiguration {
 
     static final String AUTHORIZATION_BASE_URI = "/auth/login";
-    static final String FEEDBACK_PATH = "/api/v1/feedback";
     static final String SESSION_PATH = "/api/v1/session";
     static final String ADMINISTRATION_PATHS = "/api/v1/admin/**";
     private static final String CONTENT_SECURITY_POLICY =
@@ -139,12 +139,7 @@ public class IdentitySecurityConfiguration {
                                         .anyRequest()
                                         .permitAll())
                 .requestCache(cache -> cache.disable())
-                .csrf(
-                        csrf ->
-                                csrf.csrfTokenRepository(csrfTokens)
-                                        .ignoringRequestMatchers(
-                                                PathPatternRequestMatcher.pathPattern(
-                                                        HttpMethod.POST, FEEDBACK_PATH)))
+                .csrf(csrf -> configureCsrf(csrf, csrfTokens))
                 .addFilterBefore(new AccountDeletionFenceFilter(deletionStores), CsrfFilter.class)
                 .addFilterBefore(
                         new SameOriginStateChangeFilter(
@@ -267,6 +262,15 @@ public class IdentitySecurityConfiguration {
         }
 
         return http.build();
+    }
+
+    @SuppressWarnings("java:S4502")
+    private static void configureCsrf(
+            CsrfConfigurer<HttpSecurity> csrf, HttpSessionCsrfTokenRepository csrfTokens) {
+        // Feedback accepts no session authority and only JSON. Its exact POST matcher is also
+        // used by SameOriginStateChangeFilter to reject cross-origin browser submissions.
+        csrf.csrfTokenRepository(csrfTokens)
+                .ignoringRequestMatchers(SameOriginStateChangeFilter::isFeedbackSubmission);
     }
 
     @Bean

@@ -48,7 +48,7 @@ public final class SmtpFeedbackReceiver implements Receiver {
                                     : "\n\nCorreo para responder: " + feedback.email()));
             mail.send(message);
             return true;
-        } catch (MailException | MessagingException failure) {
+        } catch (MailException | MessagingException _) {
             // Exception messages and nested causes may contain addresses or SMTP commands.
             LOGGER.warn("Feedback SMTP acceptance could not be confirmed");
             return false;

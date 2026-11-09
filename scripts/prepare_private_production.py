@@ -151,9 +151,13 @@ def parse_runtime_env(text):
             continue
         key, sep, value = line.partition('=')
         require(sep and re.fullmatch('[A-Z][A-Z0-9_]*', key) and key not in values
-                and value and not any(c in value for c in ('$', '"', "'", '\x00')),
+                and (value or key == 'PRODUCTION_FEEDBACK_INBOX')
+                and not any(c in value for c in ('$', '"', "'", '\x00')),
                 'Invalid or duplicate non-secret runtime input.')
         values[key] = value
+    require(values.get('PRODUCTION_FEEDBACK_INBOX') != ''
+            or values.get('PRODUCTION_FEEDBACK_ENABLED') == 'false',
+            'An empty feedback inbox requires explicitly disabled feedback.')
     return values
 
 

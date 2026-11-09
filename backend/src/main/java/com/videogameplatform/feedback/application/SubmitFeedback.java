@@ -6,11 +6,9 @@ import java.util.regex.Pattern;
 /** Synchronously hands a bounded message to the receiving channel. */
 public class SubmitFeedback {
 
-    private static final Pattern EMAIL =
-            Pattern.compile(
-                    "[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
-                            + "@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-                            + "(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+");
+    private static final Pattern LOCAL_ATOM = Pattern.compile("[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+");
+    private static final Pattern DNS_LABEL =
+            Pattern.compile("[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?");
 
     private final Receiver receiver;
     private final Semaphore deliverySlots = new Semaphore(2);
@@ -41,10 +39,7 @@ public class SubmitFeedback {
                                                         && value <= Character.MAX_SURROGATE))) {
             return Outcome.INVALID_MESSAGE;
         }
-        if (email != null
-                && (email.length() > 254
-                        || !EMAIL.matcher(email).matches()
-                        || email.indexOf('@') > 64)) {
+        if (email != null && !validEmail(email)) {
             return Outcome.INVALID_EMAIL;
         }
         if (!deliverySlots.tryAcquire()) {
@@ -57,6 +52,31 @@ public class SubmitFeedback {
         } finally {
             deliverySlots.release();
         }
+    }
+
+    private static boolean validEmail(String email) {
+        if (email.length() > 254) {
+            return false;
+        }
+        int separator = email.indexOf('@');
+        if (separator < 1 || separator > 64) {
+            return false;
+        }
+        for (String atom : email.substring(0, separator).split("\\.", -1)) {
+            if (!LOCAL_ATOM.matcher(atom).matches()) {
+                return false;
+            }
+        }
+        String[] labels = email.substring(separator + 1).split("\\.", -1);
+        if (labels.length < 2) {
+            return false;
+        }
+        for (String label : labels) {
+            if (!DNS_LABEL.matcher(label).matches()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public enum Category {

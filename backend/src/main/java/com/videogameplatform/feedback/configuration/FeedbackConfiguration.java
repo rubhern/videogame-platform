@@ -39,7 +39,7 @@ class FeedbackConfiguration {
             var address = new InternetAddress(value, true);
             address.validate();
             return !address.isGroup() && value.equals(address.getAddress());
-        } catch (AddressException invalid) {
+        } catch (AddressException _) {
             return false;
         }
     }

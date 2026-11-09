@@ -15,6 +15,7 @@ import com.videogameplatform.identity.configuration.RatingIntentAuthenticationFa
 import com.videogameplatform.identity.configuration.RatingResumeAuthenticationSuccessHandler;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.servlet.http.Cookie;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
@@ -29,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -64,18 +67,32 @@ class FeedbackHttpTest {
         mail.setPort(0);
     }
 
-    @Test
-    void anonymousSendOnlyConfirmsAfterFinalSmtpAcceptance() throws Exception {
+    @ParameterizedTest
+    @CsvSource({
+        "bug, Error o problema, true",
+        "suggestion, Sugerencia, false",
+        "incorrect_game_information, Datos de un juego, false",
+        "other, Otro comentario, false"
+    })
+    void anonymousSendOnlyConfirmsAfterFinalSmtpAcceptance(
+            String category, String subject, boolean includeEmail) throws Exception {
+        String body = VALID.replace("\"bug\"", "\"" + category + "\"");
+        if (!includeEmail) {
+            body = body.replace(",\"email\":\"player@example.invalid\"", "");
+        }
         try (var server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             mail.setPort(server.getLocalPort());
             var accepted = answerSmtp(server, "250 Message accepted");
-            mvc.perform(
-                            submission(VALID)
-                                    .header("Sec-Fetch-Site", "same-origin")
-                                    .header("Origin", "http://localhost"))
-                    .andExpect(status().isNoContent())
-                    .andExpect(header().string("Cache-Control", "no-store"))
-                    .andExpect(header().exists("X-Correlation-ID"));
+            var result =
+                    mvc.perform(
+                                    submission(body)
+                                            .header("Sec-Fetch-Site", "same-origin")
+                                            .header("Origin", "http://localhost"))
+                            .andExpect(status().isNoContent())
+                            .andExpect(header().string("Cache-Control", "no-store"))
+                            .andExpect(header().exists("X-Correlation-ID"))
+                            .andReturn();
+            assertThat(result.getRequest().getSession(false)).isNull();
 
             MimeMessage message = accepted.get(5, TimeUnit.SECONDS);
             assertThat(message.getAllRecipients())
@@ -84,10 +101,14 @@ class FeedbackHttpTest {
             assertThat(message.getFrom())
                     .extracting(Object::toString)
                     .containsExactly("gameometro@example.invalid");
-            assertThat(message.getSubject()).isEqualTo("Gameómetro · Error o problema");
-            assertThat(message.getContent().toString())
-                    .contains(
-                            "Falla la búsqueda.", "Correo para responder: player@example.invalid");
+            assertThat(message.getSubject()).isEqualTo("Gameómetro · " + subject);
+            String content = message.getContent().toString();
+            assertThat(content).contains("Falla la búsqueda.");
+            if (includeEmail) {
+                assertThat(content).contains("Correo para responder: player@example.invalid");
+            } else {
+                assertThat(content).doesNotContain("Correo para responder:");
+            }
             assertThat(message.getHeader("Reply-To")).isNull();
         }
     }
@@ -113,9 +134,15 @@ class FeedbackHttpTest {
 
     @Test
     void rejectsCrossOriginBeforeSending() throws Exception {
-        mvc.perform(submission(VALID).header("Origin", "https://elsewhere.example"))
+        mvc.perform(
+                        submission(VALID)
+                                .header("Origin", "https://elsewhere.example")
+                                .cookie(new Cookie("vgp_session", "synthetic-session")))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("CSRF_VALIDATION_FAILED"));
+                .andExpect(jsonPath("$.code").value("CSRF_VALIDATION_FAILED"))
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value("Submit the feedback form from the same origin."));
         mvc.perform(submission(VALID).header("Sec-Fetch-Site", "cross-site"))
                 .andExpect(status().isForbidden());
     }
@@ -157,6 +184,7 @@ class FeedbackHttpTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("REQUEST_PARAMETER_UNKNOWN"));
         mvc.perform(submission(VALID + "{}")).andExpect(status().isBadRequest());
+        mvc.perform(submission("[]")).andExpect(status().isBadRequest());
         mvc.perform(submission(" ".repeat(32 * 1024) + VALID))
                 .andExpect(status().isContentTooLarge())
                 .andExpect(jsonPath("$.code").value("REQUEST_TOO_LARGE"));

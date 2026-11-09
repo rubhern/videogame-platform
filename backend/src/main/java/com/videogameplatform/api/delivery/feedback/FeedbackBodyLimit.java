@@ -66,7 +66,7 @@ class FeedbackBodyLimit extends RequestBodyAdviceAdapter {
                     throw new ApiRequestException(ProblemCode.FEEDBACK_INVALID, "/body/" + field);
                 }
             }
-        } catch (tools.jackson.core.JacksonException invalidJson) {
+        } catch (tools.jackson.core.JacksonException _) {
             throw malformed();
         }
 
