@@ -197,7 +197,7 @@ try {
   const oldIds=new Set(beforeMail.messages.map(m=>m.ID));
   await page.goto(auth);
   await page.locator('a[href*="reset-credentials"]').click();
-  await page.locator('#username').fill('fixture1');
+  await page.locator('#username').fill('fixture1@example.invalid');
   await page.locator('button[type="submit"], input[type="submit"]').click();
   const reset=await wait(async()=>{
     const body=await (await fetch('http://mailpit:8025/api/v1/messages')).json();
@@ -214,7 +214,7 @@ try {
   const loginContext=await browser.newContext();
   const loginPage=await loginContext.newPage();
   await loginPage.goto(auth);
-  await loginPage.locator('#username').fill('fixture1');
+  await loginPage.locator('#username').fill('fixture1@example.invalid');
   await loginPage.locator('#password').fill('fixture-reset-password-123');
   await loginPage.locator('button[type="submit"], input[type="submit"]').click();
   await loginPage.waitForURL(url=>url.pathname==='/callback'&&url.searchParams.has('code'));
