@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
+import { registerWithVerifiedEmail } from "./fixtures/registration";
 
 const gamePath =
   "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
@@ -66,7 +67,7 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page).toHaveURL(
       /\/realms\/videogame-platform\/protocol\/openid-connect\/auth/,
     );
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
@@ -123,7 +124,7 @@ test.describe("real Keycloak rating journey", () => {
   test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
     await page.goto(gamePath);
     await pick(page, 8);
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
@@ -179,6 +180,7 @@ test.describe("real Keycloak rating journey", () => {
 
   test("a new visitor self-registers through Keycloak and resumes the same game and value", async ({
     page,
+    request,
   }) => {
     await page.goto(gamePath);
     await pick(page, 7);
@@ -189,15 +191,7 @@ test.describe("real Keycloak rating journey", () => {
     );
     await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
 
-    const unique = `player-${Date.now()}`;
-    await page.locator("#firstName").fill("New");
-    await page.locator("#lastName").fill("Visitor");
-    await page.locator("#email").fill(`${unique}@localhost.invalid`);
-    await page.locator("#username").fill(unique);
-    await page.locator("#password").fill("Str0ng-Passw0rd!");
-    await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
-    await page.locator("#termsAccepted").check();
-    await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+    await registerWithVerifiedEmail(page, request, `player-${Date.now()}@example.test`, "Str0ng-Passw0rd!");
 
     // First-time registration completes authentication and persists the chosen value.
     await expect(page).toHaveURL(new RegExp(gamePath));

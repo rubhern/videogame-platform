@@ -25,7 +25,7 @@ RUNTIME_FILES = frozenset((
     'deploy/private-dev/bin/run-application', 'deploy/private-dev/bin/run-migrations',
     'deploy/private-dev/bin/personal-data', 'deploy/private-dev/bin/personal-data-ledger',
     'deploy/private-dev/bin/configure-keycloak-mail', 'deploy/private-dev/bin/provision-oidc-smoke-user',
-    'deploy/private-dev/lib/personal_data_archive.py', 'deploy/private-dev/lib/backup-common.sh',
+    'deploy/private-dev/lib/personal_data_archive.py',
     'deploy/private-dev/grafana/provision-reader.sql',
     'deploy/private-dev/grafana/notifications.json.template',
     'deploy/private-dev/grafana/provisioning/alerting/private-dev.json',

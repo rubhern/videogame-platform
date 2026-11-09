@@ -11,7 +11,7 @@ for `vgpdev`.
 Evidence standard: a procedure appears here as **proven** only when the owner ran it
 and recorded the outcome in the linked issue or pull request. Anything else is marked
 **not exercised**. Repository validation (for example
-`scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
+`scripts/test-private-dev-deployment.sh`) proves logic, not host behaviour.
 
 The accepted MVP is private, single-host and zero-cost. Nothing here claims public production,
 high availability or automatic recovery. Retained private-dev metrics and aggregated logs are
@@ -428,14 +428,15 @@ Owner: [Backend README](../../backend/README.md) for the command semantics,
 for reconciliation,
 [`application.yaml`](../../backend/src/main/resources/application.yaml) for executable
 policy defaults and bounds, `backend/.env.example` for local configuration and
-[`runtime.env.example`](../../deploy/private-dev/runtime.env.example) for private-dev
-opt-in/overrides. These are acquisition policies, not product/business invariants.
+[private-dev Compose](../../deploy/private-dev/compose.yaml) for private-dev settings. These are acquisition policies, not product/business invariants.
 
 Post-MVP (#155, implemented and accepted in private dev): opt-in recurring near-term
 and upcoming policies invoke the same UC-009 application path as the exceptional
-`POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off,
-independently of credentials. Public production turns it on with the default policies
-and no cron override (#484); the
+`POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off in
+`application.yaml`, independently of credentials. Public production turns it on with the
+default policies and no cron override (#484). Local and private dev turn it on with only the
+weekly upcoming policy: the near-term cron is `-`
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)). The
 [production upgrade](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
 owns that guard. Each policy accepts a six-field Spring cron; `-`
 disables only that policy. Non-negative past/future day offsets derive an inclusive
@@ -798,102 +799,38 @@ The deterministic tool tests are `python3 scripts/test-repair-release-stages.py`
 backend tests cover completeness, ownership, same-reference identity, per-Game rollback,
 idempotence, public evidence/eligibility and private management boundaries. The
 [migration policy](database-migrations.md) owns deployment compatibility. Rolling back only
-the application cannot restore deleted provider records; the existing
-[backup and restore procedure](#backup-integrity-and-isolated-restore) owns recovery of data.
+the application cannot restore deleted provider records; in private dev, which keeps no
+backup, a resynchronization reacquires them ([private-dev recovery](#private-dev-recovery)).
 
-## Backup, integrity and isolated restore
+## Private-dev recovery
 
-Owner: [Backup, restore, rollback and host-loss recovery](../../deploy/private-dev/README.md#backup-restore-rollback-and-host-loss-recovery)
-and `deploy/private-dev/bin/{backup,verify,restore}-private-dev`.
+Owner: [Rollback and host-loss recovery](../../deploy/private-dev/README.md#rollback-and-host-loss-recovery).
 
-Proven end to end on 2026-09-19 (#44, PR #166):
+Private dev keeps no backup since 2026-11-09
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)); backups,
+restore and their rehearsals exist only in
+[public production](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate).
+The retired private-dev backup, isolated restore and rollback assessment were proven on
+2026-09-19 (#44, PR #166); that evidence no longer describes a current procedure.
 
-1. `backup-private-dev` on `vgpdev` dumped `videogame_platform` and
-   `videogame_keycloak`, encrypted both to the owner's public key (private key never on
-   the host), wrote the manifest and `SHA256SUMS`, self-verified and applied retention.
-2. `verify-private-dev-backup` passed on the host, and again after the backup was
-   copied off-host. Copying it off the host is a manual owner step; it is what makes the
-   backup "outside the host".
-3. `restore-private-dev` rebuilt a clean volume in a distinct Compose project on an
-   Ubuntu 24.04 WSL2 machine, bootstrapped roles from the protected files, restored
-   both dumps and verified: Flyway schema version, presence of `catalogue.game` and
-   `catalogue.game_release`, the `videogame-platform` realm and its account count.
-4. Keycloak and the deployed application image started healthy against the restored
-   state; readiness returned `UP`; `GET /api/v1/releases` served restored catalogue
-   data; the realm exposed its OIDC discovery document.
-5. The rehearsal project was destroyed with
-   `docker compose ... --project-name <isolated-project> down --volumes`.
+Rollback versus forward fix: an applied migration is never reverted. Redeploy an older
+digest only while it is schema-compatible; otherwise fix forward on `main`. Every real
+`vgpdev` recovery so far was a forward fix (#144–#149, #166, #170); redeploying an older
+digest as a rollback has **not** been exercised.
 
-Verification scope, stated precisely:
-
-- Identity mapping: proven through the restored Keycloak realm and accounts. Product
-  `UserId` values are the `(issuer, subject)` pair ([ADR-0007](../decisions/0007-use-keycloak-as-the-initial-identity-provider.md)), so the Keycloak database is part of the
-  irreplaceable state and is always dumped with the application database.
-- Product-owned curation and application state: proven through the schema version and
-  catalogue tables; the dump is a complete logical copy of `videogame_platform`.
-- Ratings: included in the application dump because it is a complete logical copy of
-  `videogame_platform`, but ratings-specific continuity after a restore has **not**
-  been exercised and is not claimed as proven. #45 accepted the MVP without repeating
-  the rehearsal after ratings existed.
-
-Not backed up, by design: PostgreSQL roles and passwords, `runtime.env` and the
-secret files. A restore recreates roles from the protected files, so those files are
-themselves irreplaceable for a clean restore and must be preserved by the owner
-outside the host. This is a documented limitation, not a proven procedure.
-
-Destructive: `restore-private-dev --confirm-destroy-isolated-target` destroys the
-named isolated project's volumes only; it refuses the live project name. On a fresh
-host with no live stack, naming the live project as the isolated target is the
-recovery path described below.
-
-## Rollback versus forward fix
-
-Owner: [Rollback versus forward fix](../../deploy/private-dev/README.md#rollback-versus-forward-fix)
-and `deploy/private-dev/bin/assess-recovery-strategy`.
-
-Decision rule: an applied migration is never reverted. Run the assessment with the
-candidate image's packaged Flyway version and the live database:
-
-- `ROLLBACK`: the candidate is schema-compatible. Redeploy its digest with the normal
-  deployment command; the migration step finds nothing to apply.
-- `FORWARD_FIX`: the database is ahead and the intervening migrations are not
-  confirmed expand-only. Fix on `main`, publish, deploy the new digest.
-- `REFUSE`: inputs are inconsistent; do nothing until they are explained.
-
-Proven (#44): the assessment returned `ROLLBACK` for a previously successful image at
-the same Flyway version and `FORWARD_FIX` when the schema was ahead. Every real
-`vgpdev` recovery so far was a forward fix (#144–#149, #166, #170); an actual
-redeployment of an older digest as a rollback has **not** been exercised.
-
-## Host-loss recovery
-
-Owner: [Host foundation](../../deploy/private-dev/README.md#host-foundation)
-and [Host-loss recovery](../../deploy/private-dev/README.md#host-loss-recovery).
-
-The flow composes owned steps: rebuild the host foundation, prepare the runtime and
-protected files, restore the latest verified backup with `--host-loss-recovery` and a
-current deletion-ledger copy, which replays every erasure before any deployment can
-start, provision the smoke account, deploy the last-good digest, record the outcome.
-The host-loss mode, its refusals and the deployment block are proven only offline
-(`scripts/test-private-dev-backup-recovery.sh`, `scripts/test-private-dev-deployment.sh`);
-a real host-loss restore with replay has **not** been exercised.
-
-Accepted evidence boundary (owner decision on #44, 2026-09-19): the restore-and-run
-part was proven on a compatible Ubuntu 24.04 environment. Physical-host provisioning,
-boot-time systemd behaviour, OpenSSH/Tailscale setup, Tailscale Serve and the official
-`deploy-private-dev` smoke were deliberately not re-run for recovery and remain
-limitations, not claims. The original host preparation itself is proven once (#124,
-#43).
+Host loss: rebuild the [host foundation](../../deploy/private-dev/README.md#host-foundation),
+deploy the last-good digest, re-provision the smoke account and identity configuration, and
+resynchronize the catalogue. Accounts and ratings are lost. **Not exercised.**
 
 ## Secret rotation
 
 **Not exercised.** No credential, client secret, Keycloak admin password, IGDB
-credential or backup key has been rotated on `vgpdev` since creation. The
+credential has been rotated on `vgpdev` since creation. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
 states the constraint (replacing a file does not rotate an already-created PostgreSQL
 role or imported Keycloak client; the owning service state and the file must change
 as one reviewed operation), but there is no proven sequence. Do not improvise one
-during an incident: open an issue, rehearse on the isolated restore project first,
+during an incident: open an issue, rehearse on a disposable local stack first,
 and add the procedure here after it has run.
 
 ## Incident handling
@@ -910,16 +847,15 @@ issue or chat.
 
 | Symptom | Seen | Contain and restore | Evidence to collect |
 |---|---|---|---|
-| Deployment records `failure` at a smoke phase while the candidate answers | Yes: CSRF logout `403` behind Tailscale Serve (PR #170); OIDC profile and metric-order failures (#146–#149) | Leave the previous or candidate container as is; run the assessment; fix forward on `main` and redeploy. | Evidence JSON (phase, completed checks), smoke output with Problem Details, `docker compose logs application`, correlation id |
-| Deployment stops at the migration phase | Not yet on `vgpdev` | Nothing was activated. Diagnose from the migration actor output; fix forward. Never edit an applied migration. | Migration actor output, current `flyway_schema_history` version from the assessment |
-| Restore verifier fails on a real backup | Yes: verifier checked non-existent `public.*` tables (PR #166) | The live stack was untouched; fix the tool, rerun the isolated restore. | Restore output, backup id, manifest |
-| Releases page shows `CATALOGUE_NOT_READY` | Expected after a clean restore/deploy without a sync | Not an incident; run a synchronization when catalogue data is wanted. | `GET /api/v1/releases` response |
+| Deployment records `failure` at a smoke phase while the candidate answers | Yes: CSRF logout `403` behind Tailscale Serve (PR #170); OIDC profile and metric-order failures (#146–#149) | Leave the previous or candidate container as is; compare migration versions; fix forward on `main` and redeploy. | Evidence JSON (phase, completed checks), smoke output with Problem Details, `docker compose logs application`, correlation id |
+| Deployment stops at the migration phase | Not yet on `vgpdev` | Nothing was activated. Diagnose from the migration actor output; fix forward. Never edit an applied migration. | Migration actor output, current `flyway_schema_history` version |
+| Releases page shows `CATALOGUE_NOT_READY` | Expected after a clean deploy without a sync | Not an incident; run a synchronization when catalogue data is wanted. | `GET /api/v1/releases` response |
 | Synchronization reports failure or partial success | Not yet on `vgpdev` | Local reads keep serving the previous publication. Read the last run, fix credentials or wait out the provider, rerun the same interval (idempotent). | Last-run report, `catalogue.synchronization.*` meters, application log outcome code |
 | Login loops locally after a fresh `.env` | Yes, locally | Documented in [local setup](local-setup.md#disposable-reset). | `local-dependencies.sh verify` output |
-| Host unreachable or storage lost | Not yet | Host-loss recovery above. | Latest verified off-host backup id |
+| Host unreachable or storage lost | Not yet | [Private-dev recovery](#private-dev-recovery): rebuild and redeploy; data is not recovered. | Host and disk state, last-good digest |
 
 Record: for a deployment, the JSON evidence file; for a recovery or acceptance, an
-issue comment in the form used on #44 and #45 (what was proven, the backup id,
+issue comment in the form used on #44 and #45 (what was proven, the
 digest, migration version and outcome, and the explicit evidence limitation). Open a
 follow-up issue when a cause remains unresolved or corrective work is still needed.
 
@@ -1051,14 +987,14 @@ recovery point, verifies each one and records a receipt with the ledger's SHA-25
 stops without changes if the target derives a different `UserId`, which means the
 issuer changed. Two paths run it:
 
-- `restore-private-dev --deletion-ledger <current copy>` replays as part of the restore,
-  in a rehearsal or a host-loss recovery, and puts the receipt in the restore evidence.
-  Host-loss recovery requires it, blocks every deployment from before the restore until
-  the replay is verified, and offers `--resume-deletion-replay` when only the replay
-  failed ([private-dev procedure](../../deploy/private-dev/README.md#host-loss-recovery)).
-- From the workstation, against a restored project whose Keycloak already runs:
-  `personal-data-ledger … --host-command "<restored-project host command>" replay
-  --receipt <private-dir>/replay-<project>-<date>.json`.
+- Production recovery replays as part of a restore; the
+  [production recovery commands](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+  own it.
+- From the workstation, against a restored runtime whose Keycloak already runs:
+  `personal-data-ledger … --host-command "<restored runtime host command>" replay
+  --receipt <private-dir>/replay-<runtime>-<date>.json`.
+
+Private dev keeps no backup, so it never needs a replay.
 
 Start the application only after a verified replay. An entry still incomplete in the
 ledger is then finished with `retry` against the live runtime.

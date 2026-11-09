@@ -4,7 +4,7 @@
 
 Runs where the runtime is (the private-dev host or a disposable gate) and keeps no state: the
 owner's personal-data-ledger drives it, records every step before and after it runs, and replays
-the recorded erasures after a restore. Accounts are addressed only by their Keycloak user ID; the
+the recorded erasures after a production restore. Accounts are addressed only by their Keycloak user ID; the
 product UserId is derived from the exact OIDC issuer the application uses, as the BFF does.
 
 Every command prints one JSON object. `export` and the restricted archive read commands
@@ -20,7 +20,6 @@ import datetime
 import hashlib
 import importlib.machinery
 import importlib.util
-import ipaddress
 import json
 import pathlib
 import re
@@ -36,7 +35,6 @@ sys.dont_write_bytecode = True
 
 repository_root = pathlib.Path(__file__).resolve().parents[3]
 compose_file = repository_root / "deploy/private-dev/compose.yaml"
-rehearsal_override = repository_root / "deploy/private-dev/compose.restore-rehearsal.yaml"
 # Connection handling and the admin client stay owned by the existing Keycloak commands.
 _loader = importlib.machinery.SourceFileLoader(
     "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
@@ -499,12 +497,10 @@ STEPS = {
 }
 
 
-def compose_command(env_file: pathlib.Path, project: str, live_project: str) -> list[str]:
-    command = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file)]
-    if project != live_project:
-        command += ["--file", str(rehearsal_override)]
+def compose_command(env_file: pathlib.Path, project: str) -> list[str]:
     # The application service sits behind the profile that deployments select.
-    return command + ["--project-name", project, "--profile", "application"]
+    return ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file),
+            "--project-name", project, "--profile", "application"]
 
 
 def compose_container(compose: list[str], service: str) -> str | None:
@@ -534,31 +530,14 @@ def compose_issuer(compose: list[str]) -> str:
     return issuer
 
 
-def loopback_origin(value: str) -> str:
-    parsed = urllib.parse.urlparse(value)
-    try:
-        loopback = parsed.hostname is not None and ipaddress.ip_address(parsed.hostname).is_loopback
-    except ValueError:
-        loopback = False
-    if parsed.scheme != "http" or not loopback or not parsed.port or parsed.path not in ("", "/"):
-        raise ProvisioningError("--keycloak-origin must be a loopback origin such as http://127.0.0.1:<port>")
-    return value.rstrip("/")
-
-
 def private_dev_runtime(arguments: argparse.Namespace) -> Runtime:
     env_file = arguments.private_dev_env_file.resolve(strict=True)
     origin, username, password = mail.private_dev_connection(env_file)
-    live_project = provisioning.parse_runtime_environment(env_file).get("COMPOSE_PROJECT_NAME", LIVE_PROJECT)
-    project = arguments.project or live_project
+    # Private-dev keeps no backups, so the live project is the only private-dev target.
+    project = provisioning.parse_runtime_environment(env_file).get("COMPOSE_PROJECT_NAME", LIVE_PROJECT)
     if not PROJECT_NAME.fullmatch(project):
-        raise ProvisioningError("--project must be a lower-case Compose project name")
-    if arguments.keycloak_origin:
-        # Restores reach Keycloak on its loopback port: an isolated project publishes only that,
-        # and a rebuilt host may not serve the private HTTPS origin yet.
-        origin = loopback_origin(arguments.keycloak_origin)
-    elif project != live_project:
-        raise ProvisioningError("A restored project needs --keycloak-origin")
-    compose = compose_command(env_file, project, live_project)
+        raise ProvisioningError("COMPOSE_PROJECT_NAME must be a lower-case Compose project name")
+    compose = compose_command(env_file, project)
     postgres = compose_container(compose, "postgres")
     if not postgres:
         raise ProvisioningError(f"PostgreSQL is not running in project {project}")
@@ -606,8 +585,6 @@ def main() -> int:
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--private-dev-env-file", type=pathlib.Path, help="Protected private-dev runtime.env")
     target.add_argument("--origin", help="Keycloak origin of a disposable runtime (tests)")
-    parser.add_argument("--project", help="Compose project; a restored one instead of the live project")
-    parser.add_argument("--keycloak-origin", help="Loopback Keycloak origin; required for a restored project")
     parser.add_argument("--admin-username", help="With --origin")
     parser.add_argument("--admin-password-file", type=pathlib.Path, help="With --origin")
     parser.add_argument("--issuer", help="With --origin: the application's exact OIDC issuer")
@@ -633,8 +610,6 @@ def main() -> int:
         canonical_uuid(arguments.user_id, "--user-id")
     if arguments.command in STEPS and arguments.user_id is None:
         parser.error(f"{arguments.command} requires --user-id")
-    if arguments.origin and (arguments.project or arguments.keycloak_origin):
-        parser.error("--project and --keycloak-origin apply only to --private-dev-env-file")
 
     runtime = explicit_runtime(arguments) if arguments.origin else private_dev_runtime(arguments)
     if arguments.command == "cleanup-candidates":

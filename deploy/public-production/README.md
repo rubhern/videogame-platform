@@ -132,7 +132,7 @@ falls back to a tag, failed run, expired publication or locally built image.
 
 The source fingerprint includes runtime configuration, mounted wrappers/bootstrap and
 model policy, using actual file bytes and executable modes. The same inventory also
-covers imported privacy/ledger/archive/admin code, backup-common, Grafana reader SQL,
+covers imported privacy/ledger/archive/admin code, the backup crypto library, Grafana reader SQL,
 mounted dashboards/datasources, startup/notification scripts and alert templates,
 and the deployment verifier and its trust client. It also includes
 `scripts/provision-grafana-reader.sh`, its production validation prerequisite

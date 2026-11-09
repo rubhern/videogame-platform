@@ -23,7 +23,7 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[3]
-COMMON = ROOT / 'deploy/private-dev/lib/backup-common.sh'
+COMMON = ROOT / 'deploy/public-production/lib/backup-crypto.sh'
 ISSUER = 'https://auth.gameometro.com/realms/gameometro'
 DATABASES = ('videogame_platform', 'videogame_keycloak')
 ROLES = ('videogame_app', 'videogame_app_migrator', 'videogame_keycloak', 'videogame_grafana')
@@ -127,7 +127,7 @@ def verify(backup):
 
 
 def crypto(function, source, destination, keyring, recipient=''):
-    # Reuse the existing security primitive, without its private-dev manifest/retention assumptions.
+    # The shared encryption primitive; manifests, checksums and retention stay in this command.
     run(['bash', '-c', 'source "$1"; "$2" "$3" "$4" "$5" "$6"',
          'recovery', COMMON, function, source, destination, keyring, recipient])
 

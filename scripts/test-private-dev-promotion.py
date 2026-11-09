@@ -568,7 +568,8 @@ class ContractTests(unittest.TestCase):
                      "docker/postgres/init/001-create-databases.sh",
                      "tools/catalogue-localization/models.json", "tools/catalogue-localization/compose.yaml",
                      "tools/catalogue-localization/Dockerfile", "tools/catalogue-localization/runtime-requirements.txt",
-                     "tools/catalogue-localization/helper.py", "scripts/private_dev_promotion.py"):
+                     "tools/catalogue-localization/helper.py", "scripts/private_dev_promotion.py",
+                     "deploy/public-production/keycloak/abuse.env"):
             with self.subTest(path=path):
                 self.assertTrue(policy.is_deployment_contract(path))
 

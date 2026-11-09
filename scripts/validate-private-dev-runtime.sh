@@ -358,7 +358,7 @@ require(
     == f"{configured_application_origin}/login/oauth2/code/keycloak",
     "APPLICATION_OIDC_REDIRECT_URI must be the configured application origin plus the Keycloak callback path",
 )
-require(application_oidc["APPLICATION_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
+require(application_oidc["PLATFORM_HTTPSECURITY_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
 require(
     application_oidc.get("SERVER_FORWARD_HEADERS_STRATEGY") == "NATIVE",
     "application must resolve the external HTTPS scheme through Tomcat's peer-restricted RemoteIpValve (SERVER_FORWARD_HEADERS_STRATEGY=NATIVE)",
@@ -389,6 +389,23 @@ require(
     application_oidc["OIDC_USER_INFO_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
     "OIDC user-info URI must use Keycloak's internal service endpoint",
 )
+# Production parity: only infrastructure, the daily synchronization, backups and lifecycle differ.
+repository_root = pathlib.Path(sys.argv[2])
+production_keycloak_policy = dict(
+    line.split("=", 1)
+    for line in (repository_root / "deploy/public-production/keycloak/abuse.env").read_text(encoding="utf-8").splitlines()
+    if line and not line.startswith("#")
+)
+keycloak_environment = services["keycloak"]["environment"]
+for name, value in production_keycloak_policy.items():
+    require(keycloak_environment.get(name) == value, f"Keycloak {name} must equal the production runtime policy")
+require(keycloak_environment.get("KC_LOG_LEVEL") == "info", "Keycloak must log at production's info level")
+require(keycloak_environment.get("KC_HTTP_ACCESS_LOG_ENABLED") == "false", "Keycloak access logging must stay off as in production")
+require(application_oidc.get("SPRING_PROFILES_ACTIVE", "").startswith("oidc,structured"),
+        "application must run production's oidc,structured profiles")
+synchronization = {name: value for name, value in application_oidc.items() if name.startswith("CATALOGUE_SYNC_")}
+require(synchronization == {"CATALOGUE_SYNC_SCHEDULING_ENABLED": "true", "CATALOGUE_SYNC_NEAR_TERM_CRON": "-"},
+        f"private-dev must run only the weekly synchronization on production's defaults: {synchronization}")
 assert services["migration"]["environment"] == {
     "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
     "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
@@ -463,7 +480,6 @@ for personal_data_command in personal-data personal-data-ledger; do
     "$repository_root/deploy/private-dev/bin/$personal_data_command"
 done
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
-  bash "$repository_root/scripts/test-private-dev-backup-recovery.sh"
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
     "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs" \

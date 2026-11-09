@@ -218,7 +218,9 @@ services = {
         "unless-stopped",
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
-        environment={"KC_HOSTNAME": keycloak_origin},
+        environment={"KC_HOSTNAME": keycloak_origin, "KC_LOG_LEVEL": "info", "KC_HTTP_ACCESS_LOG_ENABLED": "false",
+                     **dict(line.split("=", 1) for line in (repository / "deploy/public-production/keycloak/abuse.env")
+                            .read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))},
         networks={"edge": None, "data": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
         volumes=[{
@@ -257,12 +259,15 @@ services = {
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
         {
             "APPLICATION_FLYWAY_ENABLED": "false",
+            "SPRING_PROFILES_ACTIVE": "oidc,structured",
+            "CATALOGUE_SYNC_SCHEDULING_ENABLED": "true",
+            "CATALOGUE_SYNC_NEAR_TERM_CRON": "-",
             "CATALOGUE_TRANSLATION_ENDPOINT": "http://catalogue-localizer:8092/translate",
             "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
             "APPLICATION_SESSION_COOKIE_SECURE": "true",
             "APPLICATION_PUBLIC_ORIGIN": application_public_origin,
             "APPLICATION_OIDC_REDIRECT_URI": f"{application_origin}/login/oauth2/code/keycloak",
-            "APPLICATION_HSTS_ENABLED": "true",
+            "PLATFORM_HTTPSECURITY_HSTS_ENABLED": "true",
             "SERVER_FORWARD_HEADERS_STRATEGY": "NATIVE",
             "OIDC_ISSUER_URI": issuer_uri,
             "OIDC_AUTHORIZATION_URI": f"{keycloak_origin}/realms/videogame-platform/protocol/openid-connect/auth",
@@ -673,25 +678,5 @@ FAKE_TELEMETRY_STATE="$temporary_directory/telemetry-state" \
   printf 'Host telemetry smoke invoked Node.js.\n' >&2
   exit 1
 }
-
-# A host-loss restore waiting for its deletion-ledger replay blocks every deployment before
-# any container work, and the block lifts with the marker.
-: >"$command_log"
-blocked_evidence="$temporary_directory/blocked-evidence"
-mkdir -p "$blocked_evidence"
-printf 'backup=synthetic\n' >"$blocked_evidence/DELETION-REPLAY-PENDING"
-if blocked_output="$(run_deployment success "$blocked_evidence" 2>&1)"; then
-  printf 'A deployment proceeded while a deletion-ledger replay was pending.\n' >&2
-  exit 1
-fi
-grep -Fq 'waiting for its deletion-ledger replay' <<<"$blocked_output" || {
-  printf 'The pending-replay refusal did not explain itself:\n%s\n' "$blocked_output" >&2
-  exit 1
-}
-[[ ! -s "$command_log" ]] || {
-  printf 'A blocked deployment still ran Docker commands:\n%s\n' "$(cat "$command_log")" >&2
-  exit 1
-}
-assert_lock_released
 
 printf 'Private-dev deployment orchestration validation passed.\n'

@@ -8,7 +8,9 @@ post-MVP direction, alongside its architecture and technical-leadership learning
 
 ## Current phase
 
-The learning MVP is implemented, accepted in private `dev`, and tagged `v0.1.0`.
+The learning MVP is implemented, accepted in private `dev`, and tagged `v0.1.0`; the
+product is released as `v1.0.0`, with local and private `dev` aligned to production by
+[ADR-0037](docs/decisions/0037-align-local-and-private-dev-with-production.md).
 Current work is post-MVP evolution and maintenance tracked in GitHub Issues. Preserve
 the approved MVP, domain, application, solution, platform, technology, API, delivery,
 and diagram decisions; a change to any of them needs an explicit owner decision and

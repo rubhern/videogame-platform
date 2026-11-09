@@ -171,7 +171,7 @@ for path in "${changed_paths[@]}"; do
       enable production_runtime
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py | scripts/test-private-dev-account-deletion-runner.py | scripts/test-account-deletion*.py)
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/fixtures/private-dev-identity/* | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py | scripts/test-private-dev-account-deletion-runner.py | scripts/test-account-deletion*.py)
       # The production realm and its BFF contract are proven only by the real Keycloak identity gate.
       enable identity
       matched=true
@@ -209,11 +209,11 @@ for path in "${changed_paths[@]}"; do
       enable documentation build backend migrations identity container dependency_images
       matched=true
       ;;
-    deploy/private-dev/lib/backup-common.sh | deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger | deploy/private-dev/lib/personal_data_cloud.py | deploy/private-dev/lib/personal_data_archive.py | scripts/test-personal-data-cloud.py)
+    deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger | deploy/private-dev/lib/personal_data_cloud.py | deploy/private-dev/lib/personal_data_archive.py | scripts/test-personal-data-cloud.py)
       enable documentation build backend migrations identity container production_runtime
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-account-deletion.py | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-account-deletion.py | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;
@@ -257,7 +257,7 @@ for path in "${changed_paths[@]}"; do
       enable frontend codeql_javascript
       matched=true
       ;;
-    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts | frontend/tests/production-identity.spec.ts | frontend/tests/remember-me.spec.ts)
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts | frontend/tests/production-identity.spec.ts | frontend/tests/remember-me.spec.ts | frontend/tests/fixtures/registration.ts)
       # These journeys run only inside the real Keycloak identity gate.
       enable frontend browser identity codeql_javascript
       matched=true
