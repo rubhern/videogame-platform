@@ -171,7 +171,8 @@ class Exercise:
         secret_dir.mkdir(mode=0o750)
         names = ['postgres-admin-password', 'application-db-password', 'application-migration-db-password',
                  'keycloak-db-password', 'keycloak-admin-password', 'keycloak-bff-client-secret',
-                 'keycloak-smtp-username', 'keycloak-smtp-password', 'igdb-client-id', 'igdb-client-secret']
+                 'keycloak-smtp-username', 'keycloak-smtp-password', 'igdb-client-id', 'igdb-client-secret',
+                 'feedback-smtp-username', 'feedback-smtp-password']
         for name in names:
             path = secret_dir / name
             path.write_text('' if name.startswith('igdb-') else secrets.token_hex(24))

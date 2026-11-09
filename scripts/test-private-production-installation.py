@@ -406,7 +406,11 @@ class Contracts(unittest.TestCase):
             scope.enter_context(patch.object(prepare.integration, 'resolve', return_value=selected))
             scope.enter_context(patch.object(prepare.integration, 'verify_local_docker'))
             scope.enter_context(patch.object(prepare, 'registry_images', side_effect=registry))
-            receipt = prepare.prepare(bundle, install.ROOT / 'deploy/public-production/runtime.env.example', install.TLS)
+            candidate_runtime = Path(tmp) / 'runtime.env'
+            candidate_runtime.write_bytes(subprocess.run(
+                ['git', 'show', f'{prepare.REVISION}:deploy/public-production/runtime.env.example'],
+                capture_output=True, check=True).stdout)
+            receipt = prepare.prepare(bundle, candidate_runtime, install.TLS)
             scope.enter_context(patch.object(install, 'ADMIN', Path(tmp) / 'admin'))
             scope.enter_context(patch.object(install, 'JOURNAL', Path(tmp) / 'admin/first-install'))
             scope.enter_context(patch.object(install, 'secure'))

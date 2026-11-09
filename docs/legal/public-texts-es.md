@@ -1,10 +1,10 @@
 # Gameómetro: textos legales aprobados
 
-- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision.
+- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision.
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
 - **Scope:** Approved wording for a public, free, non-commercial, adult-only service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
-These Spanish texts are the canonical owner-approved source for public legal pages.
+These Spanish texts are the canonical source for public legal pages. The feedback additions require approval before public activation.
 Publish only the corresponding public sections through product routes; do not expose
 this combined source document or the editorial checklist at the end. The
 [publication checklist and integration plan](../development/data-protection.md#publication-and-product-integration)
@@ -84,6 +84,13 @@ Las solicitudes de ejercicio de derechos y la gestión de brechas de datos
 personales se atienden para cumplir obligaciones legales (artículo 6.1.c RGPD).
 No envíes contraseñas, códigos de recuperación ni documentación personal innecesaria.
 
+Si usas el formulario de contacto, Rubén recibe el motivo y el mensaje para
+revisar tu comentario. Puedes dejar una dirección de correo si quieres que pueda
+responderte. Puedes enviarlo sin una cuenta. El formulario no vincula tu mensaje
+a una cuenta ni adjunta información de diagnóstico. Para consultas generales y
+sugerencias nos basamos en nuestro interés legítimo en atender lo que nos
+comunicas y mejorar el servicio.
+
 ### Destinatarios y transferencias internacionales
 
 La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL,
@@ -91,9 +98,11 @@ alojados bajo el control del titular. Los proyectos que desarrollan ese software
 reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el
 alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de
 copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para
-los mensajes transaccionales de verificación y recuperación. Estos mensajes incluyen
-tu dirección de email, el contenido necesario y datos de entrega; no son boletines
-ni publicidad.
+los mensajes transaccionales de verificación y recuperación. Esos mensajes
+incluyen tu dirección de correo, el contenido necesario y datos de entrega.
+Cuando se habilite el formulario de contacto, el servicio de correo tramitará
+también tus mensajes al buzón del titular. Solo incluirán tu dirección si la
+escribes en el formulario. Ninguno de estos mensajes se usa para publicidad.
 
 Las copias de seguridad cifradas se almacenan separadas del servidor de producción.
 La información legal restringida y los registros necesarios para acreditar borrados
@@ -160,6 +169,12 @@ Free, y mantiene contactos y plantillas durante la vida de la cuenta. No creamos
 listas de contactos para publicidad. Ese plazo no equivale al de todos los datos de
 entrega SMTP o del CDN; puedes pedir los plazos o criterios aplicables en el contacto
 indicado.
+
+La aplicación no guarda una copia de tu mensaje. En el buzón,
+conservamos el contenido y el correo opcional mientras sean necesarios para
+revisar el aviso y resolver la consulta. Después, eliminamos lo que ya no haga
+falta, salvo los datos que debamos conservar para cumplir una obligación legal
+o atender una reclamación.
 
 El registro mínimo para impedir que una copia restaure datos borrados se conserva
 mientras existan copias capaces de recuperarlos, al menos 35 días tras completar el

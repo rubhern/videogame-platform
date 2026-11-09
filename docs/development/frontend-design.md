@@ -375,7 +375,7 @@ return every header surface to system colours.
   contrast on their actual surface. Prefer `muted` on controls and overlays; reserve `subtle`
   for quiet text on `canvas` or `surface` where its contrast remains at least 4.5:1.
 - Identifiers a person may have to repeat — currently the support correlation reference — stay
-  monospaced in IBM Plex Mono, the only use of a mono face, and keep their exact casing. Never
+  monospaced in IBM Plex Mono and keep their exact casing. Never
   case-transform them for style.
 
 ## Transactional email presentation
@@ -701,12 +701,23 @@ with the identity a little below their titles, and beneath the identity on narro
 closing lines stand on a deeper night floor instead of behind a divider, with a faint ice glint
 along its top edge: `© <current year> Gameómetro` beside **Datos de videojuegos: IGDB**, whose
 underlined link opens IGDB, and then the signature *Ideado, desarrollado y mantenido por Rubén
-Hernández* as the last line. Those are the footer's only fire and its only ornament. The legal
-documents and **Contacto** follow the
-[legal publication gate](data-protection.md#publication-and-product-integration), so production
-shows the identity and the closing lines alone until then. **Sobre Gameómetro** links to
-`/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
-not found.
+Hernández* as the last line. Those are the footer's only fire and its only ornament. The **Gameómetro** column links to **Sobre Gameómetro** and **Contacto y
+sugerencias**. The **Legal** column links to the
+[approved legal pages](data-protection.md#publication-and-product-integration).
+
+## About and contact
+
+Post-MVP (#383, implemented for review), **Sobre Gameómetro** uses a single reading
+column, a small brand mark, numbered editorial sections and one closing action to
+contact the owner. The owner's Spanish story lives in
+[the About content module](../../frontend/src/features/about/about-content.ts).
+The owner-approved orange emphasis marks the community nickname and the closing
+game quote. The quote uses IBM Plex Mono and follows the contact action at the end
+of the article.
+**Contacto y sugerencias** uses the same reading column with labelled native form
+controls and a single status announcement. The game sheet's missing-release notice
+offers the same form with the data-correction category selected. See
+[UC-022](../architecture/application/mvp-use-cases.md#visitor-feedback-uc-022-post-mvp-383).
 
 ## Home
 

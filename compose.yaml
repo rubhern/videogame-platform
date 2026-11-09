@@ -81,7 +81,7 @@ services:
     extends:
       file: ./deploy/private-dev/compose.mail.yaml
       service: mailpit
-    # Keycloak reaches SMTP on the project network; only the UI is published, on loopback.
+    # Keycloak and the packaged application reach SMTP on the project network; only the UI is published, on loopback.
     ports:
       - "127.0.0.1:8025:8025"
 
@@ -106,6 +106,13 @@ services:
     environment:
       # Mandatory packaged runtime profile (host default leaves this empty).
       SPRING_PROFILES_ACTIVE: oidc
+      FEEDBACK_ENABLED: "true"
+      FEEDBACK_SMTP_HOST: mailpit
+      FEEDBACK_SMTP_PORT: 1025
+      FEEDBACK_SMTP_AUTH: "false"
+      FEEDBACK_SMTP_STARTTLS: "false"
+      FEEDBACK_FROM: gameometro@example.invalid
+      FEEDBACK_INBOX: feedback@example.invalid
       # Container network addresses instead of host loopback.
       APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
       APPLICATION_MIGRATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform

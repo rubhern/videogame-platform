@@ -63,7 +63,7 @@ helper, adding loopback access for a host/IDE backend and container wiring for `
 | PostgreSQL | `127.0.0.1:5432` | Separate application and Keycloak databases/roles |
 | Keycloak | `http://localhost:8180` | Development-mode OIDC provider |
 | Keycloak management | `127.0.0.1:9000` | Local health and metrics |
-| Mailpit web UI and API | `http://127.0.0.1:8025` | Captured recovery email; its SMTP port is reachable only by Keycloak on the Compose network |
+| Mailpit web UI and API | `http://127.0.0.1:8025` | Captured recovery and feedback email; SMTP is reached over the Compose network |
 | Application (`full` only) | `http://localhost:8080` | Frontend + BFF/API + modular monolith |
 | Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
 | Grafana (optional) | `http://127.0.0.1:3000` | Authenticated dashboards; no SSH tunnel needed locally |

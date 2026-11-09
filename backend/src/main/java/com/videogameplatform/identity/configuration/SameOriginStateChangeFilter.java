@@ -23,6 +23,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
 
     private static final String FETCH_SITE_HEADER = "Sec-Fetch-Site";
 
+    private static final String FEEDBACK_PATH = "/api/v1/feedback";
+
     private static final String PERSONAL_API_PATH = "/api/v1/me/";
 
     private static final String ADMINISTRATION_API_PATH = "/api/v1/admin/";
@@ -44,7 +46,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !isPersonalApi(request)
                 && !isAdministrationApi(request)
-                && !isSessionMutation(request);
+                && !isSessionMutation(request)
+                && !isFeedbackSubmission(request);
     }
 
     @Override
@@ -83,8 +86,14 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
                         .equals(request.getRequestURI());
     }
 
+    static boolean isFeedbackSubmission(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && (request.getContextPath() + FEEDBACK_PATH).equals(request.getRequestURI());
+    }
+
     private static boolean isStateChange(HttpServletRequest request) {
         return isSessionMutation(request)
+                || isFeedbackSubmission(request)
                 || (isPersonalApi(request)
                         && (HttpMethod.POST.matches(request.getMethod())
                                 || HttpMethod.PUT.matches(request.getMethod())

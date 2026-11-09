@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit visitor feedback
+         * @description Anonymous JSON command with no query parameters. Cookies and identity are irrelevant.
+         *     Cross-origin browser requests are rejected. The JSON request is limited to 32 KiB.
+         *     A 204 means the configured SMTP receiver accepted the message, not that it reached
+         *     an inbox or was read. The client never replays automatically. If acceptance is
+         *     unconfirmed after a timeout or connection loss, a manual retry may send a second copy.
+         */
+        post: operations["submitFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -941,6 +965,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        FeedbackSubmission: {
+            /** @enum {string} */
+            category: "suggestion" | "bug" | "incorrect_game_information" | "other";
+            /** @description Plain text with at least one non-whitespace character. No attachments. */
+            message: string;
+            /**
+             * Format: email
+             * @description Optional single ASCII email address with a dot-atom local part and a fully qualified DNS domain. Omit when absent.
+             */
+            email?: string;
+        };
         PrivateProfile: {
             name?: string;
             email?: string;
@@ -2204,7 +2239,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -3068,6 +3103,80 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    submitFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "category": "suggestion",
+                 *       "message": "Me gustaría ver más juegos cooperativos."
+                 *     }
+                 */
+                "application/json": components["schemas"]["FeedbackSubmission"];
+            };
+        };
+        responses: {
+            /** @description The configured SMTP receiver accepted the message. */
+            204: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["MalformedRequest"];
+            /** @description Cross-origin browser metadata was rejected before any send. */
+            403: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            406: components["responses"]["NotAcceptable"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            /** @description Unsupported query or property, blank message or invalid field. */
+            422: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            /**
+             * @description The receiving channel is unavailable or SMTP acceptance could not be confirmed
+             *     (FEEDBACK_UNAVAILABLE), or capacity or maintenance prevents sending. Wait at
+             *     least Retry-After seconds before a deliberate retry.
+             */
+            503: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    "Retry-After": components["headers"]["RetryAfter"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     getMyProfile: {
         parameters: {
             query?: never;

@@ -13,6 +13,7 @@
             "catalogue::details",
             "catalogue::preferences",
             "identity::application",
-            "ratings::application"
+            "ratings::application",
+            "feedback::application"
         })
 package com.videogameplatform.api;

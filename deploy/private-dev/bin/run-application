@@ -35,4 +35,9 @@ read_required_secret KEYCLOAK_BFF_CLIENT_SECRET "${KEYCLOAK_BFF_CLIENT_SECRET_FI
 read_optional_secret IGDB_CLIENT_ID "${IGDB_CLIENT_ID_FILE:?}"
 read_optional_secret IGDB_CLIENT_SECRET "${IGDB_CLIENT_SECRET_FILE:?}"
 
+if [ -n "${FEEDBACK_SMTP_USERNAME_FILE:-}" ] && [ "${FEEDBACK_ENABLED:-false}" = true ]; then
+  read_required_secret FEEDBACK_SMTP_USERNAME "$FEEDBACK_SMTP_USERNAME_FILE"
+  read_required_secret FEEDBACK_SMTP_PASSWORD "${FEEDBACK_SMTP_PASSWORD_FILE:?}"
+fi
+
 exec java -jar /application/application.jar

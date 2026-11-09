@@ -27,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -138,7 +139,7 @@ public class IdentitySecurityConfiguration {
                                         .anyRequest()
                                         .permitAll())
                 .requestCache(cache -> cache.disable())
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
+                .csrf(csrf -> configureCsrf(csrf, csrfTokens))
                 .addFilterBefore(new AccountDeletionFenceFilter(deletionStores), CsrfFilter.class)
                 .addFilterBefore(
                         new SameOriginStateChangeFilter(
@@ -261,6 +262,15 @@ public class IdentitySecurityConfiguration {
         }
 
         return http.build();
+    }
+
+    @SuppressWarnings("java:S4502")
+    private static void configureCsrf(
+            CsrfConfigurer<HttpSecurity> csrf, HttpSessionCsrfTokenRepository csrfTokens) {
+        // Feedback accepts no session authority and only JSON. Its exact POST matcher is also
+        // used by SameOriginStateChangeFilter to reject cross-origin browser submissions.
+        csrf.csrfTokenRepository(csrfTokens)
+                .ignoringRequestMatchers(SameOriginStateChangeFilter::isFeedbackSubmission);
     }
 
     @Bean
