@@ -244,7 +244,7 @@ class RolloutTests(unittest.TestCase):
         self.events = []
         self.failure = None
         self.actor = MagicMock()
-        self.actor.load.return_value = self.actor
+        self.actor.load.side_effect = lambda: self.event('load') or self.actor
         self.actor.bundle = self.root/'target-bundle'
         self.actor.plan.return_value = {'publishedPorts': [], 'prerequisites': {'noActiveWork': True, 'keycloakAdministratorAuthenticates': True},
                                        'planSha256': 'd'*64, 'target': {'version': '0.60.0', 'images': IMAGES, 'sourceRunId': '10', 'sourceRunAttempt': '1', 'securityRunId': '20'},
@@ -319,9 +319,29 @@ class RolloutTests(unittest.TestCase):
         self.assertLess(self.events.index('apply'), self.events.index('verify'))
         self.assertLess(self.events.index('cycle-lock'), self.events.index('backup'))
         self.assertGreater(len(self.events) - 1, self.events.index('verify'))
+        loads = [i for i, e in enumerate(self.events) if e == 'load']
+        self.assertTrue(self.events.index('apply') < loads[-1] < self.events.index('verify'))
         self.runtime.thaw.assert_not_called()
         self.cycle.capture.assert_not_called()
         self.actor.apply.assert_called_once()
+
+    def test_verification_uses_a_fresh_load_of_the_recorded_activation(self):
+        # The apply actor holds the pre-upgrade ACTIVE state; verifying with it compared live
+        # containers with the previous images (Deploy Production run 42595629782).
+        applied, verifier = MagicMock(), MagicMock()
+        applied.load.return_value, applied.bundle = applied, self.root/'target-bundle'
+        applied.verify.side_effect = AssertionError('verified with the stale apply actor')
+        verifier.load.side_effect = lambda: self.event('load') or verifier
+        verifier.verify.return_value = {'mode': 'verified', 'targetRevision': SHA,
+                                        'services': list(deploy.upgrade.PERSISTENT), 'optionalDegraded': []}
+        self.rollout().run('prepare')
+        actors = iter([applied, verifier])
+        with patch.object(deploy.upgrade, 'Upgrade', side_effect=lambda *a, **k: next(actors)):
+            self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        applied.apply.assert_called_once()
+        applied.verify.assert_not_called()
+        verifier.verify.assert_called_once()
+        verifier.apply.assert_not_called()
 
     def test_read_only_plan_never_stages_or_fences(self):
         self.assertEqual(self.rollout().run('plan')['outcome'], 'planned')
