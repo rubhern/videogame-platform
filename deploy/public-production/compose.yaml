@@ -146,7 +146,6 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_CACHE: local
-      KC_LOG_LEVEL: info
       KC_HTTP_ACCESS_LOG_ENABLED: "false"
       APPLICATION_PUBLIC_HOST: gameometro.com
       APPLICATION_PUBLIC_ORIGIN: https://gameometro.com

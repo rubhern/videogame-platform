@@ -82,10 +82,9 @@ try {
     const params=new URLSearchParams({client_id:'fixture',redirect_uri:origin+'/callback',response_type:'code',scope:'openid',state:'fixture'});
     await page.goto(realm+'/protocol/openid-connect/auth?'+params);
     await page.getByRole('link',{name:/^(Register|Crear cuenta)$/}).click();
-    await page.locator('#username').fill(index===1?'seed':'fixture'+index);
-    await page.locator('#email').fill('fixture'+index+'@example.invalid');
-    await page.locator('#firstName').fill('Fixture');
-    await page.locator('#lastName').fill('Test');
+    // The shared realm imports production's email-only registration; the first attempt reuses
+    // the seed account's address so the duplicate is rejected before any account is created.
+    await page.locator('#email').fill(index===1?'seed@example.invalid':'fixture'+index+'@example.invalid');
     // Keycloak 26.7 can defer password creation until after email verification.
     if(await page.locator('#password').count()) {
       await page.locator('#password').fill('fixture-password-123');
@@ -95,7 +94,7 @@ try {
     await page.getByRole('button',{name:/^(Register|Crear cuenta)$/}).click();
     if(index===1) {
       assert.equal(value(await metrics(),'register'),0,'Rejected registration cannot increment successful register');
-      await page.locator('#username').fill('fixture'+index);
+      await page.locator('#email').fill('fixture'+index+'@example.invalid');
       if(await page.locator('#password').count()) {
         await page.locator('#password').fill('fixture-password-123');
         await page.locator('#password-confirm').fill('fixture-password-123');
@@ -152,7 +151,7 @@ try {
   assert(adminToken.access_token);
   const adminCreated=await fetch(origin+'/admin/realms/videogame-platform/users',{
     method:'POST',headers:{Authorization:'Bearer '+adminToken.access_token,'Content-Type':'application/json'},
-    body:JSON.stringify({username:'admin-created',enabled:true,emailVerified:true})
+    body:JSON.stringify({username:'admin-created@example.invalid',email:'admin-created@example.invalid',enabled:true,emailVerified:true})
   });
   assert.equal(adminCreated.status,201);
   const lines=await metrics();
@@ -170,7 +169,8 @@ try {
   assert(scraped.every(sample=>(sample.metric.error ?? '')==='' && sample.metric.realm==='videogame-platform'));
   assert(scraped.every(sample=>Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))));
   const security=await query('keycloak_user_events_total{job="keycloak-security"}');
-  assert(security.some(sample=>sample.metric.event==='register' && sample.metric.error==='username_in_use'),
+  // With the email as username Keycloak may report the duplicate as either identifier.
+  assert(security.some(sample=>sample.metric.event==='register' && ['username_in_use','email_in_use'].includes(sample.metric.error)),
     'The separate security scrape must retain the rejected registration signal');
   assert(security.every(sample=>sample.metric.realm==='videogame-platform' &&
     Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))),
@@ -197,7 +197,7 @@ try {
   const oldIds=new Set(beforeMail.messages.map(m=>m.ID));
   await page.goto(auth);
   await page.locator('a[href*="reset-credentials"]').click();
-  await page.locator('#username').fill('fixture1');
+  await page.locator('#username').fill('fixture1@example.invalid');
   await page.locator('button[type="submit"], input[type="submit"]').click();
   const reset=await wait(async()=>{
     const body=await (await fetch('http://mailpit:8025/api/v1/messages')).json();
@@ -214,7 +214,7 @@ try {
   const loginContext=await browser.newContext();
   const loginPage=await loginContext.newPage();
   await loginPage.goto(auth);
-  await loginPage.locator('#username').fill('fixture1');
+  await loginPage.locator('#username').fill('fixture1@example.invalid');
   await loginPage.locator('#password').fill('fixture-reset-password-123');
   await loginPage.locator('button[type="submit"], input[type="submit"]').click();
   await loginPage.waitForURL(url=>url.pathname==='/callback'&&url.searchParams.has('code'));

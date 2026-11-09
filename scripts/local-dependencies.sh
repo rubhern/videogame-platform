@@ -176,6 +176,8 @@ create_backend_env_if_missing() {
     printf 'CATALOGUE_RELEASES_FRESHNESS_THRESHOLD=P7D\n'
     printf 'CATALOGUE_RELEASES_CACHE_CONTROL="public, max-age=60, stale-while-revalidate=300"\n'
     printf 'RATINGS_JDBC_OPERATION_TIMEOUT=5s\n'
+    printf 'CATALOGUE_SYNC_SCHEDULING_ENABLED=true\n'
+    printf 'CATALOGUE_SYNC_NEAR_TERM_CRON=-\n'
     printf 'CATALOGUE_TRANSLATION_ENDPOINT=http://127.0.0.1:8092/translate\n'
     printf 'CATALOGUE_TRANSLATION_TIMEOUT=30s\n'
     printf 'TELEMETRY_OTLP_TRACES_ENABLED=false\n'
@@ -389,7 +391,7 @@ SQL
   env_value KEYCLOAK_ADMIN_PASSWORD | keycloak_mail_configuration --check \
     || die "The realm does not send recovery mail through Mailpit; run the configure-mail command"
 
-  keycloak_session_configuration --check
+  keycloak_identity_configuration --check
 
   printf 'Runtime verification passed: PostgreSQL %s, Keycloak 26.7.x, health, database isolation, realm, confidential PKCE client, local user and Mailpit recovery mail.\n' "$postgres_version"
 }
@@ -401,7 +403,7 @@ keycloak_mail_configuration() {
     --admin-password-file /dev/stdin "$@"
 }
 
-keycloak_session_configuration() {
+keycloak_identity_configuration() {
   require_command python3
   local snapshot_directory="${XDG_STATE_HOME:-$HOME/.local/state}/videogame-platform/keycloak-identity"
   if [[ "${1:-}" != "--check" ]]; then
@@ -412,7 +414,7 @@ keycloak_session_configuration() {
   env_value KEYCLOAK_ADMIN_PASSWORD | python3 "$identity_configuration" \
     --origin "$(env_value KEYCLOAK_HOSTNAME)" \
     --admin-username "$(env_value KEYCLOAK_ADMIN_USERNAME)" \
-    --admin-password-file /dev/stdin --sessions-only --snapshot-dir "$snapshot_directory" "$@"
+    --admin-password-file /dev/stdin --snapshot-dir "$snapshot_directory" "$@"
 }
 
 command_name="${1:-}"
@@ -454,7 +456,7 @@ case "$command_name" in
     compose config --quiet
     # Rebuild from the cached layers so theme and email-copy changes reach Keycloak.
     compose up --detach --wait "${localization_wait_options[@]}" --build
-    keycloak_session_configuration
+    keycloak_identity_configuration
     printf 'PostgreSQL is available on 127.0.0.1:%s.\n' "$(env_value POSTGRES_PORT)"
     printf 'Keycloak is available at %s.\n' "$(env_value KEYCLOAK_HOSTNAME)"
     printf 'Mailpit captures recovery mail at http://127.0.0.1:8025.\n'
@@ -468,7 +470,7 @@ case "$command_name" in
     if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     # Startup import skips an existing realm. Reconcile session policy before the BFF starts.
     compose up --detach --wait --build postgres mailpit keycloak
-    keycloak_session_configuration
+    keycloak_identity_configuration
     if [[ "$with_account_deletion" == true ]]; then
       require_command gpg
       [[ "$(id -u)" != 0 ]] || die "Run synthetic account deletion as the workstation owner, not root"
@@ -546,9 +548,9 @@ case "$command_name" in
     ensure_compose_available
     require_env
     if [[ "$command_name" == check-identity ]]; then
-      keycloak_session_configuration --check
+      keycloak_identity_configuration --check
     else
-      keycloak_session_configuration
+      keycloak_identity_configuration
     fi
     ;;
   configure-mail)

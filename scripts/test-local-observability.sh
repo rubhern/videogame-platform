@@ -21,10 +21,10 @@ mkdir -p "$fixture/deploy/private-dev/bin"
 cat >"$fixture/deploy/private-dev/bin/configure-keycloak-identity" <<'IDENTITY'
 import os
 import sys
-assert "--sessions-only" in sys.argv and "--admin-password-file" in sys.argv
+assert "--sessions-only" not in sys.argv and "--admin-password-file" in sys.argv
 assert sys.stdin.read().strip()
 with open(os.environ["LOCAL_METRICS_COMMAND_LOG"], "a") as log:
-    log.write("identity --sessions-only\n")
+    log.write("identity\n")
 IDENTITY
 cat >"$temporary_directory/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
@@ -37,7 +37,7 @@ run() {
 }
 run up
 run application
-[[ "$(grep -c '^identity --sessions-only$' "$LOCAL_METRICS_COMMAND_LOG")" == 2 ]]
+[[ "$(grep -c '^identity$' "$LOCAL_METRICS_COMMAND_LOG")" == 2 ]]
 [[ ! -e "$fixture/.local-secrets" ]]
 ! grep -q 'compose.observability.yaml' "$LOCAL_METRICS_COMMAND_LOG"
 initial_env="$(sha256sum "$fixture/.env" "$fixture/backend/.env")"

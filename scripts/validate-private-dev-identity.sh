@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Proves the private-dev identity alignment and the explicit mail transports against a
-# disposable copy of the shared realm on an internal Docker network: PostgreSQL, the
+# disposable copy of the legacy private-dev realm on an internal Docker network: PostgreSQL, the
 # optimized private-dev Keycloak image over verified HTTPS, the plain Mailpit sink of the
 # realm import, and an authenticated STARTTLS Mailpit standing in for the real relay. No
 # provider is contacted and no local or private-dev configuration, secret or data is used.
@@ -141,7 +141,8 @@ docker exec --env PGPASSWORD="$keycloak_database_password" "$postgres_container"
     exit 1
   }
 
-# Like private-dev Compose, only the shared realm file is mounted: no synthetic user import.
+# The realm as private-dev held it before the production policy (frozen fixture; the shared
+# import now starts aligned), mounted alone like private-dev Compose: no synthetic user import.
 docker run --detach \
   --name "$keycloak_container" \
   --network "$network" \
@@ -160,7 +161,7 @@ docker run --detach \
   --env APPLICATION_PUBLIC_ORIGIN="https://$identity_host" \
   --env KEYCLOAK_BFF_CLIENT_SECRET="$bff_client_secret" \
   --volume "$pki:/run/pki:ro" \
-  --volume "$repository_root/docker/keycloak/import/videogame-platform-realm.json:/opt/keycloak/data/import/videogame-platform-realm.json:ro" \
+  --volume "$repository_root/scripts/fixtures/private-dev-identity/legacy-videogame-platform-realm.json:/opt/keycloak/data/import/videogame-platform-realm.json:ro" \
   "$keycloak_image" start --optimized --import-realm >/dev/null
 
 run_python() {

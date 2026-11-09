@@ -8,8 +8,9 @@ const adminPassword = process.env.KEYCLOAK_TEST_ADMIN_PASSWORD ?? "";
 const mailpitOrigin = process.env.MAILPIT_API_ORIGIN ?? "";
 const realmPath = "/admin/realms/videogame-platform";
 
+// The production identity copy, which the shared realm imports too.
 const emailSent =
-  "Si el usuario corresponde a una cuenta, recibirás en breve un email con un enlace para crear una nueva contraseña.";
+  "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña.";
 const linkRefused = /El enlace ha caducado o ya se ha usado\./;
 const linkInvalid = "Este enlace no es válido para crear una nueva contraseña.";
 
@@ -46,9 +47,9 @@ test("a player recovers access by email on mobile and returns to the page they a
   await forgotLink.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Recupera tu acceso" })).toBeVisible();
-  await expect(page.getByText(/Indica tu usuario\. Si corresponde a una cuenta/)).toBeVisible();
+  await expect(page.getByText(/Indica tu email\. Si corresponde a una cuenta/)).toBeVisible();
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
-  await page.getByLabel("Usuario", { exact: true }).fill(player.username);
+  await page.locator("#username").fill(player.username);
   await page.keyboard.press("Enter");
 
   await expect(page.getByRole("heading", { name: "Bienvenido, Jugón" })).toBeVisible();
@@ -111,7 +112,7 @@ test("a player recovers access by email on mobile and returns to the page they a
 test("unknown accounts, email addresses and repeated requests disclose nothing", async ({ browser, request }) => {
   const player = await createPlayer(request);
   const responses: string[] = [];
-  for (const identifier of [`absent-${player.username}`, player.email, player.username, player.username]) {
+  for (const identifier of [`absent-${player.email}`, player.email, player.email]) {
     const context = await browser.newContext();
     const page = await context.newPage();
     await requestRecovery(page, identifier);
@@ -120,8 +121,8 @@ test("unknown accounts, email addresses and repeated requests disclose nothing",
   }
   expect(new Set(responses)).toEqual(new Set([emailSent]));
 
-  // Sign-in is by username, so the email address finds no account and sends nothing. Keycloak
-  // sends before it responds, so only the two username requests have delivered distinct links.
+  // Sign-in is by email, so the unknown address sends nothing while each request for the real
+  // one delivers its own link. Keycloak sends before it responds.
   const messages = await waitForMessages(request, player.email, 2);
   expect(messages).toHaveLength(2);
   expect(new Set(messages.map(resetLink)).size).toBe(2);
@@ -176,7 +177,7 @@ test("expired and tampered links fail closed with a Spanish explanation", async 
 async function requestRecovery(page: Page, identifier: string) {
   await page.goto("/auth/start");
   await page.getByRole("link", { name: "¿Has olvidado tu contraseña?", exact: true }).click();
-  await page.getByLabel("Usuario", { exact: true }).fill(identifier);
+  await page.locator("#username").fill(identifier);
   await page.getByRole("button", { name: "Continuar", exact: true }).click();
   await expect(page.getByText(emailSent, { exact: true })).toBeVisible();
 }
@@ -186,7 +187,7 @@ async function signIn(browser: Browser, username: string, password: string) {
   const page = await context.newPage();
   try {
     await page.goto("/auth/start");
-    await page.getByLabel("Usuario", { exact: true }).fill(username);
+    await page.locator("#username").fill(username);
     await page.locator("#password").fill(password);
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await page.waitForURL((url) => url.origin === applicationOrigin || url.pathname.includes("/login-actions/"));
@@ -224,8 +225,8 @@ async function updateRealm(request: APIRequestContext, changes: Record<string, u
 }
 
 async function createPlayer(request: APIRequestContext): Promise<Player> {
-  const username = `recovery-${crypto.randomUUID()}`;
-  const player = { username, email: `${username}@example.test`, password: "Antigua-Clave-2026!" };
+  const username = `recovery-${crypto.randomUUID()}@example.test`; // email as username, as in production
+  const player = { username, email: username, password: "Antigua-Clave-2026!" };
   const response = await request.post(`${keycloakOrigin}${realmPath}/users`, {
     headers: await adminToken(request),
     data: {

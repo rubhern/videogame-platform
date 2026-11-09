@@ -42,6 +42,19 @@ assert {name: local[name] for name in identity.SESSION_SETTINGS} == {
     name: production[name] for name in identity.SESSION_SETTINGS}
 assert next(mapper for client in local["clients"] if client["clientId"] == "videogame-platform-bff"
     for mapper in client["protocolMappers"] if mapper["protocolMapper"] == "gameometro-remember-me") == desired["rememberMeMapper"]
+# Fresh local and private-dev realms start with the full reviewed production policy, the same one
+# the command applies to an existing realm: settings, profile, registration flow and texts.
+assert {name: local[name] for name in identity.MANAGED_REALM_SETTINGS} == desired["settings"]
+local_profile = json.loads(local["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0])
+assert [{"multivalued": False, **attribute} for attribute in local_profile["attributes"]
+        if attribute["name"] != mail.provisioning.MARKER_ATTRIBUTE] == desired["profileAttributes"]
+assert local["registrationFlow"] == desired["registrationFlow"]["alias"]
+assert local["authenticationFlows"] == production["authenticationFlows"]
+assert {key: value.replace("${APPLICATION_PUBLIC_ORIGIN}", "http://localhost:8080")
+        for key, value in local["localizationTexts"]["es"].items()} == desired["localization"]
+# The alignment proof keeps the realm as private-dev held it before the policy, frozen.
+legacy = json.loads((repository_root / "scripts/fixtures/private-dev-identity/legacy-videogame-platform-realm.json").read_text())
+assert legacy["realm"] == local["realm"] and legacy["verifyEmail"] is False and legacy["loginWithEmailAllowed"] is False
 assert [attribute["name"] for attribute in desired["profileAttributes"]] == ["username", "email"]
 assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-user-creation", "REQUIRED"),

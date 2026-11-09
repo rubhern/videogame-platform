@@ -62,6 +62,9 @@ services:
       args:
         KEYCLOAK_EVENT_METRICS_USER_ENABLED: "true"
     entrypoint: ["/opt/videogame-platform/bin/run-keycloak"]
+    # Production's runtime policy (event metrics bounds and resource admission), not a copy.
+    env_file:
+      - ../public-production/keycloak/abuse.env
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak
@@ -71,15 +74,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
-      # Event metrics are compiled into this private image; keep runtime labels/events bounded.
-      KC_EVENT_METRICS_USER_EVENTS: login,register,verify_email,send_verify_email,send_reset_password,reset_password,user_disabled_by_temporary_lockout
-      KC_EVENT_METRICS_USER_TAGS: realm
-      # Resource admission, not per-account or per-IP rate quotas.
-      KC_HTTP_POOL_MAX_THREADS: "8"
-      KC_HTTP_MAX_QUEUED_REQUESTS: "16"
-      KC_DB_POOL_INITIAL_SIZE: "1"
-      KC_DB_POOL_MIN_SIZE: "1"
-      KC_DB_POOL_MAX_SIZE: "5"
+      KC_HTTP_ACCESS_LOG_ENABLED: "false"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
       KC_PROXY_HEADERS: xforwarded
@@ -205,7 +200,7 @@ services:
       SPRING_PROFILES_ACTIVE: oidc,structured
       APPLICATION_PUBLIC_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
       APPLICATION_OIDC_REDIRECT_URI: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}/login/oauth2/code/keycloak
-      APPLICATION_HSTS_ENABLED: "true"
+      PLATFORM_HTTPSECURITY_HSTS_ENABLED: "true"
       # Tailscale Serve terminates the tailnet HTTPS and forwards plaintext HTTP to this
       # loopback-published port, overwriting X-Forwarded-Proto=https on every request. NATIVE
       # activates Tomcat's RemoteIpValve, which honours X-Forwarded-Proto/For only from internal
@@ -239,15 +234,10 @@ services:
       TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
       TELEMETRY_OTLP_METRICS_STEP: 60s
       TELEMETRY_TRACING_SAMPLING_PROBABILITY: "0.1"
-      # Explicit opt-in. Null passthrough values are omitted when unset, leaving application.yaml
-      # as the sole owner of policy defaults; runtime.env may override any of these settings.
-      CATALOGUE_SYNC_SCHEDULING_ENABLED: ${CATALOGUE_SYNC_SCHEDULING_ENABLED:-false}
-      CATALOGUE_SYNC_NEAR_TERM_CRON:
-      CATALOGUE_SYNC_NEAR_TERM_PAST_DAYS:
-      CATALOGUE_SYNC_NEAR_TERM_FUTURE_DAYS:
-      CATALOGUE_SYNC_UPCOMING_CRON:
-      CATALOGUE_SYNC_UPCOMING_PAST_DAYS:
-      CATALOGUE_SYNC_UPCOMING_FUTURE_DAYS:
+      # Production's recurring acquisition minus the daily near-term policy: only the weekly
+      # upcoming policy runs, on application.yaml's default schedule and windows.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
+      CATALOGUE_SYNC_NEAR_TERM_CRON: "-"
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:

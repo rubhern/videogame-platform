@@ -31,7 +31,13 @@ services:
     build:
       context: .
       dockerfile: deploy/private-dev/keycloak/Dockerfile
+      # Same compiled capabilities as the production image.
+      args:
+        KEYCLOAK_EVENT_METRICS_USER_ENABLED: "true"
     command: ["start-dev", "--import-realm"]
+    # Production's runtime policy (event metrics bounds and resource admission), not a copy.
+    env_file:
+      - deploy/public-production/keycloak/abuse.env
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak

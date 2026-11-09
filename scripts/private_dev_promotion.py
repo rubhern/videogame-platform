@@ -208,6 +208,8 @@ def is_deployment_contract(path):
             "scripts/private_dev_promotion.py", "scripts/validate-private-dev-runtime.sh",
             "scripts/private-dev-metrics-check.py", "scripts/private-dev-logs-check.py",
             "scripts/provision-grafana-reader.sh",
+            # Private-dev Keycloak consumes production's runtime policy file directly.
+            "deploy/public-production/keycloak/abuse.env",
         )
     )
 

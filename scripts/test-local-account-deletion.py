@@ -104,6 +104,10 @@ class LocalDeletionTest(unittest.TestCase):
             # Mailpit inheritance is resolved locally; no service is started.
             (fixture / 'deploy/private-dev').mkdir(parents=True)
             shutil.copy(ROOT / 'deploy/private-dev/compose.mail.yaml', fixture / 'deploy/private-dev/compose.mail.yaml')
+            # Keycloak reads production's secret-free runtime policy file directly.
+            (fixture / 'deploy/public-production/keycloak').mkdir(parents=True)
+            shutil.copy(ROOT / 'deploy/public-production/keycloak/abuse.env',
+                        fixture / 'deploy/public-production/keycloak/abuse.env')
             result = subprocess.run(['docker', 'compose', '--project-directory', str(fixture),
                                      '-f', str(fixture / 'compose.yaml'),
                                      '-f', str(fixture / 'compose.account-deletion.yaml'),

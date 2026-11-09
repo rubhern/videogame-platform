@@ -116,7 +116,7 @@ run_case public-production-deployment-tests \
   'documentation,backend,frontend,identity,container,ci'
 
 run_case shared-recovery-primitives \
-  $'deploy/private-dev/lib/backup-common.sh\ndeploy/private-dev/bin/personal-data\ndeploy/private-dev/bin/personal-data-ledger' \
+  $'deploy/private-dev/bin/personal-data\ndeploy/private-dev/bin/personal-data-ledger' \
   'production_runtime,container,identity,documentation' \
   'frontend,ci'
 
@@ -271,7 +271,7 @@ run_case local-localization \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case private-dev-runtime \
-  $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-backup-recovery.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py\nscripts/test-private-dev-identity-commands.py\nscripts/test-historical-sync-pilot.py\nscripts/fixtures/historical-sync-pilot/fake_docker.py\ndeploy/private-dev/bin/historical-sync-pilot\ndeploy/private-dev/bin/configure-keycloak-identity' \
+  $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py\nscripts/test-private-dev-identity-commands.py\nscripts/test-historical-sync-pilot.py\nscripts/fixtures/historical-sync-pilot/fake_docker.py\ndeploy/private-dev/bin/historical-sync-pilot\ndeploy/private-dev/bin/configure-keycloak-identity' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 

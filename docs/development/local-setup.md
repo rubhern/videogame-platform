@@ -152,11 +152,13 @@ owns its limits and trust model. Start the real packaged application with
 
 The import configures a fresh realm. Keycloak's startup import never updates an
 existing realm. Both `up` and `application` now run the shared Admin API alignment
-command after Keycloak is ready, before starting the packaged BFF. It reconciles
-only the five session settings and the native BFF mapper from the reviewed import;
-accounts, credentials, client secrets, redirects, SMTP and local registration policy
-stay intact. The local ordinary SSO maximum intentionally changes from ten to eight
-hours. No Admin Console edits or data reset are needed.
+command after Keycloak is ready, before starting the packaged BFF. It applies the
+reviewed production identity policy, the same one private dev applies
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)): email
+sign-in with an email-only profile and verification, the 18+ registration declaration, the
+password, lockout, session and event policies, and the native BFF mapper. Accounts keep
+their IDs, credentials and ratings, and existing usernames still sign in; client secrets,
+redirects and SMTP stay intact. No Admin Console edits or data reset are needed.
 
 For an already running matching BFF/Keycloak image, reconcile or inspect explicitly:
 
@@ -165,15 +167,15 @@ bash scripts/local-dependencies.sh configure-identity
 bash scripts/local-dependencies.sh check-identity
 ```
 
-Each changed apply saves a mode-0600 session-policy snapshot outside the checkout,
+Each changed apply saves a mode-0600 identity-policy snapshot outside the checkout,
 under `${XDG_STATE_HOME:-$HOME/.local/state}/videogame-platform/keycloak-identity`.
 Repeated applies with no drift do nothing. The command refuses to extend SSO if
 the native mapper provider is absent: rebuild the shared Keycloak image first.
-Restore a session snapshot with `configure-keycloak-identity --sessions-only --restore
-<snapshot>`, using its explicit `--origin`, `--admin-username` and protected
-`--admin-password-file` inputs. The full private-dev identity policy is a separate
-operator action; local startup never changes local sign-in identifiers or email
-verification. Avoid direct `docker compose up` for setup: it bypasses this alignment.
+Restore a snapshot with `configure-keycloak-identity --restore <snapshot>`, using its
+explicit `--origin`, `--admin-username` and protected `--admin-password-file` inputs.
+Self-registration asks only for the email and the declaration; the password is chosen after
+following the verification link that Mailpit captures. Avoid direct `docker compose up` for
+setup: it bypasses this alignment.
 
 1. In a clean normal browser profile, disable **restore previous session**, select
    **Iniciar sesión**, verify **Seguir conectado** starts unchecked, select it and
@@ -230,10 +232,10 @@ bash scripts/local-dependencies.sh verify
 
 Open `http://127.0.0.1:8025` to read captured messages. To exercise the journey, open
 the application's sign-in, choose **¿Has olvidado tu contraseña?**, enter the
-username (the realm signs in by username, so an email address finds no account),
-open the link from Mailpit in the same browser and choose a new password; Keycloak
-then completes the original sign-in and returns to the product. The response never
-reveals whether the username exists. The link expires after Keycloak's default five
+email (the realm signs in by email, and existing usernames keep working), open the link
+from Mailpit in the same browser and choose a new password; Keycloak then completes the
+original sign-in and returns to the product. The response never reveals whether the
+account exists. The link expires after Keycloak's default five
 minutes and works once.
 
 Mailpit keeps at most 100 messages for 24 hours in a temporary in-memory store, so

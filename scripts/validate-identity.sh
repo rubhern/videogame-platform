@@ -61,7 +61,8 @@ keycloak_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 bff_client_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_username="local-user"
-smoke_user_username="integration-deployment-smoke"
+# The aligned realm signs in by email; the provisioner owns this synthetic address.
+smoke_user_username="vgp-deployment-smoke@example.invalid"
 
 python3 -I scripts/test-keycloak-theme.py
 if [[ "${IDENTITY_REUSE_PACKAGE:-false}" != "true" ]]; then

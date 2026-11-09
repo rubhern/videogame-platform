@@ -11,6 +11,7 @@ historical decision.
 
 ## Accepted
 
+- [ADR-0037: Align local and private dev with production configuration](0037-align-local-and-private-dev-with-production.md) — product release `1.0.0`; local and private `dev` share production's product-facing configuration except infrastructure, a weekly-only synchronization, production-only backups and lifecycle/verification.
 - [ADR-0036: Use protected Actions for private-production recovery](0036-use-protected-actions-for-production-recovery.md) — #467; explicit owner approval for an environment-protected recovery-key copy on ephemeral GitHub runners; original WSL copy retained.
 
 - [ADR-0035: Separate private-production administration ingress](0035-separate-private-production-admin-ingress.md) — #464; Caddy behind two owner-only Serve routes, fixed-edge loopback bridges and an operator-controlled master frontend attribute; owner-accepted 2026-11-08; installed on the VPS and reboot-verified, browser-session check pending.

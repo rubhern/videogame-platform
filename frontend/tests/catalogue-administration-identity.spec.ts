@@ -88,7 +88,7 @@ async function signIn(browser: Browser, account: Account): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/auth/login/keycloak");
-  await page.getByLabel("Usuario", { exact: true }).fill(account.username);
+  await page.locator("#username").fill(account.username);
   await page.locator("#password").fill(account.password);
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await reachHomeAfterSignIn(page, applicationOrigin);
@@ -104,13 +104,13 @@ async function adminToken(request: APIRequestContext) {
 }
 
 async function createAccount(request: APIRequestContext): Promise<Account> {
-  const username = `operator-${crypto.randomUUID()}`;
+  const username = `operator-${crypto.randomUUID()}@example.test`; // email as username, as in production
   const password = "Operador-Catalogo-2026!";
   const created = await request.post(`${realmAdmin}/users`, {
     headers: await adminToken(request),
     data: {
       username,
-      email: `${username}@example.test`,
+      email: username,
       emailVerified: true,
       enabled: true,
       firstName: "Synthetic",

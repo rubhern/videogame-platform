@@ -23,8 +23,13 @@ owns post-MVP public-release direction and its pending decisions.
 |--------------|--------------------------------------------------------------------------------|-------------------------------------------------|
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
-| `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
+| `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry           | Non-sensitive learning data, no backup; owner tailnet only |
 | `production` | Public since 2026-11-08 on the design below; owner-accepted 2026-11-08 ([#276 record](../../research/public-production-release-acceptance.md)) | Independent durable data and public product access only |
+
+Local and `dev` run production's product-facing configuration except infrastructure, the
+daily synchronization, backups and lifecycle/verification;
+[ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md) owns the
+exceptions.
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -146,8 +151,10 @@ email-only profile, the 18+ registration declaration, email verification, the
 password, lockout, session and event policies. A reviewed Admin API step takes the
 values from the production import, snapshots what it changes and can restore it; it
 keeps the realm name, issuer, client and every account ID, so ratings stay attached.
-Local development and CI keep the shared import's policy, and a freshly imported
-private-dev realm needs the same step. The
+Since product `1.0.0`
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)) the shared
+import itself carries that policy, so new local, CI and private-dev realms start aligned, and
+local startup applies the same step to an existing local realm. The
 [private-dev procedure](../../../deploy/private-dev/README.md#identity-policy-and-real-account-mail)
 owns its account effects, rollout and rollback.
 
@@ -279,8 +286,8 @@ rotation procedures. The normal manual deployment remains available for recovery
 
 Migration failure leaves the previous application running. A readiness or smoke
 failure records a failed deployment even if another or older process still answers.
-The mechanism implements no automatic rollback; backup, restore, rollback assessment
-and host-loss recovery are separate owner-triggered controls. Deployment success is
+The mechanism implements no automatic rollback; a failed private-dev deployment is
+recovered by redeploying a schema-compatible image or a forward fix. Deployment success is
 not product acceptance or a named release.
 
 ## PostgreSQL, migrations, and recovery
@@ -293,16 +300,14 @@ Destructive changes use expand/contract and explicit recovery. An applied migrat
 is never reverted: application rollback is allowed only while the older image is
 schema-compatible, otherwise the recovery is a forward fix.
 
-Irreplaceable state is the application and Keycloak databases (ratings, identity
-mapping, product-owned curation). They are backed up together as per-database logical
-dumps encrypted to the owner's public key, so the host holds no decryption material,
-with a manifest, integrity sums and bounded retention; copying a backup off the host
-is an owner step. Roles, passwords and secret files are not backed up: a restore
-recreates roles from the protected files, which the owner must preserve separately.
-Restore is rehearsed in an isolated Compose project, never against the live one.
-Host-loss recovery composes the host foundation rebuild, restore and the normal
-deployment. Catalogue provider data may be resynced, but personal, identity and
-editorial state is never assumed disposable.
+Backups and every related process exist only in public production
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)); the
+[public production target](#public-production-target) owns their policy. There,
+irreplaceable state is the application and Keycloak databases (ratings, identity mapping,
+product-owned curation), and catalogue provider data may be resynced, but personal,
+identity and editorial state is never assumed disposable. Private `dev` keeps no backup:
+losing its host loses its identity and rating data, and recovery is the host foundation
+rebuild, the normal deployment and a catalogue resynchronization.
 
 ## Health, observability, privacy, and failure
 
@@ -314,9 +319,10 @@ personal data or credentials.
 
 Catalogue synchronization has opt-in recurring inbound policies and an exceptional
 internal management-port command, all calling `UC-009`; it is never a public request.
-Scheduling and provider failures are excluded from readiness. Private-dev scheduling
-is disabled by default until an owner-authorized exercise; executable Compose/runtime
-configuration owns environment passthrough. The
+Scheduling and provider failures are excluded from readiness. Production runs the daily
+near-term and the weekly upcoming policy; local and private `dev` run only the weekly policy
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)), and
+executable Compose/runtime configuration owns the settings. The
 [runbook](../../development/operations-runbook.md#catalogue-synchronization) owns
 policy operation and the remaining evidence. PostgreSQL enforces one active run and
 fences an abandoned worker before a successor can write; run history is retained in bounded quantity,
@@ -331,8 +337,9 @@ owns the date interval, paging and partial-failure decisions.
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
 | Readiness/smoke failure       | Record deployment failure; recover by the assessed rollback or forward fix, never by reverting an applied migration |
-| Backup failure                | Report recoverability failure; do not claim release success                                                  |
-| Host loss                     | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the smoke   |
+| Backup failure (production)   | Report recoverability failure; do not claim release success                                                  |
+| Host loss (production)        | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the smoke   |
+| Host loss (private dev)       | Rebuild the foundation, redeploy, resynchronize the catalogue; identity and rating data is not recovered     |
 
 Standard OCI images, PostgreSQL logical backups, OpenTelemetry and private ingress
 preserve portability. Hosting reconsideration triggers belong to ADR-0019.
@@ -892,7 +899,7 @@ native registration flow and per-account temporary lockout remain unchanged.
 | Product API (opt-in experiment) | [`application.yaml`](../../../backend/src/main/resources/application.yaml) owns the initial eight synchronous requests, including at most two writes. [`ApiAdmissionInterceptor`](../../../backend/src/main/java/com/videogameplatform/api/delivery/ApiAdmissionInterceptor.java) admits work after authentication/CSRF and before body conversion/controllers; rejects immediately and releases admission on completion, including failures | Eight is below the default ten-connection pool, but HTTP admission does not reserve two connections or measure DB occupancy. These values are uncalibrated hypotheses; eight requests may still contend with synchronization. An actor can monopolize capacity; admission is not fairness or sustained-rate control |
 | Public reads | Existing page/search/release-group bounds, PostgreSQL filtering/counting/order/paging, JDBC timeouts and HTTP validators remain the cost boundary | Deep offsets and exact counts still cost database work. No index/query rewrite is justified by this increment; the existing query timeout and admission limit bound concurrent damage, not dataset-independent SQL cost |
 | Personal writes | Existing principal-derived identity, session revocation, CSRF, DB constraints and ETag preconditions remain authoritative | No caller-selected owner or mutable in-memory quota is introduced. Retries after uncertain write outcomes still require a fresh read and explicit user action |
-| Keycloak | [`abuse.env`](../../../deploy/public-production/keycloak/abuse.env) owns the initial eight HTTP workers, sixteen queued requests, five DB connections and selected native event metrics. Private-dev's Compose has the same resource hypothesis | Keycloak returns native 503 beyond its queue; it does not promise the API Problem body or Retry-After. This limits resource accumulation, not signup/reset frequency or SMTP volume |
+| Keycloak | [`abuse.env`](../../../deploy/public-production/keycloak/abuse.env) owns the initial eight HTTP workers, sixteen queued requests, five DB connections, selected native event metrics and the log level, which silences the session-logout warnings that would name an account's email. Local and private-dev Keycloak read the same file | Keycloak returns native 503 beyond its queue; it does not promise the API Problem body or Retry-After. This limits resource accumulation, not signup/reset frequency or SMTP volume |
 | BFF identity navigation | Existing state, nonce, PKCE, callback allowlist, server-side tokens and session bounds | The BFF never sees direct browser submissions to Keycloak. Protecting only `/auth/start` cannot control identity abuse |
 
 When admission is enabled, the product contract declares capacity rejection in [OpenAPI](../api/openapi.yaml):

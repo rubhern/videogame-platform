@@ -1,6 +1,7 @@
 import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
+import { registerWithVerifiedEmail } from "./fixtures/registration";
 
 const applicationOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin;
 const username = process.env.OIDC_TEST_USERNAME;
@@ -22,7 +23,7 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   ).find((cookie) => cookie.name === "vgp_session");
   expect(authorizationSessionCookie).toBeDefined();
 
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
@@ -97,7 +98,7 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   expect(await sessionState(page)).toEqual({ authenticated: false });
   expect(await context.cookies(applicationOrigin)).toEqual([]);
   await page.goto("/auth/login/keycloak");
-  await expect(page.getByLabel("Usuario", { exact: true })).toBeVisible();
+  await expect(page.locator("#username")).toBeVisible();
 });
 
 async function sessionState(page: import("@playwright/test").Page) {
@@ -120,7 +121,7 @@ test("account entry returns to the game without inventing a rating and logout si
   await page.goto(gamePath);
   await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(/\/realms\/videogame-platform\/protocol\/openid-connect\/auth/);
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(gamePath.replace("?", "\\?")));
@@ -195,7 +196,7 @@ for (const width of [1320, 390, 320]) {
     const authorizationUrl = new URL(page.url());
     authorizationUrl.searchParams.set("kc_action", "UPDATE_PASSWORD");
     await page.goto(authorizationUrl.toString());
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Elige una nueva contraseña" })).toBeVisible();
@@ -209,7 +210,7 @@ for (const width of [1320, 390, 320]) {
 
 test("an external return target falls back to the landing page after real authentication", async ({ page }) => {
   await page.goto("/auth/start?returnTo=" + encodeURIComponent("//attacker.example/steal"));
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await reachHomeAfterSignIn(page, applicationOrigin);
@@ -224,7 +225,7 @@ test("an external return target falls back to the landing page after real authen
 
 test("direct personal-ratings account entry and logout return to sensible product pages", async ({ page }, testInfo) => {
   await page.goto("/auth/start?returnTo=%2Fmis-puntuaciones");
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(`${applicationOrigin}/mis-puntuaciones`);
@@ -258,20 +259,12 @@ for (const width of [1320, 390]) {
   });
 }
 
-test("direct self-registration authenticates and returns to the game without a rating intent", async ({ page }) => {
+test("direct self-registration verifies the email, authenticates and returns to the game without a rating intent", async ({ page, request }) => {
   const game = "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
   await page.goto(game);
   await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Empieza tu historia." })).toBeVisible();
-  const unique = `account-${Date.now()}`;
-  await page.locator("#firstName").fill("Synthetic");
-  await page.locator("#lastName").fill("Player");
-  await page.locator("#email").fill(`${unique}@example.test`);
-  await page.locator("#username").fill(unique);
-  await page.locator("#password").fill("Str0ng-Passw0rd!");
-  await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
-  await page.locator("#termsAccepted").check();
-  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await registerWithVerifiedEmail(page, request, `account-${Date.now()}@example.test`, "Str0ng-Passw0rd!");
   await expect(page).toHaveURL(`${applicationOrigin}${game}`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   expect((await page.request.get("/auth/rating-intent")).status()).toBe(404);

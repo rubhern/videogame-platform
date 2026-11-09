@@ -118,6 +118,7 @@ docker run --detach \
   --env KC_BOOTSTRAP_ADMIN_USERNAME=local-admin \
   --env KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat "$admin_password_file")" \
   --env KC_HEALTH_ENABLED=true \
+  --env KC_LOG_LEVEL="$(sed -n 's/^KC_LOG_LEVEL=//p' "$repository_root/deploy/public-production/keycloak/abuse.env")" \
   --env KC_HOSTNAME=http://keycloak:8080 \
   --env APPLICATION_PUBLIC_ORIGIN=http://application:8080 \
   --env KEYCLOAK_BFF_CLIENT_SECRET="$bff_client_secret" \

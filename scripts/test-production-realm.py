@@ -57,10 +57,12 @@ local_and_private_dev += [
 # The private-dev identity command reads the import as its single policy source and applies a
 # subset through the Admin API; it never mounts or imports it.
 policy_reader = repository_root / "deploy/private-dev/bin/configure-keycloak-identity"
+# The secret-free Keycloak runtime policy is the one production file they may consume directly.
+shared_runtime_policy = "public-production/keycloak/abuse.env"
 for path in local_and_private_dev:
     if path == policy_reader:
         continue
-    assert "public-production/" not in path.read_text(encoding="utf-8", errors="ignore"), path
+    assert "public-production/" not in path.read_text(encoding="utf-8", errors="ignore").replace(shared_runtime_policy, ""), path
 assert "public-production/keycloak/import/gameometro-realm.json" in policy_reader.read_text(encoding="utf-8")
 
 # Only reviewed runtime inputs are substituted at import; display-name keys are lower case.
@@ -258,10 +260,13 @@ assert set(runtime["KC_EVENT_METRICS_USER_EVENTS"].split(",")) == {
     "login", "register", "verify_email", "send_verify_email", "send_reset_password",
     "reset_password", "user_disabled_by_temporary_lockout",
 }
-private_compose = (repository_root / "deploy/private-dev/compose.yaml").read_text()
-for name, value in runtime.items():
-    assert re.search(r"^\s+" + re.escape(name) + r': "?' + re.escape(value) + r'"?$',
-                     private_compose, re.MULTILINE), name
+# Local and private-dev Keycloak consume this file itself, never a copy of its values.
+for compose_file, reference in (("deploy/private-dev/compose.yaml", "../public-production/keycloak/abuse.env"),
+                                ("compose.yaml", "deploy/public-production/keycloak/abuse.env")):
+    compose_text = (repository_root / compose_file).read_text()
+    assert re.search(r"^    env_file:\n      - " + re.escape(reference) + "$", compose_text, re.MULTILINE), compose_file
+    for name in runtime:
+        assert name not in compose_text, (compose_file, name)
 runner = (repository_root / "scripts/validate-production-identity.sh").read_text()
 assert "--build-arg KEYCLOAK_EVENT_METRICS_USER_ENABLED=true" in runner
 assert '--env-file "$repository_root/deploy/public-production/keycloak/abuse.env"' in runner

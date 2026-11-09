@@ -413,8 +413,7 @@ sudoedit /etc/videogame-platform/dev/runtime.env
 In runtime.env add the four `PRIVATE_DEV_SMTP_RELAY_*` entries exactly as in
 [`runtime.env.example`](runtime.env.example). No container reads these files: the mail
 command passes them once to Keycloak over the private HTTPS origin, and Keycloak keeps
-the password in its database, and therefore in the encrypted backups, as production
-does. Neither command prints a credential. To rotate the credential, replace both files
+the password in its database, as production does. Neither command prints a credential. To rotate the credential, replace both files
 the same way and repeat rollout step 5, which always rewrites the relay settings.
 
 ### Reviewed rollout
@@ -423,9 +422,7 @@ Run only after owner review, merge and separate approval to operate on `vgpdev`.
 Keycloak stays up and no container is recreated; the change takes effect on the next
 request.
 
-1. Take and verify an [encrypted backup](#encrypted-backup-with-integrity-and-retention):
-   it is the last-resort recovery of the Keycloak database. Then install the reviewed
-   merged revision and hold the deployment lock exactly as in
+1. Install the reviewed merged revision and hold the deployment lock exactly as in
    [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
    and create the snapshot directory:
 
@@ -550,9 +547,6 @@ stay attached.
   a conflict: keep the email identifier instead. Accounts registered while the policy
   applied, and any whose stored username became its email, keep signing in with the
   email as their username.
-- **Last resort.** Restore the Keycloak database from the backup taken in step 1,
-  following [Backup, restore, rollback and host-loss recovery](#backup-restore-rollback-and-host-loss-recovery).
-  This loses every identity change made after it, including new accounts.
 
 Diagnosis: `KC-SERVICES0026` or `Failed to send email` in Keycloak's log with the
 relay selected means the relay refused or was unreachable. Check the secret files'
@@ -746,8 +740,8 @@ recovery from lost PostgreSQL state or replay after restoring old private-dev sn
 
 Retained manual #274 tooling; the automatic private-dev policy above does not require it. The
 [operations runbook](../../docs/development/operations-runbook.md#personal-data-requests-and-account-revocation)
-owns the owner procedure: verifying the requester, export, erasure, retry, restriction
-and the restore replay. `bin/personal-data` and `bin/personal-data-ledger` own the
+owns the owner procedure: verifying the requester, export, erasure, retry and
+restriction; the restore replay applies only to production, because private dev keeps no backup. `bin/personal-data` and `bin/personal-data-ledger` own the
 mechanics, and `scripts/validate-personal-data.sh` proves them. The manual procedure itself
 adds no route; optional automatic activation is described above.
 
@@ -756,8 +750,7 @@ The ledger driver runs on the owner's workstation; each step reaches the host ov
 checkout, which reads the protected admin secret and reaches PostgreSQL and the
 application through `docker exec`. The ledger has two copies, both private: the working
 copy on the workstation and one on storage independent of it, such as the owner's
-external drive that already holds the off-host backup copies and the backup key
-material. `erase` and `retry` refuse to start unless both are present:
+external drive. `erase` and `retry` refuse to start unless both are present:
 
 ```bash
 ledger=~/vgp-admin/private-dev/deletion-ledger.jsonl                 # 0700 directory, never on vgpdev
@@ -786,51 +779,18 @@ below deploys or changes configuration.
    address again before every command below.
 3. Sign account A in on two browsers and account B on a third; rate one game with each
    and check *Mis puntuaciones*.
-4. Take and verify an [encrypted backup](#encrypted-backup-with-integrity-and-retention):
-   it now holds both accounts and ratings.
-5. Export A with `"${pd[@]}" export --request PD-CHECK-1 --keycloak-user-id <A>
+4. Export A with `"${pd[@]}" export --request PD-CHECK-1 --keycloak-user-id <A>
    --output ~/vgp-admin/private-dev/export-PD-CHECK-1.json`. Confirm it holds only A's
    address, sessions (times and IP only) and rating, then delete the file.
-6. Erase A with `"${pd[@]}" erase --request PD-CHECK-2 --keycloak-user-id <A>`. Both of
+5. Erase A with `"${pd[@]}" erase --request PD-CHECK-2 --keycloak-user-id <A>`. Both of
    A's browsers become anonymous on their next request, B's stays signed in, A can no
    longer sign in, and `status` shows the entry complete in both copies (`cmp` them).
    Repeat the same `erase`: it changes nothing. Run it once without `--ledger-copy`: it
    is refused before anything changes.
-7. Restore the step 4 backup into the isolated project **without** a ledger, as in
-   [isolated restore](#isolated-restore), and confirm that A came back:
-
-   ```bash
-   rehearsal=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml --file deploy/private-dev/compose.restore-rehearsal.yaml \
-     --project-name vgp-restore-rehearsal)
-   "${rehearsal[@]}" exec -T postgres gosu postgres psql -d videogame_keycloak -tAc \
-     "SELECT count(*) FROM user_entity WHERE id = '<A>'"   # 1
-   ```
-
-8. Start only that project's Keycloak and replay from the workstation; A is gone again
-   (the same query answers `0`), B and its rating remain:
-
-   ```bash
-   "${rehearsal[@]}" up --detach --no-deps --wait --wait-timeout 300 keycloak
-   rehearsal_host="$host --project vgp-restore-rehearsal --keycloak-origin http://127.0.0.1:8190"
-   deploy/private-dev/bin/personal-data-ledger --ledger "$ledger" --ledger-copy "$ledger_copy" \
-     --host-command "$rehearsal_host" replay --receipt ~/vgp-admin/private-dev/replay-rehearsal-$(date +%F).json
-   ```
-
-9. Repeat step 7 **with** a [ledger copy on the host](#ledger-copy-for-a-restore)
-   (`--deletion-ledger`): the restore replays by itself, its evidence contains the
-   receipt, and A is absent. Tear the rehearsal down with
-   `"${rehearsal[@]}" down --volumes` and remove the host copy.
-10. Check that host-loss recovery refuses the live host: run the
-    [host-loss command](#host-loss-recovery) with the step 4 backup. It must answer that
-    the host holds containers or volumes of the project, and
-    `/var/lib/videogame-platform/dev/deployment-evidence/DELETION-REPLAY-PENDING` must
-    not exist afterwards.
-11. Erase B the same way, and record the outcome in #274 without addresses or IDs.
+6. Erase B the same way, and record the outcome in #274 without addresses or IDs.
 
 Rollback: nothing to undo in the live runtime. The commands change no configuration, an
-erased synthetic account is meant to stay erased, and the rehearsal project is removed in
-step 9. Keep the private-dev ledger for 35 days like any other.
+erased synthetic account is meant to stay erased. Keep the private-dev ledger for 35 days like any other.
 
 ## Metrics dashboards
 
@@ -1496,161 +1456,31 @@ unchanged, including catalogue-localizer. Record real-host restriction, success/
 the current delivery issue (#257 for the localization lifecycle) as required by the
 [runbook](../../docs/development/operations-runbook.md#deploying-an-immutable-digest).
 
-## Backup, restore, rollback and host-loss recovery
+## Rollback and host-loss recovery
 
-These are the owner-triggered recovery controls. Repository validation
-(`scripts/test-private-dev-backup-recovery.sh`) proves only the encryption,
-integrity, retention and decision logic; every step that reads the live database or
-a real host is environment evidence recorded in the runbook.
-
-### State model
-
-The irreplaceable durable state is the two PostgreSQL databases: `videogame_platform`
-(application state and product-owned curation) and `videogame_keycloak` (identity
-configuration and runtime accounts such as the deployment-smoke user). Both are
-captured as logical `pg_dump` custom-format artifacts. Catalogue/provider data is
-reconstructable by IGDB synchronization. Roles and passwords are **not** backed up:
-`docker/postgres/init` bootstraps them from the protected secret files when a clean
-data volume initializes, which is why a backup never stores a credential.
-
-### One-time backup key setup
-
-Generate the backup keypair on a trusted machine that is not the host, keep the
-private key and passphrase offline, and import only the public key on `vgpdev`, so
-host compromise cannot expose backup contents. `<recipient>` is the key's email or
-fingerprint.
-
-```bash
-# On the offline owner machine (once): create the keypair and export the public key.
-gpg --full-generate-key
-gpg --armor --export <recipient> > vgp-backup-public.asc
-
-# On vgpdev (once): import only the public key into a dedicated keyring.
-install -d -m 0700 /etc/videogame-platform/dev/backup-gnupg
-gpg --homedir /etc/videogame-platform/dev/backup-gnupg --import vgp-backup-public.asc
-```
-
-### Encrypted backup with integrity and retention
-
-Runs on `vgpdev` while the dependency stack is healthy. It dumps both databases,
-encrypts each to the public key, writes a manifest and `SHA256SUMS`, self-verifies,
-and prunes older backups to the retention count. Copying the destination off the host
-(for example over Tailscale with `rsync`) is the owner action that makes the backup
-"outside the host".
-
-```bash
-deploy/private-dev/bin/backup-private-dev \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --gnupg-home /etc/videogame-platform/dev/backup-gnupg \
-  --recipient <recipient> \
-  --destination /mnt/vgp-backups \
-  --initiator rubhern \
-  --keep 7
-```
-
-Integrity and retention are re-checkable anywhere, without Docker or the private key:
-
-```bash
-deploy/private-dev/bin/verify-private-dev-backup --backup /mnt/vgp-backups/<backup-id>
-deploy/private-dev/bin/verify-private-dev-backup --backups-root /mnt/vgp-backups --expect-at-least 7
-```
-
-### Isolated restore
-
-Restores a verified backup into a **distinct** Compose project, never the live one.
-It rebuilds a clean database volume (destroying only that isolated project's
-volumes), bootstraps roles from the protected secret files, streams each decrypted
-dump into `pg_restore`, and verifies the restored schema, catalogue tables and
-Keycloak realm/account counts. It requires the private key in `--gnupg-home` and
-explicit destructive confirmation.
-
-The backup can predate account erasures, so pass a copy of the owner's deletion ledger
-(see [the ledger copy on the host](#ledger-copy-for-a-restore)): the command then starts
-only the restored Keycloak, which the rehearsal override publishes on loopback port 8190,
-replays every erasure against it and records the receipt in the evidence. Without
-`--deletion-ledger` it stops after the database checks; the application or a smoke must
-not start in that project before a verified replay.
-
-```bash
-deploy/private-dev/bin/restore-private-dev \
-  --backup /mnt/vgp-backups/<backup-id> \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --gnupg-home /etc/videogame-platform/dev/restore-gnupg \
-  --isolated-project vgp-restore-rehearsal \
-  --confirm-destroy-isolated-target \
-  --deletion-ledger ~/vgp-ledger-replay/deletion-ledger.jsonl \
-  --evidence-directory /var/lib/videogame-platform/dev/deployment-evidence
-```
-
-Tear the rehearsal down afterwards with
-`docker compose ... --project-name vgp-restore-rehearsal down --volumes`.
-
-#### Ledger copy for a restore
-
-The ledger lives on the owner's workstation; a restore needs a current copy on the host
-for the duration of the command only. From the workstation, after `personal-data-ledger
-… status` has brought both owner copies up to date:
-
-```bash
-ssh videogame-platform-lenovo 'install -d -m 0700 ~/vgp-ledger-replay'
-scp -p ~/vgp-admin/private-dev/deletion-ledger.jsonl videogame-platform-lenovo:vgp-ledger-replay/
-```
-
-The file must stay `0600` in the `0700` directory, or the restore refuses it. Remove the
-directory once the restore has finished (`rm -r ~/vgp-ledger-replay`); the copy holds
-only identifiers and times, but the owner's copies are the record.
+Private dev keeps no backup and has no backup, restore or restore-rehearsal process: they
+exist only in public production
+([ADR-0037](../../docs/decisions/0037-align-local-and-private-dev-with-production.md)).
+Its PostgreSQL volumes, including identity and ratings, carry no recovery guarantee.
 
 ### Rollback versus forward fix
 
-Before recovering a bad deployment, decide whether an older image is still
-schema-compatible. The assessment compares the applied Flyway version with the
-candidate's packaged migration version and enforces that an applied migration is
-never reverted.
-
-```bash
-deploy/private-dev/bin/assess-recovery-strategy \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --target-migration-version <candidate-image-flyway-version> \
-  --target-image ghcr.io/rubhern/videogame-platform@sha256:<digest>
-```
-
-`ROLLBACK` redeploys the older digest with the normal deployment command (its
-migration step finds nothing to apply). `FORWARD_FIX` means building and deploying a
-corrected revision. `REFUSE` means the inputs are inconsistent; do nothing until they
-are explained.
+An applied migration is never reverted. Before recovering a bad deployment, compare the
+applied Flyway version with the older image's packaged migration version: when the older
+image is still schema-compatible, redeploy its digest with the normal deployment command
+(its migration step finds nothing to apply); otherwise build and deploy a corrected
+revision.
 
 ### Host-loss recovery
 
-Recovery does not depend on the original hardware; any compatible Linux host is
-sufficient:
+Any compatible Linux host is sufficient:
 
 1. Rebuild the host foundation and run the one-time preparation above.
-2. Optionally validate the backup first with an isolated rehearsal as above.
-3. Put a current [ledger copy](#ledger-copy-for-a-restore) on the host and restore into
-   the live project. Host-loss recovery is the only mode that may use the live project
-   name: it refuses a host that holds any container or volume of that project, removes
-   nothing, and first writes `DELETION-REPLAY-PENDING` in the deployment evidence
-   directory, which makes `deploy-private-dev` and every promotion refuse. It restores
-   both databases, starts only Keycloak, replays every erasure and removes the block only
-   after the replay is verified:
-
-   ```bash
-   sudo deploy/private-dev/bin/restore-private-dev --host-loss-recovery \
-     --backup /mnt/vgp-backups/<backup-id> \
-     --env-file /etc/videogame-platform/dev/runtime.env \
-     --gnupg-home /etc/videogame-platform/dev/restore-gnupg \
-     --deletion-ledger ~/vgp-ledger-replay/deletion-ledger.jsonl
-   ```
-
-   If the replay fails, deployments stay blocked: fix the cause (Keycloak health, the
-   ledger copy) and repeat only the replay with
-   `restore-private-dev --resume-deletion-replay --env-file … --deletion-ledger …`. If
-   the command stops before the replay, during the restore itself, remove that project's
-   containers and volumes deliberately and start step 3 again.
-4. Deploy the last-good image digest with `deploy-private-dev` and confirm the smoke
-   and readiness checks pass.
-5. Record the recovery decision, backup id, image digest, migration version and
-   outcomes from the generated evidence records.
+2. Deploy the last-good image digest with `deploy-private-dev` and confirm the smoke and
+   readiness checks pass.
+3. Re-provision the deployment-smoke account and reapply the identity policy and mail
+   configuration, then let the weekly synchronization, or an operator-triggered one,
+   rebuild the catalogue. Earlier accounts and ratings are not recovered.
 
 ## Catalogue localization helper
 
