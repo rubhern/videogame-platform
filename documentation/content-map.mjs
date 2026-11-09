@@ -56,6 +56,7 @@ export const groups = [
     ['docs/research/README.md', 'Research index & limitations'],
     ['docs/research/browser-session-lifetime.md', 'Browser session lifetime · #361'],
     ['docs/research/historical-sync-pilot.md', 'Historical sync pilot · #246'],
+    ['docs/research/product-analytics.md', 'Product analytics evaluation · #330'],
     ['docs/research/public-production-candidate-acceptance.md', 'Production candidate acceptance · #275'],
     ['docs/research/public-production-release-acceptance.md', 'Production release acceptance · #276'],
     ['docs/research/public-production-backup-storage.md', 'Off-host backup storage · #276'],

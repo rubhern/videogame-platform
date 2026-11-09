@@ -21,6 +21,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 | [Public-release rights and privacy](public-release-rights-and-privacy.md) | #274: IGDB/Twitch terms per content type, verified personal-data inventory, GDPR/Spanish requirements, revocation comparison and deletion-ledger design, licence contingency, approved decisions, open uncertainties, launch blockers, and the phase 2 plan with the production-realm evidence and the transactional email provider comparison; no legal advice |
 | [Browser session lifetime and remember-me](browser-session-lifetime.md) | #361 lifetime evidence; #374 native-mapper limits, owner-approved narrow SPI, reproducible signed-claim probe and all-environment implementation boundary; nothing deployed |
+| [Product analytics evaluation](product-analytics.md) | #330 product questions, minimum event dictionary, GA4 vs Umami comparison and owner decision to adopt GA4 (2026-11-09); nothing installed |
 
 ## Point-in-time reviews
 
