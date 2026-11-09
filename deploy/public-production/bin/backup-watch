@@ -24,7 +24,7 @@ VERIFY_PAIRS_PER_RUN = 2
 HEARTBEAT_HOUR = 7
 # Findings that fail the job as well as reaching the channel.
 RESTORE_DUE = {'restore-missing', 'restore-warning', 'restore-critical'}
-RECONSTRUCT = 'bash ~/gameometro-276-release/reconstruct.sh'
+RECONSTRUCT = 'bash ~/.config/gameometro/production/reconstruct.sh'
 CRITICAL = {'integrity-critical', 'multiple-versions', 'delete-marker', 'expiry-critical', 'retention-incident', 'restore-critical'}
 
 

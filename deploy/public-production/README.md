@@ -825,8 +825,9 @@ this whole sequence for the owner from S3 alone:
 It needs the trusted release that captured the pair and the production Keycloak administrator from
 the reconstruction material. It writes the `RESTORE_EVIDENCE` envelope the observer accepts, and it
 never contacts the VPS. It finds the matching trusted release itself and can store the envelope as the
-`backup-observer` secret. The owner runs `bash ~/gameometro-276-release/reconstruct.sh`
-about every 30 days. The observer warns after 30 days and is critical after 32, and its
+`backup-observer` secret. The owner runs `bash ~/.config/gameometro/production/reconstruct.sh`,
+an owner-local launcher next to the reconstruction configuration that writes its evidence under
+`~/.local/state/gameometro/reconstructions/`, about every 30 days. The observer warns after 30 days and is critical after 32, and its
 Telegram message names that command. The target is the owner's local Docker engine (see above).
 
 Against the production issuer, `erase`, `retry` and `cleanup-unverified --execute` need `--cloud-copies`: each ledger
