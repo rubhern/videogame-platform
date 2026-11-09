@@ -62,6 +62,7 @@ import org.springframework.security.web.session.SessionInformationExpiredEvent;
 public class IdentitySecurityConfiguration {
 
     static final String AUTHORIZATION_BASE_URI = "/auth/login";
+    static final String FEEDBACK_PATH = "/api/v1/feedback";
     static final String SESSION_PATH = "/api/v1/session";
     static final String ADMINISTRATION_PATHS = "/api/v1/admin/**";
     private static final String CONTENT_SECURITY_POLICY =
@@ -138,7 +139,12 @@ public class IdentitySecurityConfiguration {
                                         .anyRequest()
                                         .permitAll())
                 .requestCache(cache -> cache.disable())
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
+                .csrf(
+                        csrf ->
+                                csrf.csrfTokenRepository(csrfTokens)
+                                        .ignoringRequestMatchers(
+                                                PathPatternRequestMatcher.pathPattern(
+                                                        HttpMethod.POST, FEEDBACK_PATH)))
                 .addFilterBefore(new AccountDeletionFenceFilter(deletionStores), CsrfFilter.class)
                 .addFilterBefore(
                         new SameOriginStateChangeFilter(

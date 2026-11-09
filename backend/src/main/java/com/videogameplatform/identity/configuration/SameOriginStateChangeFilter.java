@@ -44,7 +44,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !isPersonalApi(request)
                 && !isAdministrationApi(request)
-                && !isSessionMutation(request);
+                && !isSessionMutation(request)
+                && !isFeedbackSubmission(request);
     }
 
     @Override
@@ -83,8 +84,15 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
                         .equals(request.getRequestURI());
     }
 
+    private static boolean isFeedbackSubmission(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && (request.getContextPath() + IdentitySecurityConfiguration.FEEDBACK_PATH)
+                        .equals(request.getRequestURI());
+    }
+
     private static boolean isStateChange(HttpServletRequest request) {
         return isSessionMutation(request)
+                || isFeedbackSubmission(request)
                 || (isPersonalApi(request)
                         && (HttpMethod.POST.matches(request.getMethod())
                                 || HttpMethod.PUT.matches(request.getMethod())

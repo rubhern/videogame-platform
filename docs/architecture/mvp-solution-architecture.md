@@ -85,7 +85,13 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 | Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, `Mis puntuaciones`, and personal statistics |
 | Identity | BFF session and external OIDC integration; not product credentials or authorization |
 | API | Same-origin HTTP delivery and mapping; no business policy |
+| Feedback | Anonymous message submission and the outbound receiving-channel port |
 | Platform | Runtime composition, configuration, health, correlation, metrics, and tracing |
+
+Post-MVP (#383, implemented for review), API delivery calls the Feedback application
+contract. The Feedback module owns validation and synchronous acceptance and keeps
+SMTP behind its outbound port. It depends on no other business module. See
+[UC-022](application/mvp-use-cases.md#visitor-feedback-uc-022-post-mvp-383).
 
 Ratings evaluates release eligibility from a narrow Catalogue application context.
 It never reads Catalogue tables or provider types. Catalogue does not depend on

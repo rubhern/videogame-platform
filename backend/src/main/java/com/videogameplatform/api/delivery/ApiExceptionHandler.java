@@ -4,6 +4,7 @@ import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.CatalogueSynchronizationWindow;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.FeaturedGranularity;
+import com.videogameplatform.api.generated.model.FeedbackSubmission;
 import com.videogameplatform.api.generated.model.PlatformPreferencesWrite;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
@@ -249,8 +250,33 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "This query parameter is not supported.");
+            case FEEDBACK_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Feedback is invalid",
+                            "Check the selected category, message and optional contact email.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Correct the indicated field.");
+            case REQUEST_TOO_LARGE ->
+                    problem(
+                            response,
+                            HttpStatus.CONTENT_TOO_LARGE,
+                            exception.code(),
+                            "Request is too large",
+                            "The request body exceeds the allowed size.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Send a smaller body.");
+            case FEEDBACK_UNAVAILABLE, SERVICE_OVERLOADED ->
+                    feedbackUnavailable(exception, response);
             case PRECONDITION_REQUIRED -> preconditionRequired(response);
-            case REQUEST_MALFORMED -> preconditionHeaderMalformed(response, exception.pointer());
+            case REQUEST_MALFORMED ->
+                    "/body".equals(exception.pointer())
+                            ? requestMalformed(response)
+                            : preconditionHeaderMalformed(response, exception.pointer());
             default -> unexpectedFailure(exception, response);
         };
     }
@@ -641,6 +667,13 @@ public class ApiExceptionHandler {
     ResponseEntity<Problem> requestBodyInvalid(
             MethodArgumentNotValidException exception, HttpServletResponse response) {
         var fields = exception.getBindingResult().getFieldErrors();
+        if (exception.getParameter().getParameterType() == FeedbackSubmission.class
+                && !fields.isEmpty()) {
+            return requestInvalid(
+                    new ApiRequestException(
+                            ProblemCode.FEEDBACK_INVALID, "/body/" + fields.getFirst().getField()),
+                    response);
+        }
         if (fields.stream()
                 .anyMatch(
                         error ->
@@ -898,6 +931,27 @@ public class ApiExceptionHandler {
             }
         }
         return false;
+    }
+
+    private static ResponseEntity<Problem> feedbackUnavailable(
+            ApiRequestException exception, HttpServletResponse response) {
+        boolean busy = exception.code() == ProblemCode.SERVICE_OVERLOADED;
+        var result =
+                problem(
+                        response,
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        exception.code(),
+                        busy ? "Service is overloaded" : "Feedback channel is unavailable",
+                        busy
+                                ? "Feedback capacity is busy."
+                                : "SMTP acceptance could not be confirmed.",
+                        ErrorCategory.TECHNICAL,
+                        "/request",
+                        "Wait before retrying explicitly.");
+        return ResponseEntity.status(result.getStatusCode())
+                .headers(result.getHeaders())
+                .header("Retry-After", busy ? "5" : "30")
+                .body(result.getBody());
     }
 
     private static ResponseEntity<Problem> internalError(HttpServletResponse response) {

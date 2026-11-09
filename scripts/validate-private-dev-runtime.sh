@@ -278,7 +278,7 @@ assert "logs" in services["grafana"]["networks"]
 assert services["alloy"]["ports"][0]["protocol"] == "udp"
 assert "ports" not in services["loki"]
 assert services["mailpit"]["networks"] == {"mail": None}
-assert {name for name, service in services.items() if "mail" in (service.get("networks") or {})} == {"keycloak", "mailpit"}
+assert {name for name, service in services.items() if "mail" in (service.get("networks") or {})} == {"keycloak", "mailpit", "application"}
 mailpit = services["mailpit"]
 assert not mailpit.get("volumes"), "Mailpit must keep captured messages only on tmpfs"
 assert any(mount.startswith("/tmp:") for mount in mailpit["tmpfs"]), "Mailpit temporary message store"

@@ -78,15 +78,14 @@ supersedes the initial private-dev optionality in ADR-0022; the
 [private-dev README](../../../deploy/private-dev/README.md#catalogue-localization-helper)
 owns migration, activation and rollback commands. Workstation activation stays opt-in.
 
-Mailpit captures Keycloak's password-recovery email (#273) so local and private-dev
-recovery is exercised without an external provider, credential or purchase. It
-shares a dedicated network only with Keycloak; that network is non-internal solely so
-its web UI can bind to host IPv4 loopback for the owner's SSH tunnel, without a
-Tailscale Serve route. SMTP and POP3 publish nothing, nothing is relayed or forwarded,
-and messages, which carry live reset links, stay in a temporary in-memory store
-bounded by count and age and lost on restart. Mailpit is never an application
-dependency. It is a non-production sink and the default transport of every
-environment; local development and CI never use another.
+Mailpit captures Keycloak recovery mail and the packaged application's visitor
+feedback in local and private-dev (#273, #383). Private-dev restricts its mail
+network to those two senders and the sink. The web UI binds to IPv4 loopback for
+the owner's tunnel. Messages stay in a temporary store bounded by count and age.
+Mailpit is a synthetic verification channel; the feedback path can report delivery
+unavailable while the rest of the application stays healthy. Production feedback
+activation is separate from account mail and remains gated by the
+[operator procedure](../../../deploy/public-production/README.md#feedback-receiving-channel).
 
 Post-MVP (#274), private-dev may instead send its account mail through the approved
 transactional provider's authenticated STARTTLS relay, selected explicitly on the
@@ -401,7 +400,7 @@ Account revocation and its management interface follow
 [below](#account-revocation-and-the-management-interface).
 
 The prepared configuration has two non-internal edge networks, one per upstream, that
-exist only for the published ports and the egress the application (provider) and
+exist only for the published ports and the egress the application (catalogue provider and configured feedback relay) and
 Keycloak (mail relay) need, plus two internal data networks; the application and
 Keycloak share no network, and only the proxy publishes ports. The proxy has a fixed
 address on each edge network and each upstream trusts forwarded headers from that
@@ -951,7 +950,7 @@ and read/write/idle time.
 
 | Class | Per source | Aggregate |
 |---|---|---|
-| Product host | All requests; BFF identity navigation (`/auth/*`, `/login*`); catalogue reads; search and release exploration; writes | All requests; API; API writes |
+| Product host | All requests; BFF identity navigation (`/auth/*`, `/login*`); catalogue reads; search and release exploration; writes; feedback | All requests; API; API writes; feedback |
 | Identity host | All requests except the BFF's issuer calls; login submissions and non-BFF token requests; registration; recovery; the verification step; emailed action links and required actions | All requests except BFF calls; login; every mail-triggering path; BFF issuer calls |
 
 The thresholds started from the #274 candidates (reads 10/s with burst 40, login
@@ -962,6 +961,12 @@ because every per-source limiter holds its events until its window passes. They 
 aggregate budgets are not measured against VPS headroom, and no limit protects against
 distributed abuse. Sliding windows count attempts whether or not an address exists;
 no submitted email, owner ID or session cookie is ever a key.
+
+Feedback has a separate rolling per-source quota and aggregate budget in the existing
+edge. Its budget is separate from identity-mail requests. The two consume relay quota
+when both use the same provider account, so the operator must verify their combined
+volume before enabling feedback. Local and private-dev use the bounded capture sink
+without this public edge.
 
 - **Source identity.** Only the TCP peer keys a limit: one IPv4 address, or one IPv6
   /64 so a client cannot rotate addresses inside its prefix. No proxy is trusted, so no

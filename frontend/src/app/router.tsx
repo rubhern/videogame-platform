@@ -1,6 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
+import { AboutPage } from "../pages/about-page";
+import { ContactPage } from "../pages/contact-page";
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { FeaturedReleasesPage } from "../pages/featured-releases-page";
 import { GameDetailsPage } from "../pages/game-details-page";
@@ -52,6 +54,8 @@ export const appRoutes: RouteObject[] = [
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
+      { path: "sobre-gameometro", element: <AboutPage /> },
+      { path: "contacto", element: <ContactPage /> },
       ...legalRoutes(),
       { path: "*", element: <NotFoundPage /> },
     ],

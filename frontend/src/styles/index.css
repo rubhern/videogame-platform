@@ -24,6 +24,7 @@
 @import "./upcoming-highlights.css";
 @import "./platform-navigation.css";
 @import "./home.css";
+@import "./community.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

@@ -50,7 +50,9 @@ def reviewed_schedule(environment):
 
 
 def optional_secret(name, environment):
-    """Provider credentials may be empty only while recurring acquisition is off; Telegram stays off."""
+    """Credentials are required when their integration is enabled."""
+    if name.startswith('feedback-smtp-'):
+        return environment.get('FEEDBACK_ENABLED') != 'true'
     return name.startswith('grafana-telegram-') or (name.startswith('igdb-') and environment.get(SCHEDULING) != 'true')
 
 

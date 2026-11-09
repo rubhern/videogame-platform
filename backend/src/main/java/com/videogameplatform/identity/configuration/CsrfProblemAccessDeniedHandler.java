@@ -49,10 +49,15 @@ public final class CsrfProblemAccessDeniedHandler implements AccessDeniedHandler
                         : "urn:videogame-platform:problem:access-denied");
         body.put("title", csrf ? "CSRF validation failed" : "Access is denied");
         body.put("status", HttpServletResponse.SC_FORBIDDEN);
+        boolean feedback =
+                (request.getContextPath() + IdentitySecurityConfiguration.FEEDBACK_PATH)
+                        .equals(request.getRequestURI());
         body.put(
                 "detail",
                 csrf
-                        ? "Obtain current CSRF material and explicitly retry."
+                        ? feedback
+                                ? "Submit the feedback form from the same origin."
+                                : "Obtain current CSRF material and explicitly retry."
                         : "This session is not allowed to use this resource.");
         body.put("instance", "urn:videogame-platform:problem-instance:" + correlationId);
         body.put("code", code);

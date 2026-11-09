@@ -285,6 +285,7 @@ services = {
             "cache-disabled": "false", "cache-max-size": "10m", "cache-max-file": "3",
         }},
         depends_on={"postgres": {}, "keycloak": {}},
+        networks={"edge": None, "data": None, "telemetry": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
         read_only=True,
         cap_drop=["ALL"],

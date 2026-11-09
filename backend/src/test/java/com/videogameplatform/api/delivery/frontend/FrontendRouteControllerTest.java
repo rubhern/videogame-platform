@@ -38,6 +38,15 @@ class FrontendRouteControllerTest {
     }
 
     @Test
+    void publicCommunityPagesSurviveDirectNavigationAndReload() throws Exception {
+        for (String path : java.util.List.of("/sobre-gameometro", "/contacto")) {
+            mockMvc.perform(get(path))
+                    .andExpect(status().isOk())
+                    .andExpect(forwardedUrl("/index.html"));
+        }
+    }
+
+    @Test
     void forwardsOnlyApprovedBrowserRoutesToThePackagedSpa() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/search"))

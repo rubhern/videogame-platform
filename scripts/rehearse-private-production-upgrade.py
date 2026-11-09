@@ -97,6 +97,7 @@ def synthetic_secrets(directory):
     for name in ('postgres-admin-password', 'application-db-password', 'application-migration-db-password',
                  'keycloak-db-password', 'keycloak-admin-password', 'keycloak-bff-client-secret',
                  'keycloak-smtp-username', 'keycloak-smtp-password', 'igdb-client-id', 'igdb-client-secret',
+                 'feedback-smtp-username', 'feedback-smtp-password',
                  'grafana-admin-password', 'grafana-database-password', 'grafana-telegram-bot-token',
                  'grafana-telegram-chat-id'):
         path = directory / name
