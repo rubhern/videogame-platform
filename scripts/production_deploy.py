@@ -30,7 +30,15 @@ require = trust.require
 PREFLIGHT_CHECKS = ('access', 'recovery-ready', 'installed-runtime', 'backup-cycle', 'backup-lock',
                     'backup-runtime', 'host-s3-admission', 'backup-services', 'upgrade-plan',
                     'plan-prerequisites', 'recovery-capacity')
-FAILURE_CATEGORIES = ('missing-file', 'permission-denied', 'timeout', 'interrupted', 'check-refused', 'unexpected')
+CAPTURE_CHECKS = ('capture-lease', 'capture-preflight', 'capture-pair', 'capture-lease-release', 'capture-verify')
+CAPTURE_REFUSALS = {
+    'Another recovery/backup actor is active.': 'recovery-lock-busy',
+    'Another runtime actor holds the recovery lease, or the engine lease is unavailable.': 'runtime-lease-unavailable',
+    'A synchronization is running; the capture is deferred.': 'active-synchronization',
+    'The capture exceeded its fence budget.': 'capture-budget-exceeded',
+}
+FAILURE_CATEGORIES = ('missing-file', 'permission-denied', 'timeout', 'interrupted', 'check-refused', 'unexpected',
+                      *CAPTURE_REFUSALS.values())
 
 
 def failure_category(error):
@@ -261,13 +269,13 @@ class Rollout:
         self.record = {'revision': revision, 'runId': run_id, 'attempt': attempt, 'outcome': 'failure', 'phase': 'preflight'}
 
     def save(self, phase):
-        if phase not in ('preflight', 'planned'):
+        if phase not in ('preflight', 'planned', 'capturing'):
             self.record.pop('check', None)
         self.record['phase'] = phase
         upgrade.control.durable(self.directory / 'deployment.json', self.record)
 
     def check(self, name):
-        require(name in PREFLIGHT_CHECKS, 'Unknown preflight check.')
+        require(name in (*PREFLIGHT_CHECKS, *CAPTURE_CHECKS), 'Unknown deployment check.')
         self.record['check'] = name
         self.save(self.record['phase'])
 
@@ -341,11 +349,20 @@ class Rollout:
             require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before capture.')
             self.save('capturing')
             pair = self.directory / 'pair'
-            with runtime.lock():
-                cycle.preflight(runtime)
-                with cycle.budget():
-                    runtime.backup(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
-            self.record['backupId'] = cycle.core.verify(pair)['backupId']
+            try:
+                self.check('capture-lease')
+                with runtime.lock():
+                    self.check('capture-preflight')
+                    cycle.preflight(runtime)
+                    self.check('capture-pair')
+                    with cycle.budget():
+                        runtime.backup(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
+                    self.check('capture-lease-release')
+                self.check('capture-verify')
+                self.record['backupId'] = cycle.core.verify(pair)['backupId']
+            except cycle.core.Refused as error:
+                self.record['category'] = CAPTURE_REFUSALS.get(str(error), 'check-refused')
+                raise
             self.save('publishing')
             offhost = cycle.invoke('publish', cycle.config['uploaderConfig'], '--backup', pair,
                                    '--observer-receipt', admission_receipt)
@@ -433,7 +450,7 @@ def summarize(path, revision, run_id, attempt, plan_only):
         require(value.get('phase') in PHASES, 'Unknown deployment phase.')
         result['phase'] = value['phase']
         if value.get('outcome') in ('failure', 'refused-or-failed'):
-            for key, vocabulary in (('check', PREFLIGHT_CHECKS), ('category', FAILURE_CATEGORIES)):
+            for key, vocabulary in (('check', (*PREFLIGHT_CHECKS, *CAPTURE_CHECKS)), ('category', FAILURE_CATEGORIES)):
                 if value.get(key) in vocabulary:
                     result[key] = value[key]
         for key in ('planSha256', 'adapterFingerprint'):
@@ -483,7 +500,7 @@ def summarize(path, revision, run_id, attempt, plan_only):
                + 'Revision: `' + revision + '`; phase: `' + result['phase'] + '`.\n\n'
                + 'See the sanitized receipt for immutable identities. On failure inspect the protected deployment/upgrade journals; do not rerun, thaw or roll back migrations.\n')
     if 'check' in result:
-        summary += 'Preflight check: `' + result['check'] + '`; category: `' + result.get('category', 'unexpected') + '`.\n'
+        summary += 'Deployment check: `' + result['check'] + '`; category: `' + result.get('category', 'unexpected') + '`.\n'
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
             stream.write(summary)
@@ -596,7 +613,7 @@ def main():
         if rollout:
             failure.update(rollout.record)
             failure['outcome'] = 'failure'
-            failure['category'] = failure_category(error)
+            failure.setdefault('category', failure_category(error))
         print(json.dumps(failure))
         return 1
 
