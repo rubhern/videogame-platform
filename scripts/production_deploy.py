@@ -405,7 +405,10 @@ class Rollout:
             self.save('applying')
             actor.apply(stored['planSha256'], backup=pair, offhost=offhost, restore=restore_path, reference=self.reference)
             self.save('verifying')
-            verification = actor.verify()
+            # The apply actor loaded the pre-upgrade ACTIVE state; verify exactly as `--verify` does, from a
+            # fresh load of the activation the apply just recorded, or it compares live state with the old images.
+            verifier = upgrade.Upgrade(self.revision, operational=self.revision, adapter=stored['adapterFingerprint']).load()
+            verification = verifier.verify()
             require(verification.get('mode') == 'verified' and verification.get('targetRevision') == self.revision,
                     'The upgrade is not verified at the selected revision.')
             self.record['services'] = verification['services']
