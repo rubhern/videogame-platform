@@ -62,6 +62,37 @@ class AdmissionTests(unittest.TestCase):
                 deploy.admission(api, SHA, '123', '1', host=True)
             self.assertEqual(resolve.call_count, 1)
 
+    def test_runner_waits_for_both_approvals_in_either_order(self):
+        for first in ('production', 'production-recovery'):
+            with self.subTest(first=first):
+                api = Api()
+                api.run['status'] = 'waiting'
+                both = api.reviews
+                api.reviews = [{**both[0], 'environments': [{'name': first}]}]
+                with self.assertRaises(deploy.trust.Refused):
+                    deploy.dispatch(api, SHA, '123', '1')
+                delays = []
+
+                def advance(seconds):
+                    delays.append(seconds)
+                    api.run['status'] = 'in_progress'
+                    if len(delays) == 2:
+                        api.reviews = both
+
+                deploy.wait_for_approvals(api, SHA, '123', '1', clock=lambda: sum(delays), sleep=advance)
+                self.assertEqual(delays, [5, 5])
+
+    def test_approval_wait_is_bounded_and_rejects_completed_runs(self):
+        api = Api()
+        api.run['status'] = 'waiting'
+        delays = []
+        with self.assertRaisesRegex(deploy.trust.Refused, 'within ten minutes'):
+            deploy.wait_for_approvals(api, SHA, '123', '1', clock=lambda: sum(delays), sleep=delays.append)
+        self.assertEqual(sum(delays), 600)
+        api.run['status'] = 'completed'
+        with self.assertRaises(deploy.trust.Refused):
+            deploy.wait_for_approvals(api, SHA, '123', '1', sleep=self.fail)
+
     def test_untrusted_dispatches_refuse(self):
         for key, value in {'head_sha': 'b'*40, 'head_branch': 'dev', 'path': 'other.yml', 'event': 'push',
                            'actor': {'login': 'other'}, 'triggering_actor': {'login': 'other'},

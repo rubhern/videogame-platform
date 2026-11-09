@@ -55,6 +55,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Wait for both owner approvals
+        run: python3 -B scripts/production_deploy.py --await-approvals "$REVISION" "$RUN_ID" "$ATTEMPT"
       - name: Install the existing pinned S3 client
         run: |
           python3 -m venv "$RUNNER_TEMP/recovery-venv"
@@ -111,6 +113,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Wait for both owner approvals
+        run: python3 -B scripts/production_deploy.py --await-approvals "$REVISION" "$RUN_ID" "$ATTEMPT"
       - name: Revalidate publications after approval
         run: python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT" > release.json
       - name: Prepare the restricted production SSH identity

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 
 import private_dev_promotion as trust
 import public_production_integration as integration
@@ -64,25 +65,43 @@ def environment(api, name='production'):
             'production must permit only the main branch.')
 
 
-def dispatch(api, revision, run_id, attempt):
+def dispatch(api, revision, run_id, attempt, *, allow_waiting=False):
     trust.validate_source_run(revision, run_id, attempt)
     require(str(attempt) == '1', 'Do not rerun a deployment; inspect and dispatch a fresh attempt.')
     value = api.request(f'/actions/runs/{run_id}')
+    states = ('in_progress', 'waiting') if allow_waiting else ('in_progress',)
     require(value.get('head_sha') == revision and value.get('head_branch') == 'main'
             and value.get('path') == WORKFLOW and value.get('event') == 'workflow_dispatch'
             and value.get('head_repository', {}).get('full_name') == trust.REPOSITORY
             and value.get('actor', {}).get('login') == 'rubhern'
             and value.get('triggering_actor', {}).get('login') == 'rubhern'
-            and value.get('status') == 'in_progress' and value.get('run_attempt') == 1,
+            and value.get('status') in states and value.get('run_attempt') == 1,
             'Only the active owner dispatch of the exact main revision is authorized.')
     return value
 
 
+def owner_approved(reviews, name):
+    return any(r.get('state') == 'approved' and r.get('user', {}).get('login') == 'rubhern'
+               and any(e.get('name') == name for e in r.get('environments', [])) for r in reviews)
+
+
 def approved(api, run_id, name='production'):
-    reviews = api.request(f'/actions/runs/{run_id}/approvals')
-    require(any(r.get('state') == 'approved' and r.get('user', {}).get('login') == 'rubhern'
-                and any(e.get('name') == name for e in r.get('environments', [])) for r in reviews),
+    require(owner_approved(api.request(f'/actions/runs/{run_id}/approvals'), name),
             'This run has no production approval by the owner.')
+
+
+def wait_for_approvals(api, revision, run_id, attempt, *, clock=time.monotonic, sleep=time.sleep):
+    """Allow GitHub to release the two protected jobs in either order."""
+    deadline = clock() + 600
+    while True:
+        run = dispatch(api, revision, run_id, attempt, allow_waiting=True)
+        if run['status'] == 'in_progress':
+            reviews = api.request(f'/actions/runs/{run_id}/approvals')
+            if all(owner_approved(reviews, name) for name in ('production', 'production-recovery')):
+                return
+        remaining = deadline - clock()
+        require(remaining > 0, 'Both owner approvals are required within ten minutes.')
+        sleep(min(5, remaining))
 
 
 def admission(api, revision, run_id, attempt, host=False):
@@ -523,6 +542,7 @@ def runner(mode, revision, run_id, attempt):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--discover', action='store_true')
+    parser.add_argument('--await-approvals', action='store_true')
     parser.add_argument('--receipt', type=Path)
     parser.add_argument('--connect', action='store_true')
     parser.add_argument('--runner', choices=('plan', 'prepare', 'apply'))
@@ -539,6 +559,10 @@ def main():
             return connect(*args.arguments)
         if args.receipt:
             return summarize(args.receipt, *args.arguments)
+        if args.await_approvals:
+            print('Waiting up to ten minutes for both production approvals.', flush=True)
+            wait_for_approvals(trust.GitHub(os.environ['GH_TOKEN']), *args.arguments)
+            return 0
         if args.discover:
             revision, run_id, attempt = args.arguments
             result = admission(trust.GitHub(os.environ.get('GH_TOKEN')), revision, run_id, attempt)
