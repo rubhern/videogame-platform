@@ -2044,7 +2044,7 @@ restore attestation. Those references confer no S3 access; ciphertext stays in t
 bucket, never solely in Actions. Final allowlisted deployment receipts remain for 30 days. Keys,
 passphrases, S3/SSH credentials, plaintext, real database contents and raw child output are excluded.
 Protected host state stays in `/var/lib/gameometro/production/deployments/RUN_ID-1/`.
-Preflight failures retain an allowlisted check name and fixed failure category in the sanitized
+Preflight and capture failures retain an allowlisted check name and fixed failure category in the sanitized
 receipt and Actions summary, even when no complete plan exists. The host journals the check before
 running it. Raw exception text, subprocess output and file paths remain excluded; inspect protected
 journals for details, then correct the cause before dispatching a new run.

@@ -234,6 +234,9 @@ class GpgTests(unittest.TestCase):
 
 
 class RolloutTests(unittest.TestCase):
+    class BackupRefused(Exception):
+        pass
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -249,6 +252,7 @@ class RolloutTests(unittest.TestCase):
         self.actor.verify.return_value = {'mode': 'verified', 'targetRevision': SHA,
                                           'services': list(deploy.upgrade.PERSISTENT), 'optionalDegraded': []}
         self.cycle = MagicMock()
+        self.cycle.core.Refused = self.BackupRefused
         self.cycle.config = {'admin': str(self.root), 'project': 'gameometro-production', 'state': str(self.root/'first-install/recovery'),
                              'keyring': '/public/keyring', 'recipient': 'A'*40, 'uploaderConfig': '/uploader'}
         self.cycle.journal = {'status': 'idle'}
@@ -380,6 +384,28 @@ class RolloutTests(unittest.TestCase):
         self.assertNotIn('/private/', output.getvalue())
         self.runtime.backup.assert_not_called()
         self.actor.apply.assert_not_called()
+
+    def test_capture_refusals_distinguish_lease_and_recheck_without_fencing(self):
+        import shutil
+        cases = [
+            (self.runtime, 'lock', 'Another recovery/backup actor is active.', 'capture-lease', 'recovery-lock-busy'),
+            (self.cycle, 'preflight', 'A synchronization is running; the capture is deferred.',
+             'capture-preflight', 'active-synchronization'),
+            (self.cycle, 'preflight', 'SECRET raw child failure', 'capture-preflight', 'check-refused'),
+        ]
+        for owner, operation, message, stage, category in cases:
+            with self.subTest(stage=stage, category=category):
+                shutil.rmtree(self.root/'deployments', ignore_errors=True)
+                rollout = self.rollout()
+                failure = self.BackupRefused(message)
+                effect = [None, failure] if operation == 'preflight' else failure
+                with patch.object(owner, operation, side_effect=effect), self.assertRaises(self.BackupRefused):
+                    rollout.run('prepare')
+                self.assertEqual(rollout.record['check'], stage)
+                self.assertEqual(rollout.record['category'], category)
+                self.assertNotIn('SECRET', json.dumps(rollout.record))
+                self.runtime.backup.assert_not_called()
+                self.runtime.thaw.assert_not_called()
 
     def test_same_dispatch_cannot_be_replayed(self):
         self.rollout().run('plan')
@@ -548,13 +574,14 @@ class ReceiptTests(unittest.TestCase):
             finally:
                 os.chdir(previous)
 
-    def test_failed_preflight_summary_retains_only_allowlisted_context(self):
+    def test_failed_deployment_summary_retains_only_allowlisted_context(self):
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as name:
             os.chdir(name)
             try:
                 base = {'revision': SHA, 'runId': '123', 'attempt': '1', 'outcome': 'failure', 'phase': 'preflight'}
                 for check, category, expected in [('upgrade-plan', 'check-refused', True),
+                                                   ('capture-lease', 'recovery-lock-busy', True),
                                                    ('SECRET child output', 'SECRET error', False),
                                                    ({'SECRET': 'value'}, ['SECRET'], False)]:
                     Path('raw').write_text(json.dumps({**base, 'check': check, 'category': category, 'reason': 'SECRET'}))
@@ -563,7 +590,11 @@ class ReceiptTests(unittest.TestCase):
                         self.assertEqual(deploy.summarize(Path('raw'), SHA, '123', '1', 'true'), 1)
                     receipt = Path('deployment-receipt.json').read_text()
                     self.assertNotIn('SECRET', receipt + output.getvalue())
-                    self.assertEqual('check' in json.loads(receipt), expected)
+                    details = json.loads(receipt)
+                    self.assertEqual('check' in details, expected)
+                    self.assertEqual('category' in details, expected)
+                    if expected:
+                        self.assertIn(category, output.getvalue())
                 Path('raw').write_text(json.dumps({**base, 'runId': '456', 'check': 'upgrade-plan'}))
                 with patch('builtins.print'):
                     deploy.summarize(Path('raw'), SHA, '123', '1', 'true')
