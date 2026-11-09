@@ -39,6 +39,21 @@ ROOT = Path(__file__).resolve().parents[1]
 ADMIN = Path('/var/lib/gameometro/production')
 JOURNAL = ADMIN / 'first-install'
 TLS = Path('/etc/gameometro/production/private-tls')
+SCHEDULING = 'CATALOGUE_SYNC_SCHEDULING_ENABLED'
+SCHEDULE_OVERRIDES = ('CATALOGUE_SYNC_NEAR_TERM_CRON', 'CATALOGUE_SYNC_UPCOMING_CRON')
+
+
+def reviewed_schedule(environment):
+    """#484: recurring acquisition is off (the pinned first install) or on with the default schedule only."""
+    return environment.get(SCHEDULING) == 'false' or (
+        environment.get(SCHEDULING) == 'true' and not set(environment) & set(SCHEDULE_OVERRIDES))
+
+
+def optional_secret(name, environment):
+    """Provider credentials may be empty only while recurring acquisition is off; Telegram stays off."""
+    return name.startswith('grafana-telegram-') or (name.startswith('igdb-') and environment.get(SCHEDULING) != 'true')
+
+
 HELPER = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258'
 OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_private_production_truststore.py', 'scripts/install_private_production.py', 'scripts/prepare_private_production.py',
                      'scripts/private_dev_promotion.py', 'scripts/public_production_deployment.py',
@@ -467,8 +482,9 @@ class Host:
         require({n: services[n]['image'] for n in selected['images']} == selected['images'], 'Candidate digests changed.')
         require(services['application']['environment']['TELEMETRY_SERVICE_VERSION'] == prepare.VERSION,
                 'Unexpected candidate version.')
-        require(services['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] == 'false'
-                and services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED'] == 'false', 'Background work/notifications must stay off.')
+        require(reviewed_schedule(services['application']['environment']),
+                'Recurring acquisition must be off or on the reviewed default schedule.')
+        require(services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED'] == 'false', 'Notifications must stay off.')
         self.check = 'candidate-mount-permissions'
         verify_candidate_mounts(self.config, self.source)
         images = {n: s['image'] for n, s in services.items()}
@@ -526,10 +542,9 @@ class Host:
             path = Path(secret['file'])
             require(path.parent == secret_root, 'Secret path outside protected inventory.')
             st = secure(path, mode=0o640, gid=gid)
-            require(st.st_size <= 4096 and (st.st_size > 0 or path.name.startswith(('igdb-', 'grafana-telegram-'))),
-                    'Empty or oversized required secret.')
+            optional = optional_secret(path.name, services['application'].get('environment', {}))
+            require(st.st_size <= 4096 and (st.st_size > 0 or optional), 'Empty or oversized required secret.')
             value = path.read_bytes().decode('utf-8').rstrip('\n')
-            optional = path.name.startswith(('igdb-', 'grafana-telegram-'))
             require((value or optional) and value == value.strip() and not any(c in value for c in '\r\n\x00'),
                     'Invalid required secret encoding/content.')
             for service_name, service in services.items():

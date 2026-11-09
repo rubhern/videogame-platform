@@ -214,7 +214,7 @@ is file delivery on one host, not an encrypted vault.
 | `keycloak-admin-password` | Temporary master-realm bootstrap administrator | `keycloak` | Used only while no administrator exists |
 | `keycloak-bff-client-secret` | Confidential BFF client credential | `keycloak` (realm import), `application` | Client secret in Keycloak plus file |
 | `keycloak-smtp-username`, `keycloak-smtp-password` | Transactional relay credentials | `keycloak` (realm import) | Stored in the realm, inside the identity database |
-| `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; may stay empty while synchronization is off |
+| `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
 
 Storage requirements, verified on the host before first start:
 
@@ -1290,8 +1290,8 @@ separate eMudhra positive/negative TLS condition and all release gates.
 2. Stage the owner-supplied [base secrets](#secret-inventory) and
    [observability inputs](#production-observability-candidate), approved model and
    TLS material. The secret directory/files retain 0750/0640 and their configured
-   consumer group. All fourteen file inputs must exist; only disabled IGDB/Telegram
-   values may be empty. Keep `/var/lib/gameometro/production` 0700, with a new empty
+   consumer group. All fourteen file inputs must exist; only disabled Telegram values,
+   and IGDB values while the rendered configuration keeps scheduling off, may be empty. Keep `/var/lib/gameometro/production` 0700, with a new empty
    `metrics/` at 0755. The model directory must be readable/traversable by its
    non-root consumer, with the complete approved checksum inventory. Stage no
    `first-install/` directory or intent: the installer claims both exclusively.
@@ -1617,6 +1617,7 @@ result with the active configuration:
 | None, and identical bound bytes | The service keeps its exact definition and is not recreated. PostgreSQL always takes this path |
 | Published image (application, migration, Keycloak, edge, localizer) | Allowed, then recreated |
 | The exact [private administration](#private-production-administration) settings | Allowed only at their reviewed values; master frontend alignment stays under the upgrade lease |
+| `CATALOGUE_SYNC_SCHEDULING_ENABLED` from `false` to `true` (#484) | Allowed once; the IGDB credential files must then be non-empty. Switching it off again is a separate reviewed change |
 | The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory ceiling | Allowed, listed by field and setting name, then recreated |
 | Any other existing setting, issuer, `KC_*` (except the exact private admin hostname below) or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
 | Any change to PostgreSQL, or an observability image | Refused: outside this procedure |
@@ -1624,9 +1625,10 @@ result with the active configuration:
 
 The result must keep `restart: unless-stopped` on persistent services, `restart: no` on the
 one-shot actor, the accepted localizer ceiling and Grafana plugin policy, the mounted
-localization dashboard, the same image for migration and application, zero publications, and
-scheduling, Telegram and the [account-deletion overlay](#optional-automatic-account-deletion)
-off. Installation run and configuration labels survive unchanged on every service; a new label
+localization dashboard, the same image for migration and application, zero publications,
+recurring synchronization either off or on the application's default schedule with no cron
+override (#484), and Telegram and the
+[account-deletion overlay](#optional-automatic-account-deletion) off. Installation run and configuration labels survive unchanged on every service; a new label
 names the upgrade on recreated ones.
 
 **Refusals before any change.** No recorded completed installation and transition, drifted live

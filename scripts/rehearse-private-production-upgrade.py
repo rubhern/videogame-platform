@@ -100,7 +100,8 @@ def synthetic_secrets(directory):
                  'grafana-admin-password', 'grafana-database-password', 'grafana-telegram-bot-token',
                  'grafana-telegram-chat-id'):
         path = directory / name
-        path.write_text('' if name.startswith(('igdb-', 'grafana-telegram-')) else secrets.token_hex(24))
+        # Recurring acquisition is on from #484, so provider credentials are required; internal networks keep them unused.
+        path.write_text('' if name.startswith('grafana-telegram-') else secrets.token_hex(24))
         path.chmod(0o640)
 
 
