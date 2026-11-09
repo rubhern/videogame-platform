@@ -1840,7 +1840,8 @@ and all image-publication verifiers derive versions/digests/fingerprints; the ho
 rechecks them and both approvals. It exports only authenticated operational trees and migrations
 from that Git commit. No workflow input supplies a shell command, root path, image or fingerprint.
 
-Two separately approved jobs run concurrently. The recovery job has only decryption material and
+The protected jobs wait up to ten minutes for both owner approvals before using production
+credentials, so the approvals can arrive in either order. The recovery job has only decryption material and
 the existing read-only S3 identity; it has no SSH/Tailscale secrets. The deployment job has only its
 restricted Tailscale/SSH identity; it never imports the key or receives S3 credentials. Before any
 fence, recovery proves the key/passphrase through a synthetic encrypt/decrypt, S3 admission, and
