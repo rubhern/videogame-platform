@@ -99,6 +99,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         return com.videogameplatform.api.generated.ProfileApi.class.isAssignableFrom(beanType)
                 || com.videogameplatform.api.generated.HistoricalSynchronizationApi.class
                         .isAssignableFrom(beanType)
+                || com.videogameplatform.api.generated.CatalogueTranslationsApi.class
+                        .isAssignableFrom(beanType)
                 || ReleasesApi.class.isAssignableFrom(beanType)
                 || RankingsApi.class.isAssignableFrom(beanType)
                 || com.videogameplatform.api.generated.PlatformCatalogueApi.class.isAssignableFrom(

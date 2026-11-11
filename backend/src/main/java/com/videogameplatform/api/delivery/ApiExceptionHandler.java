@@ -168,6 +168,16 @@ public class ApiExceptionHandler {
                             ErrorCategory.NOT_FOUND,
                             exception.pointer(),
                             "The named historical synchronization does not exist.");
+            case TRANSLATION_EXECUTION_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Translation execution rejected",
+                            "Read the execution again. It has changed or does not accept this command.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Read the execution again before issuing a command.");
             case HISTORICAL_SYNCHRONIZATION_CONFLICT ->
                     problem(
                             response,

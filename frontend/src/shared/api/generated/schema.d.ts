@@ -723,6 +723,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalogue/translations/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read catalogue translation coverage
+         * @description Counts come from persisted source fingerprints, claims and provenance. The bounded
+         *     aggregate may be cached briefly. Read execution status separately for progress polling.
+         */
+        get: operations["getTranslationCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/translations/execution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read catalogue translation execution
+         * @description Reads the latest durable checkpoint. Processed counts include already-current
+         *     targets and never describe overall catalogue coverage. The total is an estimate
+         *     taken at the start of the pass over the eligible catalogue.
+         */
+        get: operations["getTranslationExecution"];
+        put?: never;
+        /**
+         * Start, stop or resume catalogue translation
+         * @description Requires session-bound CSRF proof. A command applies to the observed execution ID,
+         *     omitted only before the first run. Acceptance does not imply completion. Stop takes
+         *     effect between batches. Resume continues from the checkpoint after a stop or
+         *     interruption, including a pause after a failed batch. If a pass ended with unresolved
+         *     failures, resume begins a new pass that skips current content.
+         *     Application startup never resumes an execution.
+         */
+        post: operations["controlTranslationExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/catalogue/historical-synchronization": {
         parameters: {
             query?: never;
@@ -2158,6 +2210,46 @@ export interface components {
         };
         /** Format: int64 */
         RunCount: number;
+        TranslationCoverage: {
+            /** Format: date-time */
+            observedAt: string;
+            rows: components["schemas"]["TranslationCoverageRow"][];
+        };
+        TranslationCoverageRow: {
+            /** @enum {string} */
+            kind: "summary" | "genre" | "game_mode";
+            /** @enum {string} */
+            status: "current" | "missing" | "stale" | "reusable" | "retryable" | "busy" | "not_applicable";
+            /** @enum {string} */
+            origin?: "curated" | "machine";
+            lastValidRetained: boolean;
+            items: components["schemas"]["RunCount"];
+        };
+        TranslationExecution: {
+            /** @enum {string} */
+            state: "not_started" | "running" | "stopping" | "stopped" | "interrupted" | "completed" | "attention";
+            /** Format: uuid */
+            executionId?: string;
+            /** @enum {string} */
+            currentKind?: "summary" | "genre" | "game_mode";
+            estimatedTotal?: components["schemas"]["RunCount"];
+            processed?: components["schemas"]["RunCount"];
+            succeeded?: components["schemas"]["RunCount"];
+            skipped?: components["schemas"]["RunCount"];
+            failed?: components["schemas"]["RunCount"];
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            lastActivityAt?: string;
+            /** @enum {string} */
+            reason?: "batch_failed" | "remaining_failures" | "worker_failed";
+        };
+        TranslationExecutionCommand: {
+            /** @enum {string} */
+            action: "start" | "stop" | "resume";
+            /** Format: uuid */
+            executionId?: string;
+        };
         HistoricalSynchronizationTarget: {
             /** Format: date */
             from: string;
@@ -2271,7 +2363,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -2344,6 +2436,28 @@ export interface components {
         };
         /** @description HISTORICAL_SYNCHRONIZATION_NOT_FOUND; the operation changed no historical target. */
         HistoricalSynchronizationNotFound: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request includes a query parameter or body property outside the contract. */
+        TranslationValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description TRANSLATION_EXECUTION_CONFLICT; the execution has changed or does not accept this command. */
+        TranslationExecutionConflict: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -4310,6 +4424,106 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["PlatformPreferencesValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getTranslationCoverage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operator translation coverage. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationCoverage"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["TranslationValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getTranslationExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operator translation execution. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationExecution"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["TranslationValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    controlTranslationExecution: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranslationExecutionCommand"];
+            };
+        };
+        responses: {
+            /** @description Operator translation execution. */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationExecution"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["TranslationExecutionConflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["TranslationValidationFailed"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];

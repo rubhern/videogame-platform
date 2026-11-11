@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(39);
+                    .isEqualTo(40);
             assertThat(
                             singleString(
                                     statement,
@@ -236,7 +236,7 @@ class DatabaseMigrationApplicationTest {
         }
 
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(7);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(8);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
@@ -282,7 +282,7 @@ class DatabaseMigrationApplicationTest {
                     """);
         }
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.adminConnection(database);

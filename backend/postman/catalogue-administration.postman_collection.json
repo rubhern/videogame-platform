@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity.",
+    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity. Translation examples read coverage and execution and exercise stale-command refusal without changing any execution.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -734,6 +734,233 @@
               "if (pm.response.code === 202) pm.test(\"Named target only\", () => pm.expect(pm.response.json().backfillId).to.eql(pm.collectionVariables.get(\"historicalBackfillId\")));"
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "Catalogue translations",
+      "item": [
+        {
+          "name": "Translation coverage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/coverage",
+            "description": "Bounded aggregate derived from persisted provenance."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Bounded aggregate with a timestamp\", () => {",
+                  "    pm.expect(Date.parse(body.observedAt)).to.be.a(\"number\").and.not.NaN;",
+                  "    pm.expect(body.rows).to.be.an(\"array\").with.lengthOf.at.most(48);",
+                  "    body.rows.forEach(row => pm.expect([\"summary\", \"genre\", \"game_mode\"]).to.include(row.kind));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Translation execution",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/execution",
+            "description": "Reads the latest checkpoint without recomputing coverage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Closed execution state and consistent counters\", () => {",
+                  "    pm.expect([\"not_started\", \"running\", \"stopping\", \"stopped\", \"interrupted\", \"completed\", \"attention\"]).to.include(body.state);",
+                  "    if (body.executionId) pm.expect(body.processed).to.eql(body.succeeded + body.skipped + body.failed);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Translation command without CSRF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/execution",
+            "description": "A synthetic execution ID protects the real execution even if CSRF enforcement regresses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"start\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Missing CSRF proof is rejected\", () => {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Translation start refuses a stale execution",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/execution",
+            "description": "Names a synthetic execution ID that can never match the active checkpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"start\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Stale execution is rejected\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "    pm.expect(pm.response.json().code).to.eql(\"TRANSLATION_EXECUTION_CONFLICT\");",
+                  "});",
+                  "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Translation stop refuses a stale execution",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/execution",
+            "description": "Names a synthetic execution ID that can never match the active checkpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"stop\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Stale execution is rejected\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "    pm.expect(pm.response.json().code).to.eql(\"TRANSLATION_EXECUTION_CONFLICT\");",
+                  "});",
+                  "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Translation resume refuses a stale execution",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/translations/execution",
+            "description": "Names a synthetic execution ID that can never match the active checkpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"resume\",\n  \"executionId\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Stale execution is rejected\", () => {",
+                  "    pm.response.to.have.status(409);",
+                  "    pm.expect(pm.response.json().code).to.eql(\"TRANSLATION_EXECUTION_CONFLICT\");",
+                  "});",
+                  "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

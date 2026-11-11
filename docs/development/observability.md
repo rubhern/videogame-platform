@@ -666,16 +666,18 @@ exactly one status, evaluated in this order:
 | `current` | The published link matches the current source. `origin` separates `machine` from `curated` |
 | `busy` | A live lease on this exact source: inference may be running now |
 | `reusable` | Translated already, usually for another target, but not linked here. The next pass needs no inference |
-| `retryable` | Attempted without a result: a released failure or an expired lease |
+| `retryable` | Attempted without a publishable result: a released failure, expired lease or cached result that exceeds the taxonomy label bound |
 | `stale` | Only an earlier source has a published translation, and the current source has no attempt |
 | `missing` | No published translation and no attempt |
 
 `last_valid_retained` marks a non-current target that still serves its earlier
 translation, whichever pending status applies. Eligible means every status except
-`not_applicable`. Attempts match exact source bytes, because hashing every summary
-exceeds the reader's statement limit at the current catalogue size. A source that differs
-from an attempt only in whitespace therefore reads `missing`, although the next pass
-reuses that attempt without inference; it can never read `current` by mistake.
+`not_applicable`. Attempts match using the same whitespace normalization as
+the durable fingerprint constraint, including when the attempt stored a differently
+spaced form of the same source. The view projects summary fingerprints before
+joining the persisted evidence, keeping source text out of the join state. The
+operator coverage request reuses a one-minute aggregate cache per application
+instance. Frequent progress polls read only the current execution checkpoint.
 
 The Catalogue Synchronization dashboard's localization section combines that stored
 coverage with process counters and, in production, the host sampler's localizer and

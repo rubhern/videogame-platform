@@ -1653,7 +1653,7 @@ phones while the page never does; their cells keep words whole. Choosing a year 
 a native link, marks it with `aria-current`, and moves focus to the level that changed.
 
 Post-MVP (#246, implementation prepared; owner review and private-dev acceptance pending),
-**Sincronización histórica** is a third URL-selected tab within the same plain administration
+**Sincronización histórica** is a URL-selected tab within the same plain administration
 ledger. Tabs wrap on narrow screens. This tab has its own lifecycle and controls: explicit
 inclusive date fields, a required skip/reprocess choice for covered months, whose note says that a
 month covered before the imported types widened is processed either way, then a confirmation
@@ -1671,6 +1671,13 @@ explicit resume. A separate line names an ordinary run that makes history wait; 
 remains the canonical scanned-period view. Poll every five seconds while active and every
 fifteen seconds otherwise, with no ETA or browser-local progress. Actions stack on phones;
 keyboard focus, forced colours and native controls retain their meaning.
+
+**Traducciones** uses the same tablist. **Cobertura de traducción** shows a dated
+breakdown for **Resúmenes**, **Géneros** and **Modos de juego** in reading order.
+**Ejecución de traducciones** shows status, the estimated scan progress and counters
+as a separate section. Start, stop and resume require an inline confirmation with
+focus on **Cancelar**. The status remains readable after closing or reloading the page.
+See the [operator procedure](operations-runbook.md#translation-administration-acceptance).
 
 ## Personal statistics
 

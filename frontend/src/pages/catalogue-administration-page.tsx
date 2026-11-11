@@ -5,6 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   AdministrationError, getSynchronizationStatus, SYNCHRONIZATION_STATUS_KEY, type SynchronizationStatus,
 } from "../features/catalogue-administration/administration-api";
+import { CatalogueTranslations } from "../features/catalogue-administration/catalogue-translations";
 import { HistoricalSynchronization } from "../features/catalogue-administration/historical-synchronization";
 import { CoverageExplorer, MAX_YEAR, MIN_YEAR } from "../features/catalogue-administration/coverage-explorer";
 import { RunControls } from "../features/catalogue-administration/synchronization-control";
@@ -17,11 +18,12 @@ import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
 import { HeroTitle } from "../shared/ui/hero-title";
 
-type PanelTab = "ejecuciones" | "cobertura" | "historica";
+type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones";
 const TABS: { id: PanelTab; label: string }[] = [
   { id: "ejecuciones", label: "Ejecuciones" },
   { id: "cobertura", label: "Cobertura" },
   { id: "historica", label: "Sincronización histórica" },
+  { id: "traducciones", label: "Traducciones" },
 ];
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
@@ -66,7 +68,7 @@ function AccessDenied() {
  * historical coverage. The server authorizes every read; this page only presents its answers.
  */
 /**
- * Two tabs over one page: the selection lives in the URL, so a reload, a shared link or a return
+ * Tabs over one page: the selection lives in the URL, so a reload, a shared link or a return
  * from sign-in reopens the same view. Arrow keys, Home and End move between tabs.
  */
 function PanelTabs({ selected, onSelect }: { selected: PanelTab; onSelect: (tab: PanelTab) => void }) {
@@ -97,7 +99,7 @@ function PanelTabs({ selected, onSelect }: { selected: PanelTab; onSelect: (tab:
 export function CatalogueAdministrationPage() {
   const session = useSession();
   const [params, setParams] = useSearchParams();
-  const tab: PanelTab = params.get("tab") === "historica" ? "historica" : params.get("tab") === "cobertura" ? "cobertura" : "ejecuciones";
+  const tab = TABS.find(({ id }) => id === params.get("tab"))?.id ?? "ejecuciones";
   function selectTab(next: PanelTab) {
     if (next === tab) return;
     setParams((current) => {
@@ -185,7 +187,8 @@ export function CatalogueAdministrationPage() {
                       </p>
                       <RecentRuns status={status.data} />
                     </section>
-                    </> : tab === "historica" && csrfToken ? <HistoricalSynchronization csrfToken={csrfToken} ordinary={status.data} /> : <section className="admin-section" aria-labelledby="admin-coverage-title">
+                    </> : tab === "traducciones" && csrfToken ? <CatalogueTranslations csrfToken={csrfToken} />
+                      : tab === "historica" && csrfToken ? <HistoricalSynchronization csrfToken={csrfToken} ordinary={status.data} /> : <section className="admin-section" aria-labelledby="admin-coverage-title">
                       <h2 id="admin-coverage-title">Cobertura histórica</h2>
                       <dl className="admin-glossary">
                         <div>

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.12.0
+  version: 5.13.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -10,7 +10,8 @@ info:
     of one platform, public game details, the selectable platform taxonomy, BFF
     session discovery, the authenticated user's ratings, rating statistics and preferred
     platforms, and the catalogue operator's synchronization status, coverage, bounded and
-    historical synchronization requests and the stop or abandonment of one run. It contains
+    historical synchronization requests, the stop or abandonment of one run, and catalogue
+    translation coverage and execution controls. It contains
     the approved method/path operations, including private profile, data export and deletion.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
@@ -28,6 +29,8 @@ tags:
     description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
     description: Operator-controlled durable calendar-month backfill.
+  - name: Catalogue translations
+    description: Operator-only coverage and durable translation execution.
   - name: Releases
     description: Public release exploration over an inclusive date range.
   - name: Release calendar
@@ -2332,6 +2335,98 @@ paths:
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/translations/coverage:
+    get:
+      tags: [Catalogue translations]
+      operationId: getTranslationCoverage
+      summary: Read catalogue translation coverage
+      description: |
+        Counts come from persisted source fingerprints, claims and provenance. The bounded
+        aggregate may be cached briefly. Read execution status separately for progress polling.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Operator translation coverage.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationCoverage' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/translations/execution:
+    get:
+      tags: [Catalogue translations]
+      operationId: getTranslationExecution
+      summary: Read catalogue translation execution
+      description: |
+        Reads the latest durable checkpoint. Processed counts include already-current
+        targets and never describe overall catalogue coverage. The total is an estimate
+        taken at the start of the pass over the eligible catalogue.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Operator translation execution.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationExecution' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    post:
+      tags: [Catalogue translations]
+      operationId: controlTranslationExecution
+      summary: Start, stop or resume catalogue translation
+      description: |
+        Requires session-bound CSRF proof. A command applies to the observed execution ID,
+        omitted only before the first run. Acceptance does not imply completion. Stop takes
+        effect between batches. Resume continues from the checkpoint after a stop or
+        interruption, including a pause after a failed batch. If a pass ended with unresolved
+        failures, resume begins a new pass that skips current content.
+        Application startup never resumes an execution.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TranslationExecutionCommand' }
+      responses:
+        '202':
+          description: Operator translation execution.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationExecution' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/TranslationExecutionConflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
@@ -4794,6 +4889,50 @@ components:
       type: integer
       format: int64
       minimum: 0
+    TranslationCoverage:
+      type: object
+      required: [observedAt, rows]
+      properties:
+        observedAt: { type: string, format: date-time }
+        rows:
+          type: array
+          maxItems: 48
+          items: { $ref: '#/components/schemas/TranslationCoverageRow' }
+    TranslationCoverageRow:
+      type: object
+      required: [kind, status, lastValidRetained, items]
+      properties:
+        kind: { type: string, enum: [summary, genre, game_mode] }
+        status: { type: string, enum: [current, missing, stale, reusable, retryable, busy, not_applicable] }
+        origin: { type: string, enum: [curated, machine] }
+        lastValidRetained: { type: boolean }
+        items: { $ref: '#/components/schemas/RunCount' }
+    TranslationExecution:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [not_started, running, stopping, stopped, interrupted, completed, attention]
+        executionId: { type: string, format: uuid }
+        currentKind: { type: string, enum: [summary, genre, game_mode] }
+        estimatedTotal: { $ref: '#/components/schemas/RunCount' }
+        processed: { $ref: '#/components/schemas/RunCount' }
+        succeeded: { $ref: '#/components/schemas/RunCount' }
+        skipped: { $ref: '#/components/schemas/RunCount' }
+        failed: { $ref: '#/components/schemas/RunCount' }
+        startedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        reason:
+          type: string
+          enum: [batch_failed, remaining_failures, worker_failed]
+    TranslationExecutionCommand:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { type: string, enum: [start, stop, resume] }
+        executionId: { type: string, format: uuid }
     HistoricalSynchronizationTarget:
       type: object
       required: [from, to, coveredMonths]
@@ -4919,6 +5058,7 @@ components:
       enum:
         - HISTORICAL_SYNCHRONIZATION_RANGE_INVALID
         - HISTORICAL_SYNCHRONIZATION_NOT_FOUND
+        - TRANSLATION_EXECUTION_CONFLICT
         - HISTORICAL_SYNCHRONIZATION_CONFLICT
         - RECENT_AUTHENTICATION_REQUIRED
         - ACCOUNT_OPERATION_UNAVAILABLE
@@ -5035,6 +5175,22 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     HistoricalSynchronizationNotFound:
       description: HISTORICAL_SYNCHRONIZATION_NOT_FOUND; the operation changed no historical target.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TranslationValidationFailed:
+      description: The request includes a query parameter or body property outside the contract.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TranslationExecutionConflict:
+      description: TRANSLATION_EXECUTION_CONFLICT; the execution has changed or does not accept this command.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }

@@ -1089,8 +1089,9 @@ never fails an otherwise valid Game. Source and provenance remain local; last-va
 Spanish content is retained and explicitly marked when its source changed. Editorial
 and other-source summaries are outside enrichment ownership.
 
-On a local backend, or an existing private management tunnel (never a product/public
-route), start/restart a bounded backfill:
+Use [Traducciones](#translation-administration-acceptance) for operator-controlled
+execution. For a capped diagnostic pass on a local backend or through an existing
+private management tunnel, use the bounded management command:
 
 ```bash
 python3 scripts/localize-catalogue.py \
@@ -1121,7 +1122,8 @@ For source-preserving diagnosis, inspect a bounded set of pending rows rather th
 printing the full catalogue or raw provider payloads:
 
 ```sql
-SELECT g.game_id, t.claimed_until, t.translated_at
+SELECT g.game_id, catalogue.spanish_source_fingerprint(g.summary_text) AS source_fingerprint,
+       l.fingerprint IS NOT NULL AS last_valid_retained, t.claimed_until, t.translated_at
 FROM catalogue.game_snapshot g
 LEFT JOIN catalogue.game_summary_translation l ON l.game_id=g.game_id
 LEFT JOIN catalogue.content_translation t
@@ -1165,6 +1167,66 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
 6. Record the new lifecycle evidence on #257, linking earlier #235/#160 evidence
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.
+
+### Translation administration acceptance
+
+**Prepared for #448.** Owner review, affected-area CI and separately authorized
+target acceptance remain pending. Complete the
+[#452 localization and Grafana checklist](#private-production-localization-and-grafana-stabilization)
+first. Use its reviewed runtime, verified fresh off-host PostgreSQL and Keycloak
+backup, helper/model readiness, bounded soak, resource headroom and restart
+evidence. If the installed target already went through the transition, verify its
+evidence and current state before the run. Keep the management port private.
+
+1. Sign in with the catalogue operator role and open
+   `/administracion/catalogo?tab=traducciones`. Record the timestamp and before
+   coverage for summaries, genres and game modes. Compare the counts with the
+   [Grafana coverage contract](observability.md#catalogue-localization), allowing
+   for acquisition and the coverage cache. Confirm no other synchronization,
+   management backfill or pending helper lease is active. Pick a window without
+   scheduled acquisition and agree a monitoring window and stop criteria.
+2. In a disposable or authorized target, use **Ejecutar traducciones pendientes**
+   and confirm. Record the execution ID and verify progress across a reload.
+   Use **Detener traducciones** after one or more batches. Observe **Detenida**
+   with its saved counts and cursor, then explicitly **Reanudar traducciones**.
+   A stopped or restarted application never starts a translation pass on its
+   own. After an abrupt loss, allow up to six minutes for the checkpoint lease
+   to expire before resuming. A helper request with an ambiguous timeout can
+   also leave a separate five-minute source reservation.
+3. For the authorized full pass, monitor batch outcomes, throughput, localizer
+   CPU, anonymous/peak memory, OOM/restart events, Grafana and product readiness.
+   Use the stop control on unexpected errors, pressure or contention and
+   confirm the latest batch has settled. A fully unsuccessful three-target
+   batch pauses the pass. Other failures remain visible while the scan continues.
+   Review helper logs and the bounded SQL sample above before retrying.
+   **Reanudar traducciones** continues at the saved checkpoint after a failed
+   batch or worker interruption. **Reintentar traducciones** after a finished
+   pass with failures visits the outstanding work in a new pass, skipping
+   already-current results. The CLI can run a small diagnostic replay separately.
+4. Record the after coverage once the one-minute snapshot has expired. For each
+   residual exception, record the internal identity, field, current source
+   fingerprint, whether a last-valid translation is served, the observed reason
+   and the next action. For large residuals, page the summary query above with
+   `AND g.game_id > :last_game_id` before its ordering. For genre and game-mode
+   exceptions inspect their respective tables in UUID order, join the current
+   `source_label` fingerprint to `content_translation` and compare
+   `label_origin` and `translation_fingerprint`. A live claim needs time to
+   settle, a released/expired claim needs a reviewed retry, and an immutable
+   cached translation over the taxonomy bound requires investigation. A new
+   source behind the checkpoint may need another pass. Keep source payloads
+   out of the evidence record.
+5. Verify representative game pages and `GET /api/v1/games/{gameId}` against
+   PostgreSQL. Include a current Spanish machine translation credited to
+   Gameómetro with the IGDB English original, a changed English source with
+   an explicitly stale Spanish translation, a missing translation served as
+   English and an editorial summary. Inspect curated and machine genre and
+   game-mode labels against their stored source and origin. Use a disposable
+   target to exercise a helper outage or change a fixture source, then confirm
+   product reads and last-valid content remain available. Replay unchanged
+   content and verify no inference or publication rewrite for those targets.
+6. Record sanitized before/after counts, samples, retries, timings and resource
+   observations on [#448](https://github.com/rubhern/videogame-platform/issues/448).
+   Keep the issue open for any outstanding execution or acceptance.
 
 ### Private production localization and Grafana stabilization
 
