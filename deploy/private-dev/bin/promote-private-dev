@@ -1,20 +1,21 @@
 #!/usr/bin/python3 -I
 """Forced OpenSSH command. Run only from the root-owned, owner-installed checkout."""
 
+import fcntl
 import json
 import os
 from pathlib import Path
-import re
 import shlex
 import socket
 import stat
 import subprocess
 import sys
+import time
 
 REPOSITORY_ROOT = Path("/opt/videogame-platform")
 RUNTIME_ENV = Path("/etc/videogame-platform/dev/runtime.env")
 EVIDENCE_ROOT = Path("/var/lib/videogame-platform/dev/deployment-evidence")
-APPROVED_CONTRACT = Path("/etc/videogame-platform/dev/deployment-contract.sha256")
+LOCK_FILE = Path("/run/lock/videogame-platform-dev-deployment.lock")
 SAFE_ENV = {
     "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "HOME": "/root", "LANG": "C.UTF-8",
@@ -29,11 +30,10 @@ def installation_require(condition, message):
 def parse_command(command):
     require(len(command) <= 300, "Promotion request exceeds the fixed protocol bound.")
     parts = shlex.split(command)
-    require(len(parts) == 6 and parts[0] == "promote", "Only the fixed promotion command is permitted.")
-    _, revision, digest, contract, run_id, attempt = parts
+    require(len(parts) == 5 and parts[0] == "promote", "Only the fixed promotion command is permitted.")
+    _, revision, digest, run_id, attempt = parts
     validate_inputs(revision, digest, run_id, attempt)
-    require(re.fullmatch(r"[0-9a-f]{64}", contract), "A deployment contract fingerprint is required.")
-    return revision, digest, contract, run_id, attempt
+    return revision, digest, run_id, attempt
 
 
 def verify_installation():
@@ -71,62 +71,58 @@ if __name__ == "__main__":
         sys.exit(1)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
-from private_dev_promotion import (  # noqa: E402
-    GitHub, IMAGE_REPOSITORY, Refused, deployment_contract, remote_deployment_contract,
-    require, validate_inputs, verify_trusted_main,
-)
+from private_dev_promotion import IMAGE_REPOSITORY, Refused, require, validate_inputs  # noqa: E402
 
 
-def account_deletion_enabled():
-    # Same exact-line test as deploy-private-dev, which adds the overlay from this flag.
-    return "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true" in RUNTIME_ENV.read_text(encoding="utf-8").splitlines()
+def git(*arguments, attempts=1):
+    for attempt in range(attempts):
+        result = subprocess.run(["git", "-C", str(REPOSITORY_ROOT), *arguments], env=SAFE_ENV,
+                                capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return result.stdout
+        if attempt + 1 < attempts:
+            time.sleep(5 * (attempt + 1))
+    reason = (result.stderr.strip().splitlines() or ["no output"])[-1]
+    raise Refused(f"git {arguments[0]} failed on the private host: {reason}")
 
 
-def verify_base_application():
-    containers = subprocess.check_output(
-        ["docker", "ps", "--all", "--filter", "label=com.docker.compose.project=videogame-platform-dev",
-         "--filter", "label=com.docker.compose.service=application", "--format", "{{.ID}}"],
-        env=SAFE_ENV, stderr=subprocess.DEVNULL,
-    ).decode().splitlines()
-    require(len(containers) <= 1, "More than one application container exists; inspect the live project.")
-    if containers:
-        config_files = subprocess.check_output(
-            ["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project.config_files"}}', containers[0]],
-            env=SAFE_ENV, stderr=subprocess.DEVNULL,
-        ).decode().strip().split(",")
-        # A container created with the retired localization overlay can transition
-        # to base Compose: the endpoint now lives there. The account-deletion overlay is
-        # the one deploy-private-dev itself selects from the persistent owner flag, so it
-        # counts only while that flag is set. All other overlays fail closed.
-        base = Path(config_files[0])
-        allowed = [str(base)] if base.parts[-3:] == ("deploy", "private-dev", "compose.yaml") else []
-        require(config_files == allowed or (allowed and (
-                    config_files == [str(base), str(base.with_name("compose.localization.yaml"))]
-                    or (config_files == [str(base), str(base.with_name("compose.account-deletion.yaml"))]
-                        and account_deletion_enabled()))),
-                "The application uses a Compose overlay or different runtime; use its separate reviewed deployment procedure.")
+def install_revision(revision):
+    """Move the root-owned checkout to the promoted main commit.
+
+    The deployment tooling, Compose files and runtime configuration therefore always
+    travel with the application revision, as in public production. GitHub Actions
+    already verified the trusted-main CI evidence; the host only requires that the
+    commit is reachable from origin/main.
+    """
+    with LOCK_FILE.open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Refused("Another private-dev deployment is running; dispatch again after it finishes.") from None
+        git("fetch", "--quiet", "--no-tags", "origin", "main", attempts=3)
+        ancestry = subprocess.run(["git", "-C", str(REPOSITORY_ROOT), "merge-base", "--is-ancestor", revision, "origin/main"],
+                                  env=SAFE_ENV, capture_output=True, check=False)
+        require(ancestry.returncode == 0, "The selected revision is not on origin/main; promotion refused.")
+        drift = git("status", "--porcelain", "--untracked-files=no").strip()
+        if drift:
+            # A hand edit on the test host never blocks promotion; Git remains the source of truth.
+            print(f"Discarding local edits in the installed checkout:\n{drift}", file=sys.stderr)
+        previous = os.umask(0o022)  # Grafana and Prometheus read bind-mounted files as non-root users.
+        try:
+            git("checkout", "--quiet", "--force", "--detach", revision)
+        finally:
+            os.umask(previous)
+        require(git("rev-parse", "HEAD").strip() == revision, "The installed checkout did not move to the revision.")
 
 
 def promote(command):
-    revision, digest, contract, run_id, attempt = parse_command(command)
+    revision, digest, run_id, attempt = parse_command(command)
     require(socket.gethostname().split(".")[0] == "vgpdev", "Promotion is permitted only on vgpdev.")
-    installed = deployment_contract(REPOSITORY_ROOT, "HEAD", installed=True)
-    require(installed == contract,
-            "Runtime/deployment contracts differ. Complete the separate reviewed runtime rollout and install its approved checkout first.")
-    approval = APPROVED_CONTRACT.lstat()
-    require(approval.st_uid == 0 and not approval.st_mode & 0o022 and stat.S_ISREG(approval.st_mode),
-            "Runtime acknowledgement must be a protected root-owned regular file.")
-    require(APPROVED_CONTRACT.read_text(encoding="ascii").strip() == contract,
-            "The installed runtime/deployment contract has not been acknowledged by the owner.")
     verify_runtime_project()
-    verify_base_application()
-    # Public metadata is rechecked on the host without granting it a GitHub token.
-    # The existing deployment script then binds the supplied digest to this SHA's
-    # published GHCR tag and inspects the pulled image's OCI labels.
-    api = GitHub()
-    _, security_id = verify_trusted_main(api, revision, digest, run_id, attempt)
-    require(remote_deployment_contract(api, revision) == contract,
-            "The supplied deployment fingerprint does not belong to the selected source revision.")
+    install_revision(revision)
+    # The deployment script of the installed revision binds the supplied digest to
+    # this SHA's published GHCR tag, inspects the pulled image's OCI labels and
+    # reconciles the persistent services with the revision's Compose definition.
     require(EVIDENCE_ROOT.is_dir() and not EVIDENCE_ROOT.is_symlink(), "Protected evidence storage is absent.")
     directory = EVIDENCE_ROOT / f"actions-{run_id}-{attempt}-{os.urandom(8).hex()}"
     directory.mkdir(mode=0o750)
@@ -157,7 +153,6 @@ def promote(command):
         "outcome": "success" if success else "failure", "phase": evidence["phase"],
         "evidencePath": str(records[0]),
         "sourceRunId": int(run_id), "sourceRunAttempt": int(attempt),
-        "securityRunId": security_id, "deploymentContract": contract,
     }
     receipt_path = directory / "promotion-receipt.json"
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")

@@ -323,13 +323,12 @@ for host loss and stale backup checks under #276.
 
 Open **Gameómetro · Growth** for observed registrations, verification actions and
 rating commands. Check source/target health and the activation date before treating
-an empty or zero value as no activity. The optional Keycloak overlay needs a separately
-reviewed rollout and a rebuilt private image with event metrics compiled before
-optimized startup. Runtime enablement alone caused the earlier rolled-back startup
-failure; keep the base rollback state until the corrected targeted rollout is approved.
-The [operator procedure](../../deploy/private-dev/README.md#separable-product-growth-rollout)
-owns preparation, old-image recovery and post-rollout acknowledgement. Do not change
-public identity/verification policy for these metrics.
+an empty or zero value as no activity. The optional Keycloak/Prometheus overlay is
+applied by every promotion while `PRIVATE_DEV_PRODUCT_GROWTH_ENABLED=true`; the private
+Keycloak image compiles event metrics before optimized startup. The
+[operator procedure](../../deploy/private-dev/README.md#separable-product-growth-rollout)
+owns enabling, verification and disabling. Do not change public identity/verification
+policy for these metrics.
 No growth activity while idle is normal, and an email-verification event is not a new
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
@@ -1142,8 +1141,9 @@ persist across model/runtime restarts and upgrades.
 
 Before owner acceptance of the new lifecycle on `vgpdev`:
 
-1. Apply the [targeted one-time migration](../../deploy/private-dev/README.md#one-time-migration-to-the-standard-runtime),
-   preserving the already installed model. Verify the manifest/licence and run a small
+1. Keep the already installed model selected; promotion
+   [reconciles the helper](../../deploy/private-dev/README.md#runtime-or-model-changes).
+   Verify the manifest/licence and run a small
    representative backfill using actual local source. Review short/long translations,
    proper nouns and game terminology; accept or reject the quality limitation.
 2. Measure inference and end-to-end batch throughput with the application, PostgreSQL,
@@ -1156,11 +1156,12 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
    copy, confirm refresh, and stop the helper to verify last-valid/new-source behavior.
 4. With the helper stopped, read translated game details through the private browser
    HTTP boundary and verify source attribution, last-valid status and cache validators.
-5. Restore the helper before promotion. Capture IDs/image/configuration for all
-   persistent services, dispatch a normal application promotion and confirm only
-   application changed. Verify the internal endpoint remains present, then confirm
-   localizer recovery after an owner-approved host reboot. Missing/unhealthy/drifted
-   helper refusal must precede migration/activation; it must not block existing reads.
+5. Capture IDs/image/configuration for all persistent services, dispatch a normal
+   application promotion of a revision that does not change the helper and confirm only
+   the application changed. Verify the internal endpoint remains present, then confirm
+   localizer recovery after an owner-approved host reboot. A helper that is still
+   missing or unhealthy after reconciliation must fail the promotion before
+   migration/activation; it must not block existing reads.
 6. Record the new lifecycle evidence on #257, linking earlier #235/#160 evidence
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.

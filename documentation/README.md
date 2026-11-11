@@ -65,8 +65,8 @@ bash ../scripts/validate-docs.sh
 
 ## Private serving
 
-Deployment sources live under `documentation/deploy/`, outside the application
-promotion fingerprint; portal updates do not require application runtime acknowledgement.
+Deployment sources live under `documentation/deploy/`; application promotion neither
+reads nor restarts the portal.
 The private-dev operator guide remains the single owner of host commands.
 
 The production output is `dist/`; any static server can serve it. The non-root

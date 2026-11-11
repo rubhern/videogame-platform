@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted-main evidence and installed deployment-contract checks; no host mutations."""
+"""Trusted-main evidence checks for private-dev promotion; no host mutations."""
 
 import argparse
 import hashlib
@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 import time
 import urllib.error
@@ -19,6 +18,11 @@ REPOSITORY = "rubhern/videogame-platform"
 IMAGE_REPOSITORY = f"ghcr.io/{REPOSITORY}"
 API_ROOT = f"https://api.github.com/repos/{REPOSITORY}"
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+READ_ATTEMPTS = 5
+# Promotion may be dispatched as soon as a commit lands on main; discovery waits
+# for that commit's own CI instead of refusing while it is still running.
+CI_WAIT_SECONDS = 90 * 60
+CI_POLL_SECONDS = 30
 
 
 class Refused(RuntimeError):
@@ -52,16 +56,17 @@ class GitHub:
 
     def request(self, path, archive=False):
         # Retry only transient read failures, never rejected or invalid evidence.
-        for attempt in range(3):
+        for attempt in range(READ_ATTEMPTS):
+            last = attempt == READ_ATTEMPTS - 1
             try:
                 return self._request_once(path, archive)
             except urllib.error.HTTPError as error:
                 status = error.code
                 error.close()
-                if status not in (500, 502, 503, 504) or attempt == 2:
+                if status not in (500, 502, 503, 504) or last:
                     raise Refused(f"GitHub evidence is unavailable (HTTP {status}); promotion refused.") from None
             except (urllib.error.URLError, TimeoutError):
-                if attempt == 2:
+                if last:
                     raise Refused("GitHub evidence is unavailable (network failure); promotion refused.") from None
             print("Transient evidence read failure; retrying bounded read.", file=sys.stderr)
             time.sleep(2 ** attempt)
@@ -158,6 +163,30 @@ def verify_publication(api, run, revision, digest=None):
     return published_digest
 
 
+def wait_for_main_ci(api, revision, timeout=CI_WAIT_SECONDS, interval=CI_POLL_SECONDS,
+                     clock=time.monotonic, sleep=time.sleep):
+    """Wait until the revision's trusted-main build and security runs have finished."""
+    require(re.fullmatch(r"[0-9a-f]{40}", revision), "A full lowercase dispatch SHA is required.")
+    deadline = clock() + timeout
+    while True:
+        pending = []
+        for workflow in ("build-and-verify.yml", "security.yml"):
+            runs = api.request(
+                f"/actions/workflows/{workflow}/runs?head_sha={revision}&branch=main&event=push&per_page=100"
+            )["workflow_runs"]
+            if not runs or any(run.get("status") != "completed" for run in runs):
+                pending.append(workflow)
+                continue
+            require(all(run.get("conclusion") == "success" for run in runs),
+                    f"{workflow} finished without success for the dispatch SHA; promotion refused.")
+        if not pending:
+            return
+        require(clock() < deadline,
+                f"Trusted-main CI did not finish within {timeout // 60} minutes: {', '.join(pending)}.")
+        print(f"Waiting for trusted-main CI: {', '.join(pending)}.", file=sys.stderr)
+        sleep(interval)
+
+
 def discover_promotion(api, revision):
     """Resolve only the dispatch SHA; never pick a newer/older run or image."""
     require(re.fullmatch(r"[0-9a-f]{40}", revision), "A full lowercase dispatch SHA is required.")
@@ -201,70 +230,9 @@ def verify_environment(api):
     )
 
 
-def is_deployment_contract(path):
-    return not path.endswith(".md") and (
-        path.startswith(("deploy/private-dev/", "docker/keycloak/", "docker/postgres/", "tools/catalogue-localization/"))
-        or path in (
-            "scripts/private_dev_promotion.py", "scripts/validate-private-dev-runtime.sh",
-            "scripts/private-dev-metrics-check.py", "scripts/private-dev-logs-check.py",
-            "scripts/provision-grafana-reader.sh",
-            # Private-dev Keycloak consumes production's runtime policy file directly.
-            "deploy/public-production/keycloak/abuse.env",
-        )
-    )
-
-
-def deployment_contract(repository, revision, installed=False):
-    tree = subprocess.check_output(
-        ["git", "ls-tree", "-r", "-z", revision], cwd=repository,
-    )
-    entries = []
-    for entry in tree.split(b"\0"):
-        if not entry:
-            continue
-        metadata, path = entry.split(b"\t", 1)
-        if is_deployment_contract(path.decode("utf-8")):
-            require(metadata.split()[1] == b"blob" and metadata.split()[0] in (b"100644", b"100755"),
-                    "Deployment contracts must be regular Git files.")
-            entries.append(entry)
-    require(entries, "No deployment contract was found.")
-    if installed:
-        paths = [entry.split(b"\t", 1)[1].decode("utf-8") for entry in entries]
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain", "--untracked-files=all"], cwd=repository,
-        )
-        require(not status, "The installed deployment checkout must be clean.")
-        # Verify actual bytes as well: index assume-unchanged/skip-worktree flags
-        # must never hide drift in the privileged installed deployment code.
-        for path in paths:
-            file = Path(repository) / path
-            require(file.is_file() and not file.is_symlink(), "Installed contract file is missing or unsafe.")
-            blob = subprocess.check_output(["git", "hash-object", "--", path], cwd=repository).strip()
-            mode, _, expected = next(entry.split(b"\t", 1)[0].split() for entry in entries if entry.endswith(b"\t" + path.encode()))
-            require(blob == expected, "Installed deployment contract bytes differ from Git.")
-            require(bool(file.stat().st_mode & 0o111) == (mode == b"100755"),
-                    "Installed deployment contract executable permissions differ from Git.")
-    return contract_hash(entries)
-
-
 def contract_hash(entries):
+    # Shared Git-entry fingerprint used by the public-production operational tooling.
     return hashlib.sha256(b"\0".join(sorted(entries, key=lambda entry: entry.split(b"\t", 1)[1]))).hexdigest()
-
-
-def remote_deployment_contract(api, revision):
-    tree = api.request(f"/git/trees/{revision}?recursive=1")
-    require(not tree.get("truncated", True) and len(tree["tree"]) <= 10000,
-            "Source tree exceeds the supported evidence bound; promotion refused.")
-    entries = []
-    for item in tree["tree"]:
-        if item["type"] == "tree":
-            continue
-        if is_deployment_contract(item["path"]):
-            require(item["type"] == "blob" and item["mode"] in ("100644", "100755"),
-                    "Remote deployment contracts must be regular Git files.")
-            entries.append(f"{item['mode']} blob {item['sha']}\t{item['path']}".encode())
-    require(entries, "The source revision has no deployment contract.")
-    return contract_hash(entries)
 
 
 def receipt_summary(receipt, revision, digest, run_id, attempt):
@@ -296,7 +264,6 @@ def receipt_summary(receipt, revision, digest, run_id, attempt):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--installed-contract", action="store_true", help="Print the clean installed HEAD fingerprint; never acknowledges a runtime rollout.")
     parser.add_argument("--receipt", type=Path, help="Validate and summarize a sanitized SSH receipt without network access.")
     parser.add_argument("--discover", action="store_true", help="Derive CI run, current attempt and digest for the exact dispatch revision.")
     parser.add_argument("--revision")
@@ -304,11 +271,8 @@ def main():
     parser.add_argument("--run-id")
     parser.add_argument("--attempt")
     args = parser.parse_args()
-    require(not args.discover or (args.revision and not any((args.digest, args.run_id, args.attempt, args.receipt, args.installed_contract))),
+    require(not args.discover or (args.revision and not any((args.digest, args.run_id, args.attempt, args.receipt))),
             "Discovery accepts only the dispatch revision; manual artifact/run overrides are forbidden.")
-    if args.installed_contract:
-        print(deployment_contract(Path(__file__).resolve().parents[1], "HEAD", installed=True))
-        return
     if not args.discover:
         require(all((args.revision, args.digest, args.run_id, args.attempt)), "Revision, digest, source run and attempt are required.")
         validate_inputs(args.revision, args.digest, args.run_id, args.attempt)
@@ -324,17 +288,17 @@ def main():
         return
     api = GitHub(os.environ.get("GH_TOKEN"))
     verify_environment(api)
+    if args.discover:
+        wait_for_main_ci(api, args.revision)
     result = discover_promotion(api, args.revision)
     if not args.discover:
         require((result["image_digest"], result["source_run_id"], result["source_run_attempt"])
                 == (args.digest, args.run_id, args.attempt),
                 "The derived publication/run/attempt changed; promotion refused without reselection.")
-    contract = deployment_contract(Path(__file__).resolve().parents[1], args.revision)
-    result["contract"] = contract
     print(json.dumps(result))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            for name in ("contract", "source_revision", "image_digest", "source_run_id", "source_run_attempt"):
+            for name in ("source_revision", "image_digest", "source_run_id", "source_run_attempt"):
                 if name in result:
                     output.write(f"{name}={result[name]}\n")
 
@@ -342,7 +306,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (Refused, OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
+    except (Refused, OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile) as error:
         # Do not print remote error bodies, URLs, headers or credentials.
         print(str(error) if isinstance(error, Refused) else "Promotion evidence could not be verified.", file=sys.stderr)
         sys.exit(1)

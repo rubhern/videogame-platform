@@ -18,10 +18,6 @@ for change in [ {'AllowFunnel': {'host:443': True}}, {'TCP': {'9443': {'TCPForwa
     try: m['inspect'](bad)
     except ValueError: pass
     else: raise AssertionError('unsafe endpoint accepted')
-policy = runpy.run_path('scripts/private_dev_promotion.py')
-for path in ('documentation/deploy/compose.private-dev.yaml', 'documentation/deploy/documentation-serve', 'documentation/deploy/tailscale-policy.hujson.example'):
-    assert not policy['is_deployment_contract'](path), 'portal coupled to application promotion'
-assert policy['is_deployment_contract']('deploy/private-dev/compose.yaml')
 print('ok')
 `],{cwd:repo,encoding:'utf8'});
   assert.match(output,/ok/);

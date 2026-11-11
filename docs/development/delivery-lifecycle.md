@@ -92,10 +92,11 @@ owner, and expiry/removal condition.
   environment holds secrets and restricts the branch without a second reviewer gate.
   Successful deployment automation
   records technical smoke evidence; the owner still accepts the product/release.
-  Separate runtime/dependency rollouts, including the required private-dev catalogue
-  localizer, require their own reviewed operational decision and applied-runtime
-  acknowledgement before application promotion;
-  see the [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+  Promotion installs the dispatched revision on the host and reconciles its runtime
+  services, including the catalogue localizer
+  ([ADR-0039](../decisions/0039-let-private-dev-promotion-install-its-own-revision.md));
+  only new secrets, model weights and realm/role state remain owner steps. See the
+  [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
 - Private-production deployment requires manual dispatch of exact `main` and owner approval
   in the protected `production` environment. The
   [Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
