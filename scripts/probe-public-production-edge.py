@@ -316,6 +316,7 @@ KINDS = {
     "session": ("GET", APPLICATION_HOST, "/api/v1/session", None),
     "search": ("GET", APPLICATION_HOST, "/api/v1/games?q=synthetic", None),
     "releases": ("GET", APPLICATION_HOST, "/api/v1/releases", None),
+    "feedback": ("POST", APPLICATION_HOST, "/api/v1/feedback", b'{"category":"other","message":"Synthetic probe"}'),
     "write": ("PUT", APPLICATION_HOST, RATING, b'{"value":8}'),
     "identity-page": ("GET", IDENTITY_HOST, REALM + "/protocol/openid-connect/auth?client_id=videogame-platform-bff", None),
     "identity-resource": ("GET", IDENTITY_HOST, "/resources/abc12/login/gameometro/css/login.css", None),
@@ -379,8 +380,12 @@ class Limits(Probe):
         name = f"{label} {kind} {expected}"
         self.expect(f"{name} status", status == status_expected and not echoed, f"-> {status}, upstream reached {echoed}")
         retry = headers.get("retry-after", "")
-        # Within the longest limiter window plus jitter; the contract test scales some to 5 minutes.
-        self.expect(f"{name} Retry-After", retry.isdigit() and (retry == "300" if expected == "maintenance" else 1 <= int(retry) <= 361),
+        # Within the limiter window plus 20% jitter. Other contract scenarios scale up to five minutes.
+        max_retry = 361
+        if kind == "feedback":
+            max_retry = 103_681 if expected == "overloaded" else 721
+        self.expect(f"{name} Retry-After",
+                    retry.isdigit() and (retry == "300" if expected == "maintenance" else 1 <= int(retry) <= max_retry),
                     repr(retry))
         self.retry_after = int(retry) if retry.isdigit() else None
         self.expect(f"{name} is not stored", headers.get("cache-control") == "no-store", str(headers.get("cache-control")))

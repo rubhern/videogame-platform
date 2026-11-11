@@ -75,7 +75,8 @@ SECRETS = {
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret",
                  "keycloak_smtp_username", "keycloak_smtp_password"},
     "catalogue-localizer": set(),
-    "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
+    "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret",
+                    "feedback_smtp_username", "feedback_smtp_password"},
     "migration": {"application_migration_db_password"},
 }
 SECRET_FILES = {
@@ -89,6 +90,8 @@ SECRET_FILES = {
     "keycloak_smtp_password": "keycloak-smtp-password",
     "igdb_client_id": "igdb-client-id",
     "igdb_client_secret": "igdb-client-secret",
+    "feedback_smtp_username": "feedback-smtp-username",
+    "feedback_smtp_password": "feedback-smtp-password",
 }
 # Ceilings from the platform design's qualification envelope, in MiB.
 MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 1792, "application": 1536,
@@ -658,6 +661,8 @@ BURSTS = [
      [("source-a", "read:40:ok", "read:1:limited", "pause:retry-after", "read:1:ok")]),
     ("expensive search per-source", [("source-a", "search:20:ok", "releases:1:limited", "read:1:ok")]),
     ("product write per-source", [("source-a", "write:30:ok", "write:1:limited", "read:1:ok")]),
+    ("feedback per-source", [("source-a", "feedback:3:ok", "feedback:1:limited", "write:1:ok"),
+                             ("source-b", "feedback:3:ok")]),
     ("identity per-source", [("source-a", "identity-page:60:ok", "identity-resource:1:limited")]),
     ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
     ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
@@ -686,11 +691,15 @@ BURSTS = [
     ]),
 ]
 # Aggregate budgets scaled down: the first source's refused requests must not consume them.
-AGGREGATE_SCALE = [("zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 10s\n\t\t\t\tevents 600",
+AGGREGATE_SCALE = [("\t\t\t\twindow 24h\n\t\t\t\tevents 40",
+                    "\t\t\t\twindow 24h\n\t\t\t\tevents 4"),
+                   ("zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 10s\n\t\t\t\tevents 600",
                     "zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 2m\n\t\t\t\tevents 50"),
                    ("\t\t\t\t\tkey static\n\t\t\t\t\twindow 1m\n\t\t\t\t\tevents 60\n",
                     "\t\t\t\t\tkey static\n\t\t\t\t\twindow 5m\n\t\t\t\t\tevents 8\n")]
 AGGREGATES = [
+    ("aggregate feedback", [("source-a", "feedback:3:ok", "feedback:1:limited"),
+                            ("source-b", "feedback:1:ok", "feedback:1:overloaded", "write:1:ok")]),
     ("aggregate API capacity", [("source-a", "read:40:ok", "read:5:limited"),
                                 ("source-b", "read:10:ok", "read:1:overloaded", "shell:1:ok")]),
     ("aggregate identity mail", [("source-a", "registration:6:ok", "registration:1:limited"),

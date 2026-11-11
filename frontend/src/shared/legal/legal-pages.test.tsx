@@ -43,7 +43,7 @@ describe("legal publication boundary", () => {
     for (const link of within(legal).getAllByRole("link")) expect(routes).toContain(link.getAttribute("href"));
     const product = screen.getByRole("navigation", { name: "Gameómetro" });
     expect(within(product).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
-      ["Sobre Gameómetro", "/sobre-gameometro"], ["Contacto", "mailto:hola@gameometro.com"],
+      ["Sobre Gameómetro", "/sobre-gameometro"], ["Contacto y sugerencias", "/contacto"],
     ]);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });

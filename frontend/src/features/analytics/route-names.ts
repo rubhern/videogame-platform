@@ -23,6 +23,8 @@ export type RouteName =
   | "my_platforms"
   | "welcome"
   | "legal"
+  | "about"
+  | "contact"
   | "not_found";
 
 export type ReportedRoute = { name: RouteName; path: string };
@@ -47,6 +49,9 @@ const FIXED: Readonly<Record<string, RouteName>> = {
   "/condiciones": "legal",
   "/aviso-legal": "legal",
   "/cookies": "legal",
+  "/sobre-gameometro": "about",
+  // The page only: the feedback form's reason and message never become analytics.
+  "/contacto": "contact",
 };
 
 const PLATFORM_PAGES: Readonly<Record<string, RouteName>> = {

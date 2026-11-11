@@ -8,6 +8,8 @@ describe("reportedRoute", () => {
     expect(reportedRoute("/lanzamientos/destacados")).toEqual({ name: "featured", path: "/lanzamientos/destacados" });
     expect(reportedRoute("/topometro/")).toEqual({ name: "topometro", path: "/topometro" });
     expect(reportedRoute("/cookies")).toEqual({ name: "legal", path: "/cookies" });
+    expect(reportedRoute("/sobre-gameometro")).toEqual({ name: "about", path: "/sobre-gameometro" });
+    expect(reportedRoute("/contacto")).toEqual({ name: "contact", path: "/contacto" });
   });
 
   it("keeps the public game slug and drops the internal game ID", () => {

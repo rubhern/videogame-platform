@@ -53,8 +53,7 @@ browser path with `bash scripts/validate-browser.sh`.
 ## Public legal pages
 
 `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies` are anonymous routes in
-local, private-dev and production builds, linked from the shared footer alongside
-contact mail. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
+local, private-dev and production builds, linked from the shared footer. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
 all public wording. After an approved source change, run
 `node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
 the generated safe React data and registration localization in both realm imports.

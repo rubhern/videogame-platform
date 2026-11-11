@@ -18,7 +18,7 @@ export function LegalLinks({ legalActions }: { legalActions?: ReactNode }) {
       <p className="site-footer-heading" id="site-footer-product">Gameómetro</p>
       <ul>
         <li><Link to="/sobre-gameometro">Sobre Gameómetro</Link></li>
-        <li><a href="mailto:hola@gameometro.com">Contacto</a></li>
+        <li><Link to="/contacto">Contacto y sugerencias</Link></li>
       </ul>
     </nav>
     <nav className="site-footer-column" aria-labelledby="site-footer-legal">

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.11.0
+  version: 5.12.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -22,6 +22,8 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Feedback
+    description: Anonymous visitor feedback handed to the configured receiving channel.
   - name: Profile
     description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
@@ -66,6 +68,73 @@ tags:
       No operation here waits for, or exposes, the provider.
 security: []
 paths:
+  /feedback:
+    post:
+      tags: [Feedback]
+      operationId: submitFeedback
+      summary: Submit visitor feedback
+      description: |
+        Anonymous JSON command with no query parameters. Cookies and identity are irrelevant.
+        Cross-origin browser requests are rejected. The JSON request is limited to 32 KiB.
+        A 204 means the configured SMTP receiver accepted the message, not that it reached
+        an inbox or was read. The client never replays automatically. If acceptance is
+        unconfirmed after a timeout or connection loss, a manual retry may send a second copy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackSubmission' }
+            example: { category: suggestion, message: 'Me gustaría ver más juegos cooperativos.' }
+      responses:
+        '204':
+          description: The configured SMTP receiver accepted the message.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '403':
+          description: Cross-origin browser metadata was rejected before any send.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                originRejected: { $ref: '#/components/examples/FeedbackOriginRejected' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: Unsupported query or property, blank message or invalid field.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                invalidFeedback: { $ref: '#/components/examples/FeedbackInvalid' }
+                propertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
+                parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503':
+          description: |
+            The receiving channel is unavailable or SMTP acceptance could not be confirmed
+            (FEEDBACK_UNAVAILABLE), or capacity or maintenance prevents sending. Wait at
+            least Retry-After seconds before a deliberate retry.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                feedbackUnavailable: { $ref: '#/components/examples/FeedbackUnavailable' }
+                serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
+                serviceMaintenance: { $ref: '#/components/examples/ServiceMaintenance' }
   /me/profile:
     get:
       tags: [Profile]
@@ -3134,6 +3203,22 @@ components:
       example: 60
 
   schemas:
+    FeedbackSubmission:
+      type: object
+      additionalProperties: false
+      required: [category, message]
+      properties:
+        category: { type: string, enum: [suggestion, bug, incorrect_game_information, other] }
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Plain text with at least one non-whitespace character. No attachments.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Optional single ASCII email address with a dot-atom local part and a fully qualified DNS domain. Omit when absent.
     PrivateProfile:
       type: object
       additionalProperties: false
@@ -4837,6 +4922,8 @@ components:
         - HISTORICAL_SYNCHRONIZATION_CONFLICT
         - RECENT_AUTHENTICATION_REQUIRED
         - ACCOUNT_OPERATION_UNAVAILABLE
+        - FEEDBACK_INVALID
+        - FEEDBACK_UNAVAILABLE
         - REQUEST_MALFORMED
         - REQUEST_PROPERTY_UNKNOWN
         - REQUEST_PARAMETER_UNKNOWN
@@ -5469,6 +5556,36 @@ components:
             internalError: { $ref: '#/components/examples/InternalError' }
 
   examples:
+    FeedbackOriginRejected:
+      value:
+        type: urn:videogame-platform:problem:csrf-validation-failed
+        title: CSRF validation failed
+        status: 403
+        detail: Submit the feedback form from the same origin.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: CSRF_VALIDATION_FAILED
+        category: authorization
+        correlationId: correlation-opaque
+    FeedbackUnavailable:
+      value:
+        type: urn:videogame-platform:problem:feedback-unavailable
+        title: Feedback channel is unavailable
+        status: 503
+        detail: SMTP acceptance could not be confirmed.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: FEEDBACK_UNAVAILABLE
+        category: technical
+        correlationId: correlation-opaque
+    FeedbackInvalid:
+      value:
+        type: urn:videogame-platform:problem:feedback-invalid
+        title: Feedback is invalid
+        status: 422
+        detail: Feedback is invalid.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: FEEDBACK_INVALID
+        category: validation
+        correlationId: correlation-opaque
     ServiceOverloaded:
       value:
         type: urn:videogame-platform:problem:service-overloaded

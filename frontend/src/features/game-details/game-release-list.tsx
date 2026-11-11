@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { formatReleaseDate } from "../../shared/catalogue/release-date";
 import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
 import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
@@ -141,7 +143,10 @@ export function GameReleaseList({ releases }: { releases: readonly Release[] }) 
         Fechas y plataformas
       </h3>
       {presented.length === 0 ? (
-        <p className="game-information-empty">No hay lanzamientos comerciales registrados.</p>
+        <p className="game-information-empty">
+          No hay lanzamientos comerciales registrados.{" "}
+          <Link className="feedback-text-link" to="/contacto?motivo=datos">¿Has encontrado un error? Avísame</Link>
+        </p>
       ) : (
         <ReleaseGroups releases={presented} />
       )}

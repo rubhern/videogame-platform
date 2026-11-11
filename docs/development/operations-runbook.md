@@ -909,6 +909,24 @@ configuration command are proven in the real identity gate. The workstation
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
 
+## Visitor feedback mail
+
+Use one synthetic message with a unique marker and no personal information. In
+local packaged and private-dev environments, inspect the existing owner-only
+Mailpit UI. For an authorized
+[production activation](../../deploy/public-production/README.md#feedback-receiving-channel),
+verify the marked message in the configured inbox, check sender and content, and
+remove the test copy. Exercise refusal or interruption in a disposable environment
+and verify the form retains the draft without reporting success.
+
+For a failed or ambiguous send, use the route, correlation ID and stable error
+code in the application request telemetry. Check the configured channel, relay
+quota and SMTP connectivity without logging SMTP exchanges, addresses or message
+content. A relay acceptance only confirms handoff. Check the relay's delivery or
+bounce evidence and the mailbox before retrying an ambiguous smoke test. Review
+and minimize real correspondence according to the
+[processing record](data-protection.md).
+
 ## Personal-data requests and account revocation
 
 **#274 locally prepared, pending owner review and CI:** the

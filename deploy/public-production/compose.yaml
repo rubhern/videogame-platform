@@ -269,6 +269,13 @@ services:
       # Recurring acquisition (#484) on the application's default schedule; installer and
       # upgrader refuse a cron override and require non-empty provider credentials.
       CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
+      FEEDBACK_ENABLED: ${PRODUCTION_FEEDBACK_ENABLED:-false}
+      FEEDBACK_SMTP_HOST: ${PRODUCTION_SMTP_RELAY_HOST:?Set PRODUCTION_SMTP_RELAY_HOST in runtime.env}
+      FEEDBACK_SMTP_PORT: ${PRODUCTION_SMTP_RELAY_PORT:?Set PRODUCTION_SMTP_RELAY_PORT in runtime.env}
+      FEEDBACK_FROM: ${PRODUCTION_SMTP_RELAY_FROM:?Set PRODUCTION_SMTP_RELAY_FROM in runtime.env}
+      FEEDBACK_INBOX: ${PRODUCTION_FEEDBACK_INBOX:-}
+      FEEDBACK_SMTP_USERNAME_FILE: /run/secrets/feedback_smtp_username
+      FEEDBACK_SMTP_PASSWORD_FILE: /run/secrets/feedback_smtp_password
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:
@@ -276,6 +283,8 @@ services:
       - keycloak_bff_client_secret
       - igdb_client_id
       - igdb_client_secret
+      - feedback_smtp_username
+      - feedback_smtp_password
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
@@ -365,6 +374,11 @@ secrets:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-id
   igdb_client_secret:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-secret
+
+  feedback_smtp_username:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-username
+  feedback_smtp_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-password
 
 volumes:
   recovery-state:

@@ -20,6 +20,7 @@
 | `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 50 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; post-MVP (#387), an optional platform scope of product platform IDs (one platform or one family) admits only games whose eligible release lies on the scope (`RNK-005`) before that order, count and page, keeps each game's global reading and presents its scope release; an unknown scope platform is rejected; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-020` | Rank a platform's most anticipated upcoming games (Próximos destacados) | Visitor | Post-MVP (#388): application validates a platform scope of product platform IDs as `UC-019` does and derives the evaluation date and the six-calendar-month horizon in `Europe/Madrid`; PostgreSQL selects the scope's qualifying releases inside the horizon (`UPC-001`), keeps the distinct games still new to the scope (`UPC-002`), ranks those with positive locally stored Hypes by Hypes descending and `gameId` ascending, limits the ranking to ten and presents one qualifying release per game (`UPC-003`); unranked and empty are valid states; never varies on the session or preferred platforms and never calls a provider |
+| `UC-022` | Send feedback | Visitor | Post-MVP (#383): send one categorized message and optional reply address to the configured receiving channel |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -702,3 +703,17 @@ only after verified absence and, in production, independent durable engine evide
 and recoverable, never automatically re-enables an account. The owner reviews the prepared
 [ADR-0027 amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 before rollout.
+
+
+### Visitor feedback (UC-022, post-MVP #383)
+
+A visitor can send a suggestion, problem report, game-data correction or other
+comment without an account. The optional address is for a reply. The operation
+does not infer identity, capture diagnostics, store a copy or queue a retry. It
+validates before handing one plain-text message to the configured channel, and
+confirms only when that channel accepts it. Acceptance can precede final mailbox
+delivery. A failed or indeterminate send leaves the browser draft available for
+an explicit retry, which may duplicate a message already accepted by the relay.
+
+See the [HTTP contract](../api/openapi.yaml) and
+[feedback processing record](../../development/data-protection.md#record-of-processing-activities).

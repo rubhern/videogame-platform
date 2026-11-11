@@ -197,6 +197,24 @@ deletion replay, provider/privacy/release acceptance and the applicable
 [gates](../../docs/development/delivery-lifecycle.md#public-production-gates) still
 block real-data operation and public exposure. A local pass authorizes neither.
 
+## Feedback receiving channel
+
+Prepared for review in #383. The default leaves real SMTP feedback disabled.
+Before installing or upgrading this candidate, provide the feedback files in the
+[secret inventory](#secret-inventory), empty when the channel is disabled.
+Preserve the recovery and public-exposure gates.
+
+After [privacy review](../../docs/development/data-protection.md) and operator
+acceptance, use the existing transactional relay with credentials dedicated to
+feedback. Provision the two protected files, set `PRODUCTION_FEEDBACK_INBOX` to
+the owner-controlled mailbox and `PRODUCTION_FEEDBACK_ENABLED=true` in the
+protected runtime configuration. The existing relay host, port and verified
+sender are shared with identity configuration. Keep STARTTLS and authentication
+enabled. The [runbook](../../docs/development/operations-runbook.md#visitor-feedback-mail)
+owns verification and failure handling. To disable delivery, set the flag to
+`false` and reconcile the application with the reviewed runtime configuration.
+
+
 ## Secret inventory
 
 Every secret is one file in the directory named by `PRODUCTION_SECRETS_DIR`, outside
@@ -214,6 +232,7 @@ is file delivery on one host, not an encrypted vault.
 | `keycloak-admin-password` | Temporary master-realm bootstrap administrator | `keycloak` | Used only while no administrator exists |
 | `keycloak-bff-client-secret` | Confidential BFF client credential | `keycloak` (realm import), `application` | Client secret in Keycloak plus file |
 | `keycloak-smtp-username`, `keycloak-smtp-password` | Transactional relay credentials | `keycloak` (realm import) | Stored in the realm, inside the identity database |
+| `feedback-smtp-username`, `feedback-smtp-password` | Dedicated feedback relay credentials | `application` | File only; may be empty while feedback is disabled |
 | `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
 
 Storage requirements, verified on the host before first start:

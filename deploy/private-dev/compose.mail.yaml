@@ -1,5 +1,5 @@
-# Shared Mailpit test mail sink for Keycloak. Consuming Compose files own networks and
-# the loopback UI publish. SMTP is never published: only Keycloak reaches it in-network.
+# Shared Mailpit test mail sink for account and feedback mail. Consuming Compose files own networks and
+# the loopback UI publish. SMTP is only reached in-network.
 # Messages live in a temporary database on tmpfs, so a restart discards them.
 x-logging: &bounded-logging
   driver: local

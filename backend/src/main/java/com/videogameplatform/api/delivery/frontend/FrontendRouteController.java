@@ -30,6 +30,8 @@ class FrontendRouteController {
         "/mi-perfil/borrado",
         "/bienvenida",
         "/administracion/catalogo",
+        "/sobre-gameometro",
+        "/contacto",
         "/privacidad",
         "/condiciones",
         "/aviso-legal",

@@ -41,6 +41,10 @@
         },
         {
           "kind": "paragraph",
+          "text": "Si usas el formulario de contacto, Rubén recibe el motivo y el mensaje para revisar tu comentario. Puedes dejar una dirección de correo si quieres que pueda responderte. Puedes enviarlo sin una cuenta. El formulario no vincula tu mensaje a una cuenta ni adjunta información de diagnóstico. Para consultas generales y sugerencias nos basamos en nuestro interés legítimo en atender lo que nos comunicas y mejorar el servicio."
+        },
+        {
+          "kind": "paragraph",
           "text": "Solo si lo aceptas, medimos el uso de Gameómetro con Google Analytics 4 para saber, de forma agregada, qué páginas y funciones se utilizan y decidir qué mejorar. Se envían la página visitada en forma genérica (por ejemplo, la ficha de un juego con su nombre público, sin búsquedas, parámetros ni identificadores), acciones de uso como abrir el panel de puntuación, cambiar de periodo en Destacados o guardar tus plataformas, sin el valor de tus puntuaciones, y los datos técnicos que recoge Google: un identificador seudónimo guardado en la cookie, navegador, dispositivo y ubicación aproximada. Según Google, Google Analytics 4 no registra ni almacena la dirección IP. No enviamos tu email, tu identificador de cuenta ni tus puntuaciones, ni combinamos estos datos con tu cuenta. La base jurídica es tu consentimiento (artículo 6.1.a RGPD y artículo 22.2 de la LSSI). Puedes retirarlo en cualquier momento desde «Configurar cookies», al pie de cada página, sin que afecte a la licitud del tratamiento anterior; rechazar la analítica no limita ninguna función. No usamos la analítica para publicidad, perfiles comerciales ni decisiones automatizadas."
         },
         {
@@ -49,7 +53,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL, alojados bajo el control del titular. Los proyectos que desarrollan ese software no reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para los mensajes transaccionales de verificación y recuperación. Estos mensajes incluyen tu dirección de email, el contenido necesario y datos de entrega; no son boletines ni publicidad."
+          "text": "La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL, alojados bajo el control del titular. Los proyectos que desarrollan ese software no reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para los mensajes transaccionales de verificación y recuperación. Esos mensajes incluyen tu dirección de correo, el contenido necesario y datos de entrega. Cuando se habilite el formulario de contacto, el servicio de correo tramitará también tus mensajes al buzón del titular. Solo incluirán tu dirección si la escribes en el formulario. Ninguno de estos mensajes se usa para publicidad."
         },
         {
           "kind": "paragraph",
@@ -86,6 +90,10 @@
         {
           "kind": "paragraph",
           "text": "Los logs del servicio tendrán una conservación máxima de 7 días. Las copias de seguridad estarán cifradas y caducarán como máximo a los 35 días, incluidas las copias externas. Una restauración debe reaplicar los borrados antes de reabrir. Estos límites corresponden a la operación de Gameómetro. Mailjet publica una conservación de 90 días para estadísticas y campañas del plan Free, y mantiene contactos y plantillas durante la vida de la cuenta. No creamos listas de contactos para publicidad. Ese plazo no equivale al de todos los datos de entrega SMTP o del CDN; puedes pedir los plazos o criterios aplicables en el contacto indicado."
+        },
+        {
+          "kind": "paragraph",
+          "text": "La aplicación no guarda una copia de tu mensaje. En el buzón, conservamos el contenido y el correo opcional mientras sean necesarios para revisar el aviso y resolver la consulta. Después, eliminamos lo que ya no haga falta, salvo los datos que debamos conservar para cumplir una obligación legal o atender una reclamación."
         },
         {
           "kind": "paragraph",

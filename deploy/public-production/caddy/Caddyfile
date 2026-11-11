@@ -228,6 +228,15 @@ gameometro.com {
 				window 10s
 				events 20
 			}
+			zone application-feedback-source {
+				match {
+					method POST
+					path /api/v1/feedback
+				}
+				import source_zone
+				window 10m
+				events 3
+			}
 			zone application-write-source {
 				match {
 					not method GET HEAD
@@ -252,6 +261,15 @@ gameometro.com {
 				key static
 				window 10s
 				events 600
+			}
+			zone aggregate-application-feedback {
+				match {
+					method POST
+					path /api/v1/feedback
+				}
+				key static
+				window 24h
+				events 40
 			}
 			zone aggregate-application-write {
 				match {
