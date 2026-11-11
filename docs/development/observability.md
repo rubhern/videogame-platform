@@ -560,7 +560,11 @@ index labels:
 `scope_name` is the logger. A Problem response's `X-Correlation-ID` header finds the
 events of that request. For a failed visitor-feedback send, a `Feedback SMTP acceptance
 could not be confirmed` warning means the relay refused or was unreachable; no warning
-with a `FEEDBACK_UNAVAILABLE` response means delivery is disabled.
+with a `FEEDBACK_UNAVAILABLE` response means delivery is disabled. The warning carries
+`reason` (`authentication`, `tls`, `timeout`, `connection`, `sender-rejected`,
+`recipient-rejected`, `message-rejected`, `preparation` or `other`), the numeric SMTP
+reply as `smtpCode` when the relay sent one, and the innermost exception type as `cause`.
+It never carries addresses, server text or message content.
 
 Empty results can mean no event, a wrong time range, expired data, or a record lost while
 the Collector or Loki was away or refusing load. Retention is six days and deletion is
