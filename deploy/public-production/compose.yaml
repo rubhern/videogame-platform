@@ -266,6 +266,7 @@ services:
       # Telemetry export belongs to a later increment.
       TELEMETRY_OTLP_TRACES_ENABLED: "false"
       TELEMETRY_OTLP_METRICS_ENABLED: "false"
+      TELEMETRY_OTLP_LOGS_ENABLED: "false"
       # Recurring acquisition (#484) on the application's default schedule; installer and
       # upgrader refuse a cron override and require non-empty provider credentials.
       CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
@@ -413,7 +414,7 @@ networks:
     internal: true
     ipam:
       config:
-        # Combined runtime: seven dynamic consumers plus bounded operator probes.
+        # Combined runtime: eight dynamic consumers plus bounded operator probes.
         # Keep allocation away from the edge's fixed metrics address.
         - subnet: 10.203.3.0/27
           gateway: 10.203.3.1

@@ -919,7 +919,9 @@ remove the test copy. Exercise refusal or interruption in a disposable environme
 and verify the form retains the draft without reporting success.
 
 For a failed or ambiguous send, use the route, correlation ID and stable error
-code in the application request telemetry. Check the configured channel, relay
+code in the application request telemetry. In production, the
+[log exploration](observability.md#production-log-exploration) queries tell a disabled
+channel from a relay refusal. Check the configured channel, relay
 quota and SMTP connectivity without logging SMTP exchanges, addresses or message
 content. A relay acceptance only confirms handoff. Check the relay's delivery or
 bounce evidence and the mailbox before retrying an ambiguous smoke test. Review

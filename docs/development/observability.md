@@ -533,6 +533,41 @@ lookback can hide older records before physical deletion completes. Preserve the
 Loki nor Alloy sanitizes arbitrary secret-bearing source text. Do not enable DEBUG
 or broaden collection to investigate an empty result without a reviewed need.
 
+## Production log exploration
+
+[ADR-0040](../decisions/0040-aggregate-production-application-logs-in-loki.md) sends the
+production application's own log events over OTLP through the Collector into Loki. Open
+production Grafana, then **Explore** with the **Platform logs** datasource. The
+[production procedure](../../deploy/public-production/README.md#application-logs) owns access,
+disk checks and recovery; the [platform design](../architecture/deployment/mvp-platform-and-delivery.md)
+owns topology, retention and loss policy.
+
+Only the application's events are collected, from the moment Logback starts. Keycloak,
+PostgreSQL, the edge, migration actors and pre-logger JVM output stay in Docker's local
+log on the host. Each record keeps the console message as its body. Loki indexes the
+`service_name` and `deployment_environment_name` resource labels and keeps the level,
+logger and correlation identifier as structured metadata, filterable without becoming
+index labels:
+
+```logql
+{service_name="videogame-platform-backend"}
+{service_name="videogame-platform-backend"} | detected_level=~"error|warn"
+{service_name="videogame-platform-backend"} | correlationId="<X-Correlation-ID of the response>"
+{service_name="videogame-platform-backend"} | scope_name=~"com.videogameplatform.feedback.*"
+{service_name="videogame-platform-backend"} |= "Feedback SMTP"
+```
+
+`scope_name` is the logger. A Problem response's `X-Correlation-ID` header finds the
+events of that request. For a failed visitor-feedback send, a `Feedback SMTP acceptance
+could not be confirmed` warning means the relay refused or was unreachable; no warning
+with a `FEEDBACK_UNAVAILABLE` response means delivery is disabled.
+
+Empty results can mean no event, a wrong time range, expired data, or a record lost while
+the Collector or Loki was away or refusing load. Retention is six days and deletion is
+asynchronous, completing within the seven-day routine-log limit. This is best-effort diagnostics, not audit evidence. The
+[application log privacy rules](#application-logs) still govern every log statement: Loki
+does not sanitize what the application writes.
+
 ## Application logs
 
 One event model serves both renderings. Each event carries bounded key-values, and its
@@ -707,14 +742,16 @@ an independent production Grafana database; they never point to private-dev serv
 Only the Growth dashboard's literal realm selector is substituted at startup.
 Runtime / Resources, Application / HTTP, Product / Business, Catalogue Synchronization
 and Growth remain complete; Production / Capacity, security and recovery adds the
-operational signals. No Loki, Alloy or retained trace store is added. Their extra
-memory, disk and log-ingestion privileges have no demonstrated production need here.
+operational signals. Application logs reach a production Loki through the same Collector
+([production log exploration](#production-log-exploration)); no Alloy or retained trace
+store is added.
 
-Production Grafana disables every bundled backend datasource plugin except PostgreSQL and
-Prometheus, because each one is a separate process with about seven threads that counts
-against the container's PID ceiling. The
+Production Grafana disables every bundled backend datasource plugin except PostgreSQL,
+Prometheus and Loki, because each one is a separate process with about seven threads that
+counts against the container's PID ceiling. The
 [stabilization evidence](operations-runbook.md#private-production-localization-and-grafana-stabilization)
-records the failure this prevents. A new datasource type must be removed from that list.
+records the failure this prevents. A new datasource type must be removed from that list,
+and the ceiling reviewed with it.
 
 Telemetry has no product startup, readiness or request dependency. Management stays
 on application loopback. None of the monitoring services publishes a host port;

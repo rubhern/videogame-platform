@@ -52,7 +52,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='vgp-prod-telemetry-') as directory:
         d=Path(directory);d.chmod(0o755)
         config=test.rendered(d)
-        selected=['grafana','prometheus','telemetry','node-exporter','blackbox']
+        selected=['grafana','prometheus','telemetry','node-exporter','blackbox','loki']
         config['services']={k:v for k,v in config['services'].items() if k in selected}
         config['networks']={'fixture':{'internal':True},'loopback':{}}
         config['name']='vgp-prod-telemetry-'+secrets.token_hex(4)
@@ -136,6 +136,7 @@ def main():
             assert {x['uid'] for x in dashboards}=={'vgp-runtime','vgp-application','vgp-product','vgp-synchronization','vgp-growth','vgp-production'}
             for uid in ('private-dev-prometheus','private-dev-postgres'):
                 assert api('/api/datasources/uid/'+uid+'/health')['status']=='OK'
+            poll(lambda:api('/api/datasources/uid/private-dev-loki/health')['status']=='OK','Production Grafana reaches Loki through its provisioned datasource',seconds=120)
             checked=0
             for dashboard in dashboards:
                 obj=api('/api/dashboards/uid/'+dashboard['uid'])['dashboard']
@@ -185,6 +186,19 @@ def main():
             assert not query('keycloak_user_events_total{client_ip!=""}')
             assert sum(float(x['value'][1]) for x in query('keycloak_user_events_total{job="keycloak-security",event="login"}'))==2
             print('Sensitive-label samples rejected before storage without merging counters.',flush=True)
+            # ADR-0040: one application log record through the real Collector into Loki, read back
+            # through Grafana's datasource the way the owner explores it.
+            marker='log-proof-'+secrets.token_hex(6)
+            record={'resourceLogs':[{'resource':{'attributes':[{'key':k,'value':{'stringValue':v}} for k,v in {'service.name':'videogame-platform-backend','deployment.environment.name':'production'}.items()]},
+                     'scopeLogs':[{'scope':{'name':'com.videogameplatform.feedback.adapter.SmtpFeedbackReceiver'},'logRecords':[{'timeUnixNano':str(time.time_ns()),'severityText':'WARN','severityNumber':13,
+                     'body':{'stringValue':'Feedback SMTP acceptance could not be confirmed '+marker},'attributes':[{'key':'correlationId','value':{'stringValue':marker}}]}]}]}]}
+            (d/'log.json').write_text(json.dumps(record))
+            run(compose+['exec','-T','mock','python','-c',send.replace('/v1/metrics','/v1/logs').replace('metric.json','log.json')])
+            def logged():
+                model={'refId':'A','datasource':{'uid':'private-dev-loki','type':'loki'},'expr':'{service_name="videogame-platform-backend"} |= "'+marker+'"','queryType':'range','maxLines':10}
+                result=api('/api/ds/query',{'from':str(int((time.time()-900)*1000)),'to':str(int(time.time()*1000)),'queries':[model]})
+                return marker in json.dumps(result['results']['A'].get('frames',[]))
+            poll(logged,'OTLP log -> Collector -> Loki -> Grafana Explore returned the marked record',seconds=120)
             # Measure bounded representative dashboard refresh and rule-evaluation overhead.
             samples=[]
             ids=run(compose+['ps','-q',*selected]).split()

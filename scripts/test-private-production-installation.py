@@ -152,7 +152,7 @@ class Transition(unittest.TestCase):
         result = install.first_install(host)
         self.assertEqual(host.calls, ['preflight', 'preflight', 'claim', 'pull', 'lease',
             'claimed-freshness', 'initialize', 'up:postgres', 'flyway', 'reader',
-            'up:keycloak,catalogue-localizer,caddy,telemetry,prometheus,grafana,node-exporter,blackbox',
+            'up:keycloak,catalogue-localizer,caddy,telemetry,loki,prometheus,grafana,node-exporter,blackbox',
             'up:application', 'smoke', 'lease-finalize'])
         self.assertEqual(result['outcome'], 'success')
         self.assertFalse(result['productionReady'])
@@ -164,7 +164,7 @@ class Transition(unittest.TestCase):
 
     def test_failures_never_activate_later_phases_and_preserve_journal(self):
         failures = ['claim', 'pull', 'lease', 'claimed-freshness', 'initialize', 'up:postgres', 'flyway',
-                    'reader', 'up:keycloak,catalogue-localizer,caddy,telemetry,prometheus,grafana,node-exporter,blackbox',
+                    'reader', 'up:keycloak,catalogue-localizer,caddy,telemetry,loki,prometheus,grafana,node-exporter,blackbox',
                     'up:application', 'smoke', 'lease-finalize']
         for failure in failures:
             with self.subTest(failure=failure), tempfile.TemporaryDirectory(dir=self.root) as tmp, \

@@ -49,18 +49,20 @@ PUBLIC_CADDYFILE = 'Caddyfile.public'
 PRIVATE_TWIN = 'compose.private.json'
 UPGRADE_LABEL = 'gameometro.upgrade.revision'
 FENCED_PHASE = 'backup-complete-writers-still-fenced'
-PERSISTENT, ONE_SHOT = acceptance.PERSISTENT, acceptance.ONE_SHOT
+# The accepted first installation's services plus the reviewed additions (SERVICE_ADDITIONS).
+PERSISTENT, ONE_SHOT = (*acceptance.PERSISTENT, 'loki'), acceptance.ONE_SHOT
 # Trusted main publishes these; every other image stays, and PostgreSQL never changes here.
 PUBLISHED = {'application': 'application', 'migration': 'application', 'keycloak': 'keycloak',
              'caddy': 'caddy', 'catalogue-localizer': 'catalogue-localizer'}
-ALLOWED_FIELDS = {'image', 'environment', 'volumes', 'labels', 'mem_limit'}
+ALLOWED_FIELDS = {'image', 'environment', 'volumes', 'labels', 'mem_limit', 'pids_limit'}
 PROTECTED_ENVIRONMENT = ('KC_', 'OIDC_', 'APPLICATION_OIDC_')
 FORBIDDEN_ENVIRONMENT = ('ACCOUNT_DELETION_EXECUTOR_ENABLED', 'ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE')
 DASHBOARD_TARGET = acceptance.DASHBOARD_TARGET
 # Dependency-safe activation: the BFF validates its issuer through the edge at startup.
 ACTIVATION = ('telemetry', 'prometheus', 'node-exporter', 'blackbox', 'caddy', 'application')
 # Not needed for product readiness (#452): a failure is recorded, and never fences the product.
-OPTIONAL = ('catalogue-localizer', 'grafana')
+# Loki starts before Grafana, which provisions it as a datasource.
+OPTIONAL = ('loki', 'catalogue-localizer', 'grafana')
 # The reviewed guard refuses a closed gate, so only this tool, holding the lease and the identity
 # fence, runs what that guard wraps. The gate therefore stays closed until the reviewed reopening.
 MIGRATION_ENTRYPOINT = '/opt/gameometro/bin/shared-run-migrations'
@@ -88,6 +90,13 @@ SETTING_TRANSITIONS = {
     ('application', 'FEEDBACK_ENABLED'): None,
     ('application', 'FEEDBACK_INBOX'): None,
 }
+# ADR-0040: Grafana loads the Loki datasource it now provisions; every other plugin stays disabled.
+GRAFANA_DISABLED_PLUGINS = ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p != 'loki')
+SETTING_TRANSITIONS[('grafana', 'GF_PLUGINS_DISABLE_PLUGINS')] = (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS)
+# Services and named volumes a target may add: service -> (its networks, its named volumes). An added
+# service gets the same private hardening as the rest; it publishes nothing and holds no secret.
+SERVICE_ADDITIONS = {'loki': ({'telemetry'}, {'loki-data'})}
+assert set(SERVICE_ADDITIONS) <= set(PERSISTENT)
 REALM_IMPORT = 'deploy/public-production/keycloak/import/gameometro-realm.json'
 NOTICE_COMMAND = 'scripts/production_registration_notice.py'
 REALM_COMMAND = 'deploy/private-dev/bin/configure-keycloak-identity'
@@ -377,6 +386,8 @@ def validate_delta(name, current, candidate, fields, target_bundle, added_secret
         require(name in PUBLISHED, 'A dependency outside the trusted publications changed its image.')
     if 'mem_limit' in fields:
         require(int(candidate['mem_limit']) >= int(current['mem_limit']), 'An accepted memory ceiling would decrease.')
+    if 'pids_limit' in fields:
+        require(int(candidate['pids_limit']) >= int(current['pids_limit']), 'An accepted process ceiling would decrease.')
     for key in environment_delta(current, candidate):
         if key in admin.environment(name):
             require(admin.allowed_setting(name, key, current.get('environment', {}).get(key), candidate.get('environment', {}).get(key)),
@@ -435,8 +446,8 @@ def validate_runtime(config, images):
             'A deferred overlay would be activated.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),
             'The accepted localizer ceiling is not preserved.')
-    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') == acceptance.DISABLED_PLUGINS,
-            'The accepted Grafana plugin policy is not preserved.')
+    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS),
+            'The reviewed Grafana plugin policy is not preserved.')
     require(any(Path(DASHBOARD_TARGET).is_relative_to(m['target']) for m in services['grafana'].get('volumes', [])),
             'The accepted localization dashboard is not mounted.')
 
@@ -460,14 +471,46 @@ def secret_additions(active, rendered):
     return added
 
 
+def validate_added_service(name, service, target_bundle):
+    """A reviewed new service: only its own networks and volumes, read-only and unprivileged."""
+    networks, volumes = SERVICE_ADDITIONS[name]
+    require(set(service.get('networks', {})) == networks and not service.get('secrets')
+            and not service.get('ports') and not service.get('group_add') and not service.get('cap_add')
+            and service.get('read_only') is True and service.get('cap_drop') == ['ALL']
+            and service.get('security_opt') == ['no-new-privileges:true'] and service.get('user')
+            and not service.get('depends_on') and service.get('mem_limit') and service.get('pids_limit'),
+            'An added service lacks the reviewed private hardening.')
+    for mount in service.get('volumes', []):
+        if mount['type'] == 'volume':
+            require(mount['source'] in volumes, 'An added service mounts an unreviewed volume.')
+        else:
+            require(mount['type'] == 'bind' and mount.get('read_only')
+                    and Path(mount['source']).is_relative_to(target_bundle),
+                    'An added service bind must be read-only and come from the target bundle.')
+
+
 def reconcile(active, rendered, target_bundle, local=lambda p: p):
     """Keep an unchanged service exactly as it runs; classify every other difference."""
     added_secrets = secret_additions(active, rendered)
-    for section in (set(active) | set(rendered)) - {'services', 'secrets'}:
+    added = set(rendered['services']) - set(active['services'])
+    require(set(active['services']) <= set(rendered['services']) and added <= set(SERVICE_ADDITIONS),
+            'Target configuration changes the service inventory.')
+    new_volumes = set(rendered.get('volumes', {})) - set(active.get('volumes', {}))
+    require(new_volumes <= {v for n in added for v in SERVICE_ADDITIONS[n][1]}
+            and {k: v for k, v in rendered.get('volumes', {}).items() if k not in new_volumes} == active.get('volumes', {}),
+            'Target configuration changes runtime volumes.')
+    for section in (set(active) | set(rendered)) - {'services', 'secrets', 'volumes'}:
         require(active.get(section) == rendered.get(section), 'Target configuration changes runtime ' + section + '.')
-    require(set(active['services']) == set(rendered['services']), 'Target configuration changes the service inventory.')
     config, changed = json.loads(json.dumps(rendered)), {}
     for name, candidate in config['services'].items():
+        if name in added:
+            validate_added_service(name, candidate, target_bundle)
+            # It joins the installation it extends: the live checks require that lineage everywhere.
+            lineage = active['services']['application'].get('labels', {})
+            candidate['labels'] = {**candidate.get('labels', {}),
+                                   **{k: lineage[k] for k in (control.RUN_LABEL, control.CONFIG_LABEL) if k in lineage}}
+            changed[name] = ['added']
+            continue
         current = active['services'][name]
         candidate['labels'] = {**candidate.get('labels', {}),
                                **{k: v for k, v in current.get('labels', {}).items() if k != UPGRADE_LABEL}}
@@ -494,6 +537,8 @@ class Host(install.Host):
         super().__init__(upgrade.evidence['configuration'], None, None)
         self.upgrade = upgrade
         self.run_id, self.config, self.file, self.source = upgrade.evidence['runId'], config, path, source
+        # A service a target adds is not part of the active runtime it replaces.
+        scope = scope if scope is None else [n for n in scope if n in config['services']]
         self.base = ['docker', 'compose', '-p', prepare.PROJECT, '-f', str(path), '--profile', '*']
         self.expected_revision, self.expected_version = revision, version
         self.scope = scope
@@ -677,7 +722,7 @@ class Upgrade:
         host = self.host()
         result = {}
         closed = not gate['ready'] or gate['pending']
-        for name in self.scope():
+        for name in [n for n in self.scope() if n in host.config['services']]:
             identities = host.compose('ps', '-q', name).decode().split()
             if identities:
                 host.running([name])

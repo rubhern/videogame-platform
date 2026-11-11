@@ -30,11 +30,13 @@ import org.springframework.test.context.DynamicPropertySource;
             "management.server.port=0",
             "TELEMETRY_OTLP_METRICS_ENABLED=true",
             "TELEMETRY_OTLP_METRICS_STEP=1s",
-            "TELEMETRY_OTLP_TRACES_ENABLED=false"
+            "TELEMETRY_OTLP_TRACES_ENABLED=false",
+            "TELEMETRY_OTLP_LOGS_ENABLED=true"
         })
 @DirtiesContext
 class TelemetryFailureIsolationIntegrationTest {
     private static final CountDownLatch FAILED_EXPORT = new CountDownLatch(1);
+    private static final CountDownLatch FAILED_LOG_EXPORT = new CountDownLatch(1);
     private static final HttpServer COLLECTOR = collector();
     private static final String DATABASE =
             PostgreSqlTestDatabase.isolatedDatabaseName("telemetry_isolation");
@@ -55,6 +57,15 @@ class TelemetryFailureIsolationIntegrationTest {
                         exchange.close();
                         FAILED_EXPORT.countDown();
                     });
+            server.createContext(
+                    "/v1/logs",
+                    exchange -> {
+                        exchange.getRequestBody()
+                                .transferTo(java.io.OutputStream.nullOutputStream());
+                        exchange.sendResponseHeaders(503, -1);
+                        exchange.close();
+                        FAILED_LOG_EXPORT.countDown();
+                    });
             server.start();
             return server;
         } catch (IOException error) {
@@ -68,6 +79,9 @@ class TelemetryFailureIsolationIntegrationTest {
         properties.add(
                 "TELEMETRY_OTLP_METRICS_ENDPOINT",
                 () -> "http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/v1/metrics");
+        properties.add(
+                "TELEMETRY_OTLP_LOGS_ENDPOINT",
+                () -> "http://127.0.0.1:" + COLLECTOR.getAddress().getPort() + "/v1/logs");
     }
 
     @AfterAll
@@ -79,6 +93,8 @@ class TelemetryFailureIsolationIntegrationTest {
     void servesProductReadsAndReadinessDuringRejectedAndUnavailableExports() throws Exception {
         registry.counter("telemetry.isolation.fixture").increment();
         assertThat(FAILED_EXPORT.await(15, TimeUnit.SECONDS)).isTrue();
+        // Startup logging alone reaches the log collector, which rejects it like the metrics one.
+        assertThat(FAILED_LOG_EXPORT.await(15, TimeUnit.SECONDS)).isTrue();
         assertThat(get(port, "/api/v1/releases").statusCode()).isEqualTo(200);
         assertThat(get(managementPort, "/actuator/health/readiness").statusCode()).isEqualTo(200);
         COLLECTOR.stop(0);
