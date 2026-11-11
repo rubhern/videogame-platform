@@ -404,11 +404,22 @@ summaries stay outside enrichment ownership. `UC-003` serves Spanish when availa
 marks it as product-derived, and retains source language/provenance; missing translation
 serves the source, while stale last-valid content has explicit status. No read calls inference.
 
-The operator localization command pages taxonomy and stored summary targets by
-`(kind, internal UUID)` with a maximum of 100 per batch, skips current/curated content,
-and retains a failed batch's cursor for safe replay. Successful PostgreSQL state is the
-durable progress. It uses no IGDB request or distributed job framework. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
-owns the runtime and concurrency decision.
+Post-MVP (#448, implemented locally; live acceptance pending), catalogue operators can
+inspect coverage and control one translation execution through the same-origin
+administration boundary. The latest execution has a durable checkpoint and counters.
+Start is explicit, stop acknowledges the current batch, and resume after an
+interruption keeps the saved cursor. Isolated failures do not block later targets.
+A retry after a completed pass with failures skips current or curated
+content. The progress estimate counts eligible targets visited, including skips,
+while coverage reads the current catalogue evidence independently. New or changed
+sources behind the cursor may require another pass.
+
+Both operator entry points use the same bounded keyset scan and source reservations.
+The private management command retains its failed-batch cursor. The browser never
+uses that command. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
+owns runtime and source concurrency. The
+[runbook](../../development/operations-runbook.md#translation-administration-acceptance)
+owns the operator procedure.
 
 ## Preferred platforms
 

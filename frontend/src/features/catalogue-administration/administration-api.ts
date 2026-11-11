@@ -126,3 +126,33 @@ export async function controlHistoricalSynchronization(action: "stop" | "resume"
   if (data !== undefined) return data;
   throw failure(response, error);
 }
+
+export type TranslationCoverage = components["schemas"]["TranslationCoverage"];
+export type TranslationExecution = components["schemas"]["TranslationExecution"];
+export type TranslationCommand = components["schemas"]["TranslationExecutionCommand"];
+export const TRANSLATION_COVERAGE_KEY = [...ADMINISTRATION_KEY, "translation-coverage"] as const;
+export const TRANSLATION_EXECUTION_KEY = [...ADMINISTRATION_KEY, "translation-execution"] as const;
+
+export async function getTranslationCoverage(signal: AbortSignal): Promise<TranslationCoverage> {
+  const { data, error, response } = await productApiClient.GET("/admin/catalogue/translations/coverage", {
+    cache: "no-store", signal,
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function getTranslationExecution(signal: AbortSignal): Promise<TranslationExecution> {
+  const { data, error, response } = await productApiClient.GET("/admin/catalogue/translations/execution", {
+    cache: "no-store", signal,
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function controlTranslationExecution(command: TranslationCommand, csrfToken: string): Promise<TranslationExecution> {
+  const { data, error, response } = await productApiClient.POST("/admin/catalogue/translations/execution", {
+    params: { header: { "X-CSRF-Token": csrfToken } }, body: command, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}

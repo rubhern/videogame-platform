@@ -4,7 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.persistence.details.JdbcGameDetailsReadAdapter;
+import com.videogameplatform.catalogue.adapter.persistence.localization.JdbcTranslationExecutionStore;
+import com.videogameplatform.catalogue.application.administration.CatalogueTranslations.Action;
+import com.videogameplatform.catalogue.application.administration.CatalogueTranslations.Conflict;
+import com.videogameplatform.catalogue.application.administration.CatalogueTranslations.State;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
+import com.videogameplatform.catalogue.application.localization.internal.CatalogueTranslationAdministration;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -690,6 +695,149 @@ class GameDetailMetadataSynchronizationIntegrationTest {
     }
 
     @Test
+    void operatorStopAndRestartPreserveCheckpointAndSkipPreviouslyTranslatedSources() {
+        provider.rows = List.of("100", "101");
+        provider.works.put(
+                "100", work("100", details("First.", List.of(), List.of(), List.of(), List.of())));
+        provider.works.put(
+                "101", work("101", details("Second.", List.of(), List.of(), List.of(), List.of())));
+        synchronize(0);
+        var checkpoint = translationExecutions();
+        var first = checkpoint.control(Action.START, null);
+        var batch = localization.scan("", new UUID(0, 0), 1);
+        checkpoint.control(Action.STOP, first.id());
+        assertThat(checkpoint.checkpoint(first.id(), batch, false)).isFalse();
+        assertThat(checkpoint.execution().state()).isEqualTo(State.STOPPED);
+        assertThat(checkpoint.execution().processed()).isEqualTo(1);
+
+        var resumed = checkpoint.control(Action.RESUME, first.id());
+        jdbc.update(
+                "UPDATE catalogue.translation_execution SET lease_until=clock_timestamp()-interval '1 second'");
+        var tasks = new java.util.ArrayDeque<Runnable>();
+        var restarted =
+                new CatalogueTranslationAdministration(
+                        translationExecutions(), localization, tasks::add, Clock.systemUTC());
+        assertThat(restarted.execution().state()).isEqualTo(State.INTERRUPTED);
+        assertThat(tasks).isEmpty();
+        var accepted = restarted.control(Action.RESUME, resumed.id());
+        assertThat(accepted.id()).isNotEqualTo(resumed.id());
+        assertThat(accepted.afterId()).isEqualTo(batch.afterId());
+        assertThat(checkpoint.checkpoint(resumed.id(), batch, false)).isFalse();
+        assertThatThrownBy(() -> restarted.control(Action.STOP, resumed.id()))
+                .isInstanceOf(Conflict.class);
+        tasks.remove().run();
+        assertThat(restarted.execution().state()).isEqualTo(State.COMPLETED);
+        assertThat(restarted.execution().succeeded()).isEqualTo(2);
+        assertThat(inferenceCalls).isEqualTo(2);
+        restarted.control(Action.START, accepted.id());
+        tasks.remove().run();
+        assertThat(restarted.execution().skipped()).isEqualTo(2);
+        assertThat(inferenceCalls).isEqualTo(2);
+    }
+
+    @Test
+    void concurrentFirstStartsAdmitExactlyOneWorker() throws Exception {
+        var first = translationExecutions();
+        var second = translationExecutions();
+        var go = new java.util.concurrent.CountDownLatch(1);
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var attempts = new ArrayList<java.util.concurrent.Future<Boolean>>();
+            for (var executions : List.of(first, second)) {
+                attempts.add(
+                        pool.submit(
+                                () -> {
+                                    go.await();
+                                    try {
+                                        executions.control(Action.START, null);
+                                        return true;
+                                    } catch (Conflict rejected) {
+                                        return false;
+                                    }
+                                }));
+            }
+            go.countDown();
+            assertThat(attempts.getFirst().get()).isNotEqualTo(attempts.getLast().get());
+        }
+        assertThat(first.execution().state()).isEqualTo(State.RUNNING);
+    }
+
+    @Test
+    void operatorRetryContinuesAfterAnInvalidCachedTaxonomyAndRecordsItAsFailed() {
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        details(
+                                "First.",
+                                List.of(),
+                                List.of(),
+                                List.of(new ProviderTerm("999", "Unknown genre", "unknown")),
+                                List.of())));
+        synchronize(0);
+        jdbc.update(
+                """
+            INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at)
+            VALUES (catalogue.spanish_source_fingerprint('Unknown genre'),'Unknown genre',repeat('x',201),'fixture',now())
+            """);
+        var executions = translationExecutions();
+        var admin =
+                new CatalogueTranslationAdministration(
+                        executions, localization, Runnable::run, Clock.systemUTC());
+        var accepted = admin.control(Action.START, null);
+        assertThat(admin.execution().state()).isEqualTo(State.ATTENTION);
+        assertThat(admin.execution().failed()).isEqualTo(1);
+        assertThat(admin.execution().succeeded()).isEqualTo(1);
+        assertThat(admin.coverage().rows())
+                .anySatisfy(
+                        row -> {
+                            assertThat(row.kind()).isEqualTo("genre");
+                            assertThat(row.status()).isEqualTo("retryable");
+                            assertThat(row.items()).isEqualTo(1);
+                        });
+        assertThat(reads.find(gameId("100")).orElseThrow().genres().getFirst().name())
+                .isEqualTo("Unknown genre");
+        admin.control(Action.RESUME, accepted.id());
+        assertThat(admin.execution().state()).isEqualTo(State.ATTENTION);
+        assertThat(admin.execution().skipped()).isEqualTo(1);
+        assertThat(inferenceCalls).isEqualTo(1);
+    }
+
+    @Test
+    void resumesBeyondAFullFailedBatchThenRetriesOnlyOutstandingTranslations() {
+        provider.rows = List.of("100", "101", "102", "103");
+        for (String id : provider.rows) {
+            provider.works.put(
+                    id,
+                    work(id, details("Summary " + id, List.of(), List.of(), List.of(), List.of())));
+        }
+        synchronize(0);
+        var admin =
+                new CatalogueTranslationAdministration(
+                        translationExecutions(), localization, Runnable::run, Clock.systemUTC());
+        outage = true;
+        var first = admin.control(Action.START, null);
+        assertThat(admin.execution().processed()).isEqualTo(3);
+        assertThat(admin.execution().reason()).hasToString("BATCH_FAILED");
+
+        outage = false;
+        var resumed = admin.control(Action.RESUME, first.id());
+        assertThat(admin.execution().processed()).isEqualTo(4);
+        assertThat(admin.execution().succeeded()).isEqualTo(1);
+        assertThat(admin.execution().reason()).hasToString("REMAINING_FAILURES");
+
+        admin.control(Action.RESUME, resumed.id());
+        assertThat(admin.execution().state()).isEqualTo(State.COMPLETED);
+        assertThat(admin.execution().succeeded()).isEqualTo(3);
+        assertThat(admin.execution().skipped()).isEqualTo(1);
+        assertThat(inferenceCalls).isEqualTo(7);
+    }
+
+    private JdbcTranslationExecutionStore translationExecutions() {
+        var named = new NamedParameterJdbcTemplate(jdbc);
+        return new JdbcTranslationExecutionStore(named, Clock.systemUTC());
+    }
+
+    @Test
     void claimsFenceOverlappingWorkAndStaleSourceCannotPublish() {
         provider.works.put(
                 "100",
@@ -857,6 +1005,10 @@ class GameDetailMetadataSynchronizationIntegrationTest {
                                     }
 
                                     public Batch backfill(String kind, UUID id, int limit) {
+                                        throw new UnsupportedOperationException();
+                                    }
+
+                                    public Batch scan(String kind, UUID id, int limit) {
                                         throw new UnsupportedOperationException();
                                     }
                                 })

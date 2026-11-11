@@ -110,3 +110,8 @@ stop/resume additionally require `enableHistoricalControl=true` and the opaque
 Use them only after owner authorization for an acceptance exercise; never substitute the
 complete historical range. The [runbook](../../docs/development/operations-runbook.md#historical-synchronization)
 owns recovery and acceptance procedure.
+
+The translation examples read coverage and execution separately. Command examples
+assert CSRF protection and stale-execution refusal using a synthetic execution ID.
+Use [Traducciones](../../docs/development/operations-runbook.md#translation-administration-acceptance)
+for a separately authorized execution.
