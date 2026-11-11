@@ -341,6 +341,14 @@ def environment_delta(current, candidate):
     return sorted(key for key in set(before) | set(after) if before.get(key) != after.get(key))
 
 
+def review_delta(active, config, changed):
+    """Images and environment keys a target changes; a reviewed added service has no active counterpart."""
+    current = active['services']
+    images = {n: s['image'] for n, s in config['services'].items() if s['image'] != current.get(n, {}).get('image')}
+    keys = {n: environment_delta(current[n], config['services'][n]) for n in changed if n in current}
+    return images, {n: k for n, k in keys.items() if k}
+
+
 def secret_file_setting(name, key, value, added):
     """A new *_FILE setting is accepted only for a reviewed secret this upgrade adds."""
     return any(SECRET_ADDITIONS[secret] == (name, key) and value == '/run/secrets/' + secret for secret in added)
@@ -938,8 +946,7 @@ class Upgrade:
         realm = self.realm_plan(source)
         dashboard = self.accepted_dashboard(api, source)
         config = material['config']
-        changed_images = {n: s['image'] for n, s in config['services'].items()
-                          if s['image'] != self.active['config']['services'][n]['image']}
+        changed_images, environment_keys = review_delta(self.active['config'], config, material['changed'])
         previous_images = {n: self.active['config']['services'][n]['image'] for n in PUBLISHED}
         reviewed = {
             'installed': {'runId': self.evidence['runId'], 'configurationSha256': self.evidence['configuration'],
@@ -953,8 +960,7 @@ class Upgrade:
             'targetBundle': str(self.bundle),
             'changedServices': material['changed'], 'changedImages': changed_images,
             'keptRunning': sorted(set(config['services']) - set(material['changed']) - set(ONE_SHOT) - FENCE_STOPPED),
-            'environmentKeys': {n: environment_delta(self.active['config']['services'][n], config['services'][n])
-                                for n in material['changed'] if environment_delta(self.active['config']['services'][n], config['services'][n])},
+            'environmentKeys': environment_keys,
             'activationOrder': ['keycloak', *ACTIVATION, *OPTIONAL], 'acceptedDashboard': dashboard,
             'flyway': flyway, 'migrationInventory': files, 'realm': realm,
             'runtimeInputs': material['inputs'],

@@ -565,7 +565,7 @@ class ReviewedAdditions(DeltaFixture):
         target['services']['loki'] = {
             'image': 'grafana/loki@sha256:' + 'c' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
             'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
-            'mem_limit': '402653184', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {}, 'labels': {},
+            'mem_limit': '402653184', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {'GOMEMLIMIT': '300MiB'}, 'labels': {},
             'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/loki.yaml', '/etc/loki/config.yaml'),
                         {'type': 'volume', 'source': 'loki-data', 'target': '/loki'}]}
         target['volumes']['loki-data'] = {'name': prepare.PROJECT + '_loki-data'}
@@ -580,6 +580,10 @@ class ReviewedAdditions(DeltaFixture):
         self.assertEqual(result['volumes']['loki-data'], {'name': prepare.PROJECT + '_loki-data'})
         self.assertEqual(result['volumes']['postgres-data'], self.active['volumes']['postgres-data'])
         upgrade.validate_runtime(result, IMAGES)
+        # The plan reviews it as a new image, with no active environment to compare against.
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(images['loki'], result['services']['loki']['image'])
+        self.assertNotIn('loki', keys)
 
     def test_any_other_service_or_volume_change_still_refuses(self):
         mutations = {
