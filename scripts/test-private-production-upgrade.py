@@ -383,7 +383,7 @@ class Pure(unittest.TestCase):
                 upgrade.verify_backup_evidence(manifest, OLD, 'h', copy_receipt, restored, now=NOW)
 
 
-class Delta(unittest.TestCase):
+class DeltaFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -411,6 +411,8 @@ class Delta(unittest.TestCase):
     def reconcile(self, target=None):
         return upgrade.reconcile(self.active, target or rendered(self.new_bundle), self.new_bundle)
 
+
+class Delta(DeltaFixture):
     def test_only_changed_services_change_and_the_rest_stay_verbatim(self):
         result, changed = self.reconcile()
         self.assertEqual(sorted(changed), ['application', 'caddy', 'catalogue-localizer', 'grafana', 'keycloak', 'migration'])
@@ -553,6 +555,126 @@ class Delta(unittest.TestCase):
                 mutate(value)
                 with self.assertRaises(trust.Refused):
                     upgrade.validate_runtime(value, IMAGES)
+
+
+class ReviewedAdditions(DeltaFixture):
+    """Reviewed runtime-input, secret and setting additions an upgrade applies itself."""
+
+    def with_feedback(self, target=None):
+        target = target or rendered(self.new_bundle)
+        target['secrets'].update({name: {'file': '/s/' + name.replace('_', '-')} for name in upgrade.SECRET_ADDITIONS})
+        target['services']['application']['secrets'] = [
+            {'source': name, 'target': '/run/secrets/' + name} for name in upgrade.SECRET_ADDITIONS]
+        target['services']['application']['environment'].update(
+            {key: '/run/secrets/' + name for name, (_, key) in upgrade.SECRET_ADDITIONS.items()})
+        return target
+
+    def test_reviewed_secret_additions_are_accepted_with_their_file_settings(self):
+        result, changed = self.reconcile(self.with_feedback())
+        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(upgrade.SECRET_ADDITIONS))
+        self.assertIn('secrets', changed['application'])
+
+    def test_any_other_secret_change_still_refuses(self):
+        mutations = {
+            'unreviewed secret': lambda c: c['secrets'].__setitem__('other_secret', {'file': '/s/other-secret'}),
+            'secret outside the inventory': lambda c: c['secrets']['feedback_smtp_username'].__setitem__('file', '/tmp/x'),
+            'existing secret moved': lambda c: c['secrets']['keycloak_admin_password'].__setitem__('file', '/s/other'),
+            'reviewed secret in another service': lambda c: c['services']['keycloak'].__setitem__(
+                'secrets', [{'source': 'feedback_smtp_username', 'target': '/run/secrets/feedback_smtp_username'}]),
+            'reviewed secret at another path': lambda c: c['services']['application']['secrets'][0].__setitem__('target', '/x'),
+            'file setting without its secret': lambda c: c['services']['application']['environment'].__setitem__(
+                'FEEDBACK_SMTP_USERNAME_FILE', '/run/secrets/other'),
+            'file setting on another service': lambda c: c['services']['keycloak']['environment'].__setitem__(
+                'FEEDBACK_SMTP_USERNAME_FILE', '/run/secrets/feedback_smtp_username'),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name):
+                target = self.with_feedback()
+                mutate(target)
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_a_setting_transition_is_exact(self):
+        before, after = upgrade.SETTING_TRANSITIONS[('keycloak', 'KC_LOG_LEVEL')]
+        self.active['services']['keycloak']['environment']['KC_LOG_LEVEL'] = before
+        target = rendered(self.new_bundle)
+        target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = after
+        self.assertIn('environment', self.reconcile(target)[1]['keycloak'])
+        for value in ('debug', after + ',org.keycloak:trace'):
+            with self.subTest(value):
+                target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        self.active['services']['keycloak']['environment']['KC_LOG_LEVEL'] = 'warn'
+        target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = after
+        self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_feedback_switch_follows_owner_inputs_and_needs_an_inbox_when_on(self):
+        self.active = self.with_feedback(self.active)
+        self.active['services']['application']['environment'].update(FEEDBACK_ENABLED='false', FEEDBACK_INBOX='')
+        target = self.with_feedback()
+        target['services']['application']['environment'].update(FEEDBACK_ENABLED='true', FEEDBACK_INBOX='owner@example.invalid')
+        result, _ = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        for value in ({'FEEDBACK_ENABLED': 'true', 'FEEDBACK_INBOX': ''}, {'FEEDBACK_ENABLED': 'yes'}):
+            with self.subTest(value):
+                broken = copy.deepcopy(result)
+                broken['services']['application']['environment'].update(value)
+                self.assertRaises(trust.Refused, upgrade.validate_runtime, broken, IMAGES)
+
+    def test_runtime_inputs_add_only_reviewed_defaults_and_owner_keys(self):
+        previous = {'PRODUCTION_TELEGRAM_ENABLED': 'false', 'PRODUCTION_SECRETS_GID': '900'}
+        example = {**previous, **upgrade.INPUT_DEFAULTS}
+        values, inputs = upgrade.runtime_inputs(previous, example, {})
+        self.assertEqual(values, example)
+        self.assertEqual(inputs, {'defaulted': sorted(upgrade.INPUT_DEFAULTS), 'ownerKeys': [], 'ownerSha256': None})
+        owner = {'PRODUCTION_FEEDBACK_ENABLED': 'true', 'PRODUCTION_FEEDBACK_INBOX': 'owner@example.invalid'}
+        values, inputs = upgrade.runtime_inputs(previous, example, owner)
+        self.assertEqual(values['PRODUCTION_FEEDBACK_INBOX'], 'owner@example.invalid')
+        self.assertNotIn('owner@example.invalid', json.dumps(inputs), 'The plan never carries the mailbox.')
+        refusals = {
+            'unreviewed new input': (previous, {**example, 'PRODUCTION_OTHER': 'x'}, {}),
+            'reviewed input with another default': (previous, {**example, 'PRODUCTION_FEEDBACK_ENABLED': 'true'}, {}),
+            'removed input': ({**previous, 'PRODUCTION_GONE': 'x'}, example, {}),
+            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_TELEGRAM_ENABLED': 'true'}),
+            'feedback on without an inbox': (previous, example, {'PRODUCTION_FEEDBACK_ENABLED': 'true'}),
+        }
+        for name, arguments in refusals.items():
+            with self.subTest(name):
+                self.assertRaises(trust.Refused, upgrade.runtime_inputs, *arguments)
+
+    def test_owner_inputs_come_only_from_the_protected_file(self):
+        actor = upgrade.Upgrade.__new__(upgrade.Upgrade)
+        path = self.root / 'runtime-inputs.env'
+        with patch.object(upgrade, 'OWNER_INPUTS', path), patch.object(upgrade.install, 'secure') as secure:
+            self.assertEqual(actor.owner_inputs(), {})
+            path.write_text('PRODUCTION_FEEDBACK_ENABLED=true\nPRODUCTION_FEEDBACK_INBOX=owner@example.invalid\n')
+            self.assertEqual(actor.owner_inputs()['PRODUCTION_FEEDBACK_ENABLED'], 'true')
+            secure.assert_called_with(path, mode=0o600)
+            path.write_text('PRODUCTION_TELEGRAM_ENABLED=true\n')
+            self.assertRaises(trust.Refused, actor.owner_inputs)
+
+    def test_staging_creates_missing_reviewed_secrets_empty_and_never_overwrites(self):
+        actor = upgrade.Upgrade.__new__(upgrade.Upgrade)
+        secrets_dir = self.root / 'secrets'
+        secrets_dir.mkdir()
+        (secrets_dir / 'feedback-smtp-password').write_text('kept')
+        target = self.with_feedback()
+        target['secrets'].update({name: {'file': str(secrets_dir / name.replace('_', '-'))} for name in upgrade.SECRET_ADDITIONS})
+        target['services']['application']['group_add'] = ['900']
+        target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'false'
+        owners = []
+        with patch.object(upgrade.install, 'secure'), \
+                patch.object(upgrade.os, 'fchown', side_effect=lambda fd, uid, gid: owners.append((uid, gid))):
+            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), {'feedback-smtp-username'})
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), ['feedback-smtp-username'])
+            created = secrets_dir / 'feedback-smtp-username'
+            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners), (b'', 0o640, [(0, 900)]))
+            self.assertEqual((secrets_dir / 'feedback-smtp-password').read_text(), 'kept')
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), [])
+            created.unlink()
+            target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'true'
+            with self.assertRaisesRegex(trust.Refused, 'provisioned before the upgrade'):
+                actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            self.assertFalse(created.exists())
 
 
 class FakeCore:

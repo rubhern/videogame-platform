@@ -68,8 +68,11 @@ class DeliveryTests(unittest.TestCase):
         candidate = re.search(r"^REVISION = '([0-9a-f]{40})'", (ROOT / 'scripts/prepare_private_production.py').read_text(), re.M)[1]
         self.assertIn('          ref: ' + candidate, runtime)
         self.assertIn('git fetch --no-tags --depth=1 ./.accepted-private-candidate HEAD', runtime)
+        # The upgrade-compatibility proof also starts from the previous main revision when one exists.
+        self.assertIn('BASELINE: ${{ github.event.pull_request.base.sha || github.event.before }}', runtime)
+        self.assertIn('PRODUCTION_UPGRADE_BASELINES: ${{ steps.upgrade-baseline.outputs.revision }}', runtime)
         proofs = {
-            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-production-deploy.py', 'test-private-production-admin.py',
+            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py'],
@@ -79,7 +82,8 @@ class DeliveryTests(unittest.TestCase):
         for commands in proofs.values():
             for command in commands:
                 self.assertEqual(runtime.count(command), 1)
-        dispatch = re.search(r'^        run: \|\n((?:          .*\n|\n)+)', runtime, re.M)[1]
+        proving = runtime[runtime.index('Prove independent runtime contracts'):]
+        dispatch = re.search(r'^        run: \|\n((?:          .*\n|\n)+)', proving, re.M)[1]
         dispatch = re.sub(r'^          ', '', dispatch, flags=re.M)
         # Execute the actual orchestration with recording proofs: failures in every
         # branch and termination of a branch must fail the step, after all waits.

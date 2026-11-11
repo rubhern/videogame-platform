@@ -210,6 +210,12 @@ Definition of Done holds and no unrelated scope was added.
 Whenever a backend API is added or modified, update its tracked Postman collection,
 requests, and assertions in the same change.
 
+Whenever a change adds or alters a production runtime input, secret, protected setting,
+or another difference the in-place upgrader refuses, extend the production upgrader in the
+same change, as the
+[production upgrade compatibility](docs/development/delivery-lifecycle.md#production-upgrade-compatibility)
+rule requires. Otherwise the next `Deploy Production` refuses at `upgrade-plan`.
+
 Every product-facing backend HTTP API is contract-first from
 `docs/architecture/api/openapi.yaml`; the `openapi-change` skill owns the sequence.
 Generated Java stays under disposable `target/generated-sources` and is never edited
