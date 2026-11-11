@@ -360,8 +360,11 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    networks:
-      - edge
+    # Tailscale Serve may bind its listeners to tailscale0 only (seen from 1.104), which
+    # refuses connections arriving from a Docker bridge. The smoke checks the operator's
+    # real HTTPS origin, so it runs in the host network namespace; it is unprivileged,
+    # holds only the smoke credentials and runs once per deployment.
+    network_mode: host
     depends_on:
       application:
         condition: service_healthy

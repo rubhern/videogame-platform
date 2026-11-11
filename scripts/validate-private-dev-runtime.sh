@@ -414,6 +414,13 @@ assert services["migration"]["networks"] == {"data": None}
 assert services["deployment-smoke"]["environment"]["EXPECTED_APPLICATION_VERSION"]
 assert services["deployment-smoke"]["environment"]["EXPECTED_SOURCE_REVISION"]
 assert int(services["deployment-smoke"]["shm_size"]) == 256 * 1024 * 1024
+smoke = services["deployment-smoke"]
+require(smoke.get("network_mode") == "host" and not smoke.get("networks") and not smoke.get("ports"),
+        "deployment smoke must reach the real HTTPS origin from the host network namespace only")
+require(smoke.get("user") is None and not smoke.get("privileged") and not smoke.get("volumes"),
+        "host-network deployment smoke must stay unprivileged and without host mounts")
+require([name for name, service in services.items() if service.get("network_mode") == "host"] == ["deployment-smoke"],
+        "only the deployment smoke may use the host network namespace")
 
 keycloak_imports = {
     (volume.get("source"), volume.get("target"))
