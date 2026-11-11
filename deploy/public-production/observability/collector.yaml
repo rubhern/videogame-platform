@@ -13,6 +13,20 @@ processors:
     send_batch_size: 512
     send_batch_max_size: 1024
 exporters:
+  # Application logs (ADR-0040). A bounded in-memory queue and short retry: an absent or refusing
+  # Loki loses log records, never holds the application or the metrics pipeline.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    timeout: 10s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 256
+    retry_on_failure:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 10s
+      max_elapsed_time: 60s
   prometheus:
     endpoint: 0.0.0.0:9464
     translation_strategy: UnderscoreEscapingWithSuffixes
@@ -30,6 +44,14 @@ service:
       - batch
       exporters:
       - prometheus
+    logs:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - batch
+      exporters:
+      - otlphttp/loki
   telemetry:
     logs:
       level: info

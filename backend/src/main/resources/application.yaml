@@ -156,6 +156,12 @@ management:
   health:
     mail:
       enabled: false
+  logging:
+    export:
+      otlp:
+        # Off by default: the console is the primary log stream everywhere. Production turns this on
+        # to feed its Loki through the collector.
+        enabled: ${TELEMETRY_OTLP_LOGS_ENABLED:false}
   server:
     address: ${MANAGEMENT_SERVER_ADDRESS:127.0.0.1}
     port: ${MANAGEMENT_SERVER_PORT:8081}
@@ -191,6 +197,16 @@ management:
           connect-timeout: 1s
           endpoint: ${TELEMETRY_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
           timeout: 5s
+    logging:
+      export:
+        # Bounded queue: a stalled collector drops log records, never request threads.
+        max-queue-size: 2048
+        otlp:
+          connect-timeout: 1s
+          endpoint: ${TELEMETRY_OTLP_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+          timeout: 5s
+      limits:
+        max-attribute-value-length: 4096
   otlp:
     metrics:
       export:

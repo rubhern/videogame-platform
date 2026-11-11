@@ -989,7 +989,7 @@ def first_install(host):
                     receipt.update(migrationVersion=migration["version"], flywayHistoryFingerprint=migration["historyFingerprint"])
                     checkpoint("grafana-reader"); host.reader()
                     checkpoint("dependencies")
-                    host.up("keycloak", "catalogue-localizer", "caddy", "telemetry", "prometheus", "grafana", "node-exporter", "blackbox")
+                    host.up("keycloak", "catalogue-localizer", "caddy", "telemetry", "loki", "prometheus", "grafana", "node-exporter", "blackbox")
                     checkpoint("application"); host.up("application")
                     checkpoint("private-smoke"); host.smoke()
                     receipt.update(outcome="prepared", phase="lease-finalize")

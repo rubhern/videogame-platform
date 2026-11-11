@@ -207,6 +207,16 @@ host/daemon, disk cache and deployment actors need additional headroom.
 Review headroom under representative load rather than treating ceilings as
 capacity evidence. Logs are excluded from the irreplaceable PostgreSQL backup set.
 
+Production application logs follow [ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)
+instead: the application's OTLP log export → the existing Collector → one Loki on the internal
+telemetry network → production Grafana. Nothing publishes a port, uses Docker access or
+reads host logs. Bounded application and Collector queues drop records when Loki is away
+or refusing load. Loki keeps six days, inside the seven-day routine-log limit, in its own named volume, which is disposable,
+outside every backup and restore, and an optional service for upgrades. Its
+[configuration](../../../deploy/public-production/observability/loki.yaml) owns ingestion,
+stream, line and query bounds. The sustained rate permits roughly 1.7 GiB of uncompressed
+input per day; plan **8 GiB of host disk for Loki** as a stop/review threshold, not a quota.
+
 Telemetry, metrics/log storage and Grafana are never application startup/readiness
 or request dependencies. Trace storage and remote export remain deferred. Private-dev
 [Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
@@ -378,7 +388,7 @@ receipts keep the remaining validation boundary explicit.
 | Keycloak | Independent production realm/client/database. Dedicated HTTPS identity origin with canonical issuer; only necessary product-realm OIDC/login/resource routes public. Block admin console/API, master realm, health and metrics at the edge; admin hostname alone is not an access control |
 | PostgreSQL | Same supported PG family; separate application/identity databases and roles; runtime role without DDL, one-shot migration actor. No host/public database port |
 | Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
-| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
+| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Application logs travel over OTLP through the same Collector into one internal Loki ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)); other services keep bounded Docker history. No Alloy, published log port or Docker access |
 | Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
 | Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Operational; real-host acceptance is recorded under #276; Lenovo is optional and expendable |
 
@@ -636,13 +646,13 @@ measured peak and the production OOM recorded in the
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
 | Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
-| Collector / Prometheus / Grafana total | 0.625 |
+| Collector / Prometheus / Grafana / Loki total | 1.00 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **5.50** |
+| Steady service ceilings total | **5.875** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
 | Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.90** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.53** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -652,7 +662,8 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-The monitoring allocation includes 576 MiB of steady services and a separate
+The monitoring allocation includes 960 MiB of steady services, of which Loki holds
+384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)), and a separate
 64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor
 allowance with backup work; it is not steady application capacity. Recovery lease and
 HTTP helper containers each have a 96 MiB ceiling and must be counted alongside

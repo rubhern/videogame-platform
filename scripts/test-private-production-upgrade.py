@@ -454,7 +454,7 @@ class Delta(DeltaFixture):
             'observability image': set_service('grafana', 'image', 'grafana@sha256:' + 'b' * 64),
             'telemetry image': set_service('telemetry', 'image', 'otel@sha256:' + 'b' * 64),
             'cpu ceiling': set_service('application', 'cpus', 8.0),
-            'pid ceiling': set_service('grafana', 'pids_limit', 4096),
+            'lower pid ceiling': set_service('grafana', 'pids_limit', 16),
             'lower memory': set_service('keycloak', 'mem_limit', '50'),
             'new capability': set_service('caddy', 'cap_add', ['SYS_ADMIN']),
             'issuer': lambda c: c['services']['application']['environment'].__setitem__('OIDC_ISSUER_URI', 'https://evil.example'),
@@ -559,6 +559,64 @@ class Delta(DeltaFixture):
 
 class ReviewedAdditions(DeltaFixture):
     """Reviewed runtime-input, secret and setting additions an upgrade applies itself."""
+
+    def with_loki(self, target=None):
+        target = target or rendered(self.new_bundle)
+        target['services']['loki'] = {
+            'image': 'grafana/loki@sha256:' + 'c' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
+            'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
+            'mem_limit': '402653184', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {}, 'labels': {},
+            'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/loki.yaml', '/etc/loki/config.yaml'),
+                        {'type': 'volume', 'source': 'loki-data', 'target': '/loki'}]}
+        target['volumes']['loki-data'] = {'name': prepare.PROJECT + '_loki-data'}
+        return target
+
+    def test_the_reviewed_log_store_is_added_with_its_own_volume(self):
+        result, changed = self.reconcile(self.with_loki())
+        self.assertEqual(changed['loki'], ['added'])
+        # The live checks require the installation lineage on every container, the added one too.
+        lineage = {k: self.active['services']['application']['labels'][k] for k in (control.RUN_LABEL, control.CONFIG_LABEL)}
+        self.assertEqual({k: result['services']['loki']['labels'][k] for k in lineage}, lineage)
+        self.assertEqual(result['volumes']['loki-data'], {'name': prepare.PROJECT + '_loki-data'})
+        self.assertEqual(result['volumes']['postgres-data'], self.active['volumes']['postgres-data'])
+        upgrade.validate_runtime(result, IMAGES)
+
+    def test_any_other_service_or_volume_change_still_refuses(self):
+        mutations = {
+            'unreviewed service': lambda c: c['services'].__setitem__('other', c['services'].pop('loki')),
+            'removed service': lambda c: c['services'].pop('blackbox'),
+            'published port': lambda c: c['services']['loki'].__setitem__('ports', [{'target': 3100, 'published': '3100'}]),
+            'another network': lambda c: c['services']['loki']['networks'].__setitem__('application-data', None),
+            'writable root': lambda c: c['services']['loki'].__setitem__('read_only', False),
+            'capability': lambda c: c['services']['loki'].__setitem__('cap_add', ['SYS_ADMIN']),
+            'secret': lambda c: c['services']['loki'].__setitem__('secrets', [{'source': 'keycloak_admin_password', 'target': '/s'}]),
+            'host bind': lambda c: c['services']['loki']['volumes'][0].__setitem__('source', '/var/lib/docker'),
+            'writable bind': lambda c: c['services']['loki']['volumes'][0].__setitem__('read_only', False),
+            'database volume': lambda c: c['services']['loki']['volumes'][1].__setitem__('source', 'postgres-data'),
+            'unreviewed volume': lambda c: c['volumes'].__setitem__('other-data', {'name': 'x'}),
+            'existing volume changed': lambda c: c['volumes']['postgres-data'].__setitem__('name', 'other'),
+            'new network': lambda c: c['networks'].__setitem__('logs', {'name': 'logs'}),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name):
+                target = self.with_loki()
+                mutate(target)
+                with self.assertRaises(trust.Refused):
+                    self.reconcile(target)
+
+    def test_grafana_loads_only_loki_and_may_raise_its_process_ceiling(self):
+        target = rendered(self.new_bundle)
+        grafana = target['services']['grafana']
+        grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
+        grafana['pids_limit'] = 160
+        result, changed = self.reconcile(target)
+        self.assertTrue({'environment', 'pids_limit'} <= set(changed['grafana']))
+        upgrade.validate_runtime(result, IMAGES)
+        for policy in ('elasticsearch', upgrade.GRAFANA_DISABLED_PLUGINS.replace(',tempo', '')):
+            with self.subTest(policy):
+                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = policy
+                with self.assertRaises(trust.Refused):
+                    self.reconcile(target)
 
     def with_feedback(self, target=None):
         target = target or rendered(self.new_bundle)
@@ -981,7 +1039,7 @@ class Flow(unittest.TestCase):
             'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'notice:apply', 'realm:apply', 'realm:check', 'notice:check',
             'no-start:caddy,application,catalogue-localizer,grafana', 'roles-login:True', 'gate-open', 'fence-exit',
             'up:telemetry', 'up:prometheus', 'up:node-exporter', 'up:blackbox',
-            'up:caddy', 'up:application', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
+            'up:caddy', 'up:application', 'up:loki', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
         self.assertEqual(self.log.count('gate-open'), 1, 'The gate opens exactly once, at the reviewed reopening.')
         for probe in ('authorization', 'prometheus', 'grafana'):
             self.assertIn('probe:' + probe, self.log)

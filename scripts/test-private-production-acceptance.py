@@ -16,6 +16,7 @@ import prepare_private_production as prepare
 import private_dev_promotion as trust
 import private_production_acceptance as acceptance
 import private_production_control as control
+import private_production_upgrade as upgrade
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = '11111111-1111-4111-8111-111111111111'
@@ -99,7 +100,9 @@ class Delta(unittest.TestCase):
         localizer = compose.split('  catalogue-localizer:\n', 1)[1].split('\n  application:', 1)[0]
         self.assertEqual(int(acceptance.LOCALIZER_MEMORY), int(re.search(r'mem_limit: (\d+)m', localizer)[1]) * 1024 * 1024)
         overlay = (ROOT / 'deploy/public-production/compose.observability.yaml').read_text()
-        self.assertIn('GF_PLUGINS_DISABLE_PLUGINS: ' + acceptance.DISABLED_PLUGINS + '\n', overlay)
+        # The accepted policy is historical; ADR-0040 re-enabled only Loki, through the upgrader.
+        self.assertIn('GF_PLUGINS_DISABLE_PLUGINS: ' + upgrade.GRAFANA_DISABLED_PLUGINS + '\n', overlay)
+        self.assertEqual(set(acceptance.DISABLED_PLUGINS.split(',')) - set(upgrade.GRAFANA_DISABLED_PLUGINS.split(',')), {'loki'})
 
     def test_grafana_keeps_exactly_the_provisioned_datasource_plugins(self):
         disabled = set(acceptance.DISABLED_PLUGINS.split(','))
@@ -107,6 +110,9 @@ class Delta(unittest.TestCase):
         types = {m for f in provisioned.glob('*.yaml') for m in re.findall(r'type: (\S+)', f.read_text())}
         self.assertEqual(types & disabled, set())
         self.assertEqual(types, {'prometheus', 'grafana-postgresql-datasource'})
+        logs = (ROOT / 'deploy/public-production/observability/loki-datasource.yaml').read_text()
+        self.assertEqual(set(re.findall(r'type: (\S+)', logs)), {'loki'})
+        self.assertNotIn('loki', upgrade.GRAFANA_DISABLED_PLUGINS.split(','))
 
     def test_reviewed_inputs_are_bound_by_the_operational_fingerprint(self):
         for name in ('scripts/private_production_acceptance.py', acceptance.DASHBOARD, acceptance.COVERAGE_VIEW):

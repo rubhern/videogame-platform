@@ -1121,6 +1121,41 @@ opens:
   with their actual scrape and notification; none is collected now.
 
 
+## Application logs
+
+[ADR-0040](../../docs/decisions/0040-aggregate-production-application-logs-in-loki.md) adds
+one Loki service to the observability overlay. The application exports its log events over
+OTLP to the Collector, which forwards them to Loki on the internal telemetry network. Read
+them in production Grafana under **Explore → Platform logs**;
+[observability](../../docs/development/observability.md#production-log-exploration) owns the
+queries and their limits.
+
+**Rollout.** No host step. The next `Deploy Production` lists `loki` as an added service,
+pulls its pinned image at staging and creates it with an empty `loki-data` volume. It also
+recreates the Collector (new logs pipeline), Grafana (Loki datasource and its plugin) and
+the application (log export on). Logs start with that release; earlier history stays in
+Docker's local log. If Loki fails to start, the deployment completes with `loki` under
+`optionalDegraded` and the application keeps running.
+
+**Disk.** Plan 8 GiB of host disk for the volume, a stop/review threshold rather than a quota.
+Check its use from the owner route:
+
+```bash
+sudo docker system df -v | grep loki-data
+```
+
+If it approaches the threshold, or the host's free-disk alert fires, stop only Loki. The
+active configuration is the file that `/var/lib/gameometro/production/upgrades/ACTIVE.json`
+names as `configurationFile`:
+
+```bash
+active=$(sudo python3 -c 'import json;print(json.load(open("/var/lib/gameometro/production/upgrades/ACTIVE.json"))["configurationFile"])')
+sudo docker compose -p gameometro-production -f "$active" --profile '*' stop loki
+```
+
+The Collector drops what Loki cannot take, and the product is unaffected. The volume is
+disposable: it is outside every backup and restore. Deleting it loses only log history.
+
 ## Production observability candidate
 
 **Prepared and tested only in disposable local infrastructure.** Use the base runtime
@@ -1651,14 +1686,15 @@ result with the active configuration:
 | Published image (application, migration, Keycloak, edge, localizer) | Allowed, then recreated |
 | The exact [private administration](#private-production-administration) settings | Allowed only at their reviewed values; master frontend alignment stays under the upgrade lease |
 | `CATALOGUE_SYNC_SCHEDULING_ENABLED` from `false` to `true` (#484) | Allowed once; the IGDB credential files must then be non-empty. Switching it off again is a separate reviewed change |
-| The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory ceiling | Allowed, listed by field and setting name, then recreated |
-| Any other existing setting, issuer, `KC_*` (except the exact private admin hostname below) or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
+| The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory or PID ceiling | Allowed, listed by field and setting name, then recreated |
+| Any other existing setting, issuer, `KC_*` (except the exact private admin hostname below) or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability or CPU change | Refused |
 | Any change to PostgreSQL, or an observability image | Refused: outside this procedure |
-| A [reviewed runtime addition](#reviewed-runtime-additions): a new input with its default, an owner input, a new optional secret with its `*_FILE` setting, or an exact setting transition | Allowed and listed in the plan, then recreated |
+| A [reviewed runtime addition](#reviewed-runtime-additions): a new input with its default, an owner input, a new optional secret with its `*_FILE` setting, an exact setting transition, or a reviewed service with its own named volume | Allowed and listed in the plan, then recreated or created |
 | Any other runtime-input inventory change, or a realm import change outside the migration below | Refused until a reviewed change covers it |
 
 The result must keep `restart: unless-stopped` on persistent services, `restart: no` on the
-one-shot actor, the accepted localizer ceiling and Grafana plugin policy, the mounted
+one-shot actor, the accepted localizer ceiling, the accepted Grafana plugin policy or its
+reviewed successor that loads only Loki, the mounted
 localization dashboard, the same image for migration and application, zero publications,
 recurring synchronization either off or on the application's default schedule with no cron
 override (#484), and Telegram and the
@@ -1861,7 +1897,7 @@ Docker Desktop's spelling of directory binds and skips the Docker data-root disk
 #### Reviewed runtime additions
 
 The upgrader's reviewed-addition tables (`INPUT_DEFAULTS`, `OWNER_INPUT_KEYS`,
-`SECRET_ADDITIONS` and `SETTING_TRANSITIONS` in
+`SECRET_ADDITIONS`, `SETTING_TRANSITIONS` and `SERVICE_ADDITIONS` in
 [`private_production_upgrade.py`](../../scripts/private_production_upgrade.py)) name every
 runtime difference it applies on its own. The
 [delivery rule](../../docs/development/delivery-lifecycle.md#production-upgrade-compatibility)
@@ -1882,6 +1918,11 @@ production-runtime CI gate proves it.
 - **Setting transitions.** An existing setting may change only from its listed previous value
   to its listed target value. The feedback switch and inbox follow the owner inputs instead;
   the runtime check then requires an inbox whenever delivery is on.
+- **New services.** A listed service may appear with only its listed networks and named
+  volumes, read-only, without capabilities, secrets, published ports or dependencies, and
+  with memory and PID ceilings. `--stage` pulls its pinned image and the apply step creates
+  it with its empty volume. Added services start as optional ones: a failure is recorded and
+  never fences the product. Loki ([application logs](#application-logs)) is the only entry.
 
 ### Owner-approved Actions deployment (#467)
 

@@ -124,8 +124,8 @@ same pull request:
 
 The extension is the narrowest reviewed rule. A new input gets a safe default the upgrader
 fills in, an owner-chosen value goes through the owner input keys, a new optional secret is
-created empty while its integration stays off, and a changed setting gets an exact
-transition. The upgrader's reviewed-addition tables and the
+created empty while its integration stays off, a changed setting gets an exact
+transition, and a new service is listed with its own networks and named volumes. The upgrader's reviewed-addition tables and the
 [production operator guide](../../deploy/public-production/README.md#reviewed-runtime-additions)
 own the mechanics.
 

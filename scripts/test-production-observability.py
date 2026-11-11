@@ -65,7 +65,7 @@ def static():
     with tempfile.TemporaryDirectory() as temp:
         config = rendered(temp)
     services = config['services']
-    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox'}
+    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki'}
     # The base-only topology cannot reveal exhaustion when the overlay starts.
     ipam = config['networks']['telemetry']['ipam']['config'][0]
     subnet, pool = (ipaddress.ip_network(ipam[k]) for k in ('subnet','ip_range'))
@@ -74,7 +74,7 @@ def static():
     assert ipaddress.ip_address(ipam['gateway']) not in pool
     assert ipaddress.ip_address('10.203.3.2') not in pool
 
-    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 640
+    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1024
     for name in names:
         service = services[name]
         assert not service.get('ports') and not service.get('privileged')
@@ -106,7 +106,20 @@ def static():
     disabled = set(services['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'].split(','))
     used = {t['datasource']['type'] for path in canonical for p in json.loads(path.read_text())['panels'] for t in p.get('targets', [])}
     assert used == {'prometheus', 'grafana-postgresql-datasource'} and not used & disabled
-    assert services['grafana']['pids_limit'] == 128
+    assert services['grafana']['pids_limit'] == 160
+    # ADR-0040: application logs reach Loki only through the collector, on the internal network.
+    assert 'loki' not in disabled
+    assert set(services['loki']['networks']) == {'telemetry'} and services['loki']['user'] == '10001:10001'
+    assert [v['source'] for v in services['loki']['volumes'] if v['type'] == 'volume'] == ['loki-data']
+    assert services['application']['environment']['TELEMETRY_OTLP_LOGS_ENABLED'] == 'true'
+    assert services['application']['environment']['TELEMETRY_OTLP_LOGS_ENDPOINT'] == 'http://telemetry:4318/v1/logs'
+    collector = (OBS / 'collector.yaml').read_text()
+    assert re.search(r'\n    logs:\n      receivers:\n      - otlp\n(?:.*\n)*?      exporters:\n      - otlphttp/loki\n', collector)
+    assert '  otlphttp/loki:\n    endpoint: http://loki:3100/otlp\n' in collector
+    loki = (OBS / 'loki.yaml').read_text()
+    for line in ('auth_enabled: false', '  grpc_listen_address: 127.0.0.1', '  retention_enabled: true',
+                 '  retention_period: 144h'):
+        assert '\n' + line + '\n' in '\n' + loki, line
     assert 'catalogue.observability_localization_coverage' in sql
     synchronization = json.loads((SHARED / 'grafana/dashboards/vgp-synchronization.json').read_text())
     localization = [t for p in synchronization['panels'] for t in p.get('targets', []) if 'localization' in (t.get('expr', '') + t.get('rawSql', ''))]
@@ -123,7 +136,7 @@ def static():
         dashboard=json.loads((OBS/'grafana/capacity.json').read_text())
         assert int(rule['annotations']['__panelId__']) in {panel['id'] for panel in dashboard['panels']}
         assert rule['data'][0]['datasourceUid'] in ('private-dev-prometheus', 'private-dev-postgres')
-    print('Production isolation, 640 MiB envelope, canonical dashboards and datasource contracts passed.', flush=True)
+    print('Production isolation, 1024 MiB envelope, canonical dashboards and datasource contracts passed.', flush=True)
 
 
 class HostSignals(unittest.TestCase):
@@ -178,7 +191,7 @@ def edge_observations(text):
         self.assertNotIn('production_backup_cycle_last_capture_seconds',text)
         # A status that cannot say it is healthy asks for attention.
         self.assertIn('production_backup_cycle_attention 1',sampler.render([],backup={'kind':'backup-cycle','outcome':'success'},now=self.NOW))
-        self.assertEqual(text.count('production_container_running{'), 10)
+        self.assertEqual(text.count('production_container_running{'), 11)
         self.assertIn('production_host_sample_timestamp_seconds 1800000000', text)
 
     def test_local_or_corrupt_backup_never_verifies(self):
