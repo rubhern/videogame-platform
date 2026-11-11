@@ -3,6 +3,10 @@
    content. Both choices share one control style so rejecting is as visible as accepting. */
 @layer components {
   .consent-banner {
+    /* Page stages light up behind the header from above their own box; on phones that light
+       would otherwise paint over the plate's lower edge and its buttons. */
+    position: relative;
+    z-index: 30;
     border-top: 2px solid var(--color-ice);
     border-bottom: 1px solid var(--color-line);
     background: var(--color-raised);

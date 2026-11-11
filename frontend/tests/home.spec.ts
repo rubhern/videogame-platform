@@ -201,6 +201,30 @@ for (const width of [320, 390, 834, 1320]) {
   });
 }
 
+for (const width of [320, 390]) {
+  test(`the consent notice stays above the home stage's light at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await stubHome(page);
+    await page.route("**/api/v1/web-analytics", (route) =>
+      route.fulfill({ json: { googleAnalytics: { measurementId: "G-TEST1234" } } }));
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
+    const notice = page.getByRole("region", { name: "¿Nos ayudas a mejorar Gameómetro?" });
+    // The stage's light rises behind the compact header; it must never paint over the choices.
+    // Decorative layers ignore the pointer, so make every layer hit-testable for this probe.
+    await page.addStyleTag({ content: "* { pointer-events: auto !important; }" });
+    for (const name of ["Rechazar", "Aceptar"]) {
+      const box = await notice.getByRole("button", { name }).boundingBox();
+      if (box === null) throw new Error(`${name} has no box`);
+      const topmost = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.textContent?.trim() ?? null,
+        { x: box.x + box.width / 2, y: box.y + box.height - 2 });
+      expect(topmost).toBe(name);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`home-consent-${width}.png`), clip: { x: 0, y: 0, width, height: 420 } });
+  });
+}
+
 test("a cold load keeps the home's own loading surface while its reads are pending", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await stubHome(page);
