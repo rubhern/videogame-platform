@@ -14,12 +14,12 @@ jobs:
     name: Derive and verify exact dispatch artifact
     if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # Discovery waits up to 90 minutes for the dispatch SHA's own main CI to finish.
+    timeout-minutes: 100
     permissions:
       contents: read
       actions: read
     outputs:
-      contract: ${{ steps.verify.outputs.contract }}
       source_revision: ${{ steps.verify.outputs.source_revision }}
       image_digest: ${{ steps.verify.outputs.image_digest }}
       source_run_id: ${{ steps.verify.outputs.source_run_id }}
@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.sha }}
-      - name: Verify environment policy and derive exact dispatch publication
+      - name: Wait for main CI, verify environment policy and derive exact dispatch publication
         id: verify
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,7 +44,8 @@ jobs:
     needs: verify
     if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Includes rebuilding/recreating changed persistent services on the host.
+    timeout-minutes: 40
     permissions:
       contents: read
       actions: read
@@ -93,13 +94,12 @@ jobs:
           sha256sum: 50748df1045e60b5b695f19f4c56b0da36c019948b440fb456b6584a50f0d8b9
           use-cache: "false"
           log-mode: quiet
-      - name: Invoke the existing private-host deployment boundary
+      - name: Install the revision on the private host and deploy it
         id: deploy
         env:
           DEPLOY_HOST: ${{ secrets.PRIVATE_DEV_SSH_HOST }}
           SOURCE_REVISION: ${{ needs.verify.outputs.source_revision }}
           IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
-          CONTRACT: ${{ needs.verify.outputs.contract }}
           SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
         run: |
@@ -109,7 +109,7 @@ jobs:
             -o "UserKnownHostsFile=$RUNNER_TEMP/private-dev-ssh/known_hosts" \
             -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "vgp-deploy@$DEPLOY_HOST" \
-            "promote $SOURCE_REVISION $IMAGE_DIGEST $CONTRACT $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT" \
+            "promote $SOURCE_REVISION $IMAGE_DIGEST $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT" \
             > promotion-receipt.json
       - name: Summarize and verify the host outcome
         if: ${{ always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}

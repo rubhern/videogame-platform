@@ -11,6 +11,7 @@ historical decision.
 
 ## Accepted
 
+- [ADR-0039: Let private-dev promotion install its own revision](0039-let-private-dev-promotion-install-its-own-revision.md) — private-dev promotion moves the host checkout to the dispatched main commit and reconciles changed services; removes the runtime-contract gate and acknowledgement of ADR-0023.
 - [ADR-0038: Measure product use with consent-gated Google Analytics 4](0038-measure-product-use-with-consent-gated-ga4.md) — #507; GA4 only after an opt-in notice (Consent Mode basic), measurement ID from runtime configuration through `UC-022`, route templates and a closed event dictionary only; accepted 2026-11-11.
 - [ADR-0037: Align local and private dev with production configuration](0037-align-local-and-private-dev-with-production.md) — product release `1.0.0`; local and private `dev` share production's product-facing configuration except infrastructure, a weekly-only synchronization, production-only backups and lifecycle/verification.
 - [ADR-0036: Use protected Actions for private-production recovery](0036-use-protected-actions-for-production-recovery.md) — #467; explicit owner approval for an environment-protected recovery-key copy on ephemeral GitHub runners; original WSL copy retained.
@@ -40,8 +41,8 @@ historical decision.
 
 - [ADR-0022: Localize catalogue content during acquisition](0022-localize-catalogue-content-during-acquisition.md) — private-dev optional activation superseded by ADR-0024.
 
-- [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md)
-- [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
+- [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md) — runtime-contract gate and acknowledgement superseded by ADR-0039.
+- [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md) — separate localizer rollout before promotion superseded by ADR-0039.
 - [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; single VPS, Docker Compose and static Caddy edge accepted 2026-10-19; Lite 2/former budget input partially superseded by ADR-0033, other rationale/gates preserved; no purchase/exposure authorization.
 
 - [ADR-0026: Defer ARM64 runtime support](0026-defer-arm64-runtime-support.md) — amends ADR-0008/ADR-0019; AMD64-only with a pre-deployment restoration gate.

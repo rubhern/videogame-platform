@@ -6,6 +6,7 @@
 - **Scope:** Private, non-commercial, zero-recurring-cost post-MVP delivery
 - **Related:** [ADR-0008](0008-use-github-actions-and-ghcr-for-initial-delivery.md), [ADR-0019](0019-host-private-dev-on-an-owner-managed-linux-host.md), [#160](https://github.com/rubhern/videogame-platform/issues/160)
 - **Localization lifecycle:** The initial localization-overlay restriction is superseded by [ADR-0024](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md).
+- **Runtime contract:** The installed runtime/deployment-contract gate, owner acknowledgement, host evidence recheck and overlay refusal are superseded by [ADR-0039](0039-let-private-dev-promotion-install-its-own-revision.md); promotion now installs the dispatched revision.
 
 ## Context
 

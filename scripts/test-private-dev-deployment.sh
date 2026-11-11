@@ -108,13 +108,7 @@ if [[ "$1 ${2:-}" == "image inspect" ]]; then
     *revision*) printf '%s\n' "$SOURCE_REVISION" ;;
     *version*) printf '0.15.0-SNAPSHOT\n' ;;
     *source*) printf 'https://github.com/rubhern/videogame-platform\n' ;;
-    *Id*)
-      if [[ "${*: -1}" == videogame-platform/catalogue-localizer:* ]]; then
-        printf 'sha256:localizer-image-id\n'
-      else
-        printf 'sha256:candidate-image-id\n'
-      fi
-      ;;
+    *Id*) printf 'sha256:candidate-image-id\n' ;;
     *) printf 'unexpected image inspection format: %s\n' "$format" >&2; exit 90 ;;
   esac
   exit 0
@@ -135,10 +129,6 @@ if [[ "$1" == inspect ]]; then
           localizer-no-healthcheck) printf '\n' ;;
           *) printf 'healthy\n' ;;
         esac ;;
-      *config-hash*)
-        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-config-drift ]] && printf '%064d\n' 1 || printf '%064d\n' 2 ;;
-      *Image*)
-        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-image-drift ]] && printf 'sha256:localizer-image-id\n' || printf 'sha256:old-localizer-image-id\n' ;;
       *) exit 91 ;;
     esac
     exit 0
@@ -284,6 +274,7 @@ services = {
             "tag": "application", "mode": "non-blocking", "max-buffer-size": "1m",
             "cache-disabled": "false", "cache-max-size": "10m", "cache-max-file": "3",
         }},
+        profiles=["application"],
         depends_on={"postgres": {}, "keycloak": {}},
         networks={"edge": None, "data": None, "telemetry": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
@@ -308,6 +299,7 @@ services = {
             "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
             "APPLICATION_MIGRATION_DB_USERNAME": "videogame_app_migrator",
         },
+        profiles=["deployment"],
         image=image,
         networks={"data": None},
         read_only=True,
@@ -322,6 +314,7 @@ services = {
             "PRIVATE_DEV_APPLICATION_ORIGIN": application_origin,
             "PRIVATE_DEV_KEYCLOAK_ORIGIN": keycloak_origin,
         },
+        profiles=["deployment"],
         build={"context": str(repository / "deploy/private-dev/smoke")},
         shm_size=256 * 1024 * 1024,
         read_only=True,
@@ -347,8 +340,11 @@ PY
     printf '%s-id\n' "$service"
     exit 0
   fi
-  if [[ "$arguments" == *" config --hash catalogue-localizer "* ]]; then
-    printf 'catalogue-localizer %064d\n' 1
+  if [[ "$arguments" == *" build catalogue-localizer keycloak "* ]]; then
+    exit 0
+  fi
+  if [[ "$arguments" == *" up --detach --no-build --wait --wait-timeout 300 alloy catalogue-localizer grafana keycloak loki mailpit postgres prometheus telemetry "* ]]; then
+    [[ "${FAKE_DEPLOY_MODE:-success}" != reconciliation-failure ]] || exit 45
     exit 0
   fi
   if [[ "$arguments" == *" build --pull deployment-smoke "* ]]; then
@@ -534,18 +530,18 @@ if grep -q '^pull ' "$command_log"; then
   exit 1
 fi
 
-for mode in localizer-missing localizer-stopped localizer-unhealthy localizer-no-healthcheck localizer-config-drift localizer-image-drift; do
+for mode in reconciliation-failure localizer-missing localizer-stopped localizer-unhealthy localizer-no-healthcheck; do
   : >"$command_log"
   localizer_evidence="$temporary_directory/$mode-evidence"
   if run_deployment "$mode" "$localizer_evidence" >"$temporary_directory/$mode.log" 2>&1; then
     printf 'Deployment accepted invalid acquisition runtime: %s\n' "$mode" >&2
     exit 1
   fi
-  assert_evidence "$localizer_evidence" failure target-and-runtime-preflight
+  assert_evidence "$localizer_evidence" failure runtime-reconciliation
   assert_lock_released
-  grep -qi 'catalogue-localizer' "$temporary_directory/$mode.log"
-  if grep -Eq 'buildx|^pull | build | run | up ' "$command_log"; then
-    printf 'Invalid localizer preflight performed deployment work: %s\n' "$mode" >&2
+  [[ "$mode" == reconciliation-failure ]] || grep -qi 'catalogue-localizer' "$temporary_directory/$mode.log"
+  if grep -Eq 'buildx|^pull | run |application$' "$command_log"; then
+    printf 'A failed runtime reconciliation continued to application deployment work: %s\n' "$mode" >&2
     exit 1
   fi
 done
@@ -626,20 +622,23 @@ import sys
 
 commands = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
 positions = {
-    "localizer": next(i for i, value in enumerate(commands) if "config --hash catalogue-localizer" in value),
+    "reconcile": next(i for i, value in enumerate(commands) if "up --detach --no-build" in value),
     "verify": next(i for i, value in enumerate(commands) if "buildx imagetools inspect" in value),
     "migration": next(i for i, value in enumerate(commands) if "run --rm --no-deps migration" in value),
     "activation": next(i for i, value in enumerate(commands) if "wait-timeout 180 application" in value),
     "smoke": next(i for i, value in enumerate(commands) if "run --rm --no-deps deployment-smoke" in value),
 }
-assert positions["localizer"] < positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
-# The only long-lived service touched is application. All dependency inspections
-# above are read-only; no helper/runtime pull, build, start or recreation is allowed.
+assert positions["reconcile"] < positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
+# Persistent services are reconciled once from the installed revision; Compose leaves
+# unchanged ones running. Only the application is force-recreated.
 mutations = [value for value in commands if value.startswith("compose ") and
              any(operation in value for operation in (" up ", " build ", " run "))]
-assert len(mutations) == 4, mutations
-assert all(value.endswith(("deployment-smoke", "migration", "application")) for value in mutations), mutations
-assert all(" --no-deps " in value for value in mutations if " up " in value or " run " in value), mutations
+assert len(mutations) == 6, mutations
+reconcile = [value for value in mutations if " --no-build " in value]
+assert len(reconcile) == 1 and " --force-recreate " not in reconcile[0], reconcile
+assert not reconcile[0].endswith(("application", "migration", "deployment-smoke")), reconcile
+assert [value for value in mutations if " --force-recreate " in value][0].endswith(" application"), mutations
+assert all(" --no-deps " in value for value in mutations if (" up " in value or " run " in value) and value not in reconcile), mutations
 assert [value for value in commands if value.startswith("pull ")] == ["pull " + sys.argv[2]]
 PY
 

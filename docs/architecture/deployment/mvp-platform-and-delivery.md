@@ -39,8 +39,9 @@ only HTTPS edge and admits only the owner. Owner-approved application promotion
 additionally permits an ephemeral tagged Actions identity to reach only the host's
 OpenSSH port through the tailnet, with a forced promotion command; it receives no
 product, identity or management access. This boundary is accepted under
-[ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md);
-host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
+[ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md),
+and [ADR-0039](../../decisions/0039-let-private-dev-promotion-install-its-own-revision.md)
+lets promotion install its own revision; host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
 product authorization. No public application, identity, database, telemetry or SSH
 ingress is allowed on private-dev; router port forwarding, Tailscale Funnel and public DNS remain
 prohibited. Machine addressing and tailnet identifiers stay outside the repository.
@@ -240,9 +241,10 @@ remains **Continuous Delivery**: the owner dispatches the promotion workflow on 
 That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
 SHA. The workflow derives its unique trusted-main push build, current attempt and
 immutable digest from retained publication evidence, refusing missing, stale or
-ambiguous relationships without a latest-image or older-run fallback. It verifies
-main ancestry and successful quality/security/publication evidence before the
-credential-bearing job and rechecks the same tuple before connecting. The dev
+ambiguous relationships without a latest-image or older-run fallback. It waits, within a
+bound, for that SHA's main build and security runs to finish, then verifies main ancestry
+and successful quality/security/publication evidence before the credential-bearing job
+and rechecks the same tuple before connecting. The dev
 environment retains its secrets and main-only deployment policy, with no reviewer,
 wait timer or custom approval gate and no administrator bypass. Actor and triggering
 actor must both be the owner. A merge never triggers deployment.
@@ -257,31 +259,25 @@ digest, run the selected image once as the migration actor, replace only the
 application container with that digest, wait for candidate readiness, run the
 deployment smoke against the candidate and the private HTTPS boundary, and record an
 external JSON evidence file that holds no credentials or personal data.
-Automation invokes this same command from a root-owned owner-installed checkout,
-without uploading or executing candidate source on the host. Its restricted account
-has no Docker group, interactive shell, forwarding or general sudo capability.
-Host verification binds the candidate's Git deployment-contract fingerprint to the
-clean installed checkout and a protected owner acknowledgement of the applied runtime.
-The source/main CI metadata is rechecked through public GitHub read-only access;
-the existing digest/tag/OCI checks bind the image to that successful source run.
-Only a sanitized receipt crosses SSH; deployment logs stay protected on the host.
-GitHub/API/network failures refuse promotion. Retained publication evidence may
-expire; successful old runs without that evidence cannot be promoted through Actions.
+Automation first moves the root-owned host checkout to the dispatched commit, after
+checking that the commit is reachable from `origin/main`, and then invokes that commit's
+deployment command. Deployment files therefore travel with the release, as they do in
+public production. The restricted account has no Docker group, interactive shell,
+forwarding or general sudo capability. The host makes no GitHub API calls; the existing
+digest/tag/OCI checks bind the image to the source revision. Only a sanitized receipt
+crosses SSH; deployment logs stay protected on the host. Retained publication evidence
+may expire; successful old runs without that evidence cannot be promoted through Actions.
 
-Application promotion recreates **only the application** after the one-shot
-migration. PostgreSQL, Keycloak, Mailpit, Grafana, Prometheus, Loki, Alloy, the Collector and
-catalogue-localizer keep their explicit owner-reviewed rollout procedures.
-The deployment preflight checks localizer health, the resolved Compose service hash
-(including the protected immutable model directory) and local image identity without
-recreating it. A helper outage blocks a new promotion while existing product reads
-remain available.
-Any change to deployment/runtime files or dependency bootstrap/configuration blocks
-promotion until the owner has applied the appropriate separate rollout and installed
-and acknowledged the matching checkout. Installing Git files alone never proves a
-runtime upgrade. The retired localization-overlay application label is accepted for
-transition to equivalent base settings; other active application overlays are refused.
-Protected runtime environment/secret edits also retain their separate rollout and
-rotation procedures. The normal manual deployment remains available for recovery.
+Before migrating, the deployment reconciles the persistent services with the installed
+revision's Compose definition. It builds the locally built images from cache, and Compose
+recreates only the services whose configuration or image changed. Unchanged PostgreSQL,
+Keycloak, Mailpit, Grafana, Prometheus, Loki, Alloy, Collector and localizer containers keep
+running. Overlays come only from persistent owner flags in the protected `runtime.env`. A
+service that does not become healthy, including a localizer whose model is missing, fails
+the promotion before migration. After the one-shot migration, only the application is
+force-recreated. Protected secrets, runtime values and state that recreation does not
+change, such as an existing Keycloak realm or database roles, keep their documented
+procedures. The normal manual deployment remains available for recovery.
 
 Migration failure leaves the previous application running. A readiness or smoke
 failure records a failed deployment even if another or older process still answers.

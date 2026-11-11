@@ -139,9 +139,9 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
 3. Install the immutable model outside the checkout using the
    [model procedure](../../backend/README.md#catalogue-translation-runtime-and-models)
    and set its directory in protected runtime.env. Start only the runtime dependencies;
-   do not enable the application or deployment profiles here. Existing hosts use the
-   [targeted localization migration](#one-time-migration-to-the-standard-runtime)
-   instead of repeating this full initial startup.
+   do not enable the application or deployment profiles here. Existing hosts get
+   runtime changes through [promotion](#runtime-changes-during-promotion) instead of
+   repeating this full initial startup.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
@@ -222,9 +222,11 @@ change adds one service and recreates only Keycloak, which is briefly unavailabl
 sign-in; the application, its BFF sessions, PostgreSQL and every other service keep
 their containers. The realm, its accounts and their credentials are not re-imported.
 
-1. Install the reviewed merged revision and hold the deployment lock exactly as in
-   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
-   then validate and record the runtime inventory:
+Since [ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md),
+a normal promotion creates Mailpit and recreates Keycloak itself; only step 3 remains
+an owner action. The steps below are the manual equivalent.
+
+1. Open an [owner maintenance session](#owner-maintenance-session), then validate and record the runtime inventory:
 
    ```bash
    bash scripts/validate-private-dev-runtime.sh \
@@ -260,9 +262,7 @@ their containers. The realm, its accounts and their credentials are not re-impor
    ```
 
    Compare both inventories: only Keycloak may have a new container ID and Mailpit is
-   the only new service. Then perform the
-   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract) and
-   release the lock as in the localization migration's step 4.
+   the only new service. Then release the lock.
 
 ### Owner access and acceptance
 
@@ -422,9 +422,7 @@ Run only after owner review, merge and separate approval to operate on `vgpdev`.
 Keycloak stays up and no container is recreated; the change takes effect on the next
 request.
 
-1. Install the reviewed merged revision and hold the deployment lock exactly as in
-   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
-   and create the snapshot directory:
+1. Open an [owner maintenance session](#owner-maintenance-session) and create the snapshot directory:
 
    ```bash
    install -d -m 0700 -o root -g root /var/lib/videogame-platform/dev/identity-snapshots
@@ -477,11 +475,8 @@ request.
    ```
 
 6. Run the [manual acceptance](#manual-acceptance-with-controlled-addresses), then
-   release the lock and leave the root session as in step 4 of the localization
-   migration. The installed contract changes with this revision, so acknowledge it
-   with the [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
-   before releasing the lock. The next application promotion runs the deployment
-   smoke with the email identifier.
+   release the lock and leave the root session. The next application promotion runs
+   the deployment smoke with the email identifier.
 
 ### Manual acceptance with controlled addresses
 
@@ -617,9 +612,7 @@ Boundaries:
   Samples, events and errors are bounded. Monitoring ends at `--max-hours` (default 36); the
   run itself has no harness limit.
 
-Once, after review, merge, the [checkout update](#restricted-host-installation) and its
-[contract acknowledgement](#acknowledge-the-applied-runtime-contract) (the tooling changes
-the deployment contract, not the application image), create the evidence root:
+Once, after the harness reaches the host with a promotion, create the evidence root:
 
 ```bash
 sudo install -d -m 0750 /var/lib/videogame-platform/dev/historical-sync-evidence
@@ -708,8 +701,7 @@ both paths. Only the application copy enters the read-only application container
 Keycloak admin credentials and Docker access remain in the supervised host process.
 No archive, GPG keyring or ledger is configured.
 
-Follow the existing reviewed runtime-contract acknowledgement and promotion procedure;
-the new private-dev Compose overlay/profile are part of that contract. Promotion reads
+Then dispatch a normal [promotion](#promote-and-verify). Promotion reads
 the persistent flag, includes `compose.account-deletion.yaml`, and publishes the
 capability-authenticated management interface only on `127.0.0.1:8081`. Tailscale Serve
 continues to expose only the existing product/identity routes. Then enable supervision:
@@ -765,9 +757,8 @@ refuses to run anywhere but `vgpdev`.
 
 ### Manual validation with synthetic accounts
 
-Run only after review, merge, installation of the reviewed checkout with its
-[contract acknowledgement](#acknowledge-the-applied-runtime-contract) and separate
-approval; act **only on accounts created for this check**. Real accounts, the
+Run only after review, merge, a promotion of that revision and separate approval; act
+**only on accounts created for this check**. Real accounts, the
 deployment-smoke account and the owner's own account are never targets, and nothing
 below deploys or changes configuration.
 
@@ -903,24 +894,11 @@ only their random test projects/volumes. No real-host or delivery guarantee foll
 ### Reviewed alert rollout and rollback
 
 **No Lenovo configuration or real Telegram message was changed/sent by this work.**
-After owner diff review, publication and separate host authorization, install the
-reviewed checkout under the existing deployment lock using the
-[installed-revision procedure](#one-time-migration-to-the-standard-runtime).
-Run static validation, record service identities/headroom, and rerun `bin/prepare-secrets`
-with the existing protected directory/group to add the two **empty optional** Telegram
-files without replacing any credential. Empty files are valid with delivery disabled.
-Recreate **only Grafana**, retaining its named volume:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml up --detach --no-deps --force-recreate grafana
-```
-
-For the operational package alone, application/database/Collector/identity/localizer
-restarts are unnecessary. The separable growth package below needs its own application
-promotion and targeted Prometheus/Keycloak recreation. Record that distinction when
-acknowledging the [applied runtime contract](#acknowledge-the-applied-runtime-contract);
-do not acknowledge unapplied service changes or run project-wide `up`/`down`.
+Before the first promotion that carries the Telegram contact points, rerun
+`bin/prepare-secrets` with the existing protected directory/group to add the two
+**empty optional** Telegram files without replacing any credential. Empty files are
+valid with delivery disabled. The promotion then recreates Grafana with its named
+volume retained; other services keep running unless their own definition changed.
 
 Through the existing SSH tunnel, verify five operational rules plus the separate
 informational registration rule in **Alerting → Alert rules**, evaluation health,
@@ -932,10 +910,9 @@ and service identities. Record real-host evaluation/resource/persistence evidenc
 trigger an alert. Startup reconciles stable UIDs; removing a file alone does not
 remove persisted rules. A future removal must provision `deleteRules` by UID.
 
-For rollback, restore the prior reviewed Grafana definition with evaluation disabled,
-recreate only Grafana and retain its volume. Confirm dashboards/product readiness.
-Rules may remain stored while evaluation is disabled. Never delete telemetry or
-application volumes, and never acknowledge a failed rollout.
+For rollback, merge the prior Grafana definition with evaluation disabled and promote
+it; Grafana keeps its volume. Confirm dashboards/product readiness. Rules may remain
+stored while evaluation is disabled. Never delete telemetry or application volumes.
 
 ### Telegram setup and delivery
 
@@ -1041,72 +1018,31 @@ previously optimized image. Rebuilding is mandatory for the correction; the form
 a second variant and its additional build/rollback combinations. Base operation
 retains its identity policy and keeps management isolated from Prometheus until opt-in.
 
-Before host changes, run the focused optimized-image and notification-mock checks
-above, review the complete diff, and obtain approval for the exact targeted rollout.
-Use the reviewed published revision and the existing clean-checkout/installed-revision
-procedure, holding the deployment lock. Use `umask 0022` for checkout/build inputs so
-container users can read mounted configuration; protected secret directories retain
-their existing restrictive ownership/modes. Record service IDs, free memory/disk,
-the old immutable Keycloak image ID and previous source/runtime acknowledgement.
-Do not print runtime secrets or publish rendered Compose configuration.
-
-Build the reviewed Keycloak image while the existing container remains running:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml build keycloak
-```
-
-Review the overlay-rendered configuration privately and recreate **only Keycloak
-and Prometheus** with the base plus optional file:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml \
-  --file deploy/private-dev/compose.product-growth.yaml \
-  up --detach --no-deps --no-build --force-recreate \
-  --wait --wait-timeout 180 keycloak prometheus
-```
-
-Retain all volumes. Keycloak's brief restart needs a maintenance window. This attaches
-its existing internal management metrics to the telemetry network and selects only
-successful register/verification observations. No management port is published. The
-base Prometheus config also retains the new Ratings counter family; restarting it
-activates that allowlist without changing retention. Keep ordinary application
-promotion on **base Compose**: its trusted entrypoint rejects application containers
-created with arbitrary overlays. The targeted overlay above creates no application
-container, and normal promotion leaves persistent services in place. Future targeted
-Keycloak/Prometheus maintenance must include this overlay to retain collection; base
-recreation intentionally rolls it back. Do not acknowledge only Git while affected
-runtime changes remain unapplied.
+Enable it by adding `PRIVATE_DEV_PRODUCT_GROWTH_ENABLED=true` to the protected
+`runtime.env`, then dispatch a normal [promotion](#promote-and-verify). Every promotion
+applies `compose.product-growth.yaml` while the flag is set. It rebuilds the private
+Keycloak image from cache and recreates Keycloak and Prometheus only when their resolved
+definition changes. Keycloak's brief restart interrupts sign-in. Retain all volumes.
+The overlay attaches Keycloak's internal management metrics to the telemetry network
+and selects only successful register/verification observations. No management port is
+published.
 
 Verify `keycloak-product` is up and exposes only the expected realm/event/empty-error
 series, with no personal tags. A configured healthy source without an event is zero;
 an absent source is unsupported/no data. Do not create real accounts solely to force
 an event without separate approval. Check Ratings activity after normal committed
 commands and the existing SQL active total; no thresholds or Hikari settings change.
-Check private OIDC discovery, normal login and password recovery after recreation;
-record the observed identity interruption and idle/normal resource use. Synthetic
-host registrations need separate owner approval. Apply the protected runtime
-acknowledgement only after the selected configuration, image and checks actually pass.
-The existing Ratings capability needs no application promotion for this correction.
+Check private OIDC discovery, normal login and password recovery after recreation.
+Synthetic host registrations need separate owner approval.
 
-To load changed registration-rule annotations/message templates, obtain approval
-for a separate targeted Grafana recreation as well. Preserve its named volume,
-current HTTPS origin and any installed HTTPS ingress overlay. Do not enable either
-Telegram flag without protected credentials and explicit real-send authorization.
-The native TLS mock proves routing, not real Telegram delivery.
+Changed registration-rule annotations or message templates reach Grafana through the
+same promotion. Do not enable either Telegram flag without protected credentials and
+explicit real-send authorization. The native TLS mock proves routing, not real
+Telegram delivery.
 
-For rollback, restore the previous reviewed checkout and immutable Keycloak image
-using a protected Compose image override, then recreate only Keycloak/Prometheus
-with **base Compose**, `--no-build` and the captured old image. Preserve every
-PostgreSQL and telemetry volume. Verify discovery/login/recovery and the original
-application readiness before restoring the prior runtime acknowledgement; a failed
-rollout must never be acknowledged. Removing the growth overlay also removes its
-scrape, so the dashboard may return to **No data**. Historical samples can remain.
-If Grafana was separately recreated, restore its prior reviewed provisioning and
-HTTPS overlay with its volume retained. Keep normal application rollback/promotion
-separate; never use project-wide `down`, volume removal or realm reinitialization.
+To disable it, set the flag to `false` and promote again. Removing the overlay also
+removes its scrape, so the dashboard may return to **No data**; historical samples can
+remain. Never use project-wide `down`, volume removal or realm reinitialization.
 
 ## Log aggregation and exploration
 
@@ -1219,9 +1155,11 @@ Record the action and the absence of an automatic recovery claim in #159.
 
 ## Owner-triggered deployment
 
-The direct host command remains the proven deployment/recovery entry point.
-The [owner-approved Actions promotion](#owner-approved-actions-promotion) invokes
-it through restricted SSH after verifying CI evidence; neither path deploys on merge.
+The direct host command remains the proven deployment/recovery entry point. It deploys
+the Compose and tooling of the checkout it runs from. The
+[owner-approved Actions promotion](#owner-approved-actions-promotion) first moves
+`/opt/videogame-platform` to the dispatched commit and then invokes it through
+restricted SSH; neither path deploys on merge.
 
 Choose a trusted `main` source revision and review its successful required checks,
 image publication summary, scan/SBOM evidence and immutable digest. Both selected
@@ -1238,8 +1176,11 @@ deploy/private-dev/bin/deploy-private-dev \
 Under one non-blocking host lock the command:
 
 1. validates that the target is `vgpdev`, the protected runtime configuration
-   renders, smoke credentials exist, dependencies are healthy, and evidence storage
-   is writable;
+   renders, smoke credentials exist and evidence storage is writable; then builds the
+   locally built images from cache and runs Compose `up` for every persistent service.
+   Compose recreates only those whose definition or image changed. It requires
+   PostgreSQL, Keycloak, the Collector and the localizer to be running and healthy.
+   Overlays come from the `PRIVATE_DEV_*_ENABLED` flags in `runtime.env`;
 2. resolves the supplied revision's GHCR tag for verification only, requires its
    published digest to equal the supplied digest, pulls by digest, and verifies the
    image's source, revision and version OCI labels;
@@ -1272,9 +1213,11 @@ single-dispatch flow still requires owner review, the environment Settings chang
 and acceptance on its published main revision. New host changes retain their separate
 owner approval; workflow dispatch authorizes only application promotion. The
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery)
-owns the application/runtime boundary and
+owns the application/runtime boundary.
 [ADR-0023](../../docs/decisions/0023-automate-owner-approved-private-dev-application-promotion.md)
-records the accepted trust decision. The workflow and scripts own job mechanics.
+records the accepted trust decision, and
+[ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md)
+lets promotion install its own revision. The workflow and scripts own job mechanics.
 
 ### Protected GitHub and tailnet setup
 
@@ -1331,7 +1274,9 @@ Through the existing owner administration connection, install a **standalone,
 root-owned clean Git checkout** of the reviewed main revision at
 `/opt/videogame-platform`. Keep its Git metadata root-owned too, without group/world
 write access; do not copy a worktree's `.git` pointer, build outputs or private files.
-The runner never updates this checkout. Git and Python 3 are host prerequisites.
+Each promotion moves this checkout to the dispatched main commit; the runner never
+uploads files to it. Git and Python 3 are host prerequisites, and root must be able to
+fetch `origin`.
 
 Create a dedicated `vgp-deploy` system account with `/bin/sh` only for sshd's
 forced-command invocation, no password authentication, no Docker/runtime group
@@ -1376,25 +1321,51 @@ Configure a reviewed tmpfiles entry and create it before first promotion:
 f /run/lock/videogame-platform-dev-deployment.lock 0660 root vgp-runtime - -
 ```
 
-### Acknowledge the applied runtime contract
+### Runtime changes during promotion
 
-After reviewing/applying the actual runtime and dependency configuration using its
-existing explicit procedures, acknowledge its clean installed Git contract:
+Under [ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md),
+a merged change to private-dev Compose, Keycloak, PostgreSQL, observability or the localizer
+needs no separate host step. The next promotion moves the checkout to its commit and
+reconciles the services as described in
+[owner-triggered deployment](#owner-triggered-deployment). Local hand edits in
+`/opt/videogame-platform` are discarded and reported in the protected deployment log.
+There is no deployment-contract fingerprint or acknowledgement file, and an existing
+`/etc/videogame-platform/dev/deployment-contract.sha256` is unused.
+
+Promotion still fails, at preflight or reconciliation, until the owner does what it cannot:
+
+- add a new protected secret file or a `runtime.env` value that runtime validation
+  requires;
+- install new localizer model weights and select them in `runtime.env`;
+- apply state that container recreation does not change: realm settings of an existing
+  Keycloak realm (`configure-keycloak-identity`, `configure-keycloak-mail`), database
+  roles, or the Grafana reader password (`scripts/provision-grafana-reader.sh`).
+
+Read the failed phase in the Actions summary, do the step, and dispatch again.
+
+A host installed before ADR-0039 still runs the contract-gated entry point, which refuses
+the first revision that contains this change. Once, in an
+[owner maintenance session](#owner-maintenance-session), move the checkout to that merged
+revision with `git fetch origin main` and `git checkout --detach <sha>`. Add each overlay
+flag that matches what the host already runs, then dispatch. From then on, promotion
+updates the checkout itself.
+
+#### Owner maintenance session
+
+For those steps, or to run a manual procedure in this README, hold the same deployment
+lock that promotion uses. Use `umask 0022` so Grafana and Prometheus can read the files
+they bind-mount:
 
 ```bash
-sudo python3 /opt/videogame-platform/scripts/private_dev_promotion.py --installed-contract \
-  | sudo tee /etc/videogame-platform/dev/deployment-contract.sha256 >/dev/null
-sudo chown root:vgp-runtime /etc/videogame-platform/dev/deployment-contract.sha256
-sudo chmod 0640 /etc/videogame-platform/dev/deployment-contract.sha256
+sudo -i
+set -Eeuo pipefail
+umask 0022
+exec 9>/run/lock/videogame-platform-dev-deployment.lock
+flock --nonblock 9
+cd /opt/videogame-platform
 ```
 
-This acknowledgement is an owner statement that the runtime was reviewed/applied;
-writing the hash does not deploy a dependency. Stop rather than acknowledge a rollout
-that has not happened. A tooling-only change may need just an approved checkout
-update; review the diff to distinguish that from real service changes. Preserve
-private runtime/secrets under `/etc`, evidence under `/var/lib`, and bind-mounted
-runtime configuration at its reviewed location. File replacement/restart alone may
-not update imported Keycloak state, database roles or Grafana's persisted credentials.
+Release it with `flock --unlock 9; exec 9>&-` before dispatching.
 
 ### Promote and verify
 
@@ -1403,40 +1374,30 @@ After the complete trusted-main build/security gates and publication succeed, op
 press **Run workflow**. There are no artifact/run input fields and no second approval.
 The owner dispatch authorizes deploying the exact main SHA captured by GitHub for
 that invocation. Checkout and artifact selection remain pinned to that SHA even if
-main advances while the run is queued; dispatching before evidence is ready fails.
+main advances while the run is queued. You can dispatch right after the merge: the
+first job waits up to 90 minutes for that SHA's Build and verify and Security runs, and
+refuses only if one of them fails or the wait runs out.
 
 The workflow derives the unique main `push` Build and verify run, its current attempt
 and the immutable OCI digest from its retained `application-image-publication-<SHA>`
 record. It does not choose a latest image or fall back to a different SHA, older attempt
 or older successful run. Absent, expired, mismatched or ambiguous evidence refuses
 promotion; multiple build runs for that SHA are conservatively refused. It checks
-quality/security gates, main ancestry and the deployment contract, revalidates the
-same derived tuple before connectivity, and the host independently rechecks source
-trust and digest/OCI binding. No build occurs during promotion.
+quality/security gates and main ancestry, and revalidates the same derived tuple
+before connectivity. The host checks that the commit is on `origin/main` and binds the
+digest to its GHCR tag and OCI labels. The application image is never built during
+promotion; only changed local runtime images are rebuilt from cache.
 
 Transient GitHub evidence-read failures use bounded retries; exhausted retries still
 refuse promotion before activation. Invalid or rejected evidence is never accepted
-through a retry. The helper owns retry limits and delays. Changes to that helper
-also require updating and acknowledging the installed deployment contract through
-the procedure below.
+through a retry. The helper owns retry limits and delays.
 
 Pending Actions runs are serialized but the queue is not FIFO; the existing host
 lock also refuses concurrent manual deployment.
 
-This refinement changes the installed deployment tooling contract: update the reviewed
-root-owned host checkout and acknowledge it through the existing procedure before
-the first refined promotion. Review the diff first; this does not authorize a runtime
-dependency upgrade. Leaving the old contract installed deliberately refuses promotion.
-
-The host rechecks public main CI/source evidence and binds the candidate's runtime
-fingerprint to the installed and acknowledged contract. The required localizer must
-already be running, healthy and match the resolved service configuration and local
-image. A different contract or unrelated application Compose overlay stops before
-migration/activation; the account-deletion overlay is accepted only while its
-[persistent flag](#automatic-self-service-deletion) is set. The fixed `videogame-platform-dev` project has one base runtime,
-including localization. An application still labelled with the retired localization
-overlay can transition through normal promotion because the endpoint now lives in
-the base definition; the required localizer is still checked and left intact.
+The fixed `videogame-platform-dev` project has one base runtime, including
+localization. The account-deletion and product-growth overlays are applied only while
+their [persistent flags](#automatic-self-service-deletion) are set.
 
 Read the Actions summary and retained `private-dev-promotion-*` receipt. Original
 deployment JSON and detailed log remain under the protected evidence root in a
@@ -1444,16 +1405,15 @@ per-invocation directory; use owner administration/sudo to inspect them. Failed 
 missing receipts or workflow timeout are failures, never proof that deployment stopped
 or succeeded. Inspect the host before another promotion, and follow the existing
 [recovery assessment](#rollback-versus-forward-fix); no automatic rollback is added.
-GitHub public API rate limits, unavailable/expired CI artifacts or private-network
-failure refuse promotion; there is no retry that converts uncertain deployment into
-success.
+Exhausted GitHub retries, unavailable/expired CI artifacts or private-network failure
+refuse promotion; there is no retry that converts uncertain deployment into success.
 
 Open the application, enable DevTools Console info messages, disable browser network
 cache and reload. Confirm the
 [frontend build identity](../../frontend/README.md#deployed-build-identity)
-matches the expected version and SHA prefix. Check runtime container identities are
-unchanged, including catalogue-localizer. Record real-host restriction, success/failure and recovery acceptance in
-the current delivery issue (#257 for the localization lifecycle) as required by the
+matches the expected version and SHA prefix. Runtime containers keep their identities
+unless the revision changed their definition. Record real-host restriction,
+success/failure and recovery acceptance in the current delivery issue as required by the
 [runbook](../../docs/development/operations-runbook.md#deploying-an-immutable-digest).
 
 ## Rollback and host-loss recovery
@@ -1497,127 +1457,24 @@ weights outside the checkout. `CATALOGUE_TRANSLATION_MODEL_DIR` in protected
 `runtime.env` selects that immutable directory; never replace the protected file
 with the example or erase its current application image/version entries.
 
-### One-time migration to the standard runtime
+### Runtime or model changes
 
-Run only after owner review, publication/merge, current-main CI and separate approval
-to operate on `vgpdev`. This procedure handles the owner-reported current state:
-the model remains at
-`/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial`, already selected
-in runtime.env, while the helper was temporarily removed during #160 preparation.
-Do not reinstall, move, modify or delete those weights. The old application can keep
-serving PostgreSQL content during this rollout.
+A change to the helper's image, Dockerfile, requirements or Compose definition reaches the
+host with the next promotion, which rebuilds the image from cache and recreates the helper
+only if it changed. A stopped, missing or unhealthy helper after reconciliation fails the
+promotion before migration, and the previous application keeps running.
 
-1. Open an owner administration session. Replace the revision placeholder with the
-   reviewed merged main SHA containing this change. Use the same host deployment
-   lock through installation, targeted rollout and acknowledgement:
-
-   ```bash
-   sudo -i
-   set -Eeuo pipefail
-   umask 0022
-   exec 9>/run/lock/videogame-platform-dev-deployment.lock
-   flock --nonblock 9
-   cd /opt/videogame-platform
-   test -z "$(git status --porcelain --untracked-files=all)"
-   approved_revision='REPLACE_WITH_REVIEWED_MERGED_MAIN_SHA'
-   [[ "$approved_revision" =~ ^[0-9a-f]{40}$ ]]
-   git fetch origin main
-   git merge-base --is-ancestor "$approved_revision" origin/main
-   git checkout --detach "$approved_revision"
-   test -z "$(git status --porcelain --untracked-files=all)"
-   ```
-
-   Keep the installed checkout root-owned and unwritable by unprivileged users, as
-   required by [restricted host installation](#restricted-host-installation).
-   `umask 0022` keeps checked-out files world-readable: Grafana and Prometheus mount
-   them directly and fail on `0640` files. Protected secret directories keep their own
-   restrictive modes.
-   A failed command means stop and investigate before acknowledging or dispatching.
-   If unrelated runtime changes are included in the revision, review/apply their
-   own rollout first; this procedure authorizes only localization.
-
-2. Preserve the existing model selection and check its manifest/revision. If its
-   selection is missing, use an owner editor to restore this one line in runtime.env
-   while preserving all other entries:
-
-   ```bash
-   grep --fixed-strings --line-regexp --quiet \
-     'CATALOGUE_TRANSLATION_MODEL_DIR=/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial' \
-     /etc/videogame-platform/dev/runtime.env
-   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/manifest.json
-   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/revision.txt
-   bash scripts/validate-private-dev-runtime.sh \
-     --env-file /etc/videogame-platform/dev/runtime.env
-   compose=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file /opt/videogame-platform/deploy/private-dev/compose.yaml --profile application)
-   "${compose[@]}" ps --all --format json \
-     >/var/lib/videogame-platform/dev/localizer-runtime-before.json
-   ```
-
-3. Build and recreate **only catalogue-localizer** from the new base definition:
-
-   ```bash
-   "${compose[@]}" build --pull catalogue-localizer
-   "${compose[@]}" up --detach --no-deps --force-recreate \
-     --wait --wait-timeout 180 catalogue-localizer
-   localizer_id=$("${compose[@]}" ps --quiet catalogue-localizer)
-   actual_hash=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$localizer_id")
-   test "$("${compose[@]}" config --hash catalogue-localizer)" = "catalogue-localizer $actual_hash"
-   "${compose[@]}" ps --all --format json \
-     >/var/lib/videogame-platform/dev/localizer-runtime-after.json
-   ```
-
-   Compare the two inventories: application, PostgreSQL, Keycloak and every
-   observability container must retain their IDs. The helper healthcheck loads and
-   validates the mounted model/tokenizers; fix mount readability for UID 10001 or a
-   failed manifest before proceeding. Do not run project-wide `up`, `down`,
-   `--remove-orphans` or `--volumes` for this migration.
-
-4. Only after the actual rollout passes, perform the protected contract
-   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
-   from this clean installed revision. Release the lock and leave the root session:
-
-   ```bash
-   flock --unlock 9
-   exec 9>&-
-   exit
-   ```
-
-   Dispatch **Promote application to private dev** on main through the
-   [normal promotion procedure](#promote-and-verify). This first promotion gives the
-   recreated application its base endpoint; it also replaces a retired overlay
-   label if present. Confirm the endpoint from container configuration and that the
-   helper's ID/image, model mount and health remain unchanged. Record evidence in #257.
-
-If helper rollout fails, keep the existing application and all PostgreSQL data.
-Do not acknowledge or dispatch. Diagnose/recreate only the helper with the reviewed
-image/model. A checkout change alone cannot roll back a container; use the explicit
-runtime rollback below. Keep old model directories and image identities for recovery.
-
-### Subsequent runtime or model rollout
-
-Normal backend/frontend promotion runs preflight, the one-shot migration, application
-recreation and smoke; it leaves the localizer and other persistent services intact.
-A stopped, missing or unhealthy localizer refuses promotion, and a differing service
-hash or local image ID requires its explicit rollout. Use the same installed Compose
-version for rollout and preflight; after a Compose upgrade, review/reapply the helper
-if its resolved hash changes.
-
-For a helper runtime/image/configuration change, review/install its matching checkout,
-hold the same deployment lock, then use step 3's targeted build/recreation. For a model
-change, install into a **new immutable directory** using the
-[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models),
-change only its protected selection and recreate only the helper; no application
-recreation is needed for its stable internal endpoint. For rollback, select the retained
-previous model/image and apply its reviewed helper definition with the same targeted
-command. Verify health/configuration/image and acknowledge the matching Git contract
-only after the required rollout. Model bytes are immutable; never edit a mounted
-directory in place. Successful PostgreSQL translations survive helper/model changes.
+For a model change, install into a **new immutable directory** using the
+[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models)
+and change only its protected selection in `runtime.env`; the next promotion recreates the
+helper. No application change is needed for its stable internal endpoint. For rollback,
+select the retained previous model directory, or promote the previous helper definition.
+Model bytes are immutable; never edit a mounted directory in place. Successful
+PostgreSQL translations survive helper/model changes.
 
 During diagnosis, stopping the helper leaves product reads and valid synchronization
-available; it temporarily blocks new application deployment. Restore it with the
-targeted command before resuming promotion. Once running, its restart policy recovers
-it after a host reboot; an intentionally stopped container must first be started.
+available. The next promotion starts it again. Once running, its restart policy recovers
+it after a host reboot.
 The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
 owns retry/diagnosis and the pending real-host lifecycle acceptance.
 

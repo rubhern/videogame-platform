@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md', 'Self-installing private-dev promotion · accepted'],
     ['docs/decisions/0037-align-local-and-private-dev-with-production.md', 'Local and private dev parity · accepted'],
     ['docs/decisions/0036-use-protected-actions-for-production-recovery.md', 'Protected Actions recovery · accepted'],
     ['docs/decisions/0035-separate-private-production-admin-ingress.md', 'Private production admin ingress · proposed'],

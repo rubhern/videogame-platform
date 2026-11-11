@@ -11,7 +11,6 @@ import os
 import re
 from pathlib import Path
 import subprocess
-import stat
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -27,8 +26,7 @@ host = importlib.util.module_from_spec(spec)
 loader.exec_module(host)
 REVISION = "a" * 40
 DIGEST = "sha256:" + "b" * 64
-CONTRACT = "c" * 64
-COMMAND = f"promote {REVISION} {DIGEST} {CONTRACT} 123 2"
+COMMAND = f"promote {REVISION} {DIGEST} 123 2"
 
 
 def run_record(workflow="build-and-verify.yml", run_id=123):
@@ -55,6 +53,9 @@ def api_fixture():
         f"/compare/{REVISION}...main": {"status": "ahead", "merge_base_commit": {"sha": REVISION}},
         f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=1": {
             "workflow_runs": [{"id": 456}],
+        },
+        f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100": {
+            "total_count": 1, "workflow_runs": [run_record("security.yml", 456)],
         },
         "/actions/runs/456": run_record("security.yml", 456),
         "/actions/runs/456/jobs?filter=latest&per_page=100": {
@@ -100,14 +101,14 @@ class EvidenceTests(unittest.TestCase):
     def test_persistent_failure_is_bounded_and_sanitized(self):
         opener = Mock()
         opener.open.side_effect = [urllib.error.HTTPError(
-            policy.API_ROOT, 502, "private detail", {}, None) for _ in range(3)]
+            policy.API_ROOT, 502, "private detail", {}, None) for _ in range(policy.READ_ATTEMPTS)]
         with patch.object(policy.urllib.request, "build_opener", return_value=opener), \
                 patch.object(policy.time, "sleep") as sleep:
             with self.assertRaisesRegex(policy.Refused, r"HTTP 502") as caught:
                 policy.GitHub().request("/actions/runs/123")
         self.assertNotIn("private detail", str(caught.exception))
-        self.assertEqual(opener.open.call_count, 3)
-        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+        self.assertEqual(opener.open.call_count, 5)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2, 4, 8])
 
     def test_permanent_http_failures_are_not_retried(self):
         for status in (401, 403, 404, 429):
@@ -310,12 +311,10 @@ class EvidenceTests(unittest.TestCase):
             output = Path(temporary) / "outputs"
             argv = ["promotion", "--discover", "--revision", REVISION]
             with patch.object(policy.sys, "argv", argv), patch.object(policy, "GitHub", return_value=api), \
-                    patch.object(policy, "deployment_contract", return_value=CONTRACT) as contract, \
                     patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}), contextlib.redirect_stdout(io.StringIO()):
                 policy.main()
-                contract.assert_called_once_with(ROOT, REVISION)
                 self.assertEqual(dict(line.split("=", 1) for line in output.read_text().splitlines()), {
-                    "contract": CONTRACT, "source_revision": REVISION, "image_digest": DIGEST,
+                    "source_revision": REVISION, "image_digest": DIGEST,
                     "source_run_id": "123", "source_run_attempt": "2",
                 })
                 output.unlink()
@@ -343,10 +342,8 @@ class EvidenceTests(unittest.TestCase):
             argv = ["promotion", "--revision", REVISION, "--digest", digest,
                     "--run-id", run_id, "--attempt", attempt]
             with self.subTest(mutation=mutation), patch.object(policy.sys, "argv", argv), \
-                    patch.object(policy, "GitHub", return_value=api), \
-                    patch.object(policy, "deployment_contract") as contract, self.assertRaises(policy.Refused):
+                    patch.object(policy, "GitHub", return_value=api), self.assertRaises(policy.Refused):
                 policy.main()
-            contract.assert_not_called()
 
     def test_preconnect_recheck_accepts_the_unchanged_derived_tuple(self):
         _, api = api_fixture()
@@ -354,12 +351,39 @@ class EvidenceTests(unittest.TestCase):
         argv = ["promotion", "--revision", REVISION, "--digest", DIGEST,
                 "--run-id", "123", "--attempt", "2"]
         with patch.object(policy.sys, "argv", argv), patch.object(policy, "GitHub", return_value=api), \
-                patch.object(policy, "deployment_contract", return_value=CONTRACT), \
                 patch.dict(os.environ, {"GITHUB_OUTPUT": ""}), contextlib.redirect_stdout(stdout):
             policy.main()
         result = json.loads(stdout.getvalue())
         self.assertEqual((result["source_revision"], result["image_digest"], result["source_run_id"],
-                          result["source_run_attempt"], result["contract"]), (REVISION, DIGEST, "123", "2", CONTRACT))
+                          result["source_run_attempt"]), (REVISION, DIGEST, "123", "2"))
+
+    def test_discovery_waits_for_running_main_ci_then_continues(self):
+        values, api = api_fixture()
+        build = f"/actions/workflows/build-and-verify.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+        security = f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+        finished = copy.deepcopy(values[build]), copy.deepcopy(values[security])
+        values[build] = {"total_count": 0, "workflow_runs": []}
+        values[security]["workflow_runs"][0]["status"] = "in_progress"
+        sleeps = []
+        def sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) == 2:
+                values[build], values[security] = copy.deepcopy(finished[0]), copy.deepcopy(finished[1])
+        with contextlib.redirect_stderr(io.StringIO()):
+            policy.wait_for_main_ci(api, REVISION, clock=lambda: 0, sleep=sleep)
+        self.assertEqual(sleeps, [policy.CI_POLL_SECONDS] * 2)
+
+    def test_discovery_refuses_failed_main_ci_and_bounds_the_wait(self):
+        values, api = api_fixture()
+        security = f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+        values[security]["workflow_runs"][0]["conclusion"] = "failure"
+        with self.assertRaisesRegex(policy.Refused, "security.yml finished without success"):
+            policy.wait_for_main_ci(api, REVISION, sleep=self.fail)
+        values[security]["workflow_runs"][0].update(status="queued", conclusion=None)
+        ticks = iter(range(0, 10000, 1000))
+        with self.assertRaisesRegex(policy.Refused, "did not finish within 90 minutes: security.yml"), \
+                contextlib.redirect_stderr(io.StringIO()):
+            policy.wait_for_main_ci(api, REVISION, clock=lambda: next(ticks), sleep=lambda _seconds: None)
 
     def test_artifact_redirect_never_forwards_the_workflow_token(self):
         opener = Mock()
@@ -404,7 +428,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('tags: tag:vgp-deploy', promote)
         self.assertIn('StrictHostKeyChecking=yes', promote)
         self.assertIn('"vgp-deploy@$DEPLOY_HOST"', promote)
-        self.assertIn('"promote $SOURCE_REVISION $IMAGE_DIGEST $CONTRACT $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT"', promote)
+        self.assertIn('"promote $SOURCE_REVISION $IMAGE_DIGEST $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT"', promote)
+        self.assertNotIn("contract", workflow.lower())
 
 
 class HostTests(unittest.TestCase):
@@ -426,85 +451,58 @@ class HostTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
 
-    def test_unacknowledged_runtime_stops_before_any_host_work(self):
-        approval = Mock()
-        approval.lstat.return_value = Mock(st_uid=0, st_mode=stat.S_IFREG | 0o640)
-        approval.read_text.return_value = "d" * 64
-        with patch.object(host.socket, "gethostname", return_value="vgpdev"), \
-                patch.object(host, "deployment_contract", return_value=CONTRACT), \
-                patch.object(host, "APPROVED_CONTRACT", approval), \
-                patch.object(host, "verify_trusted_main") as verify, \
-                patch.object(host.subprocess, "run") as deploy:
-            with self.assertRaisesRegex(policy.Refused, "has not been acknowledged"):
-                host.promote(COMMAND)
-            verify.assert_not_called()
-            deploy.assert_not_called()
-
-    def test_base_runtime_and_retired_localization_overlay_allow_application_promotion(self):
-        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
-        retired = "/opt/videogame-platform/deploy/private-dev/compose.localization.yaml"
-        for files in (base, f"{base},{retired}"):
-            with self.subTest(files=files), patch.object(host.subprocess, "check_output", side_effect=[
-                b"application-id\n", (files + "\n").encode(),
-            ]) as docker:
-                host.verify_base_application()
-                # An active unprofiled helper does not alter the application filter.
-                self.assertIn("label=com.docker.compose.service=application", docker.call_args_list[0].args[0])
-
-    def test_unrelated_ambiguous_or_different_runtime_overlays_remain_refused(self):
-        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
-        retired = "/opt/videogame-platform/deploy/private-dev/compose.localization.yaml"
-        for files in (f"{base},/tmp/custom.yaml", f"{base},{retired},/tmp/custom.yaml",
-                      f"{base},{base}", f"{retired},{base}", "/tmp/compose.yaml"):
-            with self.subTest(files=files), patch.object(host.subprocess, "check_output", side_effect=[
-                b"application-id\n", (files + "\n").encode(),
-            ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
-                host.verify_base_application()
-
-    def test_account_deletion_overlay_is_allowed_only_while_its_owner_flag_is_set(self):
-        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
-        overlay = "/opt/videogame-platform/deploy/private-dev/compose.account-deletion.yaml"
-        files = f"{base},{overlay}\n".encode()
-        with tempfile.TemporaryDirectory() as directory:
-            runtime = Path(directory) / "runtime.env"
-            with patch.object(host, "RUNTIME_ENV", runtime):
-                runtime.write_text("A=1\nPRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n", encoding="utf-8")
-                with patch.object(host.subprocess, "check_output", side_effect=[b"application-id\n", files]):
-                    host.verify_base_application()
-                # A base application may also gain the overlay on its first promotion.
-                with patch.object(host.subprocess, "check_output", side_effect=[b"application-id\n", f"{base}\n".encode()]):
-                    host.verify_base_application()
-                for flag in ("", "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=false\n", "#PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n",
-                             "PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true # no\n"):
-                    runtime.write_text(flag, encoding="utf-8")
-                    with self.subTest(flag=flag), patch.object(host.subprocess, "check_output", side_effect=[
-                        b"application-id\n", files,
-                    ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
-                        host.verify_base_application()
-                runtime.write_text("PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true\n", encoding="utf-8")
-                for wrong in (f"{overlay},{base}", f"{base},{overlay},/tmp/custom.yaml", f"{base},/tmp/compose.account-deletion.yaml"):
-                    with self.subTest(files=wrong), patch.object(host.subprocess, "check_output", side_effect=[
-                        b"application-id\n", (wrong + "\n").encode(),
-                    ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
-                        host.verify_base_application()
+    def test_installed_checkout_follows_the_promoted_main_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(cwd, *args):
+                return subprocess.check_output(["git", *args], cwd=cwd, env=environment).decode().strip()
+            environment = {"PATH": "/usr/bin:/bin", "HOME": str(root), "GIT_CONFIG_NOSYSTEM": "1",
+                           "GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                           "GIT_COMMITTER_NAME": "Fixture", "GIT_COMMITTER_EMAIL": "fixture@example.invalid"}
+            origin = root / "origin"
+            origin.mkdir()
+            git(origin, "init", "-q", "-b", "main")
+            (origin / "compose.yaml").write_text("first", encoding="utf-8")
+            git(origin, "add", ".")
+            git(origin, "commit", "-qm", "first")
+            first = git(origin, "rev-parse", "HEAD")
+            installed = root / "installed"
+            git(root, "clone", "-q", str(origin), str(installed))
+            git(installed, "checkout", "-q", "--detach", first)
+            (origin / "compose.yaml").write_text("second", encoding="utf-8")
+            git(origin, "commit", "-qam", "second")
+            second = git(origin, "rev-parse", "HEAD")
+            git(origin, "checkout", "-q", "-b", "unmerged")
+            (origin / "compose.yaml").write_text("unmerged", encoding="utf-8")
+            git(origin, "commit", "-qam", "unmerged")
+            unmerged = git(origin, "rev-parse", "HEAD")
+            git(installed, "fetch", "-q", "origin", "unmerged")
+            # A hand edit on the host is discarded instead of blocking the promotion.
+            (installed / "compose.yaml").write_text("hand edit", encoding="utf-8")
+            with patch.object(host, "REPOSITORY_ROOT", installed), \
+                    patch.object(host, "LOCK_FILE", root / "deployment.lock"), \
+                    patch.dict(host.SAFE_ENV, {"HOME": str(root)}), \
+                    contextlib.redirect_stderr(io.StringIO()) as messages:
+                host.install_revision(second)
+                self.assertEqual(git(installed, "rev-parse", "HEAD"), second)
+                self.assertEqual((installed / "compose.yaml").read_text(encoding="utf-8"), "second")
+                self.assertIn("Discarding local edits", messages.getvalue())
+                with self.assertRaisesRegex(policy.Refused, "not on origin/main"):
+                    host.install_revision(unmerged)
+                self.assertEqual(git(installed, "rev-parse", "HEAD"), second)
+                with (root / "deployment.lock").open("a") as held:
+                    host.fcntl.flock(held, host.fcntl.LOCK_EX)
+                    with self.assertRaisesRegex(policy.Refused, "Another private-dev deployment"):
+                        host.install_revision(first)
 
     def test_shell_scp_injection_and_arbitrary_arguments_are_refused(self):
         for command in ("sh", "scp -t /tmp", COMMAND + "; id", COMMAND + " extra",
                         COMMAND.replace(REVISION, "$(id)"), COMMAND.replace(DIGEST, "latest")):
             with self.subTest(command=command), self.assertRaises((policy.Refused, ValueError)):
                 host.parse_command(command)
-        self.assertEqual(host.parse_command(COMMAND), (REVISION, DIGEST, CONTRACT, "123", "2"))
-
-    def test_runtime_drift_stops_before_deployment_or_network(self):
-        with patch.object(host.socket, "gethostname", return_value="vgpdev"), \
-                patch.object(host, "verify_installation"), \
-                patch.object(host, "deployment_contract", return_value="d" * 64), \
-                patch.object(host, "verify_trusted_main") as verify, \
-                patch.object(host.subprocess, "run") as deploy:
-            with self.assertRaisesRegex(policy.Refused, "Runtime/deployment contracts differ"):
-                host.promote(COMMAND)
-            verify.assert_not_called()
-            deploy.assert_not_called()
+        self.assertEqual(host.parse_command(COMMAND), (REVISION, DIGEST, "123", "2"))
+        with self.assertRaises(policy.Refused):
+            host.parse_command(f"promote {REVISION} {DIGEST} {'c' * 64} 123 2")
 
     def test_success_and_failure_keep_logs_private_and_return_original_evidence(self):
         for code, outcome, phase in ((0, "success", "complete"), (42, "failure", "database-migration")):
@@ -522,112 +520,21 @@ class HostTests(unittest.TestCase):
                     }), encoding="utf-8")
                     return subprocess.CompletedProcess(arguments, code)
                 stdout = io.StringIO()
-                approval = Mock()
-                approval.lstat.return_value = Mock(st_uid=0, st_mode=stat.S_IFREG | 0o640)
-                approval.read_text.return_value = CONTRACT
                 with patch.object(host.socket, "gethostname", return_value="vgpdev"), \
                         patch.object(host, "verify_installation"), \
-                        patch.object(host, "deployment_contract", return_value=CONTRACT), \
-                        patch.object(host, "verify_trusted_main", return_value=(run_record(), 456)), \
-                        patch.object(host, "remote_deployment_contract", return_value=CONTRACT), \
-                        patch.object(host, "verify_base_application"), \
+                        patch.object(host, "install_revision") as install, \
                         patch.object(host, "verify_runtime_project"), \
-                        patch.object(host, "APPROVED_CONTRACT", approval), \
                         patch.object(host, "EVIDENCE_ROOT", root), \
                         patch.object(host.subprocess, "run", side_effect=fake_deploy), \
                         contextlib.redirect_stdout(stdout):
                     self.assertEqual(host.promote(COMMAND), 0 if code == 0 else 1)
+                install.assert_called_once_with(REVISION)
                 receipt = json.loads(stdout.getvalue())
                 self.assertEqual((receipt["outcome"], receipt["phase"]), (outcome, phase))
                 self.assertNotIn("test-only-credential", stdout.getvalue())
                 self.assertEqual(json.loads(Path(receipt["evidencePath"]).read_text())["outcome"], outcome)
                 log = next(root.glob("*/deployment.log"))
                 self.assertEqual(log.stat().st_mode & 0o777, 0o640)
-
-
-class ContractTests(unittest.TestCase):
-    def test_remote_and_git_fingerprints_bind_the_same_paths_modes_and_blob_bytes(self):
-        entries = [b"100644 blob " + b"a" * 40 + b"\tdeploy/private-dev/compose.yaml",
-                   b"100755 blob " + b"b" * 40 + b"\tdocker/postgres/init/bootstrap.sh"]
-        api = Mock()
-        api.request.return_value = {"truncated": False, "tree": [
-            {"mode": "040000", "type": "tree", "sha": "c" * 40, "path": "deploy/private-dev/bin"},
-            {"mode": "100755", "type": "blob", "sha": "b" * 40, "path": "docker/postgres/init/bootstrap.sh"},
-            {"mode": "100644", "type": "blob", "sha": "a" * 40, "path": "deploy/private-dev/compose.yaml"},
-            {"mode": "100644", "type": "blob", "sha": "d" * 40, "path": "frontend/src/main.tsx"},
-        ]}
-        self.assertEqual(policy.remote_deployment_contract(api, REVISION), policy.contract_hash(entries))
-        api.request.return_value["truncated"] = True
-        with self.assertRaises(policy.Refused):
-            policy.remote_deployment_contract(api, REVISION)
-
-    def test_runtime_coverage_includes_dependency_and_helper_contracts(self):
-        for path in ("deploy/private-dev/runtime.env.example",
-                     "deploy/private-dev/bin/run-application", "deploy/private-dev/smoke/package-lock.json",
-                     "docker/keycloak/import/videogame-platform-realm.json",
-                     "docker/postgres/init/001-create-databases.sh",
-                     "tools/catalogue-localization/models.json", "tools/catalogue-localization/compose.yaml",
-                     "tools/catalogue-localization/Dockerfile", "tools/catalogue-localization/runtime-requirements.txt",
-                     "tools/catalogue-localization/helper.py", "scripts/private_dev_promotion.py",
-                     "deploy/public-production/keycloak/abuse.env"):
-            with self.subTest(path=path):
-                self.assertTrue(policy.is_deployment_contract(path))
-
-    def test_runtime_changes_block_but_app_and_documentation_changes_do_not(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            repo = Path(temporary)
-            def git(*args):
-                return subprocess.check_output(["git", *args], cwd=repo).decode().strip()
-            git("init", "-q")
-            for path in ("deploy/private-dev/compose.yaml", "deploy/private-dev/README.md", "frontend/src/main.tsx"):
-                target = repo / path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("initial", encoding="utf-8")
-            def snapshot():
-                git("add", ".")
-                git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-                    "commit", "-qm", "fixture")
-                return git("rev-parse", "HEAD")
-            first = snapshot()
-            fingerprint = policy.deployment_contract(repo, first)
-            (repo / "frontend/src/main.tsx").write_text("app change", encoding="utf-8")
-            (repo / "deploy/private-dev/README.md").write_text("doc change", encoding="utf-8")
-            self.assertEqual(policy.deployment_contract(repo, snapshot()), fingerprint)
-            runtime = repo / "deploy/private-dev/compose.yaml"
-            runtime.write_text("dependency update", encoding="utf-8")
-            with self.assertRaises(policy.Refused):
-                policy.deployment_contract(repo, "HEAD", installed=True)
-            self.assertNotEqual(policy.deployment_contract(repo, snapshot()), fingerprint)
-            git("update-index", "--assume-unchanged", "deploy/private-dev/compose.yaml")
-            runtime.write_text("hidden drift", encoding="utf-8")
-            with self.assertRaises(policy.Refused):
-                policy.deployment_contract(repo, "HEAD", installed=True)
-
-    def test_each_localizer_runtime_image_model_and_configuration_change_alters_the_contract(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            repo = Path(temporary)
-            def git(*args):
-                return subprocess.check_output(["git", *args], cwd=repo).decode().strip()
-            git("init", "-q")
-            paths = ("deploy/private-dev/compose.yaml", "deploy/private-dev/runtime.env.example",
-                     "tools/catalogue-localization/compose.yaml", "tools/catalogue-localization/Dockerfile",
-                     "tools/catalogue-localization/runtime-requirements.txt", "tools/catalogue-localization/models.json",
-                     "tools/catalogue-localization/helper.py")
-            for path in paths:
-                target = repo / path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("initial", encoding="utf-8")
-            def snapshot():
-                git("add", ".")
-                git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
-                return policy.deployment_contract(repo, "HEAD")
-            previous = snapshot()
-            for path in paths:
-                with self.subTest(path=path):
-                    (repo / path).write_text("explicit localizer rollout", encoding="utf-8")
-                    current = snapshot()
-                    self.assertNotEqual(previous, current)
-                    previous = current
 
 
 if __name__ == "__main__":

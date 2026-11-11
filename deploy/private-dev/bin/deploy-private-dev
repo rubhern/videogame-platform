@@ -207,9 +207,13 @@ compose=(
   --profile deployment
 )
 
-# Opt-in is persistent owner configuration, preserved by every later promotion.
+# Overlays are persistent owner opt-ins in runtime.env, so every deployment
+# renders the same service set and never depends on how a container was created.
 if grep -qx 'PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true' "$runtime_env"; then
   compose+=(--file "$repository_root/deploy/private-dev/compose.account-deletion.yaml")
+fi
+if grep -qx 'PRIVATE_DEV_PRODUCT_GROWTH_ENABLED=true' "$runtime_env"; then
+  compose+=(--file "$repository_root/deploy/private-dev/compose.product-growth.yaml")
 fi
 
 phase="target-and-runtime-preflight"
@@ -269,6 +273,31 @@ for secret_name in ("oidc_smoke_username", "oidc_smoke_password"):
     assert source.is_file() and source.stat().st_size > 0, f"required smoke credential is absent: {source}"
 PY
 
+phase="runtime-reconciliation"
+# The installed checkout is the promoted revision, so its Compose definition is the
+# desired runtime. Build local images from cache and let Compose recreate only the
+# persistent services whose configuration or image changed; unchanged ones keep running.
+mapfile -t persistent_services < <(python3 -c '
+import json, sys
+services = json.load(open(sys.argv[1]))["services"]
+print("\n".join(sorted(name for name, service in services.items() if not service.get("profiles"))))
+' "$rendered_config")
+((${#persistent_services[@]} > 0)) || fail "The rendered private-dev runtime has no persistent services."
+mapfile -t buildable_services < <(python3 -c '
+import json, sys
+services = json.load(open(sys.argv[1]))["services"]
+print("\n".join(sorted(name for name, service in services.items() if not service.get("profiles") and service.get("build"))))
+' "$rendered_config")
+if ((${#buildable_services[@]} > 0)); then
+  "${compose[@]}" build "${buildable_services[@]}"
+fi
+"${compose[@]}" up \
+  --detach \
+  --no-build \
+  --wait \
+  --wait-timeout 300 \
+  "${persistent_services[@]}"
+
 for service_name in postgres keycloak telemetry catalogue-localizer; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || fail "Required private-dev service is not created: $service_name"
@@ -278,19 +307,6 @@ for service_name in postgres keycloak telemetry catalogue-localizer; do
   if [[ "$service_name" == catalogue-localizer ]]; then
     [[ "$health" == healthy ]] ||
       fail "Required private-dev service is not healthy: $service_name (${health:-no healthcheck})"
-    # Compare the running helper to the resolved service, including the protected
-    # model path. Acknowledging Git alone must not hide an unapplied runtime change.
-    expected_hash="$("${compose[@]}" config --hash catalogue-localizer)"
-    [[ "$expected_hash" =~ ^catalogue-localizer[[:space:]]([0-9a-f]{64})$ ]] ||
-      fail "Compose did not report a valid catalogue-localizer configuration hash."
-    expected_hash="${BASH_REMATCH[1]}"
-    actual_hash="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$container_id")"
-    [[ "$actual_hash" == "$expected_hash" ]] ||
-      fail "Catalogue-localizer configuration differs; complete its explicit runtime/model rollout before promotion."
-    localizer_image="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["services"]["catalogue-localizer"]["image"])' "$rendered_config")"
-    expected_image_id="$(docker image inspect --format '{{.Id}}' "$localizer_image")"
-    [[ "$(docker inspect --format '{{.Image}}' "$container_id")" == "$expected_image_id" ]] ||
-      fail "Catalogue-localizer image differs; complete its explicit runtime rollout before promotion."
   fi
   [[ -z "$health" || "$health" == healthy ]] ||
     fail "Required private-dev service is not healthy: $service_name ($health)"
