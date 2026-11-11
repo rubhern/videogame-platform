@@ -150,6 +150,11 @@ run_case keycloak-theme \
   'dependency_images,identity,browser' \
   'container,production_runtime,ci'
 
+run_case keycloak-password-denylist \
+  $'docker/keycloak/password-blacklists/gameometro-common-passwords.txt\nscripts/build-password-denylist.py' \
+  'dependency_images,identity,browser' \
+  'container,production_runtime,ci'
+
 run_case keycloak-brand-asset \
   $'frontend/src/shared/brand/gameometro-mark.svg\nfrontend/public/assets/fonts/mona-sans-latin.woff2' \
   'dependency_images,frontend,browser' \

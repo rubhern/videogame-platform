@@ -313,6 +313,23 @@ class Pure(unittest.TestCase):
         block = re.search(r'SESSION_SETTINGS = \((.*?)\)', command, re.S)[1]
         self.assertEqual(tuple(re.findall(r'"(\w+)"', block)), upgrade.SESSION_SETTINGS)
         self.assertIn('"--sessions-only"', command)
+        self.assertIn('SHARED_SETTINGS = (*SESSION_SETTINGS, "passwordPolicy")', command)
+
+    def test_the_approved_password_policy_is_the_import_value_and_a_reviewed_delta(self):
+        target = self.realm()
+        self.assertEqual(target['passwordPolicy'], upgrade.APPROVED_PASSWORD_POLICY)
+        previous = copy.deepcopy(target)
+        previous['passwordPolicy'] = 'length(12) and maxLength(128) and notEmail and notContainsUsername'
+        self.assertEqual(upgrade.realm_import_delta(previous, target), {'settings': ['passwordPolicy'], 'mappers': []})
+        self.assertEqual(upgrade.desired_session_state(target)['passwordPolicy'], upgrade.APPROVED_PASSWORD_POLICY)
+        self.assertIn("'password_policy'", upgrade.IDENTITY_SQL)
+        self.assertIn("'passwordPolicy',coalesce(password_policy,'')", upgrade.REALM_SQL)
+        for unreviewed in ('length(8) and maxLength(128)', 'length(6)', upgrade.APPROVED_PASSWORD_POLICY + ' and digits(1)'):
+            with self.subTest(unreviewed):
+                changed = copy.deepcopy(target)
+                changed['passwordPolicy'] = unreviewed
+                with self.assertRaises(trust.Refused):
+                    upgrade.realm_import_delta(previous, changed)
 
     def realm(self):
         return json.loads((ROOT / upgrade.REALM_IMPORT).read_text())

@@ -106,6 +106,10 @@ REMEMBER_MAPPER = 'native remember me'
 # Session portion of the reviewed realm migration; the notice actor owns localization.
 SESSION_SETTINGS = ('rememberMe', 'ssoSessionIdleTimeout', 'ssoSessionMaxLifespan',
                     'ssoSessionIdleTimeoutRememberMe', 'ssoSessionMaxLifespanRememberMe')
+# The owner-approved password policy (#473); the same actor applies it and no other value passes.
+PASSWORD_POLICY = 'passwordPolicy'
+APPROVED_PASSWORD_POLICY = ('length(8) and maxLength(128) and notEmail and notContainsUsername'
+                            ' and passwordBlacklist(gameometro-common-passwords.txt)')
 OFF_HOST_RECEIPTS = ('encrypted-pull', 's3-publish')
 READER_VIEWS = ('catalogue.observability_inventory', 'catalogue.observability_release_quality',
                 'catalogue.observability_runs', 'catalogue.observability_player_scores',
@@ -131,7 +135,7 @@ assert get('/api/v1/releases?page=1&pageSize=1')[0]==200
 ADMIN_PROBE = ("import sys,urllib.parse,urllib.request\nf=urllib.parse.urlencode({'client_id':'admin-cli','grant_type':'password',"
                "'username':sys.argv[1],'password':sys.stdin.read().rstrip('\\r\\n')}).encode()\n"
                "urllib.request.urlopen('http://keycloak:8080/realms/master/protocol/openid-connect/token',f,timeout=20).close()\n")
-REALM_SQL = """SELECT json_build_object('rememberMe',remember_me,'ssoSessionIdleTimeout',sso_idle_timeout,
+REALM_SQL = """SELECT json_build_object('passwordPolicy',coalesce(password_policy,''),'rememberMe',remember_me,'ssoSessionIdleTimeout',sso_idle_timeout,
  'ssoSessionMaxLifespan',sso_max_lifespan,'ssoSessionIdleTimeoutRememberMe',sso_idle_timeout_remember_me,
  'ssoSessionMaxLifespanRememberMe',sso_max_lifespan_remember_me,'rememberMeMapper',EXISTS(
   SELECT FROM protocol_mapper m JOIN client c ON c.id=m.client_id WHERE c.realm_id=r.id
@@ -179,7 +183,7 @@ _DIGEST = "(SELECT json_build_array(count(*),md5(coalesce(string_agg(to_jsonb(t)
 IDENTITY_SQL = ("WITH r AS (SELECT id FROM realm WHERE name='gameometro') SELECT json_build_object("
                 + ','.join(f"'{name}'," + _DIGEST.format(source) for name, source in {**ACCOUNT_DIGESTS, **CONFIGURATION_DIGESTS}.items())
                 + ",'realm',(SELECT md5((to_jsonb(x)-ARRAY['remember_me','sso_idle_timeout','sso_max_lifespan',"
-                  "'sso_idle_timeout_remember_me','sso_max_lifespan_remember_me'])::text) FROM realm x,r WHERE x.id=r.id));")
+                  "'sso_idle_timeout_remember_me','sso_max_lifespan_remember_me','password_policy'])::text) FROM realm x,r WHERE x.id=r.id));")
 READER_SQL = "SELECT json_build_object('settings',coalesce(rolconfig,'{}'),'connectionLimit',rolconnlimit) FROM pg_roles WHERE rolname='videogame_grafana';"
 DATA_SQL = """SELECT json_build_object('games',(SELECT count(*) FROM catalogue.game),
  'releases',(SELECT count(*) FROM catalogue.release_snapshot),'ratings',(SELECT count(*) FROM ratings.rating));"""
@@ -252,7 +256,7 @@ def flyway_delta(history, files):
 
 
 def realm_import_delta(previous, target):
-    """Compare two realm imports semantically. Only the reviewed session and registration-notice migrations may differ."""
+    """Compare two realm imports semantically. Only the reviewed session, password-policy and registration-notice migrations may differ."""
     def clients(realm):
         return {c['clientId']: c for c in realm.get('clients', [])}
     try:
@@ -260,8 +264,10 @@ def realm_import_delta(previous, target):
     except ValueError as error:
         raise trust.Refused(str(error)) from None
     changed = sorted(k for k in set(previous) | set(target) if k != 'clients' and previous.get(k) != target.get(k))
-    require(set(changed) <= set(SESSION_SETTINGS),
+    require(set(changed) <= {*SESSION_SETTINGS, PASSWORD_POLICY},
             'The realm import changed outside the reviewed session migration; a reviewed realm delta is required.')
+    require(PASSWORD_POLICY not in changed or target.get(PASSWORD_POLICY) == APPROVED_PASSWORD_POLICY,
+            'The realm import changed the password policy to an unreviewed value; a reviewed realm delta is required.')
     old, new = clients(previous), clients(target)
     require(set(old) == set(new), 'The realm import changed its clients; a reviewed realm delta is required.')
     mappers = []
@@ -283,7 +289,8 @@ def desired_session_state(realm):
     bff = next(c for c in realm['clients'] if c['clientId'] == BFF_CLIENT)
     mapper = any(m.get('name') == REMEMBER_MAPPER and m.get('protocolMapper') == 'gameometro-remember-me'
                  for m in bff.get('protocolMappers', []))
-    return {**{k: realm[k] for k in SESSION_SETTINGS}, 'rememberMeMapper': mapper}
+    return {**{k: realm[k] for k in SESSION_SETTINGS}, PASSWORD_POLICY: realm.get(PASSWORD_POLICY, ''),
+            'rememberMeMapper': mapper}
 
 
 def verify_backup_evidence(manifest, images, config_hash, offhost, restore, *, now=None):
@@ -907,7 +914,7 @@ class Upgrade:
                 if registration.digest(registration.notice(target)) == registration.APPROVED else None,
                 'changes': {k: {'from': live[k], 'to': desired[k]} for k in desired if live[k] != desired[k]},
                 'preserved': 'users, credentials, identities, client secret, redirect URIs and every other realm setting',
-                'method': 'scoped session and registration-notice actors through the Admin API, never an import'}
+                'method': 'scoped session, password-policy and registration-notice actors through the Admin API, never an import'}
 
     def accepted_dashboard(self, api, source):
         """#452 mounted one reviewed dashboard over the candidate's copy; the target must not lose it."""
@@ -1358,7 +1365,7 @@ class Upgrade:
             self.preserved(before, after, set(before) - ({'realmLocalizations'} if notice_migration else set()))
         live = self.query('videogame_keycloak', REALM_SQL)
         desired = desired_session_state(json.loads((host.source / REALM_IMPORT).read_text()))
-        require(live == desired, 'The realm does not hold the reviewed session policy.')
+        require(live == desired, 'The realm does not hold the reviewed session and password policy.')
         record['identityAfter'] = {'users': after['users'][0], 'credentials': after['credentials'][0]}
 
     def replace_superseded(self, host, record, reviewed):

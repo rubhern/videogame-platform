@@ -35,3 +35,6 @@ RUN /opt/keycloak/bin/kc.sh build
 COPY --chown=keycloak:keycloak docker/keycloak/themes/gameometro /opt/keycloak/themes/gameometro
 COPY --chown=keycloak:keycloak frontend/src/shared/brand/gameometro-logo.svg frontend/src/shared/brand/gameometro-mark.svg /opt/keycloak/themes/gameometro/login/resources/img/
 COPY --chown=keycloak:keycloak frontend/public/assets/fonts/mona-sans-latin.woff2 frontend/public/assets/fonts/monasans-OFL.txt /opt/keycloak/themes/gameometro/login/resources/fonts/
+# The realm's native passwordBlacklist policy names this file; containers run read-only,
+# so it ships in Keycloak's default denylist folder. scripts/build-password-denylist.py owns it.
+COPY --chown=keycloak:keycloak docker/keycloak/password-blacklists/gameometro-common-passwords.txt /opt/keycloak/data/password-blacklists/

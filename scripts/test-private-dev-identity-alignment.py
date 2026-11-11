@@ -268,9 +268,11 @@ def action_link(message: dict) -> str:
 
 def choose_password(browser: Browser, page: Response, password: str) -> Response:
     assert "kc-passwd-update-form" in page.body, page_text(page.body)[:300]
-    rejected = "Corta-2026!"
-    refused = browser.open(form_action(page.body, "kc-passwd-update-form"), {"password-new": rejected, "password-confirm": rejected})
-    assert "La contraseña debe tener al menos 12 caracteres." in page_text(refused.body), page_text(refused.body)[:300]
+    refused = page
+    for rejected, message in (("Corta-7", "La contraseña debe tener al menos 8 caracteres."),
+                              ("Password123", "Esa contraseña es demasiado habitual.")):
+        refused = browser.open(form_action(refused.body, "kc-passwd-update-form"), {"password-new": rejected, "password-confirm": rejected})
+        assert message in page_text(refused.body), page_text(refused.body)[:300]
     remember(password)
     return browser.open(form_action(refused.body, "kc-passwd-update-form"), {"password-new": password, "password-confirm": password})
 
@@ -352,10 +354,10 @@ repeated = command(identity_command, "--sessions-only", "--snapshot-dir", str(se
 assert repeated.returncode == 0 and "nothing changed" in repeated.stdout
 assert len(list(session_directory.glob("*.json"))) == 1
 session_realm = get(ADMIN_REALM)
-for name in identity.SESSION_SETTINGS:
+for name in identity.SHARED_SETTINGS:
     assert session_realm[name] == identity.desired_policy()["settings"][name]
 for name, value in before_realm.items():
-    if name not in identity.SESSION_SETTINGS:
+    if name not in identity.SHARED_SETTINGS:
         assert session_realm.get(name) == value, f"session alignment changed unrelated setting: {name}"
 [session_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
 assert {key: value for key, value in session_client.items() if key != "protocolMappers"} == {
@@ -379,7 +381,7 @@ production_directory.mkdir(mode=0o700)
 configured = command(identity_command, "--realm", "gameometro", "--sessions-only", "--snapshot-dir", str(production_directory))
 assert configured.returncode == 0, configured.stdout + configured.stderr
 assert command(identity_command, "--realm", "gameometro", "--sessions-only", "--check").returncode == 0
-for name in identity.SESSION_SETTINGS:
+for name in identity.SHARED_SETTINGS:
     assert get("/admin/realms/gameometro")[name] == identity.desired_policy()["settings"][name]
 assert get(ADMIN_REALM) == before_realm
 [production_snapshot] = production_directory.glob("*.json")

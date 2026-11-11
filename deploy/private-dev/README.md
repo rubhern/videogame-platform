@@ -493,7 +493,8 @@ outcome in #274 without addresses, message IDs or headers that identify a person
    `no-reply@mail.gameometro.com` with `Reply-To: hola@gameometro.com`; check that it
    carries no provider branding and that the mailbox's original-message view reports
    SPF, DKIM and DMARC `pass`. Open the link within five minutes, choose a password
-   (one under 12 characters is refused) and confirm that the application signs you in.
+   (one under 8 characters, or a common one such as `password123`, is refused) and confirm
+   that the application signs you in.
 3. **Sign-in and logout.** Sign out, which also ends the Keycloak session, and sign in
    again with the email. An existing account still signs in with its email and old
    password, and one wrong password shows the same message as an unknown account.

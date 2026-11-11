@@ -180,7 +180,7 @@
     }
   },
   "editUsernameAllowed": false,
-  "passwordPolicy": "length(12) and maxLength(128) and notEmail and notContainsUsername",
+  "passwordPolicy": "length(8) and maxLength(128) and notEmail and notContainsUsername and passwordBlacklist(gameometro-common-passwords.txt)",
   "bruteForceProtected": true,
   "bruteForceStrategy": "MULTIPLE",
   "permanentLockout": false,
