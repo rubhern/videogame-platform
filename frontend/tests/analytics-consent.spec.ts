@@ -2,13 +2,24 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
 
-const GOOGLE = /google-analytics\.com|googletagmanager\.com|analytics\.google\.com|doubleclick\.net/;
+const GOOGLE_HOSTS = ["google-analytics.com", "googletagmanager.com", "analytics.google.com", "doubleclick.net"];
+
+/** Whether a URL's host is a Google measurement host or one of its subdomains. */
+function isGoogleMeasurement(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  return GOOGLE_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+}
 
 /** Every request the page attempts towards a Google measurement host. */
 function googleRequests(page: Page): string[] {
   const seen: string[] = [];
   page.on("request", (request) => {
-    if (GOOGLE.test(request.url())) seen.push(request.url());
+    if (isGoogleMeasurement(request.url())) seen.push(request.url());
   });
   return seen;
 }
