@@ -317,6 +317,7 @@ services = {
         profiles=["deployment"],
         build={"context": str(repository / "deploy/private-dev/smoke")},
         shm_size=256 * 1024 * 1024,
+        network_mode="host",
         read_only=True,
         cap_drop=["ALL"],
     ),

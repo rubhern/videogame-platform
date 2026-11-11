@@ -1207,6 +1207,12 @@ trace/correlation propagation in structured logs; and trace receipt by the colle
 It deliberately does not rate a game, traverse every screen, or run provider
 synchronization, and it is not product acceptance.
 
+The smoke is the only service in the host network namespace. It reaches the same
+Tailscale Serve origin an operator uses, and Tailscale may bind those listeners to
+`tailscale0` alone, which refuses connections from a Docker bridge. It stays
+unprivileged, publishes nothing, mounts no host path, and holds only the smoke
+credentials; `validate-private-dev-runtime.sh` enforces this.
+
 ## Owner-approved Actions promotion
 
 The original promotion path has successful real-host evidence on #160. The refined
