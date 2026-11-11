@@ -103,10 +103,37 @@ owner, and expiry/removal condition.
   reuses the existing forward-only updater, durable S3 pair and isolated restore in a separate
   protected `production-recovery` job, under [ADR-0036](../decisions/0036-use-protected-actions-for-production-recovery.md).
   That environment requires its own owner approval; its key copy never reaches the deployment job/VPS. Initial access setup and first real-host acceptance require separate authorization;
-  workflow implementation alone passes no public gate.
+  workflow implementation alone passes no public gate. Every change must stay deployable
+  by the in-place upgrader; see [production upgrade compatibility](#production-upgrade-compatibility).
 - The owner-approved public-release direction does not authorize contracting or
   exposure. Apply the [public-production gates](#public-production-gates); no service,
   DNS/ingress or existing infrastructure is changed during the #252 investigation.
+
+### Production upgrade compatibility
+
+Production is updated only by the in-place upgrader
+(`scripts/private_production_upgrade.py`), which refuses any difference it has no reviewed
+rule for. A change that adds or alters any of the following must extend the upgrader in the
+same pull request:
+
+- a production runtime input (`deploy/public-production/runtime.env.example`);
+- a Compose secret, or a `*_FILE` setting that reads one;
+- an existing setting of a running service, including `KC_*` and other identity settings;
+- the service inventory, networks, volumes, or a file bound into PostgreSQL;
+- the realm import, beyond the reviewed session and registration-notice migrations.
+
+The extension is the narrowest reviewed rule. A new input gets a safe default the upgrader
+fills in, an owner-chosen value goes through the owner input keys, a new optional secret is
+created empty while its integration stays off, and a changed setting gets an exact
+transition. The upgrader's reviewed-addition tables and the
+[production operator guide](../../deploy/public-production/README.md#reviewed-runtime-additions)
+own the mechanics.
+
+`scripts/test-private-production-upgrade-compatibility.py` enforces this in the
+production-runtime CI gate. It renders the accepted first installation and the pull
+request's base, then runs the upgrader's own checks against the changed tree. A failure there
+is the refusal `Deploy Production` would hit at `upgrade-plan`. Fix it with a reviewed
+upgrader rule, never by weakening the test or the upgrader.
 
 ## Public production gates
 
@@ -228,6 +255,7 @@ native self-registration enabled for restricted/disposable validation.
 - [ ] Acceptance criteria and approved scope are satisfied.
 - [ ] Boundaries and important invariants remain clear and tested.
 - [ ] Contracts, migrations, configuration, and documentation changed together when affected.
+- [ ] Production stays deployable: the [upgrader covers](#production-upgrade-compatibility) any changed runtime input, secret or protected setting.
 - [ ] Semantic Versioning impact is assessed and references are consistent.
 - [ ] Security, privacy, accessibility, provider, and operational impacts are addressed.
 - [ ] Relevant local checks and required current-commit CI evidence pass.

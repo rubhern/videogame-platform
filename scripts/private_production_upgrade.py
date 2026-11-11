@@ -67,6 +67,27 @@ MIGRATION_ENTRYPOINT = '/opt/gameometro/bin/shared-run-migrations'
 VERSION_ENVIRONMENT = 'TELEMETRY_SERVICE_VERSION'
 FENCE_STOPPED = {'caddy', 'application', 'keycloak', 'grafana'}
 MIGRATION_TIMEOUT = 1800
+# Reviewed runtime-input additions. When a target adds one of these inputs, the upgrade fills it
+# with this default; any other change to the input inventory still refuses. Extend these tables in
+# the same change that adds a production runtime input, secret or protected setting
+# (docs/development/delivery-lifecycle.md#production-upgrade-compatibility).
+INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': ''}
+# Owner-chosen values, read from this protected file on every plan; only these keys are accepted.
+OWNER_INPUTS = Path('/etc/gameometro/production/runtime-inputs.env')
+OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX')
+# Secrets a target may add: Compose name -> (consumer, its *_FILE setting). The upgrade creates a
+# missing file empty (root, the secret group, 0640) only while its integration stays disabled.
+SECRET_ADDITIONS = {
+    'feedback_smtp_username': ('application', 'FEEDBACK_SMTP_USERNAME_FILE'),
+    'feedback_smtp_password': ('application', 'FEEDBACK_SMTP_PASSWORD_FILE'),
+}
+# Existing settings a target may change: (service, setting) -> (accepted previous value, target value),
+# or None when the owner inputs select the value (validated by validate_runtime).
+SETTING_TRANSITIONS = {
+    ('keycloak', 'KC_LOG_LEVEL'): ('info', 'info,org.keycloak.services.managers.AuthenticationManager:error'),
+    ('application', 'FEEDBACK_ENABLED'): None,
+    ('application', 'FEEDBACK_INBOX'): None,
+}
 REALM_IMPORT = 'deploy/public-production/keycloak/import/gameometro-realm.json'
 NOTICE_COMMAND = 'scripts/production_registration_notice.py'
 REALM_COMMAND = 'deploy/private-dev/bin/configure-keycloak-identity'
@@ -311,9 +332,46 @@ def environment_delta(current, candidate):
     return sorted(key for key in set(before) | set(after) if before.get(key) != after.get(key))
 
 
-def validate_delta(name, current, candidate, fields, target_bundle):
+def secret_file_setting(name, key, value, added):
+    """A new *_FILE setting is accepted only for a reviewed secret this upgrade adds."""
+    return any(SECRET_ADDITIONS[secret] == (name, key) and value == '/run/secrets/' + secret for secret in added)
+
+
+def setting_transition(name, key, before, after):
+    if (name, key) not in SETTING_TRANSITIONS:
+        return False
+    expected = SETTING_TRANSITIONS[(name, key)]
+    return expected is None or (before, after) == expected
+
+
+def runtime_inputs(previous, example, owner):
+    """The target's runtime inputs: the active values, reviewed defaults for new inputs, then owner choices."""
+    expected = set(example)
+    missing, extra = expected - set(previous), set(previous) - expected
+    require(not extra and missing <= set(INPUT_DEFAULTS)
+            and all(example[key] == INPUT_DEFAULTS[key] for key in missing),
+            'The target requires a different runtime input inventory; a reviewed input change is required.')
+    values = {**previous, **{key: INPUT_DEFAULTS[key] for key in missing}}
+    require(set(owner) <= set(OWNER_INPUT_KEYS) & expected, 'The owner runtime inputs name an unreviewed key.')
+    values.update(owner)
+    require(values.get('PRODUCTION_FEEDBACK_INBOX') or values.get('PRODUCTION_FEEDBACK_ENABLED') != 'true',
+            'Feedback delivery needs an owner inbox.')
+    # Keys only, plus a digest binding the owner's values: the plan never carries a mailbox address.
+    return values, {'defaulted': sorted(missing), 'ownerKeys': sorted(owner),
+                    'ownerSha256': digest(canonical(owner)) if owner else None}
+
+
+def validate_delta(name, current, candidate, fields, target_bundle, added_secrets=()):
     """Everything an upgrade may change, per service; any other difference is a refusal."""
     require(name != 'postgres', 'PostgreSQL configuration, image or bound-file changes need a separate procedure.')
+    if 'secrets' in fields:
+        before, after = current.get('secrets', []), candidate.get('secrets', [])
+        new = [s for s in after if s not in before]
+        require(all(s in after for s in before)
+                and all(s.get('source') in added_secrets and SECRET_ADDITIONS[s['source']][0] == name
+                        and s == {'source': s['source'], 'target': '/run/secrets/' + s['source']} for s in new),
+                'A service would consume a secret outside the reviewed additions.')
+        fields = [f for f in fields if f != 'secrets']
     require(set(fields) <= ALLOWED_FIELDS, 'Target configuration changes a field an in-place upgrade cannot change.')
     if 'image' in fields:
         require(name in PUBLISHED, 'A dependency outside the trusted publications changed its image.')
@@ -327,6 +385,11 @@ def validate_delta(name, current, candidate, fields, target_bundle):
         if key == install.SCHEDULING and current.get('environment', {}).get(key) == 'false' \
                 and candidate.get('environment', {}).get(key) == 'true':
             continue  # #484: the one reviewed activation of recurring acquisition.
+        before, after = current.get('environment', {}).get(key), candidate.get('environment', {}).get(key)
+        if key in current.get('environment', {}) and setting_transition(name, key, before, after):
+            continue
+        if before is None and secret_file_setting(name, key, after, added_secrets):
+            continue
         require(not key.startswith(PROTECTED_ENVIRONMENT) and not key.endswith('_FILE'),
                 'A protected identity, ingress or secret-file setting changed.')
         require(key == VERSION_ENVIRONMENT or key not in current.get('environment', {}),
@@ -364,6 +427,10 @@ def validate_runtime(config, images):
     environment = services['application']['environment']
     require(install.reviewed_schedule(environment), 'Recurring acquisition must be off or on the reviewed default schedule.')
     require(services['grafana']['environment'].get('GRAFANA_TELEGRAM_ENABLED') == 'false', 'Notifications must stay off.')
+    if 'FEEDBACK_ENABLED' in environment:
+        require(environment['FEEDBACK_ENABLED'] in ('true', 'false')
+                and (environment['FEEDBACK_ENABLED'] == 'false' or environment.get('FEEDBACK_INBOX')),
+                'Feedback delivery needs an explicit flag and, when on, an owner inbox.')
     require(not set(environment) & set(FORBIDDEN_ENVIRONMENT) and 'account_deletion_executor_capability' not in config.get('secrets', {}),
             'A deferred overlay would be activated.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),
@@ -374,9 +441,29 @@ def validate_runtime(config, images):
             'The accepted localization dashboard is not mounted.')
 
 
+def secret_additions(active, rendered):
+    """Reviewed new secrets beside the existing protected ones; every existing one stays identical."""
+    before, after = active.get('secrets', {}), rendered.get('secrets', {})
+    require(all(after.get(name) == value for name, value in before.items()), 'Target configuration changes runtime secrets.')
+    added = sorted(set(after) - set(before))
+    directories = {Path(value['file']).parent for value in before.values()}
+    require(set(added) <= set(SECRET_ADDITIONS) and len(directories) == 1,
+            'Target configuration changes runtime secrets.')
+    # Shaped exactly like the existing entries: the same Compose name prefix and protected directory.
+    existing, sample = next(iter(before.items()))
+    prefix = sample['name'][:-len(existing)] if 'name' in sample and sample['name'].endswith(existing) else None
+    for name in added:
+        expected = {'file': str(next(iter(directories)) / name.replace('_', '-'))}
+        if prefix is not None:
+            expected['name'] = prefix + name
+        require(after[name] == expected, 'A reviewed secret addition must use the protected secret inventory.')
+    return added
+
+
 def reconcile(active, rendered, target_bundle, local=lambda p: p):
     """Keep an unchanged service exactly as it runs; classify every other difference."""
-    for section in (set(active) | set(rendered)) - {'services'}:
+    added_secrets = secret_additions(active, rendered)
+    for section in (set(active) | set(rendered)) - {'services', 'secrets'}:
         require(active.get(section) == rendered.get(section), 'Target configuration changes runtime ' + section + '.')
     require(set(active['services']) == set(rendered['services']), 'Target configuration changes the service inventory.')
     config, changed = json.loads(json.dumps(rendered)), {}
@@ -390,7 +477,7 @@ def reconcile(active, rendered, target_bundle, local=lambda p: p):
         if not fields and same_mounts and bound_files_equal(current, candidate, local):
             config['services'][name] = json.loads(json.dumps(current))
             continue
-        validate_delta(name, current, candidate, fields, target_bundle)
+        validate_delta(name, current, candidate, fields, target_bundle, added_secrets)
         changed[name] = fields or ['bound-files']
     return config, changed
 
@@ -650,6 +737,45 @@ class Upgrade:
             result.update(prepare.registry_images(remote, runner=self.run, revision=self.target, version=None))
         return result
 
+    # --- reviewed runtime inputs and secrets ---
+    def owner_inputs(self):
+        """The owner's protected choices for the reviewed owner keys; absent means none."""
+        if not OWNER_INPUTS.exists():
+            return {}
+        install.secure(OWNER_INPUTS, mode=0o600)
+        values = prepare.parse_runtime_env(OWNER_INPUTS.read_text())
+        require(set(values) <= set(OWNER_INPUT_KEYS), 'The owner runtime inputs name an unreviewed key.')
+        return values
+
+    def create_secret_additions(self, config, added):
+        """Create a missing reviewed secret empty; never overwrite one and never for an enabled integration."""
+        application = config['services']['application']
+        gid = int(application['group_add'][0])
+        environment = application.get('environment', {})
+        created = []
+        for name in added:
+            path = Path(config['secrets'][name]['file'])
+            install.secure(path.parent, mode=0o750, directory=True, gid=gid)
+            if path.exists():
+                continue
+            require(install.optional_secret(path.name, environment),
+                    'An enabled integration needs its secret files provisioned before the upgrade.')
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640)
+            try:
+                os.fchown(descriptor, 0, gid)
+                os.fchmod(descriptor, 0o640)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            created.append(path.name)
+        if created:
+            control.fsync_dir(next(iter(Path(config['secrets'][n]['file']).parent for n in added)))
+        return created
+
+    def missing_secret_additions(self, config, added):
+        return {Path(config['secrets'][name]['file']).name for name in added
+                if not Path(config['secrets'][name]['file']).exists()}
+
     # --- rendering ---
     def selected(self, api):
         selected = integration.resolve(api, self.target)
@@ -666,8 +792,7 @@ class Upgrade:
         previous_runtime = self.active['bundle'] / 'runtime.env'
         values = prepare.parse_runtime_env(previous_runtime.read_text())
         example = (source / 'deploy/public-production/runtime.env.example').read_text()
-        require(set(values) == set(re.findall(r'^([A-Z][A-Z0-9_]*)=', example, re.M)),
-                'The target requires a different runtime input inventory; a reviewed input change is required.')
+        values, inputs = runtime_inputs(values, prepare.parse_runtime_env(example), self.owner_inputs())
         require(values['PRODUCTION_TELEGRAM_ENABLED'] == 'false', 'Owner notification activation is separate.')
         version = self.image_identities(selected['images'])['application']['version']
         require(re.fullmatch('[0-9A-Za-z.-]{1,100}', version or ''), 'The target application version is unreadable.')
@@ -714,7 +839,7 @@ class Upgrade:
                     'The public target is not exactly the private target plus the reviewed edge.')
             (directory / PRIVATE_TWIN).write_text(canonical(twin))
         prepare.prepare_mount_directories(config, source, self.bundle)
-        return {'tree': tree, 'config': config, 'changed': changed, 'version': version, 'local': local}
+        return {'tree': tree, 'config': config, 'changed': changed, 'version': version, 'local': local, 'inputs': inputs}
 
     def realm_plan(self, source):
         previous = json.loads((self.active['source'] / REALM_IMPORT).read_text())
@@ -787,6 +912,8 @@ class Upgrade:
                                 for n in material['changed'] if environment_delta(self.active['config']['services'][n], config['services'][n])},
             'activationOrder': ['keycloak', *ACTIVATION, *OPTIONAL], 'acceptedDashboard': dashboard,
             'flyway': flyway, 'migrationInventory': files, 'realm': realm,
+            'runtimeInputs': material['inputs'],
+            'secretAdditions': sorted(set(config.get('secrets', {})) - set(self.active['config'].get('secrets', {}))),
             'adminIngress': {'grafana': config['services']['grafana']['environment'].get('GF_SERVER_ROOT_URL'),
                              'keycloak': config['services']['keycloak']['environment'].get('KC_HOSTNAME_ADMIN'),
                              'masterAttribute': 'frontendUrl', 'masterSnapshot': 'master-frontend.json'},
@@ -794,10 +921,11 @@ class Upgrade:
         }
         return {'reviewed': reviewed, 'planSha256': digest(reviewed), 'config': config, 'local': material['local']}
 
-    def check_inputs(self, config, path, source, local=lambda p: p):
+    def check_inputs(self, config, path, source, local=lambda p: p, pending=frozenset()):
         """The installer's input contract, against this configuration and its target JVM."""
         host = Host(self, config, path, source, scope=self.scope())
         host.local = local
+        host.pending_secrets = frozenset(pending)
         host.images = self.image_identities(self.required_images(config))
         self.verify_inputs(host)
 
@@ -811,7 +939,9 @@ class Upgrade:
             directory = Path(name)
             built = self.build(directory, api)
             config = built['config']
-            self.check_inputs(config, directory / TARGET_CONFIG, directory / 'candidate', built['local'])
+            # Staging creates reviewed secret additions empty; until then they are planned, not missing.
+            pending = self.missing_secret_additions(config, built['reviewed']['secretAdditions'])
+            self.check_inputs(config, directory / TARGET_CONFIG, directory / 'candidate', built['local'], pending)
             local = self.local_images(self.required_images(config))
         gate = self.gate_state()
         services = {} if self.forward_of else self.observe_services(gate)
@@ -877,6 +1007,7 @@ class Upgrade:
         for image, present in self.local_images(self.required_images(built['config'])).items():
             if not present:
                 self.run(['docker', 'pull', '--platform', 'linux/amd64', image], output=False, timeout=900)
+        self.create_secret_additions(built['config'], built['reviewed']['secretAdditions'])
         self.verify_staged(built['reviewed'], built['config'], api)
         return {'mode': 'staged', 'planSha256': reviewed_sha, 'bundle': str(self.bundle), 'productionReady': False}
 

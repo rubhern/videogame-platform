@@ -360,6 +360,9 @@ runpy.run_path('/work/check-oidc-issuer-contract.py',run_name='__main__')
 '''
 
 class Host:
+    # Secret files an upgrade plan will create empty at staging (private_production_upgrade.py).
+    pending_secrets = frozenset()
+
     def __init__(self, configuration, adapter, operational_revision, truststore_evidence=None, evidence_dir=None):
         self.configuration, self.adapter, self.operational_revision = configuration, adapter, operational_revision
         self.bundle = prepare.TARGET
@@ -543,8 +546,12 @@ class Host:
         for name, secret in self.config['secrets'].items():
             path = Path(secret['file'])
             require(path.parent == secret_root, 'Secret path outside protected inventory.')
-            st = secure(path, mode=0o640, gid=gid)
             optional = optional_secret(path.name, services['application'].get('environment', {}))
+            if path.name in self.pending_secrets:
+                # An upgrade plan: staging creates this reviewed optional secret empty.
+                require(optional and not path.exists(), 'A planned secret addition must be optional and absent.')
+                continue
+            st = secure(path, mode=0o640, gid=gid)
             require(st.st_size <= 4096 and (st.st_size > 0 or optional), 'Empty or oversized required secret.')
             value = path.read_bytes().decode('utf-8').rstrip('\n')
             require((value or optional) and value == value.strip() and not any(c in value for c in '\r\n\x00'),

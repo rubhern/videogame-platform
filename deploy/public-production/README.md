@@ -199,20 +199,33 @@ block real-data operation and public exposure. A local pass authorizes neither.
 
 ## Feedback receiving channel
 
-Prepared for review in #383. The default leaves real SMTP feedback disabled.
-Before installing or upgrading this candidate, provide the feedback files in the
-[secret inventory](#secret-inventory), empty when the channel is disabled.
-Preserve the recovery and public-exposure gates.
+Prepared for review in #383. The default leaves real SMTP feedback disabled. A first
+installation provides the two feedback files in the [secret inventory](#secret-inventory),
+empty while the channel is disabled. An existing runtime needs no host step: the
+[in-place upgrade](#reviewed-runtime-additions) adds the disabled inputs and creates both
+files empty. Preserve the recovery and public-exposure gates.
 
-After [privacy review](../../docs/development/data-protection.md) and operator
-acceptance, use the existing transactional relay with credentials dedicated to
-feedback. Provision the two protected files, set `PRODUCTION_FEEDBACK_INBOX` to
-the owner-controlled mailbox and `PRODUCTION_FEEDBACK_ENABLED=true` in the
-protected runtime configuration. The existing relay host, port and verified
-sender are shared with identity configuration. Keep STARTTLS and authentication
-enabled. The [runbook](../../docs/development/operations-runbook.md#visitor-feedback-mail)
-owns verification and failure handling. To disable delivery, set the flag to
-`false` and reconcile the application with the reviewed runtime configuration.
+To enable it, first complete the [privacy review](../../docs/development/data-protection.md)
+and operator acceptance. Use the existing transactional relay with credentials dedicated to
+feedback; the relay host, port and verified sender are shared with identity configuration.
+Keep STARTTLS and authentication enabled. In this order:
+
+1. Write the relay username and password into `feedback-smtp-username` and
+   `feedback-smtp-password`, replacing the empty files. Keep the same owner, group and mode
+   (`root`, the secret group, `0640`), with one line each and no trailing spaces. The running
+   application ignores them while feedback is off.
+2. Create the owner input file `/etc/gameometro/production/runtime-inputs.env` (`root`,
+   `0600`) containing `PRODUCTION_FEEDBACK_ENABLED=true` and
+   `PRODUCTION_FEEDBACK_INBOX=` followed by the owner-controlled mailbox.
+3. Deploy the next `main` release. Its plan lists `PRODUCTION_FEEDBACK_ENABLED` and
+   `PRODUCTION_FEEDBACK_INBOX` under owner keys, and the application is recreated with
+   delivery on.
+
+If step 1 is missing, the plan refuses at `upgrade-plan`, before any backup or fence, because
+an enabled integration needs non-empty credentials. Nothing changes in production. The
+[runbook](../../docs/development/operations-runbook.md#visitor-feedback-mail) owns
+verification and failure handling. To disable delivery, set the flag to `false` in the
+owner input file and deploy again.
 
 
 ## Secret inventory
@@ -1641,7 +1654,8 @@ result with the active configuration:
 | The reported version, a new non-identity setting, a read-only bind from the target bundle or TLS inputs, a higher memory ceiling | Allowed, listed by field and setting name, then recreated |
 | Any other existing setting, issuer, `KC_*` (except the exact private admin hostname below) or `*_FILE` setting, a removed mount other than the accepted dashboard override, a lower ceiling, a named volume, a secret, network, service, top-level section, user, entrypoint, health check, logging, tmpfs, capability, PID or CPU change | Refused |
 | Any change to PostgreSQL, or an observability image | Refused: outside this procedure |
-| A different runtime-input inventory, or a realm import change outside the migration below | Refused until a reviewed change covers it |
+| A [reviewed runtime addition](#reviewed-runtime-additions): a new input with its default, an owner input, a new optional secret with its `*_FILE` setting, or an exact setting transition | Allowed and listed in the plan, then recreated |
+| Any other runtime-input inventory change, or a realm import change outside the migration below | Refused until a reviewed change covers it |
 
 The result must keep `restart: unless-stopped` on persistent services, `restart: no` on the
 one-shot actor, the accepted localizer ceiling and Grafana plugin policy, the mounted
@@ -1819,8 +1833,10 @@ the public edge.
 - *A restore receipt is mandatory.* It lengthens that window, but a checksum alone does not show
   that a pair restores before a forward-only change.
 - *The reviewed scope is narrow.* PostgreSQL, observability images, realm changes beyond the
-  session migration and new runtime inputs refuse, and each needs a reviewed extension of this
-  tool. This is cheaper than a generic deployment engine for one private host.
+  session migration and runtime inputs, secrets or settings outside the
+  [reviewed additions](#reviewed-runtime-additions) refuse, and each needs a reviewed extension of
+  this tool in the change that introduces it. This is cheaper than a generic deployment engine for
+  one private host.
 - *Reopening precedes the smoke*, because the BFF needs the edge and identity to start. A failed
   smoke re-fences, but writes in that short private window are newer than the pair.
 - *Local image identity is preferred* when a digest is already pulled: it is content-addressed, so
@@ -1841,6 +1857,31 @@ supplied and the localizer is only exercised as a failing optional service; a re
 (simulated receipt); operational publication, which needs a merged revision; or the installer's input
 contract against real protected paths, which has a contract test only. The rehearsal also accepts
 Docker Desktop's spelling of directory binds and skips the Docker data-root disk check.
+
+#### Reviewed runtime additions
+
+The upgrader's reviewed-addition tables (`INPUT_DEFAULTS`, `OWNER_INPUT_KEYS`,
+`SECRET_ADDITIONS` and `SETTING_TRANSITIONS` in
+[`private_production_upgrade.py`](../../scripts/private_production_upgrade.py)) name every
+runtime difference it applies on its own. The
+[delivery rule](../../docs/development/delivery-lifecycle.md#production-upgrade-compatibility)
+requires extending them in the same change that introduces such a difference, and the
+production-runtime CI gate proves it.
+
+- **New inputs.** A target input listed with a default takes that default in the new bundle's
+  `runtime.env`. Its example value must equal the default. Any other added or removed input
+  refuses.
+- **Owner inputs.** `/etc/gameometro/production/runtime-inputs.env` (`root`, `0600`) is optional.
+  It may set only the owner keys, and it overrides the carried value on every plan. The plan
+  records the keys and a digest of the values, never the values themselves.
+- **New secrets.** A listed secret may appear beside the existing ones, in the same protected
+  directory, consumed only by its listed service through its listed `*_FILE` setting. The plan
+  accepts the missing file. `--stage` creates it empty (`root`, the secret group, `0640`) only
+  while its integration is off, and never overwrites an existing file. With the integration
+  on, the owner must provide it first, or the plan refuses.
+- **Setting transitions.** An existing setting may change only from its listed previous value
+  to its listed target value. The feedback switch and inbox follow the owner inputs instead;
+  the runtime check then requires an inbox whenever delivery is on.
 
 ### Owner-approved Actions deployment (#467)
 
