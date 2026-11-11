@@ -211,9 +211,16 @@ for (const width of [320, 390]) {
 
     await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
     const notice = page.getByRole("region", { name: "¿Nos ayudas a mejorar Gameómetro?" });
+    // The featured release brings the stage's art and light; probe once they are rendered.
+    await expect(page.getByRole("article", { name: LEAD }).getByRole("heading", { level: 2 })).toBeVisible();
     // The stage's light rises behind the compact header; it must never paint over the choices.
-    // Decorative layers ignore the pointer, so make every layer hit-testable for this probe.
-    await page.addStyleTag({ content: "* { pointer-events: auto !important; }" });
+    // Decorative layers ignore the pointer, so make every layer hit-testable for this probe. The
+    // CSP refuses an injected stylesheet; CSSOM changes are allowed.
+    await page.evaluate(() => {
+      for (const element of document.querySelectorAll<HTMLElement | SVGElement>("*")) {
+        element.style.setProperty("pointer-events", "auto", "important");
+      }
+    });
     for (const name of ["Rechazar", "Aceptar"]) {
       const box = await notice.getByRole("button", { name }).boundingBox();
       if (box === null) throw new Error(`${name} has no box`);
