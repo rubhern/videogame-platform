@@ -140,6 +140,9 @@ api:
     enabled: ${APPLICATION_API_ADMISSION_ENABLED:false}
     max-requests: ${APPLICATION_API_MAX_REQUESTS:8}
     max-writes: ${APPLICATION_API_MAX_WRITES:2}
+  web-analytics:
+    # Public GA4 measurement ID (#507); blank keeps product analytics off in this deployment.
+    google-analytics-measurement-id: ${APPLICATION_GA4_MEASUREMENT_ID:}
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, no-cache}
   games:

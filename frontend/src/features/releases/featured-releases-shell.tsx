@@ -243,9 +243,10 @@ export function FeaturedReleasesShell({
                     Ver todos los lanzamientos <span aria-hidden="true">→</span>
                   </Link>
                 </div>
-                <ul className="featured-row">
-                  {model.others.map((item) => (
-                    <li className="min-w-0" key={item.gameId}>
+                <ul className="featured-row" data-analytics-list="featured">
+                  {model.others.map((item, index) => (
+                    // The lead is position 1; the others follow it in ranking order.
+                    <li className="min-w-0" data-analytics-position={index + 2} key={item.gameId}>
                       <FeaturedCard item={item} timeline={model.timeline} />
                     </li>
                   ))}

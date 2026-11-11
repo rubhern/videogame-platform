@@ -25,6 +25,7 @@
 @import "./platform-navigation.css";
 @import "./home.css";
 @import "./community.css";
+@import "./consent.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

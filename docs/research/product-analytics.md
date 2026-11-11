@@ -1,7 +1,9 @@
 # Product analytics evaluation (#330)
 
 - **Status:** Investigation complete; owner decision recorded on 2026-11-09 (section 5):
-  adopt Google Analytics 4. Implementation is delegated to a separate issue; nothing is
+  adopt Google Analytics 4. Implementation is delegated to
+  [#507](https://github.com/rubhern/videogame-platform/issues/507) and
+  [ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md); nothing is
   installed, no cookie is set and no account exists as a result of this evaluation
 - **Research date:** 2026-11-09
 - **Source revision:** `f92b512` (`main`)

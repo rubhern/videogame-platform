@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { resultsBucket, trackEvent } from "../analytics/events";
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { HeroTitle } from "../../shared/ui/hero-title";
 import { StageLight } from "../../shared/ui/stage-light";
@@ -61,6 +62,16 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
     previousRequest.current = request;
     resultsHeadingRef.current?.focus({ preventScroll: true });
   }, [params.query, params.page]);
+
+  // One bounded result band per searched query (#507); the query itself never leaves the page.
+  const reportedQuery = useRef<string | null>(null);
+  const settledTotal =
+    state.status === "ready" && !state.isPlaceholderData ? state.model.page.totalItems : null;
+  useEffect(() => {
+    if (settledTotal === null || reportedQuery.current === params.query) return;
+    reportedQuery.current = params.query;
+    trackEvent("search_results", { results: resultsBucket(settledTotal) });
+  }, [params.query, settledTotal]);
 
   const placeholders = Math.min(params.pageSize, MAX_PLACEHOLDERS);
   // The opening is lit by the first games found, never by a placeholder image.

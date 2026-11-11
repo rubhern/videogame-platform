@@ -20,6 +20,8 @@ import {
   platformOptions,
   scoredPlatforms,
 } from "./personal-score";
+import { countBucket, trackEvent } from "../analytics/events";
+import { markSignInStart } from "../analytics/sign-in-intent";
 import { PlatformRatingDialog } from "./platform-rating-dialog";
 import { RatingKeypad } from "./rating-keypad";
 import { useRatingCommand, usePersonalRating } from "./use-personal-rating";
@@ -172,6 +174,8 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   function save(value: number) {
     if (busy) return;
     if (csrfToken === null) {
+      trackEvent("rating_sign_in");
+      markSignInStart("rating");
       assignLocation(ratingIntentStartUrl(game.gameId, game.slug, value));
       return;
     }
@@ -182,6 +186,11 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       {
         onSuccess: (outcome) => {
           if (outcome.type !== "saved") return;
+          trackEvent("rating_saved", {
+            action: persisted === null ? "create" : "update",
+            mode: "direct",
+            platform_count: countBucket(outcome.rating.platforms.length),
+          });
           clearMarker();
           setFeedback({
             tone: "success",
@@ -220,6 +229,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      trackEvent("rating_abandoned", { step: "scale" });
       setOpen(false);
       trigger.current?.focus();
     }
@@ -227,6 +237,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (!panel.current?.contains(target) && !trigger.current?.contains(target)) {
+        trackEvent("rating_abandoned", { step: "scale" });
         setOpen(false);
       }
     }
@@ -253,6 +264,11 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       { type: "delete", csrfToken },
       {
         onSuccess: () => {
+          trackEvent("rating_saved", {
+            action: "delete",
+            mode: persisted.mode === "platforms" ? "platforms" : "direct",
+            platform_count: countBucket(persisted.platforms.length),
+          });
           clearMarker();
           setFeedback({ tone: "success", text: "Puntuación eliminada." });
         },
@@ -262,6 +278,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   }
 
   function editPlatforms() {
+    trackEvent("rating_platforms_open", { has_rating: persisted === null ? "no" : "yes" });
     setFeedback(null);
     close(false);
     setEditingPlatforms(true);
@@ -270,6 +287,14 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   function platformsClosed(saved: PersonalRating | null) {
     setEditingPlatforms(false);
     trigger.current?.focus();
+    if (saved === null) trackEvent("rating_abandoned", { step: "platforms" });
+    else {
+      trackEvent("rating_saved", {
+        action: persisted === null ? "create" : "update",
+        mode: saved.mode === "platforms" ? "platforms" : "direct",
+        platform_count: countBucket(saved.platforms.length),
+      });
+    }
     if (saved !== null) {
       setPlatformsSaved(true);
       setFeedback({
@@ -338,7 +363,13 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
         onClick={() => {
           if (!usable) return;
           if (open) close(false);
-          else setOpen(true);
+          else {
+            trackEvent("rating_open", {
+              authenticated: authenticated ? "yes" : "no",
+              has_rating: persisted === null ? "no" : "yes",
+            });
+            setOpen(true);
+          }
         }}
         ref={trigger}
         type="button"

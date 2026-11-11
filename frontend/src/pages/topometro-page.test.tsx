@@ -63,6 +63,7 @@ function stubRankings(handler: (url: URL) => Response) {
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.pathname === "/api/v1/session") return Response.json({ authenticated: false });
+    if (url.pathname === "/api/v1/web-analytics") return Response.json({});
     if (url.pathname.startsWith("/auth/rating-intent")) return new Response(null, { status: 404 });
     return handler(url);
   });

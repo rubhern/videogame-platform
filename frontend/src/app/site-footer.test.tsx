@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -5,7 +6,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SiteFooter } from "./site-footer";
 
-const renderFooter = () => render(<MemoryRouter><SiteFooter /></MemoryRouter>);
+// Without a configured measurement ID the footer offers no cookie settings (#507).
+const renderFooter = () =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter><SiteFooter /></MemoryRouter>
+    </QueryClientProvider>,
+  );
 
 describe("site footer", () => {
   afterEach(() => vi.useRealTimers());

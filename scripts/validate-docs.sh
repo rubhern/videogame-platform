@@ -46,6 +46,7 @@ required_files=(
   "backend/postman/personal-ratings.postman_collection.json"
   "backend/postman/platform-preferences.postman_collection.json"
   "backend/postman/session.postman_collection.json"
+  "backend/postman/web-analytics.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -273,6 +274,7 @@ json_documents = (
     "backend/postman/personal-ratings.postman_collection.json",
     "backend/postman/platform-preferences.postman_collection.json",
     "backend/postman/session.postman_collection.json",
+    "backend/postman/web-analytics.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -438,6 +440,7 @@ expected_backend_variables = {
     "APPLICATION_API_ADMISSION_ENABLED",
     "APPLICATION_API_MAX_REQUESTS",
     "APPLICATION_API_MAX_WRITES",
+    "APPLICATION_GA4_MEASUREMENT_ID",
     "SPRING_PROFILES_ACTIVE",
     "SERVER_PORT",
     "MANAGEMENT_SERVER_ADDRESS",

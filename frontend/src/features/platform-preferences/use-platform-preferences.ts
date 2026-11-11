@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { preferenceCountBucket, trackEvent } from "../analytics/events";
 import type { SessionState } from "../session/session-api";
 import { sessionQueryOptions, useSession } from "../session/use-session";
 import type { Interests } from "./interests";
@@ -102,6 +103,7 @@ export function useSavePlatformPreferences() {
   >({
     mutationFn: ({ platformIds, csrfToken }) => putMyPlatformPreferences(platformIds, csrfToken),
     onSuccess: (saved) => {
+      trackEvent("my_platforms_saved", { count: preferenceCountBucket(saved.platforms.length) });
       queryClient.setQueryData(PLATFORM_PREFERENCES_QUERY_KEY, saved);
     },
   });

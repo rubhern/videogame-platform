@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { gameDetailsFixture } from "../../test/game-details-fixture";
+import { setEventSink } from "../analytics/events";
 import { gameDetailsQueryKey } from "../game-details/game-details-api";
 import { GameRatingPanel } from "./game-rating-panel";
 import type { PersonalRating } from "./personal-rating-api";
@@ -209,6 +210,43 @@ describe("compact personal rating", () => {
     await user.click(document.body);
     expect(scale()).not.toBeInTheDocument();
     expect(server.commands()).toHaveLength(0);
+  });
+
+  it("reports rating intent, abandonment and saves as bounded analytics events (#507)", async () => {
+    const user = userEvent.setup();
+    const events = vi.fn();
+    setEventSink(events);
+    serve({
+      session: authenticated,
+      read: () => Response.json(rating(7, 1)),
+      put: () => Response.json({ personalRating: rating(9, 2), ratingStatistics: statistics(9, 1) }),
+    });
+    renderPanel();
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/));
+
+    await openScale(user);
+    await user.keyboard("{Escape}");
+    await openScale(user);
+    await user.click(note(9));
+
+    await waitFor(() =>
+      expect(events).toHaveBeenLastCalledWith("rating_saved", {
+        action: "update",
+        mode: "direct",
+        platform_count: "0",
+      }),
+    );
+    expect(events.mock.calls.map(([name]) => name)).toEqual([
+      "rating_open",
+      "rating_abandoned",
+      "rating_open",
+      "rating_saved",
+    ]);
+    expect(events).toHaveBeenCalledWith("rating_open", { authenticated: "yes", has_rating: "yes" });
+    expect(events).toHaveBeenCalledWith("rating_abandoned", { step: "scale" });
+    // No score, game or account identifier ever reaches an event.
+    expect(JSON.stringify(events.mock.calls)).not.toMatch(/30000000|"9"|csrf/);
+    setEventSink(null);
   });
 
   it("keeps the reading disabled when the game is not eligible and explains why in place", async () => {

@@ -1,0 +1,100 @@
+/* Analytics consent (#507): an opaque night plate in the page flow above the header, with a
+   hairline and the ice top edge of an overlay that carries controls. It never floats over
+   content. Both choices share one control style so rejecting is as visible as accepting. */
+@layer components {
+  .consent-banner {
+    border-top: 2px solid var(--color-ice);
+    border-bottom: 1px solid var(--color-line);
+    background: var(--color-raised);
+  }
+
+  .consent-banner-layout {
+    display: grid;
+    gap: 16px;
+    padding-block: 16px;
+  }
+
+  .consent-banner-copy {
+    display: grid;
+    gap: 6px;
+    max-width: 78ch;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .consent-banner-copy p {
+    margin: 0;
+  }
+
+  .consent-banner-copy a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .consent-banner-title {
+    color: var(--color-ink);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .consent-banner-title:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 4px;
+  }
+
+  .consent-banner-current {
+    color: var(--color-ice-light);
+  }
+
+  .consent-banner-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-self: center;
+  }
+
+  .consent-banner-actions .button {
+    min-width: 128px;
+  }
+
+  @media (min-width: 720px) {
+    .consent-banner-layout {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      column-gap: 32px;
+    }
+  }
+
+  /* The footer's cookie settings read as one more Legal link while staying a button. */
+  .site-footer-action {
+    display: inline-block;
+    padding-block: 4px;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .site-footer-action:hover {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .site-footer-action:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  @media (forced-colors: active) {
+    .consent-banner {
+      border-color: CanvasText;
+      background: Canvas;
+    }
+  }
+}

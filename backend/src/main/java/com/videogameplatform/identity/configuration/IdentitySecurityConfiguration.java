@@ -65,16 +65,31 @@ public class IdentitySecurityConfiguration {
     static final String AUTHORIZATION_BASE_URI = "/auth/login";
     static final String SESSION_PATH = "/api/v1/session";
     static final String ADMINISTRATION_PATHS = "/api/v1/admin/**";
-    private static final String CONTENT_SECURITY_POLICY =
-            "default-src 'self'; "
-                    + "base-uri 'self'; "
-                    + "object-src 'none'; "
-                    + "frame-ancestors 'none'; "
-                    + "form-action 'self'; "
-                    + "script-src 'self'; "
-                    + "style-src 'self'; "
-                    + "img-src 'self' data: https://images.igdb.com; "
-                    + "connect-src 'self'";
+    private static final String GOOGLE_ANALYTICS_SCRIPTS = " https://*.googletagmanager.com";
+    private static final String GOOGLE_ANALYTICS_COLLECTION =
+            " https://*.google-analytics.com https://*.analytics.google.com"
+                    + " https://*.googletagmanager.com";
+
+    /**
+     * The document policy. Only a deployment that configures a GA4 measurement ID (#507) admits
+     * Google's tag and collection endpoints; the client still loads them only after consent.
+     */
+    static String contentSecurityPolicy(boolean googleAnalytics) {
+        return "default-src 'self'; "
+                + "base-uri 'self'; "
+                + "object-src 'none'; "
+                + "frame-ancestors 'none'; "
+                + "form-action 'self'; "
+                + "script-src 'self'"
+                + (googleAnalytics ? GOOGLE_ANALYTICS_SCRIPTS : "")
+                + "; "
+                + "style-src 'self'; "
+                + "img-src 'self' data: https://images.igdb.com"
+                + (googleAnalytics ? GOOGLE_ANALYTICS_COLLECTION : "")
+                + "; "
+                + "connect-src 'self'"
+                + (googleAnalytics ? GOOGLE_ANALYTICS_COLLECTION : "");
+    }
 
     @Bean
     SecurityFilterChain applicationSecurity(
@@ -96,8 +111,11 @@ public class IdentitySecurityConfiguration {
             @Value("${identity.oidc.post-logout-redirect-uri}") String postLogoutRedirectUri,
             @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName,
             @Value("${server.servlet.session.cookie.secure:false}") boolean sessionCookieSecure,
-            @Value("${platform.http-security.hsts.enabled:false}") boolean hstsEnabled)
+            @Value("${platform.http-security.hsts.enabled:false}") boolean hstsEnabled,
+            @Value("${api.web-analytics.google-analytics-measurement-id:}")
+                    String analyticsMeasurementId)
             throws Exception {
+        String documentPolicy = contentSecurityPolicy(!analyticsMeasurementId.isBlank());
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
         csrfTokens.setHeaderName("X-CSRF-Token");
         CompositeLogoutHandler endSession =
@@ -185,9 +203,7 @@ public class IdentitySecurityConfiguration {
                 .headers(
                         headers -> {
                             headers.contentSecurityPolicy(
-                                            policy ->
-                                                    policy.policyDirectives(
-                                                            CONTENT_SECURITY_POLICY))
+                                            policy -> policy.policyDirectives(documentPolicy))
                                     .contentTypeOptions(Customizer.withDefaults())
                                     .frameOptions(frame -> frame.deny())
                                     .referrerPolicy(

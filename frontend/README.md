@@ -58,11 +58,25 @@ all public wording. After an approved source change, run
 `node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
 the generated safe React data and registration localization in both realm imports.
 Only public sections enter the application; editorial metadata and the administrative
-template stay in documentation. No cookie banner or privacy-consent control is added.
+template stay in documentation. The only consent control is the optional analytics notice
+below.
 Text approval and build availability do not authorize a public production deployment;
 the [release gates](../docs/development/delivery-lifecycle.md#public-production-gates)
 remain separate. Existing realms require explicit operator reconciliation because
 startup import does not update them; see [product integration](../docs/development/data-protection.md#publication-and-product-integration).
+
+## Product analytics
+
+`src/features/analytics/` owns consent-gated GA4 (#507,
+[ADR-0038](../docs/decisions/0038-measure-product-use-with-consent-gated-ga4.md)). The shell
+reads the public `/web-analytics` configuration; without a measurement ID nothing is shown or
+loaded. With one, the notice asks once and the footer's **Configurar cookies** reopens it. Only
+acceptance loads Google's tag, and only route templates from `route-names.ts` and the typed,
+bounded dictionary in `events.ts` are sent. Features report through `trackEvent`, which does
+nothing without consent; URL-state changes (Destacados's period, the calendar, the explorer's
+filters) are read centrally by `url-signals.ts`, and ranked lists mark their links with
+`data-analytics-list` and `data-analytics-position`. Never add a query string, search term,
+score, game or account identifier, email or free text to an event.
 
 ## Structure and ownership
 

@@ -246,6 +246,9 @@ services:
       APPLICATION_FLYWAY_ENABLED: "false"
       # No calibrated production admission values exist; enabling needs a reviewed change.
       APPLICATION_API_ADMISSION_ENABLED: "false"
+      # Public GA4 measurement ID (#507, ADR-0038); only production measures. Visitors are
+      # asked first, and removing it turns analytics off.
+      APPLICATION_GA4_MEASUREMENT_ID: G-J3Y4VJZ7BN
       CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
       # Management (health, revocation, synchronization) stays on container loopback.
       MANAGEMENT_SERVER_ADDRESS: 127.0.0.1

@@ -102,7 +102,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase, action
   } as CSSProperties;
 
   return (
-    <article aria-labelledby="featured-lead-title" className="featured-hero-section" style={style}>
+    <article aria-labelledby="featured-lead-title" className="featured-hero-section" data-analytics-list="featured_hero" data-analytics-position="1" style={style}>
       <div className="featured-hero">
         {/* The game's own light washes the stage; its art runs up behind the header on wide
             screens and sits above the copy on narrow ones. */}

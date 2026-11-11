@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
+import { AnalyticsBoundary } from "../features/analytics/analytics-boundary";
 import { ReleasesNavigation } from "./releases-navigation";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
 import { useMediaQuery } from "../shared/browser/use-media-query";
@@ -45,6 +46,7 @@ export function AppShell() {
       <a className="skip-link button button-primary" href="#main-content">
         Saltar al contenido
       </a>
+      <AnalyticsBoundary />
       <header className="site-header">
         <div className="header-layout page-container">
           <Link className="brand" to="/" aria-label="Gameómetro · Inicio">
