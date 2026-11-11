@@ -713,8 +713,8 @@ Post-MVP (#507), when the deployment measures analytics, the **Legal** column cl
 
 ## Analytics consent notice
 
-Post-MVP ([#507](https://github.com/rubhern/videogame-platform/issues/507); implemented, awaiting
-owner review), a deployment that measures analytics opens every page with one notice until the
+Post-MVP ([#507](https://github.com/rubhern/videogame-platform/issues/507); owner-approved
+2026-11-11), a deployment that measures analytics opens every page with one notice until the
 visitor chooses. It sits in the page flow above the header, never over content, as an opaque
 `raised` plate with a hairline floor and the ice top edge of an overlay that carries controls.
 Its title, **¿Nos ayudas a mejorar Gameómetro?**, is not a heading. One short paragraph in

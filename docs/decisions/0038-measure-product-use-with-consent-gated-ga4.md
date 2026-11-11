@@ -1,6 +1,6 @@
 # ADR-0038: Measure product use with consent-gated Google Analytics 4
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-09
 - **Owner:** Ruben Hernandez
 - **Scope:** Behavioural product analytics in the browser: the first third-party script the SPA

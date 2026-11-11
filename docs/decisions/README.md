@@ -11,6 +11,7 @@ historical decision.
 
 ## Accepted
 
+- [ADR-0038: Measure product use with consent-gated Google Analytics 4](0038-measure-product-use-with-consent-gated-ga4.md) — #507; GA4 only after an opt-in notice (Consent Mode basic), measurement ID from runtime configuration through `UC-022`, route templates and a closed event dictionary only; accepted 2026-11-11.
 - [ADR-0037: Align local and private dev with production configuration](0037-align-local-and-private-dev-with-production.md) — product release `1.0.0`; local and private `dev` share production's product-facing configuration except infrastructure, a weekly-only synchronization, production-only backups and lifecycle/verification.
 - [ADR-0036: Use protected Actions for private-production recovery](0036-use-protected-actions-for-production-recovery.md) — #467; explicit owner approval for an environment-protected recovery-key copy on ephemeral GitHub runners; original WSL copy retained.
 
@@ -51,7 +52,6 @@ historical decision.
 
 ## Proposed
 
-- [ADR-0038: Measure product use with consent-gated Google Analytics 4](0038-measure-product-use-with-consent-gated-ga4.md) — #507; GA4 only after an opt-in notice (Consent Mode basic), measurement ID from runtime configuration through `UC-022`, route templates and a closed event dictionary only; awaiting owner review.
 - [ADR-0032: Checkpoint historical synchronization by calendar month](0032-checkpoint-historical-synchronization-by-month.md) — #246, owner review pending.
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.
