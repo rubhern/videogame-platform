@@ -104,6 +104,7 @@ function stubReleases(
     if (request.url.includes("/api/v1/session")) {
       return Response.json({ authenticated: false });
     }
+    if (request.url.includes("/api/v1/web-analytics")) return Response.json({});
     if (request.url.includes("/auth/rating-intent")) {
       return new Response(null, { status: 404 });
     }
@@ -142,6 +143,7 @@ describe("release explorer page", () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
       const request = input instanceof Request ? input : new Request(input);
       if (new URL(request.url).pathname === "/api/v1/session") return Response.json({ authenticated: false });
+      if (new URL(request.url).pathname === "/api/v1/web-analytics") return Response.json({});
       const item = { ...pragmata, genres: [{ genreId: "adventure", name: "Aventura" }], summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }] };
       return Response.json(releasePage({ items: [item] }));
     });

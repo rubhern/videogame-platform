@@ -532,6 +532,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/web-analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the deployment's product analytics configuration
+         * @description Post-MVP (#507, `UC-022`): tells the client whether this deployment measures product
+         *     analytics and, if so, with which Google Analytics 4 measurement ID. Without
+         *     `googleAnalytics` the deployment measures nothing, and the client neither asks for
+         *     consent nor loads any analytics script. The representation is identical for every
+         *     visitor and session, comes from deployment configuration only, and never reports a
+         *     visitor's consent, which stays in their browser.
+         */
+        get: operations["getWebAnalyticsConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/rating-insights": {
         parameters: {
             query?: never;
@@ -1794,6 +1819,13 @@ export interface components {
          * @enum {string}
          */
         SessionCapability: "catalogue_administration";
+        WebAnalyticsConfiguration: {
+            googleAnalytics?: components["schemas"]["GoogleAnalyticsConfiguration"];
+        };
+        GoogleAnalyticsConfiguration: {
+            /** @description The public Google Analytics 4 web stream measurement ID. */
+            measurementId: string;
+        };
         SessionState: components["schemas"]["AnonymousSession"] | components["schemas"]["AuthenticatedSession"];
         PersonalRating: {
             gameId: components["schemas"]["GameId"];
@@ -3832,6 +3864,32 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["CsrfValidationFailed"];
+            406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getWebAnalyticsConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deployment's analytics configuration. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAnalyticsConfiguration"];
+                };
+            };
             406: components["responses"]["NotAcceptable"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];

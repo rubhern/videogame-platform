@@ -708,6 +708,24 @@ shows the identity and the closing lines alone until then. **Sobre Gameómetro**
 `/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
 not found.
 
+Post-MVP (#507), when the deployment measures analytics, the **Legal** column closes with
+**Configurar cookies**: a button in the links' own voice that reopens the consent notice.
+
+## Analytics consent notice
+
+Post-MVP ([#507](https://github.com/rubhern/videogame-platform/issues/507); implemented, awaiting
+owner review), a deployment that measures analytics opens every page with one notice until the
+visitor chooses. It sits in the page flow above the header, never over content, as an opaque
+`raised` plate with a hairline floor and the ice top edge of an overlay that carries controls.
+Its title, **¿Nos ayudas a mejorar Gameómetro?**, is not a heading. One short paragraph in
+`muted` says what is measured and what is not, and links **Más información** to `/cookies`.
+**Rechazar** and **Aceptar** follow in that order as identical night controls of equal size:
+neither is the filled primary action, and nothing is preselected. They sit beside the copy from
+720px and share one row below it. A choice removes the notice and moves focus to the main
+content. Reopened from the footer, the notice states the current choice (**Ahora mismo:
+aceptadas/rechazadas.**), scrolls into view and takes focus on its title. It never blocks
+reading or navigation, never animates and returns to system colours in forced colours.
+
 ## Home
 
 Post-MVP (#382, implemented; awaiting owner review), `/` is Gameómetro's home: a front page that

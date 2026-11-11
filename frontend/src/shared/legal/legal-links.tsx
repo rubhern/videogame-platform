@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 
@@ -7,8 +8,11 @@ const documents: ReadonlyArray<readonly [DocumentKey, string]> = [
   ["aviso-legal", "Aviso legal"], ["privacidad", "Privacidad"], ["cookies", "Cookies"], ["condiciones", "Condiciones de uso"],
 ];
 
-/** Shared footer destinations, available in every application build. */
-export function LegalLinks() {
+/**
+ * Shared footer destinations, available in every application build. `legalActions` closes the
+ * Legal column with list items the shell owns, such as the cookie settings (#507).
+ */
+export function LegalLinks({ legalActions }: { legalActions?: ReactNode }) {
   return <div className="site-footer-links">
     <nav className="site-footer-column" aria-labelledby="site-footer-product">
       <p className="site-footer-heading" id="site-footer-product">Gameómetro</p>
@@ -21,6 +25,7 @@ export function LegalLinks() {
       <p className="site-footer-heading" id="site-footer-legal">Legal</p>
       <ul>
         {documents.map(([key, label]) => <li key={key}><Link to={`/${key}`}>{label}</Link></li>)}
+        {legalActions}
       </ul>
     </nav>
   </div>;

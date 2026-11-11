@@ -345,6 +345,44 @@ the current active SQL total for inventory, never counter subtraction or a rolli
 window for a lifetime milestone. The [durable follow-up proposal](observability.md#proposed-durable-notification-follow-up)
 owns the remaining business-delivery semantics. No milestone notification is enabled.
 
+## Product analytics (GA4)
+
+Consent-gated Google Analytics 4 (#507,
+[ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md)) is off in every
+deployment until production configures a measurement ID. The application owns what it sends;
+the property's own settings are owner operations that must match the decision before the ID is
+configured:
+
+1. Create one GA4 property for Gameómetro (time zone Europe/Madrid, currency EUR) with a
+   single **Web** data stream for `https://gameometro.com`. Its **Measurement ID**
+   (`G-…`) is public, not a secret.
+2. In the data stream, turn **Enhanced measurement** off entirely. The application sends its
+   own page views from route templates; enhanced measurement would add raw URLs, site search
+   terms and outbound links.
+3. **Data retention**: event data 14 months. **Data collection**: Google signals off.
+   **Ads personalization**: off for every region. **Account data sharing settings**: all off.
+4. In the account details, review and accept the **Data Processing Terms** and record the
+   controller's contact. Confirm Google LLC's active
+   [Data Privacy Framework](https://www.dataprivacyframework.gov/) certification.
+5. Define the owner's address as **internal traffic** and set the *Internal Traffic* data
+   filter to **Active**.
+6. Register the event-scoped custom dimensions the application sends: `route`,
+   `previous_route`, `authenticated`, `has_rating`, `action`, `mode`, `platform_count`,
+   `step`, `count`, `state`, `period`, `direction`, `offset`, `list`, `position`,
+   `filter`, `results` and `intent`. The
+   [event dictionary](../../frontend/src/features/analytics/events.ts) owns their values.
+7. Activate with a reviewed change that sets `APPLICATION_GA4_MEASUREMENT_ID` on the
+   production `application` service and in the production runtime contract test, then
+   upgrade. A malformed ID refuses startup. Check the public read
+   (`/api/v1/web-analytics`), accept the notice in a clean browser profile and watch
+   **Realtime**; page locations must show route templates only.
+
+To stop measuring, remove the ID the same way: the notice, the footer control and every Google
+request disappear, and the document policy closes again. Deleting collected data is a property
+operation (data deletion request or property deletion). Review Q1–Q4 of the
+[evaluation](../research/product-analytics.md#validation-and-stop-criteria) 6–8 weeks after
+activation.
+
 ## Log aggregation and search
 
 Owner: [Log aggregation and exploration](../../deploy/private-dev/README.md#log-aggregation-and-exploration)

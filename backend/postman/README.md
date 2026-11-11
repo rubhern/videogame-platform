@@ -25,6 +25,7 @@ backend API changes, update its tracked requests and assertions in the same chan
 | `platform-preferences` | The public selectable platforms with their validator, then, with a signed-in session, the user's own never-stored preferred platforms: read, whole-set replacement with de-duplication, rejection of an unknown platform, a client-supplied owner and a missing CSRF token without any change, and the clearing empty set; it ends with the account configured and no platform |
 | `catalogue-administration` | Operator-only synchronization status with bounded recent runs, durable coverage of a year as consecutive periods, never-stored responses, stable range and query rejections, and the bounded synchronization request with its CSRF and interval rejections; its last synchronization request asks for a one-day run, which is `SYNCHRONIZATION_DISABLED` without provider credentials; run stop and abandonment with their CSRF rejection and stable not-found answers, naming a run history never holds so no real run is touched; needs an operator session |
 | `session` | Anonymous session state, anonymous rejection of catalogue administration, CSRF-protected logout rejection and the inert logout-completion route; successful OIDC login and Keycloak logout are covered by the real-browser identity gate instead |
+| `web-analytics` | The public, non-personal analytics configuration (UC-022): a GA4 measurement ID or, as in local and private `dev`, an empty object; public cacheable headers and no cookie |
 | `actuator` | Discovery, health groups, build info, metrics, the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome, and `sessionrevocation` with a synthetic `UserId` that has no session plus its malformed-identifier rejection |
 | `igdb-exploration` | Development-only IGDB queries; uses `igdb.postman_environment.json`, private provider credentials and the [quick guide](igdb-exploration.md), independently of the backend and its local environment |
 
@@ -53,7 +54,7 @@ values to these tracked files.
 
 2. Import the environment and the collections, select the
    **VideoGame Platform - Local** environment, and run the catalogue, featured-releases,
-   game-rankings, platform-games, upcoming-highlights, game-details, actuator, and (while signed out) session collections.
+   game-rankings, platform-games, upcoming-highlights, game-details, web-analytics, actuator, and (while signed out) session collections.
 
 ## Authenticated personal-rating run
 

@@ -226,7 +226,11 @@ not affect readiness. The datasource is replaceable with the rest of telemetry.
   platforms never adds votes.
 - Unique visitors, sessions, registered users, conversion, retention, most visited
   Games and navigation cannot be derived from this instrumentation. No view-event
-  ledger or identity analytics is added. The newly integrated localization pipeline
+  ledger or identity analytics is added to it. Post-MVP (#507), behavioural product
+  analytics is a separate, consent-gated GA4 measurement in the browser
+  ([ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md)); its
+  undercounted, consent-dependent figures never stand in for operational evidence, and
+  this telemetry never feeds it. The newly integrated localization pipeline
   has bounded execution metrics documented under [Catalogue localization](#catalogue-localization).
 
 Missing data is not zero or proof of health. The application exports cumulative OTLP

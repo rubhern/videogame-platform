@@ -437,6 +437,18 @@ not chosen yet is offered the choice once per document on the way into release d
 after authentication; saving or skipping records the choice, and rating and personal
 returns are never interrupted.
 
+## Web analytics
+
+| ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
+|----------|-------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `UC-022` | Read the deployment's analytics configuration | Visitor | Post-MVP (#507): return the public GA4 measurement ID from deployment configuration, or nothing when the deployment measures nothing; identical for every visitor and session, publicly cacheable, never a visitor's consent, a database read or a provider call |
+
+Post-MVP (#507, implemented; awaiting owner review): the browser alone owns the visitor's
+analytics choice. It asks only when the deployment configures an ID, loads Google Analytics only
+after acceptance and reports route templates and a closed event dictionary;
+[ADR-0038](../../decisions/0038-measure-product-use-with-consent-gated-ga4.md) owns the decision
+and the [data-protection record](../../development/data-protection.md) the processing.
+
 ## Identity and ratings
 
 | ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |

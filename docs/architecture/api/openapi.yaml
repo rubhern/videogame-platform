@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.10.0
+  version: 5.11.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -54,6 +54,10 @@ tags:
       an explicit platform filter. Public reads never vary on them.
   - name: Session
     description: Minimal BFF session state without identity or provider tokens.
+  - name: Web analytics
+    description: |
+      Public, non-personal configuration the client needs to offer consent-gated product
+      analytics. It never reveals whether a visitor consented.
   - name: Catalogue administration
     description: |
       Catalogue acquisition for sessions holding the catalogue operator authority: reads of
@@ -1775,6 +1779,37 @@ paths:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
             Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /web-analytics:
+    get:
+      tags: [Web analytics]
+      operationId: getWebAnalyticsConfiguration
+      summary: Read the deployment's product analytics configuration
+      description: |
+        Post-MVP (#507, `UC-022`): tells the client whether this deployment measures product
+        analytics and, if so, with which Google Analytics 4 measurement ID. Without
+        `googleAnalytics` the deployment measures nothing, and the client neither asks for
+        consent nor loads any analytics script. The representation is identical for every
+        visitor and session, comes from deployment configuration only, and never reports a
+        visitor's consent, which stays in their browser.
+      security: []
+      responses:
+        '200':
+          description: The deployment's analytics configuration.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebAnalyticsConfiguration' }
+              examples:
+                enabled:
+                  value: { googleAnalytics: { measurementId: G-ABC123XYZ9 } }
+                disabled:
+                  value: {}
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -4255,6 +4290,21 @@ components:
       description: |
         `catalogue_administration` reads catalogue synchronization status and coverage,
         requests a bounded synchronization, and stops or abandons a run.
+    WebAnalyticsConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        googleAnalytics:
+          $ref: '#/components/schemas/GoogleAnalyticsConfiguration'
+    GoogleAnalyticsConfiguration:
+      type: object
+      additionalProperties: false
+      required: [measurementId]
+      properties:
+        measurementId:
+          type: string
+          pattern: '^G-[A-Z0-9]{4,20}$'
+          description: The public Google Analytics 4 web stream measurement ID.
     SessionState:
       oneOf:
         - $ref: '#/components/schemas/AnonymousSession'
