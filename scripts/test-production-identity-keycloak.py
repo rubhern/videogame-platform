@@ -58,6 +58,8 @@ INVALID_CREDENTIALS = "Email o contraseña incorrectos."
 DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
 DECLARATION_LABEL = "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro."
 VERIFY_TITLE = "Verifica tu email"
+ACTIVATION_INSTRUCTION = "Último paso para activar tu cuenta: crea la contraseña con la que iniciarás sesión."
+RECOVERY_INSTRUCTION = "Escribe tu nueva contraseña y confírmala."
 RECOVERY_SENT = "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña."
 # product_roles appears only for an account holding a BFF client role (#247).
 ID_TOKEN_CLAIMS = {"exp", "iat", "auth_time", "jti", "iss", "aud", "sub", "typ", "azp", "nonce", "sid", "at_hash", "product_roles", "gameometro_remember_me"}
@@ -304,7 +306,9 @@ def choose_password(browser: Browser, page: Response, email: str, password: str)
     assert user is not None
     stored_before = admin("GET", f"{ADMIN_REALM}/users/{user['id']}/credentials")
     for rejected, message in (
-        ("Corta-2026!", "La contraseña debe tener al menos 12 caracteres."),
+        ("Corta-7", "La contraseña debe tener al menos 8 caracteres."),
+        # The denylist compares case-insensitively.
+        ("PassWord123", "Esa contraseña es demasiado habitual."),
         ("x" * 129, "La contraseña puede tener como máximo 128 caracteres."),
         (email, "La contraseña no puede"),
         (f"Mi-{email}-2026", "La contraseña no puede contener tu email."),
@@ -320,6 +324,13 @@ def choose_password(browser: Browser, page: Response, email: str, password: str)
 def synthetic_password() -> str:
     """A fresh password that satisfies the realm policy; nothing reusable is committed."""
     password = "Gm-" + secrets.token_urlsafe(18)
+    remember(password)
+    return password
+
+
+def shortest_unicode_password() -> str:
+    """The policy minimum, eight characters, including non-ASCII letters."""
+    password = "Ñ" + secrets.token_urlsafe(6)[:6] + "é"
     remember(password)
     return password
 
@@ -438,9 +449,11 @@ other_device = Browser()
 confirmation = other_device.open(verification_link)
 assert f"Confirma que {player} es tu email." in page_text(confirmation.body), page_text(confirmation.body)[:300]
 password_page = other_device.open(page_link(confirmation.body, "/login-actions/action-token"))
+assert ACTIVATION_INSTRUCTION in page_text(password_page.body), page_text(password_page.body)[:300]
+assert RECOVERY_INSTRUCTION not in page_text(password_page.body), "first-time activation reads as recovery"
 player_password = synthetic_password()
 done = choose_password(other_device, password_page, player, player_password)
-assert "Tu cuenta se ha actualizado." in page_text(done.body), page_text(done.body)[:300]
+assert "Tu cuenta está lista. Ya puedes iniciar sesión." in page_text(done.body), page_text(done.body)[:300]
 verified = account_details(player)
 assert verified["emailVerified"] is True and verified.get("requiredActions", []) == []
 assert credentials(verified["id"]) == ["password"]
@@ -617,8 +630,9 @@ assert RECOVERY_SENT in page_text(answer.body)
 assert reset_mail["Subject"] == "Crea una nueva contraseña de Gameómetro"
 assert mailpit("/api/v1/search?" + urllib.parse.urlencode({"query": f'to:"{unknown}"'}))["messages_count"] == 0
 password_page = recovering.open(action_link(reset_mail))
-assert "Escribe tu nueva contraseña y confírmala." in page_text(password_page.body)
-recovered_password = synthetic_password()
+assert RECOVERY_INSTRUCTION in page_text(password_page.body)
+assert ACTIVATION_INSTRUCTION not in page_text(password_page.body), "recovery reads as activation"
+recovered_password = shortest_unicode_password()
 finished = choose_password(recovering, password_page, player, recovered_password)
 assert "code" in callback(finished), finished.location or page_text(finished.body)[:300]
 remember_code(callback(finished)["code"])

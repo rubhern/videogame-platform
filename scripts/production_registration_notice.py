@@ -88,7 +88,7 @@ def localizations(realm):
 def realm_digest(realm):
     state = realm.representation()
     state.pop('localizationTexts', None)  # Independently compared in full, across all locales.
-    for key in SESSION_SETTINGS:  # The existing session actor independently verifies these.
+    for key in (*SESSION_SETTINGS, 'passwordPolicy'):  # The session and password actor independently verifies these.
         state.pop(key, None)
     return digest(json.dumps(state, sort_keys=True))
 

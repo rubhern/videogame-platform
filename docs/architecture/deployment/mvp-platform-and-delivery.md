@@ -574,6 +574,25 @@ local harness:
 - Startup import applies only when the realm is absent. A later policy change needs a
   reviewed apply step against the live realm, never a re-import over accounts.
 
+**Password policy (#473, owner-approved 2026-11-11; prepared in source, not deployed):**
+8 to 128 characters, never the email or containing it, no composition rules, and common
+or breached passwords refused through Keycloak's native `passwordBlacklist` policy. Both
+realm imports carry the same value. The denylist is the NCSC top-100k breached passwords,
+from SecLists (MIT) at a pinned commit, reduced to the lowercase entries the length
+policy would accept. [`build-password-denylist.py`](../../../scripts/build-password-denylist.py)
+owns its source, digest and regeneration. The shared Keycloak image ships it in
+Keycloak's default denylist folder, because every runtime is read-only. The image must
+therefore be deployed with or before the policy that names it. Keycloak 26.7.5 refuses
+to start at all while a realm names a missing list (verified with the stock image).
+Before returning to an image without the list, restore the realm's snapshotted policy
+through the running Keycloak, or restore the paired identity database. Private-dev and local
+realms receive the policy through the snapshotted identity alignment. Production
+receives it only through the private upgrade's reviewed realm delta: the session actor
+applies exactly the approved value with its snapshot and restore, and the upgrade then
+verifies it. Lowering the minimum leaves existing passwords valid; the policy applies at
+the next password choice. Both password screens state the minimum, and the theme words
+the denylist refusal.
+
 **Remember Me prepared in source (#374), not deployed:** the same native opt-in
 flow, mapper and BFF policy serve local, private-dev and prepared production.
 [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)

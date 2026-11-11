@@ -98,6 +98,9 @@ SESSION_SETTINGS = (
     "rememberMe", "ssoSessionIdleTimeout", "ssoSessionMaxLifespan",
     "ssoSessionIdleTimeoutRememberMe", "ssoSessionMaxLifespanRememberMe",
 )
+# Session-only mode also carries the shared password policy (#473); older session snapshots
+# hold only the session settings and still restore.
+SHARED_SETTINGS = (*SESSION_SETTINGS, "passwordPolicy")
 PROFILE_ATTRIBUTES = ("username", "email")
 DISABLED_REQUIRED_ACTIONS = ("delete_account", "UPDATE_EMAIL")
 BUILT_IN_REGISTRATION_FLOW = "registration"
@@ -424,16 +427,21 @@ def require_remember_provider(realm: Realm) -> None:
 
 
 def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argparse.Namespace) -> int:
-    """Reconcile only shared session bounds and the BFF mapper, preserving local identity policy."""
-    settings = {name: desired["settings"][name] for name in SESSION_SETTINGS}
+    """Reconcile only shared session bounds, the password policy and the BFF mapper, preserving local identity policy."""
+    settings = {name: desired["settings"][name] for name in SHARED_SETTINGS}
     current = realm.representation()
     mapper = realm.remember_mapper()
     if arguments.restore:
         saved = json.loads(arguments.restore.read_text(encoding="utf-8"))
         if (saved.get("version") != SNAPSHOT_VERSION or saved.get("scope") != "sessions"
-                or saved.get("realm") != realm.name or set(saved.get("settings", {})) != set(SESSION_SETTINGS)):
+                or saved.get("realm") != realm.name
+                or set(saved.get("settings", {})) not in (set(SESSION_SETTINGS), set(SHARED_SETTINGS))):
             raise ProvisioningError("The snapshot is not a session-policy snapshot for this realm")
-        realm.send("PUT", "", saved["settings"], {204})
+        restored = dict(saved["settings"])
+        # Keycloak ignores null fields; an empty policy is how an absent password policy is restored.
+        if "passwordPolicy" in restored and restored["passwordPolicy"] is None:
+            restored["passwordPolicy"] = ""
+        realm.send("PUT", "", restored, {204})
         realm.set_remember_mapper(saved["rememberMeMapper"])
         print(f"Realm {realm.name} session policy restored from {arguments.restore.name}.")
         return 0
@@ -451,7 +459,7 @@ def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argp
     path = write_snapshot(arguments.snapshot_dir, {
         "version": SNAPSHOT_VERSION, "scope": "sessions", "realm": realm.name,
         "takenAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
-        "settings": {name: current.get(name) for name in SESSION_SETTINGS},
+        "settings": {name: current.get(name) for name in SHARED_SETTINGS},
         "rememberMeMapper": mapper,
     })
     print(f"Snapshot written to {path}.")
@@ -532,7 +540,7 @@ def main() -> int:
     mode.add_argument("--list-unverified", action="store_true", help="Print unverified accounts with a deliverable address")
     mode.add_argument("--restore", type=pathlib.Path, help="Revert to a snapshot written by an earlier apply")
     parser.add_argument("--realm", default=REALM, help="Realm name; another realm is permitted only with --origin --sessions-only")
-    parser.add_argument("--sessions-only", action="store_true", help="Reconcile only shared session settings and the native BFF mapper; keep environment-specific identity settings")
+    parser.add_argument("--sessions-only", action="store_true", help="Reconcile only shared session settings, the password policy and the native BFF mapper; keep environment-specific identity settings")
     parser.add_argument("--snapshot-dir", type=pathlib.Path, help="Protected directory for the pre-apply snapshot")
     arguments = parser.parse_args()
     if not arguments.realm or (arguments.realm != REALM and not (arguments.origin and arguments.sessions_only)):

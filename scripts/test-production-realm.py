@@ -102,7 +102,8 @@ for name, value in expected_policy.items():
 
 policies = dict(re.findall(r"([A-Za-z]+)(?:\(([^)]*)\))?", realm["passwordPolicy"]))
 policies.pop("and", None)
-assert policies == {"length": "12", "maxLength": "128", "notEmail": "", "notContainsUsername": ""}, policies
+assert policies == {"length": "8", "maxLength": "128", "notEmail": "", "notContainsUsername": "",
+                    "passwordBlacklist": "gameometro-common-passwords.txt"}, policies
 
 profile = json.loads(
     realm["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0]

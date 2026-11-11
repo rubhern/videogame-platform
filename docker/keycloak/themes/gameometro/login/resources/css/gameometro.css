@@ -536,6 +536,14 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
   text-align: left;
 }
 
+/* Owner decision (#474): neither a first password nor a recovery offers "sign out other
+   devices". The native option is unchecked by default, so hiding it keeps that behaviour;
+   the group goes too so no empty gap remains. */
+#kc-passwd-update-form #kc-form-options,
+#kc-passwd-update-form .pf-v5-c-form__group:has(> #kc-form-options) {
+  display: none;
+}
+
 #kc-form-options a,
 #kc-info-wrapper a,
 #kc-form-options .pf-v5-c-button.pf-m-link {

@@ -325,7 +325,7 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 | D10 | Manual administrative procedures for access, export, rectification and deletion; no portal | [Operational procedure](../development/data-protection.md#rights-request-procedure), using the existing tools |
 | D11 | Retain current IGDB scores without an advance switch; public rights uncertainty accepted (revised 2026-10-17) | Not a finding of lawful use or approval of commercial use |
 | D12 | Public realm `gameometro` | The full OIDC issuer (identity HTTPS origin plus `/realms/gameometro`) is fixed before the first real account and never changes, because every rating is keyed by a `UserId` derived from it (R12) |
-| D13 | Passwords of 12 to 128 characters, no artificial composition rules | Realm password policy (7.1) |
+| D13 | Passwords of 8 to 128 characters, no artificial composition rules, common and breached passwords refused (revised 2026-11-11, #473; was 12 to 128 without a list) | Realm password policy and shipped denylist; the [production realm contract](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract) owns the current policy |
 | D14 | Per-account temporary lockout after five failures, from one minute up to 15 | Realm brute-force policy (7.1) |
 | D15 | Keycloak sessions: 30 minutes idle, 8 hours maximum | The BFF has an 8-hour absolute limit from the same authentication (7.2) |
 | D16 | Email changes stay a manual administrative procedure | Keycloak's update-email flow is not enabled or extended |
@@ -417,7 +417,7 @@ Values are as reviewed here; the import is authoritative.
 | Isolation | Own import directory holding only realm `gameometro`; no users; only runtime placeholders; nothing local or private-dev mounts it, and only the private-dev identity command reads it as its policy source | The instance holds only `master` and `gameometro`, with no accounts. A distinct realm makes private-dev scripts and the local user import fail closed against production, and fixes the issuer path |
 | Registration | Email is the username; the form shows only the email and one checkbox, "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro." | Without the checkbox nothing is created; submitted names, birth date and password are discarded. With verification on, Keycloak 26.7 creates the account without a password and asks for it only after the emailed link proves ownership, which blocks pre-registration takeover |
 | Verification | Required before any sign-in | A new account has no password to sign in with; an unverified account that has one stops at the verification page and receives no code. The link works once from any device; on the registering device it resumes the original authorization to the BFF callback |
-| Password | 12 to 128 characters, neither the email nor containing it, no composition rules; Keycloak's default Argon2 hashing | Applies to the first password and to recovery; every rejection leaves the stored credential unchanged |
+| Password | 12 to 128 characters, neither the email nor containing it, no composition rules; Keycloak's default Argon2 hashing. Superseded by the D13 revision (#473) | Applies to the first password and to recovery; every rejection leaves the stored credential unchanged |
 | Brute force | Per-account temporary lockout after five failures: one minute, growing to at most 15, failures forgotten after 12 hours, never permanent | The lockout reads exactly like a wrong password, other accounts keep signing in, and it expires by itself. Per-IP limits belong to the abuse phase |
 | Sessions and tokens | SSO idle 30 min and maximum 8 h, no remember-me; offline sessions bounded the same and unobtainable by the BFF; 5 min access token, 60 s code, 5 min action links (#273); single-use rotated refresh tokens | A replayed code is refused and revokes what it issued |
 | Client | Confidential BFF, code flow with S256 PKCE only, exact HTTPS callback and post-logout URI built from the public host, no web origins, no front-channel logout, `basic` scope only | ID token has only protocol claims (no email, name or username) and userinfo only `sub`. Refused: six redirect variants (HTTP, other host, suffix, traversal, query, subdomain), missing or `plain` PKCE, implicit and hybrid, profile/email/offline scopes, password and client-credential grants, a wrong secret |
@@ -442,7 +442,7 @@ the account was created; Keycloak's separate terms page would store a timestamp 
 cost of a second step. Registration answers "El email ya existe" for a taken address
 (R17). A disabled account sees Keycloak's formal "La cuenta está
 desactivada, contacte con el administrador", pending the public contact (D1). No
-breached-password list (needs a maintained list file), no per-IP throttling, no purge
+breached-password list (needs a maintained list file; added by the D13 revision), no per-IP throttling, no purge
 of never-verified accounts. The SMTP password is stored in the Keycloak database and
 so in its backups; keeping it in a Keycloak vault, or adding bounded user-event
 metrics, needs build options in the production image (#275).

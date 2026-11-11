@@ -38,8 +38,8 @@ for excluded in ("realm", "sslRequired", "smtpServer", "clients", "registrationF
     assert excluded not in identity.MANAGED_REALM_SETTINGS, excluded
 # Local and private/production session semantics come from the same reviewed values.
 local = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text())
-assert {name: local[name] for name in identity.SESSION_SETTINGS} == {
-    name: production[name] for name in identity.SESSION_SETTINGS}
+assert {name: local[name] for name in identity.SHARED_SETTINGS} == {
+    name: production[name] for name in identity.SHARED_SETTINGS}
 assert next(mapper for client in local["clients"] if client["clientId"] == "videogame-platform-bff"
     for mapper in client["protocolMappers"] if mapper["protocolMapper"] == "gameometro-remember-me") == desired["rememberMeMapper"]
 # Fresh local and private-dev realms start with the full reviewed production policy, the same one

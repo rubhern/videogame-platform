@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Check the hosted Gameómetro theme: its approved copy and the brand identity's static limits."""
 
+import importlib.machinery
+import importlib.util
+import json
 import pathlib
 import re
 import unittest
@@ -48,6 +51,10 @@ class KeycloakThemeTest(unittest.TestCase):
         self.assertNotIn("infinite", self.css)
         self.assertNotIn("background-attachment: fixed", self.css)
 
+    def test_the_password_step_offers_no_sign_out_of_other_devices(self):
+        # Owner decision (#474): style-only, so the inherited template and its unchecked default stay.
+        self.assertIn("#kc-passwd-update-form .pf-v5-c-form__group:has(> #kc-form-options) {\n  display: none;", self.css)
+
     def test_retired_visual_language_stays_out(self):
         for retired in ("backdrop-filter", "Instrument Serif", "IBM Plex Mono", "aurora", "night-hero"):
             with self.subTest(retired=retired):
@@ -68,6 +75,52 @@ class KeycloakThemeTest(unittest.TestCase):
         for source in copied:
             with self.subTest(source=source):
                 self.assertTrue((ROOT / source).is_file())
+
+    def test_the_shared_password_step_separates_activation_from_recovery(self):
+        # Keycloak renders one password template for both journeys and, natively, picks
+        # updatePasswordMessage while the account holds UPDATE_PASSWORD (first-time activation)
+        # and resetPasswordMessage otherwise (recovery). Everything shared must fit both (#474).
+        bundle = messages()
+        for shared in ("updatePasswordTitle", "passwordNew", "accountUpdatedTitle", "accountUpdatedMessage"):
+            with self.subTest(key=shared):
+                self.assertNotRegex(bundle[shared].lower(), r"nueva|recupera|actualiza")
+        self.assertIn("activar tu cuenta", bundle["updatePasswordMessage"])
+        self.assertNotIn("nueva", bundle["updatePasswordMessage"])
+        self.assertIn("nueva contraseña", bundle["resetPasswordMessage"])
+        self.assertNotIn("activar", bundle["resetPasswordMessage"])
+
+
+class PasswordPolicyTest(unittest.TestCase):
+    """#473: one approved policy, its shipped denylist and the copy that announces it."""
+
+    def setUp(self):
+        loader = importlib.machinery.SourceFileLoader("denylist", str(ROOT / "scripts/build-password-denylist.py"))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        self.denylist = importlib.util.module_from_spec(spec)
+        loader.exec_module(self.denylist)
+
+    def test_both_realms_apply_the_same_policy_naming_the_shipped_denylist(self):
+        for realm in ("docker/keycloak/import/videogame-platform-realm.json",
+                      "deploy/public-production/keycloak/import/gameometro-realm.json"):
+            with self.subTest(realm=realm):
+                policy = json.loads((ROOT / realm).read_text(encoding="utf-8"))["passwordPolicy"]
+                self.assertEqual(policy, f"length({self.denylist.MINIMUM_LENGTH}) and maxLength({self.denylist.MAXIMUM_LENGTH})"
+                                         f" and notEmail and notContainsUsername and passwordBlacklist({self.denylist.NAME})")
+        self.assertIn(f"docker/keycloak/password-blacklists/{self.denylist.NAME} /opt/keycloak/data/password-blacklists/",
+                      DOCKERFILE.read_text(encoding="utf-8"))
+        self.assertIn(f"!/docker/keycloak/password-blacklists/{self.denylist.NAME}",
+                      (ROOT / ".dockerignore").read_text(encoding="utf-8"))
+
+    def test_the_committed_denylist_is_the_reviewed_output(self):
+        self.assertEqual(self.denylist.check(self.denylist.OUTPUT.read_bytes()), [])
+
+    def test_the_copy_announces_the_enforced_minimum(self):
+        bundle = messages()
+        requirement = f"Usa al menos {self.denylist.MINIMUM_LENGTH} caracteres y evita contraseñas habituales."
+        for key in ("updatePasswordMessage", "resetPasswordMessage"):
+            with self.subTest(key=key):
+                self.assertTrue(bundle[key].endswith(requirement), bundle[key])
+        self.assertIn("demasiado habitual", bundle["invalidPasswordBlacklistedMessage"])
 
 
 class KeycloakEmailThemeTest(unittest.TestCase):

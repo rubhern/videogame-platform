@@ -199,7 +199,7 @@ for (const width of [1320, 390, 320]) {
     await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Elige una nueva contraseña" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Elige tu contraseña" })).toBeVisible();
     await expect(page.locator("#password-new")).toBeVisible();
     await expect(page.locator("#password-confirm")).toBeVisible();
     expect((await analyzeAccessibility(page)).violations).toEqual([]);

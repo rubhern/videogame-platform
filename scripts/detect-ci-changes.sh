@@ -144,8 +144,8 @@ for path in "${changed_paths[@]}"; do
       enable build frontend browser backend container
       matched=true
       ;;
-    docker/keycloak/themes/*)
-      # The theme is baked into the published production Keycloak image.
+    docker/keycloak/themes/* | docker/keycloak/password-blacklists/* | scripts/build-password-denylist.py)
+      # The theme and the password denylist are baked into the published production Keycloak image.
       enable identity browser backend dependency_images
       matched=true
       ;;
