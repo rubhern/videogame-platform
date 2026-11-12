@@ -95,6 +95,7 @@ const calendar = (month: string) => ({
       { date: "2026-11-10", gameCount: 1, totalHype: 10 },
       { date: "2026-11-12", gameCount: 2, totalHype: 160 },
     ],
+  presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
 });
 
 function dayReleases(day: string, size: number) {

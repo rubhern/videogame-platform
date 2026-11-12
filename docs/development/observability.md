@@ -604,6 +604,12 @@ BFF session revocation: one `INFO` per management command with
 OIDC subject, session IDs and tokens never appear. No meter is added: revocation is a
 rare owner command whose evidence is its answer and this event.
 
+Product settings (#450): one `INFO` per accepted save with `settings.revision` and
+`settings.keys`, the sorted registry keys it changed, a closed vocabulary. The operator's
+`UserId` and the values stay in the database audit (ADR-0042), never in a log or a metric. A
+refused save is only its HTTP completion with its Problem code. No meter is added: saves are rare
+operator commands whose evidence is the audit and this event.
+
 Catalogue synchronization (`CatalogueSynchronizationLog`):
 
 | Event                       | Level                                            | Bounded context                                                                                |

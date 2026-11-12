@@ -32,8 +32,28 @@ public interface GameRankingReadPort {
             List<String> platformIds,
             LocalDate evaluatedOn,
             Pagination pagination,
-            int summaryPlatformLimit) {
+            int summaryPlatformLimit,
+            int minimumRatings) {
+        /** The source's approved minimum number of ratings. */
+        public Criteria(
+                Source source,
+                List<String> platformIds,
+                LocalDate evaluatedOn,
+                Pagination pagination,
+                int summaryPlatformLimit) {
+            this(
+                    source,
+                    platformIds,
+                    evaluatedOn,
+                    pagination,
+                    summaryPlatformLimit,
+                    source.minimumRatings());
+        }
+
         public Criteria {
+            if (minimumRatings < 1) {
+                throw new IllegalArgumentException("A ranked score rests on at least one rating");
+            }
             Objects.requireNonNull(source, "source");
             platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
             Objects.requireNonNull(evaluatedOn, "evaluatedOn");

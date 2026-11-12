@@ -12,7 +12,6 @@ import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleas
 import com.videogameplatform.catalogue.application.releases.BrowseReleaseCalendarUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseUpcomingHighlightsUseCase;
-import com.videogameplatform.catalogue.application.releases.internal.FeaturedPeriodPolicy;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCalendarService;
@@ -26,15 +25,22 @@ import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.internal.ProductSettingsService;
+import com.videogameplatform.catalogue.application.settings.port.ProductSettingStore;
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.util.Map;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /** Composition root for the catalogue application module. */
 @Configuration(proxyBeanMethods = false)
-// Scheduling properties are bound even while scheduling stays off: their policy windows declare the
-// forward acquisition horizon that bounds featured months.
+// Scheduling properties are bound even while scheduling stays off: their policy windows are the
+// deployment defaults of the synchronization window settings and declare the acquisition horizon
+// the product settings compare presentation with.
 @EnableConfigurationProperties({
     CatalogueReleaseProperties.class,
     CatalogueSearchProperties.class,
@@ -66,6 +72,31 @@ class CatalogueModuleConfiguration {
                             store) {
         return new com.videogameplatform.catalogue.application.releases.internal
                 .CommunityScoreService(store);
+    }
+
+    /**
+     * The operator's product settings (UC-024): one service answers the public snapshot and the
+     * administration contract. The synchronization windows default to the configured policies.
+     */
+    @Bean
+    ProductSettingsService productSettingsService(
+            ProductSettingStore store, Clock clock, CatalogueSchedulingProperties scheduling) {
+        return new ProductSettingsService(
+                store,
+                clock,
+                Map.of(
+                        ProductSetting.SYNCHRONIZATION_NEAR_TERM_PAST_DAYS,
+                        BigDecimal.valueOf(scheduling.nearTerm().pastDays()),
+                        ProductSetting.SYNCHRONIZATION_NEAR_TERM_FUTURE_DAYS,
+                        BigDecimal.valueOf(scheduling.nearTerm().futureDays()),
+                        ProductSetting.SYNCHRONIZATION_UPCOMING_PAST_DAYS,
+                        BigDecimal.valueOf(scheduling.upcoming().pastDays()),
+                        ProductSetting.SYNCHRONIZATION_UPCOMING_FUTURE_DAYS,
+                        BigDecimal.valueOf(scheduling.upcoming().futureDays())),
+                new ProductSettingsService.ScheduledAcquisition(
+                        scheduling.enabled(),
+                        scheduling.nearTermScheduled(),
+                        scheduling.upcomingScheduled()));
     }
 
     @Bean
@@ -111,8 +142,9 @@ class CatalogueModuleConfiguration {
             ReleaseBrowseReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            ReleaseBrowsePolicy browsePolicy) {
-        return new ReleaseCatalogueService(readPort, coverPolicy, clock, browsePolicy);
+            ReleaseBrowsePolicy browsePolicy,
+            CurrentProductSettings settings) {
+        return new ReleaseCatalogueService(readPort, coverPolicy, clock, browsePolicy, settings);
     }
 
     @Bean
@@ -123,7 +155,7 @@ class CatalogueModuleConfiguration {
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
             CatalogueFreshnessPolicy freshnessPolicy,
-            CatalogueSchedulingProperties scheduling) {
+            CurrentProductSettings settings) {
         return new FeaturedReleaseService(
                 readPort,
                 coverPolicy,
@@ -131,7 +163,7 @@ class CatalogueModuleConfiguration {
                 clock,
                 browsePolicy,
                 freshnessPolicy,
-                new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
+                settings);
     }
 
     @Bean
@@ -140,19 +172,17 @@ class CatalogueModuleConfiguration {
             CatalogueCoverPolicy coverPolicy,
             ProviderImageReferenceResolver imageResolver,
             Clock clock,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            CatalogueFreshnessPolicy freshnessPolicy,
+            CurrentProductSettings settings) {
         return new UpcomingHighlightsService(
-                readPort, coverPolicy, imageResolver, clock, freshnessPolicy);
+                readPort, coverPolicy, imageResolver, clock, freshnessPolicy, settings);
     }
 
-    /** The calendar reaches the same future as featured months: one forward acquisition bound. */
+    /** The calendar reaches the same future as featured months: one months-forward setting. */
     @Bean
     BrowseReleaseCalendarUseCase browseReleaseCalendarUseCase(
-            ReleaseCalendarReadPort readPort,
-            Clock clock,
-            CatalogueSchedulingProperties scheduling) {
-        return new ReleaseCalendarService(
-                readPort, clock, new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
+            ReleaseCalendarReadPort readPort, Clock clock, CurrentProductSettings settings) {
+        return new ReleaseCalendarService(readPort, clock, settings);
     }
 
     @Bean
@@ -168,9 +198,10 @@ class CatalogueModuleConfiguration {
     com.videogameplatform.catalogue.application.rankings.RankGamesUseCase rankGamesUseCase(
             com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
-            Clock clock) {
+            Clock clock,
+            CurrentProductSettings settings) {
         return new com.videogameplatform.catalogue.application.rankings.internal.GameRankingService(
-                readPort, coverPolicy, clock);
+                readPort, coverPolicy, clock, settings);
     }
 
     @Bean

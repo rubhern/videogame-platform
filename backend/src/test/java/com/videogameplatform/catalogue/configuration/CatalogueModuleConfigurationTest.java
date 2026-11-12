@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
-import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler.Policy;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
+import com.videogameplatform.catalogue.application.administration.ManageProductSettings;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
@@ -26,6 +26,7 @@ import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -124,50 +125,58 @@ class CatalogueModuleConfigurationTest {
     }
 
     @Test
-    void boundsFeaturedMonthsByTheConfiguredForwardAcquisitionHorizon() {
-        // 21 August plus 40 days is 30 September: September is the last month wholly inside it.
+    void featuredMonthsFollowTheProductSettingWhateverTheAcquisitionHorizon() {
+        // 21 August with the default five months forward reaches January 2027, although the
+        // 40-day acquisition horizon ends in September: the operator panel warns, it never clips.
         contextRunner
                 .withPropertyValues("catalogue.synchronization.scheduling.upcoming.future-days=40")
                 .run(
                         context -> {
                             var featured = context.getBean(BrowseFeaturedReleasesUseCase.class);
-                            // Inside the bounds the read proceeds and finds no publication.
-                            var september = month("2026-09-01");
-                            var october = month("2026-10-01");
-                            assertThatThrownBy(() -> featured.browse(september))
+                            var january = month("2027-01-01");
+                            var february = month("2027-02-01");
+                            assertThatThrownBy(() -> featured.browse(january))
                                     .isInstanceOf(CatalogueNotReadyException.class);
-                            assertThatThrownBy(() -> featured.browse(october))
+                            assertThatThrownBy(() -> featured.browse(february))
                                     .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
-                        });
-        // A disabled upcoming policy leaves the daily 28 days: 18 September, so August is last.
-        contextRunner
-                .withPropertyValues("catalogue.synchronization.scheduling.upcoming.cron=-")
-                .run(
-                        context -> {
-                            var featured = context.getBean(BrowseFeaturedReleasesUseCase.class);
-                            var september = month("2026-09-01");
-                            assertThatThrownBy(() -> featured.browse(september))
-                                    .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+                            var settings = context.getBean(ManageProductSettings.class);
+                            var coverage = settings.overview().coverage();
+                            assertThat(coverage.acquisitionForwardDays()).isEqualTo(40);
+                            assertThat(coverage.featuredBeyondAcquisition()).isTrue();
                         });
     }
 
     @Test
-    void theForwardAcquisitionHorizonIsTheWidestPolicyNotDisabledWhateverTheSwitch() {
-        var nearTerm = new Policy("0 0 4 * * *", 28, 28);
-        var upcoming = new Policy("0 0 5 * * SUN", 0, 180);
-        assertThat(
-                        new CatalogueSchedulingProperties(false, nearTerm, upcoming)
-                                .forwardAcquisitionDays())
-                .isEqualTo(180);
-        assertThat(
-                        new CatalogueSchedulingProperties(true, nearTerm, new Policy("-", 0, 180))
-                                .forwardAcquisitionDays())
-                .isEqualTo(28);
-        assertThat(
-                        new CatalogueSchedulingProperties(
-                                        true, new Policy("-", 28, 28), new Policy("-", 0, 180))
-                                .forwardAcquisitionDays())
-                .isZero();
+    void theSynchronizationWindowsDefaultToTheConfiguredPolicies() {
+        contextRunner
+                .withPropertyValues(
+                        "catalogue.synchronization.scheduling.upcoming.cron=-",
+                        "catalogue.synchronization.scheduling.upcoming.future-days=200")
+                .run(
+                        context -> {
+                            var overview = context.getBean(ManageProductSettings.class).overview();
+                            var upcoming =
+                                    overview.settings().stream()
+                                            .filter(
+                                                    entry ->
+                                                            entry.setting()
+                                                                    == ProductSetting
+                                                                            .SYNCHRONIZATION_UPCOMING_FUTURE_DAYS)
+                                            .findFirst()
+                                            .orElseThrow();
+                            assertThat(upcoming.value()).isEqualByComparingTo("200");
+                            assertThat(upcoming.origin())
+                                    .isEqualTo(ManageProductSettings.Origin.DEPLOYMENT);
+                            // A disabled policy never counts towards the acquisition horizon.
+                            assertThat(overview.coverage().acquisitionForwardDays()).isEqualTo(28);
+                        });
+    }
+
+    @Test
+    void aConfiguredWindowOutsideItsSettingRangeRefusesToStart() {
+        contextRunner
+                .withPropertyValues("catalogue.synchronization.scheduling.upcoming.future-days=731")
+                .run(context -> assertThat(context).hasFailed());
     }
 
     private static BrowseFeaturedReleasesUseCase.Query month(String first) {
@@ -207,6 +216,32 @@ class CatalogueModuleConfigurationTest {
             return org.mockito.Mockito.mock(
                     com.videogameplatform.catalogue.application.attention.port
                             .EditorialAttentionStore.class);
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.settings.port.ProductSettingStore
+                productSettingStore() {
+            return new com.videogameplatform.catalogue.application.settings.port
+                    .ProductSettingStore() {
+                @Override
+                public Stored read() {
+                    return new Stored(0, Map.of());
+                }
+
+                @Override
+                public java.util.List<Change> recentChanges(int limit) {
+                    return java.util.List.of();
+                }
+
+                @Override
+                public Optional<Long> apply(
+                        long expectedRevision,
+                        java.util.List<Write> writes,
+                        String operatorId,
+                        Instant changedAt) {
+                    return Optional.empty();
+                }
+            };
         }
 
         @Bean

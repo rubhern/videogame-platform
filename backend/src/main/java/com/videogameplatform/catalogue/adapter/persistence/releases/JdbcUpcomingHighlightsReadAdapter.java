@@ -243,23 +243,20 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
 
     static Map<String, Object> parameters(
             String publicationId, Criteria criteria, List<Taxonomy> platforms) {
-        return Map.of(
-                "publicationId",
-                publicationId,
-                // A PostgreSQL array literal of identifiers the taxonomy holds, so they are uuids.
+        Map<String, Object> parameters = new java.util.LinkedHashMap<>();
+        parameters.put("publicationId", publicationId);
+        // A PostgreSQL array literal of identifiers the taxonomy holds, so they are uuids.
+        parameters.put(
                 "platformIds",
-                platforms.stream().map(Taxonomy::id).collect(Collectors.joining(",", "{", "}")),
-                "evaluatedOn",
-                criteria.evaluatedOn(),
-                "horizonEnd",
-                criteria.horizonEnd(),
-                // Attention covers the horizon; a game first released before today is a re-release.
-                ReleaseAttentionSql.FROM_PARAMETER,
-                criteria.evaluatedOn(),
-                ReleaseAttentionSql.TO_PARAMETER,
-                criteria.horizonEnd(),
-                "limit",
-                criteria.limit());
+                platforms.stream().map(Taxonomy::id).collect(Collectors.joining(",", "{", "}")));
+        parameters.put("evaluatedOn", criteria.evaluatedOn());
+        parameters.put("horizonEnd", criteria.horizonEnd());
+        // Attention covers the horizon; a game first released before today is a re-release.
+        parameters.putAll(
+                ReleaseAttentionSql.parameters(
+                        criteria.evaluatedOn(), criteria.horizonEnd(), criteria.attention()));
+        parameters.put("limit", criteria.limit());
+        return parameters;
     }
 
     /** One row per ranked game; with no ranked game, one row carries the summary alone. */

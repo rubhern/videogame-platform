@@ -31,6 +31,7 @@ test("the highlights calendar includes more games and colours by summed Hype", a
   await expect(page.getByRole("link", { name: "Ver todos los lanzamientos del día" })).toBeVisible();
   const calendarBody = await (await page.request.get("/api/v1/release-calendar?month=2026-09")).json();
   expect(calendarBody.days).toEqual([{ date: "2026-09-25", gameCount: 1, totalHype: 61 }]);
+  expect(calendarBody.presentation).toEqual({ interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 });
   await friday.focus();
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("ArrowUp");

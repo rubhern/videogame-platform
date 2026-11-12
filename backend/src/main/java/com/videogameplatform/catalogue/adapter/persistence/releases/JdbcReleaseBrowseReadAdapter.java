@@ -157,7 +157,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         .bind("publicationId", publicationId)
                         .where(range.predicate());
         range.parameters().forEach(builder::bind);
-        ReleaseAttentionSql.parameters(criteria.window().from(), criteria.window().to())
+        ReleaseAttentionSql.parameters(
+                        criteria.window().from(), criteria.window().to(), criteria.attention())
                 .forEach(builder::bind);
         if (!platformIds.isEmpty()) {
             builder.where(ReleaseRangeSql.PLATFORM_PREDICATE)

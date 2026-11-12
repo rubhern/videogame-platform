@@ -178,6 +178,24 @@ class CataloguePersistenceConfiguration {
                 execution.jdbcOperations(), execution.readTransaction(), write);
     }
 
+    /**
+     * The operator's product settings (UC-024): reads share the read-only policy; an update is one
+     * bounded read-committed transaction serialized by the revision row lock.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.settings.port.ProductSettingStore
+            productSettingStore(
+                    CatalogueReadExecution execution,
+                    PlatformTransactionManager transactionManager,
+                    CatalogueJdbcProperties properties) {
+        TransactionTemplate write = new TransactionTemplate(transactionManager);
+        write.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        write.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.settings
+                .JdbcProductSettingStore(
+                execution.jdbcOperations(), execution.readTransaction(), write);
+    }
+
     /** Shared read-only, bounded-timeout execution policy for every catalogue query. */
     record CatalogueReadExecution(
             NamedParameterJdbcTemplate jdbcOperations, TransactionTemplate readTransaction) {}

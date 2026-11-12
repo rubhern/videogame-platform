@@ -186,7 +186,8 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                                 false)
                         .parameters());
         parameters.putAll(
-                ReleaseAttentionSql.parameters(criteria.periodStart(), criteria.periodEnd()));
+                ReleaseAttentionSql.parameters(
+                        criteria.periodStart(), criteria.periodEnd(), criteria.attention()));
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 

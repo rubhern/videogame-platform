@@ -6,6 +6,9 @@ import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult
 import com.videogameplatform.catalogue.application.releases.ReleaseCalendarResult;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -16,23 +19,26 @@ import java.util.Optional;
  * Framework-independent implementation of UC-016. The application alone knows today in {@code
  * Europe/Madrid}: it decides the current month, rejects any earlier month and any month beyond the
  * forward bound featured months share, and counts the month only from that date on: a day that has
- * gone by is never part of the calendar.
+ * gone by is never part of the calendar. The forward bound, the highlight minimum, the interest
+ * thresholds and the day preview size come from one product settings snapshot (#450).
  */
 public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCase {
 
     private final ReleaseCalendarReadPort readPort;
     private final Clock clock;
-    private final FeaturedPeriodPolicy periodPolicy;
+    private final CurrentProductSettings settings;
 
     public ReleaseCalendarService(
-            ReleaseCalendarReadPort readPort, Clock clock, FeaturedPeriodPolicy periodPolicy) {
+            ReleaseCalendarReadPort readPort, Clock clock, CurrentProductSettings settings) {
         this.readPort = readPort;
         this.clock = clock;
-        this.periodPolicy = periodPolicy;
+        this.settings = settings;
     }
 
     @Override
     public ReleaseCalendarResult browse(Query query) {
+        ProductSettings current = settings.current();
+        FeaturedPeriodPolicy periodPolicy = FeaturedPeriodPolicy.of(current);
         LocalDate evaluatedOn = LocalDate.ofInstant(clock.instant(), clock.getZone());
         YearMonth first = YearMonth.from(evaluatedOn);
         YearMonth last = periodPolicy.lastMonth(evaluatedOn);
@@ -51,7 +57,12 @@ public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCas
         ReleaseCalendarReadPort.Result result =
                 readPort.countPublishedReleases(
                                 new ReleaseCalendarReadPort.Criteria(
-                                        countedFrom, to, evaluatedOn, platformIds, regionIds))
+                                        countedFrom,
+                                        to,
+                                        evaluatedOn,
+                                        platformIds,
+                                        regionIds,
+                                        current.calendarMinimumHypes()))
                         .orElseThrow(CatalogueNotReadyException::new);
         ReleaseFilters.validate(platformIds, regionIds, result.platforms(), result.regions());
 
@@ -71,6 +82,9 @@ public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCas
                                 day ->
                                         new ReleaseCalendarResult.Day(
                                                 day.date(), day.gameCount(), day.totalHype()))
-                        .toList());
+                        .toList(),
+                new ReleaseCalendarResult.Presentation(
+                        current.interestBands(),
+                        current.integer(ProductSetting.CALENDAR_DAY_PREVIEW_SIZE)));
     }
 }

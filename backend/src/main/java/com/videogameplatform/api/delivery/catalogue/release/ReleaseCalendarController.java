@@ -5,6 +5,7 @@ import com.videogameplatform.api.generated.ReleaseCalendarApi;
 import com.videogameplatform.api.generated.model.ReleaseCalendar;
 import com.videogameplatform.api.generated.model.ReleaseCalendarDay;
 import com.videogameplatform.api.generated.model.ReleaseCalendarNavigation;
+import com.videogameplatform.api.generated.model.ReleaseCalendarPresentation;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
 import com.videogameplatform.catalogue.application.releases.BrowseReleaseCalendarUseCase;
 import com.videogameplatform.catalogue.application.releases.ReleaseCalendarResult;
@@ -84,6 +85,9 @@ public class ReleaseCalendarController implements ReleaseCalendarApi {
                                 day ->
                                         new ReleaseCalendarDay(
                                                 day.date(), day.gameCount(), day.totalHype()))
-                        .toList());
+                        .toList(),
+                new ReleaseCalendarPresentation(
+                        result.presentation().interestThresholds(),
+                        result.presentation().dayPreviewSize()));
     }
 }

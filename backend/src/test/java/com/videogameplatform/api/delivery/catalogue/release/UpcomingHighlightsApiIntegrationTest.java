@@ -5,8 +5,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.catalogue.application.administration.ManageProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -16,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,13 +55,16 @@ class UpcomingHighlightsApiIntegrationTest {
     private static final String PORT = "30000000-0000-4000-8000-000000000387";
     private static final String UNHYPED = "30000000-0000-4000-8000-000000000386";
     private static final String OUT = "30000000-0000-4000-8000-000000000385";
-    private static final List<String> GAMES = List.of(ANTICIPATED, PORT, UNHYPED, OUT);
+    private static final String LATE = "30000000-0000-4000-8000-000000000384";
+    private static final List<String> GAMES = List.of(ANTICIPATED, PORT, UNHYPED, OUT, LATE);
+    private static final String OPERATOR = "6f1c0d9e-1111-4c4c-8888-000000000450";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final OpenApiResponseContract CONTRACT =
             OpenApiResponseContract.load("/platform-upcoming-highlights");
 
     @LocalServerPort private int port;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private ManageProductSettings settings;
     @MockitoSpyBean private CatalogueProviderPort provider;
     private int releaseSequence;
 
@@ -94,6 +101,9 @@ class UpcomingHighlightsApiIntegrationTest {
         try {
             verify(provider, never()).fetchWorks(org.mockito.ArgumentMatchers.any());
         } finally {
+            jdbc.update("DELETE FROM catalogue.product_setting");
+            jdbc.update("DELETE FROM catalogue.product_setting_change");
+            jdbc.update("UPDATE catalogue.product_setting_revision SET revision = 0");
             for (String game : GAMES) {
                 jdbc.update(
                         "DELETE FROM catalogue.game_featured_evidence WHERE game_id=?::uuid", game);
@@ -148,6 +158,36 @@ class UpcomingHighlightsApiIntegrationTest {
         String tag = first.headers().firstValue("ETag").orElseThrow();
 
         assertThat(get(PATH + PLATFORM, tag).statusCode()).isEqualTo(304);
+    }
+
+    @Test
+    void anOperatorsEightMonthHorizonAppliesFromTheNextRequestAndChangesTheValidator()
+            throws Exception {
+        // Released on 10 June 2027: beyond the default horizon, inside eight months.
+        game(LATE, "Later Launch", 5, 300L);
+        release(LATE, PLATFORM, "day", "2027-06-10", null);
+        var before = get(PATH + PLATFORM, null);
+        String tag = before.headers().firstValue("ETag").orElseThrow();
+        assertThat(ids(JSON.readTree(before.body()))).doesNotContain(LATE);
+
+        long revision = settings.overview().revision();
+        assertThat(
+                        settings.update(
+                                revision,
+                                List.of(
+                                        new ManageProductSettings.Change(
+                                                ProductSetting.UPCOMING_HIGHLIGHTS_HORIZON_MONTHS
+                                                        .key(),
+                                                Optional.of(BigDecimal.valueOf(8)))),
+                                OPERATOR))
+                .isInstanceOf(ManageProductSettings.UpdateOutcome.Updated.class);
+
+        var after = get(PATH + PLATFORM, tag);
+        assertThat(after.statusCode()).isEqualTo(200);
+        CONTRACT.assertJsonResponse(after, 200, "PlatformUpcomingHighlights");
+        JsonNode body = JSON.readTree(after.body());
+        assertThat(body.path("window").path("to").stringValue()).isEqualTo("2027-06-26");
+        assertThat(ids(body)).containsExactly(ANTICIPATED, LATE, PORT);
     }
 
     @Test

@@ -9,7 +9,11 @@ import {
 import { useInterestsSwitch } from "../platform-preferences/interests-switch";
 import { ReleaseCalendarDay, type CalendarDayPreview } from "./release-calendar-day";
 import { ReleaseCalendarGrid } from "./release-calendar-grid";
-import { WEEKDAY_HEADERS, type ReleaseCalendarModel } from "./release-calendar-model";
+import {
+  DEFAULT_DAY_PREVIEW_SIZE,
+  WEEKDAY_HEADERS,
+  type ReleaseCalendarModel,
+} from "./release-calendar-model";
 import { ReleaseCalendarMonths } from "./release-calendar-months";
 import {
   calendarSearchPath,
@@ -239,6 +243,7 @@ export function ReleaseCalendarShell({
                 explorerPath={dayExplorerPath(search, selected.date)}
                 gameCount={selected.gameCount}
                 onRetry={onRetryDay}
+                previewSize={model?.dayPreviewSize ?? DEFAULT_DAY_PREVIEW_SIZE}
                 preview={dayPreview}
               />
             )}

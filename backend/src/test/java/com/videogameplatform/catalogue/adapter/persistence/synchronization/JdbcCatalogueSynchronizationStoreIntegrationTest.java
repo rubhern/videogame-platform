@@ -1379,7 +1379,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         new CatalogueSynchronizationScheduler.Policy("0 0 4 * * *", 28, 28),
                         new CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180),
                         scheduledStore,
-                        scheduledStore)
+                        scheduledStore,
+                        com.videogameplatform.catalogue.application.settings.TestProductSettings
+                                .defaults())
                 .configureTasks(registrar);
         return registrar;
     }

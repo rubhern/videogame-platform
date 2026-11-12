@@ -12,6 +12,7 @@
             "catalogue::platformgames",
             "catalogue::details",
             "catalogue::preferences",
+            "catalogue::settings",
             "identity::application",
             "ratings::application",
             "feedback::application"

@@ -84,6 +84,15 @@ versioned as `attention-v1` and defined once, in `ReleaseAttentionPolicy` and th
   label becomes **Interés**, and missing-signal notices read **Sin datos de interés**. The value
   is never exposed.
 
+## Amendment 2026-11-12 (#450)
+
+[ADR-0042](0042-manage-approved-product-settings-in-postgresql.md) makes the weights of `attention-v1` operator product settings: the relative weights of
+Hypes, Want to Play and Visits inside the provider block, the editorial block's share of the
+attention, the part of a parent's signal a derived product borrows and the part of its own signals a
+re-release keeps. The values decided above are the defaults. The shape of the formula, the log
+scale, the launch rule and the editorial list are unchanged, so a tuned weight keeps the version
+`attention-v1`; a new signal or scale is still a new version.
+
 ## Alternatives considered
 
 - **Keep Hypes alone.** It placed 5 of 14 reference games in November's top 15 and missed

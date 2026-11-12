@@ -66,7 +66,8 @@ public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarRead
         ReleaseRangeSql.RangePredicate range =
                 ReleaseRangeSql.highlights(
                         ReleaseRangeSql.range(
-                                criteria.from(), criteria.to(), criteria.evaluatedOn(), false));
+                                criteria.from(), criteria.to(), criteria.evaluatedOn(), false),
+                        criteria.minimumHypes());
         List<Taxonomy> platforms =
                 ReleaseRangeSql.facet(
                         jdbcOperations,

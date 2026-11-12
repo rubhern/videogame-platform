@@ -839,10 +839,11 @@ repeats. Every day of the month is a native button announced in full with its co
 (`viernes, 13 de noviembre de 2026: 6 lanzamientos`, `sin lanzamientos`, `hoy`); a count is of
 highlighted games; the full explorer can list more games for that day. A day with releases states its count beside a dot and takes its
 total-Hype colour as a quiet atmosphere, its light rising from a lower corner over a faint ridge
-of night, in four fixed bands of the summed Hype of all highlighted games that day: blue from 10,
-yellow from 30, orange from 100 and red from 150 (owner request, 2026-10-21). A game contributes
+of night, in four bands of the summed Hype of all highlighted games that day: blue, yellow, orange
+and red from the four ascending thresholds the response carries, which the operator sets (`UC-024`;
+10, 30, 100 and 150 by default, owner request, 2026-10-21). A game contributes
 once per day across its matching platforms and regions; `UC-016` owns aggregation and eligibility. [`release-calendar-model.ts`](../../frontend/src/features/releases/release-calendar-model.ts)
-is the only mapping. The bands are an owner-requested exception to *fire never colours an
+is the only mapping, and never hard-codes the thresholds of a served month. The bands are an owner-requested exception to *fire never colours an
 action* and to the thermal rule: they represent total Hype rather than release count, have no
 legend and are not quality scores. The count stays visible; each coloured day's tooltip and
 accessible description also name its interest level (`Interés bajo`, `Interés moderado`,
@@ -859,9 +860,10 @@ aproximadas** remains where they are listed.
 The chosen day follows beneath under the section's short fire rule: its heading
 (`Viernes, 13 de noviembre`), the count with `Mostrando 3` when more exist, **Ver todos los
 lanzamientos del día** (the full explorer on that day in the same order and platform/region
-context, including games outside the calendar's highlights) and up to three compact highlighted
-rows. The explorer has no highlights filter. The preview reads the first games in attention order,
-with its page size capped by both three and the highlighted count.
+context, including games outside the calendar's highlights) and up to the response's preview size
+of compact highlighted rows (an operator setting, three by default). The explorer has no
+highlights filter. The preview reads the first games in attention order, with its page size capped
+by both the preview size and the highlighted count.
 Each row holds the cover in the standard frame, the title as its only keyboard stop with the
 pointer target stretched over the row, the platform marks and region, up to two genres, the
 review notice when the API requires it, the [discovery score](#featured-releases) readings and a
@@ -1685,6 +1687,23 @@ the outcome. **Listas cargadas** shows hairline cards, latest range first, with 
 games, prompt version and model. **Ver juegos** expands the scores and rationales, and
 **Eliminar** opens an inline confirmation whose safe **Conservar lista** comes first and takes
 focus.
+
+Post-MVP (#450, implemented; awaiting owner review), **Ajustes** is the last tab (`UC-024`). It
+holds one form: a section per group (**Destacados**, **Próximos destacados**, **Fórmula de
+interés**, **TOPómetros**, **Calendario**, **Sincronización programada**), each with a lead saying
+what its values change, then one labelled text field per setting, two columns from 620px and one
+on phones. Beside a field sits its unit in words and, for a value an operator set, **Restaurar por
+defecto**; beneath, its origin, default and range in words, and its last change. A value outside
+its kind or range is marked invalid and described beside the field, and **Guardar cambios** stays
+disabled until every draft is valid; a quiet status line counts the pending changes, with
+**Descartar** beside the primary action. **Sincronización programada** opens with the coverage
+notice: a `warning` naming each window that reaches beyond the scheduled acquisition, its end date
+and the recommended operator action, or a quiet line saying the windows stay inside; a deployment
+without scheduled acquisition adds its own `warning`. When a save settles, focus moves to one
+status region: success says public pages use the values from their next read; a revision conflict,
+an invalid combination, a lost CSRF proof or a lost role is a `warning` saying nothing changed, and
+any other failure a `danger` notice with its support reference. **Cambios recientes** follows as
+hairline cards, newest first: the setting, the time and the previous and new values.
 
 **Traducciones** uses the same tablist. **Cobertura de traducción** shows a dated
 breakdown for **Resúmenes**, **Géneros** and **Modos de juego** in reading order.

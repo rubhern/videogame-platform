@@ -239,6 +239,27 @@ public class ApiExceptionHandler {
                             ErrorCategory.CONFLICT,
                             exception.pointer(),
                             "Editorial list ranges never overlap.");
+            case PRODUCT_SETTING_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Product setting change rejected",
+                            "Correct the indicated change, then save again.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a registered setting once, a value inside its range and kind,"
+                                    + " and keep the cross-setting rules.");
+            case PRODUCT_SETTINGS_REVISION_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Product settings changed meanwhile",
+                            "Read the settings again, then repeat the change.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Settings change one revision at a time.");
             case EDITORIAL_ATTENTION_LIST_NOT_FOUND ->
                     problem(
                             response,
@@ -871,6 +892,28 @@ public class ApiExceptionHandler {
             return requestInvalid(
                     new ApiRequestException(
                             ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID,
+                            "/" + field.replace('.', '/').replace("[", "/").replace("]", "")),
+                    response);
+        }
+        if (exception.getParameterValidationResults().stream()
+                .anyMatch(
+                        result ->
+                                com.videogameplatform.api.generated.model.ProductSettingsUpdate
+                                        .class
+                                        .equals(result.getMethodParameter().getParameterType()))) {
+            // A missing revision or key, or a change list outside its bounds.
+            String field =
+                    exception.getParameterValidationResults().stream()
+                            .filter(ParameterErrors.class::isInstance)
+                            .map(ParameterErrors.class::cast)
+                            .map(ParameterErrors::getFieldError)
+                            .filter(java.util.Objects::nonNull)
+                            .map(FieldError::getField)
+                            .findFirst()
+                            .orElse("changes");
+            return requestInvalid(
+                    new ApiRequestException(
+                            ProblemCode.PRODUCT_SETTING_INVALID,
                             "/" + field.replace('.', '/').replace("[", "/").replace("]", "")),
                     response);
         }
