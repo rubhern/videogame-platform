@@ -259,7 +259,7 @@ describe("release explorer shell", () => {
       "true",
     );
     expect(screen.getByRole("option", { name: "Puntuación Gameómetro" })).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "Hype" }));
+    await user.click(screen.getByRole("option", { name: "Interés" }));
 
     expect(location()).toMatch(/^\/lanzamientos\?sort=hype\|/);
   });
@@ -301,7 +301,7 @@ describe("release explorer shell", () => {
 
     // Phones show only this toggle until it opens; wider screens hide it and show the controls.
     const toggle = screen.getByRole("button", { name: /^Filtros y orden/ });
-    expect(toggle).toHaveAccessibleName("Filtros y orden: Hype · 2 filtros · Fechas aproximadas");
+    expect(toggle).toHaveAccessibleName("Filtros y orden: Interés · 2 filtros · Fechas aproximadas");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     const controls = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
     expect(controls).toContainElement(screen.getByLabelText("Desde"));

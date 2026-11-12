@@ -11,6 +11,13 @@ final class IgdbQueries {
     static final String GAMES_ENDPOINT = "games";
     static final String RELEASE_DATES_ENDPOINT = "release_dates";
     static final String LOGOS_ENDPOINT = "logos";
+    static final String POPULARITY_PRIMITIVES_ENDPOINT = "popularity_primitives";
+
+    /** IGDB popularity type 1: Visits to the game's provider page. */
+    static final long POPULARITY_VISITS = 1;
+
+    /** IGDB popularity type 2: Want to Play additions. */
+    static final long POPULARITY_WANT_TO_PLAY = 2;
 
     private static final Pattern PROVIDER_ID = Pattern.compile("[0-9]{1,19}");
 
@@ -90,6 +97,35 @@ final class IgdbQueries {
                 + ") & id > "
                 + afterLogoId
                 + ";"
+                + " sort id asc; limit "
+                + limit
+                + ";";
+    }
+
+    /**
+     * The game type and the related version or parent game, each with its Hypes, of the given
+     * games; one row per game.
+     */
+    static String attentionGames(List<String> providerIds) {
+        return "fields id,game_type.type,version_parent.hypes,parent_game.hypes;"
+                + " where id = ("
+                + identifierList(providerIds)
+                + ");"
+                + " sort id asc; limit "
+                + providerIds.size()
+                + ";";
+    }
+
+    /** The Want to Play and Visits primitives of the given games, in primitive order. */
+    static String attentionPrimitives(List<String> providerIds, int limit) {
+        return "fields game_id,popularity_type,value,calculated_at;"
+                + " where game_id = ("
+                + identifierList(providerIds)
+                + ") & popularity_type = ("
+                + POPULARITY_VISITS
+                + ","
+                + POPULARITY_WANT_TO_PLAY
+                + ");"
                 + " sort id asc; limit "
                 + limit
                 + ";";

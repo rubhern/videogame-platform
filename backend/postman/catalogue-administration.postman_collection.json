@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity. Translation examples read coverage and execution and exercise stale-command refusal without changing any execution.",
+    "description": "Executable #247, #248, #342 and #458 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity. Translation examples read coverage and execution and exercise stale-command refusal without changing any execution. Editorial attention examples (#458) read the prompt and lists, preview a sample file and exercise the refusals; the collection never loads or deletes a real list.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -957,6 +957,286 @@
                   "    pm.expect(pm.response.json().code).to.eql(\"TRANSLATION_EXECUTION_CONFLICT\");",
                   "});",
                   "pm.test(\"Operator responses use no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Editorial attention",
+      "item": [
+        {
+          "name": "Editorial attention prompt and loaded lists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention",
+            "description": "The versioned prompt for a language model with web access and at most 36 loaded lists, latest range first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Operator evidence is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"The prompt names its version and the range placeholders\", () => {",
+                  "    pm.expect(body.prompt.version).to.eql(\"editorial-anticipation@2\");",
+                  "    pm.expect(body.prompt.template).to.include(\"{{FROM}}\").and.to.include(\"{{TO}}\");",
+                  "});",
+                  "pm.test(\"At most 36 lists, latest range first\", () => {",
+                  "    pm.expect(body.lists.length).to.be.at.most(36);",
+                  "    for (let i = 1; i < body.lists.length; i++) pm.expect(body.lists[i].from <= body.lists[i - 1].from).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject an editorial preview without CSRF",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/previews",
+            "description": "Every editorial command needs the session-bound CSRF token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"content\": \"{\\\"schemaVersion\\\": 1, \\\"range\\\": {\\\"from\\\": \\\"2026-10-01\\\", \\\"to\\\": \\\"2026-10-31\\\"}, \\\"generatedAt\\\": \\\"2026-11-12T10:00:00Z\\\", \\\"generator\\\": {\\\"prompt\\\": \\\"editorial-anticipation@1\\\", \\\"model\\\": \\\"postman-example\\\"}, \\\"entries\\\": [{\\\"rank\\\": 1, \\\"igdbSlug\\\": \\\"gears-of-war-e-day\\\", \\\"title\\\": \\\"Gears of War: E-Day\\\", \\\"releaseDate\\\": \\\"2026-10-01\\\", \\\"score\\\": 100, \\\"rationale\\\": \\\"Example entry.\\\", \\\"sources\\\": [\\\"https://example.test/a\\\", \\\"https://example.test/b\\\"]}]}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code CSRF_VALIDATION_FAILED\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview an editorial file without storing it",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/previews",
+            "description": "Validates the file and matches each entry to a catalogued game by IGDB slug, else exact title. Nothing is stored.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"content\": \"{\\\"schemaVersion\\\": 1, \\\"range\\\": {\\\"from\\\": \\\"2026-10-01\\\", \\\"to\\\": \\\"2026-10-31\\\"}, \\\"generatedAt\\\": \\\"2026-11-12T10:00:00Z\\\", \\\"generator\\\": {\\\"prompt\\\": \\\"editorial-anticipation@1\\\", \\\"model\\\": \\\"postman-example\\\"}, \\\"entries\\\": [{\\\"rank\\\": 1, \\\"igdbSlug\\\": \\\"gears-of-war-e-day\\\", \\\"title\\\": \\\"Gears of War: E-Day\\\", \\\"releaseDate\\\": \\\"2026-10-01\\\", \\\"score\\\": 100, \\\"rationale\\\": \\\"Example entry.\\\", \\\"sources\\\": [\\\"https://example.test/a\\\", \\\"https://example.test/b\\\"]}]}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Operator evidence is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"The preview echoes the range and one entry\", () => {",
+                  "    pm.expect(body.from).to.eql(\"2026-10-01\");",
+                  "    pm.expect(body.to).to.eql(\"2026-10-31\");",
+                  "    pm.expect(body.entries).to.have.length(1);",
+                  "});",
+                  "pm.test(\"Warnings use the closed vocabulary\", () => body.entries.forEach((entry) => entry.warnings.forEach((warning) => pm.expect([\"unmatched\", \"ambiguous_title\", \"no_release_in_range\", \"release_date_differs\", \"duplicate_game\"]).to.include(warning))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject an editorial file with an out-of-range score",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/previews",
+            "description": "An invalid member is named with a JSON Pointer into the file under /content.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"content\": \"{\\\"schemaVersion\\\": 1, \\\"range\\\": {\\\"from\\\": \\\"2026-10-01\\\", \\\"to\\\": \\\"2026-10-31\\\"}, \\\"generatedAt\\\": \\\"2026-11-12T10:00:00Z\\\", \\\"generator\\\": {\\\"prompt\\\": \\\"editorial-anticipation@1\\\", \\\"model\\\": \\\"postman-example\\\"}, \\\"entries\\\": [{\\\"rank\\\": 1, \\\"igdbSlug\\\": \\\"gears-of-war-e-day\\\", \\\"title\\\": \\\"Gears of War: E-Day\\\", \\\"releaseDate\\\": \\\"2026-10-01\\\", \\\"score\\\": 101, \\\"rationale\\\": \\\"Example entry.\\\", \\\"sources\\\": [\\\"https://example.test/a\\\", \\\"https://example.test/b\\\"]}]}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code EDITORIAL_ATTENTION_FILE_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"EDITORIAL_ATTENTION_FILE_INVALID\"));",
+                  "pm.test(\"The violation names /content/entries/0/score\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/content/entries/0/score\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject a load whose assignment names an unknown rank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/lists",
+            "description": "An assignment must name a rank of the file; nothing is stored.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"content\": \"{\\\"schemaVersion\\\": 1, \\\"range\\\": {\\\"from\\\": \\\"2026-10-01\\\", \\\"to\\\": \\\"2026-10-31\\\"}, \\\"generatedAt\\\": \\\"2026-11-12T10:00:00Z\\\", \\\"generator\\\": {\\\"prompt\\\": \\\"editorial-anticipation@1\\\", \\\"model\\\": \\\"postman-example\\\"}, \\\"entries\\\": [{\\\"rank\\\": 1, \\\"igdbSlug\\\": \\\"gears-of-war-e-day\\\", \\\"title\\\": \\\"Gears of War: E-Day\\\", \\\"releaseDate\\\": \\\"2026-10-01\\\", \\\"score\\\": 100, \\\"rationale\\\": \\\"Example entry.\\\", \\\"sources\\\": [\\\"https://example.test/a\\\", \\\"https://example.test/b\\\"]}]}\", \"assignments\": [{\"rank\": 50}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code EDITORIAL_ATTENTION_FILE_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"EDITORIAL_ATTENTION_FILE_INVALID\"));",
+                  "pm.test(\"The violation names /assignments/0/rank\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/assignments/0/rank\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read an editorial list that does not exist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/lists/00000000-0000-4000-8000-000000000000",
+            "description": "An unknown or malformed list identity is not found."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code EDITORIAL_ATTENTION_LIST_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"EDITORIAL_ATTENTION_LIST_NOT_FOUND\"));",
+                  "pm.test(\"The violation names /path/listId\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/listId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete an editorial list that does not exist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/editorial-attention/lists/00000000-0000-4000-8000-000000000000",
+            "description": "Deleting names one list; an unknown list is 404 and changes nothing."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code EDITORIAL_ATTENTION_LIST_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"EDITORIAL_ATTENTION_LIST_NOT_FOUND\"));",
+                  "pm.test(\"The violation names /path/listId\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/listId\"));"
                 ]
               }
             }

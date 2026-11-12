@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -56,6 +57,11 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     private static JdbcFeaturedReleaseReadAdapter adapter;
     private static JdbcFeaturedReleaseReadAdapter emptyCatalogueAdapter;
     private static JdbcReleaseBrowseReadAdapter browseAdapter;
+    private static com.videogameplatform.catalogue.adapter.persistence.attention
+                    .JdbcEditorialAttentionStore
+            editorialStore;
+
+    private static final YearMonth MAY_2037 = YearMonth.of(2037, 5);
 
     @BeforeAll
     static void prepareDatabases() throws Exception {
@@ -79,6 +85,134 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         seedOctober();
         seedYearEndWeek();
         seedEveryKindOfRelease();
+        seedAttention();
+        var writeTransaction = new TransactionTemplate(new JdbcTransactionManager(dataSource));
+        editorialStore =
+                new com.videogameplatform.catalogue.adapter.persistence.attention
+                        .JdbcEditorialAttentionStore(
+                        new NamedParameterJdbcTemplate(dataSource), writeTransaction);
+    }
+
+    @Test
+    void ranksByTheBlendedSignalsWithInheritanceAndReReleasesAsTheExplorerDoes() {
+        // Anticipated holds all three signals. Port Of Hit claims half of its parent's Hypes and
+        // Want
+        // to Play, Re-release keeps half of its own Hypes, and Wished has Want to Play alone. Each
+        // signal is scaled to the strongest candidate, so the two halves of 1000 Hypes tie at the
+        // top of that signal (ATT-001 to ATT-003). Editorial Pick and Silent have no signal.
+        assertThat(titles(criteria(MAY_2037, 6, 25)))
+                .containsExactly("Anticipated", "Port Of Hit", "Re-release", "Wished");
+        assertThat(explorerTitles(MAY_2037))
+                .containsExactly(
+                        "Anticipated",
+                        "Port Of Hit",
+                        "Re-release",
+                        "Wished",
+                        "Editorial Pick",
+                        "Silent");
+    }
+
+    @Test
+    void anEditorialListOverlappingThePeriodJoinsTheRankingWhileOthersNeverDo() {
+        var june =
+                editorialList(
+                        LocalDate.parse("2037-06-01"),
+                        LocalDate.parse("2037-06-30"),
+                        Map.of(60, 100, 61, 100));
+        var may = editorialList(MAY_2037.atDay(1), MAY_2037.atEndOfMonth(), Map.of(64, 90, 61, 80));
+        try {
+            // Half the weight is the editorial score: Wished (80) and Editorial Pick (90) overtake
+            // the provider signals, and Editorial Pick now ranks with no provider signal at all.
+            // June's list scores May's games but never reaches May (ATT-004, ATT-005).
+            assertThat(titles(criteria(MAY_2037, 6, 25)))
+                    .containsExactly(
+                            "Wished", "Editorial Pick", "Anticipated", "Port Of Hit", "Re-release");
+            assertThat(explorerTitles(MAY_2037))
+                    .containsExactly(
+                            "Wished",
+                            "Editorial Pick",
+                            "Anticipated",
+                            "Port Of Hit",
+                            "Re-release",
+                            "Silent");
+        } finally {
+            assertThat(editorialStore.delete(may)).isTrue();
+            assertThat(editorialStore.delete(june)).isTrue();
+        }
+        assertThat(titles(criteria(MAY_2037, 6, 25)))
+                .containsExactly("Anticipated", "Port Of Hit", "Re-release", "Wished");
+    }
+
+    @Test
+    void editorialListsNeverOverlapAndTheSameRangeIsReplacedWhole() {
+        var first = editorialList(MAY_2037.atDay(1), MAY_2037.atEndOfMonth(), Map.of(64, 90));
+        try {
+            var overlapping =
+                    editorialStore.save(
+                            newList(
+                                    LocalDate.parse("2037-05-20"),
+                                    LocalDate.parse("2037-06-10"),
+                                    Map.of(60, 50)),
+                            java.util.Optional.empty());
+            assertThat(overlapping).isEmpty();
+            var replacement =
+                    editorialStore
+                            .save(
+                                    newList(
+                                            MAY_2037.atDay(1),
+                                            MAY_2037.atEndOfMonth(),
+                                            Map.of(60, 70, 61, 60)),
+                                    java.util.Optional.of(first))
+                            .orElseThrow();
+            assertThat(editorialStore.find(first)).isEmpty();
+            var stored = editorialStore.find(replacement).orElseThrow();
+            assertThat(stored.summary().entryCount()).isEqualTo(2);
+            assertThat(stored.entries())
+                    .extracting(entry -> entry.title() + ":" + entry.score())
+                    .containsExactly("Anticipated:70", "Wished:60");
+            assertThat(editorialStore.overlapping(MAY_2037.atDay(10), MAY_2037.atDay(11)))
+                    .singleElement()
+                    .satisfies(list -> assertThat(list.listId()).isEqualTo(replacement));
+            assertThat(editorialStore.delete(replacement)).isTrue();
+        } finally {
+            editorialStore.delete(first);
+        }
+    }
+
+    @Test
+    void editorialEntriesMatchByProviderPageOrExactTitleAndReadTheirRangeReleases() {
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET cover_usage_mode = 'provider_cdn_reference',"
+                        + " cover_source = 'IGDB', cover_reference = 'co0001',"
+                        + " cover_source_url = 'https://www.igdb.com/games/anticipated'"
+                        + " WHERE game_id = CAST(? AS uuid)",
+                gameId(60));
+        assertThat(editorialStore.findByProviderSlug(java.util.Set.of("anticipated", "missing")))
+                .containsOnlyKeys("anticipated")
+                .extractingByKey("anticipated")
+                .satisfies(game -> assertThat(game.title()).isEqualTo("Anticipated"));
+        assertThat(editorialStore.findByTitle(java.util.Set.of("  port of HIT ", "Nothing"), 2))
+                .containsOnlyKeys("  port of HIT ")
+                .extractingByKey("  port of HIT ")
+                .satisfies(
+                        games ->
+                                assertThat(games)
+                                        .singleElement()
+                                        .satisfies(
+                                                game ->
+                                                        assertThat(game.gameId())
+                                                                .isEqualTo(gameId(62))));
+        assertThat(
+                        editorialStore.releasesInRange(
+                                java.util.Set.of(gameId(60), gameId(1), "not-a-uuid"),
+                                MAY_2037.atDay(1),
+                                MAY_2037.atEndOfMonth()))
+                .containsOnlyKeys(gameId(60))
+                .extractingByKey(gameId(60))
+                .satisfies(
+                        releases ->
+                                assertThat(releases.exactDays())
+                                        .containsExactly(LocalDate.parse("2037-05-10")));
     }
 
     @Test
@@ -89,7 +223,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         // the seventh is cut.
         assertThat(result.items())
                 .extracting(Item::canonicalTitle)
-                .containsExactly("Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Kilo");
+                .containsExactly("Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Lima");
         assertThat(result.qualifyingReleases()).isTrue();
         assertThat(result.items().getFirst().summary()).isPresent();
         assertThat(result.items().stream().skip(1))
@@ -149,33 +283,29 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
-    void portsRemakesEditionsEveryStageAndUnknownFirstReleasesAllCompete() {
+    void portsRemakesEditionsAndUnknownStagesCompeteButOnlyLaunchesEnter() {
         var items =
                 adapter.findFeaturedReleases(criteria(MARCH_2035, 50, 25)).orElseThrow().items();
 
-        // Hypes alone decide: first-release evidence, product eligibility and stage never exclude.
-        // Whiskey and X-ray tie on Hypes and day, so the case-insensitive title decides; Yankee
-        // ties
-        // them on Hypes with a later day. Zulu has no signal and is never ranked.
+        // Only a launch enters (ATT-007): early access, advance access and a beta never do, while a
+        // release of unknown stage does. Product eligibility never excludes. Old Port launched in
+        // 2018, so as a re-release it keeps half of its Hypes and falls last (ATT-003). Whiskey and
+        // X-ray tie on Hypes and day, so the case-insensitive title decides; Yankee ties them on
+        // Hypes with a later day. Zulu has no signal and is never ranked.
         assertThat(items)
                 .extracting(Item::canonicalTitle)
                 .containsExactly(
-                        "Old Port",
                         "Edition",
-                        "Early Access",
-                        "Advance Access",
-                        "Beta Build",
                         "Unknown First",
                         "Remake",
                         "whiskey",
                         "X-ray",
-                        "Yankee");
-        assertThat(items.stream().filter(item -> item.canonicalTitle().equals("Early Access")))
-                .singleElement()
-                .satisfies(
-                        item ->
-                                assertThat(item.releases().getFirst().stage())
-                                        .isEqualTo(ReleaseStage.EARLY_ACCESS));
+                        "Yankee",
+                        "Old Port");
+        // The explorer still lists the other stages, after every launch with attention.
+        assertThat(explorerTitles(MARCH_2035))
+                .containsSubsequence("Old Port", "Advance Access")
+                .contains("Early Access", "Beta Build");
     }
 
     @Test
@@ -290,8 +420,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         // delayed day that has passed never do, whatever their popularity. A game without a signal
         // stays unranked.
         assertThat(titles)
-                .containsExactly(
-                        "Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Kilo", "Lima", "Mike")
+                .containsExactly("Juliett", "Alpha", "Delta", "Charlie", "Bravo", "Lima", "Mike")
                 .doesNotContain("Echo", "Golf", "Hotel", "India", "Foxtrot", "December");
     }
 
@@ -309,8 +438,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         // Bravo is known only to the month, which has not ended: the explorer's default leaves it
         // out, and so does Golf's quarter. India's delayed day is still expected.
         assertThat(titles)
-                .containsExactly(
-                        "India", "Juliett", "Alpha", "Delta", "Charlie", "Kilo", "Lima", "Mike")
+                .containsExactly("India", "Juliett", "Alpha", "Delta", "Charlie", "Lima", "Mike")
                 .doesNotContain("Bravo", "Golf");
     }
 
@@ -455,14 +583,16 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
-    void ranksAYearCrossingWeekByHypesThenDatePresentingOnlyItsDays() {
+    void ranksAYearCrossingWeekByAttentionThenDatePresentingOnlyItsDays() {
         var week =
                 adapter.findFeaturedReleases(
                                 week(WEEK_53_OF_2032, 6, 25, LocalDate.parse("2032-12-01")))
                         .orElseThrow();
 
-        // Sierra leads with the full release inside the week, its earlier beta stays out. Oscar and
-        // Papa tie and keep their date order across the new year. Romeo (an open month) and Tango
+        // Sierra leads with the full release inside the week; its earlier beta is not a launch, so
+        // it
+        // neither enters the week nor makes Sierra a re-release (ATT-007). Oscar and Papa tie and
+        // keep their date order across the new year. Romeo (an open month) and Tango
         // (the Monday after) stay out of the week, whatever their attention.
         assertThat(week.items())
                 .extracting(Item::canonicalTitle)
@@ -535,6 +665,15 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                 .items()
                 .stream()
                 .filter(item -> withHypes.contains(item.gameId()))
+                // Destacados is the explorer's head among launches (ATT-007).
+                .filter(
+                        item ->
+                                item.releases().stream()
+                                        .anyMatch(
+                                                release ->
+                                                        release.stage() == ReleaseStage.FULL_RELEASE
+                                                                || release.stage()
+                                                                        == ReleaseStage.UNKNOWN))
                 .limit(6)
                 .toList();
     }
@@ -583,6 +722,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     /** Every kind of release a game can feature with, far from the other fixtures. */
     private static void seedEveryKindOfRelease() {
         kind(40, "Old Port", "900", "2018-11-14", true, "full_release", "2035-03-20");
+        day(401, 40, PS5, WORLDWIDE, "2018-11-14", "released", "not_required", "full_release");
         kind(41, "Edition", "890", "2035-03-02", false, "full_release", "2035-03-20");
         kind(42, "Early Access", "880", "2035-03-03", true, "early_access", "2035-03-20");
         kind(43, "Advance Access", "870", "2035-03-20", true, "advance_access", "2035-03-20");
@@ -865,6 +1005,105 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                 java.sql.Timestamp.from(OBSERVED),
                 review,
                 stage);
+    }
+
+    /** May 2037: one game per attention rule, each on its own Worldwide PlayStation 5 day. */
+    private static void seedAttention() {
+        attentionGame(60, "Anticipated", "100", "2037-05-10", 5e-4, 1e-3, null, null);
+        attentionGame(61, "Wished", null, "2037-05-11", 4e-4, null, null, null);
+        attentionGame(62, "Port Of Hit", null, "2037-05-12", null, null, 1000L, 2e-3);
+        attentionGame(63, "Re-release", "1000", "2037-05-13", null, null, null, null);
+        first(63, "2010-01-01");
+        attentionGame(64, "Editorial Pick", null, "2037-05-14", null, null, null, null);
+        attentionGame(65, "Silent", null, "2037-05-15", null, null, null, null);
+    }
+
+    private static void attentionGame(
+            int number,
+            String title,
+            String hypes,
+            String day,
+            Double wantToPlay,
+            Double visits,
+            Long parentHypes,
+            Double parentWantToPlay) {
+        game(number, title, hypes);
+        first(number, day);
+        day(number * 10, number, PS5, WORLDWIDE, day, "announced", "not_required", "full_release");
+        if (wantToPlay != null
+                || visits != null
+                || parentHypes != null
+                || parentWantToPlay != null) {
+            admin.update(
+                    "INSERT INTO catalogue.game_attention_evidence (game_id, want_to_play, visits,"
+                            + " parent_hypes, parent_want_to_play, source_name, observed_at)"
+                            + " VALUES (CAST(? AS uuid), ?, ?, ?, ?, 'IGDB', ?)",
+                    gameId(number),
+                    wantToPlay,
+                    visits,
+                    parentHypes,
+                    parentWantToPlay,
+                    java.sql.Timestamp.from(OBSERVED));
+        }
+    }
+
+    private static java.util.UUID editorialList(
+            LocalDate from, LocalDate to, Map<Integer, Integer> scores) {
+        return editorialStore
+                .save(newList(from, to, scores), java.util.Optional.empty())
+                .orElseThrow();
+    }
+
+    private static com.videogameplatform.catalogue.application.attention.port
+                    .EditorialAttentionStore.NewList
+            newList(LocalDate from, LocalDate to, Map<Integer, Integer> scores) {
+        var entries =
+                new java.util.ArrayList<
+                        com.videogameplatform.catalogue.application.attention.port
+                                .EditorialAttentionStore.NewEntry>();
+        var games = new java.util.TreeMap<>(scores);
+        int rank = 0;
+        for (var score : games.entrySet()) {
+            entries.add(
+                    new com.videogameplatform.catalogue.application.attention.port
+                            .EditorialAttentionStore.NewEntry(
+                            gameId(score.getKey()),
+                            ++rank,
+                            score.getValue(),
+                            "File title " + score.getKey(),
+                            java.util.Optional.empty(),
+                            List.of("https://example.test/" + score.getKey())));
+        }
+        return new com.videogameplatform.catalogue.application.attention.port
+                .EditorialAttentionStore.NewList(
+                java.util.UUID.randomUUID(),
+                from,
+                to,
+                "editorial-anticipation@1",
+                java.util.Optional.of("test-model"),
+                java.util.Optional.empty(),
+                OBSERVED,
+                entries);
+    }
+
+    private static List<String> explorerTitles(YearMonth month) {
+        return browseAdapter
+                .findPublishedReleases(
+                        new ReleaseBrowseReadPort.Criteria(
+                                new ReleaseBrowseReadPort.Window(
+                                        month.atDay(1), month.atEndOfMonth()),
+                                month.atEndOfMonth().plusDays(14),
+                                Sort.HYPE,
+                                List.of(),
+                                List.of(),
+                                new ReleaseBrowseReadPort.Pagination(1, 100, 0),
+                                false,
+                                25))
+                .orElseThrow()
+                .items()
+                .stream()
+                .map(ReleaseBrowseReadPort.Item::canonicalTitle)
+                .toList();
     }
 
     private static DataSource migrate(String database) throws Exception {

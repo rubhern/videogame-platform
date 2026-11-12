@@ -148,9 +148,9 @@ describe("Próximos destacados", () => {
 
     const notice = await screen.findByRole("heading", {
       level: 2,
-      name: "Aún no hay Hype para los próximos juegos de PlayStation 5",
+      name: "Aún no hay datos de interés para los próximos juegos de PlayStation 5",
     });
-    expect(notice.closest(".notice")).toHaveTextContent("Sin datos de Hype");
+    expect(notice.closest(".notice")).toHaveTextContent("Sin datos de interés");
     expect(screen.queryByRole("list", { name: /Los más esperados/ })).not.toBeInTheDocument();
   });
 

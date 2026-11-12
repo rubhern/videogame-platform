@@ -184,15 +184,15 @@ function EmptyHorizon({
   const unranked = model.selection === "popularity-unavailable";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"} upcoming-notice`} role="status">
-      <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Próximos seis meses"}</p>
+      <p className="notice-kicker">{unranked ? "Sin datos de interés" : "Próximos seis meses"}</p>
       <h2>
         {unranked
-          ? `Aún no hay Hype para los próximos juegos de ${context.name}`
+          ? `Aún no hay datos de interés para los próximos juegos de ${context.name}`
           : `No conocemos próximos lanzamientos de ${context.name} con fecha en los próximos seis meses`}
       </h2>
       <p>
         {unranked
-          ? `Gameómetro conoce juegos que llegan a ${context.name} antes del ${formatCalendarDay(model.window.to)}, pero IGDB aún no registra Hype para ninguno.`
+          ? `Gameómetro conoce juegos que llegan a ${context.name} antes del ${formatCalendarDay(model.window.to)}, pero aún no hay datos de interés para ninguno.`
           : "Puede que aún no tengan fecha o que Gameómetro todavía no los conozca."}
       </p>
       <div className="upcoming-notice-links">

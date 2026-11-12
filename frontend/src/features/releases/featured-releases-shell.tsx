@@ -124,7 +124,7 @@ function UnrankedNotice({
   const period = week ? "esta semana" : "este mes";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"}`}>
-      <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Sin lanzamientos"}</p>
+      <p className="notice-kicker">{unranked ? "Sin datos de interés" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
           ? `Aún no hay Destacados de ${model.periodPhrase}`
@@ -134,7 +134,7 @@ function UnrankedNotice({
       </h2>
       <p>
         {unranked
-          ? `De momento, Gameómetro no tiene Hype para lanzamientos de ${period}${interestsOn ? " en tus plataformas" : ""}`
+          ? `De momento, Gameómetro no tiene datos de interés para lanzamientos de ${period}${interestsOn ? " en tus plataformas" : ""}`
           : interestsOn
             ? `Gameómetro no tiene lanzamientos para tus plataformas en ${period}. Prueba con todas las plataformas.`
             : week

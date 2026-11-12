@@ -42,6 +42,17 @@ public interface CatalogueProviderPort {
      */
     LogoBatch logos(List<String> providerIds);
 
+    /**
+     * The attention signals of up to one provider page of Games beyond the Hypes their work carries:
+     * each Game's Want to Play and Visits shares and, for a derived product, its parent product's
+     * Hypes, Want to Play and Visits (ATT-002, ATT-003).
+     *
+     * <p>The answer is complete for every requested reference or the call fails as a whole with
+     * {@link ProviderRequestException}; a Game the provider no longer returns is absent, and a Game
+     * without a signal carries it as absent, never as zero.
+     */
+    AttentionBatch attention(List<String> providerIds);
+
     record ReleasePage(
             List<String> gameIds,
             int inspected,
@@ -260,6 +271,55 @@ public interface CatalogueProviderPort {
                 throw new IllegalArgumentException("A provider image requires its dimensions");
             }
         }
+    }
+
+    /** Attention signals keyed by the requested provider Game reference. */
+    record AttentionBatch(
+            Map<String, ProviderAttention> attention, ProviderCallStatistics statistics) {
+        public AttentionBatch {
+            attention = Map.copyOf(attention);
+        }
+    }
+
+    /**
+     * A Game's provider shares of Want to Play and Visits, each in (0, 1], and the signals of the
+     * product it derives from when it is a remake, remaster, port or expanded game.
+     */
+    record ProviderAttention(
+            Optional<Double> wantToPlay,
+            Optional<Double> visits,
+            Optional<ParentAttention> parent) {
+        public ProviderAttention {
+            wantToPlay = share(wantToPlay, "wantToPlay");
+            visits = share(visits, "visits");
+            parent = java.util.Objects.requireNonNull(parent, "parent");
+        }
+    }
+
+    /** The signals of a derived Game's parent product; it may hold none of them. */
+    record ParentAttention(
+            Optional<Long> hypes, Optional<Double> wantToPlay, Optional<Double> visits) {
+        public ParentAttention {
+            hypes = java.util.Objects.requireNonNull(hypes, "hypes");
+            if (hypes.isPresent() && hypes.orElseThrow() <= 0) {
+                throw new IllegalArgumentException("Parent Hypes must be positive");
+            }
+            wantToPlay = share(wantToPlay, "wantToPlay");
+            visits = share(visits, "visits");
+        }
+
+        /** Whether the parent product has any signal at all. */
+        public boolean isEmpty() {
+            return hypes.isEmpty() && wantToPlay.isEmpty() && visits.isEmpty();
+        }
+    }
+
+    private static Optional<Double> share(Optional<Double> value, String name) {
+        java.util.Objects.requireNonNull(value, name);
+        if (value.isPresent() && !(value.orElseThrow() > 0 && value.orElseThrow() <= 1)) {
+            throw new IllegalArgumentException("A provider share must lie in (0, 1]: " + name);
+        }
+        return value;
     }
 
     /** Logos keyed by the requested provider Game reference; absent means none is usable. */

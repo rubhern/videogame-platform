@@ -144,7 +144,7 @@ curl --fail 'http://localhost:8081/actuator/cataloguecoverage?from=1997-01-01&to
 
 One POST paginates internally until every IGDB Game with a release date in the
 interval has been reconciled; there is no total Game limit. Each provider page reads
-its Games' logos; each Game request carries Hypes, first-release
+its Games' logos and their Want to Play, Visits and parent-product signals (#458); each Game request carries Hypes, first-release
 and edition evidence along with artwork and screenshot metadata for featured discovery
 (`UC-010`), and the IGDB player score with its rating count; the report counts signals
 observed, cleared and kept unavailable, featured images and logos observed, and player

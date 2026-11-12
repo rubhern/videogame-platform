@@ -160,7 +160,7 @@ export interface paths {
          *     (never restricted by the active platform set), region options reflect the current range
          *     and the active platform selection (never restricted by the active region set), and a
          *     currently selected valid value always stays representable. `sort` orders the games
-         *     before pagination, by date, Hype, community score or external player score; every
+         *     before pagination, by date, attention (`hype`), community score or external player score; every
          *     order reads local state only and never calls a provider. Empty, review-required, imprecise-date and fallback-cover results are
          *     valid states. PostgreSQL groups by game, applies the range and filters, distinct facet
          *     discovery, presented-release selection, total ordering, count, limit, and offset before
@@ -198,7 +198,9 @@ export interface paths {
          *     local catalogue is complete.
          *
          *     This is the highlights calendar: only games with locally stored IGDB Hypes >= 10
-         *     qualify; missing or lower Hype is excluded. The threshold is fixed, not a percentile
+         *     launching that day qualify; missing or lower Hype is excluded, and since 5.14.0 an early
+         *     access, advance access, beta or alpha release is never counted or coloured (only a
+         *     `stage` of `full_release` or `unknown` is a launch). The threshold is fixed, not a percentile
          *     recomputed per request. It filters contextual facets as well as day counts.
          *
          *     The calendar is active from the evaluation date on: days of the month before it are
@@ -249,17 +251,18 @@ export interface paths {
          *     Since 5.9.0 the selection is the head of the release explorer: for the same period and
          *     platforms, the items are the first games of `GET /releases` with `from` and `to` set to
          *     the period's window, `sort=hype` and approximate dates left out, in the same order, each
-         *     presenting the same releases and date, counting only games with positive locally stored
-         *     IGDB Hypes. A qualifying release is therefore any release that explorer range admits:
-         *     ports, remakes, editions and every release stage take part, including early and advance
-         *     access, whatever the game's first release was. Candidates rank by Hypes descending, then
-         *     the `releaseDate` order, whose last key is the unique `gameId`. A game without a usable
-         *     popularity signal stays a normal catalogue and discovery result but is not ranked, and no
-         *     popularity value is ever invented. The first item is the period's featured release and
+         *     presenting the same releases and date, counting only games with release attention
+         *     (`ReleaseSort` `hype`). Since 5.14.0 only a launch gives a game attention: a release
+         *     whose `stage` is `full_release` or `unknown` in the period. Early access, advance access,
+         *     betas and alphas never feature, although the explorer still lists them. Ports, remakes
+         *     and editions take part whatever the game's first release was. Candidates rank by attention descending
+         *     (since 5.14.0), then the `releaseDate` order, whose last key is the unique `gameId`. A game
+         *     without any attention signal stays a normal catalogue and discovery result but is not
+         *     ranked, and no value is ever invented. The first item is the period's featured release and
          *     up to five more follow; fewer items are returned rather than filling slots. Clients
-         *     should expect a port or an early access launch as the featured release and read its
-         *     `stage`. Popularity measures provider-observed attention,
-         *     never quality, a rating, or an editorial recommendation, and the signal value itself is
+         *     should expect a port as the featured release; a featured game may still present an early
+         *     or advance access release on another platform beside its launch, so read each `stage`. Attention combines provider-observed interest with the operator's editorial
+         *     anticipation list for the period; it never measures quality or a rating, and its value is
          *     not exposed. The application derives the evaluation date, the current week and the
          *     current month in `Europe/Madrid`. Without parameters the current calendar month is
          *     served. Any period inside the navigation bounds may be selected; it is ranked with the
@@ -400,8 +403,8 @@ export interface paths {
          * Rank the most anticipated upcoming games of one platform
          * @description Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
          *     catalogue publication that are still to come on the requested platform scope inside a
-         *     moving six-calendar-month horizon, ranked by their locally stored positive IGDB Hypes
-         *     descending, then `gameId` ascending. A platform family is sent as the product platform
+         *     moving six-calendar-month horizon, ranked by release attention over the horizon (the
+         *     `ReleaseSort` `hype` order, since 5.14.0) descending, then `gameId` ascending. A platform family is sent as the product platform
          *     identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
          *
          *     The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
@@ -409,7 +412,8 @@ export interface paths {
          *     later; when that day does not exist, it ends on the last day of that month (from 31 August
          *     to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
          *
-         *     A release qualifies on a scope platform when it is a Full Release, neither cancelled nor
+         *     A release qualifies on a scope platform when it is a launch (`stage` `full_release`, or
+         *     `unknown` since 5.14.0), neither cancelled nor
          *     delayed nor pending review, and its known date can only fall inside the horizon and after
          *     the evaluation date: an exact day after the evaluation date and no later than `window.to`,
          *     or a month or quarter that has not ended and ends no later than `window.to`. A year or
@@ -418,14 +422,14 @@ export interface paths {
          *     already effectively occurred (the `browsePlatformGames` occurrence rule, so released and
          *     upcoming agree with Explorar catálogo), and is not known to be an edition rather than a
          *     distinct product. A game already released on another platform may be a candidate: what
-         *     matters is that it is new to this platform. Only candidates with a positive Hypes count are
+         *     matters is that it is new to this platform. Only candidates with an attention signal are
          *     ranked; a candidate without one is not ranked and no value is ever invented.
          *
          *     Each item presents one qualifying release of the scope, chosen by the `ReleaseItem`
          *     presentation precedence with the earliest date first, and carries the landscape image of
-         *     `FeaturedImage`: the first item uses the hero policy, the others the card policy. Hypes
-         *     measure provider-observed attention: never quality, a rating, a community opinion or an
-         *     editorial recommendation, and the value itself is not exposed. The selection never claims
+         *     `FeaturedImage`: the first item uses the hero policy, the others the card policy. Attention
+         *     combines provider-observed interest with the operator's editorial anticipation lists:
+         *     never quality, a rating or a community opinion, and the value itself is not exposed. The selection never claims
          *     that the local catalogue holds every release of the platform. PostgreSQL selects,
          *     deduplicates, ranks and limits the games and presents their release before anything
          *     reaches the application. It never varies on the session or preferred platforms and never
@@ -1038,6 +1042,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalogue/editorial-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the editorial anticipation prompt and the loaded lists
+         * @description Requires an authenticated session holding the catalogue operator authority (`UC-021`).
+         *     Returns the versioned prompt an operator gives a language model with web access to
+         *     obtain an editorial anticipation file, and at most 36 loaded lists, latest range first.
+         *     In `prompt.template`, `{{FROM}}` and `{{TO}}` stand for the first and last ISO day of the
+         *     range; the client substitutes them. Lists never overlap: every day belongs to at most
+         *     one list. Nothing here reads the provider.
+         */
+        get: operations["getEditorialAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/editorial-attention/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview how an editorial anticipation file would load
+         * @description Requires the catalogue operator authority and session-bound CSRF proof. Reads the file
+         *     text as the language model returned it (a surrounding Markdown code fence is tolerated,
+         *     and members the schema does not name are ignored), validates it and matches every entry
+         *     to a catalogued game: by the IGDB page slug first, else by a title exactly one catalogued
+         *     game carries. Each entry states its match and warnings, and the preview names the list
+         *     with the same range that loading would replace and any other list it overlaps. Nothing
+         *     is stored.
+         */
+        post: operations["previewEditorialAttentionFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/editorial-attention/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load an editorial anticipation file as the list of its range
+         * @description Requires the catalogue operator authority and session-bound CSRF proof. Validates and
+         *     matches the file as the preview does, then applies the operator's `assignments`: each
+         *     names an entry by rank and either a catalogued game, which replaces the automatic match,
+         *     or none, which leaves the entry out. Entries without a game are left out, and a game named
+         *     twice keeps its highest score. The list replaces the list with exactly the same range in
+         *     one transaction; a list overlapping the range otherwise is refused with `409` and nothing
+         *     changes. From the next read on, the release attention of every range overlapping the list
+         *     includes its scores.
+         */
+        post: operations["loadEditorialAttentionList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/editorial-attention/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description The list to act on, as the editorial attention overview names it.
+                 * @example 6f1d2c3b-4a5e-4f6a-8b7c-9d0e1f2a3b4c
+                 */
+                listId: components["parameters"]["EditorialAttentionListIdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one editorial anticipation list with its entries
+         * @description Requires the catalogue operator authority. Returns the list and its at most fifty
+         *     entries in rank order, each with the catalogued game it scores.
+         */
+        get: operations["getEditorialAttentionList"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete one editorial anticipation list
+         * @description Requires the catalogue operator authority and session-bound CSRF proof. Deletes the list
+         *     and its entries; from the next read on, the release attention of its range is computed
+         *     from the provider signals alone.
+         */
+        delete: operations["deleteEditorialAttentionList"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1071,8 +1186,16 @@ export interface components {
          *     `gameId`. `releaseDate` is ascending by each game's first presented release: the last
          *     day of its known period (the day itself for an exact date), an exact day before a month,
          *     quarter or year period ending the same day, then the case-insensitive canonical title.
-         *     `hype` puts the highest locally stored IGDB Hypes first, the popularity signal
-         *     Destacados ranks with, whose value is never exposed. `rating` puts the highest
+         *     `hype` puts the highest release attention first; only a game with a launch in the range
+         *     (a release whose `stage` is `full_release` or `unknown`) has attention, and a game first
+         *     launched before `from` is a re-release, the order Destacados ranks with, whose
+         *     value is never exposed. Since 5.14.0 attention is computed over the requested range's
+         *     candidates: the mean of locally stored IGDB Hypes, Want to Play and Visits, each on a
+         *     log scale relative to the strongest candidate (a remake, remaster, port or expanded game
+         *     may claim half of its parent product's signal; a game first released before `from`
+         *     keeps half of its own), averaged with the 1–100 score of the game in the operator's
+         *     editorial anticipation list covering the range. The name `hype` is kept so existing links
+         *     keep working. `rating` puts the highest
          *     Gameómetro community mean, at the one decimal shown, first, then the larger number of
          *     ratings. `externalPlayerScore` puts the highest locally stored external player score
          *     (currently IGDB players), at the one decimal of its /10 `ExternalPlayerScore` value,
@@ -1741,16 +1864,16 @@ export interface components {
              */
             window: components["schemas"]["ReleaseWindow"];
             /**
-             * @description `ranked` when at least one candidate has positive Hypes; `popularity_unavailable`
-             *     when the scope has candidates but none has Hypes; `no_qualifying_releases` when the
+             * @description `ranked` when at least one candidate has an attention signal; `popularity_unavailable`
+             *     when the scope has candidates but none has one; `no_qualifying_releases` when the
              *     local catalogue holds no candidate in the horizon. The freshness fields describe the
-             *     oldest Hypes evidence among the ranked games.
+             *     oldest attention evidence among the ranked games.
              */
             selection: components["schemas"]["FeaturedSelection"];
             /**
-             * @description The ranking, highest Hypes first, then `gameId` ascending; each game appears once.
+             * @description The ranking, highest attention first, then `gameId` ascending; each game appears once.
              *     Empty unless `selection.status` is `ranked`, and shorter than ten when fewer
-             *     candidates have Hypes: no slot is filled artificially.
+             *     candidates have attention: no slot is filled artificially.
              */
             items: components["schemas"]["UpcomingHighlightItem"][];
         };
@@ -2301,6 +2424,123 @@ export interface components {
             /** @description Stable operational code; never a raw error message or provider payload. */
             lastReason?: string;
         };
+        /** @description Opaque identity of one editorial anticipation list; an unknown value is not found. */
+        EditorialAttentionListId: string;
+        EditorialAttentionPrompt: {
+            /** @description The prompt and file schema version a file names in `generator.prompt`. */
+            version: string;
+            /** @description The prompt text; `{{FROM}}` and `{{TO}}` stand for the range's ISO days. */
+            template: string;
+        };
+        EditorialAttentionListSummary: {
+            listId: components["schemas"]["EditorialAttentionListId"];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            promptVersion: string;
+            model?: string;
+            /**
+             * Format: date-time
+             * @description When the file says it was generated; absent when it does not say.
+             */
+            generatedAt?: string;
+            /** Format: date-time */
+            loadedAt: string;
+            entryCount: number;
+        };
+        EditorialAttentionOverview: {
+            prompt: components["schemas"]["EditorialAttentionPrompt"];
+            /** @description The loaded lists, latest range first. */
+            lists: components["schemas"]["EditorialAttentionListSummary"][];
+        };
+        EditorialAttentionUpload: {
+            /**
+             * @description The file text exactly as the language model returned it. Version 1 of the file is a
+             *     JSON object with `schemaVersion` 1, `range` (`from`, `to`, inclusive ISO days, at most
+             *     92 days), `generatedAt`, `generator` (`prompt`, `model`) and 1 to 50 `entries`, each
+             *     with a unique `rank` (1–50), `igdbSlug` (or null), `title`, `releaseDate` (or null),
+             *     an integer `score` (1–100), `rationale` (at most 500 characters) and at most 10
+             *     `sources`. The prompt template states it in full.
+             */
+            content: string;
+        };
+        /** @description The operator's game for the entry of one rank; without `gameId` the entry is left out. */
+        EditorialAttentionAssignment: {
+            rank: number;
+            /** Format: uuid */
+            gameId?: string;
+        };
+        EditorialAttentionLoad: {
+            /** @description The file text, as `EditorialAttentionUpload.content`. */
+            content: string;
+            assignments: components["schemas"]["EditorialAttentionAssignment"][];
+        };
+        EditorialAttentionGameMatch: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            slug: string;
+            /** @enum {string} */
+            matchedBy: "igdb_slug" | "title";
+            /**
+             * Format: date
+             * @description The earliest exact day of the game's releases inside the range, when it has one.
+             */
+            releaseInRange?: string;
+        };
+        /**
+         * @description `unmatched`: no catalogued game carries the slug or exactly the title.
+         *     `ambiguous_title`: several catalogued games carry exactly the title.
+         *     `no_release_in_range`: the game has no release in the range, so the entry ranks nothing.
+         *     `release_date_differs`: the game's exact release days in the range exclude the file's date.
+         *     `duplicate_game`: an earlier entry names the same game; the highest score is kept.
+         * @enum {string}
+         */
+        EditorialAttentionWarning: "unmatched" | "ambiguous_title" | "no_release_in_range" | "release_date_differs" | "duplicate_game";
+        EditorialAttentionPreviewEntry: {
+            rank: number;
+            igdbSlug?: string;
+            title: string;
+            /** Format: date */
+            releaseDate?: string;
+            score: number;
+            rationale?: string;
+            match?: components["schemas"]["EditorialAttentionGameMatch"];
+            warnings: components["schemas"]["EditorialAttentionWarning"][];
+        };
+        EditorialAttentionPreview: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            promptVersion: string;
+            model?: string;
+            /** Format: date-time */
+            generatedAt?: string;
+            /** @description The list with exactly this range, which loading would replace. */
+            replaces?: components["schemas"]["EditorialAttentionListSummary"];
+            /** @description Another list overlapping the range; loading is refused until it is deleted. */
+            conflict?: components["schemas"]["EditorialAttentionListSummary"];
+            entries: components["schemas"]["EditorialAttentionPreviewEntry"][];
+        };
+        EditorialAttentionListEntry: {
+            rank: number;
+            /** Format: uuid */
+            gameId: string;
+            /** @description The catalogued game's title. */
+            title: string;
+            slug: string;
+            /** @description The title the file gave. */
+            fileTitle: string;
+            score: number;
+            rationale?: string;
+            sources: string[];
+        };
+        EditorialAttentionListDetail: {
+            list: components["schemas"]["EditorialAttentionListSummary"];
+            entries: components["schemas"]["EditorialAttentionListEntry"][];
+        };
         /**
          * @description An inclusive release-date interval of at most 184 days between 1950-01-01 and
          *     2099-12-31, with `from` not after `to`.
@@ -2363,7 +2603,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -2548,6 +2788,43 @@ export interface components {
          *     session-bound CSRF proof or same-origin browser metadata.
          */
         AdministrationCommandForbidden: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description The file is not valid JSON of the supported schema, a value is out of range, an
+         *     assignment names an unknown rank or game, or no entry names a catalogued game. `pointer`
+         *     names the member, into the file under `/content` or into the request. Nothing was stored.
+         */
+        EditorialAttentionFileRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Another list covers part of the range; nothing changed. Delete it, then load again. */
+        EditorialAttentionRangeConflict: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description No list has this identity; nothing changed. */
+        EditorialAttentionListNotFound: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -3174,6 +3451,11 @@ export interface components {
          * @example "catalogue-version-opaque"
          */
         PublicIfNoneMatch: string;
+        /**
+         * @description The list to act on, as the editorial attention overview names it.
+         * @example 6f1d2c3b-4a5e-4f6a-8b7c-9d0e1f2a3b4c
+         */
+        EditorialAttentionListIdPath: components["schemas"]["EditorialAttentionListId"];
         /**
          * @description The run to act on, as the synchronization status or an accepted request names it.
          * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
@@ -4886,6 +5168,193 @@ export interface operations {
             403: components["responses"]["AccessDenied"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["CoverageValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getEditorialAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The prompt and the loaded lists. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorialAttentionOverview"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["AdministrationValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    previewEditorialAttentionFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorialAttentionUpload"];
+            };
+        };
+        responses: {
+            /** @description The validated file and how each entry would load. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorialAttentionPreview"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["EditorialAttentionFileRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    loadEditorialAttentionList: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorialAttentionLoad"];
+            };
+        };
+        responses: {
+            /** @description The stored list. */
+            201: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorialAttentionListDetail"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["EditorialAttentionRangeConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["EditorialAttentionFileRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getEditorialAttentionList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description The list to act on, as the editorial attention overview names it.
+                 * @example 6f1d2c3b-4a5e-4f6a-8b7c-9d0e1f2a3b4c
+                 */
+                listId: components["parameters"]["EditorialAttentionListIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The list and its entries. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorialAttentionListDetail"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            404: components["responses"]["EditorialAttentionListNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    deleteEditorialAttentionList: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description The list to act on, as the editorial attention overview names it.
+                 * @example 6f1d2c3b-4a5e-4f6a-8b7c-9d0e1f2a3b4c
+                 */
+                listId: components["parameters"]["EditorialAttentionListIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The list was deleted. */
+            204: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["EditorialAttentionListNotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];

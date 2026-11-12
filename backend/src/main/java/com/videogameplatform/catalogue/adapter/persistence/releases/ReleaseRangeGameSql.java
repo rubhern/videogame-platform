@@ -5,8 +5,8 @@ import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCas
 
 /**
  * The games of a release range and their order as SQL, shared by the release explorer and Destacados
- * so that, for one range and platforms, Destacados is exactly the head of the explorer's Hypes order
- * (FEAT-001, FEAT-002).
+ * so that, for one range and platforms, Destacados is exactly the head of the explorer's attention
+ * order (FEAT-001, FEAT-002, ATT-005).
  *
  * <p>{@code filtered_release} holds the releases matching the given predicates, {@code
  * presented_release} keeps the one presented release of each game and platform among them, and
@@ -55,7 +55,13 @@ final class ReleaseRangeGameSql {
                 + "    SELECT DISTINCT ON (fr.game_id)\n"
                 + "        fr.game_id, fr.period_end, fr.period_start, fr.date_precision,\n"
                 + "        gs.slug, gs.canonical_title, gs.cover_reference, gs.cover_source,\n"
-                + "        gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url\n"
+                + "        gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url,\n"
+                // Whether a launch release of the game is in the range (ATT-007); one hashed
+                // lookup over the range's releases, never a probe per game.
+                + "        fr.game_id IN (SELECT launch.game_id FROM filtered_release launch"
+                + " WHERE launch.release_stage IN "
+                + ReleaseAttentionSql.LAUNCH_STAGES
+                + ") AS full_launch\n"
                 + "    FROM presented_release fr\n"
                 + GAME_SNAPSHOT_LATERAL
                 + "    ORDER BY fr.game_id, "
@@ -79,15 +85,15 @@ final class ReleaseRangeGameSql {
 
     /**
      * Ordering of the games, each positioned by its first presented release; ends in the unique
-     * game id. Hype and rating lead when chosen, and a game without the signal follows every game
-     * with one rather than counting as zero.
+     * game id. Attention ({@link ReleaseAttentionSql}) and rating lead when chosen, and a game
+     * without the signal follows every game with one rather than counting as zero.
      */
     static String gameOrder(Sort sort, String alias) {
         String dateOrder =
                 dateOrder(alias) + ", lower(" + alias + ".canonical_title), " + alias + ".game_id";
         return switch (sort) {
             case RELEASE_DATE -> dateOrder;
-            case HYPE -> alias + ".hypes DESC NULLS LAST, " + dateOrder;
+            case HYPE -> alias + ".attention DESC NULLS LAST, " + dateOrder;
             case RATING ->
                     alias
                             + ".community_mean DESC NULLS LAST, "

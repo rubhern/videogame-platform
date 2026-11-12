@@ -113,6 +113,26 @@ class JdbcReleaseCalendarReadAdapterIntegrationTest {
     }
 
     @Test
+    void onlyALaunchCountsOrColoursADay() {
+        // Game 2's release on the 15th becomes an early access: only game 1 still launches there,
+        // while the explorer keeps listing both (ATT-007).
+        jdbcTemplate.update(
+                "UPDATE catalogue.release_snapshot SET release_stage = 'early_access' WHERE release_id = ?::uuid",
+                releaseId("03"));
+        try {
+            var result =
+                    adapter.countPublishedReleases(criteria(List.of(), List.of())).orElseThrow();
+            assertThat(result.days())
+                    .contains(new DayCount(LocalDate.of(2028, 2, 15), 1, 10))
+                    .doesNotContain(new DayCount(LocalDate.of(2028, 2, 15), 2, 20));
+        } finally {
+            jdbcTemplate.update(
+                    "UPDATE catalogue.release_snapshot SET release_stage = 'unknown' WHERE release_id = ?::uuid",
+                    releaseId("03"));
+        }
+    }
+
+    @Test
     void appliesBothFiltersToTheSameRelease() {
         var playStation =
                 adapter.countPublishedReleases(criteria(List.of(PS5), List.of())).orElseThrow();

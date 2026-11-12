@@ -100,7 +100,7 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
   await test.step("Hype reorders the range before pagination, missing Hypes last", async () => {
     const order = page.getByRole("combobox", { name: /Ordenar por/ });
     await order.click();
-    await page.getByRole("option", { name: "Hype" }).click();
+    await page.getByRole("option", { name: "Interés" }).click();
     await expect(page).toHaveURL(/sort=hype/);
     await expect(releaseTitles(page)).toHaveText([
       "Crimson Desert",
