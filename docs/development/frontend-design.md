@@ -589,7 +589,7 @@ the executable values; these constraints hold wherever they are used:
   screen keeps exactly one live status.
 - Render platform and region choices from `availableFilters` in labelled select-only
   comboboxes, in one row of night controls after **Ordenar por** (**Fecha de lanzamiento**,
-  **Hype**, **Puntuación Gameómetro**, **Jugadores IGDB**); the two score orders carry their
+  **Interés**, **Puntuación Gameómetro**, **Jugadores IGDB**); the two score orders carry their
   sources' own marks — the Gameómetro G and IGDB's white attribution mark, proportional and
   never tinted — instead of a generic icon. On phones the order spans its row and both facets
   share the next one. The entire control opens its
@@ -607,7 +607,7 @@ the executable values; these constraints hold wherever they are used:
   Never hard-code the available choices from the mockup.
 - Below 620px the range, order, facets and approximate dates fold under one **Filtros y orden**
   night control, closed by default and announced as expanded or collapsed, whose line states
-  what they hold (`Hype · 2 filtros · Fechas aproximadas`), so the first covers stay near the
+  what they hold (`Interés · 2 filtros · Fechas aproximadas`), so the first covers stay near the
   top; the day bar stays open above it. Wider screens never draw the toggle and always show
   the controls.
 - The range is two native, labelled date fields in the night controls' voice; both bounds are
@@ -773,7 +773,7 @@ A day without highlights is left out rather than shown as an empty slot. Each da
 button in the instrument's voice — the weekday or `hoy`, the date, the month and the count beside the
 calendar's interest dot — named in full with its count; the chosen day is ringed in ice and announced
 as pressed, and the preview opens on the day with the most highlights, the earliest among equals.
-Beneath come the chosen day's heading and count, up to four of its games in the calendar's Hype order
+Beneath come the chosen day's heading and count, up to four of its games in the calendar's attention order
 (cover, title and platform marks), **Ver todos los lanzamientos del día** (the explorer on that day)
 and **Abrir este día en el calendario**. Phones scroll the days and the covers sideways inside the
 preview, never the page.
@@ -860,12 +860,12 @@ The chosen day follows beneath under the section's short fire rule: its heading
 (`Viernes, 13 de noviembre`), the count with `Mostrando 3` when more exist, **Ver todos los
 lanzamientos del día** (the full explorer on that day in the same order and platform/region
 context, including games outside the calendar's highlights) and up to three compact highlighted
-rows. The explorer has no highlights filter. The preview reads the first games in Hype order,
+rows. The explorer has no highlights filter. The preview reads the first games in attention order,
 with its page size capped by both three and the highlighted count.
 Each row holds the cover in the standard frame, the title as its only keyboard stop with the
 pointer target stretched over the row, the platform marks and region, up to two genres, the
 review notice when the API requires it, the [discovery score](#featured-releases) readings and a
-quiet way in. The calendar shows only the highlights defined by `UC-016`; Hype orders those games and is never shown or named in the interface.
+quiet way in. The calendar shows only the highlights defined by `UC-016`; Attention orders those games, and neither it nor Hype is shown in the interface.
 The reference's wide landscape art and descriptions are not reproduced: the release read carries
 portrait covers and no summary, and the explorer's cards omit summaries too.
 
@@ -969,7 +969,7 @@ platform marks, the exact `+N`, the region and the same release-kind label, then
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
 period replaces the hero and the row with an informational or empty notice that names the
-period and offers **Explorar lanzamientos** on the represented period; an unranked notice names the missing Hype data without a value, and a week's empty notice says that no release with a confirmed day
+period and offers **Explorar lanzamientos** on the represented period; an unranked notice names the missing interest data without a value, and a week's empty notice says that no release with a confirmed day
 starts inside it. Nothing fills an empty period with unrelated releases.
 
 From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and
@@ -1251,7 +1251,7 @@ first order. A game page returns with **Volver a Próximos destacados** to the s
 reading position.
 
 **States.** Loading keeps the horizon's readout and line and the ranking's frames as placeholders
-under one status. A horizon whose candidates have no Hype reads **Sin datos de Hype** and says so
+under one status. A horizon whose candidates have no attention reads **Sin datos de interés** and says so
 without a value; a horizon without candidates says Gameómetro knows no dated release of the platform
 in the next six months, never that none exists; both offer **Ver todos los próximos juegos** and
 **Ver todas las plataformas**, and neither draws the horizon's line. A catalogue not ready and a
@@ -1671,6 +1671,20 @@ explicit resume. A separate line names an ordinary run that makes history wait; 
 remains the canonical scanned-period view. Poll every five seconds while active and every
 fifteen seconds otherwise, with no ETA or browser-local progress. Actions stack on phones;
 keyboard focus, forced colours and native controls retain their meaning.
+
+Post-MVP (#458, implemented; awaiting owner review), **Interés editorial** is the last tab of the
+same ledger (`UC-023`). **Prompt para el modelo** opens with **Desde** and **Hasta**, defaulting to
+the next calendar month and limited to 92 days, then the prompt itself in a read-only monospace
+field with the range written in, and **Copiar prompt**, whose result is announced quietly. **Cargar
+lista** takes a file or a pasted answer in the same monospace field, then **Previsualizar** shows
+the entries as a scrollable table: rank, the file's title and date, score, the catalogue game and
+how it was found, its date in the range, and warnings in words. Each row offers **Elegir juego**,
+an inline catalogue search, and **Excluir** or **Deshacer**. An overlapping list is a `warning`
+that disables **Cargar lista**, and a list it would replace is named. After loading, focus moves to
+the outcome. **Listas cargadas** shows hairline cards, latest range first, with range, load time,
+games, prompt version and model. **Ver juegos** expands the scores and rationales, and
+**Eliminar** opens an inline confirmation whose safe **Conservar lista** comes first and takes
+focus.
 
 **Traducciones** uses the same tablist. **Cobertura de traducción** shows a dated
 breakdown for **Resúmenes**, **Géneros** and **Modos de juego** in reading order.

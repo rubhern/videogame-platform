@@ -86,7 +86,11 @@ final class ReleaseRangeSql {
                         + range.predicate()
                         + ") AND EXISTS ("
                         + "SELECT 1 FROM catalogue.game_featured_evidence highlight"
-                        + " WHERE highlight.game_id = rs.game_id AND highlight.hypes >= :minimumHypes)",
+                        + " WHERE highlight.game_id = rs.game_id AND highlight.hypes >= :minimumHypes)"
+                        // Only a launch is a highlight (ATT-007): early or advance access, betas
+                        // and alphas are never counted or coloured on a day.
+                        + " AND rs.release_stage IN "
+                        + ReleaseAttentionSql.LAUNCH_STAGES,
                 parameters);
     }
 

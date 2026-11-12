@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
@@ -390,6 +391,106 @@ class IgdbCatalogueProviderAdapterTest {
                                 IgdbFixtureServer.always(200, payload)));
 
         assertThatThrownBy(() -> adapter().logos(List.of("100", "101")))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage("PROVIDER_RESPONSE_INVALID");
+    }
+
+    @Test
+    void readsWantToPlayVisitsAndTheParentSignalsOfDerivedGamesOnly() {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                IgdbFixtureServer.always(
+                                        200, IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                IgdbFixtureServer.always(
+                                        200,
+                                        "[{\"id\":100,\"game_type\":{\"type\":\"Main Game\"},"
+                                                + "\"parent_game\":{\"id\":7,\"hypes\":50}},"
+                                                + "{\"id\":101,\"game_type\":{\"type\":\"Port\"},"
+                                                + "\"version_parent\":{\"id\":9,\"hypes\":800},"
+                                                + "\"parent_game\":{\"id\":8,\"hypes\":5}},"
+                                                + "{\"id\":102,\"game_type\":{\"type\":\"Remake\"},"
+                                                + "\"parent_game\":{\"id\":10}}]"),
+                                "/v4/popularity_primitives",
+                                IgdbFixtureServer.always(
+                                        200,
+                                        "[{\"id\":1,\"game_id\":100,\"popularity_type\":2,"
+                                                + "\"value\":0.0004,\"calculated_at\":10},"
+                                                + "{\"id\":2,\"game_id\":100,\"popularity_type\":2,"
+                                                + "\"value\":0.0005,\"calculated_at\":20},"
+                                                + "{\"id\":3,\"game_id\":100,\"popularity_type\":1,"
+                                                + "\"value\":0,\"calculated_at\":20},"
+                                                + "{\"id\":4,\"game_id\":9,\"popularity_type\":1,"
+                                                + "\"value\":0.002,\"calculated_at\":20},"
+                                                + "{\"id\":5,\"game_id\":10,\"popularity_type\":2,"
+                                                + "\"value\":7,\"calculated_at\":20}]")));
+        var registry = new SimpleMeterRegistry();
+
+        var batch = adapter(registry).attention(List.of("100", "101", "102", "103"));
+
+        // A main game never borrows; a port prefers its version parent; a zero value is no signal;
+        // a value outside a share is no signal and is counted; the latest calculation wins.
+        assertThat(batch.attention()).containsOnlyKeys("100", "101", "102");
+        assertThat(batch.attention().get("100"))
+                .isEqualTo(
+                        new CatalogueProviderPort.ProviderAttention(
+                                Optional.of(0.0005), Optional.empty(), Optional.empty()));
+        assertThat(batch.attention().get("101"))
+                .isEqualTo(
+                        new CatalogueProviderPort.ProviderAttention(
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(
+                                        new CatalogueProviderPort.ParentAttention(
+                                                Optional.of(800L),
+                                                Optional.empty(),
+                                                Optional.of(0.002)))));
+        assertThat(batch.attention().get("102"))
+                .isEqualTo(
+                        new CatalogueProviderPort.ProviderAttention(
+                                Optional.empty(), Optional.empty(), Optional.empty()));
+        // The token request counts too.
+        assertThat(batch.statistics().requests()).isEqualTo(3);
+        assertThat(
+                        registry.get("catalogue.synchronization.provider.mapping.failure")
+                                .tag("reason", "featured_evidence_invalid")
+                                .counter()
+                                .count())
+                .isEqualTo(1.0);
+        assertThat(server.requests())
+                .extracting(IgdbFixtureServer.RecordedRequest::body)
+                .contains(
+                        "fields id,game_type.type,version_parent.hypes,parent_game.hypes;"
+                                + " where id = (100,101,102,103); sort id asc; limit 4;",
+                        "fields game_id,popularity_type,value,calculated_at;"
+                                + " where game_id = (100,101,102,9,10) & popularity_type = (1,2);"
+                                + " sort id asc; limit 500;");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "[{\"id\":1,\"game_id\":999,\"popularity_type\":2,\"value\":0.1}]",
+                "[{\"id\":1,\"game_id\":100,\"popularity_type\":5,\"value\":0.1}]",
+                "[{\"id\":1,\"popularity_type\":2,\"value\":0.1}]"
+            })
+    void rejectsAnInconsistentAttentionAnswerAsAWholeSoNoSignalIsGuessed(String payload) {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                IgdbFixtureServer.always(
+                                        200, IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                IgdbFixtureServer.always(
+                                        200,
+                                        "[{\"id\":100,\"game_type\":{\"type\":\"Main Game\"}}]"),
+                                "/v4/popularity_primitives",
+                                IgdbFixtureServer.always(200, payload)));
+
+        assertThatThrownBy(() -> adapter().attention(List.of("100")))
                 .isInstanceOf(ProviderRequestException.class)
                 .hasMessage("PROVIDER_RESPONSE_INVALID");
     }

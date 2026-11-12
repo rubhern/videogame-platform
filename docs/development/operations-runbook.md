@@ -711,10 +711,36 @@ a `page lookup unavailable` line names the provider failure of a logo lookup. In
 featured evidence keeps its last valid state; a valid missing/zero Hypes or missing first
 release excludes a Game from ranking. The forward migration removes Visits data, so
 re-synchronize the desired months after upgrading; it never converts Visits to Hypes.
+Since #458 the same run also reads, once per provider page, each Game's Want to Play and Visits
+and a derived product's parent signals (ADR-0041); a failed lookup is a `page lookup unavailable`
+line with the `provider_attention` stage and keeps the last valid signals. Explicit repair does not
+refresh them. After upgrading to that version, re-synchronize the months Destacados should rank, or
+the new signals stay absent and the ranking rests on Hypes and editorial lists alone.
 `catalogue.featured.selection{freshness="stale"}` or `{status="popularity_unavailable"}`
 on reads means the next run should cover that period, and a high `lead_image="fallback"`
 share means its Games have no usable artwork or screenshot yet. Explicit
 current-release repair refreshes featured evidence with each Game but does not look up logos.
+
+### Editorial anticipation lists
+
+Release attention takes half its weight from the operator's editorial anticipation list for the
+period (`UC-023`, ADR-0041). Once a month, before the month starts and again when the press changes
+its mind, open **Interés editorial** in `/administracion/catalogo`:
+
+1. Choose the period (a calendar month by default, at most 92 days) and copy the prompt into a
+   language model with web search.
+2. Download the JSON file the model delivers and choose it under **Fichero** (or paste the answer
+   when the model could not create a file), then **Previsualizar**. Nothing is stored yet.
+3. Review the warnings. Use **Elegir juego** for an unmatched or ambiguous entry, for example a
+   bundle that should score its main game, and **Excluir** for an entry that should not count. A
+   date that differs from the catalogue is information only, and the catalogue keeps its date.
+4. **Cargar lista**. Loading the same period again replaces its list; that is how a correction is
+   made. A list overlapping another period is refused until that list is deleted.
+
+The list changes Destacados, Explorar's **Interés** order, the calendar's day preview and
+Próximos destacados on the next read. Deleting it returns its period to the provider signals
+alone. No model or provider is called by the application.
+
 
 The same Game request also acquires the summary, developer and publisher credits, genres and
 game modes that the game page serves (#233). A valid answer replaces them, including clearing

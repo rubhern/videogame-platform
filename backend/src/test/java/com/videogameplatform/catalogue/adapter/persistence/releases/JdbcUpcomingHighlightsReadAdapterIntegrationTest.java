@@ -70,12 +70,13 @@ class JdbcUpcomingHighlightsReadAdapterIntegrationTest {
     void ranksTheQualifyingGamesOfThePlatformByHypesThenUniqueGameId() {
         var result = adapter.findUpcomingHighlights(criteria(List.of(PS5), 10)).orElseThrow();
 
-        // Bravo and Charlie tie on Hypes; Bravo has the smaller game id. Foxtrot qualifies but has
-        // no Hypes, so it is never ranked or given a value.
+        // Bravo and Charlie tie on Hypes; Bravo has the smaller game id. Delta launched on Windows
+        // in 2020, so on PlayStation 5 it is a re-release and keeps half of its Hypes (ATT-003).
+        // Foxtrot qualifies but has no Hypes, so it is never ranked or given a value.
         assertThat(result.items())
                 .extracting(Item::canonicalTitle)
                 .containsExactly(
-                        "Golf", "Alpha", "Delta", "Bravo", "Charlie", "Papa", "Romeo", "Whiskey");
+                        "Golf", "Alpha", "Bravo", "Charlie", "Delta", "Papa", "Romeo", "Whiskey");
         assertThat(result.candidates()).isTrue();
         assertThat(result.platforms()).containsExactly(new Taxonomy(PS5, "PlayStation 5"));
         assertThat(result.items())
@@ -88,7 +89,7 @@ class JdbcUpcomingHighlightsReadAdapterIntegrationTest {
     void keepsOnlyTheBoundedTopAfterRanking() {
         assertThat(adapter.findUpcomingHighlights(criteria(List.of(PS5), 3)).orElseThrow().items())
                 .extracting(Item::canonicalTitle)
-                .containsExactly("Golf", "Alpha", "Delta");
+                .containsExactly("Golf", "Alpha", "Bravo");
     }
 
     @Test
@@ -153,7 +154,7 @@ class JdbcUpcomingHighlightsReadAdapterIntegrationTest {
         assertThat(family.items())
                 .extracting(Item::canonicalTitle)
                 .containsExactly(
-                        "Golf", "Alpha", "Delta", "Bravo", "Charlie", "Papa", "Romeo", "Victor",
+                        "Golf", "Alpha", "Bravo", "Charlie", "Delta", "Papa", "Romeo", "Victor",
                         "Whiskey");
         assertThat(family.platforms())
                 .containsExactly(

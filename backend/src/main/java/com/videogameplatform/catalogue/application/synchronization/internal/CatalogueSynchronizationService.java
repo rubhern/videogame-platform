@@ -8,7 +8,9 @@ import com.videogameplatform.catalogue.application.synchronization.Synchronizati
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationStart;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.AttentionBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderAttention;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
@@ -243,6 +245,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 run.pageFetched(pageNumber, page.gameIds().size(), counters(counts));
                 PageEvidence evidence =
                         new PageEvidence(lookUpLogos(pageNumber, page.gameIds(), run, counts));
+                Optional<Map<String, ProviderAttention>> attention =
+                        lookUpAttention(pageNumber, page.gameIds(), run, counts);
                 int position = 0;
                 for (String providerId : page.gameIds()) {
                     if (stopRequested(runId)) {
@@ -258,6 +262,15 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             counts,
                             false,
                             evidence);
+                }
+                if (attention.isPresent()) {
+                    saveAttention(
+                            runId,
+                            pageNumber,
+                            page.gameIds(),
+                            attention.orElseThrow(),
+                            run,
+                            counts);
                 }
                 store.heartbeat(runId);
                 run.pageCompleted(pageNumber, counters(counts));
@@ -440,6 +453,51 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                                     LogoLookup.complete(batch.logos()), batch.statistics());
                         })
                 .orElse(LogoLookup.UNAVAILABLE);
+    }
+
+    /**
+     * Reads the attention signals of one provider page's Games with bounded requests. A failure
+     * never fails a Game: every Game of the page keeps its last valid signals and the run goes on.
+     */
+    private Optional<Map<String, ProviderAttention>> lookUpAttention(
+            int page, List<String> providerIds, Run run, Counts counts) {
+        if (providerIds.isEmpty()) {
+            return Optional.empty();
+        }
+        return lookUp(
+                page,
+                providerIds,
+                run,
+                counts,
+                Stage.PROVIDER_ATTENTION,
+                () -> {
+                    AttentionBatch batch = provider.attention(providerIds);
+                    return new Answer<>(batch.attention(), batch.statistics());
+                });
+    }
+
+    /**
+     * Records the page's attention signals once its Games are committed, so a Game created by the
+     * page receives them too. A write failure keeps every last valid signal and the run goes on,
+     * unless the run lost its ownership.
+     */
+    private void saveAttention(
+            UUID runId,
+            int page,
+            List<String> providerIds,
+            Map<String, ProviderAttention> attention,
+            Run run,
+            Counts counts) {
+        try {
+            store.saveAttention(runId, attention, clock.instant());
+        } catch (SynchronizationWriteException failure) {
+            rethrowIfOwnershipLost(failure);
+            run.pageLookupUnavailable(
+                    page,
+                    providerIds.size(),
+                    Failure.of(Stage.PERSISTENCE, failure.reason().name()),
+                    counters(counts));
+        }
     }
 
     /** Runs one page-level lookup, accounting its provider calls whether or not it succeeds. */

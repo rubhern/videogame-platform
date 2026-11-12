@@ -226,7 +226,7 @@ describe("home page (#382)", () => {
     renderApp();
 
     const week = section("Destacados de la semana");
-    expect(await within(week).findByText("Sin datos de Hype")).toBeVisible();
+    expect(await within(week).findByText("Sin datos de interés")).toBeVisible();
     expect(within(week).getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
       "href",
       "/lanzamientos?from=2026-10-26&to=2026-11-01",

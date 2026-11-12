@@ -442,6 +442,12 @@ class RedundantReleaseEvidenceIntegrationTest {
         }
 
         @Override
+        public AttentionBatch attention(List<String> ids) {
+
+            return new AttentionBatch(Map.of(), ProviderCallStatistics.none());
+        }
+
+        @Override
         public LogoBatch logos(List<String> ids) {
             return new LogoBatch(Map.of(), ProviderCallStatistics.none());
         }

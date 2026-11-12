@@ -20,6 +20,7 @@
 | `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 50 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; post-MVP (#387), an optional platform scope of product platform IDs (one platform or one family) admits only games whose eligible release lies on the scope (`RNK-005`) before that order, count and page, keeps each game's global reading and presents its scope release; an unknown scope platform is rejected; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-020` | Rank a platform's most anticipated upcoming games (Próximos destacados) | Visitor | Post-MVP (#388): application validates a platform scope of product platform IDs as `UC-019` does and derives the evaluation date and the six-calendar-month horizon in `Europe/Madrid`; PostgreSQL selects the scope's qualifying releases inside the horizon (`UPC-001`), keeps the distinct games still new to the scope (`UPC-002`), ranks those with positive locally stored Hypes by Hypes descending and `gameId` ascending, limits the ranking to ten and presents one qualifying release per game (`UPC-003`); unranked and empty are valid states; never varies on the session or preferred platforms and never calls a provider |
+| `UC-023` | Load an editorial anticipation list | Catalogue operator | Post-MVP (#458): read the versioned prompt for a language model, preview its answer against the catalogue (IGDB slug, else an exact title one game carries), assign or exclude entries, and load the list of one range of at most 92 days, replacing the same range and refusing an overlap; the list scores up to 50 games from 1 to 100 for release attention (`ATT-004`) |
 | `UC-022` | Send feedback | Visitor | Post-MVP (#383): send one categorized message and optional reply address to the configured receiving channel |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
@@ -32,13 +33,14 @@ itself for an exact date), then an exact day before a month, quarter or year end
 same day, then the unique `releaseId`. A game is positioned by its first presented
 release under that order, then its case-insensitive canonical title and `gameId`, and
 its releases keep the same order. Post-MVP (#285), the visitor may instead order games
-by Hype, highest first; by the Gameómetro community mean at the one decimal shown,
+by attention (sort `hype`, labelled **Interés**), highest first; by the Gameómetro community mean at the one decimal shown,
 highest first and then by more ratings; or by the stored external player score (currently
 IGDB players) at the one decimal of its /10 presentation, highest first and then by more
 of that source's ratings. A game without the chosen signal, including one whose last check
 found no external score, follows every game with one and is never treated as zero, and ties continue with the date order and
-`gameId`. Hype is the locally stored IGDB evidence that `UC-010` ranks with, and its
-value is never exposed; the external player score is Catalogue's own stored evidence
+`gameId`. Attention is release attention over the requested range and filters
+(`ATT-001` to `ATT-006`, [ADR-0041](../../decisions/0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md)),
+the order `UC-010` ranks with, and its value is never exposed; the external player score is Catalogue's own stored evidence
 (#255), read without any provider call. The community mean comes from a Catalogue-owned projection that
 Ratings maintains through a Catalogue application contract inside each rating write
 ([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), so
@@ -123,7 +125,8 @@ calendar is active from the evaluation date on (owner decision): the current mon
 from today, and a day that has gone by is never counted or chosen. A day holds only releases
 with that exact day, classified exactly as `UC-001` classifies a range of that single day
 without approximate dates, with the same multi-select filters and contextual facets. Its count
-is of games, not releases. Only games with locally stored IGDB Hypes >= 10 qualify; lower,
+is of games, not releases. Only launches count (`ATT-007`, since #458): a release of full or unknown
+stage, never early access, advance access, a beta or an alpha. Only games with locally stored IGDB Hypes >= 10 qualify; lower,
 null or absent Hype is excluded before contextual facets, counts and pagination. The threshold is fixed, informed by the private-dev Hype distribution reviewed for the owner's
 2026-10-21 request, rather than a percentile recalculated per request. The count covers highlights only; the full explorer lists all games for that day and the same
 platform/region filters, so its total can be larger.
@@ -134,9 +137,11 @@ matching platforms or regions. The daily `totalHype` follows the same filters as
 includes every qualifying game (not only the preview), and drives the calendar colours. Work stays
 in PostgreSQL over the shared period index, so a response holds at most 31 days
 and no game page is read. The games of a chosen day are an ordinary `UC-001` read of that one
-day ordered by Hype with `UC-001`'s fallback and tie-breakers. The preview's page size is the
-smaller of three and the highlighted-game count: high-Hype games precede every lower or
-missing signal, so a short highlighted day never fills its preview with other games.
+day ordered by attention (`ATT-005`, since #458) with `UC-001`'s fallback and tie-breakers. The
+preview's page size is the smaller of three and the highlighted-game count, so a short highlighted
+day never shows more games than it counts; the counts and colours keep the Hypes threshold and sums
+above, because they count and colour days rather than order games (ADR-0041). A game with strong
+Want to Play, Visits or editorial attention may therefore lead a day's preview below the threshold.
 **Ver todos los lanzamientos del día** opens the unrestricted explorer for that day in the
 same order and platform/region context. No highlights filter exists in the explorer or its API.
 The calendar never shows numeric Hype.
@@ -157,18 +162,21 @@ policies that are not disabled. That bound says what acquisition is configured t
 not that a period was scanned or that the catalogue is complete; coverage stays the
 operational evidence ADR-0017 owns. A period outside the bounds is rejected as an invalid
 filter, and the response names the adjacent periods still inside them. Since #457 (owner decision,
-2026-11-06) the selection is the head of the release explorer's Hype order for the same period and
+2026-11-06) the selection is the head of the release explorer's attention order for the same period and
 platforms (`FEAT-001`, `FEAT-002`): a release qualifies exactly as `UC-001` admits it with approximate
 dates left out, and both reads share one SQL definition so they cannot drift apart. A port, a remake,
-an edition and every release stage therefore take part, whatever the game's first release, and a
-game may feature again in a later period for another platform's release. Only positive Hypes is
-added. Up to the evaluation date a release must have happened, so a past period also holds the month,
+an edition and a new platform release therefore take part, whatever the game's first release, and a
+game may feature again in a later period for another platform's release. Since #458 only a launch
+enters (`ATT-007`): a release of full or unknown stage in the period; early access, advance access,
+betas and alphas never feature, so a game's advance access and its launch a few days later never
+both lead a week. Only release attention is
+added (`ATT-006`). Up to the evaluation date a release must have happened, so a past period also holds the month,
 quarter or year periods that ended and overlap it, never placed on an invented day. After it an exact
 day is expected, a delayed one included, and a period known only by an open month is not claimed.
 Post-MVP (#295), a request may name explicit platforms: only a qualifying release on one of them makes
 its game a candidate and is presented, before ranking and limiting, so a restricted selection is
 the ranking of the restricted candidates and never a filtered copy of the unrestricted six.
-Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
+Candidates are ranked by release attention (`ATT-005`, since #458), highest first,
 then by the explorer's date order, which ends in the unique `gameId`. A candidate without a signal is not
 ranked and nothing is invented for it; it remains a normal catalogue and discovery
 result. The first ranked game is the period's featured release (*Lanzamiento de la
@@ -179,8 +187,9 @@ holds what it holds: ranked, popularity unavailable (qualifying releases without
 signal) or no qualifying releases. A ranked selection carries the freshness of its
 oldest signal under the catalogue freshness policy; a stale ranking is still the last
 valid local one. Any other period is ranked with the same current local signals, because
-no popularity history is kept, so consecutive periods may legitimately repeat games. Popularity measures provider-observed attention, never
-quality, a rating or an editorial recommendation, and its value is not exposed. Work is
+no popularity history is kept, so consecutive periods may legitimately repeat games. Attention combines
+provider-observed signals with the operator's editorial anticipation list (`UC-023`); it never measures
+quality or a rating, and its value is not exposed. Work is
 bounded by the period's releases and request memory by the six ranked games and their
 bounded release groups; each candidate probes its signal by key, so the popularity table is never scanned. Each ranked game presents
 its stored context-selected landscape image and optional secondary-card logo
@@ -199,7 +208,10 @@ or provider calculation timestamp remains. Current-release repair also receives 
 evidence with the Game. Hero and card media are selected independently under `FEAT-003`:
 artworks and screenshots arrive with the Game, logos use a bounded page lookup, and missing or
 invalid media keep the last valid selection. Featured evidence and media do not advance
-the catalogue revision. Explicit repair has no logo lookup.
+the catalogue revision. Explicit repair has no logo lookup. Since #458 each provider page also reads
+its Games' Want to Play and Visits shares and, for a derived product, its parent's Hypes, Want to Play
+and Visits in one bounded lookup; a failed lookup keeps every last valid signal and never fails a
+Game, and explicit repair does not refresh them.
 [ADR-0021](../../decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
 records the decision.
 
@@ -254,16 +266,17 @@ measured platform scope makes the page read exceed its budget.
 
 Post-MVP (#388, implemented; awaiting owner review), `UC-020` is **Próximos destacados**, the
 third platform destination of the Plataformas section, beside its TOPómetro and Explorar catálogo.
-It ranks attention, never quality: the same locally stored IGDB Hypes `UC-010` ranks with, whose
-value is never exposed, so a game released years ago on
+It ranks attention, never quality: release attention over the horizon (`ATT-001` to `ATT-006`), the
+order `UC-010` ranks with, whose value is never exposed; a game first released before the evaluation
+date is a re-release there (`ATT-003`), so a game released years ago on
 another platform qualifies while it is still to come on this one. The horizon runs from the
 evaluation date to the day before the same day six calendar months later, or to the last day of
 that month when the day does not exist in it, and the visitor never chooses it. The ten-game limit
 and the horizon are owner-approved product settings held by the application. Candidates none of
-which has Hypes yield `popularity_unavailable`, a horizon without candidates
+which has attention yield `popularity_unavailable`, a horizon without candidates
 `no_qualifying_releases`; nothing fills a missing place. One statement, in one repeatable-read
 snapshot, selects the horizon's releases through the shared period index, probes each candidate's
-scope releases and Hypes by key, ranks and limits, presents the ten releases and states whether any
+scope releases and attention evidence by key, ranks and limits, presents the ten releases and states whether any
 candidate exists; genres are then read for the ten games only, so request memory is `O(limit)`.
 The work grows with the releases inside the horizon across every platform, never with the
 catalogue's history. Evidence (2026-10-27, a copy of the real local catalogue: 21,839 games, 40,681
@@ -715,6 +728,34 @@ and recoverable, never automatically re-enables an account. The owner reviews th
 [ADR-0027 amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 before rollout.
 
+
+### Editorial anticipation lists (UC-023, post-MVP #458)
+
+Post-MVP (#458, implemented; awaiting owner review), the catalogue operator corrects what provider
+signals cannot see. Under **Interés editorial** in the administration panel the operator chooses a
+range, copies the versioned prompt (`editorial-anticipation@2`) into a language model with web
+access, and uploads the JSON file the prompt asks it to deliver, or pastes its answer. Files of an
+earlier prompt version with the same schema still load. The application owns the prompt and the file schema
+together; a change to either is a new prompt version.
+
+A preview reads the file as the model returned it: a surrounding Markdown fence and members the
+schema does not name are tolerated, and any invalid member is refused with its JSON Pointer. Each
+entry is matched to a catalogued game by the IGDB page slug the catalogue keeps for attribution,
+else by a title that exactly one catalogued game carries after search normalization. Each entry
+states its match and warnings: unmatched, ambiguous title, no release in the range, a release date
+that differs from every exact catalogue day in the range, or a game named twice. The preview also
+names the list it would replace and any other list it overlaps. Nothing is stored.
+
+Loading repeats the validation and matching, then applies the operator's assignments by rank: a
+catalogued game replaces the match, and an empty assignment leaves the entry out. Entries without a
+game are left out, and a game named twice keeps its highest score. Loading for exactly the same
+range replaces that list in one transaction. A range overlapping another list is refused, with a
+database exclusion constraint as the guarantee. From the next read, the list's scores take half
+the weight of release attention for every range that overlaps it (`ATT-004`, `ATT-005`).
+Deleting a list returns its ranges to provider signals alone. All work is bounded by one file's
+50 entries and keyed lookups, and no provider or model is called by the application.
+[ADR-0041](../../decisions/0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md)
+records the decision.
 
 ### Visitor feedback (UC-022, post-MVP #383)
 

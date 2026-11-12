@@ -5,7 +5,7 @@ export type ReleaseSort = NonNullable<ReleasesQuery["sort"]>;
 /** How each order reads in **Ordenar por** and in the folded phone controls. */
 export const releaseSortLabels: Record<ReleaseSort, string> = {
   releaseDate: "Fecha de lanzamiento",
-  hype: "Hype",
+  hype: "Interés",
   rating: "Puntuación Gameómetro",
   externalPlayerScore: "Jugadores IGDB",
 };

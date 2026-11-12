@@ -54,6 +54,7 @@ historical decision.
 
 ## Proposed
 
+- [ADR-0041: Rank release attention by IGDB signals and an editorial list](0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md) — #458; release attention (`attention-v1`) is the mean of a log-scaled Hypes/Want to Play/Visits block, with derived products borrowing half of their parent and re-releases keeping half, and the 1–100 score of an operator-loaded editorial anticipation list obtained from a versioned language-model prompt; orders Destacados, Explorar (`hype`, labelled Interés), the calendar's day preview and Próximos destacados; awaiting owner review.
 - [ADR-0032: Checkpoint historical synchronization by calendar month](0032-checkpoint-historical-synchronization-by-month.md) — #246, owner review pending.
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.

@@ -156,3 +156,56 @@ export async function controlTranslationExecution(command: TranslationCommand, c
   if (data !== undefined) return data;
   throw failure(response, error);
 }
+
+export type EditorialAttentionOverview = components["schemas"]["EditorialAttentionOverview"];
+export type EditorialAttentionPreview = components["schemas"]["EditorialAttentionPreview"];
+export type EditorialAttentionPreviewEntry = components["schemas"]["EditorialAttentionPreviewEntry"];
+export type EditorialAttentionWarning = components["schemas"]["EditorialAttentionWarning"];
+export type EditorialAttentionListDetail = components["schemas"]["EditorialAttentionListDetail"];
+export type EditorialAttentionListSummary = components["schemas"]["EditorialAttentionListSummary"];
+export type EditorialAttentionAssignment = components["schemas"]["EditorialAttentionAssignment"];
+export const EDITORIAL_ATTENTION_KEY = [...ADMINISTRATION_KEY, "editorial-attention"] as const;
+
+/** The prompt for a language model and the loaded editorial lists, latest range first. */
+export async function getEditorialAttention(signal: AbortSignal): Promise<EditorialAttentionOverview> {
+  const { data, error, response } = await productApiClient.GET("/admin/catalogue/editorial-attention", {
+    cache: "no-store", signal,
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+/** How the file would load: each entry's catalogue match and warnings. Nothing is stored. */
+export async function previewEditorialAttention(content: string, csrfToken: string): Promise<EditorialAttentionPreview> {
+  const { data, error, response } = await productApiClient.POST("/admin/catalogue/editorial-attention/previews", {
+    params: { header: { "X-CSRF-Token": csrfToken } }, body: { content }, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+/** Loads the file as its range's list, with the operator's assignments by rank. */
+export async function loadEditorialAttention(content: string, assignments: EditorialAttentionAssignment[],
+  csrfToken: string): Promise<EditorialAttentionListDetail> {
+  const { data, error, response } = await productApiClient.POST("/admin/catalogue/editorial-attention/lists", {
+    params: { header: { "X-CSRF-Token": csrfToken } }, body: { content, assignments }, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function getEditorialAttentionList(listId: string, signal: AbortSignal): Promise<EditorialAttentionListDetail> {
+  const { data, error, response } = await productApiClient.GET("/admin/catalogue/editorial-attention/lists/{listId}", {
+    params: { path: { listId } }, cache: "no-store", signal,
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+export async function deleteEditorialAttentionList(listId: string, csrfToken: string): Promise<void> {
+  const { error, response } = await productApiClient.DELETE("/admin/catalogue/editorial-attention/lists/{listId}", {
+    params: { path: { listId }, header: { "X-CSRF-Token": csrfToken } }, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (response.ok) return;
+  throw failure(response, error);
+}

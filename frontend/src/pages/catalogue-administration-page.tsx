@@ -6,6 +6,7 @@ import {
   AdministrationError, getSynchronizationStatus, SYNCHRONIZATION_STATUS_KEY, type SynchronizationStatus,
 } from "../features/catalogue-administration/administration-api";
 import { CatalogueTranslations } from "../features/catalogue-administration/catalogue-translations";
+import { EditorialAttention } from "../features/catalogue-administration/editorial-attention";
 import { HistoricalSynchronization } from "../features/catalogue-administration/historical-synchronization";
 import { CoverageExplorer, MAX_YEAR, MIN_YEAR } from "../features/catalogue-administration/coverage-explorer";
 import { RunControls } from "../features/catalogue-administration/synchronization-control";
@@ -18,12 +19,13 @@ import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
 import { HeroTitle } from "../shared/ui/hero-title";
 
-type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones";
+type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones" | "interes";
 const TABS: { id: PanelTab; label: string }[] = [
   { id: "ejecuciones", label: "Ejecuciones" },
   { id: "cobertura", label: "Cobertura" },
   { id: "historica", label: "Sincronización histórica" },
   { id: "traducciones", label: "Traducciones" },
+  { id: "interes", label: "Interés editorial" },
 ];
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
@@ -188,6 +190,7 @@ export function CatalogueAdministrationPage() {
                       <RecentRuns status={status.data} />
                     </section>
                     </> : tab === "traducciones" && csrfToken ? <CatalogueTranslations csrfToken={csrfToken} />
+                      : tab === "interes" && csrfToken ? <EditorialAttention csrfToken={csrfToken} now={now} />
                       : tab === "historica" && csrfToken ? <HistoricalSynchronization csrfToken={csrfToken} ordinary={status.data} /> : <section className="admin-section" aria-labelledby="admin-coverage-title">
                       <h2 id="admin-coverage-title">Cobertura histórica</h2>
                       <dl className="admin-glossary">

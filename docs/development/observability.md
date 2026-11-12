@@ -108,8 +108,9 @@ with a dedicated short statement timeout; health details remain hidden.
   refuses every record of it.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
-  Operations are the closed `window`, `works`, `release_dates`, `logos`
-  vocabulary. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
+  Operations are the closed `window`, `works`, `release_dates`, `logos`, `attention`
+  vocabulary (#458 added `attention`). A Want to Play or Visits value outside a provider share is
+  ignored and counted as `featured_evidence_invalid`. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
   usable dimensions is ignored and counted as `image_reference_invalid`. Incoherent game
   detail metadata is counted as `details_invalid` and an incoherent player score/count
   pair as `player_score_invalid`; neither fails the Game.
@@ -611,7 +612,7 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 | Progress checkpoint         | `INFO`                                           | run, phase, page, game position, elapsed, Game/release/provider counters                       |
 | Game reconciled or deferred | `DEBUG`                                          | run, page, position, result                                                                    |
 | Game failed                 | First 20 of a run: `INFO` for a known data-quality reason, otherwise `WARN`; then `DEBUG` | run, page, position, stage, reason, failed count, identity (below)                             |
-| Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` stage, provider failure code  |
+| Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` or `provider_attention` stage (or `persistence` when the attention write failed), failure code |
 | Run failure                 | `WARN`                                           | run, phase, page, stage, reason, exception class when unexpected                               |
 | Finished                    | `INFO` for a `clean`, `data_quality` or `stopped` assessment; otherwise `WARN` partial, `ERROR` failed | outcome, stable code, assessment, window, pages, elapsed, all counters including `data_quality_failed`, failures tallied by `stage/reason` |
 | Skipped                     | `INFO`                                           | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window                        |
@@ -623,10 +624,10 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 While events keep arriving, a checkpoint is written at least every 60 seconds and at
 provider-page completion, but never less than 10 seconds after the previous one.
 Spacing uses a monotonic source, not the product clock. Stages are `provider_page`,
-`provider_game`, `provider_logos`, `validation`,
-`reconciliation`, `persistence` and `run`. A `provider_logos`
+`provider_game`, `provider_logos`, `provider_attention`, `validation`,
+`reconciliation`, `persistence` and `run`. A `provider_logos` or `provider_attention`
 failure never fails a Game: the page's Games still reconcile and keep their last valid
-logo. Reasons come
+logo or attention signals. Reasons come
 from `ProviderFailureCode`, `ProviderMappingFailure`, `SynchronizationWriteException.Reason`
 and the service constants (`WORK_NOT_RETURNED`, `TITLE_MISSING`,
 `RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RELEASE_TUPLE_CONFLICT`,

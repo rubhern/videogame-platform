@@ -382,6 +382,115 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     }
 
     @Override
+    public void saveAttention(
+            UUID runId,
+            Map<
+                            String,
+                            com.videogameplatform.catalogue.application.synchronization.port
+                                    .CatalogueProviderPort.ProviderAttention>
+                    attention,
+            Instant observedAt) {
+        if (attention.isEmpty()) {
+            return;
+        }
+        try {
+            transaction.executeWithoutResult(
+                    status -> {
+                        fence(runId);
+                        writeAttention(attention, observedAt);
+                    });
+        } catch (DataAccessException | TransactionException failure) {
+            throw SynchronizationWriteFailures.classify(failure);
+        }
+    }
+
+    /**
+     * One statement per kind of change over the page's catalogued Games: the provider references
+     * resolve to product identity by key, a Game with signals is upserted, and a Game without any
+     * loses its row. An older observation never replaces a newer one.
+     */
+    private void writeAttention(
+            Map<
+                            String,
+                            com.videogameplatform.catalogue.application.synchronization.port
+                                    .CatalogueProviderPort.ProviderAttention>
+                    attention,
+            Instant observedAt) {
+        Map<String, UUID> games = new java.util.HashMap<>();
+        jdbc.query(
+                """
+                SELECT r.provider_id, r.game_id FROM catalogue.game_external_reference r
+                WHERE r.provider = :provider AND r.provider_entity_type = 'game'
+                  AND r.provider_id IN (:ids)
+                """,
+                new MapSqlParameterSource()
+                        .addValue("provider", provider)
+                        .addValue("ids", List.copyOf(attention.keySet())),
+                (rs) -> {
+                    games.put(rs.getString(1), rs.getObject(2, UUID.class));
+                });
+        List<MapSqlParameterSource> upserts = new ArrayList<>();
+        List<MapSqlParameterSource> deletes = new ArrayList<>();
+        attention.forEach(
+                (providerId, signals) -> {
+                    UUID game = games.get(providerId);
+                    if (game == null) {
+                        return;
+                    }
+                    var parent = signals.parent();
+                    MapSqlParameterSource row =
+                            new MapSqlParameterSource()
+                                    .addValue("game", game)
+                                    .addValue("wantToPlay", signals.wantToPlay().orElse(null))
+                                    .addValue("visits", signals.visits().orElse(null))
+                                    .addValue(
+                                            "parentHypes",
+                                            parent.flatMap(p -> p.hypes()).orElse(null))
+                                    .addValue(
+                                            "parentWantToPlay",
+                                            parent.flatMap(p -> p.wantToPlay()).orElse(null))
+                                    .addValue(
+                                            "parentVisits",
+                                            parent.flatMap(p -> p.visits()).orElse(null))
+                                    .addValue("source", provider)
+                                    .addValue("observedAt", timestamp(observedAt));
+                    boolean empty =
+                            signals.wantToPlay().isEmpty()
+                                    && signals.visits().isEmpty()
+                                    && parent.isEmpty();
+                    (empty ? deletes : upserts).add(row);
+                });
+        if (!upserts.isEmpty()) {
+            jdbc.batchUpdate(
+                    """
+                    INSERT INTO catalogue.game_attention_evidence(
+                        game_id, want_to_play, visits, parent_hypes, parent_want_to_play,
+                        parent_visits, source_name, observed_at)
+                    VALUES (:game, :wantToPlay, :visits, :parentHypes, :parentWantToPlay,
+                        :parentVisits, :source, :observedAt)
+                    ON CONFLICT (game_id) DO UPDATE SET
+                        want_to_play = EXCLUDED.want_to_play,
+                        visits = EXCLUDED.visits,
+                        parent_hypes = EXCLUDED.parent_hypes,
+                        parent_want_to_play = EXCLUDED.parent_want_to_play,
+                        parent_visits = EXCLUDED.parent_visits,
+                        source_name = EXCLUDED.source_name,
+                        observed_at = EXCLUDED.observed_at
+                    WHERE game_attention_evidence.observed_at <= EXCLUDED.observed_at
+                    """,
+                    upserts.toArray(MapSqlParameterSource[]::new));
+        }
+        if (!deletes.isEmpty()) {
+            jdbc.batchUpdate(
+                    """
+                    DELETE FROM catalogue.game_attention_evidence
+                    WHERE game_id = :game AND observed_at <= :observedAt
+                    """,
+                    deletes.toArray(MapSqlParameterSource[]::new));
+        }
+    }
+
+    @Override
     public WriteResult previewGame(GameWrite write) {
         try {
             return transaction.execute(

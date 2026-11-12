@@ -25,6 +25,26 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(CatalogueJdbcProperties.class)
 class CataloguePersistenceConfiguration {
+    /**
+     * The store of the operator's editorial anticipation lists (UC-023). Lookups and writes are
+     * bounded by one file's fifty entries; a load commits as one transaction.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore
+            editorialAttentionStore(
+                    DataSource dataSource,
+                    PlatformTransactionManager transactionManager,
+                    CatalogueJdbcProperties properties) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.setQueryTimeout(properties.readTimeoutSeconds());
+        TransactionTemplate writeTransaction = new TransactionTemplate(transactionManager);
+        writeTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        writeTransaction.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.attention
+                .JdbcEditorialAttentionStore(
+                new NamedParameterJdbcTemplate(jdbcTemplate), writeTransaction);
+    }
+
     @Bean
     com.videogameplatform.catalogue.application.preferences.ExportPlatformPreferences
             exportPlatformPreferences(

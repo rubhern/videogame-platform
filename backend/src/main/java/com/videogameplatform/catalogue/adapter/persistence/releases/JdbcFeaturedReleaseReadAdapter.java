@@ -29,12 +29,12 @@ import org.springframework.transaction.support.TransactionOperations;
  * PostgreSQL read adapter for one calendar period's featured releases (UC-010): an ISO week or a
  * calendar month.
  *
- * <p>The selection is the head of the release explorer's Hypes order for the same range and
- * platforms (FEAT-001, FEAT-002): {@link ReleaseRangeSql} decides which releases qualify and {@link
+ * <p>The selection is the head of the release explorer's attention order for the same range and
+ * platforms (FEAT-001, FEAT-002, ATT-005): {@link ReleaseRangeSql} decides which releases qualify and {@link
  * ReleaseRangeGameSql} presents and positions their games, so the two cannot drift apart. PostgreSQL
- * does all the work. Only games with positive Hypes enter, ranked_game keeps the bounded top, and
+ * does all the work. Only games with attention enter, ranked_game keeps the bounded top, and
  * only the ranked games read their stored featured hero/card images and card logo, each by key.
- * Work grows with the period's releases, never with the catalogue, the popularity table or the
+ * Work grows with the period's releases, never with the catalogue, the evidence tables or the
  * media table, and request memory stays O(limit x releaseGroupLimit).
  */
 public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseReadPort {
@@ -54,9 +54,13 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
     private static final String RESTRICTED_QUALIFYING_EXISTS_SQL =
             qualifyingExistsSql(QUALIFYING_PREDICATE + PLATFORM_PREDICATE);
 
+    // Only a launch qualifies a period (ATT-007): a period holding early access alone has no
+    // qualifying releases rather than releases without attention.
     private static String qualifyingExistsSql(String qualifyingPredicate) {
         return "SELECT EXISTS (SELECT 1 FROM catalogue.release_snapshot rs WHERE "
                 + qualifyingPredicate
+                + " AND rs.release_stage IN "
+                + ReleaseAttentionSql.LAUNCH_STAGES
                 + ")";
     }
 
@@ -64,31 +68,24 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
     private static final String RESTRICTED_PAGE_SQL =
             pageSql(QUALIFYING_PREDICATE + PLATFORM_PREDICATE);
 
-    // Each candidate reads its signal through a LATERAL primary-key probe: the LIMIT keeps the
-    // planner from hashing the whole popularity table, so the work follows the period's games.
+    // Each candidate reads its signals through LATERAL key probes (ReleaseAttentionSql): the LIMIT
+    // keeps the planner from hashing a whole evidence table, so the work follows the period's
+    // games.
     private static String pageSql(String qualifyingPredicate) {
         return ReleaseRangeGameSql.presentedGames(" WHERE " + qualifyingPredicate)
                 + """
                 ,
-                game_signal AS (
-                    SELECT gt.*, popularity.hypes, popularity.observed_at
-                    FROM game_top gt
-                    JOIN LATERAL (
-                        SELECT signal.hypes, signal.observed_at
-                        FROM catalogue.game_featured_evidence signal
-                        WHERE signal.game_id = gt.game_id AND signal.hypes > 0
-                        LIMIT 1
-                    ) popularity ON true
-                ),
+                %5$s,
                 ranked_game AS MATERIALIZED (
                     SELECT * FROM game_signal gt
+                    WHERE gt.attention IS NOT NULL
                     ORDER BY %1$s
                     LIMIT :limit
                 )
                 SELECT rg.game_id::text AS game_id, rg.slug, rg.canonical_title,
                        rg.cover_reference, rg.cover_source, rg.cover_usage_mode,
                        rg.cover_alternative_text, rg.cover_source_url,
-                       rg.observed_at AS popularity_observed_at,
+                       rg.signal_observed_at AS popularity_observed_at,
                        image.media_kind AS image_kind, image.image_reference AS image_reference,
                        image.width AS image_width, image.height AS image_height,
                        image.transparent AS image_transparent, image.source_name AS image_source,
@@ -131,7 +128,8 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                                 ReleaseRangeGameSql.gameOrder(Sort.HYPE, "gt"),
                                 ReleaseRangeGameSql.releaseOrder("p"),
                                 ReleaseRangeGameSql.gameOrder(Sort.HYPE, "rg"),
-                                ReleaseRangeGameSql.releaseOrder("rel"));
+                                ReleaseRangeGameSql.releaseOrder("rel"),
+                                ReleaseAttentionSql.signals("game_top"));
     }
 
     private static final String SUMMARY_SQL =
@@ -187,6 +185,8 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                                 criteria.evaluatedOn(),
                                 false)
                         .parameters());
+        parameters.putAll(
+                ReleaseAttentionSql.parameters(criteria.periodStart(), criteria.periodEnd()));
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 

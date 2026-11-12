@@ -16,6 +16,7 @@ import com.videogameplatform.catalogue.application.synchronization.internal.Cove
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.AttentionBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCover;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
@@ -625,6 +626,88 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 w.mappingFailures(),
                 Optional.of(
                         new CatalogueProviderPort.ProviderFeaturedEvidence(first, edition, hypes)));
+    }
+
+    @Test
+    void attentionSignalsFollowTheirPageReplacedWholeAndKeptWhenTheLookupFails() {
+        provider.rows = List.of(new Row(10, "100"), new Row(11, "101"));
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        provider.works.put("101", work("101", release("11", "2026-10-03")));
+        provider.attention.put(
+                "100",
+                new CatalogueProviderPort.ProviderAttention(
+                        Optional.of(0.0005),
+                        Optional.of(0.001),
+                        Optional.of(
+                                new CatalogueProviderPort.ParentAttention(
+                                        Optional.of(800L), Optional.empty(), Optional.of(0.002)))));
+        provider.attention.put(
+                "101",
+                new CatalogueProviderPort.ProviderAttention(
+                        Optional.empty(), Optional.empty(), Optional.empty()));
+
+        // Games created by the page receive its signals; a Game without any has no row.
+        service.synchronize(WINDOW);
+        assertThat(attention("100"))
+                .containsEntry("want_to_play", 0.0005)
+                .containsEntry("visits", 0.001)
+                .containsEntry("parent_hypes", 800L)
+                .containsEntry("parent_want_to_play", null)
+                .containsEntry("parent_visits", 0.002)
+                .containsEntry("observed_at", NOW);
+        assertThat(attentionRows("101")).isZero();
+
+        // A later answer replaces every signal, including absence.
+        provider.attention.put(
+                "100",
+                new CatalogueProviderPort.ProviderAttention(
+                        Optional.empty(), Optional.of(0.003), Optional.empty()));
+        serviceAt(NOW.plusSeconds(1)).synchronize(WINDOW);
+        assertThat(attention("100"))
+                .containsEntry("want_to_play", null)
+                .containsEntry("visits", 0.003)
+                .containsEntry("parent_hypes", null)
+                .containsEntry("observed_at", NOW.plusSeconds(1));
+
+        // An unavailable lookup keeps the last valid signals and never fails a Game.
+        provider.attentionFailure =
+                new com.videogameplatform.catalogue.application.synchronization.port
+                        .ProviderRequestException(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ProviderFailureCode.PROVIDER_UNAVAILABLE,
+                        ProviderCallStatistics.none());
+        var kept = serviceAt(NOW.plusSeconds(2)).synchronize(WINDOW);
+        assertThat(kept.counters().failedGames()).isZero();
+        assertThat(attention("100"))
+                .containsEntry("visits", 0.003)
+                .containsEntry("observed_at", NOW.plusSeconds(1));
+    }
+
+    private Map<String, Object> attention(String providerGameId) {
+        Map<String, Object> row =
+                new HashMap<>(
+                        jdbc.queryForMap(
+                                "SELECT a.want_to_play, a.visits, a.parent_hypes,"
+                                        + " a.parent_want_to_play, a.parent_visits, a.observed_at"
+                                        + " FROM catalogue.game_attention_evidence a"
+                                        + " JOIN catalogue.game_external_reference r"
+                                        + " ON r.game_id = a.game_id WHERE r.provider_id = ?",
+                                providerGameId));
+        row.replaceAll(
+                (column, value) ->
+                        value instanceof java.sql.Timestamp timestamp
+                                ? timestamp.toInstant()
+                                : value);
+        return row;
+    }
+
+    private int attentionRows(String providerGameId) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM catalogue.game_attention_evidence a"
+                        + " JOIN catalogue.game_external_reference r ON r.game_id = a.game_id"
+                        + " WHERE r.provider_id = ?",
+                Integer.class,
+                providerGameId);
     }
 
     @Test
@@ -1627,6 +1710,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         java.util.function.Consumer<String> onFetch = id -> {};
 
         Map<String, List<ProviderImage>> logos = new HashMap<>();
+        Map<String, CatalogueProviderPort.ProviderAttention> attention = new HashMap<>();
+        com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
+                attentionFailure;
         com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
                 logoFailure;
         com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
@@ -1668,6 +1754,18 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
             return new ProviderWorkBatch(
                     ids.stream().map(works::get).filter(Objects::nonNull).toList(),
                     ProviderCallStatistics.none());
+        }
+
+        @Override
+        public AttentionBatch attention(List<String> ids) {
+            if (attentionFailure != null) {
+                throw attentionFailure;
+            }
+            Map<String, CatalogueProviderPort.ProviderAttention> answer = new HashMap<>();
+            ids.stream()
+                    .filter(attention::containsKey)
+                    .forEach(id -> answer.put(id, attention.get(id)));
+            return new AttentionBatch(answer, ProviderCallStatistics.none());
         }
 
         public LogoBatch logos(List<String> ids) {

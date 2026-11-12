@@ -34,7 +34,7 @@ class FeaturedReleaseScalabilityIT {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
-    void ranksAMonthWithoutScanningTheCatalogueOrThePopularityTable() throws Exception {
+    void ranksAMonthWithoutScanningTheCatalogueOrTheAttentionEvidence() throws Exception {
         int rows = Integer.getInteger("release.scale.rows", 100_000);
         if (rows < 10_000 || rows > 1_000_000) {
             throw new IllegalArgumentException(
@@ -94,6 +94,8 @@ class FeaturedReleaseScalabilityIT {
                         "release_snapshot",
                         "game_snapshot",
                         "game_featured_evidence",
+                        "game_attention_evidence",
+                        "editorial_attention_entry",
                         "game_featured_media");
         assertThat(sequentialScans(plan)).filteredOn(unboundedTables::contains).isEmpty();
 
@@ -257,7 +259,23 @@ class FeaturedReleaseScalabilityIT {
         jdbc.execute("ANALYZE catalogue.game_featured_media");
         jdbc.execute("ANALYZE catalogue.game_snapshot");
         jdbc.execute("ANALYZE catalogue.release_snapshot");
+        // Every game holds Want to Play and Visits, so the plan probes the attention evidence at
+        // full
+        // size (ADR-0041).
+        jdbc.update(
+                "INSERT INTO catalogue.game_attention_evidence (game_id, want_to_play, visits, source_name, observed_at) SELECT md5('game-' || n)::uuid, ((n % 991) + 1) / 1000000.0, ((n % 983) + 1) / 1000000.0, 'IGDB', now() FROM generate_series(1, ?) n",
+                rows);
+        // Forty monthly lists of fifty entries, ending with the ranked month: the editorial table
+        // at
+        // the size years of monthly loading reach.
+        jdbc.update(
+                "INSERT INTO catalogue.editorial_attention_list (list_id, range_from, range_to, prompt_version, loaded_at) SELECT md5('list-' || m)::uuid, (DATE '2026-08-01' - make_interval(months => m))::date, ((DATE '2026-08-01' - make_interval(months => m - 1))::date - 1), 'editorial-anticipation@1', now() FROM generate_series(0, 39) m");
+        jdbc.update(
+                "INSERT INTO catalogue.editorial_attention_entry (list_id, game_id, entry_rank, score, file_title) SELECT md5('list-' || m)::uuid, md5('game-' || (m * 50 + n))::uuid, n, 101 - n, 'Scale ' || n FROM generate_series(0, 39) m, generate_series(1, 50) n");
         jdbc.execute("ANALYZE catalogue.game_featured_evidence");
+        jdbc.execute("ANALYZE catalogue.game_attention_evidence");
+        jdbc.execute("ANALYZE catalogue.editorial_attention_entry");
+        jdbc.execute("ANALYZE catalogue.editorial_attention_list");
     }
 
     /** The adapter's SQL with literal parameters, so EXPLAIN plans exactly what it runs. */
@@ -269,6 +287,8 @@ class FeaturedReleaseScalabilityIT {
                 .replace(":publicationId", "'" + PUBLICATION_ID + "'")
                 .replace(":rangeFrom", "'" + periodStart + "'")
                 .replace(":rangeTo", "'" + periodEnd + "'")
+                .replace(":attentionFrom", "'" + periodStart + "'")
+                .replace(":attentionTo", "'" + periodEnd + "'")
                 .replace(":evaluatedOn", "'2026-07-01'")
                 .replace(":releaseGroupLimit", "25")
                 .replace(":limit", "6");

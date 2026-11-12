@@ -219,6 +219,36 @@ public class ApiExceptionHandler {
                             ErrorCategory.CONFLICT,
                             exception.pointer(),
                             "Only one synchronization runs at a time.");
+            case EDITORIAL_ATTENTION_FILE_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Editorial attention file rejected",
+                            "Correct the indicated member of the file, then preview it again.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a value the editorial file schema accepts.");
+            case EDITORIAL_ATTENTION_RANGE_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Another editorial list covers part of the range",
+                            "Delete the overlapping list, then load the file again.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Editorial list ranges never overlap.");
+            case EDITORIAL_ATTENTION_LIST_NOT_FOUND ->
+                    problem(
+                            response,
+                            HttpStatus.NOT_FOUND,
+                            exception.code(),
+                            "Editorial list was not found",
+                            "No list has this identity; nothing changed.",
+                            ErrorCategory.NOT_FOUND,
+                            exception.pointer(),
+                            "Use a list identity from the editorial attention overview.");
             case SYNCHRONIZATION_RUN_NOT_FOUND ->
                     problem(
                             response,
@@ -317,6 +347,24 @@ public class ApiExceptionHandler {
      * The session was revoked or ended after the security filters admitted the request; answers
      * exactly like the authentication entry point.
      */
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.administration
+                    .EditorialAttentionFileInvalidException.class)
+    ResponseEntity<Problem> editorialAttentionFileInvalid(
+            com.videogameplatform.catalogue.application.administration
+                            .EditorialAttentionFileInvalidException
+                    exception,
+            HttpServletResponse response) {
+        // An assignment pointer names the request; any other names the file under /content.
+        String pointer =
+                exception.pointer().startsWith("/assignments")
+                        ? exception.pointer()
+                        : "/content" + exception.pointer();
+        return requestInvalid(
+                new ApiRequestException(ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID, pointer),
+                response);
+    }
+
     @ExceptionHandler(CurrentUserUnavailableException.class)
     ResponseEntity<Problem> currentUserUnavailable(HttpServletResponse response) {
         String correlationId = correlationId(response);
@@ -795,6 +843,35 @@ public class ApiExceptionHandler {
                     new ApiRequestException(
                             ProblemCode.HISTORICAL_SYNCHRONIZATION_RANGE_INVALID,
                             "/historicalSynchronization"),
+                    response);
+        }
+        if (exception.getParameterValidationResults().stream()
+                .anyMatch(
+                        result ->
+                                com.videogameplatform.api.generated.model.EditorialAttentionUpload
+                                                .class
+                                                .equals(
+                                                        result.getMethodParameter()
+                                                                .getParameterType())
+                                        || com.videogameplatform.api.generated.model
+                                                .EditorialAttentionLoad.class
+                                                .equals(
+                                                        result.getMethodParameter()
+                                                                .getParameterType()))) {
+            // The file text is missing or too long, or an assignment is outside its schema.
+            String field =
+                    exception.getParameterValidationResults().stream()
+                            .filter(ParameterErrors.class::isInstance)
+                            .map(ParameterErrors.class::cast)
+                            .map(ParameterErrors::getFieldError)
+                            .filter(java.util.Objects::nonNull)
+                            .map(FieldError::getField)
+                            .findFirst()
+                            .orElse("content");
+            return requestInvalid(
+                    new ApiRequestException(
+                            ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID,
+                            "/" + field.replace('.', '/').replace("[", "/").replace("]", "")),
                     response);
         }
         if (exception.getParameterValidationResults().stream()

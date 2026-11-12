@@ -59,6 +59,13 @@ class CatalogueModuleConfigurationTest {
         contextRunner.run(
                 context -> {
                     assertThat(context).hasSingleBean(BrowseReleasesUseCase.class);
+                    assertThat(
+                                    context.getBean(
+                                            com.videogameplatform.catalogue.application
+                                                    .administration.EditorialAttentionLists.class))
+                            .isInstanceOf(
+                                    com.videogameplatform.catalogue.application.attention.internal
+                                            .EditorialAttentionService.class);
                     assertThat(context.getBean(BrowseReleasesUseCase.class))
                             .isInstanceOf(ReleaseCatalogueService.class);
                     assertThat(context.getBean(ReleaseBrowsePolicy.class))
@@ -193,6 +200,14 @@ class CatalogueModuleConfigurationTest {
 
     @Configuration(proxyBeanMethods = false)
     static class TestDependencies {
+
+        @Bean
+        com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore
+                editorialAttentionStore() {
+            return org.mockito.Mockito.mock(
+                    com.videogameplatform.catalogue.application.attention.port
+                            .EditorialAttentionStore.class);
+        }
 
         @Bean
         ReleaseBrowseReadPort releaseBrowseReadPort() {

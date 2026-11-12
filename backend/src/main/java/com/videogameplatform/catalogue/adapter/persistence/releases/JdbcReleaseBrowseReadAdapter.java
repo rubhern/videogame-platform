@@ -157,6 +157,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         .bind("publicationId", publicationId)
                         .where(range.predicate());
         range.parameters().forEach(builder::bind);
+        ReleaseAttentionSql.parameters(criteria.window().from(), criteria.window().to())
+                .forEach(builder::bind);
         if (!platformIds.isEmpty()) {
             builder.where(ReleaseRangeSql.PLATFORM_PREDICATE)
                     .bind("platformIds", ReleaseRangeSql.arrayLiteral(platformIds));
@@ -168,16 +170,14 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         return builder.build(criteria.sort());
     }
 
-    // The order's signals join Catalogue-owned tables only: the Hypes evidence TOPómetro ranks
-    // with,
-    // the stored external player score and the community score projection Ratings maintains through
-    // a Catalogue contract (ADR-0029).
+    // The order's signals join Catalogue-owned tables only: the attention evidence and editorial
+    // lists (ADR-0041), the stored external player score and the community score projection Ratings
+    // maintains through a Catalogue contract (ADR-0029).
     private static String pageSql(Sort sort, String where) {
         return ReleaseRangeGameSql.presentedGames(where)
                 + ",\n"
-                + "game_signal AS (\n"
                 + signalSql(sort)
-                + "),\n"
+                + ",\n"
                 + "game_page AS (\n"
                 + "    SELECT * FROM game_signal gt\n"
                 + "    ORDER BY "
@@ -218,27 +218,29 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + ReleaseRangeGameSql.releaseOrder("rel");
     }
 
-    /** Each game's first presented release with the one signal the chosen order needs. */
+    /**
+     * The {@code game_signal} common table expressions: each game's first presented release with
+     * the one signal the chosen order needs.
+     */
     private static String signalSql(Sort sort) {
         return switch (sort) {
-            case RELEASE_DATE -> "    SELECT gt.* FROM game_top gt\n";
-            case HYPE ->
-                    "    SELECT gt.*, fe.hypes FROM game_top gt\n"
-                            + "    LEFT JOIN catalogue.game_featured_evidence fe"
-                            + " ON fe.game_id = gt.game_id\n";
+            case RELEASE_DATE -> "game_signal AS (\n    SELECT gt.* FROM game_top gt\n)";
+            case HYPE -> ReleaseAttentionSql.signals("game_top");
             case RATING ->
-                    "    SELECT gt.*, cs.mean AS community_mean,"
+                    "game_signal AS (\n"
+                            + "    SELECT gt.*, cs.mean AS community_mean,"
                             + " cs.rating_count AS community_rating_count FROM game_top gt\n"
                             + "    LEFT JOIN catalogue.game_community_score cs"
-                            + " ON cs.game_id = gt.game_id\n";
+                            + " ON cs.game_id = gt.game_id\n)";
             // The /10 value at the one decimal discovery shows, as the external score mapping
             // rounds it; a check that found no score has no value and sorts with the unscored.
             case EXTERNAL_PLAYER_SCORE ->
-                    "    SELECT gt.*, round(es.score / 10, 1) AS player_score,"
+                    "game_signal AS (\n"
+                            + "    SELECT gt.*, round(es.score / 10, 1) AS player_score,"
                             + " es.score_count AS player_score_count FROM game_top gt\n"
                             + "    LEFT JOIN catalogue.game_external_score es"
                             + " ON es.game_id = gt.game_id AND es.source_name = 'IGDB'"
-                            + " AND es.score_kind = 'player' AND es.score IS NOT NULL\n";
+                            + " AND es.score_kind = 'player' AND es.score IS NOT NULL\n)";
         };
     }
 

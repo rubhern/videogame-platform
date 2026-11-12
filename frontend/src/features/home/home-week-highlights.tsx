@@ -201,7 +201,7 @@ export function HomeWeekHighlights() {
               </Link>
             </>
           }
-          kicker={unranked ? "Sin datos de Hype" : "Sin lanzamientos"}
+          kicker={unranked ? "Sin datos de interés" : "Sin lanzamientos"}
           title={
             unranked
               ? `Aún no hay Destacados de ${model.periodPhrase}`
@@ -213,7 +213,7 @@ export function HomeWeekHighlights() {
         >
           <p>
             {unranked
-              ? `De momento, Gameómetro no tiene Hype para lanzamientos de esta semana${interestsOn ? " en tus plataformas" : ""}.`
+              ? `De momento, Gameómetro no tiene datos de interés para lanzamientos de esta semana${interestsOn ? " en tus plataformas" : ""}.`
               : interestsOn
                 ? "Gameómetro no tiene lanzamientos para tus plataformas esta semana. Prueba con todas las plataformas."
                 : "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."}

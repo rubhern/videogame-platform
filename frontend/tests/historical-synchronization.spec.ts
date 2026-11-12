@@ -33,11 +33,17 @@ test("historical form and state remain usable with forced colours and keyboard t
     route.fulfill({ json: { observedAt: "2026-11-11T07:00:00Z", rows: [] } }));
   await page.route("**/api/v1/admin/catalogue/translations/execution", (route) =>
     route.fulfill({ json: { state: "not_started" } }));
+  await page.route("**/api/v1/admin/catalogue/editorial-attention", (route) =>
+    route.fulfill({ json: { prompt: { version: "editorial-anticipation@2", template: "{{FROM}} – {{TO}}" }, lists: [] } }));
   await page.goto("/administracion/catalogo?tab=historica");
   await expect(page.getByRole("button", { name: "Iniciar histórico" })).toBeVisible();
   const tab = page.getByRole("tab", { name: "Sincronización histórica" });
   await tab.focus(); await page.keyboard.press("Home"); await expect(page.getByRole("tab", { name: "Ejecuciones" })).toBeFocused();
   await page.keyboard.press("End");
+  const editorial = page.getByRole("tab", { name: "Interés editorial" });
+  await expect(editorial).toBeFocused();
+  await expect(editorial).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowLeft");
   const translations = page.getByRole("tab", { name: "Traducciones" });
   await expect(translations).toBeFocused();
   await expect(translations).toHaveAttribute("aria-selected", "true");
