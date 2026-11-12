@@ -417,6 +417,8 @@ assert int(services["deployment-smoke"]["shm_size"]) == 256 * 1024 * 1024
 smoke = services["deployment-smoke"]
 require(smoke.get("network_mode") == "host" and not smoke.get("networks") and not smoke.get("ports"),
         "deployment smoke must reach the real HTTPS origin from the host network namespace only")
+require(smoke.get("extra_hosts") in (["application=192.0.2.1"], ["application:192.0.2.1"], {"application": ["192.0.2.1"]}, {"application": "192.0.2.1"}),
+        "deployment smoke may resolve only the candidate application, which deploy-private-dev supplies")
 require(smoke.get("user") is None and not smoke.get("privileged") and not smoke.get("volumes"),
         "host-network deployment smoke must stay unprivileged and without host mounts")
 require([name for name, service in services.items() if service.get("network_mode") == "host"] == ["deployment-smoke"],

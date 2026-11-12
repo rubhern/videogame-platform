@@ -363,8 +363,12 @@ services:
     # Tailscale Serve may bind its listeners to tailscale0 only (seen from 1.104), which
     # refuses connections arriving from a Docker bridge. The smoke checks the operator's
     # real HTTPS origin, so it runs in the host network namespace; it is unprivileged,
-    # holds only the smoke credentials and runs once per deployment.
+    # holds only the smoke credentials and runs once per deployment. Without Docker DNS
+    # there, deploy-private-dev supplies the candidate's edge address for its management
+    # checks; the documentation-range default fails closed if anything else starts it.
     network_mode: host
+    extra_hosts:
+      - "application:${SMOKE_APPLICATION_ADDRESS:-192.0.2.1}"
     depends_on:
       application:
         condition: service_healthy
