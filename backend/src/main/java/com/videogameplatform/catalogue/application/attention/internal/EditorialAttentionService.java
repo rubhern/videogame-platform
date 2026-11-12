@@ -99,12 +99,12 @@ public final class EditorialAttentionService implements EditorialAttentionLists 
         Map<Integer, Optional<String>> chosen = new HashMap<>();
         for (int index = 0; index < assignments.size(); index++) {
             Assignment assignment = assignments.get(index);
-            if (!byRank.containsKey(assignment.rank())
-                    || chosen.put(assignment.rank(), assignment.gameId()) != null) {
+            if (!byRank.containsKey(assignment.rank()) || chosen.containsKey(assignment.rank())) {
                 throw new EditorialAttentionFileInvalidException(
                         "/assignments/" + index + "/rank",
                         "An assignment names a rank of the file once.");
             }
+            chosen.put(assignment.rank(), assignment.gameId());
         }
         Set<String> assigned = new LinkedHashSet<>();
         chosen.values().forEach(game -> game.ifPresent(assigned::add));

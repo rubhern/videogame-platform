@@ -110,7 +110,8 @@ public interface EditorialAttentionLists {
             int score,
             Optional<String> rationale,
             List<String> sources) {
-        private static final Pattern SLUG = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+        /** Lowercase letters, digits and single inner hyphens; checked without backtracking. */
+        private static final Pattern SLUG_CHARACTERS = Pattern.compile("[a-z0-9-]+");
 
         public FileEntry {
             if (rank < 1 || rank > MAX_ENTRIES) {
@@ -121,8 +122,7 @@ public interface EditorialAttentionLists {
             }
             igdbSlug = Objects.requireNonNull(igdbSlug, "igdbSlug").map(String::strip);
             if (igdbSlug.isPresent()
-                    && (igdbSlug.orElseThrow().length() > 200
-                            || !SLUG.matcher(igdbSlug.orElseThrow()).matches())) {
+                    && (igdbSlug.orElseThrow().length() > 200 || !isSlug(igdbSlug.orElseThrow()))) {
                 throw new IllegalArgumentException("igdbSlug");
             }
             title =
@@ -147,6 +147,13 @@ public interface EditorialAttentionLists {
                             .anyMatch(source -> source.isBlank() || source.length() > 500)) {
                 throw new IllegalArgumentException("sources");
             }
+        }
+
+        private static boolean isSlug(String value) {
+            return SLUG_CHARACTERS.matcher(value).matches()
+                    && !value.startsWith("-")
+                    && !value.endsWith("-")
+                    && !value.contains("--");
         }
     }
 
