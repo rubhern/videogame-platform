@@ -62,7 +62,10 @@ class EditorialAttentionApiIntegrationTest {
             OpenApiResponseContract.load("/admin/catalogue/editorial-attention/lists/{listId}");
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** A file as a model returns it: fenced, with members the schema does not name. */
+    /**
+     * A file as a model returns it: fenced, with members the schema does not name, and an IGDB
+     * slug with the {@code --N} suffix IGDB gives a game whose title another one shares.
+     */
     private static final String FILE =
             """
             ```json
@@ -72,7 +75,7 @@ class EditorialAttentionApiIntegrationTest {
               "generatedAt": "2026-11-12T10:00:00Z",
               "generator": { "prompt": "editorial-anticipation@1", "model": "test-model" },
               "entries": [
-                { "rank": 1, "igdbSlug": "gears-of-war-e-day", "title": "Gears of War: E-Day",
+                { "rank": 1, "igdbSlug": "gears-of-war-e-day--1", "title": "Gears of War: E-Day",
                   "releaseDate": "2026-10-06", "platforms": ["Xbox"], "score": 100,
                   "rationale": "Headline launch.", "sources": ["https://a.test", "https://b.test"],
                   "dateConflict": "2026-10-06 per a.test" },
@@ -112,7 +115,7 @@ class EditorialAttentionApiIntegrationTest {
                             + " 'editorial-v1', now(), now(), 'external_provider', 'IGDB', true)",
                     PUBLICATION);
             game(PHANTOM, "Phantom Blade Zero", "phantom-blade-zero", "2026-10-29");
-            game(GEARS, "Gears of War: E-Day", "gears-of-war-e-day", "2026-10-01");
+            game(GEARS, "Gears of War: E-Day", "gears-of-war-e-day--1", "2026-10-01");
             game(KINGDOM, "Kingdom Hearts III", "kingdom-hearts-iii", "2026-10-08");
         }
     }
@@ -284,7 +287,7 @@ class EditorialAttentionApiIntegrationTest {
                 PUBLICATION,
                 id,
                 title,
-                igdbSlug + "-local",
+                igdbSlug.replace("--", "-") + "-local",
                 "Portada de " + title,
                 "https://www.igdb.com/games/" + igdbSlug);
         String release = id.replace("30000000", "40000000");
