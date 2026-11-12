@@ -137,6 +137,9 @@ if [[ "$1" == inspect ]]; then
     *State.Status*) printf 'running\n' ;;
     *State.Health*) printf 'healthy\n' ;;
     *Image*) printf 'sha256:candidate-image-id\n' ;;
+    *NetworkSettings.Networks*)
+      [[ "${FAKE_DEPLOY_MODE:-}" == smoke-address-missing ]] || printf 'videogame-platform-dev_edge 172.18.0.3\n'
+      printf 'videogame-platform-dev_data 172.19.0.2\n' ;;
     *) printf 'unexpected container inspection format: %s\n' "$format" >&2; exit 91 ;;
   esac
   exit 0
@@ -318,6 +321,7 @@ services = {
         build={"context": str(repository / "deploy/private-dev/smoke")},
         shm_size=256 * 1024 * 1024,
         network_mode="host",
+        extra_hosts=["application=192.0.2.1"],
         read_only=True,
         cap_drop=["ALL"],
     ),
@@ -373,6 +377,7 @@ PY
   fi
   if [[ "$arguments" == *" run --rm --no-deps deployment-smoke "* ]]; then
     [[ "${FAKE_DEPLOY_MODE:-success}" != smoke-failure ]] || exit 44
+    [[ "${SMOKE_APPLICATION_ADDRESS:-}" == 172.18.0.3 ]] || exit 45
     printf 'Private-dev deployment smoke passed.\n'
     exit 0
   fi
@@ -584,6 +589,19 @@ if run_deployment smoke-failure "$smoke_evidence" >/dev/null 2>&1; then
 fi
 assert_evidence "$smoke_evidence" failure deployment-smoke
 assert_lock_released
+
+: >"$command_log"
+address_evidence="$temporary_directory/smoke-address-evidence"
+if run_deployment smoke-address-missing "$address_evidence" >/dev/null 2>&1; then
+  printf 'A candidate without an edge address was reported as success.\n' >&2
+  exit 1
+fi
+assert_evidence "$address_evidence" failure deployment-smoke
+assert_lock_released
+if grep -q 'run --rm --no-deps deployment-smoke' "$command_log"; then
+  printf 'Smoke ran without the candidate edge address.\n' >&2
+  exit 1
+fi
 
 : >"$command_log"
 success_evidence="$temporary_directory/success-evidence"

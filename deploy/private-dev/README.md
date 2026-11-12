@@ -1211,7 +1211,9 @@ The smoke is the only service in the host network namespace. It reaches the same
 Tailscale Serve origin an operator uses, and Tailscale may bind those listeners to
 `tailscale0` alone, which refuses connections from a Docker bridge. It stays
 unprivileged, publishes nothing, mounts no host path, and holds only the smoke
-credentials; `validate-private-dev-runtime.sh` enforces this.
+credentials; `validate-private-dev-runtime.sh` enforces this. Docker DNS is absent
+there, so `deploy-private-dev` passes the candidate's `edge` address for the
+management checks, and refuses to run the smoke without one.
 
 ## Owner-approved Actions promotion
 
