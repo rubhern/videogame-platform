@@ -10,7 +10,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * The catalogue operator's editorial anticipation lists (UC-021, ATT-004): the prompt an operator
+ * The catalogue operator's editorial anticipation lists (UC-023, ATT-004): the prompt an operator
  * gives a language model, the preview of the file it returns, and the lists that rank release
  * attention.
  *

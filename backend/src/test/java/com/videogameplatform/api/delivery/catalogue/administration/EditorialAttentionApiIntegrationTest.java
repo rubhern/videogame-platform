@@ -35,7 +35,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * UC-021 behind the real BFF security chain and PostgreSQL: the prompt, the preview of a file as a
+ * UC-023 behind the real BFF security chain and PostgreSQL: the prompt, the preview of a file as a
  * language model returns it, the operator's assignments, the range rules and deletion.
  */
 @SpringBootTest(properties = "management.server.port=0")

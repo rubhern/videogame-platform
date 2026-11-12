@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Matches an editorial file's entries to catalogued Games and stores its list (UC-021). An entry
+ * Matches an editorial file's entries to catalogued Games and stores its list (UC-023). An entry
  * is matched by its IGDB slug, else by a title that exactly one catalogued Game carries; the
  * operator's assignments override both.
  */

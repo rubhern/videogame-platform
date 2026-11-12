@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Editorial anticipation lists for the catalogue operator (UC-021). The security boundary has
+ * Editorial anticipation lists for the catalogue operator (UC-023). The security boundary has
  * already required the operator authority, and CSRF proof for every command. Responses are
  * operational state and are never stored.
  */

@@ -26,27 +26,23 @@ import org.springframework.transaction.support.TransactionTemplate;
 @EnableConfigurationProperties(CatalogueJdbcProperties.class)
 class CataloguePersistenceConfiguration {
     /**
-     * The operator's editorial anticipation lists (UC-021). Lookups and writes are bounded by one
-     * file's fifty entries; a load commits as one transaction.
+     * The store of the operator's editorial anticipation lists (UC-023). Lookups and writes are
+     * bounded by one file's fifty entries; a load commits as one transaction.
      */
     @Bean
-    com.videogameplatform.catalogue.application.administration.EditorialAttentionLists
-            editorialAttentionLists(
+    com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore
+            editorialAttentionStore(
                     DataSource dataSource,
                     PlatformTransactionManager transactionManager,
-                    CatalogueJdbcProperties properties,
-                    java.time.Clock clock) {
+                    CatalogueJdbcProperties properties) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         jdbcTemplate.setQueryTimeout(properties.readTimeoutSeconds());
         TransactionTemplate writeTransaction = new TransactionTemplate(transactionManager);
         writeTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         writeTransaction.setTimeout(properties.readTimeoutSeconds());
-        return new com.videogameplatform.catalogue.application.attention.internal
-                .EditorialAttentionService(
-                new com.videogameplatform.catalogue.adapter.persistence.attention
-                        .JdbcEditorialAttentionStore(
-                        new NamedParameterJdbcTemplate(jdbcTemplate), writeTransaction),
-                clock);
+        return new com.videogameplatform.catalogue.adapter.persistence.attention
+                .JdbcEditorialAttentionStore(
+                new NamedParameterJdbcTemplate(jdbcTemplate), writeTransaction);
     }
 
     @Bean

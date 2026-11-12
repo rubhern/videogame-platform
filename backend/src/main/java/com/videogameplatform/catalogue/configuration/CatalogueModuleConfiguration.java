@@ -94,6 +94,18 @@ class CatalogueModuleConfiguration {
         return new CatalogueCoverPolicy(coverResolver);
     }
 
+    /** The operator's editorial anticipation lists (UC-023). */
+    @Bean
+    com.videogameplatform.catalogue.application.administration.EditorialAttentionLists
+            editorialAttentionLists(
+                    com.videogameplatform.catalogue.application.attention.port
+                                    .EditorialAttentionStore
+                            store,
+                    Clock clock) {
+        return new com.videogameplatform.catalogue.application.attention.internal
+                .EditorialAttentionService(store, clock);
+    }
+
     @Bean
     BrowseReleasesUseCase browseReleasesUseCase(
             ReleaseBrowseReadPort readPort,
