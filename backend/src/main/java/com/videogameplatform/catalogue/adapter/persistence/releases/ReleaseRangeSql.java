@@ -75,12 +75,9 @@ final class ReleaseRangeSql {
     }
 
     /** Filter before facets/count/page; EXISTS preserves release cardinality and excludes missing evidence. */
-    static RangePredicate highlights(RangePredicate range) {
+    static RangePredicate highlights(RangePredicate range, long minimumHypes) {
         Map<String, Object> parameters = new LinkedHashMap<>(range.parameters());
-        parameters.put(
-                "minimumHypes",
-                com.videogameplatform.catalogue.application.releases.ReleaseHighlightsPolicy
-                        .MINIMUM_HYPES);
+        parameters.put("minimumHypes", minimumHypes);
         return new RangePredicate(
                 "("
                         + range.predicate()

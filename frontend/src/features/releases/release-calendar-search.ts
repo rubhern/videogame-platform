@@ -11,9 +11,6 @@ import {
 /** The release calendar's own route (#250), inside **Lanzamientos** beside the explorer. */
 export const CALENDAR_PATH = `${RELEASES_PATH}/calendario`;
 
-/** How many games the day under the calendar presents before **Ver todos**. */
-export const DAY_PREVIEW_SIZE = 3;
-
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
@@ -91,13 +88,14 @@ export function toCalendarQuery(
  * The explorer's request for the day's leading games: that one day, exact dates only, ordered by
  * Hype with the explorer's fallback and tie-breakers. The highlighted count caps this bounded
  * first page, since every highlighted game precedes lower or missing Hype. No list filter exists.
- * The home's preview (#382) reads the same day with its own `size`.
+ * `size` is the calendar's operator-set preview size (#450); the home's preview (#382) reads the
+ * same day with its own.
  */
 export function dayPreviewSearch(
   search: CalendarSearch,
   day: string,
   highlightedCount: number,
-  size = DAY_PREVIEW_SIZE,
+  size: number,
 ): ReleasesSearch {
   return {
     ...defaultReleasesSearch,

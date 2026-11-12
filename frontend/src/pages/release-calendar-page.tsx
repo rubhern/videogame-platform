@@ -5,7 +5,7 @@ import { resolvePlatformFilter } from "../features/platform-preferences/interest
 import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { useInterests } from "../features/platform-preferences/use-platform-preferences";
 import type { CalendarDayPreview } from "../features/releases/release-calendar-day";
-import { chosenDay } from "../features/releases/release-calendar-model";
+import { chosenDay, DEFAULT_DAY_PREVIEW_SIZE } from "../features/releases/release-calendar-model";
 import {
   calendarSearchPath,
   dayPreviewSearch,
@@ -40,7 +40,11 @@ export function ReleaseCalendarPage() {
   const selectedCount =
     model?.days.find((day) => day.date === selectedDay)?.gameCount ?? 0;
   const preview = useReleasesQuery(
-    explorerRequestSearch(dayPreviewSearch(search, selectedDay ?? NO_DAY, selectedCount), enabled, interests),
+    explorerRequestSearch(
+      dayPreviewSearch(search, selectedDay ?? NO_DAY, selectedCount, model?.dayPreviewSize ?? DEFAULT_DAY_PREVIEW_SIZE),
+      enabled,
+      interests,
+    ),
     ready && selectedDay !== null && selectedCount > 0,
   );
 

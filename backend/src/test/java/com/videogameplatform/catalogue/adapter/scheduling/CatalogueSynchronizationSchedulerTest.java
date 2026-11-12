@@ -12,6 +12,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler.Policy;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -301,6 +303,33 @@ class CatalogueSynchronizationSchedulerTest {
     }
 
     @Test
+    void eachRunRequestsTheOperatorsWindowReadWhenItIsScheduled() {
+        var clock = Clock.fixed(Instant.parse("2026-11-12T03:00:00Z"), ZoneId.of("Europe/Madrid"));
+        var settings = TestProductSettings.windows(28, 28, 0, 180);
+        var registrar = new ScheduledTaskRegistrar();
+        new CatalogueSynchronizationScheduler(
+                        useCase,
+                        new CatalogueSynchronizationMetrics(registry),
+                        clock,
+                        mock(TaskScheduler.class),
+                        NEAR,
+                        UPCOMING,
+                        ownership,
+                        pending,
+                        settings)
+                .configureTasks(registrar);
+
+        settings.set(ProductSetting.SYNCHRONIZATION_UPCOMING_FUTURE_DAYS, 245)
+                .set(ProductSetting.SYNCHRONIZATION_NEAR_TERM_PAST_DAYS, 7);
+        registrar.getTriggerTaskList().forEach(task -> task.getRunnable().run());
+
+        assertThat(pending.rows.get(ScheduledSynchronizationStore.Policy.UPCOMING).window())
+                .isEqualTo(window("2026-11-12", "2027-07-15"));
+        assertThat(pending.rows.get(ScheduledSynchronizationStore.Policy.NEAR_TERM).window())
+                .isEqualTo(window("2026-11-05", "2026-12-10"));
+    }
+
+    @Test
     void rejectsInvalidCronAndNegativeWindowsBeforeAnyProviderWork() {
         assertThatThrownBy(() -> new Policy("wrong", 0, 0))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -322,7 +351,12 @@ class CatalogueSynchronizationSchedulerTest {
                         near,
                         upcoming,
                         ownership,
-                        pending)
+                        pending,
+                        TestProductSettings.windows(
+                                near.pastDays(),
+                                near.futureDays(),
+                                upcoming.pastDays(),
+                                upcoming.futureDays()))
                 .configureTasks(registrar);
         return registrar;
     }

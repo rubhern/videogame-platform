@@ -49,7 +49,7 @@ describe("release calendar URL state", () => {
   it("previews a day with the explorer's Hype order and opens the explorer on it", () => {
     const search = read("month=2026-11&platformIds=ps5");
 
-    expect(dayPreviewSearch(search, "2026-11-13", 6)).toMatchObject({
+    expect(dayPreviewSearch(search, "2026-11-13", 6, 3)).toMatchObject({
       from: "2026-11-13",
       to: "2026-11-13",
       sort: "hype",
@@ -65,10 +65,12 @@ describe("release calendar URL state", () => {
 
   it("caps the preview by the highlighted count, keeping the list unrestricted", () => {
     const search = read("month=2026-11");
-    expect(dayPreviewSearch(search, "2026-11-13", 1).pageSize).toBe(1);
-    expect(dayPreviewSearch(search, "2026-11-13", 2).pageSize).toBe(2);
-    expect(dayPreviewSearch(search, "2026-11-13", 8).pageSize).toBe(3);
-    expect(dayPreviewSearch(search, "2026-11-13", 0).pageSize).toBe(1);
+    expect(dayPreviewSearch(search, "2026-11-13", 1, 3).pageSize).toBe(1);
+    expect(dayPreviewSearch(search, "2026-11-13", 2, 3).pageSize).toBe(2);
+    expect(dayPreviewSearch(search, "2026-11-13", 8, 3).pageSize).toBe(3);
+    expect(dayPreviewSearch(search, "2026-11-13", 0, 3).pageSize).toBe(1);
+    // The operator's preview size bounds the page.
+    expect(dayPreviewSearch(search, "2026-11-13", 8, 5).pageSize).toBe(5);
     expect(dayExplorerPath(search, "2026-11-13")).not.toContain("featuredOnly");
   });
 

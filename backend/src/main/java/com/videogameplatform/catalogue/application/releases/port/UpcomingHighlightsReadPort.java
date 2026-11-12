@@ -4,6 +4,7 @@ import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverRefe
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult.Taxonomy;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
+import com.videogameplatform.catalogue.domain.AttentionWeights;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.time.Instant;
@@ -27,12 +28,23 @@ public interface UpcomingHighlightsReadPort {
 
     /**
      * The scope's product platform identifiers, the trusted evaluation date, the horizon's
-     * inclusive last day and the ranking bound.
+     * inclusive last day, the ranking bound and the attention weights.
      */
     record Criteria(
-            List<String> platformIds, LocalDate evaluatedOn, LocalDate horizonEnd, int limit) {
+            List<String> platformIds,
+            LocalDate evaluatedOn,
+            LocalDate horizonEnd,
+            int limit,
+            AttentionWeights attention) {
+        /** The approved attention weights. */
+        public Criteria(
+                List<String> platformIds, LocalDate evaluatedOn, LocalDate horizonEnd, int limit) {
+            this(platformIds, evaluatedOn, horizonEnd, limit, AttentionWeights.DEFAULT);
+        }
+
         public Criteria {
             platformIds = List.copyOf(platformIds);
+            attention = attention == null ? AttentionWeights.DEFAULT : attention;
             Objects.requireNonNull(evaluatedOn, "evaluatedOn");
             if (platformIds.isEmpty()) {
                 throw new IllegalArgumentException("A platform scope names at least one platform");

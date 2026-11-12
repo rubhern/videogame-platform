@@ -25,6 +25,7 @@ function calendar(overrides: Partial<ReleaseCalendar> = {}): ReleaseCalendar {
       { date: "2026-11-13", gameCount: 6, totalHype: 60 },
       { date: "2026-11-20", gameCount: 31, totalHype: 310 },
     ],
+    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
     ...overrides,
   };
 }

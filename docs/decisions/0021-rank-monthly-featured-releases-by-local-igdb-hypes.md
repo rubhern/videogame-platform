@@ -134,6 +134,16 @@ navigation bounds are unchanged, except that only launches (full or unknown stag
 2026-11-06 consequence that an early access launch can be *Lanzamiento del mes* no longer holds. The
 calendar's Hypes threshold and sums (`UC-016`) stay, counted over launches only.
 
+## Amendment 2026-11-12 (#450)
+
+[ADR-0042](0042-manage-approved-product-settings-in-postgresql.md), proposed for [#450](https://github.com/rubhern/videogame-platform/issues/450), makes the
+navigation bounds operator product settings: weeks back and forward, months back and months
+forward, with the previous values as defaults except months forward, which defaults to five. The
+owner decided that months forward are no longer clipped to the forward acquisition horizon of the
+2026-10-17 amendment: the setting decides, and the administration panel warns when it reaches
+beyond the horizon. The calendar's minimum Hypes, interest bands and day preview size are settings
+too. The ranking rule, evidence and media policy are unchanged.
+
 ## Alternatives considered
 
 - **Call IGDB from the featured request:** rejected by ADR-0004; provider latency and

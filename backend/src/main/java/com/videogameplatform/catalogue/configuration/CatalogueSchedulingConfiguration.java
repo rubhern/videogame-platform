@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.configuration;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.port.HistoricalBackfillStore;
 import com.videogameplatform.catalogue.application.synchronization.port.ScheduledSynchronizationStore;
@@ -36,7 +37,8 @@ class CatalogueSchedulingConfiguration {
             ThreadPoolTaskScheduler catalogueTaskScheduler,
             CatalogueSchedulingProperties properties,
             HistoricalBackfillStore backfill,
-            ScheduledSynchronizationStore pending) {
+            ScheduledSynchronizationStore pending,
+            CurrentProductSettings settings) {
         return new CatalogueSynchronizationScheduler(
                 synchronization,
                 metrics,
@@ -45,6 +47,7 @@ class CatalogueSchedulingConfiguration {
                 properties.nearTerm(),
                 properties.upcoming(),
                 backfill,
-                pending);
+                pending,
+                settings);
     }
 }

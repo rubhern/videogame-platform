@@ -11,6 +11,8 @@ import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidati
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Taxonomy;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort.DayCount;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -30,8 +32,7 @@ class ReleaseCalendarServiceTest {
     void readsTheCurrentMonthInMadridWhenNoneIsNamed() {
         // 23:30 UTC on 31 October is already 1 November in Madrid.
         FakePort port = new FakePort();
-        ReleaseCalendarResult result =
-                service(port, "2026-10-31T23:30:00Z", 180).browse(query(null));
+        ReleaseCalendarResult result = service(port, "2026-10-31T23:30:00Z", 5).browse(query(null));
 
         assertThat(result.month()).isEqualTo(YearMonth.of(2026, 11));
         assertThat(result.evaluatedOn()).isEqualTo(LocalDate.of(2026, 11, 1));
@@ -64,8 +65,8 @@ class ReleaseCalendarServiceTest {
     }
 
     @Test
-    void reachesTheLastMonthWhollyInsideTheForwardHorizonAndNoFurther() {
-        // 21 October + 180 days ends on 19 April 2027, so March is the last whole month.
+    void reachesTheOperatorsMonthsForwardAndNoFurther() {
+        // Five months forward from October 2026 is March 2027.
         SharedCalendar calendar = new SharedCalendar();
 
         ReleaseCalendarResult last = calendar.at("2026-10-21T10:00:00Z").browse(query("2027-03"));
@@ -92,7 +93,7 @@ class ReleaseCalendarServiceTest {
     }
 
     @Test
-    void withoutAForwardHorizonOffersOnlyTheCurrentMonth() {
+    void withoutMonthsForwardOffersOnlyTheCurrentMonth() {
         ReleaseCalendarResult result =
                 service(new FakePort(), "2026-10-21T10:00:00Z", 0).browse(query(null));
 
@@ -108,7 +109,7 @@ class ReleaseCalendarServiceTest {
                         List.of(PS5),
                         List.of(EUROPE),
                         List.of(new DayCount(LocalDate.of(2026, 10, 30), 12, 260)));
-        ReleaseCalendarService calendar = service(port, "2026-10-21T10:00:00Z", 180);
+        ReleaseCalendarService calendar = service(port, "2026-10-21T10:00:00Z", 5);
 
         ReleaseCalendarResult current =
                 calendar.browse(
@@ -129,6 +130,33 @@ class ReleaseCalendarServiceTest {
 
         calendar.browse(query("2026-11"));
         assertThat(port.criteria.from()).isEqualTo(LocalDate.of(2026, 11, 1));
+        // The approved defaults decide what counts and how it is presented.
+        assertThat(port.criteria.minimumHypes()).isEqualTo(10);
+        assertThat(current.presentation())
+                .isEqualTo(
+                        new ReleaseCalendarResult.Presentation(List.of(10L, 30L, 100L, 150L), 3));
+    }
+
+    @Test
+    void theOperatorsHighlightMinimumThresholdsAndPreviewApplyFromTheNextRequest() {
+        FakePort port = new FakePort();
+        TestProductSettings settings = TestProductSettings.defaults();
+        ReleaseCalendarService calendar =
+                new ReleaseCalendarService(
+                        port, Clock.fixed(Instant.parse("2026-10-21T10:00:00Z"), MADRID), settings);
+        calendar.browse(query(null));
+        assertThat(port.criteria.minimumHypes()).isEqualTo(10);
+
+        settings.set(ProductSetting.CALENDAR_MINIMUM_HYPES, 25)
+                .set(ProductSetting.CALENDAR_LOW_INTEREST_HYPES, 25)
+                .set(ProductSetting.CALENDAR_VERY_HIGH_INTEREST_HYPES, 400)
+                .set(ProductSetting.CALENDAR_DAY_PREVIEW_SIZE, 5);
+        ReleaseCalendarResult result = calendar.browse(query(null));
+
+        assertThat(port.criteria.minimumHypes()).isEqualTo(25);
+        assertThat(result.presentation().interestThresholds())
+                .containsExactly(25L, 30L, 100L, 400L);
+        assertThat(result.presentation().dayPreviewSize()).isEqualTo(5);
     }
 
     @Test
@@ -136,7 +164,7 @@ class ReleaseCalendarServiceTest {
         FakePort port = new FakePort();
         assertThatThrownBy(
                         () ->
-                                service(port, "2026-10-21T10:00:00Z", 180)
+                                service(port, "2026-10-21T10:00:00Z", 5)
                                         .browse(
                                                 new Query(
                                                         Optional.empty(),
@@ -151,7 +179,9 @@ class ReleaseCalendarServiceTest {
                                                         .PLATFORM_NOT_SUPPORTED));
 
         port.result = null;
-        assertThatThrownBy(() -> service(port, "2026-10-21T10:00:00Z", 180).browse(query(null)))
+        ReleaseCalendarService unpublished = service(port, "2026-10-21T10:00:00Z", 5);
+        Query current = query(null);
+        assertThatThrownBy(() -> unpublished.browse(current))
                 .isInstanceOf(CatalogueNotReadyException.class);
     }
 
@@ -160,19 +190,20 @@ class ReleaseCalendarServiceTest {
     }
 
     private static ReleaseCalendarService service(
-            ReleaseCalendarReadPort port, String instant, int forwardAcquisitionDays) {
+            ReleaseCalendarReadPort port, String instant, int monthsForward) {
         return new ReleaseCalendarService(
                 port,
                 Clock.fixed(Instant.parse(instant), MADRID),
-                new FeaturedPeriodPolicy(forwardAcquisitionDays));
+                TestProductSettings.defaults()
+                        .set(ProductSetting.FEATURED_MONTHS_FORWARD, monthsForward));
     }
 
-    /** One fake port shared across evaluation instants, with the default 180-day horizon. */
+    /** One fake port shared across evaluation instants, with the default five months forward. */
     private static final class SharedCalendar {
         private final FakePort port = new FakePort();
 
         ReleaseCalendarService at(String instant) {
-            return service(port, instant, 180);
+            return service(port, instant, 5);
         }
     }
 

@@ -2,6 +2,8 @@ package com.videogameplatform.catalogue.application.releases.internal;
 
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -11,23 +13,29 @@ import java.time.temporal.TemporalAdjusters;
  * The calendar periods featured discovery (UC-010) presents, evaluated at one trusted date in
  * {@code Europe/Madrid}: ISO weeks from Monday to Sunday, and calendar months.
  *
- * <p>Weeks reach {@value #WEEKS_BACK} weeks back and {@value #WEEKS_FORWARD} forward from the
- * current week. Months reach {@value #MONTHS_BACK} months back, across years, and forward to the
- * last calendar month lying entirely inside {@code forwardAcquisitionDays} after the evaluation
- * date: the configured horizon catalogue acquisition is scheduled to cover. That bound states what
- * acquisition is configured to reach, never that the local catalogue is complete. The current
- * period is always presented.
+ * <p>Weeks reach {@code weeksBack} weeks back and {@code weeksForward} forward from the current
+ * week; months reach {@code monthsBack} months back, across years, and {@code monthsForward}
+ * forward. The four bounds are operator product settings (#450); the current period is always
+ * presented. Months forward are no longer clipped to the configured acquisition horizon: the
+ * operator panel warns when they reach beyond it, because nothing fills those months
+ * automatically.
  */
-public record FeaturedPeriodPolicy(int forwardAcquisitionDays) {
-
-    static final int WEEKS_BACK = 16;
-    static final int WEEKS_FORWARD = 16;
-    static final int MONTHS_BACK = 10;
+public record FeaturedPeriodPolicy(
+        int weeksBack, int weeksForward, int monthsBack, int monthsForward) {
 
     public FeaturedPeriodPolicy {
-        if (forwardAcquisitionDays < 0) {
-            throw new IllegalArgumentException("A forward acquisition horizon cannot be negative");
+        if (weeksBack < 0 || weeksForward < 0 || monthsBack < 0 || monthsForward < 0) {
+            throw new IllegalArgumentException("A featured period bound cannot be negative");
         }
+    }
+
+    /** The bounds of one settings snapshot. */
+    public static FeaturedPeriodPolicy of(ProductSettings settings) {
+        return new FeaturedPeriodPolicy(
+                settings.integer(ProductSetting.FEATURED_WEEKS_BACK),
+                settings.integer(ProductSetting.FEATURED_WEEKS_FORWARD),
+                settings.integer(ProductSetting.FEATURED_MONTHS_BACK),
+                settings.integer(ProductSetting.FEATURED_MONTHS_FORWARD));
     }
 
     /** The first day of the period holding {@code today}. */
@@ -72,23 +80,16 @@ public record FeaturedPeriodPolicy(int forwardAcquisitionDays) {
     private LocalDate earliest(Granularity granularity, LocalDate today) {
         LocalDate current = current(granularity, today);
         return switch (granularity) {
-            case WEEK -> current.minusWeeks(WEEKS_BACK);
-            case MONTH -> current.minusMonths(MONTHS_BACK);
+            case WEEK -> current.minusWeeks(weeksBack);
+            case MONTH -> current.minusMonths(monthsBack);
         };
     }
 
     private LocalDate latest(Granularity granularity, LocalDate today) {
         LocalDate current = current(granularity, today);
         return switch (granularity) {
-            case WEEK -> current.plusWeeks(WEEKS_FORWARD);
-            case MONTH -> {
-                // The month after the horizon's last day starts the first month not wholly inside.
-                YearMonth lastWhole =
-                        YearMonth.from(today.plusDays(forwardAcquisitionDays).plusDays(1))
-                                .minusMonths(1);
-                LocalDate latestWhole = lastWhole.atDay(1);
-                yield latestWhole.isBefore(current) ? current : latestWhole;
-            }
+            case WEEK -> current.plusWeeks(weeksForward);
+            case MONTH -> current.plusMonths(monthsForward);
         };
     }
 }

@@ -363,7 +363,7 @@ function LoadedLists({ lists, csrfToken }: { lists: EditorialAttentionListSummar
   return <section className="admin-section" aria-labelledby="editorial-lists-title">
     <h2 id="editorial-lists-title">Listas cargadas</h2>
     <p className="admin-lead">
-      Cada lista puntúa de 1 a 100 los juegos de su periodo y pesa la mitad del interés en Destacados,
+      Cada lista puntúa de 1 a 100 los juegos de su periodo y aporta el peso editorial de Ajustes (la mitad por defecto) del interés en Destacados,
       Explorar, el calendario y Próximos destacados. Al eliminarla, ese periodo vuelve a ordenarse solo
       con las señales de IGDB.
     </p>

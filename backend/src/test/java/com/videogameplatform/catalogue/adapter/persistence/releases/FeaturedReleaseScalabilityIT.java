@@ -289,6 +289,13 @@ class FeaturedReleaseScalabilityIT {
                 .replace(":rangeTo", "'" + periodEnd + "'")
                 .replace(":attentionFrom", "'" + periodStart + "'")
                 .replace(":attentionTo", "'" + periodEnd + "'")
+                // The approved attention weights, as the adapter binds them by default.
+                .replace(":attentionHypeWeight", "1.0")
+                .replace(":attentionWantToPlayWeight", "1.0")
+                .replace(":attentionVisitsWeight", "1.0")
+                .replace(":attentionEditorialWeight", "0.5")
+                .replace(":attentionInheritedShare", "0.5")
+                .replace(":attentionReReleaseShare", "0.5")
                 .replace(":evaluatedOn", "'2026-07-01'")
                 .replace(":releaseGroupLimit", "25")
                 .replace(":limit", "6");

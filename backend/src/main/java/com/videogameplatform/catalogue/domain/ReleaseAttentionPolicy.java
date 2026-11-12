@@ -19,11 +19,13 @@ package com.videogameplatform.catalogue.domain;
  * and without an editorial score has no attention and follows every Game with one.
  *
  * <p>The ranking runs in PostgreSQL over the range's candidates; this type names its constants so
- * that every reader shares one definition.
+ * that every reader shares one definition. The weights and shares below are the approved defaults;
+ * the catalogue operator may tune them as product settings ({@link AttentionWeights}, #450)
+ * without changing this shape.
  */
 public final class ReleaseAttentionPolicy {
 
-    /** The version a change of signal, scale or weight must replace. */
+    /** The version a change of signal or scale must replace; tuned weights keep it. */
     public static final String VERSION = "attention-v1";
 
     /** Want to Play and Visits are provider shares of a total; the scale reads them per million. */

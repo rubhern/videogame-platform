@@ -192,12 +192,13 @@ export interface paths {
          * @description Reads, from the last valid local catalogue publication, how many games release on each
          *     day of one calendar month, for a monthly calendar. Without `month` the current month in
          *     `Europe/Madrid` is served. Navigation never goes back: a month must lie between the
-         *     current month and the last calendar month lying entirely inside the configured forward
-         *     acquisition horizon, the same forward bound featured months use; the current month is
-         *     always accepted. The bound states what acquisition is configured to cover, never that the
-         *     local catalogue is complete.
+         *     current month and the operator's months-forward bound (`UC-024`, 5 by default), the same
+         *     forward bound featured months use; the current month is always accepted. The bound never
+         *     states that the local catalogue is complete. `presentation` carries the operator's
+         *     interest thresholds and day preview size.
          *
-         *     This is the highlights calendar: only games with locally stored IGDB Hypes >= 10
+         *     This is the highlights calendar: only games with locally stored IGDB Hypes at or above
+         *     the operator's minimum (10 by default)
          *     launching that day qualify; missing or lower Hype is excluded, and since 5.14.0 an early
          *     access, advance access, beta or alpha release is never counted or coloured (only a
          *     `stage` of `full_release` or `unknown` is a launch). The threshold is fixed, not a percentile
@@ -266,11 +267,11 @@ export interface paths {
          *     not exposed. The application derives the evaluation date, the current week and the
          *     current month in `Europe/Madrid`. Without parameters the current calendar month is
          *     served. Any period inside the navigation bounds may be selected; it is ranked with the
-         *     same current local popularity evidence, because no popularity history is kept. Weeks
-         *     reach 16 weeks before and after the current week. Months reach 10 calendar months back,
-         *     across years, and forward to the last calendar month lying entirely inside the
-         *     configured forward horizon of catalogue acquisition; the bound states what acquisition
-         *     is configured to cover, never that the local catalogue is complete. `navigation` names
+         *     same current local popularity evidence, because no popularity history is kept. The
+         *     navigation bounds and the attention weights are operator product settings (`UC-024`):
+         *     by default weeks reach 16 weeks before and after the current week, and months reach 10
+         *     calendar months back, across years, and 5 forward. The bounds never state that the
+         *     local catalogue is complete. `navigation` names
          *     the adjacent periods inside these bounds. PostgreSQL selects the
          *     qualifying releases, ranks and limits the games, and presents at most one release per
          *     platform before anything reaches the application. Each item also carries the landscape
@@ -313,8 +314,9 @@ export interface paths {
          *     eligibility rules, then orders them by the unrounded mean descending, the number of
          *     ratings behind it descending and the unique `gameId` ascending, counts them and pages
          *     them. A game without a score from the source is not ranked and never counts as zero. An
-         *     IGDB players' score is ranked only from 50 ratings on; a community score from one
-         *     rating is ranked like any other and states its count. `position` is the
+         *     IGDB players' score is ranked only from the operator's minimum number of ratings on (50
+         *     by default); a community score from the operator's minimum on (1 by default) and states
+         *     its count (`UC-024`). `position` is the
          *     game's place in that one sequence, so the first page's first three items are the
          *     podium and later pages continue it. Scores change independently of the catalogue, so a
          *     game may move between two page reads; a client that reads several pages keeps the first
@@ -403,13 +405,13 @@ export interface paths {
          * Rank the most anticipated upcoming games of one platform
          * @description Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
          *     catalogue publication that are still to come on the requested platform scope inside a
-         *     moving six-calendar-month horizon, ranked by release attention over the horizon (the
+         *     moving horizon of the operator's calendar months (`UC-024`, six by default), ranked by release attention over the horizon (the
          *     `ReleaseSort` `hype` order, since 5.14.0) descending, then `gameId` ascending. A platform family is sent as the product platform
          *     identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
          *
          *     The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
-         *     starts on it and ends on the day before the same day of the month six calendar months
-         *     later; when that day does not exist, it ends on the last day of that month (from 31 August
+         *     starts on it and ends on the day before the same day of the month that many calendar
+         *     months later; when that day does not exist, it ends on the last day of that month (from 31 August
          *     to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
          *
          *     A release qualifies on a scope platform when it is a launch (`stage` `full_release`, or
@@ -1153,6 +1155,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalogue/product-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the operator-editable product settings
+         * @description Requires an authenticated session holding the catalogue operator authority. Returns every
+         *     registered setting with its effective value, default, inclusive range and origin, the
+         *     settings `revision` an update must name, how the featured and upcoming presentation
+         *     windows compare with the configured acquisition horizon, and at most 30 recent changes,
+         *     newest first. Nothing here reads the provider.
+         */
+        get: operations["getProductSettings"];
+        /**
+         * Change product settings
+         * @description Requires the catalogue operator authority and session-bound CSRF proof. Applies every
+         *     change, or none: each names a registered setting once and either a new value inside its
+         *     range and kind or no `value`, which restores the default. The resulting settings must keep
+         *     at least one positive provider attention weight and strictly ascending calendar interest
+         *     thresholds. `revision` is the revision the changes were prepared from; when another
+         *     change came first the update is refused with `409` and nothing changes. Each accepted
+         *     change is audited with the authenticated operator, its time and its previous and new
+         *     effective values, and public reads use it from their next request on. A wider
+         *     synchronization window applies from the next scheduled run; nothing requests provider
+         *     work now.
+         */
+        put: operations["updateProductSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1233,9 +1272,10 @@ export interface components {
         /**
          * @description The one population whose ratings rank the games. `igdb_players` is the IGDB players'
          *     rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
-         *     when at least 50 ratings stand behind it; it is the default because it covers most
-         *     games. `gameometro_community` is the Gameómetro community mean of one contribution per
-         *     rating and its number of ratings, ranked from the first rating. Sources are never
+         *     when the operator's minimum number of ratings stands behind it (50 by default); it is the
+         *     default because it covers most games. `gameometro_community` is the Gameómetro community
+         *     mean of one contribution per rating and its number of ratings, ranked from the operator's
+         *     minimum (the first rating by default). Sources are never
          *     combined, and
          *     critic or combined provider scores are never used.
          * @default igdb_players
@@ -1739,6 +1779,20 @@ export interface components {
             availableFilters: components["schemas"]["AvailableFilters"];
             /** @description Days from the evaluation date on with at least one qualifying exact-day release, ascending. */
             days: components["schemas"]["ReleaseCalendarDay"][];
+            presentation: components["schemas"]["ReleaseCalendarPresentation"];
+        };
+        /**
+         * @description How the month is presented, from the operator's product settings (`UC-024`). Identical
+         *     for every visitor; it changes only when the operator changes a setting.
+         */
+        ReleaseCalendarPresentation: {
+            /**
+             * @description The strictly ascending daily total-Hype thresholds from which a day shows low,
+             *     moderate, high and very high interest; a day below the first shows no level.
+             */
+            interestThresholds: number[];
+            /** @description How many leading games a chosen day previews before the full list. */
+            dayPreviewSize: number;
         };
         /**
          * @description The months that may be requested, evaluated in `Europe/Madrid`: `first` is always the
@@ -1761,7 +1815,9 @@ export interface components {
             gameCount: number;
             /**
              * Format: int64
-             * @description Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
+             * @description Sum of local Hypes of qualifying games on this day, each game once across platforms
+             *     and regions, after active filters. A game qualifies from the operator's minimum
+             *     Hypes on (10 by default).
              */
             totalHype: number;
         };
@@ -1858,9 +1914,9 @@ export interface components {
             /** Format: date */
             evaluatedOn: string;
             /**
-             * @description The six-calendar-month horizon, inclusive: from the evaluation date to the day before
-             *     the same day of the month six months later, or that month's last day when the day does
-             *     not exist in it.
+             * @description The horizon of the operator's calendar months (six by default), inclusive: from the
+             *     evaluation date to the day before the same day of the month that many months later,
+             *     or that month's last day when the day does not exist in it.
              */
             window: components["schemas"]["ReleaseWindow"];
             /**
@@ -2602,8 +2658,98 @@ export interface components {
             scanCompletedAt: string;
             failedGames: components["schemas"]["RunCount"];
         };
+        /**
+         * @description The stable key of a registered product setting.
+         * @enum {string}
+         */
+        ProductSettingKey: "featured.weeks-back" | "featured.weeks-forward" | "featured.months-back" | "featured.months-forward" | "upcoming-highlights.horizon-months" | "attention.hypes-weight" | "attention.want-to-play-weight" | "attention.visits-weight" | "attention.editorial-weight" | "attention.inherited-share" | "attention.re-release-share" | "rankings.igdb-minimum-ratings" | "rankings.community-minimum-ratings" | "calendar.minimum-hypes" | "calendar.day-preview-size" | "calendar.low-interest-hypes" | "calendar.moderate-interest-hypes" | "calendar.high-interest-hypes" | "calendar.very-high-interest-hypes" | "synchronization.near-term.past-days" | "synchronization.near-term.future-days" | "synchronization.upcoming.past-days" | "synchronization.upcoming.future-days";
+        ProductSettingsOverview: {
+            /**
+             * Format: int64
+             * @description The settings revision; every accepted change advances it by one.
+             */
+            revision: number;
+            /** @description Every registered setting, in registry order. */
+            settings: components["schemas"]["ProductSettingValue"][];
+            coverage: components["schemas"]["ProductSettingsCoverage"];
+            /** @description The most recent changes, newest revision first. */
+            recentChanges: components["schemas"]["ProductSettingChange"][];
+        };
+        ProductSettingValue: {
+            key: components["schemas"]["ProductSettingKey"];
+            /** @enum {string} */
+            group: "featured" | "upcoming_highlights" | "attention" | "rankings" | "calendar" | "synchronization";
+            /**
+             * @description An integer setting takes whole numbers; a decimal one at most four decimals.
+             * @enum {string}
+             */
+            kind: "integer" | "decimal";
+            /** @description The effective value public reads use now. */
+            value: number;
+            /** @description The approved default, or the deployment's configured value for a synchronization window. */
+            defaultValue: number;
+            minimum: number;
+            maximum: number;
+            /**
+             * @description `default` and `deployment` mean no operator value is stored; `invalid_override` means
+             *     a stored value no longer fits the setting or its rules and the default applies.
+             * @enum {string}
+             */
+            origin: "default" | "deployment" | "operator" | "invalid_override";
+            /**
+             * Format: date-time
+             * @description When the operator last set the value; present only with origin `operator`.
+             */
+            changedAt?: string;
+        };
+        /**
+         * @description How far presentation reaches compared with the configured acquisition horizon, in
+         *     `Europe/Madrid`. The horizon is the widest future window of the scheduled policies this
+         *     deployment registers. It states what scheduled acquisition is configured to reach, never
+         *     that the catalogue holds those releases; a window beyond it shows periods nothing fills
+         *     automatically.
+         */
+        ProductSettingsCoverage: {
+            /** Format: date */
+            evaluatedOn: string;
+            /** @description Whether this deployment runs the scheduled acquisition policies at all. */
+            schedulingEnabled: boolean;
+            acquisitionForwardDays: number;
+            /** Format: date */
+            acquisitionEnd: string;
+            featuredLastMonth: components["schemas"]["CalendarMonth"];
+            featuredBeyondAcquisition: boolean;
+            /** Format: date */
+            upcomingHorizonEnd: string;
+            upcomingBeyondAcquisition: boolean;
+        };
+        ProductSettingChange: {
+            /** Format: int64 */
+            revision: number;
+            /** @description The setting's key; a key no longer registered is still listed. */
+            key: string;
+            previousValue: number;
+            newValue: number;
+            restoredDefault: boolean;
+            /** Format: date-time */
+            changedAt: string;
+        };
+        ProductSettingsUpdate: {
+            /**
+             * Format: int64
+             * @description The settings revision the changes were prepared from.
+             */
+            revision: number;
+            changes: components["schemas"]["ProductSettingUpdateChange"][];
+        };
+        ProductSettingUpdateChange: {
+            /** @description A registered setting's key, at most once per update. */
+            key: string;
+            /** @description The new value; absent restores the default. */
+            value?: number;
+        };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -2803,6 +2949,33 @@ export interface components {
          *     names the member, into the file under `/content` or into the request. Nothing was stored.
          */
         EditorialAttentionFileRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description A change names an unknown setting or one already named, a value is outside its
+         *     setting's range or kind, or the resulting settings break a cross-setting rule. `pointer`
+         *     names the member (`/changes/{index}/key`, `/changes/{index}/value` or `/changes`).
+         *     Nothing changed.
+         */
+        ProductSettingRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Another change came first; nothing changed. Read the settings again and retry. */
+        ProductSettingsRevisionConflict: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -3313,17 +3486,18 @@ export interface components {
         FeaturedGranularity: components["schemas"]["FeaturedGranularity"];
         /**
          * @description ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
-         *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
-         *     before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+         *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within the
+         *     operator's weeks back and forward (16 by default) of the current week in
+         *     `Europe/Madrid`. A malformed week, week 53 of a
          *     year with 52 weeks, a week outside the bounds, or a week combined with `month` or
          *     `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
          * @example 2026-W42
          */
         FeaturedWeek: components["schemas"]["IsoWeek"];
         /**
-         * @description Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
-         *     the current month in `Europe/Madrid`, across years, and the last calendar month lying
-         *     entirely inside the configured forward acquisition horizon; the current month is always
+         * @description Calendar month to feature as `YYYY-MM`. It must lie between the operator's months back
+         *     (10 by default) before the current month in `Europe/Madrid`, across years, and the
+         *     operator's months forward (5 by default) after it; the current month is always
          *     accepted. A malformed month, a month outside the bounds, or a month combined with
          *     `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
          * @example 2026-10
@@ -3331,8 +3505,8 @@ export interface components {
         FeaturedMonth: components["schemas"]["CalendarMonth"];
         /**
          * @description Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
-         *     It must lie between the current month and the last calendar month lying entirely inside
-         *     the configured forward acquisition horizon; the current month is always accepted. A
+         *     It must lie between the current month and the operator's months forward (5 by default)
+         *     after it; the current month is always accepted. A
          *     malformed month or a month outside the bounds, including any earlier month, yields 422
          *     `FILTER_INVALID` for `/query/month`.
          * @example 2026-11
@@ -3853,8 +4027,8 @@ export interface operations {
             query?: {
                 /**
                  * @description Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
-                 *     It must lie between the current month and the last calendar month lying entirely inside
-                 *     the configured forward acquisition horizon; the current month is always accepted. A
+                 *     It must lie between the current month and the operator's months forward (5 by default)
+                 *     after it; the current month is always accepted. A
                  *     malformed month or a month outside the bounds, including any earlier month, yields 422
                  *     `FILTER_INVALID` for `/query/month`.
                  * @example 2026-11
@@ -3930,17 +4104,18 @@ export interface operations {
                 granularity?: components["parameters"]["FeaturedGranularity"];
                 /**
                  * @description ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
-                 *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
-                 *     before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+                 *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within the
+                 *     operator's weeks back and forward (16 by default) of the current week in
+                 *     `Europe/Madrid`. A malformed week, week 53 of a
                  *     year with 52 weeks, a week outside the bounds, or a week combined with `month` or
                  *     `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
                  * @example 2026-W42
                  */
                 week?: components["parameters"]["FeaturedWeek"];
                 /**
-                 * @description Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
-                 *     the current month in `Europe/Madrid`, across years, and the last calendar month lying
-                 *     entirely inside the configured forward acquisition horizon; the current month is always
+                 * @description Calendar month to feature as `YYYY-MM`. It must lie between the operator's months back
+                 *     (10 by default) before the current month in `Europe/Madrid`, across years, and the
+                 *     operator's months forward (5 by default) after it; the current month is always
                  *     accepted. A malformed month, a month outside the bounds, or a month combined with
                  *     `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
                  * @example 2026-10
@@ -5355,6 +5530,78 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["AdministrationCommandForbidden"];
             404: components["responses"]["EditorialAttentionListNotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getProductSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings, their coverage and their recent changes. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductSettingsOverview"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["AdministrationValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    updateProductSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings after the update. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductSettingsOverview"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["ProductSettingsRevisionConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ProductSettingRejected"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];

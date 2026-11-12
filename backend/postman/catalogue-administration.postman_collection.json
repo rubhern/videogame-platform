@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247, #248, #342 and #458 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity. Translation examples read coverage and execution and exercise stale-command refusal without changing any execution. Editorial attention examples (#458) read the prompt and lists, preview a sample file and exercise the refusals; the collection never loads or deletes a real list.",
+    "description": "Executable #247, #248, #342, #458 and #450 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate. Historical #246 reads and command safety examples are included. Normal collection execution never starts a historical import. The explicit-start example is guarded by enableHistoricalStart=true and a deliberately small interval, and stores only the opaque target identity. Stop/resume refusal examples use an unknown identity. Translation examples read coverage and execution and exercise stale-command refusal without changing any execution. Editorial attention examples (#458) read the prompt and lists, preview a sample file and exercise the refusals; the collection never loads or deletes a real list. Product settings examples (#450) read the settings, store their revision and exercise the CSRF, stale-revision, unknown-key, out-of-range and cross-setting refusals; the collection never changes a real setting.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1243,12 +1243,289 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Product settings",
+      "item": [
+        {
+          "name": "Product settings and their coverage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "Every registered setting with its effective value, default, range and origin, the coverage of the presentation windows by scheduled acquisition and at most 30 recent changes. Stores the revision for the refusals below."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Operator settings are never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set(\"productSettingsRevision\", String(body.revision));",
+                  "pm.test(\"The closed registry of 23 settings, each inside its range\", () => {",
+                  "    pm.expect(body.settings.length).to.eql(23);",
+                  "    body.settings.forEach((setting) => {",
+                  "        pm.expect(setting.value).to.be.within(setting.minimum, setting.maximum);",
+                  "        pm.expect([\"default\", \"deployment\", \"operator\", \"invalid_override\"]).to.include(setting.origin);",
+                  "    });",
+                  "});",
+                  "pm.test(\"The upcoming horizon is registered with its approved default of six months\", () => {",
+                  "    const horizon = body.settings.find((setting) => setting.key === \"upcoming-highlights.horizon-months\");",
+                  "    pm.expect(horizon.defaultValue).to.eql(6);",
+                  "    pm.expect(horizon.minimum).to.eql(1);",
+                  "    pm.expect(horizon.maximum).to.eql(24);",
+                  "});",
+                  "pm.test(\"No secret or infrastructure setting is editable\", () => {",
+                  "    body.settings.forEach((setting) => pm.expect(setting.key).to.match(/^(featured|upcoming-highlights|attention|rankings|calendar|synchronization)\\./));",
+                  "});",
+                  "pm.test(\"Coverage compares presentation with acquisition\", () => {",
+                  "    pm.expect(body.coverage.acquisitionForwardDays).to.be.at.least(0);",
+                  "    pm.expect(body.coverage).to.have.property(\"featuredBeyondAcquisition\");",
+                  "    pm.expect(body.coverage).to.have.property(\"upcomingBeyondAcquisition\");",
+                  "});",
+                  "pm.test(\"At most 30 recent changes, newest first\", () => {",
+                  "    pm.expect(body.recentChanges.length).to.be.at.most(30);",
+                  "    for (let i = 1; i < body.recentChanges.length; i++) pm.expect(body.recentChanges[i].revision <= body.recentChanges[i - 1].revision).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject a settings change without CSRF",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "Every settings change needs the session-bound CSRF token; nothing changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"revision\": {{productSettingsRevision}}, \"changes\": [{\"key\": \"upcoming-highlights.horizon-months\", \"value\": 8}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code CSRF_VALIDATION_FAILED\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject a settings change prepared from a stale revision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "A revision that is not the current one is refused as a conflict; nothing changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"revision\": 999999999, \"changes\": [{\"key\": \"upcoming-highlights.horizon-months\", \"value\": 8}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code PRODUCT_SETTINGS_REVISION_CONFLICT\", () => pm.expect(pm.response.json().code).to.eql(\"PRODUCT_SETTINGS_REVISION_CONFLICT\"));",
+                  "pm.test(\"The violation names /revision\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/revision\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject an unknown setting key",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "Only registered settings are editable: an infrastructure key is refused; nothing changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"revision\": {{productSettingsRevision}}, \"changes\": [{\"key\": \"identity.oidc.issuer-uri\", \"value\": 1}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code PRODUCT_SETTING_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"PRODUCT_SETTING_INVALID\"));",
+                  "pm.test(\"The violation names /changes/0/key\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/changes/0/key\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject a value outside its range",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "Twenty-five months is beyond the upcoming horizon's range of 1 to 24; nothing changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"revision\": {{productSettingsRevision}}, \"changes\": [{\"key\": \"upcoming-highlights.horizon-months\", \"value\": 25}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code PRODUCT_SETTING_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"PRODUCT_SETTING_INVALID\"));",
+                  "pm.test(\"The violation names /changes/0/value\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/changes/0/value\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject calendar thresholds that do not ascend",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/catalogue/product-settings",
+            "description": "A moderate threshold above the high one breaks the cross-setting rule; nothing changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"revision\": {{productSettingsRevision}}, \"changes\": [{\"key\": \"calendar.moderate-interest-hypes\", \"value\": 9999999}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem Details are private and correlated\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+                  "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+                  "});",
+                  "pm.test(\"Stable code PRODUCT_SETTING_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"PRODUCT_SETTING_INVALID\"));",
+                  "pm.test(\"The violation names /changes\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/changes\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
     {
       "key": "csrfToken",
       "value": ""
+    },
+    {
+      "key": "productSettingsRevision",
+      "value": "0"
     }
   ]
 }

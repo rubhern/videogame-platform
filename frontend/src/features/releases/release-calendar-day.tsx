@@ -8,7 +8,6 @@ import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { ChevronIcon } from "./featured-icons";
 import { countLabel, dayHeading } from "./release-calendar-model";
-import { DAY_PREVIEW_SIZE } from "./release-calendar-search";
 import type { ReleaseListItem } from "./releases-view-model";
 
 /** The day's leading games as the explorer's one-day read returns them. */
@@ -21,6 +20,8 @@ type ReleaseCalendarDayProps = {
   date: string;
   /** The calendar's own count for the day, which the explorer's total for that day equals. */
   gameCount: number;
+  /** How many leading games the day previews, from the served month. */
+  previewSize: number;
   preview: CalendarDayPreview;
   explorerPath: string;
   onRetry: () => void;
@@ -83,6 +84,7 @@ function CalendarReleaseRow({ item }: { item: ReleaseListItem }) {
 export function ReleaseCalendarDay({
   date,
   gameCount,
+  previewSize,
   preview,
   explorerPath,
   onRetry,
@@ -122,7 +124,7 @@ export function ReleaseCalendarDay({
 
       {gameCount > 0 && preview.status === "loading" ? (
         <ul aria-hidden="true" className="calendar-release-list">
-          {Array.from({ length: Math.min(gameCount, DAY_PREVIEW_SIZE) }, (_, index) => (
+          {Array.from({ length: Math.min(gameCount, previewSize) }, (_, index) => (
             <li className="calendar-release calendar-release-pending" key={index}>
               <span className="skeleton calendar-release-pending-cover" />
               <span className="calendar-release-pending-lines">

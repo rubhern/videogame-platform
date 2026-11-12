@@ -8,6 +8,7 @@ import {
 import { CatalogueTranslations } from "../features/catalogue-administration/catalogue-translations";
 import { EditorialAttention } from "../features/catalogue-administration/editorial-attention";
 import { HistoricalSynchronization } from "../features/catalogue-administration/historical-synchronization";
+import { ProductSettings } from "../features/catalogue-administration/product-settings";
 import { CoverageExplorer, MAX_YEAR, MIN_YEAR } from "../features/catalogue-administration/coverage-explorer";
 import { RunControls } from "../features/catalogue-administration/synchronization-control";
 import { SynchronizationRequest } from "../features/catalogue-administration/synchronization-request";
@@ -19,13 +20,14 @@ import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
 import { HeroTitle } from "../shared/ui/hero-title";
 
-type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones" | "interes";
+type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones" | "interes" | "ajustes";
 const TABS: { id: PanelTab; label: string }[] = [
   { id: "ejecuciones", label: "Ejecuciones" },
   { id: "cobertura", label: "Cobertura" },
   { id: "historica", label: "Sincronización histórica" },
   { id: "traducciones", label: "Traducciones" },
   { id: "interes", label: "Interés editorial" },
+  { id: "ajustes", label: "Ajustes" },
 ];
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
@@ -191,6 +193,7 @@ export function CatalogueAdministrationPage() {
                     </section>
                     </> : tab === "traducciones" && csrfToken ? <CatalogueTranslations csrfToken={csrfToken} />
                       : tab === "interes" && csrfToken ? <EditorialAttention csrfToken={csrfToken} now={now} />
+                      : tab === "ajustes" && csrfToken ? <ProductSettings csrfToken={csrfToken} />
                       : tab === "historica" && csrfToken ? <HistoricalSynchronization csrfToken={csrfToken} ordinary={status.data} /> : <section className="admin-section" aria-labelledby="admin-coverage-title">
                       <h2 id="admin-coverage-title">Cobertura histórica</h2>
                       <dl className="admin-glossary">

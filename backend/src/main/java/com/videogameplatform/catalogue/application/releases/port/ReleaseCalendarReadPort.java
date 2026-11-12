@@ -8,22 +8,42 @@ import java.util.Optional;
 /** Outbound query port for one month's release counts from the current catalogue publication. */
 public interface ReleaseCalendarReadPort {
 
+    /** The approved local Hype a game needs to be counted on a day (#250). */
+    long DEFAULT_MINIMUM_HYPES =
+            com.videogameplatform.catalogue.application.releases.ReleaseHighlightsPolicy
+                    .MINIMUM_HYPES;
+
     /** Empty when the catalogue has never been published. */
     Optional<Result> countPublishedReleases(Criteria criteria);
 
     /**
      * The inclusive days to count, from the evaluation date or the month's first day to the month's
      * last day, classified exactly as {@link ReleaseBrowseReadPort.Criteria} classifies a range
-     * without approximate dates; only exact days count.
+     * without approximate dates; only exact days count, and only games with at least {@code
+     * minimumHypes} local Hypes.
      */
     record Criteria(
             LocalDate from,
             LocalDate to,
             LocalDate evaluatedOn,
             List<String> platformIds,
-            List<String> regionIds) {
+            List<String> regionIds,
+            long minimumHypes) {
+
+        /** The approved minimum of {@value DEFAULT_MINIMUM_HYPES} Hypes. */
+        public Criteria(
+                LocalDate from,
+                LocalDate to,
+                LocalDate evaluatedOn,
+                List<String> platformIds,
+                List<String> regionIds) {
+            this(from, to, evaluatedOn, platformIds, regionIds, DEFAULT_MINIMUM_HYPES);
+        }
 
         public Criteria {
+            if (minimumHypes < 1) {
+                throw new IllegalArgumentException("A highlight needs at least one Hype");
+            }
             if (from == null || to == null || evaluatedOn == null || to.isBefore(from)) {
                 throw new IllegalArgumentException("A month and an evaluation date are required");
             }

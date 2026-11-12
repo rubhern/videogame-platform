@@ -479,8 +479,11 @@ owns that guard. Each policy accepts a six-field Spring cron; `-`
 disables only that policy. Non-negative past/future day offsets derive an inclusive
 window from one evaluation of the application clock in `Europe/Madrid`; neither the
 host timezone nor the UTC provider date-query boundary changes this evaluation.
-Configuration changes take effect on application recreation. Invalid cron/windows
-are configuration errors detected at startup.
+Cron changes take effect on application recreation. Since #450 the configured windows are only
+the defaults of the four synchronization window settings an operator may override under
+**Ajustes** ([product settings](#product-settings)); a changed window applies from the next
+scheduled run. Invalid cron expressions, and windows outside their setting's range, are
+configuration errors detected at startup.
 
 Initial policy rationale: daily off-peak near-term refresh covers the weeks around today
 that release exploration opens on. Weekly upcoming refresh covers
@@ -492,13 +495,10 @@ are not merged. Repeated pending occurrences of the same policy coalesce into on
 and each successful run refreshes the coverage of its own window.
 
 The widest future window among the policies not disabled with `-` (the upcoming policy's
-180 days by default) is also the configured forward acquisition horizon that bounds
-Destacados's monthly navigation ([UC-010](../architecture/application/mvp-use-cases.md)):
-months stop at the last month lying wholly inside it. It applies whether or not
-`CATALOGUE_SYNC_SCHEDULING_ENABLED` is on, because it states the configured intent, not
-completed coverage. Narrowing or disabling the upcoming policy therefore shortens how far
-forward visitors can browse months, from the next application start; check coverage before
-claiming that a browsable month was actually acquired.
+180 days by default) is the configured forward acquisition horizon. Since #450 it no longer
+bounds Destacados's monthly navigation: the months-forward setting does, and **Ajustes** warns
+when Destacados, the calendar or Próximos destacados reach beyond the horizon. Check coverage
+before claiming that a browsable month was actually acquired.
 
 One dedicated scheduler thread serializes recurring work. If a long run delays the
 other policy, its date window is evaluated at actual invocation. Missed occurrences
@@ -723,8 +723,8 @@ current-release repair refreshes featured evidence with each Game but does not l
 
 ### Editorial anticipation lists
 
-Release attention takes half its weight from the operator's editorial anticipation list for the
-period (`UC-023`, ADR-0041). Once a month, before the month starts and again when the press changes
+Release attention takes the editorial weight (half by default, see [product settings](#product-settings))
+from the operator's editorial anticipation list for the period (`UC-023`, ADR-0041). Once a month, before the month starts and again when the press changes
 its mind, open **Interés editorial** in `/administracion/catalogo`:
 
 1. Choose the period (a calendar month by default, at most 92 days) and copy the prompt into a
@@ -740,6 +740,29 @@ its mind, open **Interés editorial** in `/administracion/catalogo`:
 The list changes Destacados, Explorar's **Interés** order, the calendar's day preview and
 Próximos destacados on the next read. Deleting it returns its period to the provider signals
 alone. No model or provider is called by the application.
+
+### Product settings
+
+Owner: [ADR-0042](../decisions/0042-manage-approved-product-settings-in-postgresql.md) and
+[`UC-024`](../architecture/application/mvp-use-cases.md#product-settings-uc-024-post-mvp-450);
+`ProductSetting` owns the keys, ranges and defaults. Open **Ajustes** in
+`/administracion/catalogo` with an operator session:
+
+1. Change the values, or **Restaurar por defecto** for a value an operator set, then **Guardar
+   cambios**. Every change in one save applies, or none does. A warning that another change came
+   first means the page has read the current values again: review them and save again.
+2. Read the coverage notice under **Sincronización programada**. When Destacados, the calendar or
+   Próximos destacados reach beyond the scheduled acquisition, either widen the weekly days
+   forward (applied at the next scheduled run) or request a synchronization of that interval in
+   **Ejecuciones**. Showing a period never acquires it.
+3. Public pages use the new values from their next request; there is no restart. Each accepted
+   save logs `Product settings changed` with the revision and the changed keys.
+
+Recovery: **Restaurar por defecto** for one value. If a stored value no longer fits a later
+release, the page labels it as not valid and the default already applies. To return every
+setting to its default without the page, delete the overrides with the migration role:
+`DELETE FROM catalogue.product_setting;`. The audit in `catalogue.product_setting_change` keeps
+the history, and backups carry both tables with the rest of the catalogue schema.
 
 
 The same Game request also acquires the summary, developer and publisher credits, genres and

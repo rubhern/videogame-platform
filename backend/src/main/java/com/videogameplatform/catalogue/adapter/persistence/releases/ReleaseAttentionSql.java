@@ -1,7 +1,10 @@
 package com.videogameplatform.catalogue.adapter.persistence.releases;
 
+import com.videogameplatform.catalogue.domain.AttentionWeights;
 import com.videogameplatform.catalogue.domain.ReleaseAttentionPolicy;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -13,7 +16,9 @@ import java.util.Map;
  * <p>Each candidate Game reads its Hypes, its Want to Play and Visits shares and its editorial
  * score through primary-key or indexed probes, so the work follows the range's candidates, never
  * the catalogue or the evidence tables. The scale is relative to the strongest candidate of the
- * same set, which the window maximum reads once over the candidates the order already sorts.
+ * same set, which the window maximum reads once over the candidates the order already sorts. The
+ * operator's weights ({@link AttentionWeights}) are bound as parameters, so one statement text
+ * serves every setting and a change applies from the next read on.
  */
 final class ReleaseAttentionSql {
 
@@ -110,30 +115,53 @@ final class ReleaseAttentionSql {
                                      AND (ar.hype_level > 0 OR ar.want_level > 0
                                           OR ar.visit_level > 0 OR ar.editorial_score IS NOT NULL)
                            THEN round(CAST(
-                               %6$s * 100 * (
-                                   coalesce(ar.hype_level / nullif(max(ar.hype_level) OVER (), 0), 0)
-                                   + coalesce(ar.want_level / nullif(max(ar.want_level) OVER (), 0), 0)
-                                   + coalesce(ar.visit_level / nullif(max(ar.visit_level) OVER (), 0), 0)
-                               ) / 3
+                               (1 - %7$s) * 100 * (
+                                   :attentionHypeWeight
+                                     * coalesce(ar.hype_level / nullif(max(ar.hype_level) OVER (), 0), 0)
+                                   + :attentionWantToPlayWeight
+                                     * coalesce(ar.want_level / nullif(max(ar.want_level) OVER (), 0), 0)
+                                   + :attentionVisitsWeight
+                                     * coalesce(ar.visit_level / nullif(max(ar.visit_level) OVER (), 0), 0)
+                               ) / %6$s
                                + %7$s * coalesce(ar.editorial_score, 0) AS numeric), %8$d)
                            END AS attention
                     FROM attention_raw ar
                 )"""
                 .formatted(
                         rerelease,
-                        decimal(ReleaseAttentionPolicy.RE_RELEASE_SHARE),
-                        decimal(ReleaseAttentionPolicy.INHERITED_SHARE),
+                        "CAST(:attentionReReleaseShare AS numeric)",
+                        "CAST(:attentionInheritedShare AS numeric)",
                         decimal(ReleaseAttentionPolicy.SHARE_RESOLUTION),
                         source,
-                        decimal(1 - ReleaseAttentionPolicy.EDITORIAL_WEIGHT),
-                        decimal(ReleaseAttentionPolicy.EDITORIAL_WEIGHT),
+                        "(CAST(:attentionHypeWeight AS numeric)"
+                                + " + CAST(:attentionWantToPlayWeight AS numeric)"
+                                + " + CAST(:attentionVisitsWeight AS numeric))",
+                        "CAST(:attentionEditorialWeight AS numeric)",
                         ReleaseAttentionPolicy.SCALE,
                         LAUNCH_STAGES);
     }
 
-    /** The bindings of the range the attention is computed for. */
+    /** The bindings of the range the attention is computed for, with the approved weights. */
     static Map<String, Object> parameters(LocalDate from, LocalDate to) {
-        return Map.of(FROM_PARAMETER, from, TO_PARAMETER, to);
+        return parameters(from, to, AttentionWeights.DEFAULT);
+    }
+
+    /** The bindings of the range the attention is computed for and of the weights it applies. */
+    static Map<String, Object> parameters(LocalDate from, LocalDate to, AttentionWeights weights) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put(FROM_PARAMETER, from);
+        parameters.put(TO_PARAMETER, to);
+        parameters.put("attentionHypeWeight", numeric(weights.hypes()));
+        parameters.put("attentionWantToPlayWeight", numeric(weights.wantToPlay()));
+        parameters.put("attentionVisitsWeight", numeric(weights.visits()));
+        parameters.put("attentionEditorialWeight", numeric(weights.editorial()));
+        parameters.put("attentionInheritedShare", numeric(weights.inheritedShare()));
+        parameters.put("attentionReReleaseShare", numeric(weights.reReleaseShare()));
+        return parameters;
+    }
+
+    private static BigDecimal numeric(double value) {
+        return new BigDecimal(Double.toString(value));
     }
 
     /** A trusted constant as an SQL numeric literal, never in exponent notation. */

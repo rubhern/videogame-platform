@@ -22,6 +22,9 @@ import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResu
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.Selection;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -187,9 +190,14 @@ class FeaturedReleaseServiceTest {
     }
 
     @Test
-    void monthsReachForwardOnlyToTheLastMonthWhollyInsideTheAcquisitionHorizon() {
-        // 1 October plus 180 days is 30 March 2027: March is not wholly inside, February is.
-        var service = service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())));
+    void monthsReachForwardTheOperatorsMonthsAndFollowAChangeFromTheNextRequest() {
+        var settings =
+                TestProductSettings.defaults().set(ProductSetting.FEATURED_MONTHS_FORWARD, 4);
+        var service =
+                service(
+                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
+                        Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID),
+                        settings);
         var latest = service.browse(month("2027-02-01"));
         assertThat(latest.navigation().previous()).contains(LocalDate.parse("2027-01-01"));
         assertThat(latest.navigation().next()).isEmpty();
@@ -197,28 +205,63 @@ class FeaturedReleaseServiceTest {
         assertThatThrownBy(() -> service.browse(march))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
 
-        // Two days later the horizon ends on 1 April 2027, so March is wholly inside.
-        var later =
-                service(
-                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
-                        Clock.fixed(Instant.parse("2026-10-03T10:00:00Z"), MADRID),
-                        180);
-        assertThat(later.browse(month("2027-03-01")).navigation().next()).isEmpty();
+        // The operator widens the window: the same service presents March on the next request.
+        settings.set(ProductSetting.FEATURED_MONTHS_FORWARD, 5);
+        assertThat(service.browse(march).navigation().next()).isEmpty();
+        assertThat(service.browse(month("2027-02-01")).navigation().next())
+                .contains(LocalDate.parse("2027-03-01"));
 
-        // Without a horizon only the current month remains forward; weeks keep their own bounds.
-        var noHorizon =
-                service(
-                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
-                        Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID),
-                        0);
-        var current = noHorizon.browse(Query.current(Granularity.MONTH));
+        // Without months forward only the current month remains; weeks keep their own bounds.
+        settings.set(ProductSetting.FEATURED_MONTHS_FORWARD, 0);
+        var current = service.browse(Query.current(Granularity.MONTH));
         assertThat(current.navigation().previous()).contains(LocalDate.parse("2026-09-01"));
         assertThat(current.navigation().next()).isEmpty();
         var november = month("2026-11-01");
-        assertThatThrownBy(() -> noHorizon.browse(november))
+        assertThatThrownBy(() -> service.browse(november))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
-        assertThat(noHorizon.browse(week("2027-01-11")).navigation().next())
+        assertThat(service.browse(week("2027-01-11")).navigation().next())
                 .contains(LocalDate.parse("2027-01-18"));
+    }
+
+    @Test
+    void operatorWeekAndMonthBoundsReplaceTheDefaults() {
+        var settings =
+                TestProductSettings.defaults()
+                        .set(ProductSetting.FEATURED_WEEKS_BACK, 2)
+                        .set(ProductSetting.FEATURED_WEEKS_FORWARD, 1)
+                        .set(ProductSetting.FEATURED_MONTHS_BACK, 0);
+        var service =
+                service(
+                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
+                        Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID),
+                        settings);
+        // The current week starts on Monday 28 September.
+        assertThat(service.browse(week("2026-09-14")).navigation().previous()).isEmpty();
+        assertThat(service.browse(week("2026-10-05")).navigation().next()).isEmpty();
+        var tooEarly = week("2026-09-07");
+        var tooLate = week("2026-10-12");
+        assertThatThrownBy(() -> service.browse(tooEarly))
+                .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+        assertThatThrownBy(() -> service.browse(tooLate))
+                .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+        assertThat(service.browse(Query.current(Granularity.MONTH)).navigation().previous())
+                .isEmpty();
+    }
+
+    @Test
+    void theRankingReadCarriesTheOperatorsAttentionWeights() {
+        var settings =
+                TestProductSettings.defaults()
+                        .set(ProductSetting.ATTENTION_HYPES_WEIGHT, 2)
+                        .set(ProductSetting.ATTENTION_EDITORIAL_WEIGHT, 0.25);
+        service(
+                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
+                        Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID),
+                        settings)
+                .browse(Query.current(Granularity.MONTH));
+        assertThat(captured.get().attention().hypes()).isEqualTo(2d);
+        assertThat(captured.get().attention().editorial()).isEqualTo(0.25d);
+        assertThat(captured.get().attention().wantToPlay()).isEqualTo(1d);
     }
 
     @Test
@@ -228,7 +271,7 @@ class FeaturedReleaseServiceTest {
                 service(
                         port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
                         Clock.fixed(Instant.parse("2026-12-31T23:30:00Z"), MADRID),
-                        180);
+                        TestProductSettings.defaults());
 
         var month = service.browse(Query.current(Granularity.MONTH));
         assertThat(month.window().from()).isEqualTo(LocalDate.parse("2027-01-01"));
@@ -467,11 +510,12 @@ class FeaturedReleaseServiceTest {
 
     /** Resolvers that name the rendition in the URL, so each test sees which one was chosen. */
     private static FeaturedReleaseService service(FeaturedReleaseReadPort port) {
-        return service(port, Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID), 180);
+        return service(
+                port, Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID), TestProductSettings.defaults());
     }
 
     private static FeaturedReleaseService service(
-            FeaturedReleaseReadPort port, Clock clock, int forwardAcquisitionDays) {
+            FeaturedReleaseReadPort port, Clock clock, CurrentProductSettings settings) {
         return new FeaturedReleaseService(
                 port,
                 new CatalogueCoverPolicy(
@@ -488,7 +532,7 @@ class FeaturedReleaseServiceTest {
                 clock,
                 new ReleaseBrowsePolicy(25),
                 new CatalogueFreshnessPolicy(Duration.ofDays(7)),
-                new FeaturedPeriodPolicy(forwardAcquisitionDays));
+                settings);
     }
 
     private static FeaturedReleaseReadPort.MediaReference media(

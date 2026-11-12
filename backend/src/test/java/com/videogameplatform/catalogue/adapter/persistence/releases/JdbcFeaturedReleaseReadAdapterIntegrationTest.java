@@ -8,6 +8,7 @@ import com.videogameplatform.catalogue.application.releases.port.FeaturedRelease
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
+import com.videogameplatform.catalogue.domain.AttentionWeights;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -110,6 +111,34 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                         "Wished",
                         "Editorial Pick",
                         "Silent");
+    }
+
+    @Test
+    void theOperatorsAttentionWeightsAreAppliedByTheRankingQuery() {
+        var base = criteria(MAY_2037, 3, 25);
+        // Want to Play alone: Port Of Hit's inherited half of 2e-3 leads 5e-4 and 4e-4.
+        var wantToPlayOnly =
+                new FeaturedReleaseReadPort.Criteria(
+                        base.periodStart(),
+                        base.periodEnd(),
+                        base.evaluatedOn(),
+                        3,
+                        25,
+                        List.of(),
+                        new AttentionWeights(0, 1, 0, 0.5, 0.5, 0.5));
+        assertThat(titles(wantToPlayOnly)).containsExactly("Port Of Hit", "Anticipated", "Wished");
+        // Hypes alone with a re-release keeping all of its own: its 1000 Hypes lead the port's
+        // inherited 500.
+        var fullReRelease =
+                new FeaturedReleaseReadPort.Criteria(
+                        base.periodStart(),
+                        base.periodEnd(),
+                        base.evaluatedOn(),
+                        2,
+                        25,
+                        List.of(),
+                        new AttentionWeights(1, 0, 0, 0, 0.5, 1));
+        assertThat(titles(fullReRelease)).containsExactly("Re-release", "Port Of Hit");
     }
 
     @Test

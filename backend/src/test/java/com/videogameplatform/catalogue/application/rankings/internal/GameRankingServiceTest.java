@@ -15,6 +15,8 @@ import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Que
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase.Source;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.math.BigDecimal;
@@ -60,6 +62,34 @@ class GameRankingServiceTest {
         assertThat(port.asked.getFirst().source()).isEqualTo(Source.IGDB_PLAYERS);
         assertThat(ranking.items()).isEmpty();
         assertThat(ranking.page().totalPages()).isZero();
+    }
+
+    @Test
+    void asksEachSourceForTheOperatorsMinimumRatingsFromTheNextRequestOn() {
+        var port = new RecordingPort(0, 0);
+        var settings = TestProductSettings.defaults();
+        var service =
+                new GameRankingService(
+                        port,
+                        new CatalogueCoverPolicy(
+                                (provider, reference, sourceUrl) -> {
+                                    throw new AssertionError("No provider resolution");
+                                }),
+                        CLOCK,
+                        settings);
+        service.rank(new Query(Source.IGDB_PLAYERS, 1, 20));
+        service.rank(new Query(Source.GAMEOMETRO_COMMUNITY, 1, 20));
+        assertThat(port.asked)
+                .extracting(GameRankingReadPort.Criteria::minimumRatings)
+                .containsExactly(50, 1);
+
+        settings.set(ProductSetting.RANKINGS_IGDB_MINIMUM_RATINGS, 200)
+                .set(ProductSetting.RANKINGS_COMMUNITY_MINIMUM_RATINGS, 3);
+        service.rank(new Query(Source.IGDB_PLAYERS, 1, 20));
+        service.rank(new Query(Source.GAMEOMETRO_COMMUNITY, 1, 20));
+        assertThat(port.asked.subList(2, 4))
+                .extracting(GameRankingReadPort.Criteria::minimumRatings)
+                .containsExactly(200, 3);
     }
 
     @Test
@@ -140,7 +170,8 @@ class GameRankingServiceTest {
                         (provider, reference, sourceUrl) -> {
                             throw new AssertionError("No provider resolution for fallback");
                         }),
-                CLOCK);
+                CLOCK,
+                TestProductSettings.defaults());
     }
 
     private static final class RecordingPort implements GameRankingReadPort {
