@@ -22,6 +22,8 @@ import org.springframework.transaction.support.TransactionOperations;
  */
 public final class JdbcProductSettingStore implements ProductSettingStore {
 
+    private static final String REVISION = "revision";
+
     private static final String REVISION_SQL =
             "SELECT revision FROM catalogue.product_setting_revision WHERE singleton";
 
@@ -112,7 +114,7 @@ public final class JdbcProductSettingStore implements ProductSettingStore {
                 Map.of("limit", limit),
                 (resultSet, row) ->
                         new Change(
-                                resultSet.getLong("revision"),
+                                resultSet.getLong(REVISION),
                                 resultSet.getString("setting_key"),
                                 resultSet.getBigDecimal("previous_value"),
                                 resultSet.getBigDecimal("new_value"),
@@ -132,11 +134,11 @@ public final class JdbcProductSettingStore implements ProductSettingStore {
                         return Optional.<Long>empty();
                     }
                     long revision = expectedRevision + 1;
-                    jdbc.update(ADVANCE_SQL, Map.of("revision", revision, "changedAt", at));
+                    jdbc.update(ADVANCE_SQL, Map.of(REVISION, revision, "changedAt", at));
                     for (Write write : writes) {
                         Map<String, Object> parameters = new LinkedHashMap<>();
                         parameters.put("key", write.key());
-                        parameters.put("revision", revision);
+                        parameters.put(REVISION, revision);
                         parameters.put("changedAt", at);
                         parameters.put("operator", operator.toString());
                         if (write.value().isPresent()) {

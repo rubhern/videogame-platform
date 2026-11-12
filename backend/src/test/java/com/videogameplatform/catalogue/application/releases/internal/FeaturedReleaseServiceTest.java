@@ -238,9 +238,11 @@ class FeaturedReleaseServiceTest {
         // The current week starts on Monday 28 September.
         assertThat(service.browse(week("2026-09-14")).navigation().previous()).isEmpty();
         assertThat(service.browse(week("2026-10-05")).navigation().next()).isEmpty();
-        assertThatThrownBy(() -> service.browse(week("2026-09-07")))
+        var tooEarly = week("2026-09-07");
+        var tooLate = week("2026-10-12");
+        assertThatThrownBy(() -> service.browse(tooEarly))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
-        assertThatThrownBy(() -> service.browse(week("2026-10-12")))
+        assertThatThrownBy(() -> service.browse(tooLate))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
         assertThat(service.browse(Query.current(Granularity.MONTH)).navigation().previous())
                 .isEmpty();

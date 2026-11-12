@@ -36,11 +36,7 @@ public interface ManageProductSettings {
     UpdateOutcome update(long expectedRevision, List<Change> changes, String operatorId);
 
     /** A new value for {@code key}, or its default when {@code value} is empty. */
-    record Change(String key, Optional<BigDecimal> value) {
-        public Change {
-            value = value == null ? Optional.empty() : value;
-        }
-    }
+    record Change(String key, Optional<BigDecimal> value) {}
 
     record Overview(
             long revision,

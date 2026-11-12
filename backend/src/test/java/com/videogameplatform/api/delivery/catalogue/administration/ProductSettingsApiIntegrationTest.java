@@ -150,9 +150,9 @@ class ProductSettingsApiIntegrationTest {
                 admin.queryForMap(
                         "SELECT changed_by::text AS changed_by, previous_value, new_value,"
                                 + " restored_default FROM catalogue.product_setting_change");
-        assertThat(audit.get("changed_by"))
-                .isEqualTo(UserId.fromIssuerAndSubject(ISSUER, SUBJECT).value());
-        assertThat(audit.get("restored_default")).isEqualTo(false);
+        assertThat(audit)
+                .containsEntry("changed_by", UserId.fromIssuerAndSubject(ISSUER, SUBJECT).value())
+                .containsEntry("restored_default", false);
 
         // Restoring the default deletes the override and is audited as such.
         mockMvc.perform(

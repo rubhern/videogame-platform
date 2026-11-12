@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -294,7 +295,7 @@ class ProductSettingsServiceTest {
 
     @Test
     void aMissingOrInvalidDeploymentDefaultRefusesToStart() {
-        var withoutWindows = new HashMap<>(TestProductSettings.deploymentDefaults());
+        var withoutWindows = new EnumMap<>(TestProductSettings.deploymentDefaults());
         withoutWindows.remove(ProductSetting.SYNCHRONIZATION_UPCOMING_FUTURE_DAYS);
         assertThatIllegalArgumentException()
                 .isThrownBy(
@@ -305,7 +306,7 @@ class ProductSettingsServiceTest {
                                         withoutWindows,
                                         new ProductSettingsService.ScheduledAcquisition(
                                                 true, true, true)));
-        var tooWide = new HashMap<>(TestProductSettings.deploymentDefaults());
+        var tooWide = new EnumMap<>(TestProductSettings.deploymentDefaults());
         tooWide.put(ProductSetting.SYNCHRONIZATION_UPCOMING_FUTURE_DAYS, BigDecimal.valueOf(731));
         assertThatIllegalArgumentException()
                 .isThrownBy(

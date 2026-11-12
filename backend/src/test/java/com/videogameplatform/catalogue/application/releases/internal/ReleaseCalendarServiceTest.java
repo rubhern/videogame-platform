@@ -179,7 +179,9 @@ class ReleaseCalendarServiceTest {
                                                         .PLATFORM_NOT_SUPPORTED));
 
         port.result = null;
-        assertThatThrownBy(() -> service(port, "2026-10-21T10:00:00Z", 5).browse(query(null)))
+        ReleaseCalendarService unpublished = service(port, "2026-10-21T10:00:00Z", 5);
+        Query current = query(null);
+        assertThatThrownBy(() -> unpublished.browse(current))
                 .isInstanceOf(CatalogueNotReadyException.class);
     }
 

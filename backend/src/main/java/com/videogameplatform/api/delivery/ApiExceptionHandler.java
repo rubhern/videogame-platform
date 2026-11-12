@@ -819,6 +819,42 @@ public class ApiExceptionHandler {
         return requestMalformed(response);
     }
 
+    /**
+     * The Problem code of an administration body that failed its schema: an editorial file or
+     * load (UC-023), or a product settings update (UC-024).
+     */
+    private static Optional<ProblemCode> bodyFieldCode(HandlerMethodValidationException exception) {
+        for (var result : exception.getParameterValidationResults()) {
+            Class<?> type = result.getMethodParameter().getParameterType();
+            if (com.videogameplatform.api.generated.model.EditorialAttentionUpload.class.equals(
+                            type)
+                    || com.videogameplatform.api.generated.model.EditorialAttentionLoad.class
+                            .equals(type)) {
+                return Optional.of(ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID);
+            }
+            if (com.videogameplatform.api.generated.model.ProductSettingsUpdate.class.equals(
+                    type)) {
+                return Optional.of(ProblemCode.PRODUCT_SETTING_INVALID);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The JSON Pointer of the first invalid body field, or of {@code fallback}. */
+    private static String firstFieldPointer(
+            HandlerMethodValidationException exception, String fallback) {
+        String field =
+                exception.getParameterValidationResults().stream()
+                        .filter(ParameterErrors.class::isInstance)
+                        .map(ParameterErrors.class::cast)
+                        .map(ParameterErrors::getFieldError)
+                        .filter(java.util.Objects::nonNull)
+                        .map(FieldError::getField)
+                        .findFirst()
+                        .orElse(fallback);
+        return "/" + field.replace('.', '/').replace("[", "/").replace("]", "");
+    }
+
     @ExceptionHandler(HandlerMethodValidationException.class)
     ResponseEntity<Problem> requestConstraintInvalid(
             HandlerMethodValidationException exception, HttpServletResponse response) {
@@ -866,55 +902,17 @@ public class ApiExceptionHandler {
                             "/historicalSynchronization"),
                     response);
         }
-        if (exception.getParameterValidationResults().stream()
-                .anyMatch(
-                        result ->
-                                com.videogameplatform.api.generated.model.EditorialAttentionUpload
-                                                .class
-                                                .equals(
-                                                        result.getMethodParameter()
-                                                                .getParameterType())
-                                        || com.videogameplatform.api.generated.model
-                                                .EditorialAttentionLoad.class
-                                                .equals(
-                                                        result.getMethodParameter()
-                                                                .getParameterType()))) {
-            // The file text is missing or too long, or an assignment is outside its schema.
-            String field =
-                    exception.getParameterValidationResults().stream()
-                            .filter(ParameterErrors.class::isInstance)
-                            .map(ParameterErrors.class::cast)
-                            .map(ParameterErrors::getFieldError)
-                            .filter(java.util.Objects::nonNull)
-                            .map(FieldError::getField)
-                            .findFirst()
-                            .orElse("content");
+        Optional<ProblemCode> bodyCode = bodyFieldCode(exception);
+        if (bodyCode.isPresent()) {
+            // An administration body outside its schema names the member to correct.
             return requestInvalid(
                     new ApiRequestException(
-                            ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID,
-                            "/" + field.replace('.', '/').replace("[", "/").replace("]", "")),
-                    response);
-        }
-        if (exception.getParameterValidationResults().stream()
-                .anyMatch(
-                        result ->
-                                com.videogameplatform.api.generated.model.ProductSettingsUpdate
-                                        .class
-                                        .equals(result.getMethodParameter().getParameterType()))) {
-            // A missing revision or key, or a change list outside its bounds.
-            String field =
-                    exception.getParameterValidationResults().stream()
-                            .filter(ParameterErrors.class::isInstance)
-                            .map(ParameterErrors.class::cast)
-                            .map(ParameterErrors::getFieldError)
-                            .filter(java.util.Objects::nonNull)
-                            .map(FieldError::getField)
-                            .findFirst()
-                            .orElse("changes");
-            return requestInvalid(
-                    new ApiRequestException(
-                            ProblemCode.PRODUCT_SETTING_INVALID,
-                            "/" + field.replace('.', '/').replace("[", "/").replace("]", "")),
+                            bodyCode.get(),
+                            firstFieldPointer(
+                                    exception,
+                                    bodyCode.get() == ProblemCode.PRODUCT_SETTING_INVALID
+                                            ? "changes"
+                                            : "content")),
                     response);
         }
         if (exception.getParameterValidationResults().stream()

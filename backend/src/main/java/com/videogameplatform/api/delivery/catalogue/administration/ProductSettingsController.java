@@ -70,10 +70,10 @@ public class ProductSettingsController implements ProductSettingsApi {
                 currentUser.changeAsCurrentUser(
                         operatorId -> settings.update(update.getRevision(), changes, operatorId));
         return switch (outcome) {
-            case UpdateOutcome.Updated updated -> {
+            case UpdateOutcome.Updated(Overview overview) -> {
                 // Registry keys are a closed vocabulary; the operator identity stays in the audit.
                 LOGGER.atInfo()
-                        .addKeyValue("settings.revision", updated.overview().revision())
+                        .addKeyValue("settings.revision", overview.revision())
                         .addKeyValue(
                                 "settings.keys",
                                 changes.stream()
@@ -83,19 +83,19 @@ public class ProductSettingsController implements ProductSettingsApi {
                                         .toString())
                         .log(
                                 "Product settings changed: revision={} changes={}",
-                                updated.overview().revision(),
+                                overview.revision(),
                                 changes.size());
-                yield ok(updated.overview());
+                yield ok(overview);
             }
-            case UpdateOutcome.Stale ignored ->
+            case UpdateOutcome.Stale _ ->
                     throw new ApiRequestException(
                             ProblemCode.PRODUCT_SETTINGS_REVISION_CONFLICT, "/revision");
-            case UpdateOutcome.UnknownSetting unknown ->
-                    throw invalid(CHANGES_POINTER + "/" + unknown.index() + "/key");
-            case UpdateOutcome.ValueInvalid value ->
-                    throw invalid(CHANGES_POINTER + "/" + value.index() + "/value");
-            case UpdateOutcome.Inconsistent ignored -> throw invalid(CHANGES_POINTER);
-            case UpdateOutcome.ChangesInvalid ignored -> throw invalid(CHANGES_POINTER);
+            case UpdateOutcome.UnknownSetting(int index) ->
+                    throw invalid(CHANGES_POINTER + "/" + index + "/key");
+            case UpdateOutcome.ValueInvalid(int index) ->
+                    throw invalid(CHANGES_POINTER + "/" + index + "/value");
+            case UpdateOutcome.Inconsistent _, UpdateOutcome.ChangesInvalid _ ->
+                    throw invalid(CHANGES_POINTER);
         };
     }
 

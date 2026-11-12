@@ -102,48 +102,23 @@ public class ProductSettingsService implements CurrentProductSettings, ManagePro
             return new UpdateOutcome.Stale(before.settings().revision());
         }
 
-        EnumMap<ProductSetting, Optional<BigDecimal>> requested =
-                new EnumMap<>(ProductSetting.class);
-        for (int index = 0; index < changes.size(); index++) {
-            Change change = changes.get(index);
-            Optional<ProductSetting> setting =
-                    change == null ? Optional.empty() : ProductSetting.byKey(change.key());
-            if (setting.isEmpty() || requested.containsKey(setting.get())) {
-                return new UpdateOutcome.UnknownSetting(index);
-            }
-            if (change.value().isPresent() && !setting.get().admits(change.value().get())) {
-                return new UpdateOutcome.ValueInvalid(index);
-            }
-            requested.put(setting.get(), change.value().map(BigDecimal::stripTrailingZeros));
+        Requested requested = requested(changes);
+        if (requested.rejection() != null) {
+            return requested.rejection();
         }
 
         EnumMap<ProductSetting, BigDecimal> after = new EnumMap<>(before.settings().values());
-        requested.forEach(
-                (setting, value) -> after.put(setting, value.orElse(defaults.get(setting))));
+        requested
+                .values()
+                .forEach(
+                        (setting, value) ->
+                                after.put(setting, value.orElse(defaults.get(setting))));
         Optional<Rule> broken = brokenRule(after);
         if (broken.isPresent()) {
             return new UpdateOutcome.Inconsistent(broken.get());
         }
 
-        List<ProductSettingStore.Write> writes = new ArrayList<>();
-        requested.forEach(
-                (setting, value) -> {
-                    Origin origin = before.origins().get(setting);
-                    boolean wasOverride = origin == Origin.OPERATOR;
-                    BigDecimal previous = before.settings().value(setting);
-                    // An unchanged value with an unchanged origin is no change to record; restoring
-                    // the default also clears an override the reader ignored as invalid.
-                    boolean changed =
-                            value.isPresent()
-                                    ? !wasOverride || previous.compareTo(value.get()) != 0
-                                    : origin == Origin.OPERATOR
-                                            || origin == Origin.INVALID_OVERRIDE;
-                    if (changed) {
-                        writes.add(
-                                new ProductSettingStore.Write(
-                                        setting.key(), value, previous, after.get(setting)));
-                    }
-                });
+        List<ProductSettingStore.Write> writes = writes(before, requested.values(), after);
         if (writes.isEmpty()) {
             return new UpdateOutcome.Updated(overview(before));
         }
@@ -152,6 +127,58 @@ public class ProductSettingsService implements CurrentProductSettings, ManagePro
             return new UpdateOutcome.Stale(store.read().revision());
         }
         return new UpdateOutcome.Updated(overview());
+    }
+
+    /** The validated changes by setting, or the outcome that rejects the first invalid one. */
+    private record Requested(
+            Map<ProductSetting, Optional<BigDecimal>> values, UpdateOutcome rejection) {}
+
+    private static Requested requested(List<Change> changes) {
+        EnumMap<ProductSetting, Optional<BigDecimal>> values = new EnumMap<>(ProductSetting.class);
+        for (int index = 0; index < changes.size(); index++) {
+            Change change = changes.get(index);
+            Optional<ProductSetting> setting =
+                    change == null ? Optional.empty() : ProductSetting.byKey(change.key());
+            if (setting.isEmpty() || values.containsKey(setting.get())) {
+                return new Requested(values, new UpdateOutcome.UnknownSetting(index));
+            }
+            if (change.value().filter(value -> !setting.get().admits(value)).isPresent()) {
+                return new Requested(values, new UpdateOutcome.ValueInvalid(index));
+            }
+            values.put(setting.get(), change.value().map(BigDecimal::stripTrailingZeros));
+        }
+        return new Requested(values, null);
+    }
+
+    /**
+     * One write per requested setting whose value or origin changes. An unchanged value with an
+     * unchanged origin is no change to record; restoring the default also clears an override the
+     * reader ignored as invalid.
+     */
+    private static List<ProductSettingStore.Write> writes(
+            Resolution before,
+            Map<ProductSetting, Optional<BigDecimal>> requested,
+            Map<ProductSetting, BigDecimal> after) {
+        List<ProductSettingStore.Write> writes = new ArrayList<>();
+        requested.forEach(
+                (setting, value) -> {
+                    Origin origin = before.origins().get(setting);
+                    BigDecimal previous = before.settings().value(setting);
+                    boolean changed =
+                            value.map(
+                                            next ->
+                                                    origin != Origin.OPERATOR
+                                                            || previous.compareTo(next) != 0)
+                                    .orElse(
+                                            origin == Origin.OPERATOR
+                                                    || origin == Origin.INVALID_OVERRIDE);
+                    if (changed) {
+                        writes.add(
+                                new ProductSettingStore.Write(
+                                        setting.key(), value, previous, after.get(setting)));
+                    }
+                });
+        return writes;
     }
 
     private record Resolution(
