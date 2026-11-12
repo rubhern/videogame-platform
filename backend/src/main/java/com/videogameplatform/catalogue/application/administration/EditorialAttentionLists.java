@@ -110,7 +110,10 @@ public interface EditorialAttentionLists {
             int score,
             Optional<String> rationale,
             List<String> sources) {
-        /** Lowercase letters, digits and single inner hyphens; checked without backtracking. */
+        /**
+         * Lowercase letters, digits and inner hyphens; checked without backtracking. IGDB tells
+         * apart games sharing a title with a {@code --N} suffix, so a double hyphen is valid.
+         */
         private static final Pattern SLUG_CHARACTERS = Pattern.compile("[a-z0-9-]+");
 
         public FileEntry {
@@ -152,8 +155,7 @@ public interface EditorialAttentionLists {
         private static boolean isSlug(String value) {
             return SLUG_CHARACTERS.matcher(value).matches()
                     && !value.startsWith("-")
-                    && !value.endsWith("-")
-                    && !value.contains("--");
+                    && !value.endsWith("-");
         }
     }
 
