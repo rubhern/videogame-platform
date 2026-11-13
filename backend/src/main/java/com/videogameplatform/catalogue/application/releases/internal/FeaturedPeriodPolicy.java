@@ -77,6 +77,21 @@ public record FeaturedPeriodPolicy(
         return YearMonth.from(latest(Granularity.MONTH, today));
     }
 
+    /** The first month intersecting either featured navigation window. */
+    YearMonth firstTimelineMonth(LocalDate today) {
+        YearMonth week = YearMonth.from(earliest(Granularity.WEEK, today));
+        YearMonth month = YearMonth.from(earliest(Granularity.MONTH, today));
+        return week.isBefore(month) ? week : month;
+    }
+
+    /** The last month intersecting either featured navigation window. */
+    YearMonth lastTimelineMonth(LocalDate today) {
+        YearMonth week =
+                YearMonth.from(window(Granularity.WEEK, latest(Granularity.WEEK, today)).to());
+        YearMonth month = lastMonth(today);
+        return week.isAfter(month) ? week : month;
+    }
+
     private LocalDate earliest(Granularity granularity, LocalDate today) {
         LocalDate current = current(granularity, today);
         return switch (granularity) {

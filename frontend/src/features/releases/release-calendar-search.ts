@@ -25,6 +25,7 @@ const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 export type CalendarSearch = {
   month: string | null;
   day: string | null;
+  page?: number;
   platformIds: string[];
   regionIds: string[];
 };
@@ -46,10 +47,13 @@ function readDay(value: string | null): string | null {
 
 export function readCalendarSearch(params: URLSearchParams): CalendarSearch {
   const day = readDay(params.get("day"));
+  const pageParam = params.get("page") ?? "";
+  const page = /^\d+$/u.test(pageParam) ? Number(pageParam) : 1;
   const named = readMonth(params.get("month"));
   const month = named ?? (day === null ? null : day.slice(0, 7));
   return {
     month,
+    ...(Number.isSafeInteger(page) && page > 1 ? { page } : {}),
     day: day !== null && month !== null && day.startsWith(`${month}-`) ? day : null,
     platformIds: readFilters(params.getAll("platformIds")),
     regionIds: readFilters(params.getAll("regionIds")),
@@ -61,6 +65,7 @@ export function writeCalendarSearch(search: CalendarSearch): URLSearchParams {
   const params = new URLSearchParams();
   if (search.month !== null) params.set("month", search.month);
   if (search.day !== null) params.set("day", search.day);
+  if (search.day !== null && search.page !== undefined && search.page > 1) params.set("page", String(search.page));
   for (const platformId of search.platformIds) params.append("platformIds", platformId);
   for (const regionId of search.regionIds) params.append("regionIds", regionId);
   return params;
@@ -86,15 +91,11 @@ export function toCalendarQuery(
 
 /**
  * The explorer's request for the day's leading games: that one day, exact dates only, ordered by
- * Hype with the explorer's fallback and tie-breakers. The highlighted count caps this bounded
- * first page, since every highlighted game precedes lower or missing Hype. No list filter exists.
- * `size` is the calendar's operator-set preview size (#450); the home's preview (#382) reads the
- * same day with its own.
+ * interest with the explorer's tie-breakers. Each read uses the configured page size.
  */
 export function dayPreviewSearch(
   search: CalendarSearch,
   day: string,
-  highlightedCount: number,
   size: number,
 ): ReleasesSearch {
   return {
@@ -104,7 +105,8 @@ export function dayPreviewSearch(
     sort: "hype",
     platformIds: search.platformIds,
     regionIds: search.regionIds,
-    pageSize: Math.max(1, Math.min(size, highlightedCount)),
+    page: search.day === day ? search.page ?? 1 : 1,
+    pageSize: size,
   };
 }
 

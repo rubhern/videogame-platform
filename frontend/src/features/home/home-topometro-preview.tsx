@@ -9,7 +9,7 @@ import { hiddenPlatformsLabel } from "../search/game-search-view-model";
 import { GameRankingApiError } from "../rankings/game-ranking-api";
 import { toRankingView, type RankedGame } from "../rankings/game-ranking-view-model";
 import { RankingReading } from "../rankings/ranking-reading";
-import { DEFAULT_RANKING_SOURCE, rankingPath, type RankingSource } from "../rankings/ranking-search";
+import { rankingPath, type RankingSource } from "../rankings/ranking-search";
 import { useGameRankingQuery } from "../rankings/use-game-ranking-query";
 import { HomeNotice, HomeSectionHead } from "./home-section";
 
@@ -28,11 +28,11 @@ function PodiumLine({ game }: { game: RankedGame }) {
       </p>
       <CatalogueCover caption={false} cover={game.cover} linkState={linkState} to={gamePath} />
       <div className="home-rank-record">
-        <h3 className="card-title home-rank-title">
+        <h4 className="card-title home-rank-title">
           <Link state={linkState} to={gamePath}>
             <span className="sr-only">{`Puesto ${game.position}:`}</span> {game.title}
           </Link>
-        </h3>
+        </h4>
         <div className="home-rank-facts">
           <p className="home-rank-year">
             <span className="sr-only">{game.yearLabel}</span>
@@ -72,16 +72,16 @@ export function PodiumLoading() {
   );
 }
 
-/**
- * TOPómetro in brief (#382, #386): the podium of one source of player ratings at a time, Jugadores
- * IGDB first as on TOPómetro, each place with its own source's value, scale and exact count. The two
- * sources never mix, and Hype never enters. It reads TOPómetro's own first page, so the full ranking
- * opens on the same places; the choice of source stays in the preview and the ranking stays public.
- */
-export function HomeTopometroPreview() {
-  const [source, setSource] = useState<RankingSource>(DEFAULT_RANKING_SOURCE);
+function SourceMark({ source }: { source: RankingSource }) {
+  return source === "igdb" ? (
+    <img alt="" className="home-source-mark" height="22" src="/assets/providers/igdb.svg" width="44" />
+  ) : (
+    <BrandMark className="home-source-mark" />
+  );
+}
+
+function HomePodium({ source, label, mobileActive }: (typeof SOURCES)[number] & { mobileActive: boolean }) {
   const query = useGameRankingQuery(source);
-  const other: RankingSource = source === "igdb" ? "gameometro" : "igdb";
 
   let body;
   if (query.isPending) {
@@ -91,6 +91,7 @@ export function HomeTopometroPreview() {
     body =
       error?.code === "CATALOGUE_NOT_READY" ? (
         <HomeNotice
+          heading="h4"
           actions={
             <button className="button" onClick={() => void query.refetch()} type="button">
               Reintentar
@@ -102,6 +103,7 @@ export function HomeTopometroPreview() {
         />
       ) : (
         <HomeNotice
+          heading="h4"
           actions={
             <button className="button button-danger" onClick={() => void query.refetch()} type="button">
               Reintentar
@@ -118,11 +120,7 @@ export function HomeTopometroPreview() {
     body =
       podium.length === 0 ? (
         <HomeNotice
-          actions={
-            <button className="button" onClick={() => setSource(other)} type="button">
-              {other === "igdb" ? "Ver Jugadores IGDB" : "Ver la Comunidad Gameómetro"}
-            </button>
-          }
+          heading="h4"
           kicker={source === "gameometro" ? "TOPómetro de la comunidad" : "TOPómetro de Jugadores IGDB"}
           title={
             source === "gameometro"
@@ -138,7 +136,7 @@ export function HomeTopometroPreview() {
           </p>
         </HomeNotice>
       ) : (
-        <ol aria-label={`Podio de ${SOURCES.find((entry) => entry.source === source)?.label ?? ""}`} className="home-podium">
+        <ol aria-label={`Podio de ${label}`} className="home-podium">
           {podium.map((game) => (
             <li key={game.gameId} value={game.position}>
               <PodiumLine game={game} />
@@ -149,9 +147,27 @@ export function HomeTopometroPreview() {
   }
 
   return (
+    <section aria-label={label} className="home-podium-source" data-mobile-active={mobileActive}>
+      <header className="home-podium-head">
+        <h3>
+          <SourceMark source={source} />
+          {label}
+        </h3>
+        <Link className="home-section-action view-action" to={rankingPath(source)} aria-label={"Ver TOPómetro de " + label}>
+          Ver TOPómetro <span aria-hidden="true">→</span>
+        </Link>
+      </header>
+      {body}
+    </section>
+  );
+}
+
+export function HomeTopometroPreview() {
+  const [source, setSource] = useState<RankingSource>("igdb");
+
+  return (
     <section aria-labelledby="home-topometro-title" className="home-topometro">
       <HomeSectionHead
-        action={{ label: "Ver TOPómetro", to: rankingPath(source) }}
         id="home-topometro-title"
         title={
           <>
@@ -160,27 +176,26 @@ export function HomeTopometroPreview() {
           </>
         }
       />
-      {/* Whose ratings rank the games: one source at a time, each with its own mark. */}
-      <div aria-label="Puntuaciones del TOPómetro" className="home-sources" role="group">
+      <Link className="home-section-action view-action home-podium-mobile-link" to={rankingPath(source)}>
+        Ver TOPómetro <span aria-hidden="true">→</span>
+      </Link>
+      <div aria-label="Puntuaciones del TOPómetro" className="home-podium-switch" role="group">
         {SOURCES.map((entry) => (
           <button
             aria-pressed={entry.source === source}
-            className="home-source"
-            data-source={entry.source}
+            className="button"
             key={entry.source}
             onClick={() => setSource(entry.source)}
             type="button"
           >
-            {entry.source === "igdb" ? (
-              <img alt="" className="home-source-mark" height="22" src="/assets/providers/igdb.svg" width="44" />
-            ) : (
-              <BrandMark className="home-source-mark" />
-            )}
-            <span>{entry.label}</span>
+            <SourceMark source={entry.source} />
+            {entry.label}
           </button>
         ))}
       </div>
-      {body}
+      <div className="home-podium-grid">
+        {SOURCES.map((entry) => <HomePodium key={entry.source} mobileActive={entry.source === source} {...entry} />)}
+      </div>
     </section>
   );
 }

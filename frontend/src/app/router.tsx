@@ -74,6 +74,12 @@ export function createAppRouter(queryClient: QueryClient, interests: InterestsSw
           // Initial restoration needs the ready page's height, not its fallback.
           element: <>{child.element}<MemoryScrollRestoration /></>,
           loader,
+          ...(child.index ? {
+            shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+              currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search
+                ? false
+                : defaultShouldRevalidate,
+          } satisfies Pick<RouteObject, "shouldRevalidate"> : {}),
           ...(child.path?.startsWith("games/") ? {
             // The public game read has no query parameters. Consuming an auth
             // marker must not refetch over a rating command's returned aggregate.

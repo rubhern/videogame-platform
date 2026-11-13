@@ -74,23 +74,6 @@ final class ReleaseRangeSql {
         return new RangePredicate(predicate, parameters);
     }
 
-    /** Filter before facets/count/page; EXISTS preserves release cardinality and excludes missing evidence. */
-    static RangePredicate highlights(RangePredicate range, long minimumHypes) {
-        Map<String, Object> parameters = new LinkedHashMap<>(range.parameters());
-        parameters.put("minimumHypes", minimumHypes);
-        return new RangePredicate(
-                "("
-                        + range.predicate()
-                        + ") AND EXISTS ("
-                        + "SELECT 1 FROM catalogue.game_featured_evidence highlight"
-                        + " WHERE highlight.game_id = rs.game_id AND highlight.hypes >= :minimumHypes)"
-                        // Only a launch is a highlight (ATT-007): early or advance access, betas
-                        // and alphas are never counted or coloured on a day.
-                        + " AND rs.release_stage IN "
-                        + ReleaseAttentionSql.LAUNCH_STAGES,
-                parameters);
-    }
-
     /** The subset of the requested ids that exist in the product taxonomy, compared as text. */
     static List<String> existing(
             NamedParameterJdbcOperations jdbcOperations,

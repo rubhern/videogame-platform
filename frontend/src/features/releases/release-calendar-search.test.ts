@@ -49,7 +49,7 @@ describe("release calendar URL state", () => {
   it("previews a day with the explorer's Hype order and opens the explorer on it", () => {
     const search = read("month=2026-11&platformIds=ps5");
 
-    expect(dayPreviewSearch(search, "2026-11-13", 6, 3)).toMatchObject({
+    expect(dayPreviewSearch(search, "2026-11-13", 3)).toMatchObject({
       from: "2026-11-13",
       to: "2026-11-13",
       sort: "hype",
@@ -59,19 +59,15 @@ describe("release calendar URL state", () => {
       platformIds: ["ps5"],
     });
     expect(dayExplorerPath(search, "2026-11-13")).toBe(
-      "/lanzamientos?from=2026-11-13&to=2026-11-13&sort=hype&platformIds=ps5",
+      "/lanzamientos?from=2026-11-13&to=2026-11-13&platformIds=ps5",
     );
   });
 
-  it("caps the preview by the highlighted count, keeping the list unrestricted", () => {
-    const search = read("month=2026-11");
-    expect(dayPreviewSearch(search, "2026-11-13", 1, 3).pageSize).toBe(1);
-    expect(dayPreviewSearch(search, "2026-11-13", 2, 3).pageSize).toBe(2);
-    expect(dayPreviewSearch(search, "2026-11-13", 8, 3).pageSize).toBe(3);
-    expect(dayPreviewSearch(search, "2026-11-13", 0, 3).pageSize).toBe(1);
-    // The operator's preview size bounds the page.
-    expect(dayPreviewSearch(search, "2026-11-13", 8, 5).pageSize).toBe(5);
-    expect(dayExplorerPath(search, "2026-11-13")).not.toContain("featuredOnly");
+  it("reads a bounded page for the selected day and starts at one for other dates", () => {
+    const search = read("month=2026-11&day=2026-11-13&page=2");
+    expect(dayPreviewSearch(search, "2026-11-13", 5)).toMatchObject({ page: 2, pageSize: 5 });
+    expect(dayPreviewSearch(search, "2026-11-14", 5)).toMatchObject({ page: 1, pageSize: 5 });
+    expect(calendarSearchPath(search, {})).toBe("/lanzamientos/calendario?month=2026-11&day=2026-11-13&page=2");
   });
 
   it("opens the calendar from the explorer on a future month or the current one", () => {

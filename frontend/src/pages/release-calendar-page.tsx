@@ -41,7 +41,7 @@ export function ReleaseCalendarPage() {
     model?.days.find((day) => day.date === selectedDay)?.gameCount ?? 0;
   const preview = useReleasesQuery(
     explorerRequestSearch(
-      dayPreviewSearch(search, selectedDay ?? NO_DAY, selectedCount, model?.dayPreviewSize ?? DEFAULT_DAY_PREVIEW_SIZE),
+      dayPreviewSearch(search, selectedDay ?? NO_DAY, model?.dayPreviewSize ?? DEFAULT_DAY_PREVIEW_SIZE),
       enabled,
       interests,
     ),
@@ -69,7 +69,7 @@ export function ReleaseCalendarPage() {
   } else if (preview.data === undefined || preview.isPlaceholderData) {
     dayPreview = { status: "loading" };
   } else {
-    dayPreview = { status: "ready", items: preview.data.items };
+    dayPreview = { status: "ready", items: preview.data.items, page: preview.data.page };
   }
 
   return (

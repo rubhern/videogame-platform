@@ -13,7 +13,7 @@ Keycloak), the
 `/mis-puntuaciones`, the post-MVP `UC-015` personal statistics at
 `/mis-puntuaciones/estadisticas`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
-Destacados, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
+Destacados, the release explorer and the calendar), the post-MVP `UC-016` release calendar (**Calendario de lanzamientos**) at
 `/lanzamientos/calendario`, the post-MVP `UC-018` player-rating ranking **TOPómetro** at
 `/topometro` and, per platform, at `/plataformas/<plataforma>/topometro`, the post-MVP `UC-020`
 platform ranking **Próximos destacados** at `/plataformas/<plataforma>/proximos`, and
@@ -49,6 +49,9 @@ the backend. Those paths remain server-owned and must not become client routes.
 Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
+
+The Vite development proxy targets the local BFF. Set GAMEOMETRO_DEV_BACKEND when the
+local BFF runs on another port.
 
 ## Public legal pages
 
@@ -127,12 +130,9 @@ invalidation. Component state owns transient interaction state; URL parameters o
 navigable/shareable state when safe (the featured week or month, release view and filters,
 search query and page). The canonical featured destination is `/lanzamientos/destacados`; `week`, `month` and
 `granularity` keep the existing weekly/monthly URL state. `/` is the home (#382), whose
-previews live in `src/features/home/` and keep no URL state of their own (TOPómetro's source
-and the calendar's chosen day stay in the preview). A former landing link keeps its destination:
-`week`, `month` or `granularity` replace their history entry with Destacados on that query, and
-`view=recent|upcoming` links retain their explorer migration; saved game-return state carrying
-them resolves the same way, so no former featured link becomes a player-score ranking. A game
-opened from the home returns with **Volver al inicio**. The **Lanzamientos** disclosure
+previews live in the home feature. The [home design](../docs/development/frontend-design.md#home)
+describes its navigation and context. A game opened from the home returns to that selection
+with **Volver al inicio**. The **Lanzamientos** disclosure
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
 (`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
 only its source (`source=gameometro`), while its loaded pages stay in the document's query

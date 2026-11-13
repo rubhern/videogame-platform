@@ -12,21 +12,21 @@ async function horizontalOverflow(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
-test("the highlights calendar includes more games and colours by summed Hype", async ({ page }) => {
+test("the calendar counts the same releases as the explorer and colours by summed Hype", async ({ page }) => {
   const calendarResponse = page.waitForResponse(
     (response) => new URL(response.url()).pathname === "/api/v1/release-calendar",
   );
   await page.goto("/lanzamientos/calendario?month=2026-09");
   expect((await calendarResponse).status()).toBe(200);
 
-  await expect(page.getByRole("heading", { level: 1, name: "Calendario de destacados" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Calendario de lanzamientos" })).toBeVisible();
   const grid = page.getByRole("table", { name: "Lanzamientos de Septiembre 2026" });
   await expect(grid).toBeVisible();
   // A single highlighted game with Hype 61 is yellow: colour no longer reflects its count.
   const friday = grid.getByRole("button", { name: /viernes, 25 de septiembre de 2026: 1 lanzamiento/ });
   await expect(friday).toBeVisible();
   await expect(friday).toHaveAttribute("data-density", "2");
-  await expect(friday).toHaveAccessibleDescription("Interés moderado");
+  await expect(friday).toHaveAccessibleDescription("Expectación 3 de 5");
   await expect(page.getByRole("heading", { level: 2, name: "Viernes, 25 de septiembre" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ver todos los lanzamientos del día" })).toBeVisible();
   const calendarBody = await (await page.request.get("/api/v1/release-calendar?month=2026-09")).json();
@@ -42,7 +42,7 @@ test("the highlights calendar includes more games and colours by summed Hype", a
   await page.goto("/lanzamientos/calendario?month=2026-09&day=2026-09-25");
   const fullDayRequest = page.waitForRequest((request) => new URL(request.url()).pathname === "/api/v1/releases");
   await page.getByRole("link", { name: "Ver todos los lanzamientos del día" }).click();
-  await expect(page).toHaveURL(/from=2026-09-25&to=2026-09-25&sort=hype$/);
+  await expect(page).toHaveURL(/from=2026-09-25&to=2026-09-25$/);
   expect(new URL((await fullDayRequest).url()).searchParams.has("featuredOnly")).toBe(false);
   await expect(page.locator(".releases-footer .result-count")).toHaveText(/^1 juego/);
   await expect(page.getByText("Solo destacados")).toHaveCount(0);

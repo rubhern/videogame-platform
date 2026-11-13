@@ -57,7 +57,7 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
   expect(releasesResponse.status()).toBe(200);
   expect(releasesResponse.request().resourceType()).toBe("fetch");
   // Only the API knows today, so the current week is requested without a range.
-  expect(new URL(releasesResponse.url()).search).toBe("?page=1&pageSize=6");
+  expect(new URL(releasesResponse.url()).search).toBe("?sort=hype&page=1&pageSize=6");
 
   const releasePage = (await releasesResponse.json()) as ReleasePage;
   expect(releasePage.evaluatedOn).toBe("2026-08-13");
@@ -78,7 +78,7 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
   await expect(page.getByText("Sin lanzamientos para esta selección")).toBeVisible();
   await expectNoAccessibilityViolations(page);
 
-  await test.step("a typed past range lists what happened in it, soonest first", async () => {
+  await test.step("a typed past range defaults to interest, with missing scores last", async () => {
     await page.getByLabel("Desde").fill("2026-02-01");
     await page.getByLabel("Hasta").fill("2026-05-01");
     await page.getByRole("button", { name: "Aplicar" }).click();
@@ -87,26 +87,26 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
     // Partial periods that have ended belong to the range without the opt-in, which a range
     // wholly in the past never offers.
     await expect(releaseTitles(page)).toHaveText([
+      "Crimson Desert",
       "Resident Evil Requiem",
       "Subnautica 2",
       "Metroid Prime 4: Beyond",
-      "Crimson Desert",
       "Pragmata",
     ]);
     await expect(page.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toHaveCount(0);
     await expectNoAccessibilityViolations(page);
   });
 
-  await test.step("Hype reorders the range before pagination, missing Hypes last", async () => {
+  await test.step("release date reorders the range chronologically", async () => {
     const order = page.getByRole("combobox", { name: /Ordenar por/ });
     await order.click();
-    await page.getByRole("option", { name: "Interés" }).click();
-    await expect(page).toHaveURL(/sort=hype/);
+    await page.getByRole("option", { name: "Fecha de lanzamiento" }).click();
+    await expect(page).toHaveURL(/sort=releaseDate/);
     await expect(releaseTitles(page)).toHaveText([
-      "Crimson Desert",
       "Resident Evil Requiem",
       "Subnautica 2",
       "Metroid Prime 4: Beyond",
+      "Crimson Desert",
       "Pragmata",
     ]);
   });
@@ -129,7 +129,7 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
   });
 
   await test.step("a day picked on the bar keeps its week around it", async () => {
-    await page.goto("/lanzamientos?from=2026-02-23&to=2026-03-01&pageSize=6");
+    await page.goto("/lanzamientos?from=2026-02-23&to=2026-03-01&sort=releaseDate&pageSize=6");
     const days = page.getByRole("toolbar", { name: "Elegir un día del periodo" });
     await days.getByRole("button", { name: /^viernes, 27 de febrero de 2026/ }).click();
     await expect(page).toHaveURL(/from=2026-02-27&to=2026-02-27/);
@@ -147,12 +147,12 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
   });
 
   await test.step("an out-of-range shared page recovers to the last page", async () => {
-    await page.goto("/lanzamientos?from=2026-02-01&to=2026-05-01&page=99&pageSize=1");
+    await page.goto("/lanzamientos?from=2026-02-01&to=2026-05-01&sort=releaseDate&page=99&pageSize=1");
     await expect(page.locator(".result-count")).toHaveText(
       "5 juegos · La página 99 ya no está disponible",
     );
     await page.getByRole("link", { name: "Ir a la última página" }).click();
-    await expect(page).toHaveURL(/from=2026-02-01&to=2026-05-01&page=5&pageSize=1/);
+    await expect(page).toHaveURL(/from=2026-02-01&to=2026-05-01&sort=releaseDate&page=5&pageSize=1/);
     await expect(releaseTitles(page)).toHaveText(["Pragmata"]);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
   });
@@ -168,7 +168,7 @@ test("the packaged release explorer reads PostgreSQL through the same-origin API
     const back = page.getByRole("link", { name: "Volver a lanzamientos" }).last();
     await back.focus();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/lanzamientos\?from=2026-02-01&to=2026-05-01&page=5&pageSize=1$/);
+    await expect(page).toHaveURL(/\/lanzamientos\?from=2026-02-01&to=2026-05-01&sort=releaseDate&page=5&pageSize=1$/);
     await expect(releaseTitles(page)).toHaveText(["Pragmata"]);
   });
 

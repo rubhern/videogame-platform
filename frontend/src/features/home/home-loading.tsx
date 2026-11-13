@@ -1,7 +1,6 @@
-import { CalendarLoading } from "./home-calendar-preview";
 import { HomeIntro } from "./home-section";
 import { PodiumLoading } from "./home-topometro-preview";
-import { HomeWeekLoading } from "./home-week-highlights";
+import { HomeReleaseLoading } from "./home-release-discovery";
 
 /**
  * The home's own surface while its first reads are under way: the opening and placeholders shaped
@@ -16,19 +15,13 @@ export function HomeLoading() {
           <p className="sr-only" role="status">
             Cargando Gameómetro…
           </p>
-          <HomeWeekLoading />
+          <HomeReleaseLoading />
         </div>
       </div>
       <div aria-hidden="true" className="page-container home-sections">
-        <div className="home-pair">
-          <div className="home-calendar">
-            <span className="skeleton home-section-skeleton" />
-            <CalendarLoading />
-          </div>
-          <div className="home-topometro">
-            <span className="skeleton home-section-skeleton" />
-            <PodiumLoading />
-          </div>
+        <div className="home-topometro">
+          <span className="skeleton home-section-skeleton" />
+          <div className="home-podium-grid"><PodiumLoading /><PodiumLoading /></div>
         </div>
       </div>
     </div>

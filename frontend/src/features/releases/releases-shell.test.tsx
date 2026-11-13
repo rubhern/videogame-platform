@@ -236,12 +236,12 @@ describe("release explorer shell", () => {
   it("returns a named range to the current week", () => {
     renderShell(
       ready({ window: { from: "2026-07-01", to: "2026-07-31" } }),
-      { search: { ...search, from: "2026-07-01", to: "2026-07-31", sort: "hype" } },
+      { search: { ...search, from: "2026-07-01", to: "2026-07-31", sort: "releaseDate" } },
     );
 
     expect(screen.getByRole("link", { name: "Esta semana" })).toHaveAttribute(
       "href",
-      "/lanzamientos?sort=hype",
+      "/lanzamientos?sort=releaseDate",
     );
   });
 
@@ -249,19 +249,19 @@ describe("release explorer shell", () => {
     const user = userEvent.setup();
     renderShell(ready(), { search: { ...search, page: 3 } });
     const order = screen.getByRole("combobox", { name: /Ordenar por/ });
-    expect(order).toHaveTextContent("Fecha de lanzamiento");
+    expect(order).toHaveTextContent("Interés");
 
     await user.click(order);
     expect(screen.getAllByRole("option")).toHaveLength(4);
     expect(screen.getByRole("option", { name: "Jugadores IGDB" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Fecha de lanzamiento" })).toHaveAttribute(
+    expect(screen.getByRole("option", { name: "Interés" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     expect(screen.getByRole("option", { name: "Puntuación Gameómetro" })).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "Interés" }));
+    await user.click(screen.getByRole("option", { name: "Fecha de lanzamiento" }));
 
-    expect(location()).toMatch(/^\/lanzamientos\?sort=hype\|/);
+    expect(location()).toMatch(/^\/lanzamientos\?sort=releaseDate\|/);
   });
 
   it("offers approximate dates only while the range reaches beyond today", () => {
@@ -296,12 +296,12 @@ describe("release explorer shell", () => {
   it("folds the controls under one toggle that states the order, filters and precision", async () => {
     const user = userEvent.setup();
     renderShell(ready({ activePlatformIds: ["platform-ps5"] }), {
-      search: { ...search, sort: "hype", platformIds: ["platform-ps5"], regionIds: ["region-worldwide"], includeApproximateDates: true },
+      search: { ...search, sort: "releaseDate", platformIds: ["platform-ps5"], regionIds: ["region-worldwide"], includeApproximateDates: true },
     });
 
     // Phones show only this toggle until it opens; wider screens hide it and show the controls.
     const toggle = screen.getByRole("button", { name: /^Filtros y orden/ });
-    expect(toggle).toHaveAccessibleName("Filtros y orden: Interés · 2 filtros · Fechas aproximadas");
+    expect(toggle).toHaveAccessibleName("Filtros y orden: Fecha de lanzamiento · 2 filtros · Fechas aproximadas");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     const controls = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
     expect(controls).toContainElement(screen.getByLabelText("Desde"));
@@ -393,7 +393,7 @@ describe("release explorer shell", () => {
           ...search,
           from: "2026-08-01",
           to: "2026-08-31",
-          sort: "hype",
+          sort: "releaseDate",
           page: 2,
           platformIds: ["platform-ps5"],
         },
@@ -404,11 +404,11 @@ describe("release explorer shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("30 juegos · Página 2 de 3");
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
-      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&platformIds=platform-ps5",
+      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=releaseDate&platformIds=platform-ps5",
     );
     expect(pagination.getByRole("link", { name: "Página siguiente" })).toHaveAttribute(
       "href",
-      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&platformIds=platform-ps5&page=3",
+      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=releaseDate&platformIds=platform-ps5&page=3",
     );
   });
 

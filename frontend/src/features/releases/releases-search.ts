@@ -56,7 +56,7 @@ const DAY_MS = 86_400_000;
 export const defaultReleasesSearch: ReleasesSearch = {
   from: null,
   to: null,
-  sort: "releaseDate",
+  sort: "hype",
   includeApproximateDates: false,
   platformIds: [],
   regionIds: [],
@@ -173,8 +173,8 @@ export function releasesSearchPath(search: ReleasesSearch, change: Partial<Relea
 }
 
 /** Explorar lanzamientos for one inclusive range, with every other choice at its default. */
-export function releasesRangePath(from: string, to: string): string {
-  return releasesSearchPath(defaultReleasesSearch, { from, to });
+export function releasesRangePath(from: string, to: string, platformIds: readonly string[] = []): string {
+  return releasesSearchPath(defaultReleasesSearch, { from, to, platformIds: [...platformIds] });
 }
 
 /**
@@ -202,7 +202,8 @@ export function toggleFilterValue(current: readonly string[], value: string): st
 export function toReleasesQuery(search: ReleasesSearch): ReleasesQuery {
   return {
     ...(search.from === null || search.to === null ? {} : { from: search.from, to: search.to }),
-    ...(search.sort === defaultReleasesSearch.sort ? {} : { sort: search.sort }),
+    // The explorer defaults to interest; the public API retains its existing default.
+    sort: search.sort,
     ...(search.includeApproximateDates ? { includeApproximateDates: true } : {}),
     ...(search.platformIds.length === 0 ? {} : { platformIds: search.platformIds }),
     ...(search.regionIds.length === 0 ? {} : { regionIds: search.regionIds }),

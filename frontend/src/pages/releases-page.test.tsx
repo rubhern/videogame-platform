@@ -133,7 +133,7 @@ afterEach(() => {
 describe("release explorer page", () => {
   it("lists all releases when an old URL names the removed highlights filter", async () => {
     const fetchMock = stubReleases(() => Response.json(releasePage()));
-    renderApp("/lanzamientos?from=2026-11-13&to=2026-11-13&sort=hype&featuredOnly=true");
+    renderApp("/lanzamientos?from=2026-11-13&to=2026-11-13&sort=releaseDate&featuredOnly=true");
     expect(await screen.findByRole("heading", { name: "Pragmata" })).toBeVisible();
     expect(screen.queryByText("Solo destacados")).not.toBeInTheDocument();
     expect(requestedQueries(fetchMock)[0]?.has("featuredOnly")).toBe(false);
@@ -174,7 +174,7 @@ describe("release explorer page", () => {
     // Only the API knows today, so the current week is requested without a range.
     expect(query?.has("from")).toBe(false);
     expect(query?.has("to")).toBe(false);
-    expect(query?.has("sort")).toBe(false);
+    expect(query?.get("sort")).toBe("hype");
     expect(query?.get("page")).toBe("1");
     expect(query?.get("pageSize")).toBe("12");
     expect(query?.has("platformIds")).toBe(false);
@@ -370,18 +370,18 @@ describe("release explorer page", () => {
     await waitFor(() => expect(router.state.location.search).toBe("?from=2026-08-01&to=2026-08-31"));
   });
 
-  it("orders by Hype from the keyboard and returns to the first page", async () => {
+  it("orders by release date from the keyboard and returns to the first page", async () => {
     const user = userEvent.setup();
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
     const { router } = renderApp("/lanzamientos?page=2");
     const order = await screen.findByRole("combobox", { name: /Ordenar por/ });
     order.focus();
-    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    await user.keyboard("{ArrowDown}{ArrowUp}{Enter}");
 
-    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("sort")).toBe("hype"));
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("sort")).toBe("releaseDate"));
     expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?sort=hype");
+    expect(router.state.location.search).toBe("?sort=releaseDate");
   });
 
   it("orders by the IGDB players' score and keeps the choice in the URL", async () => {
@@ -526,13 +526,13 @@ describe("release explorer page", () => {
       }),
     );
 
-    renderApp("/lanzamientos?sort=hype&platformIds=platform-removed");
+    renderApp("/lanzamientos?sort=releaseDate&platformIds=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
     expect(screen.getByText(message)).toBeVisible();
     expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute(
       "href",
-      "/lanzamientos?sort=hype",
+      "/lanzamientos?sort=releaseDate",
     );
   });
 

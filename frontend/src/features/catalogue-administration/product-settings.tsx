@@ -62,7 +62,7 @@ const SETTINGS: Record<ProductSettingKey, { label: string; unit: string }> = {
   "attention.re-release-share": { label: "Parte que conserva un relanzamiento", unit: "de 0 a 1" },
   "rankings.igdb-minimum-ratings": { label: "Mínimo de puntuaciones IGDB", unit: "puntuaciones" },
   "rankings.community-minimum-ratings": { label: "Mínimo de puntuaciones Gameómetro", unit: "puntuaciones" },
-  "calendar.minimum-hypes": { label: "Hypes mínimos para contar un juego", unit: "Hypes" },
+  "calendar.minimum-hypes": { label: "Hypes mínimos para sumar a la expectación", unit: "Hypes" },
   "calendar.day-preview-size": { label: "Juegos mostrados al elegir un día", unit: "juegos" },
   "calendar.low-interest-hypes": { label: "Interés bajo (azul) desde", unit: "Hypes al día" },
   "calendar.moderate-interest-hypes": { label: "Interés moderado (amarillo) desde", unit: "Hypes al día" },

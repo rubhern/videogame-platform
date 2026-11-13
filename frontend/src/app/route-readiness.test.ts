@@ -49,7 +49,7 @@ describe("legacy landing migration before hydration", () => {
 });
 
 describe("home readiness (#382)", () => {
-  it("reads the featured week, the calendar, TOPómetro and the platforms side by side for an anonymous visitor", async () => {
+  it("reads the featured week, TOPómetro and the platforms side by side for an anonymous visitor", async () => {
     const fetchMock = stub({ authenticated: false }, { configured: false, platforms: [] });
     const loader = routeReadiness(new QueryClient({ defaultOptions: { queries: { retry: false } } }), createInterestsSwitch());
 
@@ -57,7 +57,6 @@ describe("home readiness (#382)", () => {
     await expect(load(loader, "/")).resolves.toBeNull();
     expect(paths(fetchMock)).toEqual(expect.arrayContaining([
       "/api/v1/featured-releases?granularity=week",
-      "/api/v1/release-calendar",
       "/api/v1/game-rankings?source=igdb_players&page=1&pageSize=20",
       "/api/v1/platforms",
     ]));
@@ -74,7 +73,7 @@ describe("home readiness (#382)", () => {
     await expect(load(loader, "/")).resolves.toBeNull();
   });
 
-  it("reads Destacados and the calendar under the preferred platforms, as their pages do", async () => {
+  it("reads the featured preview under the preferred platforms", async () => {
     const fetchMock = stub({ authenticated: true }, {
       configured: true,
       platforms: [{ platformId: "ps5", name: "PlayStation 5" }],
@@ -84,7 +83,6 @@ describe("home readiness (#382)", () => {
     await load(loader, "/");
     expect(paths(fetchMock)).toEqual(expect.arrayContaining([
       "/api/v1/featured-releases?granularity=week&platformIds=ps5",
-      "/api/v1/release-calendar?platformIds=ps5",
       // TOPómetro is public and never follows preferences.
       "/api/v1/game-rankings?source=igdb_players&page=1&pageSize=20",
     ]));
