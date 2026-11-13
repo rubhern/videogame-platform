@@ -22,6 +22,9 @@ for (const width of [1320, 834, 390, 320]) {
     await expect(page.getByRole("heading", { name: "Mi perfil", exact: true })).toBeVisible();
     await expect(page.getByText("private@example.test")).toBeVisible();
     await expect(page.getByText("Nombre", { exact: true })).toHaveCount(0);
+    // The console reads as three zones, and the retired backup/legal sentence stays out (#476).
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Tu cuenta", "Tus datos, contigo", "Eliminar mi cuenta"]);
+    await expect(page.getByText(/copias de seguridad/)).toHaveCount(0);
     const unavailable = page.getByRole("button", { name: "Eliminar mi cuenta", exact: true });
     await expect(unavailable).toBeVisible();
     await expect(unavailable).toBeDisabled();
