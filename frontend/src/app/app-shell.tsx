@@ -8,6 +8,7 @@ import { useMediaQuery } from "../shared/browser/use-media-query";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
 import { NavigationMenu } from "./navigation-menu";
+import { NavigationLoading } from "./navigation-loading";
 import { SiteFooter } from "./site-footer";
 
 export function AppShell() {
@@ -62,10 +63,8 @@ export function AppShell() {
         </div>
       </header>
 
-      <p className="sr-only" aria-live="polite">
-        {navigation.state === "loading" ? "Cargando página…" : ""}
-      </p>
-      <main aria-busy={navigation.state === "loading"} id="main-content" ref={mainContentRef} tabIndex={-1}>
+      <NavigationLoading pending={navigation.state !== "idle"} />
+      <main aria-busy={navigation.state !== "idle"} id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>
 

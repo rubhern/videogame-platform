@@ -30,6 +30,7 @@ import { routeReadiness } from "./route-readiness";
 import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
 import { MemoryScrollRestoration } from "./memory-scroll-restoration";
+import { navigationLoadingDemoRoutes } from "./navigation-loading-demo";
 
 export const appRoutes: RouteObject[] = [
   {
@@ -57,6 +58,7 @@ export const appRoutes: RouteObject[] = [
       { path: "sobre-gameometro", element: <AboutPage /> },
       { path: "contacto", element: <ContactPage /> },
       ...legalRoutes(),
+      ...(import.meta.env.DEV ? navigationLoadingDemoRoutes : []),
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -73,7 +75,7 @@ export function createAppRouter(queryClient: QueryClient, interests: InterestsSw
           ...child,
           // Initial restoration needs the ready page's height, not its fallback.
           element: <>{child.element}<MemoryScrollRestoration /></>,
-          loader,
+          loader: child.loader ?? loader,
           ...(child.index ? {
             shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
               currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search
