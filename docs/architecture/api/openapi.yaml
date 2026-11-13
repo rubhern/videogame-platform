@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.15.0
+  version: 5.17.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -524,37 +524,32 @@ paths:
     get:
       tags: [Release calendar]
       operationId: getReleaseCalendar
-      summary: Count highlighted games releasing on each day of one calendar month
+      summary: Count games releasing on each day of one calendar month
       description: |
         Reads, from the last valid local catalogue publication, how many games release on each
-        day of one calendar month, for a monthly calendar. Without `month` the current month in
-        `Europe/Madrid` is served. Navigation never goes back: a month must lie between the
+        day of one calendar month. Without month, the current month in Europe/Madrid is served.
+        By default a month must lie between the
         current month and the operator's months-forward bound (`UC-024`, 5 by default), the same
         forward bound featured months use; the current month is always accepted. The bound never
         states that the local catalogue is complete. `presentation` carries the operator's
         interest thresholds and day preview size.
 
-        This is the highlights calendar: only games with locally stored IGDB Hypes at or above
-        the operator's minimum (10 by default)
-        launching that day qualify; missing or lower Hype is excluded, and since 5.14.0 an early
-        access, advance access, beta or alpha release is never counted or coloured (only a
-        `stage` of `full_release` or `unknown` is a launch). The threshold is fixed, not a percentile
-        recomputed per request. It filters contextual facets as well as day counts.
+        By default, days are counted from the evaluation date onward. With includePast=true, the
+        whole requested month is counted. That mode accepts months intersecting any period
+        reachable under the featured week or month bounds (UC-010). Both modes read the current
+        published catalogue and locally stored Hype.
 
-        The calendar is active from the evaluation date on: days of the month before it are
-        never counted. A day holds only releases with that exact day, under the release
-        explorer's own rules (`GET /releases`): never cancelled, and on the evaluation date not
-        delayed either. `days` lists each day from the evaluation date (or the month's first day,
-        for a later month) to the month's last day holding at least one such release that matches
-        the active filters, in ascending order; a day without one is absent.
-        `totalHype` is the sum of local Hypes of the qualifying games on that day, counting each
-        game once regardless of how many matching platforms or regions it has. The sum uses the
-        same active filters as `gameCount` and excludes games below the highlights threshold.
-        `gameCount` counts games, not releases: a game releasing on several platforms or regions that day
-        counts once. The full explorer lists every qualifying release of that day without a
-        highlights restriction, so its `page.totalItems` may exceed the calendar's `gameCount`.
-        The calendar preview reads the leading games from `GET /releases` with `sort=hype` and
-        a page size capped by both three and the day's highlighted-game count.
+        Each day uses the same exact-date
+        candidates and platform/region filters as GET /releases for that day with approximate dates
+        disabled. Cancelled releases are excluded, as are delayed releases on or before the evaluation date.
+        Days with qualifying games appear in ascending order. Since 5.16.0, every qualifying game
+        counts, including games without Hype and games releasing in early or advance access, beta or
+        alpha. The day's gameCount equals the explorer's total for that day and filters. The calendar
+        reads one bounded page at a time from GET /releases with sort=hype.
+
+        totalHype retains the interest signal: it sums local Hypes at or above the operator's minimum
+        (10 by default) once per game with a matching full or unknown-stage release on that day.
+        It can be zero. Previously gameCount and the available facets covered only this subset.
 
         A release known only to its month, quarter or year, or with an unknown (TBA) date, never
         belongs to a day and is not counted; nothing is attributed to an invented day or month.
@@ -567,6 +562,7 @@ paths:
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseCalendarMonth'
+        - $ref: '#/components/parameters/ReleaseCalendarIncludePast'
         - $ref: '#/components/parameters/PlatformIdsQuery'
         - $ref: '#/components/parameters/RegionIdsQuery'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -602,6 +598,7 @@ paths:
                         - { regionId: region_worldwide, name: Mundial }
                     days:
                       - { date: '2026-10-21', gameCount: 1, totalHype: 20 }
+                      - { date: '2026-10-22', gameCount: 2, totalHype: 0 }
                       - { date: '2026-10-23', gameCount: 3, totalHype: 60 }
                       - { date: '2026-10-30', gameCount: 12, totalHype: 240 }
                     presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 }
@@ -3278,13 +3275,17 @@ components:
       in: query
       required: false
       description: |
-        Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
-        It must lie between the current month and the operator's months forward (5 by default)
-        after it; the current month is always accepted. A
-        malformed month or a month outside the bounds, including any earlier month, yields 422
-        `FILTER_INVALID` for `/query/month`.
+        Calendar month to count as YYYY-MM. Omit it for the current month in Europe/Madrid.
+        The operation description states the bounds for each mode. A malformed month or a
+        month outside the applicable bounds yields 422 FILTER_INVALID for /query/month.
       schema: { $ref: '#/components/schemas/CalendarMonth' }
       example: 2026-11
+    ReleaseCalendarIncludePast:
+      name: includePast
+      in: query
+      required: false
+      description: Count the full month and use the featured-period bounds for timeline navigation.
+      schema: { type: boolean, default: false }
     PlatformIdsQuery:
       name: platformIds
       in: query
@@ -4336,14 +4337,14 @@ components:
           description: Today in `Europe/Madrid`, which decides the current month, the first counted day and the delayed rule.
         window:
           $ref: '#/components/schemas/ReleaseWindow'
-          description: The month's first and last day, inclusive; days before `evaluatedOn` are not counted.
+          description: The month's first and last day, inclusive.
         navigation: { $ref: '#/components/schemas/ReleaseCalendarNavigation' }
         activeFilters: { $ref: '#/components/schemas/ActiveFilters' }
         availableFilters: { $ref: '#/components/schemas/AvailableFilters' }
         days:
           type: array
           maxItems: 31
-          description: Days from the evaluation date on with at least one qualifying exact-day release, ascending.
+          description: Counted days with at least one qualifying exact-day release, ascending.
           items: { $ref: '#/components/schemas/ReleaseCalendarDay' }
         presentation: { $ref: '#/components/schemas/ReleaseCalendarPresentation' }
     ReleaseCalendarPresentation:
@@ -4358,8 +4359,7 @@ components:
           minItems: 4
           maxItems: 4
           description: |
-            The strictly ascending daily total-Hype thresholds from which a day shows low,
-            moderate, high and very high interest; a day below the first shows no level.
+            The four strictly ascending daily total-Hype thresholds above the base band for days with releases.
           items: { type: integer, format: int64, minimum: 1 }
         dayPreviewSize:
           type: integer
@@ -4392,11 +4392,10 @@ components:
         totalHype:
           type: integer
           format: int64
-          minimum: 1
+          minimum: 0
           description: |
-            Sum of local Hypes of qualifying games on this day, each game once across platforms
-            and regions, after active filters. A game qualifies from the operator's minimum
-            Hypes on (10 by default).
+            Sum of local Hypes at or above the operator's minimum (10 by default) for games with
+            a matching full or unknown-stage release that day. Each game contributes once.
       unevaluatedProperties: false
     GameRankingPage:
       type: object

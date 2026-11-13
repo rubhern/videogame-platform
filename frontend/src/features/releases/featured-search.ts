@@ -1,3 +1,5 @@
+import { readDiscoveryPlatformKey, PLATFORM_PARAM } from "../platforms/platform-context";
+
 /**
  * Navigable state of the featured releases (#151, #329): the calendar week or month they
  * represent. It lives in the URL so a period stays shareable and survives browser navigation.
@@ -21,6 +23,7 @@ export type FeaturedSearch = {
   granularity: FeaturedGranularity;
   /** `YYYY-Www` for a week, `YYYY-MM` for a month, or null for the current period. */
   period: string | null;
+  platform?: string;
 };
 
 const MONTH = /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/;
@@ -38,16 +41,18 @@ export function readFeaturedSearch(params: URLSearchParams): FeaturedSearch {
   const week = params.get("week");
   const month = params.get("month");
   const named = readGranularity(params.get("granularity"));
+  const platform = readDiscoveryPlatformKey(params);
+  const context = platform === undefined ? {} : { platform };
   if (week !== null && month === null && WEEK.test(week) && named !== "month") {
-    return { granularity: "week", period: week };
+    return { granularity: "week", period: week, ...context };
   }
   if (month !== null && week === null && MONTH.test(month) && named !== "week") {
-    return { granularity: "month", period: month };
+    return { granularity: "month", period: month, ...context };
   }
   if (week === null && month === null && named !== null) {
-    return { granularity: named, period: null };
+    return { granularity: named, period: null, ...context };
   }
-  return { granularity: DEFAULT_FEATURED_GRANULARITY, period: null };
+  return { granularity: DEFAULT_FEATURED_GRANULARITY, period: null, ...context };
 }
 
 /**
@@ -61,6 +66,7 @@ export function featuredSearchPath(search: FeaturedSearch): string {
   } else if (search.granularity !== DEFAULT_FEATURED_GRANULARITY) {
     params.set("granularity", search.granularity);
   }
+  if (search.platform !== undefined) params.set(PLATFORM_PARAM, search.platform);
   const query = params.toString();
   return query === "" ? FEATURED_PATH : `${FEATURED_PATH}?${query}`;
 }

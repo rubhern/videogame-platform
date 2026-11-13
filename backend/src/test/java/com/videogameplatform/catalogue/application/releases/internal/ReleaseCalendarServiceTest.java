@@ -65,6 +65,20 @@ class ReleaseCalendarServiceTest {
     }
 
     @Test
+    void timelineCountsTheWholeMonthWithinTheFeaturedBounds() {
+        SharedCalendar calendar = new SharedCalendar();
+        var service = calendar.at("2026-10-21T10:00:00Z");
+        var historical =
+                service.browse(
+                        new Query(Optional.of(YearMonth.of(2026, 9)), List.of(), List.of(), true));
+        assertThat(historical.navigation().first()).isEqualTo(YearMonth.of(2025, 12));
+        assertThat(calendar.port.criteria.from()).isEqualTo(LocalDate.of(2026, 9, 1));
+        var current = service.browse(new Query(Optional.empty(), List.of(), List.of(), true));
+        assertThat(current.month()).isEqualTo(YearMonth.of(2026, 10));
+        assertThat(calendar.port.criteria.from()).isEqualTo(LocalDate.of(2026, 10, 1));
+    }
+
+    @Test
     void reachesTheOperatorsMonthsForwardAndNoFurther() {
         // Five months forward from October 2026 is March 2027.
         SharedCalendar calendar = new SharedCalendar();

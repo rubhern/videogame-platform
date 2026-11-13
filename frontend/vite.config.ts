@@ -4,6 +4,8 @@ import { defineConfig } from "vitest/config";
 
 import { version as frontendVersion } from "./package.json";
 
+const backend = process.env.GAMEOMETRO_DEV_BACKEND ?? "http://localhost:8080";
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
@@ -12,10 +14,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/actuator": "http://localhost:8080",
-      "/api": "http://localhost:8080",
-      "/auth": "http://localhost:8080",
-      "/login": "http://localhost:8080",
+      "/actuator": backend,
+      "/api": backend,
+      "/auth": backend,
+      "/login": backend,
     },
   },
   test: {

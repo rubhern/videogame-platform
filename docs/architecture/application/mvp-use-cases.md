@@ -16,7 +16,7 @@
 | `UC-011` | Inspect catalogue acquisition state | Catalogue operator    | Post-MVP (#247): read the run in flight, at most twenty finished retained runs with their outcome and counters, and durable coverage of an inclusive release-date range as bounded consecutive periods; local evidence only, never a provider call or a synchronization start; only a session holding the operator authority |
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
-| `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the operator's months-forward bound (`UC-024`), never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes at or above the operator's minimum (10 by default) and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
+| `UC-016` | Count a month’s games releasing per day | Visitor | Post-MVP: counts every game with an eligible exact-day release from the Madrid evaluation date, with the same filters as UC-001. Returns at most 31 days and the aggregate Hype used for each day’s expectation band. |
 | `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — an operator setting (`UC-024`), by default 50 IGDB ratings and one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; post-MVP (#387), an optional platform scope of product platform IDs (one platform or one family) admits only games whose eligible release lies on the scope (`RNK-005`) before that order, count and page, keeps each game's global reading and presents its scope release; an unknown scope platform is rejected; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
 | `UC-020` | Rank a platform's most anticipated upcoming games (Próximos destacados) | Visitor | Post-MVP (#388): application validates a platform scope of product platform IDs as `UC-019` does and derives the evaluation date and the horizon of the operator's calendar months (`UC-024`, six by default) in `Europe/Madrid`; PostgreSQL selects the scope's qualifying releases inside the horizon (`UPC-001`), keeps the distinct games still new to the scope (`UPC-002`), ranks them by release attention descending and `gameId` ascending, limits the ranking to ten and presents one qualifying release per game (`UPC-003`); unranked and empty are valid states; never varies on the session or preferred platforms and never calls a provider |
@@ -118,37 +118,22 @@ region therefore does not appear in an unrelated range merely because it exists.
 The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
 
-Post-MVP (#250, implemented; awaiting owner review), `UC-016` is the highlights calendar (**Calendario de destacados**), a second
-view of **Lanzamientos** beside the explorer. It reads one calendar month at a time, the
-current month in `Europe/Madrid` by default; navigation never goes back, and it reaches forward
-to the same last month that `UC-010` months reach, so both monthly views share one bound. The
-calendar is active from the evaluation date on (owner decision): the current month is counted
-from today, and a day that has gone by is never counted or chosen. A day holds only releases
-with that exact day, classified exactly as `UC-001` classifies a range of that single day
-without approximate dates, with the same multi-select filters and contextual facets. Its count
-is of games, not releases. Only launches count (`ATT-007`, since #458): a release of full or unknown
-stage, never early access, advance access, a beta or an alpha. Only games with locally stored IGDB Hypes at or above the
-operator's minimum qualify (`UC-024`; 10 by default, informed by the private-dev Hype distribution reviewed for the owner's
-2026-10-21 request); lower, null or absent Hype is excluded before contextual facets, counts and pagination. The threshold
-is one value per request, never a percentile recalculated per request. Each response also carries the operator's four
-ascending daily total-Hype interest bands and the chosen day's preview size, which the page presents. The count covers highlights only; the full explorer lists all games for that day and the same
-platform/region filters, so its total can be larger.
-A release known only to its month, quarter or year, or with an unknown (TBA) date, is never
-placed on a day or counted (owner decision: no separate imprecise-date line). PostgreSQL
-filters, groups, counts and sums the local Hype once per game and day, irrespective of
-matching platforms or regions. The daily `totalHype` follows the same filters as its count,
-includes every qualifying game (not only the preview), and drives the calendar colours. Work stays
-in PostgreSQL over the shared period index, so a response holds at most 31 days
-and no game page is read. The games of a chosen day are an ordinary `UC-001` read of that one
-day ordered by attention (`ATT-005`, since #458) with `UC-001`'s fallback and tie-breakers. The
-preview's page size is the smaller of three and the highlighted-game count, so a short highlighted
-day never shows more games than it counts; the counts and colours keep the Hypes threshold and sums
-above, because they count and colour days rather than order games (ADR-0041). A game with strong
-Want to Play, Visits or editorial attention may therefore lead a day's preview below the threshold.
-**Ver todos los lanzamientos del día** opens the unrestricted explorer for that day in the
-same order and platform/region context. No highlights filter exists in the explorer or its API.
-The calendar never shows numeric Hype.
-The API owns the bounds and the evaluation date; the browser never decides "today".
+Post-MVP, UC-016 provides **Calendario de lanzamientos**, a second view of **Lanzamientos**.
+It reads one month at a time from the current month through the shared forward bound of UC-010.
+The application evaluates today in Europe/Madrid. From that date onward, each day counts every
+game with an eligible exact-day release under UC-001 and the same platform and region filters.
+Multiple releases of a game on the same day count once. Approximate dates keep their original
+precision. The calendar's day count matches the explorer's total for the same day and filters.
+
+Only full and unknown-stage releases contribute to the day's interest signal (ATT-007). PostgreSQL
+sums local Hypes at or above the operator's minimum once per matching game and day. Games outside
+that interest calculation still count. The month response contains at most 31 aggregate rows.
+The home timeline reads full months, including elapsed days, within the months intersecting the
+featured week or month bounds of UC-010. It applies the same rules using the current published
+catalogue and current local Hypes. The dedicated calendar starts counting at the evaluation date.
+
+The chosen day's games use bounded UC-001 pages ordered by attention (ATT-005). The calendar
+offers all pages and a link to the explorer on the same day with the same filters.
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
 the featured view of release discovery, **Destacados** (#385), alongside **Explorar** (#285)

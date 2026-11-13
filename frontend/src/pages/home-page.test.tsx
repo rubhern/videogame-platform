@@ -1,8 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { homeRanking, requestedPaths, stubHomeApi } from "../test/home-api";
+import { homeCalendar, homeFeatured, homeRanking, requestedPaths, stubHomeApi } from "../test/home-api";
 import { renderApp } from "../test/render-app";
 
 afterEach(() => {
@@ -19,84 +19,143 @@ describe("home page (#382)", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
     const lead = await screen.findByRole("article", { name: "Phantom Blade Zero" });
-    expect(within(lead).getByText("Lanzamiento de la semana")).toBeVisible();
-    // The date is announced in full, the platforms by name; the week scale stays decorative.
-    expect(within(lead).getByText("29 de octubre de 2026")).toBeInTheDocument();
+    expect(within(lead).getByText("29 de octubre de 2026")).toBeVisible();
     expect(within(lead).getByRole("list", { name: "Plataformas" })).toHaveTextContent("PlayStation 5");
-    expect(within(lead).getByText(/Calendario de la semana del 26 de octubre al 1 de noviembre de 2026/)).toBeInTheDocument();
-    // Destacados's own hero and its temporal G, closed by the home's two ways out.
-    expect(lead.querySelector(".featured-dial-g")).not.toBeNull();
-    expect(screen.getByText("Lanzamientos, destacados y los juegos mejor valorados.")).toBeVisible();
-    expect(within(lead).getByRole("link", { name: "Ver destacados" })).toHaveAttribute("href", "/lanzamientos/destacados");
-    expect(within(lead).getByRole("link", { name: "Ver ficha de Phantom Blade Zero" })).toHaveAttribute(
-      "href",
-      "/games/phantom/phantom",
-    );
-
-    // Up to four more featured releases of the same week, in the API's order.
-    const more = screen.getByRole("region", { name: "Más destacados de la semana" });
-    expect(within(more).getAllByRole("heading", { level: 4 }).map((title) => title.textContent)).toEqual([
-      "The Wolf Among Us Remastered",
-      "Queen's Domain",
-      "Terrible Lizards",
-      "Remothered: Red Nun's Legacy",
-    ]);
-    expect(within(more).getByRole("link", { name: /Ver todos los lanzamientos de la semana/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Abrir Destacados" })).toHaveAttribute("href", "/lanzamientos/destacados");
+    expect(screen.getByRole("list", { name: "Más destacados" }).children).toHaveLength(4);
+    expect(screen.getByRole("link", { name: "Ver todos los lanzamientos" })).toHaveAttribute(
       "href",
       "/lanzamientos?from=2026-10-26&to=2026-11-01",
     );
 
-    // A game opened from the home carries the home as its way back.
     await user.click(within(lead).getByRole("link", { name: "Phantom Blade Zero" }));
     expect(router.state.location.pathname).toBe("/games/phantom/phantom");
     expect(router.state.location.state).toMatchObject({ returnTo: { path: "/" } });
   });
 
-  it("previews the highlights calendar on its busiest day and lets a day be chosen", async () => {
+  it("steps through periods and carries a platform and selected date into the next action", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubHomeApi();
-    renderApp();
+    const ps5 = "10000000-0000-4000-8000-000000000001";
+    const fetchMock = stubHomeApi({
+      featured: (url) => {
+        if (url.searchParams.get("granularity") === "month") {
+          return Response.json({
+            ...homeFeatured,
+            granularity: "month",
+            month: "2026-10",
+            window: { from: "2026-10-01", to: "2026-10-31" },
+            navigation: { next: "2026-11" },
+          });
+        }
+        if (url.searchParams.get("week") === "2026-W45") {
+          return Response.json({
+            ...homeFeatured,
+            week: "2026-W45",
+            window: { from: "2026-11-02", to: "2026-11-08" },
+            navigation: { previous: "2026-W44" },
+          });
+        }
+        return Response.json({ ...homeFeatured, navigation: { next: "2026-W45" } });
+      },
+    });
+    const { router } = renderApp();
 
-    const calendar = await screen.findByRole("region", { name: "Calendario de destacados" });
-    await within(calendar).findByRole("button", { name: /jueves, 5 de noviembre/ });
-    const days = within(calendar).getAllByRole("button", { pressed: false });
-    // October runs short, so the API's following month is read too.
-    expect(within(calendar).getAllByRole("button").map((day) => day.getAttribute("aria-label"))).toEqual([
-      "miércoles, 28 de octubre de 2026: 1 lanzamiento, hoy",
-      "jueves, 29 de octubre de 2026: 5 lanzamientos",
-      "viernes, 30 de octubre de 2026: 1 lanzamiento",
-      "martes, 3 de noviembre de 2026: 2 lanzamientos",
-      "jueves, 5 de noviembre de 2026: 2 lanzamientos",
-    ]);
-    expect(days).toHaveLength(4);
-    expect(within(calendar).getByRole("button", { pressed: true })).toHaveAccessibleName(/jueves, 29 de octubre/);
-    expect(await within(calendar).findByRole("list", { name: "Lanzamientos destacados del jueves, 29 de octubre" }))
-      .toHaveTextContent("Phantom Blade Zero");
-    // The calendar's own preview read: that day only, in Hype order, capped by its highlights.
+    const discovery = within(section("Lanzamientos"));
+    await discovery.findByRole("list", { name: "Días de la semana" });
+    await user.click(discovery.getByRole("button", { name: "Plataforma Todas" }));
+    expect(discovery.getByRole("button", { name: "Todas" })).toHaveAttribute("aria-pressed", "true");
+    expect(discovery.getByRole("button", { name: "Mis plataformas" })).toBeDisabled();
+    await user.click(discovery.getByRole("link", { name: "PlayStation 5" }));
+    expect(discovery.getByRole("button", { name: "Plataforma PlayStation 5" })).toHaveFocus();
+    await user.click(await discovery.findByRole("button", { name: /29 oct 2026/ }));
+    expect(await discovery.findByRole("article", { name: "Phantom Blade Zero" })).toBeVisible();
     expect(requestedPaths(fetchMock)).toContain(
-      "/api/v1/releases?from=2026-10-29&to=2026-10-29&sort=hype&page=1&pageSize=4",
+      "/api/v1/releases?from=2026-10-29&to=2026-10-29&sort=hype&platformIds=" + ps5 + "&page=1&pageSize=5",
     );
-
-    await user.click(within(calendar).getByRole("button", { name: /martes, 3 de noviembre/ }));
-    expect(within(calendar).getByRole("button", { name: /martes, 3 de noviembre/ })).toHaveAttribute("aria-pressed", "true");
-    await waitFor(() =>
-      expect(requestedPaths(fetchMock)).toContain(
-        "/api/v1/releases?from=2026-11-03&to=2026-11-03&sort=hype&page=1&pageSize=2",
-      ),
-    );
-    expect(within(calendar).getByRole("link", { name: /Ver todos los lanzamientos del día/ })).toHaveAttribute(
+    expect(discovery.getByRole("link", { name: "Ver todos los lanzamientos" })).toHaveAttribute(
       "href",
-      "/lanzamientos?from=2026-11-03&to=2026-11-03&sort=hype",
+      "/lanzamientos?from=2026-10-29&to=2026-10-29&platformIds=" + ps5,
     );
-    expect(within(calendar).getByRole("link", { name: "Abrir este día en el calendario" })).toHaveAttribute(
+    expect(discovery.getByRole("link", { name: "Abrir Destacados" })).toHaveAttribute(
       "href",
-      "/lanzamientos/calendario?day=2026-11-03",
+      "/lanzamientos/destacados?plataforma=playstation-5",
     );
-    expect(within(calendar).getByRole("link", { name: /Ver calendario/ })).toHaveAttribute("href", "/lanzamientos/calendario");
+    await user.click(discovery.getByRole("link", { name: "Ver todo el periodo" }));
+    await user.click(discovery.getByRole("link", { name: /Semana siguiente/ }));
+    expect(await discovery.findByRole("button", { name: /2 nov 2026/ })).toBeVisible();
+    expect(router.state.location.search).toBe("?inicio=2026-W45&plataforma=playstation-5");
+    await user.click(discovery.getByRole("link", { name: "Semana actual" }));
+    await user.click(discovery.getByRole("link", { name: "Mes" }));
+    expect(await discovery.findByRole("list", { name: "Semanas del mes" })).toBeVisible();
+    expect(router.state.location.search).toBe("?inicio=mes&plataforma=playstation-5");
+    expect(requestedPaths(fetchMock)).toContain("/api/v1/release-calendar?month=2026-10&platformIds=" + ps5 + "&includePast=true");
   });
 
-  it("shows one source of player ratings at a time with its own counts and an honest empty source", async () => {
+  it("starts with saved platforms and carries an other platform into Destacados", async () => {
     const user = userEvent.setup();
+    const fetchMock = stubHomeApi({
+      session: () => Response.json({ authenticated: true, csrfToken: "csrf", capabilities: [] }),
+      preferences: () => Response.json({ configured: true, platforms: [{ platformId: "ps4", name: "PlayStation 4" }] }),
+    });
+    renderApp();
+
+    const discovery = within(section("Lanzamientos"));
+    const trigger = await discovery.findByRole("button", { name: "Plataforma Mis plataformas" });
+    await user.click(trigger);
+    expect(discovery.getByRole("button", { name: "Mis plataformas" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(discovery.getByRole("link", { name: "PlayStation 4" }));
+    expect(discovery.getByRole("link", { name: "Abrir Destacados" })).toHaveAttribute("href", "/lanzamientos/destacados?plataforma=ps4");
+    expect(requestedPaths(fetchMock)).toContain("/api/v1/featured-releases?granularity=week&platformIds=ps4");
+  });
+
+  it("reads the calendar density for a day and applies the higher scale to a week", async () => {
+    const user = userEvent.setup();
+    stubHomeApi({
+      featured: (url) => Response.json(url.searchParams.get("granularity") === "month" ? {
+        ...homeFeatured,
+        granularity: "month",
+        month: "2026-10",
+        window: { from: "2026-10-01", to: "2026-10-31" },
+      } : homeFeatured),
+    });
+    renderApp();
+
+    const discovery = within(section("Lanzamientos"));
+    expect(await discovery.findByRole("button", { name: /29 oct 2026.*5 lanzamientos.*Expectación 5 de 5/ })).toHaveAttribute("data-density", "4");
+    await user.click(discovery.getByRole("link", { name: "Mes" }));
+    expect(await discovery.findByRole("button", { name: /26–31 oct 2026.*Expectación 3 de 5/ })).toHaveAttribute("data-density", "2");
+  });
+
+  it("shows past days from both months when the previous week crosses a month boundary", async () => {
+    const fetchMock = stubHomeApi({
+      featured: () => Response.json({
+        ...homeFeatured,
+        evaluatedOn: "2026-11-13",
+      }),
+      calendar: (url) => {
+        const month = url.searchParams.get("month");
+        const november = month === "2026-11";
+        return Response.json({
+          ...homeCalendar,
+          month,
+          evaluatedOn: "2026-11-13",
+          window: november ? { from: "2026-11-01", to: "2026-11-30" } : homeCalendar.window,
+          days: [november ? { date: "2026-11-01", gameCount: 2, totalHype: 0 }
+            : { date: "2026-10-29", gameCount: 5, totalHype: 284 }],
+        });
+      },
+    });
+    renderApp("/?inicio=2026-W44");
+    const discovery = within(section("Lanzamientos"));
+    expect(await discovery.findByRole("button", { name: /29 oct 2026.*5 lanzamientos.*Expectación 5 de 5/ })).toBeVisible();
+    expect(await discovery.findByRole("button", { name: /1 nov 2026.*2 lanzamientos.*Expectación 1 de 5/ })).toBeVisible();
+    expect(requestedPaths(fetchMock).filter((path) => path.includes("/release-calendar?"))).toEqual([
+      "/api/v1/release-calendar?month=2026-10&includePast=true",
+      "/api/v1/release-calendar?month=2026-11&includePast=true",
+    ]);
+  });
+
+  it("shows both podiums independently, including an empty community podium", async () => {
     stubHomeApi({
       rankings: (url) =>
         Response.json(
@@ -114,13 +173,11 @@ describe("home page (#382)", () => {
     expect(within(places[0] as HTMLElement).getByRole("link", { name: "Puesto 1: The Witcher 3: Wild Hunt" })).toBeInTheDocument();
     expect(within(places[0] as HTMLElement).getByLabelText("9,4 de 10")).toBeInTheDocument();
     expect(within(places[0] as HTMLElement).getByText("5.493 valoraciones")).toBeInTheDocument();
-    expect(within(topometro).getByRole("button", { name: "Jugadores IGDB" })).toHaveAttribute("aria-pressed", "true");
-
-    await user.click(within(topometro).getByRole("button", { name: "Comunidad Gameómetro" }));
-    expect(await within(topometro).findByText("Aún no hay ningún juego puntuado")).toBeVisible();
-    // The other ranking is never shown in its place.
-    expect(within(topometro).queryByText("The Witcher 3: Wild Hunt", { exact: false })).not.toBeInTheDocument();
-    expect(within(topometro).getByRole("link", { name: /Ver TOPómetro/ })).toHaveAttribute("href", "/topometro?source=gameometro");
+    const community = within(topometro).getByRole("region", { name: "Comunidad Gameómetro" });
+    expect(await within(community).findByText("Aún no hay ningún juego puntuado")).toBeVisible();
+    expect(podium).toBeVisible();
+    expect(within(topometro).getByRole("link", { name: "Ver TOPómetro de Comunidad Gameómetro" })).toHaveAttribute("href", "/topometro?source=gameometro");
+    expect(within(topometro).getByRole("link", { name: "Ver TOPómetro de Jugadores IGDB" })).toHaveAttribute("href", "/topometro");
   });
 
   it("offers each featured platform one way into its catalogue, and the index for everything else", async () => {
@@ -191,15 +248,14 @@ describe("home page (#382)", () => {
         featuredFails
           ? Response.json({ code: "INTERNAL_ERROR", correlationId: "corr-featured" }, { status: 500 })
           : Response.json({ code: "CATALOGUE_NOT_READY" }, { status: 503 }),
-      calendar: () => Response.json({ code: "CATALOGUE_NOT_READY" }, { status: 503 }),
       platforms: () => Response.json({ code: "INTERNAL_ERROR" }, { status: 500 }),
     });
     renderApp();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Destacados se ha tomado un respiro");
+    expect(alert).toHaveTextContent("Los lanzamientos se han tomado un respiro");
     expect(alert).toHaveTextContent("Referencia para soporte: corr-featured");
-    expect(within(section("Calendario de destacados")).getByText("Los juegos todavía no están disponibles")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver calendario" })).toBeVisible();
     // TOPómetro and the four platforms are unaffected; only the honest coverage line is left out.
     expect(await within(section("TOPómetro")).findByRole("list", { name: "Podio de Jugadores IGDB" })).toBeInTheDocument();
     expect(within(section("Explora por plataforma")).getAllByRole("article")).toHaveLength(4);
@@ -207,7 +263,7 @@ describe("home page (#382)", () => {
 
     featuredFails = false;
     await user.click(within(alert).getByRole("button", { name: "Reintentar" }));
-    expect(await within(section("Destacados de la semana")).findByText("Datos en preparación")).toBeVisible();
+    expect(await within(section("Lanzamientos")).findByText("Datos en preparación")).toBeVisible();
   });
 
   it("says so when the week has no featured release, with ways to every release", async () => {
@@ -225,9 +281,9 @@ describe("home page (#382)", () => {
     });
     renderApp();
 
-    const week = section("Destacados de la semana");
-    expect(await within(week).findByText("Sin datos de interés")).toBeVisible();
-    expect(within(week).getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
+    const week = section("Lanzamientos");
+    expect(await within(week).findByText("Sin destacados para este periodo")).toBeVisible();
+    expect(within(week).getByRole("link", { name: "Ver todos los lanzamientos" })).toHaveAttribute(
       "href",
       "/lanzamientos?from=2026-10-26&to=2026-11-01",
     );

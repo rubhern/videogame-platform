@@ -1,8 +1,4 @@
-/* The home (#382): Gameómetro's front page. The week's featured release leads on its own art, set as
-   a front page sets its cover story; the highlights calendar and TOPómetro follow side by side, then
-   the platforms' doors and the player's corner, each with its own shape so the page keeps a rhythm.
-   Every value comes from the shared families and tokens; docs/development/frontend-design.md owns
-   the rules. */
+/* Gameometro home. See docs/development/frontend-design.md#home. */
 
 @layer components {
   .home-page {
@@ -34,7 +30,7 @@
      header and out to the viewport's edges. */
   .home-stage > .page-container {
     position: relative;
-    padding-block: 4px 0;
+    padding-block: 8px 0;
   }
 
   /* ---------------------------------------------------------------- Featured release */
@@ -48,82 +44,400 @@
     max-width: 40rem;
   }
 
-  .home-lead {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    text-shadow: 0 1px 12px var(--color-night);
+
+  .home-discovery-controls,
+  .home-discovery-readout,
+  .home-discovery-links {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
   }
 
-  /* Destacados's hero (featured.css) leads the stage: the week's temporal G frames the release on
-     its own art, and the home's two ways out close the copy inside it. */
+  .home-discovery-controls { margin-block: 0.75rem; }
+
+  .home-discovery-controls .featured-period {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .home-discovery-controls .featured-period-step,
+  .home-discovery-controls .featured-granularity-option {
+    display: inline-grid;
+    min-inline-size: 44px;
+    min-block-size: 44px;
+    place-items: center;
+  }
+
+  .home-discovery-controls .platform-switcher {
+    z-index: 3;
+  }
+
+  .home-discovery-controls .platform-switcher-trigger {
+    min-height: 48px;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--color-surface);
+  }
+
+  .home-discovery-controls .platform-switcher-trigger strong {
+    margin-inline-start: 0.35rem;
+    color: var(--color-ice-light);
+  }
+
+  .home-discovery-controls .platform-switcher-panel {
+    inset-inline: 0 auto;
+  }
+
+  .home-discovery-controls .platform-switcher-mark .app-select-icon-logo svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .home-featured-entry.button {
+    gap: 0.75rem;
+    min-height: 48px;
+    padding-inline: 1rem;
+    border: 1px solid var(--line-ice-strong);
+    background: linear-gradient(120deg, var(--color-ice-light), var(--color-ice));
+    color: var(--color-night);
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .home-featured-entry.button:hover {
+    background: var(--color-ice-light);
+    color: var(--color-night);
+  }
+
+  .home-featured-entry-needle { width: 18px; height: 18px; }
+
+  .home-timeline {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(48px, 1fr);
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    overflow-x: auto;
+  }
+
+  .home-timeline-slot {
+    display: grid;
+    justify-items: start;
+    gap: 0.125rem;
+    width: 100%;
+    height: 100%;
+    min-height: 78px;
+    grid-template-rows: auto auto 1rem;
+    align-content: start;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--control);
+    text-align: start;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .home-timeline-slot strong {
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-timeline-slot[data-density="1"] { --density: var(--color-density-1); }
+  .home-timeline-slot[data-density="2"] { --density: var(--color-density-2); }
+  .home-timeline-slot[data-density="3"] { --density: var(--color-density-3); }
+  .home-timeline-slot[data-density="4"] { --density: var(--color-density-4); }
+
+  .home-timeline-interest {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-timeline-slot[data-current] { color: var(--color-ice-light); }
+
+  .home-timeline-slot[aria-pressed="true"] {
+    border-color: var(--color-ice);
+    box-shadow: inset 0 -2px var(--color-ice);
+  }
+
+  .home-timeline-slot:hover { background: var(--control-hover); }
+
+  .home-discovery-readout {
+    min-height: 44px;
+    padding-inline: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .home-expectation-disclosure { display: none; }
+
+  .home-discovery-readout > a { margin-inline-start: auto; }
+
+  .home-discovery-readout > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-ice-light);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
   .home-feature {
     position: relative;
-    margin-top: 14px;
+    isolation: isolate;
+    display: grid;
+    align-items: end;
+    min-height: clamp(240px, 25vw, 330px);
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background-color: var(--color-night);
   }
 
-  .home-feature .featured-hero-section {
-    position: relative;
+  .home-feature-art {
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 0 17%;
   }
 
-  .home-page .featured-platform-marks :is(.app-select-icon-playstation-4, .app-select-icon-playstation-5, .app-select-icon-xbox-series-x-s) {
-    margin-inline: 5px;
+  .home-feature-art .featured-art {
+    height: 100%;
   }
 
-  /* Both ways out share one row inside the G's reading zone. */
-  .home-feature .featured-hero-actions {
-    gap: 8px;
-    margin-top: 8px;
+  .home-feature-art .featured-art-fill .featured-art-image {
+    object-position: center top;
   }
 
-  .home-feature .featured-hero-actions .button {
-    min-height: 44px;
-    gap: 10px;
-    padding-inline: 14px;
+  .home-feature-art::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--color-night), color-mix(in srgb, var(--color-night) 72%, transparent) 26%, transparent 68%),
+      linear-gradient(0deg, color-mix(in srgb, var(--color-night) 60%, transparent), transparent 65%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .home-feature-copy {
+    display: grid;
+    justify-items: start;
+    gap: 0.625rem;
+    max-width: min(53%, 38rem);
+    padding: clamp(1rem, 3vw, 2.5rem);
+    min-width: 0;
+  }
+
+  .home-feature-copy h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 3.75rem);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .home-feature-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.625rem;
     font-size: 0.8125rem;
-    white-space: nowrap;
   }
 
-  .home-feature .featured-hero-actions .home-feature-secondary {
-    background: color-mix(in srgb, var(--control) 78%, transparent);
+  .home-feature-copy .discovery-scores-hero {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    width: 100%;
   }
 
-  /* Wide wordmarks are drawn beyond their box; keep their own room so neighbouring marks never
-     touch, as Destacados does. */
+  .home-feature-copy .discovery-score {
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 0.5rem;
+    row-gap: 0.125rem;
+  }
+
+  .home-feature-copy .discovery-score-mark {
+    width: 32px;
+    height: 28px;
+  }
+
+  .home-feature-copy .discovery-score-reading strong { font-size: 1.25rem; }
+  .home-feature-game-link { color: inherit; text-decoration: none; }
+  .home-feature-game-link::after {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    content: "";
+  }
+
+  .home-feature:has(.home-feature-game-link:hover) h2 { text-decoration: underline; }
+  .home-feature:has(.home-feature-game-link:focus-visible) {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+  }
+  .home-discovery .home-more-list { margin-top: 0.875rem; }
+  .home-discovery-links { margin-top: 0.75rem; font-size: 0.875rem; }
+  .home-discovery-link.button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    gap: 0.625rem;
+    border-color: var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-ice-light);
+  }
+
+  .home-discovery-link.button:hover { border-color: var(--line-ice-strong); }
+  .home-discovery-link svg { width: 16px; height: 16px; }
+
+  @media (max-width: 760px) {
+    .home-discovery-controls .featured-period { flex: 1 1 100%; }
+  }
+
+  @media (max-width: 619px) {
+    .home-discovery-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
+      align-items: stretch;
+      gap: 0.375rem;
+      margin-block: 0.5rem;
+    }
+
+    .home-discovery-controls .featured-period { grid-column: 1 / -1; }
+
+    .home-discovery-links {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 0.375rem;
+    }
+
+    .home-discovery-link.button {
+      gap: 0.375rem;
+      padding: 0.375rem 0.5rem;
+      white-space: normal;
+    }
+
+    .home-discovery-link svg { flex: none; }
+    .home-discovery-link .home-chevron { display: none; }
+
+    .home-discovery-controls .platform-switcher-trigger,
+    .home-featured-entry.button {
+      width: 100%;
+      height: 100%;
+      min-height: 44px;
+      padding: 0.375rem 0.5rem;
+      gap: 0.375rem;
+    }
+
+    .home-discovery-controls .platform-switcher-trigger {
+      justify-content: center;
+      white-space: normal;
+    }
+
+    .home-discovery-controls .platform-switcher-filter-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    .home-discovery-controls .platform-switcher-trigger strong { margin-inline-start: 0; }
+    .home-featured-entry .home-chevron { display: none; }
+    .home-featured-entry-needle { width: 14px; flex: none; }
+
+    .home-timeline[data-granularity="month"] { grid-auto-columns: minmax(53px, 1fr); }
+
+    .home-timeline-slot {
+      min-height: 66px;
+      gap: 0;
+      padding-inline: 0.25rem;
+    }
+
+    .home-timeline-slot strong { font-size: 1rem; }
+    .home-timeline-interest { gap: 0.3rem; }
+
+    .home-discovery-readout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0 0.375rem;
+      padding-inline: 0.125rem;
+      font-size: 0.8125rem;
+    }
+
+    .home-discovery-readout > a { grid-column: 1 / -1; }
+    .home-expectation-inline { display: none; }
+
+    .home-expectation-disclosure {
+      position: relative;
+      z-index: 3;
+      display: block;
+    }
+
+    .home-expectation-disclosure summary {
+      min-height: 44px;
+      padding: 0.375rem 0.5rem;
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .home-expectation-disclosure summary::-webkit-details-marker { display: none; }
+
+    .home-expectation-panel {
+      position: absolute;
+      inset: calc(100% + 4px) 0 auto auto;
+      min-width: 12rem;
+      border: 1px solid var(--color-line);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-surface);
+      box-shadow: var(--shadow-overlay);
+    }
+
+    .home-feature { display: block; }
+    .home-feature-art { position: relative; inset: auto; aspect-ratio: 16 / 9; }
+    .home-feature-art .featured-art-fill .featured-art-image { object-position: center; }
+
+    .home-feature-art::after {
+      background: linear-gradient(0deg, var(--color-night), transparent 24%);
+    }
+
+    .home-feature-copy { max-width: none; padding-top: 0; }
+  }
+
+  @media (max-width: 359px) {
+    .home-feature-copy {
+      gap: 0.375rem;
+      padding-inline: 0.75rem;
+    }
+
+    .home-feature-copy h2 { font-size: 1.375rem; }
+    .home-feature-copy .discovery-scores-hero { column-gap: 0.5rem; }
+    .home-feature-copy .discovery-score { grid-template-columns: 23px minmax(0, 1fr); }
+    .home-feature-copy .discovery-score-mark { width: 23px; height: 20px; }
+    .home-feature-copy .discovery-score-reading strong { font-size: 1rem; }
+  }
+
+  @media (forced-colors: active) {
+    .home-feature-art::after { display: none; }
+    .home-timeline-slot[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -3px; }
+    .home-featured-entry.button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+  }
+
   .home-page .platform-marks :is(.app-select-icon-playstation-4, .app-select-icon-playstation-5, .app-select-icon-xbox-series-x-s) {
     margin-inline: 4px;
   }
 
   /* ---------------------------------------------------------------- More highlights */
 
-  .home-more {
-    position: relative;
-    z-index: 2;
-    margin-top: 40px;
-  }
-
-  .home-more-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 4px 20px;
-    margin-bottom: 14px;
-  }
-
-  .home-more-heading {
-    margin: 0;
-    color: var(--color-ink);
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-stretch: 112%;
-    font-weight: 800;
-    line-height: 1.2;
-    letter-spacing: -0.015em;
-  }
-
-  .home-more-action,
   .home-section-action {
     display: inline-flex;
     min-height: 44px;
@@ -137,7 +451,6 @@
     text-underline-offset: 4px;
   }
 
-  .home-more-action:hover,
   .home-section-action:hover {
     color: #fff;
     text-decoration-color: var(--color-ice);
@@ -267,13 +580,6 @@
     padding-block: clamp(56px, 6vw, 80px) clamp(64px, 7vw, 104px);
   }
 
-  .home-pair {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 64px;
-  }
-
-  .home-pair > *,
   .home-sections > * {
     min-width: 0;
   }
@@ -333,7 +639,7 @@
     margin: 8px 0 0;
   }
 
-  .home-notice h3 {
+  .home-notice :is(h2, h3, h4) {
     font-size: 1.125rem;
   }
 
@@ -345,177 +651,6 @@
 
   /* The days as a row of instrument keys: weekday, date, month and the count with the calendar's
      interest dot. The chosen day is ringed in ice, a shape as well as a light. */
-  .home-days {
-    display: grid;
-    grid-auto-columns: minmax(74px, 1fr);
-    grid-auto-flow: column;
-    gap: 8px;
-    margin: 0 0 22px;
-    padding: 3px 3px 6px;
-    overflow-x: auto;
-    list-style: none;
-    scrollbar-width: thin;
-  }
-
-  .home-day {
-    position: relative;
-    display: grid;
-    width: 100%;
-    justify-items: center;
-    gap: 2px;
-    border: 1px solid var(--color-line);
-    border-radius: 6px;
-    padding: 10px 6px 9px;
-    color: var(--color-muted);
-    background: var(--control);
-    font-stretch: 75%;
-    font-weight: 700;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .home-day:hover {
-    border-color: var(--line-ice-strong);
-    background: var(--control-hover);
-  }
-
-  .home-day[aria-pressed="true"] {
-    border-color: var(--g-ice);
-    color: var(--color-ice-light);
-    background: color-mix(in srgb, var(--color-ice) 9%, var(--control));
-    box-shadow:
-      inset 0 2px 0 var(--g-ice),
-      0 0 0 1px var(--g-ice);
-  }
-
-  .home-day-weekday {
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .home-day[data-today] .home-day-weekday {
-    color: var(--g-ice);
-    text-transform: none;
-  }
-
-  .home-day-number {
-    color: var(--color-ink);
-    font-size: 1.625rem;
-    line-height: 1.05;
-  }
-
-  .home-day-month {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-  }
-
-  .home-day-count {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: 6px;
-    color: var(--color-ink);
-    font-size: 0.8125rem;
-  }
-
-  .home-day-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--density, var(--g-steel));
-    box-shadow: 0 0 8px -1px var(--density, transparent);
-  }
-
-  .home-day[data-density="1"] { --density: var(--color-density-1); }
-  .home-day[data-density="2"] { --density: var(--color-density-2); }
-  .home-day[data-density="3"] { --density: var(--color-density-3); }
-  .home-day[data-density="4"] { --density: var(--color-density-4); }
-
-  .home-day-skeleton {
-    height: 96px;
-    border-radius: 6px;
-  }
-
-  .home-day-panel {
-    display: grid;
-    gap: 14px;
-  }
-
-  .home-day-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 12px;
-  }
-
-  .home-day-title {
-    margin: 0;
-    color: var(--color-ink);
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-
-  .home-day-total {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-  }
-
-  .home-day-games {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .home-day-game {
-    display: grid;
-    align-content: start;
-    gap: 9px;
-  }
-
-  .home-day-game-title {
-    font-size: 0.875rem;
-  }
-
-  .home-day-game-title a {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .home-day-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 22px;
-  }
-
-  .home-day-action {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    gap: 6px;
-    color: var(--color-ice-light);
-    font-size: 0.8125rem;
-    font-weight: 650;
-  }
-
-  .home-day-action:hover {
-    color: #fff;
-  }
-
-  .home-day-calendar {
-    font-size: 0.8125rem;
-  }
-
-  /* ---------------------------------------------------------------- TOPómetro preview */
-
   .home-topometro-lockup {
     display: block;
     width: auto;
@@ -529,52 +664,101 @@
   }
 
   /* One night control parted in two: the chosen source lit in ice and announced as pressed. */
-  .home-sources {
-    display: inline-flex;
-    max-width: 100%;
-    flex-wrap: wrap;
-    gap: 3px;
-    margin-bottom: 8px;
-    border: 1px solid var(--color-line);
-    border-radius: 6px;
-    padding: 3px;
-    background: var(--control);
+  .home-podium-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 4vw, 3rem);
   }
 
-  .home-source {
-    display: inline-flex;
-    min-height: 40px;
+  .home-podium-source { min-width: 0; }
+
+  .home-podium-head {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 9px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 6px 13px;
-    color: var(--color-muted);
-    background: transparent;
-    font-size: 0.8125rem;
-    font-weight: 650;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block-end: 0.75rem;
+    border-bottom: 1px solid var(--color-line);
   }
 
-  .home-source:hover {
-    color: var(--color-ink);
-  }
-
-  .home-source[aria-pressed="true"] {
-    border-color: var(--line-ice-strong);
-    color: var(--color-ice-light);
-    background: color-mix(in srgb, var(--color-ice) 10%, var(--control));
+  .home-podium-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1rem;
   }
 
   .home-source-mark {
-    display: block;
+    display: inline-grid;
+    min-width: 20px;
     width: auto;
-    height: 18px;
+    height: 20px;
     flex: none;
+    place-items: center;
   }
 
-  .home-source-mark svg {
-    width: auto;
-    height: 100%;
+  .home-source-mark svg { display: block; width: 20px; height: 20px; }
+
+  .home-podium-switch,
+  .home-podium-mobile-link { display: none; }
+
+  @media (max-width: 760px) {
+    .home-topometro { position: relative; }
+    .home-topometro > .home-section-head { padding-inline-end: 7rem; }
+
+    .home-podium-mobile-link {
+      position: absolute;
+      inset: 0 0 auto auto;
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+    }
+
+    .home-podium-switch {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.25rem;
+      margin-bottom: 0.5rem;
+      border: 1px solid var(--color-line);
+      border-radius: 6px;
+      padding: 0.1875rem;
+      background: var(--color-surface);
+    }
+
+    .home-podium-switch .button {
+      gap: 0.375rem;
+      border-color: transparent;
+      padding: 0.375rem;
+      background: transparent;
+      text-align: start;
+      cursor: pointer;
+    }
+
+    .home-podium-switch .button[aria-pressed="true"] {
+      border-color: var(--line-ice-strong);
+      background: var(--control-hover);
+      color: var(--color-ice-light);
+    }
+
+    .home-podium-switch img.home-source-mark { width: 30px; }
+    .home-podium-grid { grid-template-columns: minmax(0, 1fr); }
+    .home-podium-source[data-mobile-active="false"] { display: none; }
+    .home-podium-head { display: block; border: 0; padding: 0; }
+    .home-podium-head > .home-section-action { display: none; }
+
+    .home-podium-head h3 {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .home-podium-switch .button[aria-pressed="true"] { border-color: Highlight; }
   }
 
   .home-podium {
@@ -988,22 +1172,11 @@
     margin-bottom: 26px;
   }
 
-  .home-week-loading .home-more-list {
-    margin-top: 34px;
-  }
 
-  .home-week-loading .home-more-card {
-    gap: 12px;
-  }
 
   /* ---------------------------------------------------------------- Responsive */
 
   @media (min-width: 1024px) {
-    .home-pair {
-      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-      align-items: start;
-      gap: 56px;
-    }
 
     .home-personal {
       grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
@@ -1040,8 +1213,7 @@
       border-top: 1px solid var(--color-line);
     }
 
-    .home-more-card,
-    .home-week-loading .home-more-card {
+    .home-more-card {
       grid-template-columns: 136px minmax(0, 1fr);
       align-items: center;
       gap: 14px;
@@ -1051,64 +1223,21 @@
 
   /* Phones: one column read top to bottom, each preview at the size of a thumb's reach. */
   @media (max-width: 619px) {
-    .home-feature .featured-hero-actions {
-      width: 100%;
-      margin-top: 4px;
-    }
 
-    .home-feature .featured-hero-actions .button {
-      flex: 1 1 140px;
-    }
 
-    .home-more {
-      margin-top: 30px;
-    }
 
-    .home-more-card,
-    .home-week-loading .home-more-card {
+    .home-more-card {
       grid-template-columns: 120px minmax(0, 1fr);
     }
 
-    .home-pair {
-      gap: 56px;
-    }
 
     /* Covers run sideways inside the preview, never the page. */
-    .home-day-games {
-      grid-auto-columns: minmax(124px, 40%);
-      grid-auto-flow: column;
-      grid-template-columns: none;
-      padding-bottom: 6px;
-      overflow-x: auto;
-      scroll-snap-type: x proximity;
-      scrollbar-width: thin;
-    }
 
-    .home-day-games > li {
-      scroll-snap-align: start;
-    }
 
-    .home-days {
-      grid-auto-columns: minmax(66px, 1fr);
-    }
 
     /* The two sources share the row equally; a long name wraps inside its half. */
-    .home-sources {
-      display: grid;
-      width: 100%;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 
-    .home-source {
-      justify-content: center;
-      padding-inline: 8px;
-      line-height: 1.2;
-      text-align: left;
-    }
 
-    .home-day-number {
-      font-size: 1.375rem;
-    }
 
     .home-rank,
     .home-rank[data-place="1"] {
@@ -1172,8 +1301,7 @@
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .home-more-card,
-    .home-week-loading .home-more-card {
+    .home-more-card {
       grid-template-columns: 108px minmax(0, 1fr);
     }
   }
@@ -1199,8 +1327,6 @@
       transform: scale(1.035);
     }
 
-    .home-day,
-    .home-source,
     .home-platform,
     .home-platform-primary {
       transition:
@@ -1209,11 +1335,6 @@
         background-color var(--duration-fast) var(--ease-out);
     }
 
-    .home-day:active {
-      transform: translateY(1px);
-    }
-
-    .home-day-games > li,
     .home-podium > li {
       animation: fade-in 420ms var(--ease-out) backwards;
     }
@@ -1228,13 +1349,11 @@
 
     .home-primary-chevron,
     .home-platform-primary .home-chevron,
-    .home-feature .featured-hero-actions .home-chevron,
     .home-personal-link .home-chevron {
       transition: translate var(--duration-normal) var(--ease-out);
     }
 
     .home-platform-primary:hover .home-chevron,
-    .home-feature .featured-hero-actions a:hover .home-chevron,
     .home-personal-link:hover .home-chevron {
       translate: 3px 0;
     }
@@ -1242,32 +1361,17 @@
 
   /* ---------------------------------------------------------------- Forced colours */
 
-  /* Destacados's hero keeps its own forced-colour rules; every edge and name here stays in system
-     colours. */
   @media (forced-colors: active) {
     .home-thermal-steps li::before {
       background: CanvasText;
       box-shadow: none;
     }
 
-    .home-day,
-    .home-source,
     .home-platform,
     .home-platform-primary,
     .home-personal {
       border-color: ButtonText;
       background: Canvas;
-      box-shadow: none;
-    }
-
-    .home-day[aria-pressed="true"],
-    .home-source[aria-pressed="true"] {
-      outline: 2px solid Highlight;
-      outline-offset: -2px;
-    }
-
-    .home-day-dot {
-      background: CanvasText;
       box-shadow: none;
     }
 

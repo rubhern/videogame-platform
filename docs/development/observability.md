@@ -39,7 +39,7 @@ with a dedicated short statement timeout; health details remain hidden.
   records successful page yield for the closed
   `releaseDate`/`hype`/`rating`/`externalPlayerScore` vocabulary (#285, replacing the retired `view` label).
 - `catalogue.release.calendar.days{month}` records, per successful calendar read (#250), how
-  many days of the served month hold a release; `month` is `current` or `later`, already in the
+  many days of the served month hold a release; `month` is `past`, `current` or `later`, already in the
   Prometheus label allowlist. No month value, day, game or filter is a tag.
 - `catalogue.featured.selection{status,freshness,granularity,period,lead_image}` counts
   successful featured reads (#151, #329): `status` is `ranked`, `popularity_unavailable` or

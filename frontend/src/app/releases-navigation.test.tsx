@@ -66,11 +66,11 @@ it("supports Enter, Space, Tab, Escape with focus return, blur and outside dismi
 
 it("closes after navigation, including history and a same-page selection, and preserves explorer filters", async () => {
   const user = userEvent.setup();
-  const { router } = renderNavigation("/lanzamientos?sort=hype&platformIds=pc&page=2");
+  const { router } = renderNavigation("/lanzamientos?sort=releaseDate&platformIds=pc&page=2");
   const getTrigger = () => screen.getByRole("button", { name: "Lanzamientos" });
   await user.click(getTrigger());
   const explore = screen.getByRole("link", { name: "Explorar" });
-  expect(explore).toHaveAttribute("href", "/lanzamientos?sort=hype&platformIds=pc");
+  expect(explore).toHaveAttribute("href", "/lanzamientos?sort=releaseDate&platformIds=pc");
   expect(explore).toHaveAttribute("aria-current", "page");
   await user.click(explore);
   expect(getTrigger()).toHaveAttribute("aria-expanded", "false");

@@ -9,7 +9,7 @@ import { calendarDay } from "./releases-search";
  * calendar arithmetic over contract strings; the browser's clock never decides "today".
  */
 
-/** 0 is a day without releases; 1 to 4 run from lowest to highest daily total Hype. */
+/** The five calendar bands, from the grey base to the highest daily total Hype. */
 export type DensityLevel = 0 | 1 | 2 | 3 | 4;
 
 /**
@@ -23,7 +23,7 @@ export const DEFAULT_INTEREST_THRESHOLDS: readonly number[] = [10, 30, 100, 150]
 export const DEFAULT_DAY_PREVIEW_SIZE = 3;
 
 /** Qualitative equivalent of colour, also exposed as the day's accessible description. */
-export const HYPE_LABELS = ["Sin destacados", "Interés bajo", "Interés moderado", "Interés alto", "Interés muy alto"] as const;
+export const EXPECTATION_LABELS = ["Expectación 1 de 5", "Expectación 2 de 5", "Expectación 3 de 5", "Expectación 4 de 5", "Expectación 5 de 5"] as const;
 
 export function densityLevel(
   totalHype: number,
@@ -65,6 +65,7 @@ export type ReleaseCalendarModel = {
   activeDays: CalendarDay[];
   /** Days holding at least one release. */
   daysWithReleases: number;
+  interestThresholds: readonly number[];
   /** How many leading games a chosen day previews, as the operator set it. */
   dayPreviewSize: number;
   /** Months that may be requested, oldest first, and the adjacent ones. */
@@ -221,6 +222,7 @@ export function toReleaseCalendarModel(calendar: ReleaseCalendar): ReleaseCalend
     days,
     activeDays: days.filter((day) => !day.past),
     daysWithReleases: calendar.days.length,
+    interestThresholds: calendar.presentation.interestThresholds,
     dayPreviewSize: calendar.presentation.dayPreviewSize,
     months: monthsBetween(first, last),
     previous: previous ?? null,

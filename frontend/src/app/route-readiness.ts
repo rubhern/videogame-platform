@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect, replace, type LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
-import { HOME_FEATURED_SEARCH, HOME_PATH, legacyHomeRedirect } from "../features/home/home-path";
+import { HOME_PATH, legacyHomeRedirect, readHomeSearch } from "../features/home/home-path";
 import { getRatingInsights } from "../features/ratings/rating-insights-api";
 import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
 import { FEATURED_PATH, readFeaturedSearch } from "../features/releases/featured-search";
@@ -11,7 +11,6 @@ import { featuredReleasesQueryOptions } from "../features/releases/use-featured-
 import { releasesQueryOptions } from "../features/releases/use-releases-query";
 import {
   CALENDAR_PATH,
-  defaultCalendarSearch,
   readCalendarSearch,
   toCalendarQuery,
 } from "../features/releases/release-calendar-search";
@@ -30,7 +29,6 @@ import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
 import {
   explorerRequestSearch,
-  featuredRequestPlatforms,
 } from "../features/platform-preferences/discovery-requests";
 import {
   loadInterests,
@@ -82,8 +80,7 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
     const legacy = url.pathname === HOME_PATH ? legacyHomeRedirect(url.searchParams) : null;
     if (legacy !== null) return replace(legacy);
     if (url.pathname === HOME_PATH) {
-      // The home (#382) previews Destacados and the calendar under the visitor's preferences, as
-      // they read them, so it is a way into discovery too: the first-run choice is offered here
+      // The home is a way into discovery too: the first-run choice is offered here
       // once per document, and returns here. Its bounded public reads run side by side and share
       // their destinations' cache entries, so Back restores its height; a failed one only leaves
       // its own preview to retry.
@@ -91,13 +88,16 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
       const preferences = queryClient.getQueryData<PlatformPreferences>(PLATFORM_PREFERENCES_QUERY_KEY);
       if (!welcomeOffered && preferences?.configured === false) {
         welcomeOffered = true;
-        return redirect(welcomePath(HOME_PATH));
+        return redirect(welcomePath(url.pathname + url.search));
       }
-      const platformIds = featuredRequestPlatforms(interestsSwitch.enabled(), interests);
+      const { featured, platformKey } = readHomeSearch(url.searchParams);
+      const platform = platformKey === undefined ? null : await readPlatformContext(queryClient, platformKey);
+      const { platformIds } = resolvePlatformFilter(platform?.platformIds ?? [], interestsSwitch.enabled(), interests);
       await Promise.all([
-        queryClient.prefetchQuery(featuredReleasesQueryOptions(HOME_FEATURED_SEARCH, platformIds)),
-        queryClient.prefetchQuery(releaseCalendarQueryOptions(toCalendarQuery(defaultCalendarSearch, platformIds))),
-        queryClient.ensureInfiniteQueryData(gameRankingQueryOptions(DEFAULT_RANKING_SOURCE)).catch(() => undefined),
+        queryClient.prefetchQuery(featuredReleasesQueryOptions(featured, platformIds)),
+        ...([DEFAULT_RANKING_SOURCE, "gameometro"] as const).map((source) =>
+          queryClient.ensureInfiniteQueryData(gameRankingQueryOptions(source)).catch(() => undefined),
+        ),
         queryClient.prefetchQuery(platformListQueryOptions()),
       ]);
     } else if (url.pathname === FEATURED_PATH || url.pathname === RELEASES_PATH || url.pathname === CALENDAR_PATH) {
@@ -109,10 +109,15 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
       }
       if (url.pathname === FEATURED_PATH) {
         const search = readFeaturedSearch(url.searchParams);
+        const platform = search.platform === undefined ? null : await readPlatformContext(queryClient, search.platform);
         await queryClient.prefetchQuery(
           featuredReleasesQueryOptions(
             search,
-            featuredRequestPlatforms(interestsSwitch.enabled(), interests),
+            resolvePlatformFilter(
+              platform?.platformIds ?? [],
+              interestsSwitch.enabled(),
+              interests,
+            ).platformIds,
           ),
         );
       } else if (url.pathname === CALENDAR_PATH) {

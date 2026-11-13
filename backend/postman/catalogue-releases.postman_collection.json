@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 4.3.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game over an inclusive date range, and for GET /api/v1/release-calendar, the per-day game counts of one month through the generated ReleaseCalendarApi. Each release item is one game with its matching releases, and pagination counts games; a highlights-calendar day counts only games with local IGDB Hypes >= 10, while the explorer lists every qualifying game. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the release explorer and calendar contracts implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game over an inclusive date range, and for GET /api/v1/release-calendar, the per-day game counts of one month through the generated ReleaseCalendarApi. Each release item is one game with its matching releases, and pagination counts games; the calendar and explorer count the same qualifying games for a single day. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1325,7 +1325,7 @@
               "",
               "pm.test(\"Response follows the reviewed release-calendar contract\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\");",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\", \"presentation\");",
               "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
               "    pm.expect(body.window.to.startsWith(body.month)).to.be.true;",
               "    pm.expect(body.navigation.first <= body.month && body.month <= body.navigation.last).to.be.true;",
@@ -1335,7 +1335,7 @@
               "        pm.expect(day.date >= body.window.from && day.date <= body.window.to, \"a day of the month\").to.be.true;",
               "        pm.expect(day.date > previous, \"ascending and unique\").to.be.true;",
               "        pm.expect(day.gameCount).to.be.a(\"number\").and.at.least(1);",
-              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(day.gameCount * 10);",
+              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(0);",
               "        previous = day.date;",
               "    });",
               "});",
@@ -1355,7 +1355,19 @@
               "    pm.expect(body.activeFilters).to.eql({ platformIds: [], regionIds: [] });",
               "});",
               "",
-              "pm.collectionVariables.set(\"calendarNextMonth\", pm.response.json().navigation.next || pm.response.json().month);"
+              "const calendar = pm.response.json();",
+              "pm.collectionVariables.set(\"calendarNextMonth\", calendar.navigation.next || calendar.month);",
+              "const day = calendar.days[0];",
+              "if (day) {",
+              "    const baseUrl = pm.variables.replaceIn(\"{{baseUrl}}\");",
+              "    pm.sendRequest(baseUrl + \"/api/v1/releases?from=\" + day.date + \"&to=\" + day.date + \"&sort=hype&pageSize=1\", function (error, response) {",
+              "        pm.test(\"The calendar and explorer count the same games for the day\", function () {",
+              "            pm.expect(error).to.not.exist;",
+              "            pm.expect(response.code).to.eql(200);",
+              "            pm.expect(response.json().page.totalItems).to.eql(day.gameCount);",
+              "        });",
+              "    });",
+              "}"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -1382,7 +1394,7 @@
             "release-calendar"
           ]
         },
-        "description": "Per-day game counts of the current month in Europe/Madrid. Only exact days from today on are counted; month, quarter, year and unknown dates never are. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+        "description": "Per-day game counts of the current month in Europe/Madrid, from today on. Each day counts every matching game with an exact-date release. The interest sum can be zero."
       },
       "response": []
     },
@@ -1399,7 +1411,7 @@
               "",
               "pm.test(\"Response follows the reviewed release-calendar contract\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\");",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"navigation\", \"activeFilters\", \"availableFilters\", \"days\", \"presentation\");",
               "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
               "    pm.expect(body.window.to.startsWith(body.month)).to.be.true;",
               "    pm.expect(body.navigation.first <= body.month && body.month <= body.navigation.last).to.be.true;",
@@ -1409,7 +1421,7 @@
               "        pm.expect(day.date >= body.window.from && day.date <= body.window.to, \"a day of the month\").to.be.true;",
               "        pm.expect(day.date > previous, \"ascending and unique\").to.be.true;",
               "        pm.expect(day.gameCount).to.be.a(\"number\").and.at.least(1);",
-              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(day.gameCount * 10);",
+              "        pm.expect(day.totalHype).to.be.a(\"number\").and.at.least(0);",
               "        previous = day.date;",
               "    });",
               "});",
@@ -1461,7 +1473,59 @@
             }
           ]
         },
-        "description": "A later month inside the forward acquisition bound, narrowed to one platform. A day's highlighted-game count may be smaller than the full explorer's total for that day and filters. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+        "description": "A later month inside the configured bound, narrowed to one platform. Each day's count matches the explorer for that date and platform."
+      },
+      "response": []
+    },
+    {
+      "name": "Release calendar including past days",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Timeline mode serves the current month inside the featured bounds\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.month).to.eql(body.evaluatedOn.slice(0, 7));",
+              "    pm.expect(body.navigation.first <= body.month).to.be.true;",
+              "    pm.expect(body.days.length).to.be.at.most(31);",
+              "    body.days.forEach(function (day) {",
+              "        pm.expect(day.date >= body.window.from && day.date <= body.window.to).to.be.true;",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/release-calendar?includePast=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "release-calendar"
+          ],
+          "query": [
+            {
+              "key": "includePast",
+              "value": "true"
+            }
+          ]
+        },
+        "description": "Read the entire month for the home timeline, including elapsed days."
       },
       "response": []
     },
@@ -1519,7 +1583,7 @@
             }
           ]
         },
-        "description": "Navigation never goes back: any month before the current one is an invalid filter. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+        "description": "Navigation never goes back: any month before the current one is an invalid filter."
       },
       "response": []
     },
@@ -1573,7 +1637,7 @@
             }
           ]
         },
-        "description": "Demonstrates the stable product validation error for a region outside the local taxonomy. Counts only highlights (local IGDB Hypes >= 10); lower or missing Hype is excluded."
+        "description": "Demonstrates the stable product validation error for a region outside the local taxonomy."
       },
       "response": []
     },

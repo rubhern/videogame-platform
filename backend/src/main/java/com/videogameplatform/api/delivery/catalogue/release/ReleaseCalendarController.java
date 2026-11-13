@@ -42,13 +42,18 @@ public class ReleaseCalendarController implements ReleaseCalendarApi {
     /** The contract pattern has already rejected a malformed month. */
     @Override
     public ResponseEntity<ReleaseCalendar> getReleaseCalendar(
-            String month, Set<String> platformIds, Set<String> regionIds, String ifNoneMatch) {
+            String month,
+            Boolean includePast,
+            Set<String> platformIds,
+            Set<String> regionIds,
+            String ifNoneMatch) {
         ReleaseCalendarResult result =
                 useCase.browse(
                         new BrowseReleaseCalendarUseCase.Query(
                                 Optional.ofNullable(month).map(YearMonth::parse),
                                 toList(platformIds),
-                                toList(regionIds)));
+                                toList(regionIds),
+                                Boolean.TRUE.equals(includePast)));
         ReleaseCalendar body = toResponse(result);
         String entityTag = conditionalRequests.strongEntityTag(body);
 

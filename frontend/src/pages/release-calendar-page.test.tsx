@@ -103,7 +103,7 @@ function stub({ calendar: onCalendar, releases }: Routes) {
     if (url.pathname === "/api/v1/releases") {
       const from = url.searchParams.get("from") ?? "2026-11-13";
       if (releases !== undefined) return releases(url.searchParams);
-      const body = dayPage(from, from === "2026-11-20" ? 31 : 6);
+      const body = dayPage(from, from === "2026-11-20" ? 31 : 2);
       const size = Number(url.searchParams.get("pageSize") ?? 3);
       return Response.json({ ...body, items: body.items.slice(0, size), page: { ...body.page, size, totalPages: Math.ceil(body.page.totalItems / size) } });
     }
@@ -131,7 +131,7 @@ describe("release calendar page", () => {
     renderApp("/lanzamientos/calendario?month=2026-11");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Calendario de destacados" }),
+      await screen.findByRole("heading", { level: 1, name: "Calendario de lanzamientos" }),
     ).toBeInTheDocument();
     const grid = await screen.findByRole("table", { name: "Lanzamientos de Noviembre 2026" });
     const headers = within(grid).getAllByRole("columnheader").map((header) => header.getAttribute("abbr"));
@@ -139,11 +139,11 @@ describe("release calendar page", () => {
     // 1 November 2026 is a Sunday, the last column of the first week.
     const firstWeek = within(grid).getAllByRole("row")[1];
     expect(firstWeek?.querySelectorAll("td")[6]).toContainElement(
-      screen.getByRole("button", { name: "domingo, 1 de noviembre de 2026: 2 lanzamientos" }),
+      screen.getByRole("button", { name: /domingo, 1 de noviembre de 2026: 2 lanzamientos/ }),
     );
-    expect(screen.getByRole("button", { name: "viernes, 20 de noviembre de 2026: 31 lanzamientos" }))
+    expect(screen.getByRole("button", { name: /viernes, 20 de noviembre de 2026: 31 lanzamientos/ }))
       .toHaveAttribute("data-density", "4");
-    expect(screen.getByRole("button", { name: "domingo, 1 de noviembre de 2026: 2 lanzamientos" })).toHaveAccessibleDescription("Interés bajo");
+    expect(screen.getByRole("button", { name: /domingo, 1 de noviembre de 2026: 2 lanzamientos/ })).toHaveAccessibleDescription("Expectación 2 de 5");
     expect(screen.getByRole("button", { name: "lunes, 2 de noviembre de 2026: sin lanzamientos" }))
       .toHaveAttribute("data-density", "0");
 
@@ -157,17 +157,29 @@ describe("release calendar page", () => {
     expect(preview?.get("to")).toBe("2026-11-01");
     expect(preview?.get("sort")).toBe("hype");
     expect(preview?.has("featuredOnly")).toBe(false);
-    expect(preview?.get("pageSize")).toBe("2");
+    expect(preview?.get("pageSize")).toBe("3");
     expect(preview?.has("includeApproximateDates")).toBe(false);
   });
 
-  it("previews only the leading highlighted game when the full day has more releases", async () => {
-    const fetchMock = stub({ calendar: () => Response.json(calendar({ days: [{ date: "2026-11-01", gameCount: 1, totalHype: 100 }] })) });
+  it("opens the next page of a day with releases in the grey band", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stub({
+      calendar: () => Response.json(calendar({ days: [{ date: "2026-11-01", gameCount: 4, totalHype: 0 }] })),
+      releases: (params) => Response.json({
+        ...dayPage("2026-11-01", 4),
+        ...(params.get("page") === "2" ? {
+          items: [game(4, "Fourth game", "2026-11-01")],
+          page: { number: 2, size: 3, totalItems: 4, totalPages: 2 },
+        } : {}),
+      }),
+    });
     renderApp("/lanzamientos/calendario?month=2026-11");
-    expect(await screen.findByRole("heading", { level: 3, name: "Voidbreakers" })).toBeVisible();
-    expect(screen.queryByRole("heading", { level: 3, name: "Tales of Elaris" })).not.toBeInTheDocument();
-    expect(queries(fetchMock, "/api/v1/releases")[0]?.get("pageSize")).toBe("1");
-    expect(screen.getByRole("link", { name: "Ver todos los lanzamientos del día" })).toHaveAttribute("href", "/lanzamientos?from=2026-11-01&to=2026-11-01&sort=hype");
+    expect(await screen.findByRole("button", { name: /4 lanzamientos, Expectación 1 de 5/ })).toHaveAttribute("data-density", "0");
+    expect(screen.getByRole("list", { name: "Niveles de expectación" }).children).toHaveLength(5);
+    await user.click(await screen.findByRole("link", { name: "Página siguiente" }));
+    expect(await screen.findByRole("heading", { name: "Fourth game" })).toBeVisible();
+    expect(screen.getByText("Página 2 de 2")).toBeVisible();
+    expect(queries(fetchMock, "/api/v1/releases").at(-1)?.get("page")).toBe("2");
   });
 
   it("chooses a day by click, keeps it in the URL and lists its three leading games", async () => {
@@ -179,14 +191,14 @@ describe("release calendar page", () => {
 
     expect(router.state.location.search).toBe("?month=2026-11&day=2026-11-20");
     expect(await screen.findByRole("heading", { level: 2, name: "Viernes, 20 de noviembre" })).toBeInTheDocument();
-    expect(await screen.findByText("31 lanzamientos · Mostrando 3")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Viernes, 20 de noviembre" })).getByRole("status")).toHaveTextContent("31 lanzamientos");
     const list = await screen.findByRole("list", { name: "Lanzamientos del viernes, 20 de noviembre" });
     const links = within(list).getAllByRole("link").filter((link) => link.textContent !== "");
     expect(links.map((link) => link.textContent)).toEqual(["Voidbreakers", "Tales of Elaris", "Neon Apex"]);
     expect(within(list).getAllByRole("list", { name: /Plataformas de/ })[0]).toHaveTextContent("PlayStation 5");
     expect(screen.getByRole("link", { name: /Ver todos los lanzamientos del día/ })).toHaveAttribute(
       "href",
-      "/lanzamientos?from=2026-11-20&to=2026-11-20&sort=hype",
+      "/lanzamientos?from=2026-11-20&to=2026-11-20",
     );
     expect(queries(fetchMock, "/api/v1/releases").at(-1)?.get("from")).toBe("2026-11-20");
     // Hype orders the preview and is never named or shown.
@@ -262,7 +274,7 @@ describe("release calendar page", () => {
     );
     expect(within(navigation).getByRole("link", { name: "Octubre 2026" })).toHaveAttribute("aria-current", "true");
     // An empty month is a notice, not a failure, and offers no day.
-    expect(await screen.findByRole("heading", { name: "Sin destacados con día confirmado" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Sin lanzamientos con día confirmado" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: /de octubre/ })).not.toBeInTheDocument();
   });
 

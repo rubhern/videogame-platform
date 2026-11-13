@@ -16,11 +16,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Framework-independent implementation of UC-016. The application alone knows today in {@code
- * Europe/Madrid}: it decides the current month, rejects any earlier month and any month beyond the
- * forward bound featured months share, and counts the month only from that date on: a day that has
- * gone by is never part of the calendar. The forward bound, the highlight minimum, the interest
- * thresholds and the day preview size come from one product settings snapshot (#450).
+ * Framework-independent implementation of UC-016. The dedicated calendar starts today in Madrid.
+ * The home timeline reads full months across the featured navigation bounds. Both use one product
+ * settings snapshot.
  */
 public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCase {
 
@@ -40,9 +38,14 @@ public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCas
         ProductSettings current = settings.current();
         FeaturedPeriodPolicy periodPolicy = FeaturedPeriodPolicy.of(current);
         LocalDate evaluatedOn = LocalDate.ofInstant(clock.instant(), clock.getZone());
-        YearMonth first = YearMonth.from(evaluatedOn);
-        YearMonth last = periodPolicy.lastMonth(evaluatedOn);
-        YearMonth month = query.month().orElse(first);
+        YearMonth currentMonth = YearMonth.from(evaluatedOn);
+        YearMonth first =
+                query.includePast() ? periodPolicy.firstTimelineMonth(evaluatedOn) : currentMonth;
+        YearMonth last =
+                query.includePast()
+                        ? periodPolicy.lastTimelineMonth(evaluatedOn)
+                        : periodPolicy.lastMonth(evaluatedOn);
+        YearMonth month = query.month().orElse(currentMonth);
         if (month.isBefore(first) || month.isAfter(last)) {
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.MONTH_OUT_OF_RANGE);
@@ -52,8 +55,8 @@ public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCas
         List<String> regionIds = ReleaseFilters.normalize(query.regionIds());
         LocalDate from = month.atDay(1);
         LocalDate to = month.atEndOfMonth();
-        // The current month is counted from today; a later month starts on its first day.
-        LocalDate countedFrom = from.isBefore(evaluatedOn) ? evaluatedOn : from;
+        LocalDate countedFrom =
+                !query.includePast() && from.isBefore(evaluatedOn) ? evaluatedOn : from;
         ReleaseCalendarReadPort.Result result =
                 readPort.countPublishedReleases(
                                 new ReleaseCalendarReadPort.Criteria(

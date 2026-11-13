@@ -21,15 +21,20 @@ import org.springframework.transaction.support.TransactionOperations;
  */
 public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarReadPort {
 
-    // A game counts once per day however many of its releases fall on it, so a day's count is the
-    // highlight-filtered explorer's game total for that single day without approximate dates.
     private static final String DAY_COUNTS =
-            "SELECT day_game.exact_date, count(*) AS game_count, sum(fe.hypes) AS total_hype"
-                    + " FROM (SELECT rs.exact_date, rs.game_id"
-                    + " FROM catalogue.release_snapshot rs WHERE %s AND rs.date_precision = 'day'"
-                    + " GROUP BY rs.exact_date, rs.game_id) day_game"
-                    + " JOIN catalogue.game_featured_evidence fe ON fe.game_id = day_game.game_id"
-                    + " GROUP BY day_game.exact_date ORDER BY day_game.exact_date";
+            """
+            SELECT day_game.exact_date, count(*) AS game_count,
+                   coalesce(sum(fe.hypes) FILTER (WHERE day_game.launch AND fe.hypes >= :minimumHypes), 0) AS total_hype
+            FROM (
+                SELECT rs.exact_date, rs.game_id, bool_or(rs.release_stage IN %s) AS launch
+                FROM catalogue.release_snapshot rs
+                WHERE %s
+                GROUP BY rs.exact_date, rs.game_id
+            ) day_game
+            LEFT JOIN catalogue.game_featured_evidence fe ON fe.game_id = day_game.game_id
+            GROUP BY day_game.exact_date
+            ORDER BY day_game.exact_date
+            """;
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -63,11 +68,13 @@ public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarRead
 
         // Exact days only, as the explorer reads a single day without approximate dates; the range
         // starts no earlier than the evaluation date, so no ended period can overlap it.
+        ReleaseRangeSql.RangePredicate explorerRange =
+                ReleaseRangeSql.range(
+                        criteria.from(), criteria.to(), criteria.evaluatedOn(), false);
         ReleaseRangeSql.RangePredicate range =
-                ReleaseRangeSql.highlights(
-                        ReleaseRangeSql.range(
-                                criteria.from(), criteria.to(), criteria.evaluatedOn(), false),
-                        criteria.minimumHypes());
+                new ReleaseRangeSql.RangePredicate(
+                        "(" + explorerRange.predicate() + ") AND rs.date_precision = 'day'",
+                        explorerRange.parameters());
         List<Taxonomy> platforms =
                 ReleaseRangeSql.facet(
                         jdbcOperations,
@@ -100,6 +107,7 @@ public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarRead
         predicates.add(ReleaseRangeSql.PUBLICATION_PREDICATE);
         parameters.put("publicationId", publicationId);
         predicates.add(range.predicate());
+        parameters.put("minimumHypes", criteria.minimumHypes());
         if (!validPlatformIds.isEmpty()) {
             predicates.add(ReleaseRangeSql.PLATFORM_PREDICATE);
             parameters.put("platformIds", ReleaseRangeSql.arrayLiteral(validPlatformIds));
@@ -112,7 +120,7 @@ public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarRead
 
         List<DayCount> days =
                 jdbcOperations.query(
-                        DAY_COUNTS.formatted(where),
+                        DAY_COUNTS.formatted(ReleaseAttentionSql.LAUNCH_STAGES, where),
                         parameters,
                         (resultSet, rowNumber) ->
                                 new DayCount(

@@ -74,30 +74,6 @@ const featured = {
   ],
 };
 
-const calendar = (month: string) => ({
-  month,
-  evaluatedOn: "2026-10-28",
-  window: month === "2026-10" ? { from: "2026-10-01", to: "2026-10-31" } : { from: "2026-11-01", to: "2026-11-30" },
-  navigation: month === "2026-10"
-    ? { first: "2026-10", last: "2027-03", next: "2026-11" }
-    : { first: "2026-10", last: "2027-03", previous: "2026-10", next: "2026-12" },
-  activeFilters: { platformIds: [], regionIds: [] },
-  availableFilters: { platforms: [PS5], regions: [WORLD] },
-  days: month === "2026-10"
-    ? [
-      { date: "2026-10-28", gameCount: 1, totalHype: 10 },
-      { date: "2026-10-29", gameCount: 5, totalHype: 284 },
-      { date: "2026-10-30", gameCount: 1, totalHype: 13 },
-    ]
-    : [
-      { date: "2026-11-03", gameCount: 2, totalHype: 54 },
-      { date: "2026-11-05", gameCount: 2, totalHype: 89 },
-      { date: "2026-11-10", gameCount: 1, totalHype: 10 },
-      { date: "2026-11-12", gameCount: 2, totalHype: 160 },
-    ],
-  presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
-});
-
 function dayReleases(day: string, size: number) {
   const titles = ["Phantom Blade Zero", "The Wolf Among Us Remastered", "Atmosfar", "Terrible Lizards"];
   return {
@@ -153,8 +129,7 @@ async function stubHome(page: Page, options: { session?: object; failFeatured?: 
     options.failFeatured
       ? route.fulfill({ status: 500, json: { code: "INTERNAL_ERROR", correlationId: "home-featured" } })
       : route.fulfill({ json: featured }));
-  await page.route("**/api/v1/release-calendar*", (route) =>
-    route.fulfill({ json: calendar(new URL(route.request().url()).searchParams.get("month") ?? "2026-10") }));
+  await page.route("**/api/v1/release-calendar?*", (route) => route.fulfill({ status: 503, json: { code: "CATALOGUE_NOT_READY" } }));
   await page.route("**/api/v1/releases?*", (route) => {
     const params = new URL(route.request().url()).searchParams;
     return route.fulfill({ json: dayReleases(params.get("from") ?? "", Number(params.get("pageSize"))) });
@@ -183,18 +158,25 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
     const lead = page.getByRole("article", { name: LEAD });
     await expect(lead.getByRole("heading", { level: 2 })).toHaveAccessibleName(LEAD);
-    for (const region of ["Más destacados de la semana", "Calendario de destacados", "TOPómetro", "Explora por plataforma", "Tu criterio. Tu historia."]) {
+    for (const region of ["Lanzamientos", "TOPómetro", "Explora por plataforma", "Tu criterio. Tu historia."]) {
       await expect(page.getByRole("region", { name: region })).toBeAttached();
     }
     await expect(page.getByRole("list", { name: "Podio de Jugadores IGDB" }).getByRole("article")).toHaveCount(3);
-    await expect(page.getByRole("list", { name: /Lanzamientos destacados del/ }).getByRole("article")).toHaveCount(4);
-
-    // The featured release and its actions open in the first view; the next section follows.
-    // The release's two ways out sit inside the hero, in the first view.
-    await expect(lead.getByRole("link", { name: `Ver ficha de ${LEAD}` })).toBeInViewport();
-    await expect(lead.getByRole("link", { name: "Ver destacados" })).toBeInViewport();
-    // Destacados's temporal G frames the release (the phone seal below 620px).
-    await expect(lead.locator(width < 620 ? ".featured-dial-emblem" : ".featured-dial-g")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Más destacados" }).getByRole("article")).toHaveCount(4);
+    await expect(lead.getByRole("link", { name: LEAD, exact: true })).toBeInViewport();
+    await expect(page.getByRole("link", { name: "Abrir Destacados" })).toBeInViewport();
+    await expect(lead.locator(".home-feature-art")).toBeVisible();
+    await expect(lead.locator(".home-feature-art img")).toHaveCSS("object-fit", "cover");
+    const podiums = page.locator(".home-podium-source");
+    const first = await podiums.nth(0).boundingBox();
+    const second = await podiums.nth(1).boundingBox();
+    expect(first).not.toBeNull();
+    if (width >= 761) {
+      expect(second?.y).toBe(first?.y);
+      await expect(page.getByRole("group", { name: "Puntuaciones del TOPómetro" })).toBeHidden();
+    } else {
+      expect(second).toBeNull();
+    }
     expect(await pageFits(page)).toBe(true);
     expect(await clipped(page)).toEqual([]);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
@@ -276,35 +258,111 @@ test("sign-in destination waits through the home loading surface and first-run w
   await reachHomeAfterSignIn(page, new URL(page.url()).origin);
 });
 
-test("keyboard reaches the featured release, chooses a calendar day and switches the TOPómetro source", async ({ page }) => {
+test("keyboard reaches the featured release, chooses a calendar day and reaches both TOPómetro podiums", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests = await stubHome(page);
   await page.goto("/");
 
-  const primary = page.getByRole("link", { name: `Ver ficha de ${LEAD}` });
+  const primary = page.getByRole("link", { name: LEAD, exact: true });
   await primary.focus();
-  await expect(primary).toHaveCSS("outline-style", "solid");
+  await expect(page.getByRole("article", { name: LEAD })).toHaveCSS("outline-style", "solid");
 
-  const calendar = page.getByRole("region", { name: "Calendario de destacados" });
-  await expect(calendar.getByRole("button", { pressed: true })).toHaveAccessibleName(/jueves, 29 de octubre/);
-  const november = calendar.getByRole("button", { name: /jueves, 12 de noviembre/ });
-  await november.focus();
-  await expect(november).toHaveCSS("outline-style", "solid");
+  const releases = page.getByRole("region", { name: "Lanzamientos" });
+  const platform = releases.getByRole("button", { name: "Plataforma Todas" });
+  await platform.focus();
   await page.keyboard.press("Enter");
-  await expect(november).toHaveAttribute("aria-pressed", "true");
-  await expect(calendar.getByRole("heading", { name: "Jueves, 12 de noviembre" })).toBeVisible();
-  expect(requests).toContain("/api/v1/releases?from=2026-11-12&to=2026-11-12&sort=hype&page=1&pageSize=2");
+  await expect(releases.getByRole("button", { name: "Mis plataformas" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(platform).toBeFocused();
+  const day = releases.getByRole("button", { name: /29 oct 2026/ });
+  await day.focus();
+  await expect(day).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Enter");
+  await expect(day).toHaveAttribute("aria-pressed", "true");
+  await expect(releases.getByRole("heading", { name: "Phantom Blade Zero" })).toBeVisible();
+  expect(requests).toContain("/api/v1/releases?from=2026-10-29&to=2026-10-29&sort=hype&page=1&pageSize=5");
 
   const topometro = page.getByRole("region", { name: "TOPómetro" });
-  await topometro.getByRole("button", { name: "Comunidad Gameómetro" }).focus();
-  await page.keyboard.press("Space");
+  await topometro.getByRole("link", { name: "Ver TOPómetro de Comunidad Gameómetro" }).focus();
   await expect(topometro.getByRole("list", { name: "Podio de Comunidad Gameómetro" })).toBeVisible();
   await expect(topometro.getByText("1 puntuación").first()).toBeVisible();
 
   // A game opened from the home names the home as its way back.
-  await topometro.getByRole("link", { name: "Puesto 1: The Witcher 3: Wild Hunt" }).focus();
+  await topometro.getByRole("list", { name: "Podio de Jugadores IGDB" }).getByRole("link", { name: "Puesto 1: The Witcher 3: Wild Hunt" }).focus();
   await expect(page.locator(".home-rank").first()).toBeVisible();
+});
+
+test("phone keeps the controls, month rail and summary compact and switches podiums", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await stubHome(page);
+  await page.route("**/api/v1/featured-releases?granularity=month", (route) => route.fulfill({ json: {
+    ...featured,
+    granularity: "month",
+    month: "2026-11",
+    window: { from: "2026-11-01", to: "2026-11-30" },
+  } }));
+  await page.route("**/api/v1/release-calendar?month=2026-11*", (route) => route.fulfill({ json: {
+    month: "2026-11",
+    evaluatedOn: "2026-10-28",
+    window: { from: "2026-11-01", to: "2026-11-30" },
+    navigation: { first: "2026-10", last: "2027-03" },
+    activeFilters: { platformIds: [], regionIds: [] },
+    availableFilters: { platforms: [], regions: [] },
+    days: [{ date: "2026-11-30", gameCount: 16, totalHype: 0 }],
+    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
+  } }));
+  await page.goto("/?inicio=mes");
+  const rail = page.getByRole("list", { name: "Semanas del mes" });
+  await expect(rail.getByRole("button")).toHaveCount(6);
+  const rowCount = await rail.getByRole("button").evaluateAll((buttons) =>
+    new Set(buttons.map((button) => button.getBoundingClientRect().top)).size,
+  );
+  expect(rowCount).toBe(1);
+  expect(await rail.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+
+  const platform = page.getByRole("button", { name: "Plataforma Todas" });
+  const featuredLink = page.getByRole("link", { name: "Abrir Destacados" });
+  expect((await platform.boundingBox())?.y).toBe((await featuredLink.boundingBox())?.y);
+  const disclosure = page.getByText("Expectación", { exact: true });
+  const summary = page.getByRole("status").filter({ hasText: "Noviembre 2026" });
+  await expect(disclosure).toBeVisible();
+  expect(Math.abs(((await disclosure.boundingBox())?.y ?? 0) - ((await summary.boundingBox())?.y ?? 0))).toBeLessThan(44);
+  await disclosure.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("list", { name: "Niveles de expectación" })).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("list", { name: "Niveles de expectación" })).toBeHidden();
+  const explore = await page.getByRole("link", { name: "Ver todos los lanzamientos" }).boundingBox();
+  const calendar = await page.getByRole("link", { name: "Ver calendario" }).boundingBox();
+  expect(explore).not.toBeNull();
+  expect(calendar).not.toBeNull();
+  expect(explore?.y).toBe(calendar?.y);
+  expect(await pageFits(page)).toBe(true);
+
+  const topometro = page.getByRole("region", { name: "TOPómetro" });
+  const igdb = topometro.getByRole("button", { name: "Jugadores IGDB" });
+  const community = topometro.getByRole("button", { name: "Comunidad Gameómetro" });
+  await expect(igdb).toHaveAttribute("aria-pressed", "true");
+  await expect(topometro.getByRole("list", { name: "Podio de Jugadores IGDB" })).toBeVisible();
+  await community.focus();
+  await page.keyboard.press("Space");
+  await expect(community).toHaveAttribute("aria-pressed", "true");
+  await expect(topometro.getByRole("list", { name: "Podio de Comunidad Gameómetro" })).toBeVisible();
+  await expect(topometro.getByRole("list", { name: "Podio de Jugadores IGDB" })).toBeHidden();
+  await expect(topometro.getByRole("link", { name: "Ver TOPómetro", exact: true })).toHaveAttribute("href", "/topometro?source=gameometro");
+});
+
+test("the artwork and open space in the hero link to the game", async ({ page }) => {
+  await stubHome(page);
+  await page.goto("/");
+  const lead = page.getByRole("article", { name: LEAD });
+  await expect(lead.getByRole("link", { name: /Jugadores IGDB: fuente/ })).toBeVisible();
+  const art = await lead.locator(".home-feature-art").boundingBox();
+  expect(art).not.toBeNull();
+  if (art === null) return;
+  await page.mouse.click(art.x + art.width - 25, art.y + 35);
+  await expect(page).toHaveURL(/\/games\/lead\/lead$/);
 });
 
 test("nothing moves under reduced motion and only one entrance runs otherwise", async ({ page }) => {
@@ -332,16 +390,14 @@ test("one failed preview leaves the rest of the home usable, also in forced colo
   await page.goto("/");
 
   const alert = page.getByRole("alert");
-  await expect(alert).toContainText("Destacados se ha tomado un respiro");
+  await expect(alert).toContainText("Los lanzamientos se han tomado un respiro");
   await expect(alert).toContainText("home-featured");
   await expect(page.getByRole("list", { name: "Podio de Jugadores IGDB" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Calendario de destacados" }).getByRole("button", { pressed: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ver calendario" })).toBeVisible();
   // As in the other journeys, measure normal-palette contrast before testing forced colours.
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-  await expect(page.getByRole("region", { name: "Calendario de destacados" }).getByRole("button", { pressed: true }))
-    .toHaveCSS("outline-style", "solid");
   expect(await pageFits(page)).toBe(true);
   expect(await clipped(page)).toEqual([]);
 });

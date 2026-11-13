@@ -8,7 +8,7 @@ import java.util.Optional;
 /** Outbound query port for one month's release counts from the current catalogue publication. */
 public interface ReleaseCalendarReadPort {
 
-    /** The approved local Hype a game needs to be counted on a day (#250). */
+    /** The approved local Hype a launch needs to contribute to the daily interest (#250). */
     long DEFAULT_MINIMUM_HYPES =
             com.videogameplatform.catalogue.application.releases.ReleaseHighlightsPolicy
                     .MINIMUM_HYPES;
@@ -19,8 +19,8 @@ public interface ReleaseCalendarReadPort {
     /**
      * The inclusive days to count, from the evaluation date or the month's first day to the month's
      * last day, classified exactly as {@link ReleaseBrowseReadPort.Criteria} classifies a range
-     * without approximate dates; only exact days count, and only games with at least {@code
-     * minimumHypes} local Hypes.
+     * without approximate dates. Every qualifying game counts; only a launch with at least
+     * {@code minimumHypes} contributes to the daily interest.
      */
     record Criteria(
             LocalDate from,
