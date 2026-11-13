@@ -1820,19 +1820,30 @@ visual direction.
 
 ## Private profile
 
-Post-MVP (#272), prepared for owner review: **Mi perfil** opens from the shared
-**Mi cuenta** actions at `/mi-perfil`. Use the plain night canvas, shared page opening
-and one narrow reading column, without artwork or instruments that have no value to show.
-Separate **Tu cuenta**, **Tus datos, contigo** and **Eliminar mi cuenta** with hairlines.
-Account facts show only email in a definition list, with an honest **No disponible**
-when absent; registration collects no name. **Mi perfil** carries a decorative account
-icon in both account menus. Existing personal
-and Keycloak security actions are links; export is one primary button with preparation,
-completion and failure states. Never render cached personal details without a current session.
+Post-MVP (#272, redesigned by #476 on the owner's explicit instruction of 2026-11-13):
+**Mi perfil** opens from the shared **Mi cuenta** actions at `/mi-perfil`. The screen is the
+visitor's own console on night. It shows no art and has no value for an instrument, so its
+opening is lit in ice alone, painted in CSS as the hosted identity screens light theirs, and the
+shared page opening keeps one short fire rule under the title as the screen's only warm accent.
+Three zones follow in one reading order — **Tu cuenta**, **Tus datos, contigo** and
+**Eliminar mi cuenta** — each an opaque night panel with a hairline and an ice top edge. From
+900px one ice channel descends their numbered markers and cools into the last zone's danger
+tone; from 1024px each zone reads across the width, the credential plate beside its destinations
+and a description beside the action it explains, and narrower screens stack them. The earlier
+narrow reading column and its hairline separators are retired.
 
-Deletion is a restrained danger outline, with consequences and backup/legal limitations in
-words. Keep its trigger visible when automation is unavailable, disabled and associated
-with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
+Account facts show only email, in a definition list on the credential plate beside a decorative
+account medallion, with an honest **No disponible** when absent; registration collects no name.
+**Mi perfil** carries a decorative account icon in both account menus. Existing personal
+and Keycloak security actions are the plate's destinations, each one link with a decorative
+arrow; export is one primary button with preparation, completion and failure states. Never
+render cached personal details without a current session; loading keeps one live status over
+placeholders shaped like the zones they replace.
+
+Deletion is a restrained danger outline, with its consequences in words. It states no backup or
+legal-retention limitation (owner decision, 2026-11-13): [the published legal texts](../legal/public-texts-es.md)
+own retention, and this screen does not restate it. Keep its trigger visible when automation is
+unavailable, disabled and associated with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
 literal **ELIMINAR**, offers recent authentication, and keeps the destructive action disabled
 until deliberate confirmation. Escape and cancellation restore trigger focus without a request.
 A failed command focuses its alert and cautions against repeating an uncertain request.

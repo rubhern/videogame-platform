@@ -44,6 +44,14 @@ describe("Mi perfil", () => {
     expect(screen.queryByText("Nombre")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cambiar contraseña" })).toHaveAttribute("href", "/auth/profile/security");
     expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toHaveAttribute("href", "/mis-puntuaciones");
+    expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
+  });
+  it("reads as three zones and states no backup or legal retention rule (#476)", async () => {
+    bff(); renderApp("/mi-perfil");
+    const zones = await screen.findAllByRole("heading", { level: 2 });
+    expect(zones.map(zone => zone.textContent)).toEqual(["Tu cuenta", "Tus datos, contigo", "Eliminar mi cuenta"]);
+    expect(screen.queryByText(/copias de seguridad/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/obligaciones legales/)).not.toBeInTheDocument();
   });
   it("hides every personal field without an authenticated session", async () => {
     bff({ authenticated: false, profile: { email: "private@example.test" } }); renderApp("/mi-perfil");
