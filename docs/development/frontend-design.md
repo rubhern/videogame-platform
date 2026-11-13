@@ -449,11 +449,16 @@ from Chromium and automated accessibility evidence.
   and then the story, with nothing decorative beside the form. The brand appears once, as the
   canonical lockup; no G watermark is drawn, since a G without a value is a pattern to avoid.
   Use the canonical local Mona Sans, Gameómetro branding and Spanish-first copy in the informal
-  voice. Inherit Keycloak's templates and account-flow logic: the theme adds only the story
-  through the footer hook, copy, local brand and font assets and styles. Do not reproduce the
-  catalogue header or introduce a React login screen. Keep registration prominent and
-  validation and recovery readable. Art for the stage remains an optional later iteration,
-  never a dependency of this composition.
+  voice. The lockup links to the application home. On registration, present the approved
+  notice in an initially collapsed native disclosure, with both legal links visible beside
+  the control. The links open in another tab. Keep the acknowledgement
+  visible and operable independently of the disclosure, with the conditions of use
+  emphasised in its label. The theme enhances the inherited
+  Keycloak markup; the complete notice remains readable when the theme script is unavailable.
+  Keycloak owns the templates and account-flow logic. Do not reproduce the catalogue header
+  or introduce a React login screen. Keep registration prominent and validation and recovery
+  readable. Art for the stage remains an optional later iteration, never a dependency of
+  this composition.
 
 - The user-facing product is **Gameómetro**, always accented in visible copy, the document
   title and branding (the [product decision](../product/assumptions-and-decisions.md) owns the

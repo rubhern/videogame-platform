@@ -1,8 +1,8 @@
 # Gameómetro: textos legales aprobados
 
-- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision. The consent-gated analytics amendments to the privacy policy and cookies sections ([#507](https://github.com/rubhern/videogame-platform/issues/507)) were drafted with agent assistance on 2026-11-09 and approved by the owner on 2026-11-11; they take effect when production serves the configured measurement ID.
+- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision. The consent-gated analytics amendments to the privacy policy and cookies sections ([#507](https://github.com/rubhern/videogame-platform/issues/507)) were drafted with agent assistance on 2026-11-09 and approved by the owner on 2026-11-11; they take effect when production serves the configured measurement ID. The owner approved revised registration eligibility and acceptance in #472; the revised wording takes effect on deployment.
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
-- **Scope:** Approved wording for a public, free, non-commercial, adult-only service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
+- **Scope:** Approved wording for a public, free, non-commercial service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
 These Spanish texts are the canonical source for public legal pages. The feedback additions require approval before public activation.
 Publish only the corresponding public sections through product routes; do not expose
@@ -27,7 +27,6 @@ Para prestar el servicio utilizamos proveedores externos de alojamiento y correo
 Las imágenes pueden cargarse desde un servicio externo. Algunos tratamientos pueden
 implicar transferencias internacionales, detalladas en la política de privacidad.
 
-Crear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso.
 La información de privacidad se facilita para que conozcas el tratamiento; no te
 pedimos que consientas tratamientos opcionales para utilizar tu cuenta.
 
@@ -52,9 +51,9 @@ Para crear y utilizar tu cuenta tratamos tu email, su estado de verificación,
 identificadores internos, fechas de la cuenta y la credencial protegida mediante un
 resumen criptográfico de la contraseña. No pedimos nombre, apellidos, fecha de
 nacimiento ni documento de identidad al registrarte. Debes verificar el email antes
-de usar la cuenta. El servicio está dirigido a mayores de 18 años, según tu
-declaración. Sin el email y los datos de autenticación no podemos ofrecerte una
-cuenta; puedes seguir consultando el catálogo.
+de usar la cuenta. Los requisitos de edad se indican en las condiciones de uso.
+Sin el email y los datos de autenticación no podemos ofrecerte una cuenta; puedes
+seguir consultando el catálogo.
 
 Guardamos tus puntuaciones, el juego al que corresponden y las fechas de creación y
 modificación. Tu lista personal no se publica. Cada puntuación contribuye a la media,
@@ -267,8 +266,8 @@ Rubén Hernández López, para descubrir videojuegos y conservar puntuaciones pe
 No incluye anuncios, afiliación, patrocinios, donaciones, ventas ni promoción profesional.
 El contacto es [hola@gameometro.com](mailto:hola@gameometro.com).
 
-Para registrarte debes tener 18 años o más, declarar esa circunstancia, aceptar
-estas condiciones y verificar tu email. No aportes datos de otra persona. Protege tu
+Para crear una cuenta debes tener al menos 14 años, aceptar estas condiciones
+y verificar tu email. No aportes datos de otra persona. Protege tu
 contraseña y avísanos si sospechas un acceso indebido. La recuperación de contraseña
 se realiza mediante los mensajes del proveedor de identidad; nunca te pediremos tu
 contraseña por email.

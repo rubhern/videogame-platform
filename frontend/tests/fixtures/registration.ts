@@ -2,7 +2,7 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 /**
  * Self-registration under the production identity policy, which the shared realm imports too:
- * the form asks only for the email and the adult/terms declaration, Keycloak sends a
+ * the form asks only for the email and the acceptance of the terms of use, Keycloak sends a
  * verification link, and the password is chosen after following it. The link is read from the
  * Mailpit sink of the identity topology (MAILPIT_API_ORIGIN).
  */

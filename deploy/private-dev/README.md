@@ -332,8 +332,8 @@ disposable copy of the realm. #374's Remember Me addition requires the matching
 shared provider image and BFF; its rollout is [reviewed separately below](#remember-me-rehearsal).
 
 The identity command applies, through the Admin API, the production settings for
-email sign-in, the email-only user profile, the mandatory 18+ registration
-declaration, email verification, the password policy, temporary brute-force lockout,
+email sign-in, the email-only user profile, mandatory acceptance of the terms of use,
+email verification, the password policy, temporary brute-force lockout,
 session and link lifetimes, the Spanish messages, no self-deletion or email change, and
 no stored or logged user events. For #374 it also snapshots and aligns only the BFF's
 **native remember me** mapper, refusing apply if the provider is absent from the image.
@@ -487,8 +487,8 @@ accounts without new mailboxes. Automated tests never use the relay. Record the
 outcome in #274 without addresses, message IDs or headers that identify a person.
 
 1. **Registration.** In a private browser window open the private application, choose
-   to sign in and then to register. Only the email and the 18+ declaration are asked
-   for; submitting without the declaration is refused and creates nothing.
+   to sign in and then to register. Registration requires an email and acceptance of the terms.
+   Submitting without acceptance creates no account.
 2. **Verification.** The verification email arrives from
    `no-reply@mail.gameometro.com` with `Reply-To: hola@gameometro.com`; check that it
    carries no provider branding and that the mailbox's original-message view reports

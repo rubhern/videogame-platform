@@ -119,23 +119,23 @@ assert {execution["authenticator"]: execution["requirement"] for execution in fo
     "registration-user-creation": "REQUIRED",
     "registration-password-action": "REQUIRED",
     "registration-terms-and-conditions": "REQUIRED",
-}, "registration needs the declaration and no third-party captcha"
+}, "registration needs terms acceptance and no third-party captcha"
 top = flows["gameometro registration"]["authenticationExecutions"]
 assert [(step["authenticator"], step["flowAlias"], step["requirement"]) for step in top] == [
     ("registration-page-form", "gameometro registration form", "REQUIRED")
 ]
 
-declaration = realm["localizationTexts"]["es"]
-assert "18 años" in declaration["acceptTerms"] and "condiciones" in declaration["acceptTerms"]
-assert "18 años" in declaration["termsAcceptanceRequired"]
-assert 'href="https://${APPLICATION_PUBLIC_HOST}/privacidad"' in declaration["termsText"]
-assert 'href="https://${APPLICATION_PUBLIC_HOST}/condiciones"' in declaration["termsText"]
-assert "Responsable: Rubén Hernández López" in declaration["termsText"]
-assert "Texto aprobado" not in declaration["termsText"]
-assert "email" in declaration["emailInstruction"] and "usuario" not in declaration["emailInstruction"]
+spanish = realm["localizationTexts"]["es"]
+assert spanish["acceptTerms"] == "He leído y acepto las condiciones de uso de Gameómetro."
+assert spanish["termsAcceptanceRequired"] == "Para crear tu cuenta, acepta las condiciones de uso."
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/privacidad"' in spanish["termsText"]
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/condiciones"' in spanish["termsText"]
+assert "Responsable: Rubén Hernández López" in spanish["termsText"]
+assert "Texto aprobado" not in spanish["termsText"]
+assert "email" in spanish["emailInstruction"] and "usuario" not in spanish["emailInstruction"]
 # Public copy may explain that birth date and ID are not collected; profile assertions above own the fields.
 # A temporary lockout must read exactly like a wrong password, so it reveals nothing.
-assert declaration["accountTemporarilyDisabledMessage"] == declaration["invalidUserMessage"]
+assert spanish["accountTemporarilyDisabledMessage"] == spanish["invalidUserMessage"]
 
 # --- Brute force, sessions and tokens ---
 assert realm["bruteForceProtected"] is True

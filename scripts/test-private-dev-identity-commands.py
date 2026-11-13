@@ -61,7 +61,7 @@ assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-password-action", "REQUIRED"),
     ("registration-terms-and-conditions", "REQUIRED"),
 ]
-assert "18 años" in desired["localization"]["acceptTerms"]
+assert desired["localization"]["acceptTerms"] == "He leído y acepto las condiciones de uso de Gameómetro."
 for origin in ("http://localhost:8080", "https://private-dev.example.test"):
     notice = identity.desired_policy(origin)["localization"]["termsText"]
     assert f'href="{origin}/privacidad"' in notice

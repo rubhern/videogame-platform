@@ -905,13 +905,20 @@ class Upgrade:
         previous = json.loads((self.active['source'] / REALM_IMPORT).read_text())
         target = json.loads((source / REALM_IMPORT).read_text())
         realm_import_delta(previous, target)
-        if registration.digest(registration.notice(target)) == registration.APPROVED:
+        notice_target = registration.target_id(target)
+        notice_migration = notice_target in (registration.APPROVED, registration.ELIGIBILITY)
+        if notice_migration:
             actor = source / NOTICE_COMMAND
             require(actor.is_file() and actor.read_bytes() == Path(registration.__file__).read_bytes(),
                     'Target lacks the reviewed notice actor; choose a target published with this extension.')
         desired, live = desired_session_state(target), self.query('videogame_keycloak', REALM_SQL)
-        return {'registrationNotice': {'targetSha256': registration.APPROVED, 'field': 'localizationTexts.es.termsText'}
-                if registration.digest(registration.notice(target)) == registration.APPROVED else None,
+        notice_plan = None
+        if notice_target == registration.APPROVED:
+            notice_plan = {'targetSha256': notice_target, 'field': 'localizationTexts.es.termsText'}
+        elif notice_migration:
+            notice_plan = {'targetSha256': notice_target,
+                           'fields': [f'localizationTexts.es.{key}' for key in sorted(registration.target_values(target))]}
+        return {'registrationNotice': notice_plan,
                 'changes': {k: {'from': live[k], 'to': desired[k]} for k in desired if live[k] != desired[k]},
                 'preserved': 'users, credentials, identities, client secret, redirect URIs and every other realm setting',
                 'method': 'scoped session, password-policy and registration-notice actors through the Admin API, never an import'}
@@ -1163,18 +1170,15 @@ class Upgrade:
                 'Invalid predecessor notice snapshot.')
         data = previous.read_bytes()
         saved = json.loads(data)
-        desired = registration.notice(json.loads((self.bundle / 'candidate' / REALM_IMPORT).read_text())).replace(
-            'https://${APPLICATION_PUBLIC_HOST}', 'https://gameometro.com')
-        require(isinstance(saved, dict) and saved.get('targetSha256') == registration.APPROVED
+        target = json.loads((self.bundle / 'candidate' / REALM_IMPORT).read_text())
+        require(isinstance(saved, dict) and saved.get('targetSha256') == registration.target_id(target)
                 and isinstance(saved.get('before'), dict) and isinstance(saved.get('expected'), dict)
                 and re.fullmatch('[0-9a-f]{64}', saved.get('realmSha256', '')),
                 'Invalid predecessor notice baseline.')
-        expected = json.loads(json.dumps(saved['before']))
-        require(isinstance(expected.get('es'), dict)
-                and (expected['es'].get('termsText') == desired
-                     or registration.digest(expected['es'].get('termsText', '')) == registration.LEGACY),
-                'Invalid predecessor notice baseline.')
-        expected['es']['termsText'] = desired
+        try:
+            expected = registration.expected_localizations(saved['before'], target, live=True)
+        except ValueError as error:
+            raise trust.Refused('Invalid predecessor notice baseline.') from error
         require(saved['expected'] == expected, 'Invalid predecessor notice baseline.')
         if destination.exists() or destination.is_symlink():
             install.secure(destination, mode=0o600)
@@ -1341,8 +1345,8 @@ class Upgrade:
         started = self.query('videogame_keycloak', IDENTITY_SQL)
         if not record['reopened']:
             self.preserved(before, started, ACCOUNT_DIGESTS)
-        notice = registration.notice(json.loads((host.source / REALM_IMPORT).read_text()))
-        notice_migration = registration.digest(notice) == registration.APPROVED
+        target = json.loads((host.source / REALM_IMPORT).read_text())
+        notice_migration = registration.target_id(target) in (registration.APPROVED, registration.ELIGIBILITY)
         if notice_migration:
             # First capture the original texts before any realm actor can change them.
             # On resume the durable notice snapshot verifies the already-aligned texts.

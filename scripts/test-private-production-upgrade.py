@@ -1410,6 +1410,7 @@ class Flow(unittest.TestCase):
 
     def test_forward_fix_carries_original_notice_snapshot_after_legal_text_changed(self):
         value = self.prepare_forward_fix()
+        (value.bundle / 'candidate' / upgrade.REALM_IMPORT).write_text(json.dumps(NOTICE_TARGET))
         original = self.predecessor_notice_snapshot()
         saved = original.read_bytes()
         self.identity['realmLocalizations'] = [2, 'aligned-notice']
@@ -1421,6 +1422,7 @@ class Flow(unittest.TestCase):
 
     def test_notice_baseline_survives_repeated_forward_fixes_and_interrupted_copy(self):
         value = self.prepare_forward_fix()
+        (value.bundle / 'candidate' / upgrade.REALM_IMPORT).write_text(json.dumps(NOTICE_TARGET))
         original = self.predecessor_notice_snapshot()
         predecessor = value.active['predecessor']
         value.carry_notice_snapshot(predecessor)
@@ -1819,7 +1821,12 @@ import production_registration_notice as notice
 import private_production_upgrade as upgrade
 import private_dev_promotion as trust
 
-NOTICE_TARGET = json.loads((notice.ROOT / notice.IMPORT).read_text())
+ELIGIBILITY_TARGET = json.loads((notice.ROOT / notice.IMPORT).read_text())
+NOTICE_TARGET = copy.deepcopy(ELIGIBILITY_TARGET)
+old_copy = json.loads((notice.ROOT / 'scripts/fixtures/private-dev-identity/legacy-videogame-platform-realm.json').read_text())
+for key in ('termsText', *notice.LABEL_HASHES):
+    NOTICE_TARGET['localizationTexts']['es'][key] = old_copy['localizationTexts']['es'][key].replace(
+        '${APPLICATION_PUBLIC_ORIGIN}', notice.HOST_TEMPLATE)
 NOTICE_LEGACY = copy.deepcopy(NOTICE_TARGET)
 NOTICE_LEGACY['localizationTexts']['es']['termsText'] = '<p>Gameómetro es un servicio gratuito y sin fines comerciales para personas adultas. Para crear tu cuenta solo te pedimos tu email.</p>'
 
@@ -1894,15 +1901,42 @@ class RegistrationNoticeMigration(unittest.TestCase):
             with self.assertRaises(trust.Refused): upgrade.realm_import_delta(NOTICE_LEGACY, changed)
         self.assertEqual(NOTICE_LEGACY['localizationTexts']['es']['termsText'], notice.notice(NOTICE_LEGACY))
 
+    def test_eligibility_upgrade_accepts_only_reviewed_spanish_copy(self):
+        upgrade.realm_import_delta(NOTICE_TARGET, ELIGIBILITY_TARGET)
+        upgrade.realm_import_delta(NOTICE_LEGACY, ELIGIBILITY_TARGET)
+        for key in ('termsText', *notice.LABEL_HASHES):
+            changed = copy.deepcopy(ELIGIBILITY_TARGET)
+            changed['localizationTexts']['es'][key] = 'unreviewed'
+            with self.assertRaises(trust.Refused):
+                upgrade.realm_import_delta(NOTICE_TARGET, changed)
+
+    def test_eligibility_upgrade_resumes_after_first_key_is_written(self):
+        realm = NoticeRealm()
+        realm.texts['es']['termsText'] = notice.notice(NOTICE_TARGET).replace(
+            notice.HOST_TEMPLATE, notice.PUBLIC_ORIGIN)
+        expected = notice.expected_localizations(realm.texts, ELIGIBILITY_TARGET, live=True)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            realm.fail = True
+            with self.assertRaises(RuntimeError):
+                notice.align(realm, ELIGIBILITY_TARGET, path)
+            snapshot = path.read_bytes()
+            realm.fail = False
+            notice.align(realm, ELIGIBILITY_TARGET, path)
+            notice.align(realm, ELIGIBILITY_TARGET, path, check=True)
+            self.assertEqual(realm.texts, expected)
+            self.assertEqual(realm.writes, 3)
+            self.assertEqual(path.read_bytes(), snapshot)
+
     def test_apply_check_and_repeat_preserve_every_other_locale_and_realm(self):
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path, check=True)
+            notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(path.read_bytes(), saved)
             self.assertEqual(realm.writes, 1)
             self.assertEqual(realm.texts['fr'], {'other': 'preserved'})
@@ -1912,7 +1946,7 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path, check=True)
             self.assertFalse(path.exists())
             self.assertEqual(realm.writes, 0)
 
@@ -1921,10 +1955,10 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm.fail = True
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            with self.assertRaises(RuntimeError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(RuntimeError): notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             realm.fail = False
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(path.read_bytes(), saved)
             self.assertEqual(realm.writes, 1)
 
@@ -1933,10 +1967,10 @@ class RegistrationNoticeMigration(unittest.TestCase):
             realm = NoticeRealm()
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / 'snapshot.json'
-                notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                notice.align(realm, NOTICE_TARGET, path)
                 if drift == 'locale': realm.texts['fr']['other'] = 'unexpected'
                 else: realm.state['registrationAllowed'] = False
-                with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
                 self.assertEqual(realm.writes, 1)
 
     def test_unknown_live_notice_and_write_side_effects_refuse(self):
@@ -1944,22 +1978,22 @@ class RegistrationNoticeMigration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
             realm.texts['es']['termsText'] = 'custom'
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(realm.writes, 0)
             self.assertFalse(path.exists())
             realm = NoticeRealm()
             realm.drift = True
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
 
     def test_session_alignment_is_independently_verified_without_resetting_notice_snapshot(self):
         self.assertEqual(notice.SESSION_SETTINGS, upgrade.SESSION_SETTINGS)
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             realm.state['rememberMe'] = True
-            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            notice.align(realm, NOTICE_TARGET, path, check=True)
             self.assertEqual(path.read_bytes(), saved)
 
     def test_notice_cli_addresses_gameometro_instead_of_private_dev_default(self):
@@ -1984,7 +2018,7 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm = NoticeRealm()
         realm.texts.update({f'x{i}': {} for i in range(notice.MAX_LOCALES)})
         with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
-            notice.align(realm, notice.notice(NOTICE_TARGET), Path(directory) / 'snapshot.json')
+            notice.align(realm, NOTICE_TARGET, Path(directory) / 'snapshot.json')
         self.assertEqual(realm.writes, 0)
 
 

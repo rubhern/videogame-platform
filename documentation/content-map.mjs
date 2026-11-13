@@ -64,6 +64,7 @@ export const groups = [
     ['docs/research/public-production-candidate-acceptance.md', 'Production candidate acceptance · #275'],
     ['docs/research/public-production-release-acceptance.md', 'Production release acceptance · #276'],
     ['docs/research/public-production-backup-storage.md', 'Off-host backup storage · #276'],
+    ['docs/research/reviews/keycloak-account-journey-review-2026-11-12.md', 'Post-launch Keycloak account journeys · #472'],
     ['docs/research/reviews/user-facing-copy-audit-2026-10-19.md', 'User-facing copy audit · #286'],
     ['tools/igdb-poc/README.md', 'IGDB proof of concept'],
   ]],
