@@ -155,7 +155,7 @@ existing realm. Both `up` and `application` now run the shared Admin API alignme
 command after Keycloak is ready, before starting the packaged BFF. It applies the
 reviewed production identity policy, the same one private dev applies
 ([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)): email
-sign-in with an email-only profile and verification, the 18+ registration declaration, the
+sign-in with an email-only profile and verification, mandatory acceptance of the terms of use, the
 password, lockout, session and event policies, and the native BFF mapper. Accounts keep
 their IDs, credentials and ratings, and existing usernames still sign in; client secrets,
 redirects and SMTP stay intact. No Admin Console edits or data reset are needed.
@@ -173,7 +173,7 @@ Repeated applies with no drift do nothing. The command refuses to extend SSO if
 the native mapper provider is absent: rebuild the shared Keycloak image first.
 Restore a snapshot with `configure-keycloak-identity --restore <snapshot>`, using its
 explicit `--origin`, `--admin-username` and protected `--admin-password-file` inputs.
-Self-registration asks only for the email and the declaration; the password is chosen after
+Self-registration asks only for the email and acceptance of the terms; the password is chosen after
 following the verification link that Mailpit captures. Avoid direct `docker compose up` for
 setup: it bypasses this alignment.
 

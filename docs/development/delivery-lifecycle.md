@@ -194,8 +194,9 @@ launch, with protected-state/evidence preservation.
 
 **Owner decision, 2026-10-17 (#274): conditionally accept the residual account
 enumeration risk of native Keycloak registration and the observed recovery timing
-branch.** Keep self-registration available to any adult under the approved account
-policy; do not develop a custom Keycloak extension. This replaces the absolute
+branch.** Keep self-registration available under the
+[approved account policy](../product/product-brief.md#public-release-and-sustainability)
+and retain Keycloak's native registration. This replaces the absolute
 registration non-enumeration criterion, not the other accounts/privacy, isolation,
 capacity or exposure gates. It approves a risk treatment, **not public opening or
 completion of its conditions**. The [R17 assessment](../research/public-release-rights-and-privacy.md#76-abuse-increment-and-r17-reassessment)
@@ -206,8 +207,8 @@ An existing submitted email can be distinguished from a new one at registration,
 including an unverified pending account. Recovery has a generic visible response but
 SMTP-dependent timing. This does not expose passwords, tokens, personal ratings or
 prove verified/active membership. Targeted inference, credential stuffing and mail
-abuse remain possible. Acceptance is proportionate to the adult, non-commercial
-videogame context with private personal data and no sensitive-topic membership;
+abuse remain possible. The original risk acceptance was assessed for an adult,
+non-commercial videogame service with private personal data and no sensitive-topic membership;
 custom authentication code would add security and upgrade-maintenance risk. It is
 not a claim of anonymity, timing indistinguishability or legal certification.
 

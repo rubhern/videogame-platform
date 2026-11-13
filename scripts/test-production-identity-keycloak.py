@@ -55,8 +55,8 @@ ISSUER = f"{ORIGIN}/realms/{REALM}"
 ADMIN_REALM = f"/admin/realms/{REALM}"
 
 INVALID_CREDENTIALS = "Email o contraseña incorrectos."
-DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
-DECLARATION_LABEL = "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro."
+DECLARATION_REQUIRED = "Para crear tu cuenta, acepta las condiciones de uso."
+DECLARATION_LABEL = "He leído y acepto las condiciones de uso de Gameómetro."
 VERIFY_TITLE = "Verifica tu email"
 ACTIVATION_INSTRUCTION = "Último paso para activar tu cuenta: crea la contraseña con la que iniciarás sesión."
 RECOVERY_INSTRUCTION = "Escribe tu nueva contraseña y confírmala."
@@ -369,7 +369,7 @@ assert status == 200 and len(clients) == 1
 status, secret = admin("GET", f"{ADMIN_REALM}/clients/{clients[0]['id']}/client-secret")
 assert status == 200 and secret["value"] == CLIENT_SECRET, "the client secret comes from the runtime input"
 
-# 2. Registration asks only for an email and the explicit adult and terms declaration.
+# 2. Registration asks only for an email and the explicit acceptance of the terms.
 device = Browser()
 login, _, _ = device.authorize()
 assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}

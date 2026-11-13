@@ -28,8 +28,11 @@ a=i.provisioning.KeycloakAdmin('http://keycloak:8080');a.authenticate('synthetic
 legacy='<p>Gameómetro es un servicio gratuito y sin fines comerciales para personas adultas. Para crear tu cuenta solo te pedimos tu email.</p>'
 assert n.digest(legacy)==n.LEGACY
 a._request('POST','/admin/realms',body={'realm':'gameometro','enabled':True,'registrationAllowed':False,
- 'localizationTexts':{'es':{'termsText':legacy,'keep':'preserved'},'fr':{'keep':'preserved'}}},expected={201})
-r=n.BoundedRealm(i.Realm(a,'gameometro'));target=n.notice(json.loads((n.ROOT/n.IMPORT).read_text()));path=pathlib.Path('/work/notice.json')
+ 'localizationTexts':{'es':{'termsText':legacy,'keep':'preserved',
+ 'acceptTerms':'Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro.',
+ 'termsAcceptanceRequired':'Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso.'},'fr':{'keep':'preserved'}}},expected={201})
+r=n.BoundedRealm(i.Realm(a,'gameometro'));target=json.loads((n.ROOT/n.IMPORT).read_text());path=pathlib.Path('/work/notice.json')
+expected=n.expected_localizations(n.localizations(r),target,live=True)
 try: n.align(r,target,path,check=True)
 except ValueError: pass
 else: raise AssertionError('Old notice passed a read-only check')
@@ -43,10 +46,13 @@ r.set_localization=interrupted
 try: n.align(r,target,path)
 except RuntimeError: pass
 else: raise AssertionError('Lost acknowledgement was not exercised')
-saved=path.read_bytes();r.realm.send('PUT','',{'rememberMe':True},{204});r.set_localization=lambda *args: (_ for _ in ()).throw(AssertionError('Repeated PUT'))
-n.align(r,target,path);n.align(r,target,path,check=True);n.align(r,target,path)
-assert path.read_bytes()==saved and writes==['termsText']
-assert n.localizations(r)=={'es':{'termsText':target.replace('https://${APPLICATION_PUBLIC_HOST}','https://gameometro.com'),'keep':'preserved'},'fr':{'keep':'preserved'}}
+saved=path.read_bytes();r.realm.send('PUT','',{'rememberMe':True},{204})
+r.set_localization=lambda key,value: (writes.append(key),put(key,value))
+n.align(r,target,path)
+r.set_localization=lambda *args: (_ for _ in ()).throw(AssertionError('Repeated PUT'))
+n.align(r,target,path,check=True);n.align(r,target,path)
+assert path.read_bytes()==saved and writes==list(n.target_values(target))
+assert n.localizations(r)==expected
 assert r.representation()['registrationAllowed'] is False and r.representation()['rememberMe'] is True
 # Check that later drift cannot be accepted as a new baseline.
 put('keep','unexpected')

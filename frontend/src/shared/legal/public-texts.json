@@ -21,7 +21,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Para crear y utilizar tu cuenta tratamos tu email, su estado de verificación, identificadores internos, fechas de la cuenta y la credencial protegida mediante un resumen criptográfico de la contraseña. No pedimos nombre, apellidos, fecha de nacimiento ni documento de identidad al registrarte. Debes verificar el email antes de usar la cuenta. El servicio está dirigido a mayores de 18 años, según tu declaración. Sin el email y los datos de autenticación no podemos ofrecerte una cuenta; puedes seguir consultando el catálogo."
+          "text": "Para crear y utilizar tu cuenta tratamos tu email, su estado de verificación, identificadores internos, fechas de la cuenta y la credencial protegida mediante un resumen criptográfico de la contraseña. No pedimos nombre, apellidos, fecha de nacimiento ni documento de identidad al registrarte. Debes verificar el email antes de usar la cuenta. Los requisitos de edad se indican en las condiciones de uso. Sin el email y los datos de autenticación no podemos ofrecerte una cuenta; puedes seguir consultando el catálogo."
         },
         {
           "kind": "paragraph",
@@ -134,7 +134,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "Para registrarte debes tener 18 años o más, declarar esa circunstancia, aceptar estas condiciones y verificar tu email. No aportes datos de otra persona. Protege tu contraseña y avísanos si sospechas un acceso indebido. La recuperación de contraseña se realiza mediante los mensajes del proveedor de identidad; nunca te pediremos tu contraseña por email."
+          "text": "Para crear una cuenta debes tener al menos 14 años, aceptar estas condiciones y verificar tu email. No aportes datos de otra persona. Protege tu contraseña y avísanos si sospechas un acceso indebido. La recuperación de contraseña se realiza mediante los mensajes del proveedor de identidad; nunca te pediremos tu contraseña por email."
         },
         {
           "kind": "paragraph",

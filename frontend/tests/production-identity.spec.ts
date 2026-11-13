@@ -84,15 +84,55 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(page).toHaveURL(new RegExp(`^${escape(issuer)}/`));
   await record(first, page, "Keycloak registration form");
   const notice = page.locator("#kc-registration-terms-text");
-  await expect(notice).toContainText("Responsable: Rubén Hernández López");
-  await expect(notice).toContainText("proveedores externos de alojamiento y correo");
-  await expect(notice.getByRole("link", { name: "política de privacidad", exact: true }))
-    .toHaveAttribute("href", `${applicationOrigin}/privacidad`);
-  await expect(notice.getByRole("link", { name: "condiciones de uso", exact: true }))
-    .toHaveAttribute("href", `${applicationOrigin}/condiciones`);
+  const disclosure = page.locator("details").filter({ hasText: "Antes de crear tu cuenta" });
+  const summary = disclosure.locator("summary");
+  const brand = page.locator("#kc-header").getByRole("link", { name: "Gameómetro" });
+  const emailField = page.locator("#email");
+  const acknowledgement = page.locator('input[name="termsAccepted"]');
+  await expect(brand).toHaveAttribute("href", `${applicationOrigin}/`);
   await expect(page.locator('#kc-register-form input[type="checkbox"]')).toHaveCount(1);
-  await expect(notice).not.toContainText(/Texto aprobado|Internal editorial|Borrador/);
-  await page.locator("#email").fill(email);
+  await expect(acknowledgement).toBeVisible();
+  await expect(acknowledgement).not.toBeChecked();
+  await expect(acknowledgement).toHaveAccessibleName("He leído y acepto las condiciones de uso de Gameómetro.");
+  await expect(page.locator('label[for="termsAccepted"] strong')).toHaveText("las condiciones de uso de Gameómetro.");
+  await page.locator("#kc-register-form [type=submit]").click();
+  await expect(emailField).toHaveAccessibleDescription("Indica tu email.");
+  await expect(acknowledgement).toHaveAccessibleDescription(
+    "Para crear tu cuenta, acepta las condiciones de uso.",
+  );
+  await expect(notice).toBeHidden();
+
+  await emailField.fill(email);
+  const registrationUrl = page.url();
+
+  for (const viewport of [{ width: 1320, height: 900 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(viewport);
+    await expect(notice).toBeHidden();
+    await emailField.press("Tab");
+    await expect(summary).toBeFocused();
+    await summary.press("Enter");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("Responsable: Rubén Hernández López");
+    await expect(notice).toContainText("proveedores externos de alojamiento y correo");
+    await expect(notice).not.toContainText(/Texto aprobado|Internal editorial|Borrador/);
+    await summary.press("Space");
+    await expect(notice).toBeHidden();
+    expect(await page.locator("body").evaluate((body) => body.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  }
+
+  for (const [label, route] of [["política de privacidad", "/privacidad"], ["condiciones de uso", "/condiciones"]]) {
+    const link = page.getByRole("link", { name: label, exact: true });
+    await expect(link).toHaveAttribute("href", `${applicationOrigin}${route}`);
+    const [legalPage] = await Promise.all([page.waitForEvent("popup"), link.click()]);
+    await expect(legalPage).toHaveURL(`${applicationOrigin}${route}`);
+    if (route === "/condiciones") {
+      await expect(legalPage.getByText(/Para crear una cuenta debes tener al menos 14 años/)).toBeVisible();
+    }
+    await legalPage.close();
+    await expect(page).toHaveURL(registrationUrl);
+    await expect(emailField).toHaveValue(email);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('input[name="termsAccepted"]').check();
   await page.locator("#kc-register-form [type=submit]").click();
   await expect(page.locator("body")).toContainText("Verifica tu email");

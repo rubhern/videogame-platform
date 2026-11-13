@@ -1,6 +1,11 @@
 <#macro content>
-  <#-- Gameómetro's story beside the inherited Keycloak forms: product copy only, no form or flow logic. -->
+  <#-- Gameómetro's story beside the inherited Keycloak forms: product presentation only, with no form or flow logic. -->
   <p class="gm-exit"><a href="${properties.applicationOrigin}/"><span aria-hidden="true">←</span> ${msg("gmBackToCatalogue")}</a></p>
+  <template id="gm-registration-disclosure">
+    <details class="gm-registration-disclosure">
+      <summary></summary>
+    </details>
+  </template>
   <div class="gm-story">
     <p class="gm-claim"><span>${msg("gmClaim")}</span> <span class="gm-claim-echo">${msg("gmClaimEcho")}</span></p>
     <p class="gm-lede">${msg("gmLede")}</p>

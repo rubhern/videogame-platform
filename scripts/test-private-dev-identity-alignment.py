@@ -73,7 +73,7 @@ REDIRECT_URI = f"{APPLICATION}/login/oauth2/code/keycloak"
 ISSUER = f"{ORIGIN}/realms/{REALM}"
 ADMIN_REALM = f"/admin/realms/{REALM}"
 INVALID_CREDENTIALS = "Email o contraseña incorrectos."
-DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
+DECLARATION_REQUIRED = "Para crear tu cuenta, acepta las condiciones de uso."
 VERIFY_TITLE = "Verifica tu email"
 RECOVERY_SENT = "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña."
 
@@ -307,7 +307,7 @@ def unique(purpose: str, domain: str = "example.test") -> str:
 for mapper in legacy_client["protocolMappers"]:
     if mapper["protocolMapper"] == "gameometro-remember-me":
         assert admin("DELETE", f"{ADMIN_REALM}/clients/{legacy_client['id']}/protocol-mappers/models/{mapper['id']}")[0] == 204
-# New local imports include the adult/terms flow and legal localization. Recreate
+# New local imports include the terms acceptance flow and legal localization. Recreate
 # the historical registration baseline so apply/restore still prove its migration.
 assert admin("PUT", ADMIN_REALM, {"registrationFlow": identity.BUILT_IN_REGISTRATION_FLOW, "rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
 for flow in get(f"{ADMIN_REALM}/authentication/flows"):
@@ -453,7 +453,7 @@ assert signs_in(pending_email, legacy_password), "a verified legacy account keep
 answer, _ = sign_in(unique("nobody"), legacy_password)
 assert not code(answer) and INVALID_CREDENTIALS in page_text(answer.body)
 
-# 5. Registration asks only for email and the mandatory 18+ declaration; mail stays in Mailpit.
+# 5. Registration asks only for email and the mandatory acceptance of the terms; mail stays in Mailpit.
 device = Browser()
 login, _ = device.authorize()
 assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}
@@ -583,6 +583,6 @@ assert legacy_restored_client == bff_client
 EVIDENCE.joinpath("sensitive-values.txt").write_text("\n".join(sensitive) + "\n", encoding="utf-8")
 print(
     "Private-dev identity alignment proven: identity-preserving apply and exact restore, email sign-in, "
-    "18+ registration with verification, password policy, temporary lockout, smoke by email, #273 recovery "
+    "terms-gated registration with verification, password policy, temporary lockout, smoke by email, #273 recovery "
     "through the authenticated relay transport and back to Mailpit."
 )

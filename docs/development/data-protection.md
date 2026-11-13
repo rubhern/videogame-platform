@@ -31,7 +31,7 @@ Continuous account processing is not occasional; do not rely on the small-organi
 exception to dispense with this register. Keep actual contracts and identifiers in
 restricted owner storage, not the repository/portal.
 
-Subjects: adult account holders, anonymous visitors and people contacting the operator.
+Subjects: account holders, including eligible minors, anonymous visitors and people contacting the operator.
 No intentional collection of special categories or children's data. An unexpected
 underage account or sensitive support attachment triggers case-specific restriction,
 minimization and review, rather than routine ID collection.
@@ -281,7 +281,7 @@ every other public notice.
 
 The canonical generator also supplies the basic registration information and privacy/
 terms links in Keycloak realm localization before submission. Local registration uses
-the existing native adult/terms action; the production flow and private-dev alignment
+the existing native terms acceptance action; the production flow and private-dev alignment
 retain it. Privacy is information, never an additional compulsory consent. D19's lack
 of a per-account accepted-text record remains accepted. Links use the configured
 application origin (not incoming Host headers); footer routes remain relative.
@@ -658,7 +658,7 @@ model, with semantic headings/tables and no legal-content image, tracking, stora
 credentials, additional libraries or authentication requirement. No product API or
 OpenAPI change is required for these SPA routes. The existing static fallback
 controller explicitly forwards the four legal paths on direct navigation and reload.
-Registration preserves the native adult/terms enforcement,
+Registration preserves the native terms acceptance requirement,
 verification, recovery and return intent; no copied registration form, new required
 action or consent database is introduced.
 
@@ -670,7 +670,7 @@ action or consent database is introduced.
 | Races and faults | Empty probe causes no maintenance; candidates disappearing before/after drain survive; verification before drain survives; in-flight verification is drained; bypass/maintenance failure refuses deletion; duplicate timer/manual jobs excluded; ledger-copy/archive-copy outage, timeout and crashes at every pre-delete/delete boundary; re-registration same email unaffected |
 | Archive security/purge | Automatic pending/requested profiles with no per-account classification, ordinary rating-row exclusion, scoped exceptional holds, genuine anomaly isolation; explicit field allowlist and absence of credentials/sessions/arbitrary attributes; large per-user keyset SQL/plan and byte cap, encrypted-only persistence, permissions/path/symlink refusal, signature/ciphertext tampering, two-copy sealing/retry, annual review/three-year boundary, legal holds and destruction across copies |
 | Restoration | Erasure replay excludes deleted users before opening, no archive recapture or retention reset; newly aged-out pending accounts processed; verified/unrelated users intact; destroyed legal payloads do not resurrect after archive-storage recovery |
-| Product notices | React route/footer keyboard/direct navigation and approved Spanish text only; no internal checklist, missing fields or added cookies; Keycloak basic information/links and existing adult validation, register/verify/recover/return journey remain intact |
+| Product notices | React route/footer keyboard/direct navigation and approved Spanish text only; no internal checklist, missing fields or added cookies; Keycloak basic information/links and mandatory terms acceptance, register/verify/recover/return journey remain intact |
 
 The following section records focused phase-2 evidence and its limits; full
 affected-area CI and actual proxy/VPS/cloud qualification remain separate gates.

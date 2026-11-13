@@ -126,12 +126,19 @@ html.login-pf body#keycloak-bg {
   text-transform: none;
 }
 
-#kc-header-wrapper::before {
+:is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
   display: block;
   width: 152px;
   height: 28px;
   background: url('../img/gameometro-logo.svg') left center / contain no-repeat;
   content: '';
+}
+
+#kc-header-wrapper > a {
+  display: flex;
+  min-height: inherit;
+  align-items: center;
+  text-decoration: none;
 }
 
 /* ------------------------------------------------------------------ Panel */
@@ -310,8 +317,7 @@ html.login-pf body#keycloak-bg {
   color: var(--gm-muted);
 }
 
-/* The terms that registration requires: a quiet plate whose first line names it, then the
-   declaration as one checkbox row the label can toggle. */
+/* The legal notice and its separate, native acknowledgement. */
 .form-group:has(#kc-registration-terms-text) > div {
   border: 1px solid var(--gm-line);
   border-radius: 4px;
@@ -323,14 +329,29 @@ html.login-pf body#keycloak-bg {
   line-height: 1.5;
 }
 
+.gm-registration-disclosure summary {
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.gm-registration-links {
+  margin: 8px 0 0;
+  color: var(--gm-muted);
+  font-weight: 400;
+}
+
 #kc-registration-terms-text {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--gm-muted);
   font-weight: 400;
 }
 
 #kc-registration-terms-text p {
   margin: 0;
+}
+
+#kc-registration-terms-text p + p {
+  margin-top: 8px;
 }
 
 .form-group:has(> div > #termsAccepted) > div:first-child {
@@ -746,7 +767,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     margin-bottom: 40px;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     width: 174px;
     height: 32px;
   }
@@ -795,7 +816,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     margin: 0;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     width: 196px;
     height: 36px;
   }
@@ -903,7 +924,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     color: CanvasText !important;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     display: none;
   }
 
@@ -942,7 +963,8 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
   }
 
   a,
-  .gm-exit a {
+  .gm-exit a,
+  #kc-header-wrapper > a {
     color: LinkText;
   }
 }

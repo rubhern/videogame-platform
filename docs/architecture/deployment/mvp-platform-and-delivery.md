@@ -147,7 +147,7 @@ the shared realm import.
 
 Post-MVP (#274), the persistent private-dev realm also applies the reviewed
 [production identity policy](#production-realm-contract): email sign-in with an
-email-only profile, the 18+ registration declaration, email verification, the
+email-only profile, mandatory acceptance of the terms of use, email verification, the
 password, lockout, session and event policies. A reviewed Admin API step takes the
 values from the production import, snapshots what it changes and can restore it; it
 keeps the realm name, issuer, client and every account ID, so ratings stay attached.

@@ -1752,19 +1752,20 @@ network, with the administrator password crossing stdin, never an import. It cha
 five session settings and the BFF Remember Me mapper, and snapshots the pre-change values.
 The private-admin alignment separately handles the approved master frontend attribute.
 
-**Registration notice extension (#276): prepared locally, not deployed or accepted.**
-The upgrade also admits exactly the old-to-approved `localizationTexts.es.termsText`
-change from the legal publication (#434), identified by fixed source hashes in
+**Registration copy migrations (#434 and #472).**
+The upgrade admits the reviewed Spanish registration copy in
 [`production_registration_notice.py`](../../scripts/production_registration_notice.py).
+The #434 migration updates the notice. The #472 migration aligns the notice,
+the checkbox label and its required-field error with the [conditions of use](../../docs/legal/public-texts-es.md#condiciones-de-uso).
 Every other import difference still refuses. The target publication must also contain
 the exact notice actor matching the reviewed operator; planning refuses an older or
 incompatible target before any live realm query. The plan identifies this notice migration
 explicitly. A new startup import alone cannot update the existing realm.
 
 The notice actor uses the [Keycloak localization API](https://www.keycloak.org/docs-api/latest/rest-api/index.html)
-to change only that Spanish key to the approved text with canonical product links.
-It snapshots all locale overrides before PUT, preserves the original snapshot across
-interruptions, accepts only the known old or already-aligned live notice, and verifies
+to update the approved Spanish keys and retain canonical product links. It snapshots
+all locale overrides before the first PUT, preserves the original snapshot across
+interruptions, resumes from known values on a partial write, and verifies
 all other texts and the realm representation on apply, check and resume. The five
 reviewed session fields are verified independently by the session actor and SQL
 postconditions, so its alignment does not invalidate the notice snapshot. Metadata work
@@ -1778,8 +1779,8 @@ actor's complete multilingual snapshot comparison succeeds; a changed sibling te
 another locale or an unrelated realm setting keeps the recovery fence closed. The
 change remains under the existing upgrade lease and writer fence. No full realm import,
 client replacement, public registration activation or unrelated policy alignment occurs.
-Forward fixes retain the original protected notice snapshot before claiming the new
-upgrade. A missing snapshot after localization changed, or an invalid or conflicting
+Forward fixes for the same legal publication retain the original protected notice
+snapshot before claiming the new upgrade. A missing snapshot after localization changed, or an invalid or conflicting
 snapshot, refuses before superseding the failed upgrade; repeated fixes never adopt
 the changed state as a new baseline.
 
