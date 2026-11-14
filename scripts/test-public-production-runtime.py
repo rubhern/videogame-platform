@@ -672,13 +672,13 @@ class Edge:
     def gate(self, state):
         run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull", "gate", state])
 
-    def probe(self, service, *arguments):
+    def probe(self, service, *arguments, attempts=20):
         command = ["python", "-I", "/probe/edge.py", *arguments] if arguments else []
-        for attempt in range(20):
+        for attempt in range(attempts):
             result = subprocess.run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull",
                                                     service, *command], capture_output=True, text=True)
             # Wait for the internal CA certificates rather than reporting a startup race.
-            if "transport failure" not in result.stdout or attempt == 19 or "aborted" in " ".join(arguments):
+            if "transport failure" not in result.stdout or attempt == attempts - 1 or "aborted" in " ".join(arguments):
                 output = result.stdout if result.stdout.strip() else result.stderr
                 return result.returncode, output
             time.sleep(1)
@@ -778,13 +778,13 @@ GATE_MUTATIONS = [
 ]
 
 
-def run_scenario(edge, config, label, clients):
+def run_scenario(edge, config, label, clients, attempts=20):
     failures = []
     for client, *steps in clients:
         arguments = steps if steps[:1] == [LIMIT] else [LIMIT, *steps]
         if steps and steps[0] in ("probe", "backchannel"):
             arguments = steps
-        status, output = edge.probe(client, *arguments)
+        status, output = edge.probe(client, *arguments, attempts=attempts)
         if status != 0:
             failures.append(f"edge scenario '{label}' failed for {client}:\n{output}")
     return failures
@@ -819,13 +819,19 @@ def exercise_edge_metrics(edge):
 HANDOVER_STEPS = ("shell:2:ok", "read:2:ok", "write:2:ok", "callback:1:ok")
 
 
-def handover(edge, config):
-    """The application stops while its candidate serves, then returns; no request may fail."""
+def handover(edge, config, mutated=False):
+    """The application stops while its candidate serves, then returns; no request may fail.
+
+    A mutated edge waits its full failover budget per request, longer than the client's timeout:
+    one request, one attempt, so the expected failure is not retried as a startup race.
+    """
     failures = []
     edge.load(config, gate="ready")
     run(edge.compose + ["--profile", "handover", "up", "--detach", "--wait", "--wait-timeout", "60", "candidate-stub"])
     try:
         run(edge.compose + ["stop", "application-stub"])
+        if mutated:
+            return run_scenario(edge, config, "handover to the candidate", [("source-a", "shell:1:ok")], attempts=1)
         failures += run_scenario(edge, config, "handover to the candidate", [("source-a", *HANDOVER_STEPS)])
         run(edge.compose + ["start", "application-stub"])
         failures += run_scenario(edge, config, "both upstreams serving", [("source-b", *HANDOVER_STEPS)])
@@ -841,7 +847,7 @@ def exercise_handover(edge, caddyfile, directory):
     failures = handover(edge, edge_test_config(adapt(caddyfile, directory)))
     mutated = caddyfile.replace(" application-candidate:8080", "")
     assert mutated != caddyfile, "the handover mutation no longer applies to the Caddyfile"
-    if not handover(edge, edge_test_config(adapt(mutated, directory))):
+    if not handover(edge, edge_test_config(adapt(mutated, directory)), mutated=True):
         failures.append("edge did not detect deliberate handover violation: candidate upstream removed")
     print("Edge handover: application-only failover and 1 deliberate violation checked.")
     return failures
