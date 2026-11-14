@@ -70,8 +70,9 @@
     place-items: center;
   }
 
+  /* Keep the open platform panel above the mobile expectation disclosure. */
   .home-discovery-controls .platform-switcher {
-    z-index: 3;
+    z-index: 4;
   }
 
   .home-discovery-controls .platform-switcher-trigger {

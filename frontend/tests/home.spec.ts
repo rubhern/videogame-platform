@@ -333,6 +333,19 @@ test("phone keeps the controls, month rail and summary compact and switches podi
   await expect(page.getByRole("list", { name: "Niveles de expectación" })).toBeVisible();
   await page.keyboard.press("Space");
   await expect(page.getByRole("list", { name: "Niveles de expectación" })).toBeHidden();
+
+  await platform.click();
+  await expect(platform).toHaveAttribute("aria-expanded", "true");
+  const panelId = await platform.getAttribute("aria-controls");
+  // The platform panel must receive touches where it covers the legend button.
+  await expect.poll(() => disclosure.evaluate((button, id) => {
+    const { x, y, width, height } = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(x + width / 2, y + height / 2);
+    return id !== null && document.getElementById(id)?.contains(hit);
+  }, panelId)).toBe(true);
+  const releases = page.getByRole("region", { name: "Lanzamientos" });
+  await releases.getByRole("link", { name: "PlayStation 5", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Plataforma PlayStation 5" })).toHaveAttribute("aria-expanded", "false");
   const explore = await page.getByRole("link", { name: "Ver todos los lanzamientos" }).boundingBox();
   const calendar = await page.getByRole("link", { name: "Ver calendario" }).boundingBox();
   expect(explore).not.toBeNull();
