@@ -1092,7 +1092,9 @@ integration evidence, never permission to promote an unpublished configuration.
 
 ### Scheduled unverified-account cleanup
 
-**Prepared for #539; not installed.**
+**Installed on the production host for #539.** Its alert needs the host telemetry, which is not
+installed yet ([#550](https://github.com/rubhern/videogame-platform/issues/550)); until then, read the
+status file after the daily run.
 [ADR-0044](../../docs/decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)
 owns why it runs on the VPS, which keys and identities it holds, and the accepted residual risk.
 [`bin/unverified-cleanup`](bin/unverified-cleanup) owns the configuration fields and their
@@ -1102,15 +1104,20 @@ validation, lists the ledger and probes for candidates, without entering mainten
 [service and timer](systemd/) run it daily at 06:15 UTC.
 
 Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-only directories,
-`0600` files). Use nothing from the owner's personal keyring and none of the backup identities:
+`0600` files). Use nothing from the owner's personal keyring and none of the backup identities.
+The commands run from the installed release, `C=/srv/gameometro/installations/<sha12>-private/candidate`
+(the path in the backup service's `ExecStart`); there is no `/opt/gameometro/runtime` on the host.
 
-1. Create a dedicated keyring with a signing key and an archive key, then record both full
-   fingerprints:
+1. Create a dedicated keyring with a signing key and an archive key. A `cv25519` key cannot be a
+   primary key, so the archive key is a certify-only primary with an encryption subkey. Record both
+   primary fingerprints; the archive one is the `recipient`:
 
    ```bash
    K=/var/lib/gameometro/production/privacy/gnupg; install -d -m 0700 "$K"
    gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup signing' ed25519 sign never
-   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup archive' cv25519 encr never
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup archive' ed25519 cert never
+   FPR=$(gpg --homedir "$K" --list-secret-keys --with-colons 'Gameometro cleanup archive' | awk -F: '/^fpr/{print $10; exit}')
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-add-key "$FPR" cv25519 encr never
    ```
 
    Export both secret keys into the owner's separately protected reconstruction material
@@ -1119,8 +1126,13 @@ Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-o
    owner's personal ones. If this copy is lost along with the VPS, the cleanup's legal
    archives cannot be read.
 
-2. Create four S3 identities, one per ledger and archive destination, that can put, get, head and
-   list but cannot delete. Prove the refused delete against the provider. Write the
+2. Create four S3 users, one per ledger and archive bucket; the two-copy configuration refuses
+   a shared access key or credentials file. OVHcloud accepts only its own action list, has no
+   separate version actions (`GetObject` covers version reads) and needs an explicit deny. Each
+   user's policy allows `PutObject`, `GetObject`, `GetObjectRetention`, `ListBucket` and
+   `ListBucketVersions` on its bucket and key prefix (`ledger/` or `archive/`), and denies
+   `DeleteObject`, `DeleteBucket`, `PutObjectRetention` and `BypassGovernanceRetention`. Prove the
+   refused delete against the provider. Write the
    [two-copy configuration](../private-dev/lib/personal_data_cloud.py) that names them.
 3. Store the Keycloak administrative credential in an owner-only file. Create the ledger,
    archive, proof and holds directories, then rebuild the local ledger from its cloud copies
@@ -1130,22 +1142,24 @@ Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-o
    backup cycle's interpreter. Then confirm that the check prints `"configuration": "ok"`:
 
    ```bash
-   sudo python3 /opt/gameometro/runtime/deploy/public-production/bin/unverified-cleanup check --config /etc/gameometro/production/unverified-cleanup.json
+   sudo python3 "$C/deploy/public-production/bin/unverified-cleanup" check --config /etc/gameometro/production/unverified-cleanup.json
    ```
 
-5. Install the units, start one supervised run with a synthetic unverified account older than
-   30 days, and confirm the ledger, the archive and verified absence, plus the status file:
+5. Install the units with their path rewritten to the installed release, start one supervised
+   run and confirm the status file. With no candidate the run enters no maintenance and records
+   `success`; the first real erasure is then checked against the ledger, the archive and verified
+   absence:
 
    ```bash
-   sudo install -m 0644 deploy/public-production/systemd/gameometro-unverified-cleanup.* /etc/systemd/system/
+   for u in service timer; do sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/systemd/gameometro-unverified-cleanup.$u" | sudo tee /etc/systemd/system/gameometro-unverified-cleanup.$u >/dev/null; done
    ```
 
    ```bash
    sudo systemctl daemon-reload && sudo systemctl start gameometro-unverified-cleanup.service
    ```
 
-6. Reinstall `observability/systemd/gameometro-telemetry.service`, which now passes
-   `--cleanup-receipt`, then enable the timer. Activation is a separate owner decision:
+6. Enable the timer. Activation is a separate owner decision. Once host telemetry is installed
+   (#550), its service passes `--cleanup-receipt` and the alert below evaluates:
 
    ```bash
    sudo systemctl enable --now gameometro-unverified-cleanup.timer
@@ -1303,7 +1317,8 @@ node exporter, containing only sanitized `.prom` files. The proposed single file
 must include Docker/data volumes; additional filesystems need an explicit bounded
 collector change before acceptance. The standard exporter mounts host proc/sys/root
 read-only without secrets-group membership or extra privileges. The systemd unit/timer
-under `observability/systemd/` are **templates, not installed**. Review the absolute
+under `observability/systemd/` are **templates, not installed** on the production host
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). Review the absolute
 checkout path and evidence paths before installation. The host timer reads only
 selected Docker state and the bounded safe Caddy window, then atomically replaces
 one textfile. Failed sampling leaves its timestamp stale. Test cgroup v2, permissions,

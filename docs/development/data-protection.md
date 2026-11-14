@@ -704,7 +704,7 @@ and configured protected holds stores. Admission stops at 100 accounts or 120 se
 a started account is completed or left recoverable before release. This is not a
 hard 120-second interruption SLA. Exceptions/backlog are reported; a shared failure
 stops the run. In production a daily timer runs it, completing pending erasures first
-([prepared, not installed](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)). The
+([installed](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)). The
 [#275 adapter](../../deploy/public-production/README.md#identity-maintenance) serializes
 owner identity changes/restores/deployments through the recovery lease and settles
 management requests before releasing the fence; a local ledger lock cannot prove those
