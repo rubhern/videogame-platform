@@ -725,9 +725,13 @@ class Prepared(unittest.TestCase):
         self.assertIn('Persistent=true', timer)
         reconcile = (self.UNITS / 'gameometro-backup-reconcile.timer').read_text()
         self.assertIn('OnBootSec=', reconcile)
-        for path in self.UNITS.glob('*.service'):
+        for path in self.UNITS.glob('gameometro-backup*.service'):
             self.assertIn('prepared, not installed', path.read_text())
             self.assertIn('--config /etc/gameometro/production/backup-cycle.json', path.read_text())
+        # The #539 cleanup shares the directory; its own suite owns its command.
+        self.assertEqual({p.name for p in self.UNITS.glob('*.service')} - {p.name for p in self.UNITS.glob('gameometro-backup*.service')},
+                         {'gameometro-unverified-cleanup.service'})
+        self.assertIn('prepared, not installed', (self.UNITS / 'gameometro-unverified-cleanup.service').read_text())
 
     def test_watch_workflow_is_inert_public_safe_and_pinned(self):
         text = (ROOT / '.github/workflows/backup-watch.yml').read_text()

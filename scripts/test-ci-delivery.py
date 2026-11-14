@@ -75,7 +75,7 @@ class DeliveryTests(unittest.TestCase):
             'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
-                           'test-production-identity-maintenance.py', 'test-production-cleanup.py'],
+                           'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py'],
             'observability': ['test-production-observability.py --smoke'],
             'edge': ['test-public-production-runtime.py'],
         }

@@ -571,7 +571,12 @@ independently stored copies of encrypted chunks and manifest; verify their ident
 hashes, GPG integrity and decryptability in a protected off-VPS context before sealing.
 Sign the manifest (opaque reference, UTC capture time, schema/profile version, chunk counts,
 ciphertext hashes, expiry/review) with an owner-controlled GPG signing key held off
-VPS; key provisioning if needed is a #275 prerequisite. SHA-256 alone detects changes
+VPS; key provisioning if needed is a #275 prerequisite. **Exception (proposed
+[ADR-0044](../decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md),
+owner decision 2026-11-14):** the unattended 30-day cleanup runs on the VPS with a dedicated
+archive key pair and a dedicated signing key, both passphrase-less and used for nothing else, so
+a VPS compromise can read archived emails of deleted accounts. Owner-attended erasure, purge and
+review keep the off-VPS keys above. SHA-256 alone detects changes
 but proves neither authorship nor trusted time; an owner signature and recorded time
 are evidence, not a qualified timestamp service.
 
@@ -698,7 +703,8 @@ committed erasures with the application stopped and never recaptures legal sourc
 and configured protected holds stores. Admission stops at 100 accounts or 120 seconds;
 a started account is completed or left recoverable before release. This is not a
 hard 120-second interruption SLA. Exceptions/backlog are reported; a shared failure
-stops the run. No timer is installed. The
+stops the run. In production a daily timer runs it, completing pending erasures first
+([prepared, not installed](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)). The
 [#275 adapter](../../deploy/public-production/README.md#identity-maintenance) serializes
 owner identity changes/restores/deployments through the recovery lease and settles
 management requests before releasing the fence; a local ledger lock cannot prove those

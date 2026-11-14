@@ -1672,6 +1672,11 @@ erasure/cleanup, add the following global options: `--archive-root <owner-archiv
 `--holds <protected-holds-store>`, `--gnupg-home <off-VPS-owner-keyring>`,
 `--recipient <full-encryption-key-fingerprint>` and `--signer <full-signing-key-fingerprint>`.
 Use owner-unlocked GPG keys; pass no passphrase in arguments, environment or logs.
+The [scheduled production cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)
+uses its own dedicated keys instead
+([ADR-0044](../decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)).
+To replay, review, verify or purge its `CLEAN-` archives here, import its exported keys and pass its
+recipient and signer.
 The existing `erase --request <opaque-reference> --keycloak-user-id <UUID>` selects
 the ordinary profile automatically from the account’s explicit verification state in production. No individual ratings
 are retained by that profile. A protected `<subject-UUID>.json` hold file selects a

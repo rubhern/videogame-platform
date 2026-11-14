@@ -521,7 +521,7 @@ def archive_preflight(archive):
 
 
 def command_cleanup(arguments, host_command):
-    # No schedule is installed. The future #275 adapter must really deny/drain and release identity.
+    # The production timer (ADR-0044) calls this through the #275 adapter, which denies, drains and releases identity.
     cutoff = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000) - 30 * 86400000
     issuer, found = candidate_page(host_command, cutoff, 1)
     if not found:

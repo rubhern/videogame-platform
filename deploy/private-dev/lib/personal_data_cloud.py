@@ -1,6 +1,7 @@
 """Synchronous two-copy S3 durability for the deletion ledger and the legal archive (#276, L8).
 
-Used by the owner-side `personal-data-ledger` driver only; never by the VPS or a workflow.
+Used by `personal-data-ledger`, owner-side or from the scheduled production cleanup (ADR-0044);
+never by a workflow.
 Each destination has its own bucket, region and S3 identity. A write returns only after both
 destinations acknowledge an exact version whose size and SHA-256 are read back, so no mutation
 that depends on the record can start without two durable copies. The ledger buckets carry an

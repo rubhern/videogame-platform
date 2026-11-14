@@ -29,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = Path('/etc/gameometro/production/deploy.json')
 WORKFLOW = '.github/workflows/deploy-production.yml'
 BACKUP_UNITS = Path('/etc/systemd/system')
+CLEANUP_UNIT = 'gameometro-unverified-cleanup.service'
+CLEANUP_CONFIG = Path('/etc/gameometro/production/unverified-cleanup.json')
 OPERATIONS = Path('/srv/gameometro/operations')
 EXPORT = ('deploy/', 'docker/', 'scripts/', 'tools/', 'backend/src/main/resources/db/migration/')
 require = trust.require
@@ -233,16 +235,25 @@ def load_cycle(path):
 
 
 def backup_units(config_path, target_source, apply=False):
-    """Retarget only the two existing backup service ExecStarts; never touch timers."""
+    """Retarget only the existing backup and cleanup service ExecStarts; never touch timers.
+
+    The cleanup service is optional until the owner installs it (#539); once present it is held
+    to the same reviewed pattern, so a release never leaves it running a superseded bundle.
+    """
     units = []
-    for name, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+    services = [('gameometro-backup.service', 'backup-cycle', 'run', config_path),
+                ('gameometro-backup-reconcile.service', 'backup-cycle', 'reconcile', config_path)]
+    if (BACKUP_UNITS / CLEANUP_UNIT).exists():
+        services.append((CLEANUP_UNIT, 'unverified-cleanup', 'run', CLEANUP_CONFIG))
+    for name, tool, command, config_path in services:
         path = BACKUP_UNITS / name
         install.secure(path, mode=0o644)
         fragment = invoke(['/usr/bin/systemctl', 'show', name, '--property=FragmentPath', '--value']).decode().strip()
         drops = invoke(['/usr/bin/systemctl', 'show', name, '--property=DropInPaths', '--value']).strip()
         require(fragment == str(path), 'Backup service has an unexpected source.')
         override = path.parent / (name + '.d') / 'keyring.conf'
-        require(drops.decode().split() in ([], [str(override)]), 'Backup service has an unreviewed override.')
+        accepted = ([], [str(override)]) if tool == 'backup-cycle' else ([],)
+        require(drops.decode().split() in accepted, 'Backup service has an unreviewed override.')
         if drops:
             install.secure(override, mode=0o644)
             require(override.stat().st_size <= 4096, 'Oversized backup override.')
@@ -254,12 +265,12 @@ def backup_units(config_path, target_source, apply=False):
         lines = re.findall(r'^ExecStart=(.+)$', text, re.M)
         require(len(lines) == 1, 'Unexpected backup service command inventory.')
         allowed = (r'/usr/bin/python3 (?:/srv/gameometro/installations/[0-9a-f]{12}-private/candidate|/opt/gameometro/runtime)'
-                   + r'/deploy/public-production/bin/backup-cycle ' + command + r' --config ' + re.escape(str(config_path)))
+                   + r'/deploy/public-production/bin/' + tool + ' ' + command + r' --config ' + re.escape(str(config_path)))
         require(re.fullmatch(allowed, lines[0]), 'Installed backup service command differs from the reviewed pattern.')
-        replacement = '/usr/bin/python3 ' + str(target_source / 'deploy/public-production/bin/backup-cycle') + ' ' + command + ' --config ' + str(config_path)
+        replacement = '/usr/bin/python3 ' + str(target_source / 'deploy/public-production/bin' / tool) + ' ' + command + ' --config ' + str(config_path)
         units.append((path, text, text.replace('ExecStart=' + lines[0], 'ExecStart=' + replacement)))
     if apply:
-        # Validate BOTH units before changing either. A partial update is recoverable and never thaws.
+        # Validate every unit before changing any. A partial update is recoverable and never thaws.
         for path, before, after in units:
             require(path.read_text() == before, 'Backup service drifted before reconciliation.')
             if before != after:
