@@ -676,7 +676,7 @@ route and pagination focus uses
 `preventScroll`, while the skip link still takes the reader to main content. Do not reset
 scroll after artwork, fonts or background refreshes, or add timed scroll retries.
 Hydration reuses the existing loading surfaces without mounting page data or command
-effects. Once the app is open, any internal navigation still pending after one second
+effects. Once the app is open, any internal navigation still pending after 600 ms
 shows a full-screen modal on night with the brand's G, an orbit of ice light, a sweeping
 needle and **Cargando página…** as its visible and accessible name. The modal blocks
 interaction and scrolling until navigation settles, then releases focus for the
