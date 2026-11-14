@@ -1,12 +1,16 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Private Profile",
-    "description": "Principal-only profile/export and safe deletion refusals. Sign in through the BFF with a synthetic account and synchronize its cookie. Destructive confirmation is disabled unless enableAccountDeletion=true is explicitly set on a disposable environment after enabling its protected executor (production also requires qualified independent ledger/archive storage). Never run against an owner's real account by default. Automatic admission requires explicit runtime enablement and a fresh protected-runner heartbeat. The runner automatically processes accepted requests through the existing #274 engine under the server-selected environment policy; a 202 never certifies completion.",
+    "description": "Principal-only profile/export and safe deletion refusals. Sign in through the BFF with a synthetic account and synchronize its cookie. Set expectedProfileEmail to the synthetic account address to verify the email projection. Destructive confirmation is disabled unless enableAccountDeletion=true is explicitly set on a disposable environment after enabling its protected executor (production also requires qualified independent ledger/archive storage). Never run against an owner's real account by default. Automatic admission requires explicit runtime enablement and a fresh protected-runner heartbeat. The runner automatically processes accepted requests through the existing #274 engine under the server-selected environment policy; a 202 never certifies completion.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "expectedProfileEmail",
       "value": ""
     },
     {
@@ -35,6 +39,7 @@
             "exec": [
               "pm.response.to.have.status(200);",
               "pm.expect(pm.response.json().authenticated).to.eql(true);",
+              "pm.expect(pm.response.json()).not.to.have.property(\"email\");",
               "pm.collectionVariables.set(\"csrfToken\", pm.response.json().csrfToken);",
               "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
             ]
@@ -61,7 +66,10 @@
             "type": "text/javascript",
             "exec": [
               "pm.response.to.have.status(200);",
-              "pm.expect(pm.response.json()).to.have.property(\"deletionAvailable\");",
+              "const profile = pm.response.json();",
+              "const expectedEmail = pm.variables.get(\"expectedProfileEmail\");",
+              "if (expectedEmail) pm.test(\"Email matches the signed-in fixture account\", () => pm.expect(profile.email).to.eql(expectedEmail));",
+              "pm.expect(profile).to.have.property(\"deletionAvailable\");",
               "pm.expect(pm.response.json()).not.to.have.property(\"userId\");",
               "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
             ]

@@ -344,6 +344,24 @@ class Pure(unittest.TestCase):
                          {'settings': ['rememberMe', 'ssoSessionIdleTimeoutRememberMe', 'ssoSessionMaxLifespanRememberMe'],
                           'mappers': [upgrade.REMEMBER_MAPPER]})
 
+    def test_profile_email_requires_the_exact_userinfo_mapper(self):
+        target = self.realm()
+        previous = copy.deepcopy(target)
+        bff = next(c for c in previous['clients'] if c['clientId'] == upgrade.BFF_CLIENT)
+        bff['protocolMappers'].remove(upgrade.PROFILE_EMAIL_MAPPER)
+        self.assertEqual(upgrade.realm_import_delta(previous, target),
+                         {'settings': [], 'mappers': [upgrade.PROFILE_EMAIL_MAPPER['name']]})
+        self.assertTrue(upgrade.desired_session_state(target)['profileEmailMapper'])
+        self.assertFalse(upgrade.desired_session_state(previous)['profileEmailMapper'])
+        for key in ('id.token.claim', 'access.token.claim', 'introspection.token.claim'):
+            with self.subTest(key=key):
+                unexpected = copy.deepcopy(target)
+                mapper = next(m for c in unexpected['clients'] for m in c['protocolMappers']
+                              if m['name'] == upgrade.PROFILE_EMAIL_MAPPER['name'])
+                mapper['config'][key] = 'true'
+                with self.assertRaises(trust.Refused):
+                    upgrade.realm_import_delta(previous, unexpected)
+
     def test_the_real_first_candidate_pair_is_exactly_that_delta(self):
         shown = [subprocess.run(['git', 'show', f'{revision}:{upgrade.REALM_IMPORT}'], cwd=ROOT, capture_output=True)
                  for revision in (prepare.REVISION, FIRST_TARGET)]

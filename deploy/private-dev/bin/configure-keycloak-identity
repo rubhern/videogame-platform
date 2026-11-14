@@ -136,10 +136,12 @@ def desired_policy(application_origin: str = "http://localhost:8080") -> dict[st
     top = flows[realm["registrationFlow"]]
     [form_step] = top["authenticationExecutions"]
     form = flows[form_step["flowAlias"]]
+    [bff] = [client for client in realm["clients"] if client["clientId"] == "videogame-platform-bff"]
     return {
-        "rememberMeMapper": next(mapper for client in realm["clients"]
-            if client["clientId"] == "videogame-platform-bff" for mapper in client["protocolMappers"]
-            if mapper["protocolMapper"] == "gameometro-remember-me"),
+        "rememberMeMapper": next(mapper for mapper in bff["protocolMappers"]
+                                 if mapper["protocolMapper"] == "gameometro-remember-me"),
+        "profileEmailMapper": next((mapper for mapper in bff["protocolMappers"]
+                                    if mapper["name"] == "private profile email"), None),
         "settings": {name: realm[name] for name in MANAGED_REALM_SETTINGS},
         # Keycloak returns every attribute with its multivalued default made explicit.
         "profileAttributes": [{"multivalued": False, **attributes[name]} for name in PROFILE_ATTRIBUTES],
@@ -187,13 +189,19 @@ class Realm:
         return f"/clients/{client['id']}/protocol-mappers/models"
 
     def remember_mapper(self) -> dict[str, object] | None:
-        mappers = [mapper for mapper in self.get(self.mapper_path()) if mapper["name"] == "native remember me"]
-        if len(mappers) > 1:
-            raise ProvisioningError("Duplicate Remember Me mapper; review the client configuration")
-        return mappers[0] if mappers else None
+        return self.mapper("native remember me")
 
     def set_remember_mapper(self, desired: dict[str, object] | None) -> None:
-        current = self.remember_mapper()
+        self.set_mapper("native remember me", desired)
+
+    def mapper(self, name: str) -> dict[str, object] | None:
+        mappers = [mapper for mapper in self.get(self.mapper_path()) if mapper["name"] == name]
+        if len(mappers) > 1:
+            raise ProvisioningError(f"Duplicate BFF mapper '{name}'; review the client configuration")
+        return mappers[0] if mappers else None
+
+    def set_mapper(self, name: str, desired: dict[str, object] | None) -> None:
+        current = self.mapper(name)
         path = self.mapper_path()
         if current is not None:
             path += f"/{current['id']}"
@@ -427,10 +435,13 @@ def require_remember_provider(realm: Realm) -> None:
 
 
 def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argparse.Namespace) -> int:
-    """Reconcile only shared session bounds, the password policy and the BFF mapper, preserving local identity policy."""
+    """Reconcile shared session bounds, the password policy and the reviewed BFF mappers, preserving local identity policy."""
     settings = {name: desired["settings"][name] for name in SHARED_SETTINGS}
     current = realm.representation()
-    mapper = realm.remember_mapper()
+    expected_mappers = {"native remember me": desired["rememberMeMapper"]}
+    if realm.name == "gameometro" and desired["profileEmailMapper"] is not None:
+        expected_mappers["private profile email"] = desired["profileEmailMapper"]
+    current_mappers = {name: realm.mapper(name) for name in expected_mappers}
     if arguments.restore:
         saved = json.loads(arguments.restore.read_text(encoding="utf-8"))
         if (saved.get("version") != SNAPSHOT_VERSION or saved.get("scope") != "sessions"
@@ -443,13 +454,20 @@ def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argp
             restored["passwordPolicy"] = ""
         realm.send("PUT", "", restored, {204})
         realm.set_remember_mapper(saved["rememberMeMapper"])
+        if "profileEmailMapper" in saved and realm.name == "gameometro":
+            realm.set_mapper("private profile email", saved["profileEmailMapper"])
         print(f"Realm {realm.name} session policy restored from {arguments.restore.name}.")
         return 0
     require_remember_provider(realm)
     differing = [name for name, value in settings.items() if current.get(name) != value]
-    expected_mapper = desired["rememberMeMapper"]
-    if mapper is None or any(mapper.get(key) != value for key, value in expected_mapper.items()):
+    changed_mappers = {
+        name: expected for name, expected in expected_mappers.items()
+        if any((current_mappers[name] or {}).get(key) != value for key, value in expected.items())
+    }
+    if "native remember me" in changed_mappers:
         differing.append("rememberMeMapper")
+    if "private profile email" in changed_mappers:
+        differing.append("private profile email")
     if not differing:
         print(f"Realm {realm.name} session policy is aligned; nothing changed.")
         return 0
@@ -460,16 +478,21 @@ def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argp
         "version": SNAPSHOT_VERSION, "scope": "sessions", "realm": realm.name,
         "takenAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
         "settings": {name: current.get(name) for name in SHARED_SETTINGS},
-        "rememberMeMapper": mapper,
+        "rememberMeMapper": current_mappers["native remember me"],
+        **({"profileEmailMapper": current_mappers["private profile email"]}
+           if "private profile email" in expected_mappers else {}),
     })
     print(f"Snapshot written to {path}.")
-    # Trust contract first, then the longer SSO bounds. Never replace the client or realm.
-    realm.set_remember_mapper(expected_mapper)
-    realm.send("PUT", "", settings, {204})
-    actual_mapper = realm.remember_mapper()
+    # Install the claim contracts before applying any changed SSO settings.
+    for name, expected in changed_mappers.items():
+        realm.set_mapper(name, expected)
+    if any(current.get(name) != value for name, value in settings.items()):
+        realm.send("PUT", "", settings, {204})
     actual = realm.representation()
-    if (any(actual.get(key) != value for key, value in settings.items()) or actual_mapper is None
-            or any(actual_mapper.get(key) != value for key, value in expected_mapper.items())):
+    actual_mappers = {name: realm.mapper(name) or {} for name in expected_mappers}
+    if (any(actual.get(key) != value for key, value in settings.items())
+            or any(actual_mappers[name].get(key) != value for name, expected in expected_mappers.items()
+                   for key, value in expected.items())):
         raise ProvisioningError(f"Keycloak did not retain the session policy; restore {path}")
     print(f"Realm {realm.name} session policy updated: {', '.join(differing)}.")
     return 0
@@ -540,7 +563,7 @@ def main() -> int:
     mode.add_argument("--list-unverified", action="store_true", help="Print unverified accounts with a deliverable address")
     mode.add_argument("--restore", type=pathlib.Path, help="Revert to a snapshot written by an earlier apply")
     parser.add_argument("--realm", default=REALM, help="Realm name; another realm is permitted only with --origin --sessions-only")
-    parser.add_argument("--sessions-only", action="store_true", help="Reconcile only shared session settings, the password policy and the native BFF mapper; keep environment-specific identity settings")
+    parser.add_argument("--sessions-only", action="store_true", help="Reconcile only shared session settings, the password policy and the reviewed BFF mappers; keep environment-specific identity settings")
     parser.add_argument("--snapshot-dir", type=pathlib.Path, help="Protected directory for the pre-apply snapshot")
     arguments = parser.parse_args()
     if not arguments.realm or (arguments.realm != REALM and not (arguments.origin and arguments.sessions_only)):

@@ -78,6 +78,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   const landing = await page.request.get("/");
   expect(landing.headers()["strict-transport-security"]).toContain("max-age=");
 
+  expect((await page.request.get("/api/v1/me/profile")).status()).toBe(401);
   const email = syntheticEmail("register");
   const password = syntheticPassword();
   await page.goto("/auth/start?intent=register");
@@ -156,6 +157,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(cookie?.value.split(".")).not.toHaveLength(3);
   expect(await browserState(page)).toEqual({ origin: applicationOrigin, documentCookie: [], localStorage: 0, sessionStorage: 0, indexedDb: 0 });
 
+  await expectPrivateProfile(page, email);
   const csrfToken = signedIn.csrfToken ?? "";
   const rating = await page.evaluate(
     async ({ game, token }) => {
@@ -203,6 +205,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(other).toHaveURL(`${applicationOrigin}/`);
   expect(await other.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(404);
   expect(await page.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(200);
+  await expectPrivateProfile(other, otherEmail);
   const otherSession = await sessionState(other);
   expect(await other.evaluate(async ({ game, token }) => (await fetch(`/api/v1/me/ratings/${game}?userId=forged-owner`, {
     method: "PUT", credentials: "same-origin",
@@ -216,7 +219,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   })).status, { game: ratedGame, token: otherSession.csrfToken ?? "", version: otherRating.headers()["etag"] ?? "" })).toBe(200);
   await second.close();
 
-  await page.getByRole("button", { name: "Mi cuenta" }).click();
+  await page.getByRole("button", { name: "Mi cuenta", exact: true }).click();
   // The page already shows the anonymous header at `/` before its document leaves for the
   // identity provider's logout, so wait for the document that the round trip brings back.
   const returned = page.waitForResponse((response) => response.request().isNavigationRequest()
@@ -234,6 +237,8 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(identityAfterLogout).not.toContain("KEYCLOAK_SESSION");
   await page.goto("/auth/start");
   await expect(page.locator("#kc-form-login")).toBeVisible();
+  const staleProfile = await request.get(`${applicationOrigin}/api/v1/me/profile`, { headers: { Cookie: `${sessionCookie}=${cookie?.value}` } });
+  expect(staleProfile.status()).toBe(401);
   const oldSession = await request.get(`${applicationOrigin}/api/v1/session`, { headers: { Cookie: `${sessionCookie}=${cookie?.value}` } });
   expect(await oldSession.json()).toMatchObject({ authenticated: false });
   await page.locator("#username").fill(email);
@@ -404,6 +409,15 @@ function jwtClaimNames(value: string): string[] | undefined {
   } catch {
     return undefined;
   }
+}
+
+async function expectPrivateProfile(page: Page, email: string) {
+  const profile = await page.request.get("/api/v1/me/profile");
+  expect(profile.status()).toBe(200);
+  expect(profile.headers()["cache-control"]).toBe("no-store");
+  expect(await profile.json()).toMatchObject({ email });
+  await page.goto("/mi-perfil");
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
 }
 
 async function sessionState(page: Page) {

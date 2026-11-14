@@ -112,13 +112,17 @@ test("a slow catalogue navigation blocks the page until the request fails and of
   const triggerBox = await link.boundingBox();
   const overlay = page.getByRole("dialog", { name: "Cargando página…" });
   const request = page.waitForRequest(endpoint);
+  // Freeze the clock before starting the navigation so the threshold is exact.
   await page.clock.install();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
 
   try {
-    await link.click();
+    await link.dispatchEvent("click");
     await request;
     await expect(overlay).toBeHidden();
-    await page.clock.fastForward(1_000);
+    await page.clock.runFor(599);
+    await expect(overlay).toBeHidden();
+    await page.clock.runFor(1);
     await expect(overlay).toBeVisible();
     await expect(overlay).toBeFocused();
 
@@ -131,6 +135,7 @@ test("a slow catalogue navigation blocks the page until the request fails and of
     await expect(page).toHaveURL(/\/plataformas$/);
   } finally {
     allowFailure.resolve(undefined);
+    await page.clock.resume();
   }
 
   await expect(overlay).toBeHidden();

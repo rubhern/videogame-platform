@@ -677,11 +677,13 @@ BURSTS = [
                                                             "true-client-ip", "cluster-client-ip")]),
         ("source-b", "read:40:ok", "read:1:limited"),
     ]),
+    # Use the feedback zone's long window to test source grouping across
+    # separate container starts. The catalogue scenario above tests the short read window.
     ("IPv4 and IPv6 /64 sources", [
-        ("source-v6-a", "read:40:ok", "read:1:limited"),
-        ("source-v6-b", "read:1:limited"),
-        ("source-v6-c", "read:40:ok", "read:1:limited"),
-        ("source-a", "read:40:ok"),
+        ("source-v6-a", "feedback:3:ok", "feedback:1:limited"),
+        ("source-v6-b", "feedback:1:limited"),
+        ("source-v6-c", "feedback:3:ok", "feedback:1:limited"),
+        ("source-a", "feedback:3:ok"),
     ]),
     ("shared household", [("source-a", "household")]),
     # The BFF's issuer calls have their own budget; nothing else from its address does.

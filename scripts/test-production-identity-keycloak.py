@@ -20,8 +20,10 @@ import re
 import secrets
 import socket
 import statistics
+import subprocess
 import ssl
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -460,6 +462,50 @@ assert credentials(verified["id"]) == ["password"]
 reused = Browser().open(verification_link)
 assert "Tu email ya estaba verificado." in page_text(reused.body) and "kc-passwd-update-form" not in reused.body
 
+# Reproduce a persisted realm created before #475 and exercise the actual upgrade command.
+mapper_path = f"{ADMIN_REALM}/clients/{clients[0]['id']}/protocol-mappers/models"
+status, mappers = admin("GET", mapper_path)
+assert status == 200
+[profile_mapper] = [mapper for mapper in mappers if mapper["name"] == "private profile email"]
+assert admin("DELETE", f"{mapper_path}/{profile_mapper['id']}")[0] == 204
+before_answer, before_verifier, _ = sign_in(player, player_password)
+before_code = callback(before_answer)["code"]
+remember(before_code)
+status, before_tokens = token_request({
+    "grant_type": "authorization_code", "code": before_code,
+    "redirect_uri": REDIRECT_URI, "code_verifier": before_verifier,
+})
+assert status == 200
+before_userinfo = urllib.request.Request(
+    f"{ISSUER}/protocol/openid-connect/userinfo",
+    headers={"Authorization": f"Bearer {before_tokens['access_token']}"},
+)
+with urllib.request.urlopen(before_userinfo, context=TLS) as response:
+    assert json.load(response) == {"sub": verified["id"]}, "the old production client omits email"
+
+with tempfile.TemporaryDirectory() as directory:
+    command = [
+        sys.executable, "deploy/private-dev/bin/configure-keycloak-identity",
+        "--origin", ORIGIN, "--realm", REALM, "--sessions-only",
+        "--admin-username", ADMIN_USERNAME, "--admin-password-file", "/dev/stdin",
+    ]
+    environment = {**os.environ, "SSL_CERT_FILE": required_environment("KEYCLOAK_TEST_CA_FILE")}
+    def align(*options):
+        return subprocess.run([*command, *options], input=ADMIN_PASSWORD, text=True,
+                              env=environment, capture_output=True, timeout=30)
+
+    check = align("--check")
+    assert check.returncode == 1 and "private profile email" in check.stderr
+    applied = align("--snapshot-dir", directory)
+    assert applied.returncode == 0, applied.stderr
+    assert align("--check").returncode == 0
+    assert align("--snapshot-dir", directory).returncode == 0
+    [snapshot] = pathlib.Path(directory).iterdir()
+    assert json.loads(snapshot.read_text())["profileEmailMapper"] is None
+    assert align("--restore", str(snapshot)).returncode == 0
+    assert align("--check").returncode == 1
+    assert align("--snapshot-dir", directory).returncode == 0
+
 # 8. Sign-in returns a code only to the exact callback; the BFF's exchange gets minimal claims.
 answer, verifier, state = sign_in(player, player_password)
 returned = callback(answer)
@@ -469,9 +515,11 @@ consumed_codes.append(returned["code"].split(".", 1)[0])
 status, tokens = token_request(
     {"grant_type": "authorization_code", "code": returned["code"], "redirect_uri": REDIRECT_URI, "code_verifier": verifier}
 )
-assert status == 200 and tokens["scope"] == "openid", tokens
+assert status == 200 and tokens["scope"] == "openid"
 identity = claims(tokens["id_token"])
 assert set(identity) <= ID_TOKEN_CLAIMS, f"unexpected ID-token claims: {set(identity) - ID_TOKEN_CLAIMS}"
+for token in ("id_token", "access_token", "refresh_token"):
+    assert "email" not in claims(tokens[token]), f"the {token} must omit the account email"
 assert identity["gameometro_remember_me"] is False, "registration without opt-in remains ordinary"
 assert "gameometro_remember_me" not in claims(tokens["access_token"]), "the mode claim is ID-token-only"
 assert not identity.get("product_roles"), "a newly registered account holds no product role"
@@ -481,7 +529,9 @@ userinfo = urllib.request.Request(
     f"{ISSUER}/protocol/openid-connect/userinfo", headers={"Authorization": f"Bearer {tokens['access_token']}"}
 )
 with urllib.request.urlopen(userinfo, context=TLS) as response:
-    assert json.load(response) == {"sub": verified["id"]}, "no profile data leaves Keycloak"
+    assert json.load(response) == {"sub": verified["id"], "email": player}, (
+        "UserInfo carries only the subject and the email of the same account"
+    )
 status, refreshed = token_request({"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]})
 assert status == 200 and refreshed["refresh_token"] != tokens["refresh_token"]
 status, reuse = token_request({"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]})
@@ -492,6 +542,8 @@ status, replay = token_request(
 assert status == 400 and replay["error"] == "invalid_grant"
 status, revoked = token_request({"grant_type": "refresh_token", "refresh_token": refreshed["refresh_token"]})
 assert status == 400 and revoked["error"] == "invalid_grant", "a replayed code revokes what it issued"
+
+print("Private profile email proven before and after existing-realm alignment; no email in tokens.")
 
 # 9. Verifying on the registering device resumes the original authorization to the BFF.
 resuming = Browser()

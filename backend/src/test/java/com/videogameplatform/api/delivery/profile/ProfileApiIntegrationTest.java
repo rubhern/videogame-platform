@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery.profile;
 
 import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
+import static com.videogameplatform.test.RegisteredOidcSession.oidcSessionWithUserInfo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -83,6 +84,7 @@ class ProfileApiIntegrationTest {
                         token.issuer(ISSUER)
                                 .subject(subject)
                                 .claim("email", "private@example.test")
+                                .claim("email_verified", false)
                                 .claim("name", "Cuenta privada"));
     }
 
@@ -104,10 +106,35 @@ class ProfileApiIntegrationTest {
                 .assertJsonResponse(response.getResponse(), 200, "PrivateProfile");
         mvc.perform(get(PROFILE).with(login(ALICE)).queryParam("userId", BOB))
                 .andExpect(status().isUnprocessableContent());
-        mvc.perform(get(PROFILE)).andExpect(status().isUnauthorized());
+        mvc.perform(get(PROFILE))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.email").doesNotExist());
+        mvc.perform(get("/api/v1/session").with(login(ALICE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andExpect(jsonPath("$.email").doesNotExist());
         mvc.perform(get(PROFILE).with(oidcSession(token -> token.issuer(ISSUER).subject(ALICE))))
                 .andExpect(jsonPath("$.email").doesNotExist())
                 .andExpect(jsonPath("$.name").doesNotExist());
+    }
+
+    @Test
+    void projectsAccountEmailFromValidatedUserInfo() throws Exception {
+        var session =
+                oidcSessionWithUserInfo(
+                        token -> token.issuer(ISSUER).subject(ALICE),
+                        info ->
+                                info.subject(ALICE)
+                                        .email("userinfo@example.test")
+                                        .emailVerified(false));
+        mvc.perform(get(PROFILE).with(session))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.email").value("userinfo@example.test"))
+                .andExpect(jsonPath("$.emailVerified").doesNotExist());
+        mvc.perform(get("/api/v1/session").with(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").doesNotExist());
     }
 
     @Test

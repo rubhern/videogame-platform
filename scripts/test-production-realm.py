@@ -219,6 +219,22 @@ assert "*" not in json.dumps(client), "no wildcard origin or redirect"
 assert not any(name.startswith("backchannel.") for name in client_attributes), "ADR-0027: no back-channel logout"
 # The BFF reads product roles only from its own ID token: no access token, user info or
 # introspection carries them (#247).
+profile_email = {
+    "name": "private profile email",
+    "protocol": "openid-connect",
+    "protocolMapper": "oidc-usermodel-property-mapper",
+    "consentRequired": False,
+    "config": {
+        "user.attribute": "email",
+        "claim.name": "email",
+        "jsonType.label": "String",
+        "id.token.claim": "false",
+        "access.token.claim": "false",
+        "userinfo.token.claim": "true",
+        "introspection.token.claim": "false",
+        "lightweight.claim": "false",
+    },
+}
 assert client["protocolMappers"] == [
     {
         "name": "product roles",
@@ -238,13 +254,14 @@ assert client["protocolMappers"] == [
         },
     },
     {"name": "native remember me", "protocol": "openid-connect", "protocolMapper": "gameometro-remember-me", "consentRequired": False, "config": {}},
+    profile_email,
 ]
 # Private-dev and local realms are aligned from their own import, which must declare the same
 # role and mapper as production (configure-keycloak-operator reads it, never this file).
 local_realm = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text(encoding="utf-8"))
 [local_client] = [entry for entry in local_realm["clients"] if entry["clientId"] == client["clientId"]]
 assert local_realm["roles"] == realm["roles"], "local and production realms declare the same client roles"
-assert local_client["protocolMappers"] == client["protocolMappers"], "local and production BFF mappers match"
+assert client["protocolMappers"] == [*local_client["protocolMappers"], profile_email]
 
 print("Production realm import is isolated, minimal and matches the reviewed identity policy.")
 

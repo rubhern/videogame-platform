@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef } from "react";
 
 import { BrandMark } from "../shared/brand/brand-logo";
 
-const REVEAL_DELAY_MS = 1_000;
+const REVEAL_DELAY_MS = 600;
 
 export function NavigationLoading({ pending }: { pending: boolean }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
