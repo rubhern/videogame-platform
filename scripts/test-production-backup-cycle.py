@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The scheduled cycle's failure paths on the real recovery core with a fake runtime and S3.
 
-No host, Docker daemon, provider or account is used. These prove the cycle's decisions; only
-a run on the real host can prove how long the fence lasts or that its services come back.
+No host, Docker daemon, provider or account is used. These prove the cycle's decisions; the
+disposable rehearsal (scripts/rehearse-production-backup-cycle.py) proves the online copy
+against real containers, and only a run on the real host proves its timing there.
 """
 import contextlib
 import datetime as dt
@@ -50,6 +51,26 @@ class FakeRuntime:
         self.running = {'keycloak', 'caddy', 'application', 'grafana'}
         self.sync, self.sizes = b'0', (b'%d|%d' % (2 * GiB, GiB))
         self.lease_free, self.monitoring, self.cycle_run = True, True, None
+        self.leftovers, self.clone = 0, 3 * GiB
+
+    def snapshot_size(self):
+        return self.clone
+
+    def snapshot(self, destination, _keyring, _recipient):
+        core.require(self.gate_state == b'open' and not (self.state / 'PENDING.json').exists(), 'Closed runtime.')
+        self.calls.append('snapshot')
+        self.leftovers += 1
+        self.trip('snapshot')
+        if 'hang' in self.fail:
+            time.sleep(5)
+        self.test.pair(destination, core.SNAPSHOT)
+        self.leftovers -= 1
+        self.trip('snapshot-removal')
+
+    def discard_snapshots(self):
+        self.trip('discard')
+        self.calls.append('discard')
+        self.leftovers = 0
 
     @contextlib.contextmanager
     def lock(self):
@@ -116,6 +137,9 @@ class FakeRuntime:
 
 
 class CycleTests(unittest.TestCase):
+    """The fenced capture: configured, or the fallback when the online clone does not fit."""
+    MODE = 'fenced'
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -138,15 +162,17 @@ class CycleTests(unittest.TestCase):
         self.config = {'authorized': True, 'admin': str(self.root / 'admin'), 'project': 'vgp-production-test-unit', 'state': str(self.state),
                        'keyring': str(self.root / 'keyring'), 'recipient': 'A' * 40, 'work': str(self.work),
                        'uploaderConfig': str(self.uploader), 'admissionConfig': str(self.reader), 's3Python': '/usr/bin/python3',
-                       'status': str(self.root / 'status.json'), 'maxFenceSeconds': 1}
+                       'status': str(self.root / 'status.json'), 'maxFenceSeconds': 1, 'captureMode': self.MODE}
         self.s3_calls, self.s3_fail = [], set()
         self.memory = SimpleNamespace(total=100 * GiB, free=50 * GiB)
         self.disk = SimpleNamespace(total=100 * GiB, free=50 * GiB)
+        self.host_memory = (16 * GiB, 12 * GiB)
         self.cycle = self.make()
 
     def make(self):
         return cycle.Cycle(self.config, core, runtime=lambda: self.runtime, invoke=self.invoke, sleep=lambda _: None,
-                           usage=lambda path: self.memory if path == '/dev/shm' else self.disk).load()
+                           usage=lambda path: self.memory if path == '/dev/shm' else self.disk,
+                           memory=lambda: self.host_memory).load()
 
     def credential(self, name, key):
         path = self.root / name
@@ -162,7 +188,7 @@ class CycleTests(unittest.TestCase):
         receipt.write_text(json.dumps({'alerts': []}))
         return receipt
 
-    def pair(self, destination):
+    def pair(self, destination, fence=core.FENCED):
         destination.mkdir(mode=0o700)
         artifacts = {}
         for name in core.FILES[:2]:
@@ -170,7 +196,7 @@ class CycleTests(unittest.TestCase):
             (destination / name).write_bytes(data)
             artifacts[name] = {'bytes': len(data), 'ciphertextSha256': hashlib.sha256(data).hexdigest(), 'plaintextSha256': 'a' * 64}
         core.write(destination / 'manifest.json', {'format': 1, 'environment': 'production', 'issuer': core.ISSUER, 'databases': list(core.DATABASES),
-                                                   'fence': 'roles-nologin-drained', 'backupId': 'a' * 32, 'recoveryPoint': self.now.isoformat(), 'artifacts': artifacts})
+                                                   'fence': fence, 'backupId': 'a' * 32, 'recoveryPoint': self.now.isoformat(), 'artifacts': artifacts})
         (destination / 'SHA256SUMS').write_text(''.join(f'{core.digest(destination / n)}  {n}\n' for n in core.FILES[:-1]))
 
     def published(self):
@@ -452,6 +478,157 @@ class CycleTests(unittest.TestCase):
         self.assertEqual({c for c, _ in self.s3_calls}, {'admission'})
         self.runtime.gate_state = b'closed'
         self.assertEqual(self.cycle.check(), 1)
+
+
+class OnlineCycleTests(CycleTests):
+    """The default capture (ADR-0043): no fence, no stopped service, no reopening."""
+    MODE = 'online'
+
+    def assert_untouched(self):
+        self.assert_open()
+        self.assertEqual(self.runtime.running, {'keycloak', 'caddy', 'application', 'grafana'})
+        self.assertFalse([c for c in self.runtime.calls if c.startswith(('start-', 'backup', 'thaw', 'reopen'))])
+        self.assertEqual(self.runtime.leftovers, 0)
+
+    # The fenced suite's tests that do not apply to an online capture are replaced below.
+    def test_captures_reopens_in_dependency_order_then_uploads(self):
+        self.assertEqual(self.cycle.run(), 0)
+        self.assertEqual(self.runtime.calls, ['lock', 'snapshot', 'discard'])
+        self.assert_untouched()
+        self.assertEqual([c for c, _ in self.s3_calls], ['admission', 'admission', 'publish'])
+        status = self.status()
+        self.assertEqual((status['outcome'], status['status'], status['captureMode'], status['attention']), ('success', 'idle', 'online', False))
+        self.assertEqual(status['lastUploadRecoveryPoint'], NOW.isoformat())
+
+    def test_a_service_stopped_on_purpose_stays_stopped(self):
+        self.runtime.running.discard('grafana')
+        self.assertEqual(self.cycle.run(), 0)
+        self.assertNotIn('grafana', self.runtime.running)
+
+    def test_an_optional_service_never_fails_the_product(self):
+        self.runtime.fail['start-grafana'] = 1
+        self.assertEqual(self.cycle.run(), 0)
+        self.assertEqual(self.status()['optionalDegraded'], [])
+
+    def test_lease_lost_before_the_fence_fences_nothing(self):
+        self.runtime.lease_free = False
+        self.assertEqual(self.cycle.run(), 1)
+        self.assertNotIn('snapshot', self.runtime.calls)
+        self.assertEqual((self.cycle.journal['status'], self.status()['lastFailure']), ('idle', 'capture-skipped'))
+
+    def test_failed_capture_reopens_and_claims_no_upload(self):
+        self.runtime.fail['snapshot'] = 1
+        self.assertEqual(self.cycle.run(), 1)
+        self.assert_untouched()
+        self.assertFalse(self.published())
+        self.assertEqual(self.status()['lastFailure'], 'capture-failed')
+
+    def test_capture_over_its_fence_budget_reopens(self):
+        self.runtime.fail['hang'] = None
+        started = time.monotonic()
+        self.assertEqual(self.cycle.run(), 1)
+        self.assertLess(time.monotonic() - started, 4)
+        self.assert_untouched()
+        self.assertEqual(self.status()['lastFailure'], 'capture-failed')
+
+    def test_failed_thaw_reopens_and_still_uploads_the_valid_pair(self):
+        self.runtime.fail['snapshot-removal'] = 1
+        self.assertEqual(self.cycle.run(), 0)
+        self.assert_untouched()
+        self.assertEqual(len(self.published()), 1, 'A verified pair uploads even if its copy needed the sweep.')
+
+    def test_reopening_retries_until_the_owner_is_needed(self):
+        self.runtime.fail['snapshot'] = 1
+        self.runtime.fail['discard'] = 2
+        self.assertEqual(self.cycle.run(), 1)
+        self.assertEqual((self.cycle.journal['status'], self.status()['lastFailure']), ('snapshotting', 'snapshot-cleanup-failed'))
+        self.assertFalse(self.status()['attention'], 'The product was never fenced.')
+        self.assertEqual(self.cycle.run(), 1, 'A copy left behind blocks the next capture until it is removed.')
+        self.assertNotIn('snapshot', self.runtime.calls[2:])
+        self.assertEqual(self.cycle.reconcile(), 0)
+        self.assertEqual((self.cycle.journal['status'], self.runtime.leftovers), ('idle', 0))
+
+    def test_transient_reopen_failure_recovers_on_the_next_tick(self):
+        self.runtime.fail['discard'] = 1
+        self.assertEqual(self.cycle.run(), 1)
+        self.assertFalse(self.published())
+        self.assertEqual(self.cycle.reconcile(), 0)
+        self.assertEqual(len(self.published()), 1, 'The verified pair uploads once its copy is gone.')
+
+    def test_failed_required_service_stays_visible_and_retries(self):
+        self.runtime.fail['start-application'] = 1
+        self.assertEqual(self.cycle.run(), 0)
+        self.assert_untouched()
+
+    def test_smoke_failure_keeps_retrying_inside_its_budget(self):
+        self.runtime.fail['smoke'] = 2
+        self.assertEqual(self.cycle.run(), 0)
+        self.assertNotIn('smoke', self.runtime.calls)
+
+    def crash_mid_snapshot(self, pair=False):
+        run = 'b' * 32
+        self.cycle.journal.update(status='snapshotting', runId=run, pair=str(self.work / f'pairs/20261107T023000Z-{run}'))
+        self.cycle.save()
+        self.runtime.leftovers = 1
+        if pair:
+            self.pair(Path(self.cycle.journal['pair']), core.SNAPSHOT)
+
+    def test_reboot_mid_capture_reopens_without_upload(self):
+        self.crash_mid_snapshot()
+        self.assertEqual(self.make().reconcile(), 0)
+        self.assert_untouched()
+        self.assertFalse(self.published())
+        self.assertEqual(self.status()['lastFailure'], 'capture-failed')
+
+    def test_crash_before_the_journal_was_written_reopens(self):
+        self.crash_mid_snapshot()
+        self.runtime.lease_free = False  # Settling needs no lease: it never touches a fence.
+        self.assertEqual(self.make().reconcile(), 0)
+        self.assertEqual(self.runtime.leftovers, 0)
+
+    def test_reboot_after_the_pair_was_published_uploads_it(self):
+        self.crash_mid_snapshot(pair=True)
+        self.assertEqual(self.make().reconcile(), 0)
+        self.assertEqual(len(self.published()), 1)
+
+    def test_online_capture_never_touches_a_closed_gate(self):
+        # Closed between preflight and the copy: the actor refuses, nothing is published or reopened.
+        original = self.runtime.lock
+        @contextlib.contextmanager
+        def closing():
+            with original():
+                self.runtime.gate_state = b'closed'
+                core.write(self.state / 'PENDING.json', {'phase': 'restoring'})
+                yield
+        self.runtime.lock = closing
+        self.assertEqual(self.cycle.run(), 1)
+        self.assertFalse(self.published())
+        self.assertEqual(self.runtime.gate_state, b'closed')
+        self.assertTrue((self.state / 'PENDING.json').exists())
+        self.assertNotIn('reopen-capture', self.runtime.calls)
+
+    def test_insufficient_memory_falls_back_to_the_fenced_capture_and_reports_it(self):
+        self.host_memory = (16 * GiB, 4 * GiB)
+        self.assertEqual(self.cycle.run(), 0)
+        self.assertIn('backup', self.runtime.calls)
+        self.assertNotIn('snapshot', self.runtime.calls)
+        self.assert_open()
+        self.assertEqual(self.status()['captureMode'], 'fenced-fallback')
+        self.assertEqual(self.make().check(), 1, 'The read-only check names the fallback.')
+
+    def test_unknown_mode_is_refused(self):
+        self.config['captureMode'] = 'hot'
+        path = self.root / 'cycle.json'
+        path.write_text(json.dumps(self.config))
+        path.chmod(0o600)
+        with self.assertRaisesRegex(core.Refused, 'capture mode'):
+            cycle.load_configuration(core, path)
+
+    # Fenced-only scenarios: a fence an online capture never creates.
+    test_fence_replaced_after_a_crash_is_left_for_its_owner = None
+    test_manual_backup_fence_is_left_for_its_owner = None
+    test_closed_gate_this_run_never_entered_is_not_ours = None
+    test_acknowledge_requires_a_resolved_fence = None
 
 
 class RealRecoveryFence(unittest.TestCase):

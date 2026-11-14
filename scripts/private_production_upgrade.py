@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Owner-operated in-place upgrade of the installed private runtime. Default: read-only plan.
 
-Forward-only by design. The apply path consumes the write fence a canonical paired backup leaves
-closed, so that backup is exactly the pre-upgrade recovery point, and holds the recovery lease and
-identity fence until the target is activated. Every step verifies its postcondition before acting,
-so an interruption resumes by fencing again and repeating the same reviewed steps. It never edits
-the installation journal, reverses Flyway, restores over live volumes or starts a superseded image.
+Two activations, chosen by the reviewed plan (ADR-0043):
+
+- fenced: forward-only. The apply path consumes the write fence a canonical paired backup leaves
+  closed, so that backup is exactly the pre-upgrade recovery point, and holds the recovery lease and
+  identity fence until the target is activated. Every step verifies its postcondition before acting,
+  so an interruption resumes by fencing again and repeating the same reviewed steps.
+- handover: only for a compatible application-only release (no Flyway, realm, secret, setting or
+  other service change). A temporary candidate of the target serves while the application is
+  replaced; nothing is fenced, and any failure restores the previous application, which the
+  unchanged schema still serves.
+
+It never edits the installation journal, reverses Flyway, restores over live volumes or starts a
+superseded image across an incompatible change.
 """
 import sys
 sys.dont_write_bytecode = True
@@ -67,8 +75,27 @@ OPTIONAL = ('loki', 'catalogue-localizer', 'grafana')
 # fence, runs what that guard wraps. The gate therefore stays closed until the reviewed reopening.
 MIGRATION_ENTRYPOINT = '/opt/gameometro/bin/shared-run-migrations'
 VERSION_ENVIRONMENT = 'TELEMETRY_SERVICE_VERSION'
-FENCE_STOPPED = {'caddy', 'application', 'keycloak', 'grafana'}
+# Database writers the canonical fence stops. Since #485 the edge keeps answering with the
+# maintenance response; a fence an older actor closed may still have stopped it.
+FENCE_WRITERS = {'application', 'keycloak', 'grafana'}
+FENCE_STOPPED = FENCE_WRITERS | {'caddy'}
 MIGRATION_TIMEOUT = 1800
+# ADR-0043 handover: a temporary candidate of the target application. Its own fixed address (the
+# edge exempts only these two from the identity source limit), no recurring acquisition, and the
+# application's restart policy, so a reboot mid-handover still leaves a serving instance.
+CANDIDATE = 'application-candidate'
+BFF_ADDRESS, CANDIDATE_ADDRESS = '10.203.1.3', '10.203.1.5'
+CANDIDATE_LABEL = 'gameometro.handover-candidate'
+CANDIDATE_CONFIG = 'compose.candidate.json'
+CANDIDATE_UPSTREAM = 'reverse_proxy application:8080 application-candidate:8080 {'
+HANDOVER_FIELDS = {'image', 'environment', 'bound-files'}
+HANDOVER_MEMORY_RESERVE = 256 * 1024 ** 2
+HANDOVER_DRAIN_SECONDS = 30
+# ADR-0043: the isolated restore may prove an earlier pair of the same runtime and schema, so the
+# writers stay fenced only for the final pair. Older than this, the proof no longer counts.
+PROOF_MAX_AGE_HOURS = 3
+PROOF_IDENTITY = ('issuer', 'databases', 'recipient', 'images', 'configurationSha256', 'postgresMajor',
+                  'applicationSchema', 'keycloakSchema')
 # Reviewed runtime-input additions. When a target adds one of these inputs, the upgrade fills it
 # with this default; any other change to the input inventory still refuses. Extend these tables in
 # the same change that adds a production runtime input, secret or protected setting
@@ -318,16 +345,81 @@ def desired_session_state(realm):
             'rememberMeMapper': mapper, 'profileEmailMapper': PROFILE_EMAIL_MAPPER in bff.get('protocolMappers', [])}
 
 
-def verify_backup_evidence(manifest, images, config_hash, offhost, restore, *, now=None):
+def verify_proof(final, proof, restore):
+    """ADR-0043: a restored pair of the same runtime and schema, taken shortly before the final pair.
+
+    It proves keys, storage, format and the restore path; the final pair differs only by the writes
+    made in between, which the same dump, encryption and upload produced.
+    """
+    require(proof.get('format') == 1 and proof.get('environment') == 'production'
+            and proof.get('fence') in ('roles-nologin-drained', 'cluster-snapshot')
+            and re.fullmatch('[0-9a-f]{32}', str(proof.get('backupId'))) and proof['backupId'] != final['backupId'],
+            'The restored pair is not a canonical production pair.')
+    require(all(proof.get(key) == final.get(key) for key in PROOF_IDENTITY),
+            'The restored pair differs from the final pair in runtime, recipient or schema.')
+    gap = datetime.fromisoformat(final['recoveryPoint']) - datetime.fromisoformat(proof['recoveryPoint'])
+    require(0 <= gap.total_seconds() <= PROOF_MAX_AGE_HOURS * 3600,
+            'The restored pair is not a recent predecessor of the final pair.')
+    require(restore.get('outcome') == 'success' and restore.get('kind') == 'isolated-restore'
+            and restore.get('backupId') == proof['backupId'], 'A successful isolated restore of the restored pair is required.')
+    return proof['backupId']
+
+
+def verify_backup_evidence(manifest, images, config_hash, offhost, restore, *, now=None, proof=None):
     """A canonical manifest plus its off-host and restore receipts; hashes of manual dumps never pass."""
     backup_id = acceptance.verify_backup(manifest, images, now=now)
     require(manifest.get('configurationSha256') == config_hash,
             'The pair was not captured from the active runtime configuration.')
     require(offhost.get('outcome') == 'success' and offhost.get('kind') in OFF_HOST_RECEIPTS
             and offhost.get('backupId') == backup_id, 'A verified off-host copy of this exact pair is required.')
-    require(restore.get('outcome') == 'success' and restore.get('kind') == 'isolated-restore'
-            and restore.get('backupId') == backup_id, 'A successful isolated restore of this exact pair is required.')
+    if proof is not None:
+        verify_proof(manifest, proof, restore)
+    else:
+        require(restore.get('outcome') == 'success' and restore.get('kind') == 'isolated-restore'
+                and restore.get('backupId') == backup_id, 'A successful isolated restore of this exact pair is required.')
     return backup_id
+
+
+def candidate_config(config):
+    """The target application as its temporary handover candidate; nothing else differs."""
+    derived = json.loads(json.dumps(config))
+    service = json.loads(json.dumps(config['services']['application']))
+    networks = service.get('networks') or {}
+    edges = [n for n, v in networks.items() if (v or {}).get('ipv4_address') == BFF_ADDRESS]
+    require(len(edges) == 1, 'The application has no single fixed edge address to hand over from.')
+    networks[edges[0]]['ipv4_address'] = CANDIDATE_ADDRESS
+    # One scheduler at a time: the candidate never starts recurring acquisition.
+    service.setdefault('environment', {})[install.SCHEDULING] = 'false'
+    service['labels'] = {**service.get('labels', {}), CANDIDATE_LABEL: 'true'}
+    derived['services'][CANDIDATE] = service
+    return derived
+
+
+def handover_refusals(active, config, changed, flyway, realm_unchanged, secrets_added):
+    """Why this release needs the fenced activation; empty means a handover is compatible."""
+    refusals = []
+    if set(changed) - {'application', 'migration'}:
+        refusals.append('another-service-changes')
+    if any(set(fields) - HANDOVER_FIELDS for fields in changed.values()):
+        refusals.append('configuration-changes')
+    if any(set(environment_delta(active['services'][n], config['services'][n])) - {VERSION_ENVIRONMENT}
+           for n in changed if n in active['services']):
+        refusals.append('settings-change')
+    if flyway['pending']:
+        refusals.append('schema-migrations')
+    if not realm_unchanged:
+        refusals.append('identity-changes')
+    if secrets_added:
+        refusals.append('secret-additions')
+    edge = [m for m in active['services']['caddy'].get('volumes', []) if m['target'] == '/etc/caddy/Caddyfile']
+    text = Path(edge[0]['source']).read_text() if len(edge) == 1 and Path(edge[0]['source']).is_file() else ''
+    if CANDIDATE_UPSTREAM not in text or CANDIDATE_ADDRESS not in text:
+        refusals.append('edge-without-candidate')
+    try:
+        candidate_config(config)
+    except trust.Refused:
+        refusals.append('no-fixed-application-address')
+    return sorted(set(refusals))
 
 
 def bundle_relative(path):
@@ -986,6 +1078,12 @@ class Upgrade:
         dashboard = self.accepted_dashboard(api, source)
         config = material['config']
         changed_images, environment_keys = review_delta(self.active['config'], config, material['changed'])
+        secrets_added = sorted(set(config.get('secrets', {})) - set(self.active['config'].get('secrets', {})))
+        realm_unchanged = ((self.active['source'] / REALM_IMPORT).read_bytes() == (source / REALM_IMPORT).read_bytes()
+                           and not realm['changes'])
+        refusals = handover_refusals(self.active['config'], config, material['changed'], flyway, realm_unchanged, secrets_added)
+        if self.forward_of:
+            refusals = sorted({*refusals, 'forward-fix'})
         previous_images = {n: self.active['config']['services'][n]['image'] for n in PUBLISHED}
         reviewed = {
             'installed': {'runId': self.evidence['runId'], 'configurationSha256': self.evidence['configuration'],
@@ -998,12 +1096,13 @@ class Upgrade:
             'targetConfigurationSha256': digest(canonical(config)),
             'targetBundle': str(self.bundle),
             'changedServices': material['changed'], 'changedImages': changed_images,
-            'keptRunning': sorted(set(config['services']) - set(material['changed']) - set(ONE_SHOT) - FENCE_STOPPED),
+            'keptRunning': sorted(set(config['services']) - set(material['changed']) - set(ONE_SHOT) - FENCE_WRITERS),
             'environmentKeys': environment_keys,
             'activationOrder': ['keycloak', *ACTIVATION, *OPTIONAL], 'acceptedDashboard': dashboard,
+            'activation': 'fenced' if refusals else 'handover', 'handoverRefusals': refusals,
             'flyway': flyway, 'migrationInventory': files, 'realm': realm,
             'runtimeInputs': material['inputs'],
-            'secretAdditions': sorted(set(config.get('secrets', {})) - set(self.active['config'].get('secrets', {}))),
+            'secretAdditions': secrets_added,
             'adminIngress': {'grafana': config['services']['grafana']['environment'].get('GF_SERVER_ROOT_URL'),
                              'keycloak': config['services']['keycloak']['environment'].get('KC_HOSTNAME_ADMIN'),
                              'masterAttribute': 'frontendUrl', 'masterSnapshot': 'master-frontend.json'},
@@ -1044,7 +1143,7 @@ class Upgrade:
                 'liveServices': services, 'gate': {k: gate[k] for k in ('ready', 'pending', 'maintenance')},
                 'inventory': {**self.query('videogame_platform', DATA_SQL), 'users': identity['users'][0],
                               'credentials': identity['credentials'][0]},
-                'prerequisites': {**self.prerequisites(gate, work, local, reviewed_sha, built['planSha256']),
+                'prerequisites': {**self.prerequisites(gate, work, local, reviewed_sha, built['planSha256'], reviewed['activation']),
                                   'keycloakAdministratorAuthenticates': administrator}}
 
     def administrator_authenticates(self, host, services):
@@ -1062,12 +1161,16 @@ class Upgrade:
         except trust.Refused:
             return False
 
-    def prerequisites(self, gate, work, local, reviewed_sha, sha):
+    def prerequisites(self, gate, work, local, reviewed_sha, sha, activation='fenced'):
         fence = gate['pending'] and not gate['ready']
+        required = (['open runtime without identity maintenance', 'memory for one more application instance']
+                    if activation == 'handover' else
+                    ['fresh canonical pair with its fence still closed', 'off-host receipt',
+                     f'isolated-restore receipt of that pair or of a same-schema pair at most {PROOF_MAX_AGE_HOURS} h older'])
         return {'targetImagesLocal': all(local.values()), 'bundleStaged': (self.bundle / PLAN).exists(),
                 'writersFencedByBackup': bool(fence), 'noActiveWork': not any(work.values()), 'activeWork': work,
                 'reviewedHashMatches': reviewed_sha == sha if reviewed_sha else None,
-                'requiredAtApply': ['fresh canonical pair with its fence still closed', 'off-host receipt', 'isolated-restore receipt']}
+                'requiredAtApply': required}
 
     # --- staging ---
     def stage(self, reviewed_sha):
@@ -1137,10 +1240,10 @@ class Upgrade:
         self.write(record)
         self.phase_reached(phase)
 
-    def apply(self, reviewed_sha, *, backup=None, offhost=None, restore=None, reference=None):
+    def apply(self, reviewed_sha, *, backup=None, offhost=None, restore=None, reference=None, proof=None):
         require(re.fullmatch(r'[A-Za-z0-9#:._ -]{1,120}', reference or ''), 'An owner authorization reference is required.')
         self.host_checks()
-        require(self.read_journal() is None or self.read_journal()['status'] == 'abandoned',
+        require(self.read_journal() is None or self.read_journal()['status'] in ('abandoned', 'rolled-back'),
                 'An upgrade journal exists; use --inspect, then --resume or --forward-fix-of.')
         require(self.unfinished() == ([self.forward_of] if self.forward_of else []), 'Another upgrade is unfinished.')
         predecessor = self.active.get('predecessor')
@@ -1162,12 +1265,12 @@ class Upgrade:
                 self.carry_notice_snapshot(predecessor)
                 self.directory.mkdir(parents=True, exist_ok=True)
             else:
-                record['backup'] = self.verify_fence(backup, offhost, restore)
+                record['backup'] = self.verify_fence(backup, offhost, restore, proof)
                 record['identityBefore'] = self.query('videogame_keycloak', IDENTITY_SQL)
                 record['dataBefore'] = self.query('videogame_platform', DATA_SQL)
                 record['readerBefore'] = self.query('postgres', READER_SQL)
                 self.directory.mkdir(parents=True, exist_ok=True)
-                self.retain_evidence(backup, offhost, restore)
+                self.retain_evidence(backup, offhost, restore, proof)
             self.write(record)
             control.durable(self.directory / PLAN, built['reviewed'])
             if predecessor:
@@ -1178,6 +1281,117 @@ class Upgrade:
                 require(self.recovery.gate('maintenance-enter', record['runUuid']) == b'entered',
                         'Another identity-maintenance run holds the fence.')
             return self.execute(record, built['reviewed'])
+
+    # --- handover (ADR-0043) ---
+    def available_memory(self):
+        fields = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines() if ':' in line)
+        return int(fields['MemAvailable'].split()[0]) * 1024
+
+    def candidate_host(self, reviewed):
+        path = self.directory / CANDIDATE_CONFIG
+        config = candidate_config(self.target_config)
+        if not path.exists() or json.loads(path.read_text()) != config:
+            control.durable(path, config)
+        return Host(self, config, path, self.bundle / 'candidate', reviewed['target']['revision'],
+                    reviewed['target']['version'], [CANDIDATE])
+
+    def candidate_running(self):
+        """A retired candidate stays stopped, never removed: explicitly stopped, a reboot leaves it so."""
+        return self.run(['docker', 'ps', '-q', '--filter', f'label=com.docker.compose.project={prepare.PROJECT}',
+                         '--filter', f'label={CANDIDATE_LABEL}=true']).split()
+
+    def handover(self, reviewed_sha, *, reference=None):
+        """Replace the application without a fence: candidate, drain, replace, retire (stopped, kept)."""
+        require(re.fullmatch(r'[A-Za-z0-9#:._ -]{1,120}', reference or ''), 'An owner authorization reference is required.')
+        require(self.forward_of is None, 'A forward fix needs the fenced activation.')
+        self.host_checks()
+        require(self.read_journal() is None or self.read_journal()['status'] in ('abandoned', 'rolled-back'),
+                'An upgrade journal exists; use --inspect, then --abandon to roll a handover back.')
+        require(not self.unfinished(), 'Another upgrade is unfinished.')
+        api = self.github()
+        self.verify_operational(api)
+        with tempfile.TemporaryDirectory(prefix='.upgrade-plan-', dir=self.admin) as name:
+            built = self.build(Path(name), api)
+        require(built['planSha256'] == reviewed_sha, 'The plan differs from the reviewed hash.')
+        reviewed = built['reviewed']
+        require(reviewed['activation'] == 'handover' and not reviewed['handoverRefusals'],
+                'This release needs the fenced activation.')
+        self.verify_staged(reviewed, built['config'], api)
+        self.check_inputs(built['config'], self.bundle / TARGET_CONFIG, self.bundle / 'candidate')
+        self.target_config = built['config']
+        record = self.claim_record(built, reference)
+        # Optional services are never touched by a handover; they keep running as they are.
+        record.update(activation='handover', optionalDegraded=[])
+        with self.recovery.lock():
+            gate = self.gate_state()
+            require(gate['ready'] and not gate['pending'] and not gate['maintenance'],
+                    'A handover needs the open runtime; a closed fence belongs to its owner.')
+            self.observe_services(gate)
+            require(not self.candidate_running(), 'A handover candidate already exists; --inspect it.')
+            require(not any(self.query('videogame_platform', WORK_SQL).values()),
+                    'Synchronization or localization work is recorded as active; let it finish first.')
+            require(self.available_memory() >= int(self.target_config['services']['application']['mem_limit'])
+                    + HANDOVER_MEMORY_RESERVE, 'Not enough free memory for the handover candidate.')
+            # Compatible means the live schema already is the target's endpoint, checked again here.
+            state = flyway_delta(self.query('videogame_platform', HISTORY_SQL), reviewed['migrationInventory'])
+            require(not state['pending'] and state['currentVersion'] == state['targetVersion'],
+                    'The live schema is not the target endpoint; a handover is refused.')
+            record['migration'] = {'version': state['currentVersion'], 'rank': state['currentRank']}
+            record['dataBefore'] = self.query('videogame_platform', DATA_SQL)
+            record['readerBefore'] = self.query('postgres', READER_SQL)
+            self.directory.mkdir(parents=True, exist_ok=True)
+            self.write(record)
+            control.durable(self.directory / PLAN, reviewed)
+            return self.execute_handover(record, reviewed)
+
+    def execute_handover(self, record, reviewed):
+        host, previous = self.target_host(reviewed), self.host()
+        try:
+            self.phase(record, 'candidate')
+            candidate = self.candidate_host(reviewed)
+            self.start(candidate, CANDIDATE)
+            candidate.compose('exec', '-T', CANDIDATE, 'wget', '-q', '--spider', '-T', '3',
+                              'http://127.0.0.1:8081/actuator/health/readiness', output=False)
+            self.phase(record, 'handover')
+            # Graceful: the application finishes admitted requests while the edge dials the candidate.
+            previous.compose('stop', '--timeout', str(HANDOVER_DRAIN_SECONDS), 'application', output=False)
+            self.phase(record, 'replacing')
+            self.start(host, 'application')
+            self.phase(record, 'retiring')
+            candidate.compose('stop', '--timeout', str(HANDOVER_DRAIN_SECONDS), CANDIDATE, output=False)
+            require(not self.candidate_running(), 'The handover candidate did not stop.')
+            self.phase(record, 'smoke')
+            self.smoke(host, record)
+            self.phase(record, 'finalizing')
+            return self.finish(host, record, reviewed)
+        except BaseException as error:
+            self.roll_back(record, error)
+            raise
+
+    def roll_back(self, record, error=None):
+        """The previous application again, then no running candidate. The fence is never touched."""
+        if error is not None:
+            record.update(failedPhase=record['phase'], cancellation=control.CAUSE, reason=refusal_text(error),
+                          commandCompletion='inconclusive' if control.UNCERTAIN_COMMAND else 'observed')
+        record['status'] = 'failed'
+        try:
+            with control.cleanup_window(420):
+                previous = self.host()
+                # Compatible by construction: the same schema serves the previous image.
+                self.start(previous, 'application')
+                for identity in self.candidate_running():
+                    self.run(['docker', 'stop', '--time', str(HANDOVER_DRAIN_SECONDS), identity.decode()], output=False)
+                require(not self.candidate_running(), 'The handover candidate did not stop.')
+                previous.running(['application'])
+                previous.gate_open()
+            record.update(status='rolled-back', containment='confirmed', finishedAtUnix=int(time.time()))
+        except BaseException:
+            record['containment'] = 'inconclusive'
+        try:
+            self.write(record)
+        except BaseException:
+            pass
+        return {'mode': record['status'], 'containment': record['containment'], 'productionReady': False}
 
     def carry_notice_snapshot(self, predecessor):
         """Keep the original legal-text baseline through successive forward fixes."""
@@ -1236,20 +1450,26 @@ class Upgrade:
         predecessor.update(status='superseded', supersededBy=self.target, updatedAtUnix=int(time.time()))
         control.durable(path, predecessor)
 
-    def verify_fence(self, backup, offhost, restore):
+    def verify_fence(self, backup, offhost, restore, proof=None):
         """Nothing wrote since the pair: the same fence is still closed and the identities still match."""
         require(backup is not None and offhost is not None and restore is not None,
                 'A paired backup, its off-host receipt and its restore receipt are required.')
         install.secure(backup, directory=True)
         for path in (offhost, restore):
             install.secure(path, mode=0o600)
+        proof_manifest = None
+        if proof is not None:
+            install.secure(proof, directory=True)
+            install.secure(proof / 'manifest.json', mode=0o600)
+            proof_manifest = json.loads((proof / 'manifest.json').read_text())
         try:
             pair = self.core.verify(backup)
         except (RuntimeError, KeyError, ValueError, OSError, TypeError):
             raise trust.Refused('This is not a verified canonical paired backup; manual dumps never qualify.') from None
         manifest = json.loads((backup / 'manifest.json').read_text())
         backup_id = verify_backup_evidence(manifest, self.recovery.images, self.recovery.config_hash,
-                                           json.loads(offhost.read_text()), json.loads(restore.read_text()), now=self.now())
+                                           json.loads(offhost.read_text()), json.loads(restore.read_text()), now=self.now(),
+                                           proof=proof_manifest)
         require(pair['backupId'] == backup_id, 'Backup identity changed during verification.')
         gate = self.gate_state()
         require(not gate['ready'] and gate['pending'] and not gate['maintenance'],
@@ -1264,18 +1484,20 @@ class Upgrade:
         metadata = self.recovery.metadata()
         require(all(metadata[k] == manifest[k] for k in ('postgresMajor', 'applicationSchema', 'keycloakSchema')),
                 'Database identities differ from the pair; take a new pair.')
-        require(not self.recovery.compose('ps', '-q', '--status', 'running', *sorted(FENCE_STOPPED | set(ONE_SHOT))).strip(),
+        require(not self.recovery.compose('ps', '-q', '--status', 'running', *sorted(FENCE_WRITERS | set(ONE_SHOT))).strip(),
                 'A fenced writer is running.')
         require(not any(self.query('videogame_platform', WORK_SQL).values()),
                 'Synchronization or localization work is recorded as active; thaw and resolve it first.')
         return {'backupId': backup_id, 'manifestSha256': install.sha(backup / 'manifest.json'),
                 'recoveryPoint': manifest['recoveryPoint'], 'applicationSchema': manifest['applicationSchema'],
                 'keycloakSchema': manifest['keycloakSchema'], 'images': manifest['images'],
-                'offHostKind': json.loads(offhost.read_text())['kind'], 'restoreVerified': True}
+                'offHostKind': json.loads(offhost.read_text())['kind'], 'restoreVerified': True,
+                'restoredBackupId': proof_manifest['backupId'] if proof_manifest else backup_id}
 
-    def retain_evidence(self, backup, offhost, restore):
+    def retain_evidence(self, backup, offhost, restore, proof=None):
         for name, path in (('backup-manifest.json', backup / 'manifest.json'), ('offhost-receipt.json', offhost),
-                           ('restore-receipt.json', restore)):
+                           ('restore-receipt.json', restore),
+                           *((('restored-manifest.json', proof / 'manifest.json'),) if proof is not None else ())):
             control.durable(self.directory / name, json.loads(path.read_text()))
 
     def fence_continuous(self, record):
@@ -1519,6 +1741,7 @@ class Upgrade:
         """Fence again, then repeat the same idempotent steps. Fixed identities; no re-selection."""
         record = self.read_journal()
         require(record and record['status'] in ('running', 'failed'), 'No unfinished upgrade for this target.')
+        require(record.get('activation') != 'handover', 'A handover is never resumed; --abandon rolls it back.')
         self.verify_claimed_operator(record)
         require(record['planSha256'] == reviewed_sha, 'The plan differs from the claimed upgrade.')
         reviewed = json.loads((self.directory / PLAN).read_text())
@@ -1546,6 +1769,9 @@ class Upgrade:
         record = self.read_journal()
         require(record and record['status'] in ('running', 'failed'), 'No unfinished upgrade for this target.')
         self.verify_claimed_operator(record)
+        if record.get('activation') == 'handover':
+            with self.recovery.lock():
+                return self.roll_back(record)
         require(not record['identityStarted'] and not record.get('predecessor'),
                 'Identity or a predecessor already advanced; only forward recovery remains.')
         with self.recovery.lock(maintenance=True):
@@ -1592,6 +1818,8 @@ ADVICE = {
     'after-schema': 'Forward only: --resume after a transient fault, or --forward-fix-of with a newer published target, '
                     'or a separately authorized paired restore on an empty target. Never an older image.',
     'complete': 'Run --verify.',
+    'handover': 'No fence was closed: --abandon restores the previous application and stops the candidate.',
+    'rolled-back': 'The previous application serves; plan the release again.',
 }
 
 
@@ -1609,6 +1837,9 @@ def inspect(upgrade):
     result['pendingWrites'] = len(list(upgrade.directory.glob('*.pending')))
     advanced = record['migrationStarted'] or record['identityStarted']
     result['advice'] = ADVICE['complete'] if record['status'] == 'complete' else ADVICE['after-schema' if advanced else 'before-schema']
+    if record.get('activation') == 'handover' and record['status'] != 'complete':
+        result['advice'] = ADVICE['rolled-back' if record['status'] == 'rolled-back' else 'handover']
+    result['activation'] = record.get('activation', 'fenced')
     try:
         result['gate'] = upgrade.gate_state()
         result['flyway'] = upgrade.recovery.metadata()['applicationSchema']
@@ -1624,6 +1855,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--stage', action='store_true', help='Write the reviewed bundle and pull pinned digests; no runtime change')
     mode.add_argument('--apply', action='store_true', help='Run the owner-authorized upgrade under the backup fence')
+    mode.add_argument('--handover', action='store_true', help='Activate a compatible application-only release without a fence')
     mode.add_argument('--resume', action='store_true', help='Fence again and repeat the same claimed upgrade')
     mode.add_argument('--abandon', action='store_true', help='Return an unadvanced upgrade to the backup fence')
     mode.add_argument('--verify', action='store_true', help='Read-only comparison of live state with the activation')
@@ -1636,11 +1868,12 @@ def main():
     parser.add_argument('--source-repository', type=Path, default=REPOSITORY)
     parser.add_argument('--backup', type=Path, help='Directory of the fresh canonical encrypted pair')
     parser.add_argument('--offhost-receipt', type=Path, help='Receipt of recovery pull or S3 publish for this pair')
-    parser.add_argument('--restore-receipt', type=Path, help='Receipt of an isolated restore of this pair')
+    parser.add_argument('--restore-receipt', type=Path, help='Receipt of an isolated restore of this pair or of --restored-backup')
+    parser.add_argument('--restored-backup', type=Path, help='Earlier same-schema pair the restore receipt proves (ADR-0043)')
     parser.add_argument('--owner-reference', help='Owner authorization reference, for example an issue comment')
     args = parser.parse_args()
     control.signal_handlers()
-    watcher = control.watch_session() if args.apply or args.resume or args.abandon else None
+    watcher = control.watch_session() if args.apply or args.handover or args.resume or args.abandon else None
     try:
         require(os.geteuid() == 0 and sys.platform == 'linux', 'Local Linux root operation required.')
         require(not any(k.startswith('COMPOSE_') for k in os.environ), 'Ambient Compose overrides are forbidden.')
@@ -1656,7 +1889,9 @@ def main():
             result = upgrade.stage(args.plan_sha256)
         elif args.apply:
             result = upgrade.apply(args.plan_sha256, backup=args.backup, offhost=args.offhost_receipt,
-                                   restore=args.restore_receipt, reference=args.owner_reference)
+                                   restore=args.restore_receipt, reference=args.owner_reference, proof=args.restored_backup)
+        elif args.handover:
+            result = upgrade.handover(args.plan_sha256, reference=args.owner_reference)
         elif args.resume:
             result = upgrade.resume(args.plan_sha256)
         elif args.abandon:

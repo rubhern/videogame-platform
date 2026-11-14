@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""One scheduled backup: capture, reopen and upload around the existing recovery actor.
+"""One scheduled backup: capture, then upload, around the existing recovery actor.
+
+The default capture is online (ADR-0043): one cluster-wide WAL position copied into a
+private offline clone and dumped there, so no service stops. Only when the host lacks the
+memory for that clone does the cycle fall back to the fenced capture, then reopen.
 
 The journal makes every step resumable, so a crash, a reboot or a failed step converges on
-an open product. A predictable failure refuses before the fence, and an upload runs only
-after reopening, so storage trouble never costs availability. Only a fence this tool
+an open product. A predictable failure refuses before any fence, and an upload runs only
+after the capture, so storage trouble never costs availability. Only a fence this tool
 created reopens by itself; every other fence stays closed for its owner.
 """
 from __future__ import annotations
@@ -29,7 +33,9 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 RECOVERY = HERE / 'recovery'
 FIELDS = {'authorized', 'admin', 'project', 'state', 'keyring', 'recipient', 'work', 'uploaderConfig',
-          'admissionConfig', 's3Python', 'status', 'maxRetainedBytes', 'maxFenceSeconds'}
+          'admissionConfig', 's3Python', 'status', 'maxRetainedBytes', 'maxFenceSeconds', 'captureMode'}
+OPTIONAL_FIELDS = {'maxRetainedBytes', 'maxFenceSeconds', 'captureMode'}
+CAPTURE_MODES = ('online', 'fenced')
 PATHS = ('admin', 'state', 'keyring', 'work', 'uploaderConfig', 'admissionConfig', 's3Python', 'status')
 # What the fence stops, in the order the product needs them back: identity, then the edge
 # the BFF validates its issuer through, then the application.
@@ -48,6 +54,8 @@ MAX_ENTRIES = 1024
 FREE_DISK_RESERVE = 0.15  # Matches the platform's critical free-disk alert.
 PAIR_NAME = re.compile(r'\d{8}T\d{6}Z-[0-9a-f]{32}(\.partial)?')
 FENCING = ('capturing', 'reopening')
+# The online clone, the dump passing through tmpfs, and this share of host memory left over.
+MEMORY_RESERVE = 0.10
 
 
 def load_core():
@@ -58,18 +66,24 @@ def load_core():
     return module
 
 
+def available_memory():
+    fields = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines() if ':' in line)
+    return int(fields['MemTotal'].split()[0]) * 1024, int(fields['MemAvailable'].split()[0]) * 1024
+
+
 def load_configuration(core, path):
     core.private(path)
     core.require(path.stat().st_size <= 65536, 'Oversized backup cycle configuration.')
     config = json.loads(path.read_text())
     core.require(not set(config) - FIELDS, 'Unknown backup cycle setting.')
-    core.require(FIELDS - {'maxRetainedBytes', 'maxFenceSeconds'} <= set(config), 'Incomplete backup cycle configuration.')
+    core.require(FIELDS - OPTIONAL_FIELDS <= set(config), 'Incomplete backup cycle configuration.')
+    core.require(config.get('captureMode', 'online') in CAPTURE_MODES, 'Unknown backup capture mode.')
     core.require(all(isinstance(config[k], str) and config[k].startswith('/') for k in PATHS), 'Backup cycle paths must be absolute.')
     return config
 
 
 class Cycle:
-    def __init__(self, config, core, runtime=None, invoke=None, sleep=time.sleep, usage=shutil.disk_usage):
+    def __init__(self, config, core, runtime=None, invoke=None, sleep=time.sleep, usage=shutil.disk_usage, memory=available_memory):
         self.config, self.core = config, core
         self.work = Path(config['work'])
         self.journal_path = self.work / 'CYCLE.json'
@@ -78,7 +92,8 @@ class Cycle:
         self.fence_seconds = config.get('maxFenceSeconds', DEFAULT_FENCE_SECONDS)
         self.runtime_factory = runtime or self.load_runtime
         self.invoke = invoke or self.recovery_process
-        self.sleep, self.usage = sleep, usage
+        self.sleep, self.usage, self.memory = sleep, usage, memory
+        self.mode = config.get('captureMode', 'online')
         self.journal = {'status': 'idle', 'reopenAttempts': 0}
 
     # --- durable state ---
@@ -102,7 +117,8 @@ class Cycle:
                   'attention': j['status'] == 'owner-required' or (j['status'] in FENCING and j.get('lastFailure') == 'reopen-failed'),
                   'lastFailure': j.get('lastFailure'), 'lastCaptureAt': j.get('lastCaptureAt'),
                   'lastUploadAt': j.get('lastUploadAt'), 'lastUploadRecoveryPoint': j.get('lastUploadRecoveryPoint'),
-                  'optionalDegraded': j.get('optionalDegraded', []), 'capacityWarning': j.get('capacityWarning', False)}
+                  'optionalDegraded': j.get('optionalDegraded', []), 'capacityWarning': j.get('capacityWarning', False),
+                  'captureMode': j.get('captureMode')}
         with contextlib.suppress(OSError):
             self.core.write(Path(self.config['status']), status)
 
@@ -172,6 +188,15 @@ class Cycle:
         core.require(disk.free - total >= disk.total * FREE_DISK_RESERVE, 'Insufficient free disk for a capture.')
         # Dumps pass through tmpfs one at a time; a custom-format dump is not larger than its database.
         core.require(memory.free >= largest, 'Insufficient tmpfs for a capture.')
+        self.largest = largest
+
+    def capture_mode(self, runtime):
+        """Online unless configured otherwise or the clone does not fit in memory; then fenced, reported."""
+        if self.mode == 'fenced':
+            return 'fenced'
+        total, available = self.memory()
+        needed = runtime.snapshot_size() + self.core.SNAPSHOT_SERVER_BYTES + self.largest + int(total * MEMORY_RESERVE)
+        return 'online' if available >= needed else 'fenced-fallback'
 
     def admission(self):
         receipt = self.invoke('admission', self.config['admissionConfig'])
@@ -243,10 +268,49 @@ class Cycle:
         self.save()
         return True
 
-    def capture(self, runtime):
+    def capture_online(self, runtime):
+        """No fence and no stopped service; the lease still excludes every fence, restore and upgrade."""
+        run_id = uuid.uuid4().hex
+        pair = self.pairs / f'{self.core.utc().strftime("%Y%m%dT%H%M%SZ")}-{run_id}'
+        self.journal.update(status='snapshotting', runId=run_id, pair=str(pair), captureMode='online', recoveryPoint=None,
+                            reopenAttempts=0, optionalDegraded=[])
+        self.save()
+        leased = False
+        try:
+            with runtime.lock():
+                leased = True
+                with self.budget():
+                    runtime.snapshot(pair, Path(self.config['keyring']), self.config['recipient'])
+        except (Exception, KeyboardInterrupt):
+            # Without the lease nothing was copied; otherwise the copy failed or was interrupted.
+            self.fail('capture-failed' if leased else 'capture-skipped')
+        return self.settle(runtime)
+
+    def settle(self, runtime):
+        """After an online capture, or a crash during one: no copy remains, and a verified pair uploads."""
+        try:
+            runtime.discard_snapshots()
+        except (Exception, KeyboardInterrupt):
+            self.fail('snapshot-cleanup-failed')
+            self.save()
+            return False  # Retried by the reconcile timer; the product was never fenced.
+        manifest = self.captured()
+        if manifest:
+            self.journal.update(status='upload-pending', recoveryPoint=manifest['recoveryPoint'], uploadAttempts=0,
+                                nextUploadAt=None, lastCaptureAt=manifest['recoveryPoint'])
+        else:
+            self.journal.update(status='idle')
+            if self.journal.get('lastFailure') in (None, 'snapshot-cleanup-failed'):
+                self.fail('capture-failed')
+        self.save()
+        return bool(manifest)
+
+    def capture(self, runtime, mode='fenced'):
+        if mode == 'online':
+            return self.capture_online(runtime)
         core, run_id = self.core, uuid.uuid4().hex
         pair = self.pairs / f'{core.utc().strftime("%Y%m%dT%H%M%SZ")}-{run_id}'
-        self.journal.update(status='capturing', runId=run_id, pair=str(pair), fenceEntered=False, reopenAttempts=0,
+        self.journal.update(status='capturing', runId=run_id, pair=str(pair), fenceEntered=False, reopenAttempts=0, captureMode=mode,
                             recoveryPoint=None, optionalRunning=[n for n in OPTIONAL if getattr(runtime, 'monitoring', False)
                                                                  and runtime.compose('ps', '-q', '--status', 'running', n).strip()])
         self.save()
@@ -321,7 +385,7 @@ class Cycle:
     def prune(self):
         """Keep the last uploaded pair and the one in flight; only names this tool creates."""
         keep = {self.journal.get('lastUploadedPair')}
-        if self.journal['status'] in (*FENCING, 'upload-pending'):
+        if self.journal['status'] in (*FENCING, 'snapshotting', 'upload-pending'):
             keep.add(self.journal.get('pair'))
         for index, entry in enumerate(self.pairs.iterdir()):
             self.core.require(index < MAX_ENTRIES, 'Too many local pairs; reconcile storage.')
@@ -337,6 +401,8 @@ class Cycle:
     def converge(self):
         """Finish whatever an earlier step left. Cheap when there is nothing to do."""
         j = self.journal
+        if j['status'] == 'snapshotting':
+            self.settle(self.runtime_factory())
         if j['status'] in FENCING:
             runtime = self.runtime_factory()
             runtime.cycle_run = j['runId']
@@ -374,11 +440,12 @@ class Cycle:
             try:
                 runtime = self.runtime_factory()
                 self.preflight(runtime)
+                mode = self.capture_mode(runtime)
                 self.admission()
             except (Exception, KeyboardInterrupt):
                 return self.skip('preflight-refused')
             self.journal.pop('lastFailure', None)
-            self.capture(runtime)
+            self.capture(runtime, mode)
             if self.journal['status'] == 'upload-pending':
                 self.upload()
             return 0 if not self.journal.get('lastFailure') else 1
@@ -409,9 +476,13 @@ class Cycle:
         runtime = []
         probe('runtime', lambda: runtime.append(self.runtime_factory()))
         probe('preflight', lambda: self.preflight(runtime[0]))
+        mode = []
+        probe('capture', lambda: mode.append(self.capture_mode(runtime[0])))
         probe('admission', self.admission)
         results['authorized'] = 'ok' if self.config.get('authorized') is True else 'not-authorized'
         results['journal'] = 'ok' if self.journal['status'] == 'idle' else self.journal['status']
+        if mode and mode[0] != self.mode:
+            results['capture'] = mode[0]  # The configured mode does not fit now; the cycle would fall back.
         print(json.dumps(results, sort_keys=True))
         return 0 if set(results.values()) == {'ok'} else 1
 

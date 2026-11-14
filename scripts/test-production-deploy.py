@@ -463,6 +463,56 @@ class RolloutTests(unittest.TestCase):
         finally:
             deploy.upgrade.control.CANCEL.clear()
 
+    # --- ADR-0043: the restored pair is online; the fence is the final pair's alone, or none ---
+    def online(self, activation='fenced', mode='online'):
+        self.cycle.capture_mode.return_value = mode
+        self.runtime.snapshot.side_effect = lambda *_: self.event('snapshot')
+        self.actor.plan.return_value = {**self.actor.plan.return_value, 'activation': activation}
+        self.actor.handover.side_effect = lambda *_, **__: self.event('handover')
+
+    def test_restore_runs_on_an_online_pair_and_only_the_final_pair_is_fenced(self):
+        self.online()
+        self.rollout().run('prepare')
+        self.assertIn('snapshot', self.events)
+        self.runtime.backup.assert_not_called()
+        self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        order = [e for e in self.events if e in ('snapshot', 'publish', 'result', 'backup', 'apply', 'verify')]
+        self.assertEqual(order, ['snapshot', 'publish', 'result', 'backup', 'publish', 'apply', 'verify'])
+        kwargs = self.actor.apply.call_args.kwargs
+        self.assertEqual((kwargs['backup'].name, kwargs['proof'].name, kwargs['offhost'].name), ('final-pair', 'pair', 'final-publish.json'))
+        journal = json.loads((self.root/'deployments/123-1/deployment.json').read_text())
+        self.assertEqual((journal['restoredCapture'], journal['activation'], journal['finalBackupId']), ('online', 'fenced', BACKUP))
+        self.runtime.thaw.assert_not_called()
+
+    def test_a_compatible_release_hands_over_without_any_fence(self):
+        self.online('handover')
+        self.rollout().run('prepare')
+        self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        self.actor.handover.assert_called_once_with('d'*64, reference='Actions:123:attempt:1')
+        self.actor.apply.assert_not_called()
+        self.runtime.backup.assert_not_called()
+        self.assertLess(self.events.index('result'), self.events.index('handover'))
+
+    def test_without_memory_for_the_copy_the_restored_pair_is_the_fenced_one(self):
+        self.online('handover', mode='fenced-fallback')
+        self.rollout().run('prepare')
+        self.runtime.snapshot.assert_not_called()
+        self.rollout().finish()
+        self.assertEqual(self.events.count('backup'), 1)
+        self.assertNotIn('proof', self.actor.apply.call_args.kwargs)
+        self.actor.handover.assert_not_called()
+
+    def test_a_failed_final_capture_never_applies(self):
+        self.online()
+        self.rollout().run('prepare')
+        self.failure = 'backup'
+        with self.assertRaises(deploy.trust.Refused):
+            self.rollout().finish()
+        journal = json.loads((self.root/'deployments/123-1/deployment.json').read_text())
+        self.assertEqual((journal['phase'], journal['check']), ('final-capturing', 'final-capture-pair'))
+        self.actor.apply.assert_not_called()
+        self.runtime.thaw.assert_not_called()
+
     def test_interrupt_does_not_adopt_or_reopen_fence(self):
         self.runtime.backup.side_effect = KeyboardInterrupt
         with self.assertRaises(KeyboardInterrupt): self.rollout().run('prepare')

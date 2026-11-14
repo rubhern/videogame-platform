@@ -114,6 +114,108 @@ class Recovery(unittest.TestCase):
             self.runtime.stop_writers()
             self.assertIn('grafana', compose.call_args.args)
 
+    def test_fence_keeps_the_edge_answering_with_maintenance(self):
+        # #485: the edge holds no database session; stopping it only turned 503 into refused connections.
+        with patch.object(self.runtime, 'compose') as compose:
+            self.runtime.stop_writers()
+        self.assertNotIn('caddy', compose.call_args.args)
+        self.assertLessEqual({'application', 'migration', 'keycloak'}, set(compose.call_args.args))
+
+    def online(self, destination=None, gate=b'open'):
+        destination = destination or self.work / 'online-pair'
+        events = []
+
+        class Source:
+            def __init__(source, runtime, size):
+                events.append(('copy', size))
+            def __enter__(source):
+                return source
+            def __exit__(source, *_):
+                events.append('removed')
+            sql = staticmethod(self.fake_sql)
+            def dump(source, database, output):
+                output.write(b'PGDMP online synthetic bytes')
+            def recheck(source):
+                events.append('recheck')
+        opened = patch.object(self.runtime, 'gate', side_effect=lambda action, run_id=None: b'none' if action == 'maintenance-check' else gate)
+        with opened, patch.object(core, 'Snapshot', Source), patch.object(self.runtime, 'sql', return_value=b'1073741824\n'), \
+             patch.object(self.runtime, 'metadata', return_value=self.meta), patch.object(self.runtime, 'identity') as identity, \
+             patch.object(self.runtime, 'fence') as fence, patch.object(self.runtime, 'closed') as closed, \
+             patch.object(self.runtime, 'compose') as compose:
+            result = self.runtime.snapshot(destination, self.public, self.fpr)
+        return result, events, identity, fence, closed, compose
+
+    def test_online_capture_is_one_canonical_pair_without_any_fence(self):
+        result, events, identity, fence, closed, compose = self.online()
+        manifest = core.verify(self.work / 'online-pair')
+        self.assertEqual((manifest['fence'], result['capture']), (core.SNAPSHOT, core.SNAPSHOT))
+        self.assertEqual(events, [('copy', core.snapshot_bytes(1024 ** 3)), 'recheck', 'removed'])
+        identity.assert_called_once()  # The identity proof runs on the copy, as on a fenced pair.
+        fence.assert_not_called(); closed.assert_not_called(); compose.assert_not_called()
+        self.assertFalse((self.state / 'PENDING.json').exists())
+        with core.scratch() as d:
+            core.crypto('bc_decrypt_file', self.work / 'online-pair' / core.FILES[0], d / 'plain', self.key)
+            self.assertEqual((d / 'plain').read_bytes(), b'PGDMP online synthetic bytes')
+
+    def test_online_capture_refuses_a_closed_fence_before_copying(self):
+        with self.assertRaisesRegex(core.Refused, 'open runtime'):
+            self.online(gate=b'closed')
+        self.assertFalse((self.work / 'online-pair').exists())
+        core.write(self.state / 'PENDING.json', {'phase': 'restoring'})
+        with self.assertRaisesRegex(core.Refused, 'open runtime'):
+            self.online()
+
+    def test_only_the_two_common_point_kinds_verify(self):
+        self.backup()
+        pair = self.work / 'pair'
+        manifest = json.loads((pair / 'manifest.json').read_text())
+        for fence in ('roles-nologin', 'snapshot', '', None):
+            with self.subTest(fence=fence):
+                manifest['fence'] = fence
+                core.write(pair / 'manifest.json', manifest)
+                with self.assertRaises(core.Refused):
+                    core.verify(pair)
+
+    def test_online_copy_streams_through_a_pipe_and_refuses_a_failed_side(self):
+        target = self.work / 'piped'
+        core.pipe(['printf', 'stream'], ['sh', '-c', f'cat > {target}'])
+        self.assertEqual(target.read_bytes(), b'stream')
+        for producer, consumer in ((['false'], ['cat']), (['printf', 'x'], ['false'])):
+            with self.subTest(producer=producer, consumer=consumer):
+                with self.assertRaisesRegex(core.Refused, 'Online copy failed'):
+                    core.pipe(producer, consumer)
+
+    def test_online_copy_is_private_offline_and_always_removed(self):
+        calls = []
+        def run(args, **_):
+            calls.append([str(a) for a in args])
+            return b''
+        self.runtime.images = {'postgres': 'postgres:18@sha256:' + 'c' * 64}
+        self.runtime.base = ['docker', 'compose', '-p', self.runtime.project]
+        inspected = subprocess.CompletedProcess([], 1)
+        with patch.object(core, 'run', side_effect=run), patch.object(core, 'pipe', side_effect=core.Refused('copy')), \
+             patch.object(core.subprocess, 'run', return_value=inspected) as raw:
+            with self.assertRaisesRegex(core.Refused, 'copy'):
+                core.Snapshot(self.runtime, 2 * 1024 ** 3).__enter__()
+        created = calls[0]
+        for flag in ('--network', '--read-only', '--cap-drop', '--log-driver'):
+            self.assertIn(flag, created)
+        self.assertEqual(created[created.index('--network') + 1], 'none')
+        self.assertIn('gameometro.backup-snapshot=' + self.runtime.project, created)
+        self.assertTrue(any(a.startswith('/clone:') and 'size=2147483648' in a for a in created))
+        self.assertNotIn('-p', created[2:])
+        self.assertTrue(any(c.args[0][:3] == ['docker', 'rm', '-f'] for c in raw.call_args_list), 'A failed copy is removed.')
+
+    def test_leftover_copies_are_found_by_this_projects_label_only(self):
+        calls = []
+        def run(args, **_):
+            calls.append([str(a) for a in args])
+            return b'abc\ndef\n' if args[1] == 'ps' else b''
+        with patch.object(core, 'run', side_effect=run):
+            self.assertEqual(core.discard_snapshots('vgp-production-test-unit'), 2)
+        self.assertEqual(calls[0], ['docker', 'ps', '-aq', '--filter', 'label=gameometro.backup-snapshot=vgp-production-test-unit'])
+        self.assertEqual([c[-1] for c in calls[1:]], ['abc', 'def'])
+
     def test_monitoring_restore_requires_protected_reconstruction_secret_before_mutation(self):
         self.backup()
         manifest = core.verify(self.work / 'pair'); manifest['monitoringReader'] = True

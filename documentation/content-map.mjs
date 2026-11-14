@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md', 'Planned-downtime reduction · proposed'],
     ['docs/decisions/0042-manage-approved-product-settings-in-postgresql.md', 'Product settings · proposed'],
     ['docs/decisions/0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md', 'Release attention ranking · proposed'],
     ['docs/decisions/0040-aggregate-production-application-logs-in-loki.md', 'Production application logs · accepted'],
