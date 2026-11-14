@@ -414,7 +414,7 @@ networks:
     internal: true
     ipam:
       config:
-        # Combined runtime: eight dynamic consumers plus bounded operator probes.
+        # Combined runtime: nine dynamic consumers plus bounded operator probes.
         # Keep allocation away from the edge's fixed metrics address.
         - subnet: 10.203.3.0/27
           gateway: 10.203.3.1

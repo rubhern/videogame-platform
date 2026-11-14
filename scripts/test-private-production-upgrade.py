@@ -643,19 +643,84 @@ class ReviewedAdditions(DeltaFixture):
                 with self.assertRaises(trust.Refused):
                     self.reconcile(target)
 
-    def test_grafana_loads_only_loki_and_may_raise_its_process_ceiling(self):
-        target = rendered(self.new_bundle)
-        grafana = target['services']['grafana']
-        grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
-        grafana['pids_limit'] = 160
-        result, changed = self.reconcile(target)
-        self.assertTrue({'environment', 'pids_limit'} <= set(changed['grafana']))
-        upgrade.validate_runtime(result, IMAGES)
-        for policy in ('elasticsearch', upgrade.GRAFANA_DISABLED_PLUGINS.replace(',tempo', '')):
-            with self.subTest(policy):
-                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = policy
+    def test_grafana_loads_only_its_datasources_and_may_raise_its_ceilings(self):
+        # From the accepted policy, or from the ADR-0040 Loki policy already in production.
+        for before in upgrade.GRAFANA_PLUGIN_POLICIES[:-1]:
+            with self.subTest(before=before):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                grafana = target['services']['grafana']
+                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
+                grafana['pids_limit'], grafana['mem_limit'] = 192, '369098752'
+                result, changed = self.reconcile(target)
+                self.assertTrue({'environment', 'pids_limit', 'mem_limit'} <= set(changed['grafana']))
+                upgrade.validate_runtime(result, IMAGES)
+        loki_only = upgrade.GRAFANA_PLUGIN_POLICIES[1]
+        for name, (before, after) in {
+                'unreviewed plugin': (acceptance.DISABLED_PLUGINS, 'elasticsearch'),
+                'another plugin enabled': (loki_only, upgrade.GRAFANA_DISABLED_PLUGINS.replace(',zipkin', '')),
+                'backwards': (upgrade.GRAFANA_DISABLED_PLUGINS, loki_only)}.items():
+            with self.subTest(name):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                target['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = after
                 with self.assertRaises(trust.Refused):
                     self.reconcile(target)
+
+    def with_tempo(self, target=None):
+        target = target or self.with_loki()
+        target['services']['tempo'] = {
+            'image': 'grafana/tempo@sha256:' + 'd' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
+            'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
+            'mem_limit': '335544320', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {'GOMEMLIMIT': '240MiB'}, 'labels': {},
+            'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/tempo.yaml', '/etc/tempo/config.yaml'),
+                        {'type': 'volume', 'source': 'tempo-data', 'target': '/var/tempo'}]}
+        target['volumes']['tempo-data'] = {'name': prepare.PROJECT + '_tempo-data'}
+        return target
+
+    def test_the_reviewed_trace_store_is_added_beside_the_running_log_store(self):
+        # Production already runs Loki (ADR-0040); this target adds only Tempo (ADR-0046).
+        self.active = self.with_loki(self.active)
+        self.active['services']['loki']['volumes'][0]['source'] = str(
+            self.old_bundle / 'candidate/deploy/public-production/observability/loki.yaml')
+        self.active['services']['loki']['labels'] = {k: self.active['services']['application']['labels'][k]
+                                                     for k in (control.RUN_LABEL, control.CONFIG_LABEL)}
+        result, changed = self.reconcile(self.with_tempo())
+        self.assertEqual(changed['tempo'], ['added'])
+        self.assertNotEqual(changed.get('loki'), ['added'])
+        self.assertEqual(result['volumes']['tempo-data'], {'name': prepare.PROJECT + '_tempo-data'})
+        self.assertEqual(result['volumes']['loki-data'], self.active['volumes']['loki-data'])
+        upgrade.validate_runtime(result, IMAGES)
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(images['tempo'], result['services']['tempo']['image'])
+        self.assertNotIn('tempo', keys)
+        self.assertLess(upgrade.OPTIONAL.index('tempo'), upgrade.OPTIONAL.index('grafana'))
+        for name, mutate in {
+                'published port': lambda c: c['services']['tempo'].__setitem__('ports', [{'target': 3200, 'published': '3200'}]),
+                'loki volume': lambda c: c['services']['tempo']['volumes'][1].__setitem__('source', 'loki-data'),
+                'unreviewed volume': lambda c: c['volumes'].__setitem__('traces', {'name': 'x'})}.items():
+            with self.subTest(name):
+                target = self.with_tempo()
+                mutate(target)
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_sampled_trace_export_is_activated_once(self):
+        self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = 'false'
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'].update(
+            TELEMETRY_OTLP_TRACES_ENABLED='true', TELEMETRY_OTLP_TRACES_ENDPOINT='http://telemetry:4318/v1/traces',
+            TELEMETRY_TRACING_SAMPLING_PROBABILITY='0.1')
+        result, changed = self.reconcile(target)
+        self.assertIn('environment', changed['application'])
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({'TELEMETRY_OTLP_TRACES_ENABLED', 'TELEMETRY_OTLP_TRACES_ENDPOINT',
+                         'TELEMETRY_TRACING_SAMPLING_PROBABILITY'} <= set(keys['application']))
+        # Roll forward only: switching export off again, or any other value, is an unreviewed change.
+        for before, after in (('true', 'false'), ('false', 'yes')):
+            with self.subTest(before=before, after=after):
+                self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = before
+                target['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = after
+                self.assertRaises(trust.Refused, self.reconcile, target)
 
     def with_feedback(self, target=None):
         target = target or rendered(self.new_bundle)
@@ -1082,7 +1147,7 @@ class Flow(FlowFixture):
             'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'notice:apply', 'realm:apply', 'realm:check', 'notice:check',
             'no-start:caddy,application,catalogue-localizer,grafana', 'roles-login:True', 'gate-open', 'fence-exit',
             'up:telemetry', 'up:prometheus', 'up:node-exporter', 'up:blackbox',
-            'up:caddy', 'up:application', 'up:loki', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
+            'up:caddy', 'up:application', 'up:loki', 'up:tempo', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
         self.assertEqual(self.log.count('gate-open'), 1, 'The gate opens exactly once, at the reviewed reopening.')
         for probe in ('authorization', 'prometheus', 'grafana'):
             self.assertIn('probe:' + probe, self.log)

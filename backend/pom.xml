@@ -46,6 +46,11 @@
       <version>${opentelemetry-logback-appender.version}</version>
     </dependency>
     <dependency>
+      <groupId>net.ttddyy.observation</groupId>
+      <artifactId>datasource-micrometer-spring-boot</artifactId>
+      <version>${datasource-micrometer.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.modulith</groupId>
       <artifactId>spring-modulith-starter-core</artifactId>
       <exclusions>

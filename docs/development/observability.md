@@ -123,7 +123,11 @@ with a dedicated short statement timeout; health details remain hidden.
 - Never use user, game, release, request, correlation, URL, search, provider, or raw
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an
-  explicit endpoint is configured.
+  explicit endpoint is configured; production exports a sampled share of traces
+  ([production trace exploration](#production-trace-exploration)).
+- HTTP observations keep only the route template, method, status and outcome; the full
+  URL never becomes a span attribute. JDBC spans record parameterized statement text and
+  never bound values, so visitor input always reaches SQL as a bound parameter.
 - Exported resources carry bounded `deployment.environment.name` and `service.version`
   attributes from `TELEMETRY_DEPLOYMENT_ENVIRONMENT` and `TELEMETRY_SERVICE_VERSION`;
   they never derive either value from visitor input.
@@ -572,6 +576,33 @@ the Collector or Loki was away or refusing load. Retention is six days and delet
 asynchronous, completing within the seven-day routine-log limit. This is best-effort diagnostics, not audit evidence. The
 [application log privacy rules](#application-logs) still govern every log statement: Loki
 does not sanitize what the application writes.
+
+## Production trace exploration
+
+[ADR-0046](../decisions/0046-keep-sampled-production-traces-in-tempo.md) keeps one request in
+ten as a trace in Tempo, through the same Collector. Open production Grafana, then **Explore**
+with the **Platform traces** datasource. The
+[production procedure](../../deploy/public-production/README.md#application-traces) owns access,
+disk checks and recovery.
+
+A trace shows the server span of the request (route template, method, status), the Spring
+Security filter and authorization spans, and one span per SQL statement with its
+parameterized text, so the slow part of a request is visible. Ways in:
+
+- From a log line in **Platform logs**: lines written inside a sampled request carry
+  `trace_id` metadata and an **Open trace** link.
+- From a span: **Logs for this span** opens that request's log lines.
+- Search by route and duration, for example:
+
+```traceql
+{ resource.service.name = "videogame-platform-backend" && span:kind = server && duration > 500ms }
+```
+
+Nine requests in ten have no stored trace even though their logs show a trace ID, so a slow
+route may need several occurrences before one is sampled. Spans can also be lost while the
+Collector or Tempo is away or refusing load. Retention is 72 hours. Traces are diagnostics,
+not audit evidence, and the [privacy rules](#correlation-logs-metrics-and-traces) above
+decide what a span may carry.
 
 ## Application logs
 

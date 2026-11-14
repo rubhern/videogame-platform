@@ -58,7 +58,7 @@ PRIVATE_TWIN = 'compose.private.json'
 UPGRADE_LABEL = 'gameometro.upgrade.revision'
 FENCED_PHASE = 'backup-complete-writers-still-fenced'
 # The accepted first installation's services plus the reviewed additions (SERVICE_ADDITIONS).
-PERSISTENT, ONE_SHOT = (*acceptance.PERSISTENT, 'loki'), acceptance.ONE_SHOT
+PERSISTENT, ONE_SHOT = (*acceptance.PERSISTENT, 'loki', 'tempo'), acceptance.ONE_SHOT
 # Trusted main publishes these; every other image stays, and PostgreSQL never changes here.
 PUBLISHED = {'application': 'application', 'migration': 'application', 'keycloak': 'keycloak',
              'caddy': 'caddy', 'catalogue-localizer': 'catalogue-localizer'}
@@ -69,8 +69,8 @@ DASHBOARD_TARGET = acceptance.DASHBOARD_TARGET
 # Dependency-safe activation: the BFF validates its issuer through the edge at startup.
 ACTIVATION = ('telemetry', 'prometheus', 'node-exporter', 'blackbox', 'caddy', 'application')
 # Not needed for product readiness (#452): a failure is recorded, and never fences the product.
-# Loki starts before Grafana, which provisions it as a datasource.
-OPTIONAL = ('loki', 'catalogue-localizer', 'grafana')
+# Loki and Tempo start before Grafana, which provisions them as datasources.
+OPTIONAL = ('loki', 'tempo', 'catalogue-localizer', 'grafana')
 # The reviewed guard refuses a closed gate, so only this tool, holding the lease and the identity
 # fence, runs what that guard wraps. The gate therefore stays closed until the reviewed reopening.
 MIGRATION_ENTRYPOINT = '/opt/gameometro/bin/shared-run-migrations'
@@ -116,13 +116,20 @@ SETTING_TRANSITIONS = {
     ('keycloak', 'KC_LOG_LEVEL'): ('info', 'info,org.keycloak.services.managers.AuthenticationManager:error'),
     ('application', 'FEEDBACK_ENABLED'): None,
     ('application', 'FEEDBACK_INBOX'): None,
+    # ADR-0046: the one reviewed activation of sampled trace export.
+    ('application', 'TELEMETRY_OTLP_TRACES_ENABLED'): ('false', 'true'),
 }
-# ADR-0040: Grafana loads the Loki datasource it now provisions; every other plugin stays disabled.
-GRAFANA_DISABLED_PLUGINS = ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p != 'loki')
-SETTING_TRANSITIONS[('grafana', 'GF_PLUGINS_DISABLE_PLUGINS')] = (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS)
+# Grafana loads only the datasources it provisions; every other plugin stays disabled. Each reviewed
+# policy enables one more: ADR-0040 Loki, then ADR-0046 Tempo. An upgrade only moves forward to the last.
+GRAFANA_PLUGIN_POLICIES = (acceptance.DISABLED_PLUGINS,
+                           ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p != 'loki'),
+                           ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p not in ('loki', 'tempo')))
+GRAFANA_DISABLED_PLUGINS = GRAFANA_PLUGIN_POLICIES[-1]
+SETTING_TRANSITIONS[('grafana', 'GF_PLUGINS_DISABLE_PLUGINS')] = tuple(
+    (before, GRAFANA_DISABLED_PLUGINS) for before in GRAFANA_PLUGIN_POLICIES[:-1])
 # Services and named volumes a target may add: service -> (its networks, its named volumes). An added
 # service gets the same private hardening as the rest; it publishes nothing and holds no secret.
-SERVICE_ADDITIONS = {'loki': ({'telemetry'}, {'loki-data'})}
+SERVICE_ADDITIONS = {'loki': ({'telemetry'}, {'loki-data'}), 'tempo': ({'telemetry'}, {'tempo-data'})}
 assert set(SERVICE_ADDITIONS) <= set(PERSISTENT)
 REALM_IMPORT = 'deploy/public-production/keycloak/import/gameometro-realm.json'
 NOTICE_COMMAND = 'scripts/production_registration_notice.py'
@@ -482,7 +489,11 @@ def setting_transition(name, key, before, after):
     if (name, key) not in SETTING_TRANSITIONS:
         return False
     expected = SETTING_TRANSITIONS[(name, key)]
-    return expected is None or (before, after) == expected
+    if expected is None:
+        return True
+    # One reviewed (before, after) pair, or a tuple of such pairs sharing one target.
+    pairs = expected if isinstance(expected[0], tuple) else (expected,)
+    return (before, after) in pairs
 
 
 def runtime_inputs(previous, example, owner):
@@ -578,7 +589,7 @@ def validate_runtime(config, images):
             'A deferred overlay would be activated.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),
             'The accepted localizer ceiling is not preserved.')
-    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS),
+    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in GRAFANA_PLUGIN_POLICIES,
             'The reviewed Grafana plugin policy is not preserved.')
     require(any(Path(DASHBOARD_TARGET).is_relative_to(m['target']) for m in services['grafana'].get('volumes', [])),
             'The accepted localization dashboard is not mounted.')

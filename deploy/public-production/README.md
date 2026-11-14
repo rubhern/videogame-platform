@@ -1257,6 +1257,39 @@ sudo docker compose -p gameometro-production -f "$active" --profile '*' stop lok
 The Collector drops what Loki cannot take, and the product is unaffected. The volume is
 disposable: it is outside every backup and restore. Deleting it loses only log history.
 
+## Application traces
+
+[ADR-0046](../../docs/decisions/0046-keep-sampled-production-traces-in-tempo.md) adds one
+Tempo service to the observability overlay. The application exports one request in ten over
+OTLP to the Collector, which forwards the spans to Tempo on the internal telemetry network.
+Read them in production Grafana under **Explore → Platform traces**;
+[observability](../../docs/development/observability.md#production-trace-exploration) owns the
+queries and their limits.
+
+**Rollout.** No host step. The next `Deploy Production` lists `tempo` as an added service,
+pulls its pinned image at staging and creates it with an empty `tempo-data` volume. It also
+recreates the Collector (new traces pipeline), Grafana (Tempo datasource, its plugin, and the
+log-to-trace link) and the application (sampled trace export on). If Tempo fails to start,
+the deployment completes with `tempo` under `optionalDegraded` and the application keeps
+running.
+
+**Disk.** Plan 4 GiB of host disk for the volume, a stop/review threshold rather than a quota;
+retention is 72 hours. Check its use, and measure it once after the first full day:
+
+```bash
+sudo docker system df -v | grep tempo-data
+```
+
+If it approaches the threshold, or the host's free-disk alert fires, stop only Tempo, with the
+same `active` configuration file as for Loki:
+
+```bash
+sudo docker compose -p gameometro-production -f "$active" --profile '*' stop tempo
+```
+
+The Collector drops what Tempo cannot take, and the product is unaffected. The volume is
+disposable and outside every backup and restore.
+
 ## Production observability candidate
 
 **Prepared and tested only in disposable local infrastructure.** Use the base runtime

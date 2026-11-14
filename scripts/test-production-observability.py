@@ -65,7 +65,7 @@ def static():
     with tempfile.TemporaryDirectory() as temp:
         config = rendered(temp)
     services = config['services']
-    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki'}
+    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki', 'tempo'}
     # The base-only topology cannot reveal exhaustion when the overlay starts.
     ipam = config['networks']['telemetry']['ipam']['config'][0]
     subnet, pool = (ipaddress.ip_network(ipam[k]) for k in ('subnet','ip_range'))
@@ -74,7 +74,7 @@ def static():
     assert ipaddress.ip_address(ipam['gateway']) not in pool
     assert ipaddress.ip_address('10.203.3.2') not in pool
 
-    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1024
+    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1376
     for name in names:
         service = services[name]
         assert not service.get('ports') and not service.get('privileged')
@@ -106,7 +106,7 @@ def static():
     disabled = set(services['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'].split(','))
     used = {t['datasource']['type'] for path in canonical for p in json.loads(path.read_text())['panels'] for t in p.get('targets', [])}
     assert used == {'prometheus', 'grafana-postgresql-datasource'} and not used & disabled
-    assert services['grafana']['pids_limit'] == 160
+    assert services['grafana']['pids_limit'] == 192
     # ADR-0040: application logs reach Loki only through the collector, on the internal network.
     assert 'loki' not in disabled
     assert set(services['loki']['networks']) == {'telemetry'} and services['loki']['user'] == '10001:10001'
@@ -116,6 +116,20 @@ def static():
     collector = (OBS / 'collector.yaml').read_text()
     assert re.search(r'\n    logs:\n      receivers:\n      - otlp\n(?:.*\n)*?      exporters:\n      - otlphttp/loki\n', collector)
     assert '  otlphttp/loki:\n    endpoint: http://loki:3100/otlp\n' in collector
+    # ADR-0046: a sampled share of traces reaches Tempo only through the collector, on the internal network.
+    assert 'tempo' not in disabled
+    assert set(services['tempo']['networks']) == {'telemetry'} and services['tempo']['user'] == '10001:10001'
+    assert [v['source'] for v in services['tempo']['volumes'] if v['type'] == 'volume'] == ['tempo-data']
+    environment = services['application']['environment']
+    assert environment['TELEMETRY_OTLP_TRACES_ENABLED'] == 'true'
+    assert environment['TELEMETRY_OTLP_TRACES_ENDPOINT'] == 'http://telemetry:4318/v1/traces'
+    assert 0 < float(environment['TELEMETRY_TRACING_SAMPLING_PROBABILITY']) <= 0.1
+    assert re.search(r'\n    traces:\n      receivers:\n      - otlp\n(?:.*\n)*?      exporters:\n      - otlphttp/tempo\n', collector)
+    assert '  otlphttp/tempo:\n    endpoint: http://tempo:4318\n' in collector
+    tempo = (OBS / 'tempo.yaml').read_text()
+    for line in ('  grpc_listen_address: 127.0.0.1', '    block_retention: 72h', '  reporting_enabled: false',
+                 '    backend: local'):
+        assert '\n' + line + '\n' in '\n' + tempo, line
     loki = (OBS / 'loki.yaml').read_text()
     for line in ('auth_enabled: false', '  grpc_listen_address: 127.0.0.1', '  retention_enabled: true',
                  '  retention_period: 144h'):
