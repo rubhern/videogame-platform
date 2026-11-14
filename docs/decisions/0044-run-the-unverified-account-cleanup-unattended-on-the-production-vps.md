@@ -85,7 +85,7 @@ The owner chose the VPS and a dedicated archive key pair on 2026-11-14.
 - **Accepted residual risk.** Whoever controls the VPS can:
   - read the archived email and creation time of deleted accounts for their three-year retention;
   - append forged ledger entries, archives or proofs.
-  
+
   They cannot remove or alter existing ledger versions, which the Compliance lock protects. Such an
   attacker already holds the live database, the identity data and the Keycloak administrator
   credential.
