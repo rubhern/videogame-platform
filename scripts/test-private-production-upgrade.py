@@ -917,6 +917,9 @@ class FakeUpgrade(upgrade.Upgrade):
                     'changedServices': {n: ['image'] for n in ('caddy', 'application', 'catalogue-localizer', 'grafana', 'keycloak', 'migration')},
                     'targetConfigurationSha256': upgrade.install.sha(self.bundle / upgrade.TARGET_CONFIG),
                     'migrationInventory': FILES}
+        if getattr(self.test, 'activation', None):
+            reviewed.update(activation=self.test.activation, handoverRefusals=[] if self.test.activation == 'handover' else ['schema-migrations'],
+                            changedServices={n: ['image'] for n in ('application', 'migration')})
         return {'reviewed': reviewed, 'planSha256': upgrade.digest(reviewed), 'config': rendered(self.bundle), 'local': lambda p: p}
 
     def target_host(self, plan):
@@ -967,7 +970,7 @@ class FakeUpgrade(upgrade.Upgrade):
             raise trust.Refused('Injected interruption.')
 
 
-class Flow(unittest.TestCase):
+class FlowFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -1050,6 +1053,7 @@ class Flow(unittest.TestCase):
     def filtered(self):
         return [e for e in self.log if not e.startswith(('operational', 'staged', 'phase:', 'running:', 'probe:', 'assert-fenced', 'lock', 'unlock'))]
 
+class Flow(FlowFixture):
     def test_order_keeps_every_writer_closed_until_the_identity_migration_is_verified(self):
         result = self.apply()
         self.assertEqual(result['mode'], 'applied')
@@ -1132,6 +1136,39 @@ class Flow(unittest.TestCase):
         local = self.base / 'local.json'
         local.write_text(json.dumps({'kind': 'encrypted-copy', 'backupId': BACKUP, 'outcome': 'success'}))
         self.assert_refused_without_change(offhost=local)
+
+    def proof(self, **changes):
+        """ADR-0043: an earlier same-schema pair, restored while the product served."""
+        proof = self.base / 'restored-pair'
+        proof.mkdir(exist_ok=True)
+        manifest = {**self.manifest(), 'backupId': 'e' * 32, 'fence': 'cluster-snapshot',
+                    'recoveryPoint': (NOW - timedelta(hours=1, minutes=20)).isoformat(), **changes}
+        (proof / 'manifest.json').write_text(json.dumps(manifest))
+        self.restore.write_text(json.dumps({'kind': 'isolated-restore', 'backupId': manifest['backupId'], 'outcome': 'success'}))
+        return proof
+
+    def test_an_earlier_restored_pair_of_the_same_schema_proves_the_final_pair(self):
+        result = self.apply(proof=self.proof())
+        self.assertEqual(result['mode'], 'applied')
+        record = self.journal()
+        self.assertEqual((record['backup']['backupId'], record['backup']['restoredBackupId']), (BACKUP, 'e' * 32))
+        retained = sorted(p.name for p in self.admin.glob(f'{upgrade.UPGRADES}/{TARGET}/*.json'))
+        self.assertIn('restored-manifest.json', retained)
+
+    def test_a_restored_pair_that_is_not_a_recent_same_schema_predecessor_refuses(self):
+        cases = {'schema': {'applicationSchema': FILES[1]['version']}, 'images': {'images': {**OLD, 'application': IMAGES['application']}},
+                 'configuration': {'configurationSha256': 'other'}, 'recipient': {'recipient': 'B' * 40},
+                 'too old': {'recoveryPoint': (NOW - timedelta(hours=4, minutes=1)).isoformat()},
+                 'newer than the final pair': {'recoveryPoint': NOW.isoformat()}, 'same pair': {'backupId': BACKUP},
+                 'unknown fence': {'fence': 'manual-dump'}}
+        for label, changes in cases.items():
+            with self.subTest(label):
+                self.setUp()
+                self.assert_refused_without_change(proof=self.proof(**changes))
+        self.setUp()
+        proof = self.proof()
+        self.restore.write_text(json.dumps({'kind': 'isolated-restore', 'backupId': BACKUP, 'outcome': 'success'}))
+        self.assert_refused_without_change(proof=proof)
 
     def test_a_changed_staged_bundle_refuses(self):
         self.staged_failure = trust.Refused('changed')
@@ -1523,6 +1560,260 @@ class Flow(unittest.TestCase):
         self.log.clear()
         self.upgrader().resume(self.journal()['planSha256'])
         self.assertTrue(acceptance.upgrade_owns_runtime(self.admin))
+
+
+def edge_config(bundle, caddyfile):
+    value = config(bundle)
+    value['services']['application']['networks'] = {'application-edge': {'ipv4_address': upgrade.BFF_ADDRESS}, 'application-data': None}
+    value['services']['caddy']['volumes'][0]['source'] = str(caddyfile)
+    return value
+
+
+class HandoverEligibility(unittest.TestCase):
+    """ADR-0043: only a release that changes nothing but the application image may skip the fence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.caddyfile = Path(self.tmp.name) / 'Caddyfile.private'
+        self.caddyfile.write_text((ROOT / 'deploy/public-production/caddy/Caddyfile').read_text())
+        self.active = edge_config(OLD_BUNDLE, self.caddyfile)
+        self.target = copy.deepcopy(self.active)
+        for name in ('application', 'migration'):
+            self.target['services'][name]['image'] = IMAGES['application']
+        self.target['services']['application']['environment']['TELEMETRY_SERVICE_VERSION'] = '2'
+        self.changed = {'application': ['environment', 'image'], 'migration': ['image']}
+        self.flyway = {'pending': []}
+
+    def refusals(self, realm_unchanged=True, secrets=()):
+        return upgrade.handover_refusals(self.active, self.target, self.changed, self.flyway, realm_unchanged, list(secrets))
+
+    def test_an_application_only_release_hands_over(self):
+        self.assertEqual(self.refusals(), [])
+
+    def test_every_incompatible_change_needs_the_fence(self):
+        def keycloak():
+            self.changed['keycloak'] = ['image']
+        def setting():
+            self.target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'true'
+        def field():
+            self.changed['application'].append('cpus')
+        def migration():
+            self.flyway = {'pending': [FILES[-1]['script']]}
+        def edge():
+            self.caddyfile.write_text(self.caddyfile.read_text().replace(' application-candidate:8080', ''))
+        def address():
+            self.target['services']['application']['networks']['application-edge'] = {'ipv4_address': '10.203.1.9'}
+        cases = {keycloak: 'another-service-changes', setting: 'settings-change', field: 'configuration-changes',
+                 migration: 'schema-migrations', edge: 'edge-without-candidate', address: 'no-fixed-application-address'}
+        for change, refusal in cases.items():
+            with self.subTest(refusal):
+                self.setUp()
+                change()
+                self.assertIn(refusal, self.refusals())
+        self.setUp()
+        self.assertEqual(self.refusals(realm_unchanged=False), ['identity-changes'])
+        self.assertEqual(self.refusals(secrets=['feedback_smtp_password']), ['secret-additions'])
+
+    def test_the_candidate_differs_only_in_address_schedule_and_label(self):
+        derived = upgrade.candidate_config(self.target)
+        candidate, application = derived['services'][upgrade.CANDIDATE], self.target['services']['application']
+        self.assertEqual(candidate['networks']['application-edge'], {'ipv4_address': upgrade.CANDIDATE_ADDRESS})
+        self.assertEqual(candidate['environment'][install.SCHEDULING], 'false')
+        self.assertEqual(candidate['labels'][upgrade.CANDIDATE_LABEL], 'true')
+        self.assertEqual(candidate['restart'], application['restart'])
+        stripped = copy.deepcopy(candidate)
+        stripped['networks']['application-edge'] = application['networks']['application-edge']
+        stripped['environment'][install.SCHEDULING] = application['environment'][install.SCHEDULING]
+        del stripped['labels'][upgrade.CANDIDATE_LABEL]
+        self.assertEqual(stripped, application)
+        self.assertEqual({k: v for k, v in derived['services'].items() if k != upgrade.CANDIDATE}, self.target['services'])
+        self.assertEqual(application['networks']['application-edge']['ipv4_address'], upgrade.BFF_ADDRESS, 'The target is not mutated.')
+
+    def test_the_edge_and_the_tool_agree_on_the_candidate(self):
+        text = (ROOT / 'deploy/public-production/caddy/Caddyfile').read_text()
+        self.assertIn(upgrade.CANDIDATE_UPSTREAM, text)
+        self.assertEqual(text.count(f'remote_ip {upgrade.BFF_ADDRESS} {upgrade.CANDIDATE_ADDRESS}\n'), 5)
+        self.assertEqual(text.count(f'remote_ip {upgrade.BFF_ADDRESS}'), 5, 'Every BFF exemption names its candidate too.')
+
+
+class LoggingHost:
+    def __init__(self, test, role):
+        self.test, self.role, self.degraded = test, role, ()
+
+    def compose(self, *args, **_):
+        self.test.log.append(f'{self.role}:' + ' '.join(a for a in args if a in ('exec', 'stop', 'application', upgrade.CANDIDATE)))
+        if args[0] == 'stop' and self.role == 'candidate':
+            self.test.candidate = []
+        return b''
+
+    def smoke_services(self):
+        return list(upgrade.PERSISTENT)
+
+    def running(self, names):
+        self.test.log.append(f'{self.role}-running:' + ','.join(names))
+
+    def smoke(self):
+        self.test.log.append('smoke')
+
+    def gate_open(self):
+        self.test.assertTrue(self.test.recovery.ready and not self.test.recovery.pending)
+
+    def probe(self, script):
+        pass
+
+
+class HandoverUpgrade(FakeUpgrade):
+    def host(self, *_, **__):
+        return LoggingHost(self.test, 'previous')
+
+    def target_host(self, plan):
+        return LoggingHost(self.test, 'target')
+
+    def candidate_host(self, reviewed):
+        return LoggingHost(self.test, 'candidate')
+
+    def candidate_running(self):
+        return self.test.candidate
+
+    def observe_services(self, gate):
+        self.test.log.append('observed')
+        return {}
+
+    def available_memory(self):
+        return self.test.memory
+
+    def start(self, host, *names, timeout=600):
+        self.test.log.append(f'up:{host.role}:' + ','.join(names))
+        if (host.role, names[0]) in self.test.start_failures:
+            raise trust.Refused('Service did not become healthy.')
+        if host.role == 'candidate':
+            self.test.candidate = [b'candidate-id']
+
+
+class Handover(FlowFixture):
+    def setUp(self):
+        super().setUp()
+        self.activation = 'handover'
+        HandoverUpgrade.fault = None
+        self.recovery.history = len(FILES)  # A compatible release: the schema already is the target's.
+        self.recovery.ready, self.recovery.pending = True, False
+        (self.admin / 'first-install/recovery/PENDING.json').unlink()
+        self.candidate, self.memory = [], 8 * 1024 ** 3
+        log = self.log
+
+        class Lock:
+            def __enter__(self):
+                log.append('lock')
+
+            def __exit__(self, *_):
+                log.append('unlock')
+        self.recovery.lock = lambda maintenance=False: self.assertFalse(maintenance) or Lock()
+
+    def upgrader(self, target=TARGET, forward_of=None):
+        value = super().upgrader(target, forward_of)
+        value.__class__ = HandoverUpgrade
+        return value
+
+    def runner(self, args, **_):
+        args = [str(a) for a in args]
+        if args[:2] == ['docker', 'stop']:
+            self.log.append('docker-stop')
+            self.candidate = []
+            return b''
+        return super().runner(args)
+
+    def handover(self):
+        return self.upgrader().handover(self.sha(), reference='#485 owner')
+
+    def untouched_fence(self):
+        self.assertTrue(self.recovery.ready and not self.recovery.pending and self.recovery.marker is None)
+        self.assertFalse([e for e in self.log if e.startswith(('closed', 'gate-open', 'fence', 'sql', 'roles'))], self.log)
+
+    def test_candidate_serves_while_the_application_is_replaced_and_nothing_is_fenced(self):
+        result = self.handover()
+        self.assertEqual(result['mode'], 'applied')
+        steps = [e for e in self.log if e.startswith(('up:', 'previous:', 'candidate:', 'target:', 'smoke'))]
+        self.assertEqual(steps, ['up:candidate:application-candidate', 'candidate:exec application-candidate',
+                                 'previous:stop application', 'up:target:application', 'candidate:stop application-candidate', 'smoke'])
+        self.untouched_fence()
+        record = self.journal()
+        self.assertEqual((record['status'], record['activation']), ('complete', 'handover'))
+        self.assertFalse(record['migrationStarted'] or record['identityStarted'])
+        pointer = json.loads((self.admin / upgrade.UPGRADES / upgrade.ACTIVE).read_text())
+        self.assertEqual(pointer['revision'], TARGET)
+
+    def test_any_failure_restores_the_previous_application_and_stops_the_candidate(self):
+        for failure in (('candidate', upgrade.CANDIDATE), ('target', 'application')):
+            with self.subTest(failure):
+                self.setUp()
+                self.start_failures = {failure}
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                record = self.journal()
+                self.assertEqual((record['status'], record['containment'], record['reason']),
+                                 ('rolled-back', 'confirmed', 'Service did not become healthy.'))
+                self.assertEqual(self.log[-1:], ['unlock'])
+                self.assertIn('up:previous:application', self.log)
+                self.assertEqual(self.candidate, [])
+                self.assertFalse((self.admin / upgrade.UPGRADES / upgrade.ACTIVE).exists(), 'ACTIVE never names a rolled-back target.')
+                self.untouched_fence()
+                self.assertEqual(self.upgrader().unfinished(), [], 'A rolled-back handover blocks nothing.')
+
+    def test_interruption_in_every_phase_rolls_back(self):
+        for phase in ('candidate', 'handover', 'replacing', 'retiring', 'smoke', 'finalizing'):
+            with self.subTest(phase):
+                self.setUp()
+                HandoverUpgrade.fault = phase
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                self.assertEqual((self.journal()['status'], self.journal()['failedPhase']), ('rolled-back', phase))
+                self.untouched_fence()
+
+    def test_a_failed_roll_back_stays_visible_and_abandon_completes_it(self):
+        self.start_failures = {('target', 'application'), ('previous', 'application')}
+        with self.assertRaises(trust.Refused):
+            self.handover()
+        record = self.journal()
+        self.assertEqual((record['status'], record['containment']), ('failed', 'inconclusive'))
+        self.assertEqual(self.upgrader().unfinished(), [TARGET])
+        with self.assertRaisesRegex(trust.Refused, 'never resumed'):
+            self.upgrader().resume(self.sha())
+        self.start_failures = set()
+        self.assertEqual(self.upgrader().abandon()['mode'], 'rolled-back')
+        self.assertEqual(self.candidate, [])
+        self.untouched_fence()
+
+    def test_preconditions_refuse_before_anything_starts(self):
+        def closed():
+            self.recovery.ready = False
+        def maintenance():
+            self.recovery.marker = '22222222-2222-4222-8222-222222222222'
+        def work():
+            self.work = {'runningSynchronizations': 1, 'activeTranslationClaims': 0}
+        def memory():
+            self.memory = 1024 ** 2
+        def leftover():
+            self.candidate = [b'running-candidate']
+        def fenced():
+            self.activation = 'fenced'
+        def schema():
+            self.recovery.history = len(FILES) - 1
+        for fault in (closed, maintenance, work, memory, leftover, fenced, schema):
+            with self.subTest(fault.__name__):
+                self.setUp()
+                fault()
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                self.assertFalse((self.admin / upgrade.UPGRADES / TARGET / upgrade.JOURNAL).exists())
+                self.assertFalse([e for e in self.log if e.startswith(('up:', 'previous:', 'candidate:', 'target:'))])
+
+    def test_a_rolled_back_release_can_be_handed_over_again(self):
+        self.start_failures = {('target', 'application')}
+        with self.assertRaises(trust.Refused):
+            self.handover()
+        self.start_failures = set()
+        self.assertEqual(self.handover()['mode'], 'applied')
 
 
 class Provenance(unittest.TestCase):

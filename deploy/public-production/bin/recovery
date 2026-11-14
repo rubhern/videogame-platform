@@ -32,6 +32,15 @@ FILES = (*[d + '.dump.gpg' for d in DATABASES], 'manifest.json', 'SHA256SUMS')
 MAX_LEDGER = 128 * 1024 * 1024
 # Only these fences leave both databases exactly as they were: a capture only reads them.
 CAPTURE_PHASES = ('quiescing', 'backup-complete-writers-still-fenced')
+# How a pair's common point was obtained (ADR-0043): drained writers, or one cluster-wide WAL
+# position copied online. Both are one point for both databases; only a drained pair can be
+# the exact pre-upgrade state an in-place upgrade consumes.
+FENCED, SNAPSHOT = 'roles-nologin-drained', 'cluster-snapshot'
+FENCES = (FENCED, SNAPSHOT)
+SNAPSHOT_LABEL = 'gameometro.backup-snapshot'
+# The pinned PostgreSQL image's postgres account; the copied cluster keeps its ownership.
+POSTGRES_UID = '999'
+SNAPSHOT_SERVER_BYTES = 512 * 1024 ** 2
 sys.dont_write_bytecode = True
 
 
@@ -114,7 +123,7 @@ def verify(backup):
     require((backup / 'manifest.json').stat().st_size < 65536, 'Oversized manifest.')
     m = json.loads((backup / 'manifest.json').read_text())
     require(m['format'] == 1 and m['environment'] == 'production' and m['issuer'] == ISSUER
-            and m['databases'] == list(DATABASES) and m['fence'] == 'roles-nologin-drained'
+            and m['databases'] == list(DATABASES) and m['fence'] in FENCES
             and set(m['artifacts']) == {d + '.dump.gpg' for d in DATABASES}, 'Wrong backup identity or common-point evidence.')
     require(type(m.get('monitoringReader', False)) is bool, 'Invalid monitoring reader inventory.')
     require(re.fullmatch(r'[0-9a-f]{32}', m['backupId']), 'Invalid backup identifier.')
@@ -157,6 +166,128 @@ def defer_signals():
         yield
     finally:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous)
+
+
+def pipe(producer, consumer, timeout=1800):
+    """producer | consumer without a shell; plaintext crosses only the pipe, never storage."""
+    processes = []
+    try:
+        with defer_signals():
+            first = subprocess.Popen([str(a) for a in producer], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     start_new_session=True)
+            processes.append(first)
+            processes.append(subprocess.Popen([str(a) for a in consumer], stdin=first.stdout, stdout=subprocess.DEVNULL,
+                                              stderr=subprocess.DEVNULL, start_new_session=True))
+        first.stdout.close()
+        codes = (processes[1].wait(timeout=timeout), first.wait(timeout=60))
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+    require(codes == (0, 0), 'Online copy failed; raw diagnostics withheld to protect data.')
+
+
+def snapshot_bytes(cluster):
+    """Private memory for the copied cluster: its databases, WAL and headroom."""
+    return cluster + cluster // 4 + 256 * 1024 ** 2
+
+
+class Live:
+    """The fenced cluster itself; the drained writers stay closed while it is read."""
+
+    def __init__(self, runtime):
+        self.runtime = runtime
+
+    def sql(self, database, query, output=None):
+        return self.runtime.sql(database, query, output)
+
+    def dump(self, database, output):
+        self.runtime.compose('exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_dump', '-Fc', '--no-password',
+                             '--lock-wait-timeout=30s', '-d', database, output=output)
+
+    def recheck(self):
+        self.runtime.assert_fenced()
+
+
+class Snapshot:
+    """An offline copy of the whole cluster at one WAL position, in private memory (ADR-0043).
+
+    pg_basebackup streams the copy over the PostgreSQL container's local socket, so no new
+    credential or listener exists. The copy has no network and no TCP listener, holds its data
+    in tmpfs only, and is removed on every exit; reconcile removes any copy a crash left.
+    """
+
+    def __init__(self, runtime, size):
+        self.runtime, self.size = runtime, size
+        self.name = f'{runtime.project}-snapshot-{uuid.uuid4().hex[:12]}'
+        self.created = False
+
+    def __enter__(self):
+        r = self.runtime
+        r.check_lease()
+        try:
+            with defer_signals():
+                self.created = True
+                run(['docker', 'run', '-d', '--name', self.name, '--label', f'{SNAPSHOT_LABEL}={r.project}',
+                     '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+                     '--user', f'{POSTGRES_UID}:{POSTGRES_UID}', '--memory', str(self.size + SNAPSHOT_SERVER_BYTES),
+                     '--pids-limit', '128', '--log-driver', 'none',
+                     '--tmpfs', f'/clone:rw,nosuid,nodev,size={self.size},uid={POSTGRES_UID},gid={POSTGRES_UID},mode=0700',
+                     '--tmpfs', f'/tmp:rw,nosuid,nodev,size=16m,uid={POSTGRES_UID},gid={POSTGRES_UID},mode=0700',
+                     '--entrypoint', 'sleep', r.images['postgres'], 'infinity'], timeout=120)
+            r.check_lease()
+            pipe([*r.base, 'exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_basebackup', '-D', '-', '-Ft', '-X', 'fetch',
+                  '--checkpoint=fast', '--no-manifest', '--max-rate=100M'],
+                 ['docker', 'exec', '-i', self.name, 'sh', '-c', 'mkdir -m 0700 /clone/data && tar -x -C /clone/data'])
+            run(['docker', 'exec', '-d', self.name, 'postgres', '-D', '/clone/data', '-c', 'listen_addresses=',
+                 '-c', 'unix_socket_directories=/tmp', '-c', 'archive_mode=off', '-c', 'fsync=off'])
+            deadline = time.monotonic() + 300
+            while subprocess.run(['docker', 'exec', self.name, 'pg_isready', '-q', '-h', '/tmp'],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30).returncode != 0:
+                require(time.monotonic() < deadline, 'The online copy did not finish recovery.')
+                time.sleep(2)
+            self.recheck()
+        except BaseException:
+            self.remove()
+            raise
+        return self
+
+    def __exit__(self, *_):
+        self.remove()
+
+    def remove(self):
+        if self.created:
+            subprocess.run(['docker', 'rm', '-f', '-v', self.name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            require(subprocess.run(['docker', 'container', 'inspect', self.name], stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, timeout=30).returncode != 0,
+                    'The online copy could not be removed; reconcile removes it.')
+            self.created = False
+
+    def sql(self, database, query, output=None):
+        self.runtime.check_lease()
+        return run(['docker', 'exec', '-i', self.name, 'psql', '-h', '/tmp', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-d', database],
+                   data=("SET statement_timeout='120s'; SET lock_timeout='5s';\n" + query).encode(), output=output)
+
+    def dump(self, database, output):
+        self.runtime.check_lease()
+        run(['docker', 'exec', self.name, 'pg_dump', '-h', '/tmp', '-Fc', '--no-password', '--lock-wait-timeout=30s',
+             '-d', database], output=output)
+
+    def recheck(self):
+        # A finished recovery, and nothing a later restore could not reproduce from the dumps.
+        require(self.sql('postgres', """SELECT NOT pg_is_in_recovery()
+          AND NOT EXISTS(SELECT FROM pg_prepared_xacts)
+          AND NOT EXISTS(SELECT FROM pg_subscription);""").strip() == b't',
+                'The online copy is in recovery or holds prepared transactions or subscriptions.')
+
+
+def discard_snapshots(project):
+    """Remove every online copy this runtime's captures left; never another project's."""
+    names = run(['docker', 'ps', '-aq', '--filter', f'label={SNAPSHOT_LABEL}={project}'], timeout=60).split()
+    for name in names:
+        run(['docker', 'rm', '-f', '-v', name.decode()], timeout=120)
+    return len(names)
 
 
 @contextlib.contextmanager
@@ -364,7 +495,9 @@ os.close(fd)
         self.sql(DATABASES[0], script)
 
     def stop_writers(self):
-        self.compose('stop', '--timeout', '60', 'caddy', 'application', 'migration', 'keycloak',
+        # The edge stays up (#485): it reads the closed gate on every request and answers with the
+        # maintenance response instead of a refused connection. It holds no database session.
+        self.compose('stop', '--timeout', '60', 'application', 'migration', 'keycloak',
                      *(['grafana'] if getattr(self, 'monitoring', False) else []))
 
     def fence(self):
@@ -385,20 +518,22 @@ os.close(fd)
           AND NOT EXISTS(SELECT FROM pg_roles WHERE rolcanlogin AND rolname <> 'postgres');"""
         require(self.sql('postgres', query).strip() == b't', 'Writers, unknown login roles, prepared transactions or subscriptions remain.')
 
-    def metadata(self):
+    def metadata(self, sql=None):
+        sql = sql or self.sql
         return {
-            'postgresMajor': self.sql('postgres', "SELECT current_setting('server_version_num')::int / 10000;").decode().strip(),
-            'applicationSchema': self.sql(DATABASES[0], 'SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1;').decode().strip(),
-            'keycloakSchema': self.sql(DATABASES[1], 'SELECT md5(string_agg(id || author || md5sum, chr(10) ORDER BY orderexecuted)) FROM databasechangelog;').decode().strip(),
+            'postgresMajor': sql('postgres', "SELECT current_setting('server_version_num')::int / 10000;").decode().strip(),
+            'applicationSchema': sql(DATABASES[0], 'SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1;').decode().strip(),
+            'keycloakSchema': sql(DATABASES[1], 'SELECT md5(string_agg(id || author || md5sum, chr(10) ORDER BY orderexecuted)) FROM databasechangelog;').decode().strip(),
         }
 
-    def identity(self):
+    def identity(self, sql=None):
         # Offline full scans are necessary, but application memory stays bounded. PostgreSQL
         # sorts DISTINCT principals; external sort spills identities to private tmpfs as needed.
+        sql = sql or self.sql
         with scratch() as d:
-            require(self.sql(DATABASES[1], "SELECT count(*) FROM realm WHERE name='gameometro';").strip() == b'1', 'Production realm missing.')
+            require(sql(DATABASES[1], "SELECT count(*) FROM realm WHERE name='gameometro';").strip() == b'1', 'Production realm missing.')
             with (d / 'subjects').open('wb') as out:
-                self.sql(DATABASES[1], "SELECT id FROM user_entity WHERE realm_id=(SELECT id FROM realm WHERE name='gameometro');", out)
+                sql(DATABASES[1], "SELECT id FROM user_entity WHERE realm_id=(SELECT id FROM realm WHERE name='gameometro');", out)
             with (d / 'subjects').open() as source, (d / 'derived').open('w') as out:
                 for line in source:
                     subject = line.strip()
@@ -407,7 +542,7 @@ os.close(fd)
             with (d / 'identities').open('wb') as out:
                 run(['sort', '-u', '-T', d, '-S', '8M', d / 'derived'], output=out)
             with (d / 'principals').open('wb') as out:
-                self.sql(DATABASES[0], 'SELECT DISTINCT user_id FROM ratings.rating ORDER BY user_id;', out)
+                sql(DATABASES[0], 'SELECT DISTINCT user_id FROM ratings.rating ORDER BY user_id;', out)
             with (d / 'identities').open() as identities, (d / 'principals').open() as principals:
                 current = next(identities, None)
                 for principal in principals:
@@ -415,37 +550,71 @@ os.close(fd)
                         current = next(identities, None)
                     require(current == principal, 'Application principal has no matching canonical Keycloak identity.')
 
-    def backup(self, destination, keyring, recipient):
-        public_key(keyring, recipient)
-        require(not destination.exists(), 'Backup destination already exists.')
-        started = time.monotonic()
-        self.fence()
-        recovery_point = utc().isoformat()
+    def capture(self, destination, keyring, recipient, fence, recovery_point, source, started):
+        """Encrypt both databases of one common point; the source decides how that point is held."""
         m = {'format': 1, 'environment': 'production', 'backupId': uuid.uuid4().hex,
-             'issuer': ISSUER, 'databases': list(DATABASES), 'fence': 'roles-nologin-drained',
+             'issuer': ISSUER, 'databases': list(DATABASES), 'fence': fence,
              'recoveryPoint': recovery_point, 'recipient': recipient, 'artifacts': {},
              'images': self.images, 'configurationSha256': self.config_hash,
-             'monitoringReader': self.sql('postgres', "SELECT EXISTS(SELECT FROM pg_roles WHERE rolname = 'videogame_grafana');").strip() == b't', **self.metadata()}
-        self.identity()
+             'monitoringReader': source.sql('postgres', "SELECT EXISTS(SELECT FROM pg_roles WHERE rolname = 'videogame_grafana');").strip() == b't',
+             **self.metadata(source.sql)}
+        self.identity(source.sql)
         with staged(destination) as staging:
             with scratch() as d:
                 for database in DATABASES:
                     plain = d / 'database.dump'
                     with plain.open('wb') as out:
-                        self.compose('exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_dump', '-Fc', '--no-password', '--lock-wait-timeout=30s', '-d', database, output=out)
+                        source.dump(database, out)
                     name = database + '.dump.gpg'
                     crypto('bc_encrypt_file', plain, staging / name, keyring, recipient)
                     m['artifacts'][name] = {'plaintextSha256': digest(plain), 'ciphertextSha256': digest(staging / name), 'bytes': (staging / name).stat().st_size, 'plaintextBytes': plain.stat().st_size}
                     plain.unlink()
-            self.assert_fenced()
+            source.recheck()
             m['durationSeconds'] = round(time.monotonic() - started, 3)
             write(staging / 'manifest.json', m)
             (staging / 'SHA256SUMS').write_text(''.join(f'{digest(staging / n)}  {n}\n' for n in FILES[:-1]))
             verify(staging)
             publish(staging, destination)
-        self.closed('backup-complete-writers-still-fenced', m['backupId'])
-        return {'kind': 'paired-backup', 'backupId': m['backupId'], 'durationSeconds': m['durationSeconds'],
+        return m
+
+    @staticmethod
+    def receipt(m):
+        return {'kind': 'paired-backup', 'backupId': m['backupId'], 'capture': m['fence'], 'durationSeconds': m['durationSeconds'],
                 'encryptedBytes': sum(a['bytes'] for a in m['artifacts'].values()), 'independentRecoveryVerified': False}
+
+    def backup(self, destination, keyring, recipient):
+        public_key(keyring, recipient)
+        require(not destination.exists(), 'Backup destination already exists.')
+        started = time.monotonic()
+        self.fence()
+        m = self.capture(destination, keyring, recipient, FENCED, utc().isoformat(), Live(self), started)
+        self.closed('backup-complete-writers-still-fenced', m['backupId'])
+        return self.receipt(m)
+
+    def discard_snapshots(self):
+        self.check_lease()
+        return discard_snapshots(self.project)
+
+    def snapshot_size(self):
+        cluster = int(self.sql('postgres', 'SELECT coalesce(sum(pg_database_size(datname)),0)::bigint FROM pg_database;').strip())
+        return snapshot_bytes(cluster)
+
+    def snapshot(self, destination, keyring, recipient):
+        """Online paired capture (ADR-0043): no fence; every service keeps serving.
+
+        Called under the recovery lease, so no fence, restore or upgrade can start meanwhile.
+        """
+        public_key(keyring, recipient)
+        require(not destination.exists(), 'Backup destination already exists.')
+        require(not (self.state / 'PENDING.json').exists() and self.gate('check') == b'open',
+                'An online capture needs the open runtime; a closed fence belongs to its owner.')
+        started = time.monotonic()
+        size = self.snapshot_size()
+        # A lower bound: the copy holds every commit before this instant, and possibly later ones.
+        recovery_point = utc().isoformat()
+        with Snapshot(self, size) as source:
+            m = self.capture(destination, keyring, recipient, SNAPSHOT, recovery_point, source, started)
+        return self.receipt(m)
 
     def thaw(self):
         pending = json.loads((self.state / 'PENDING.json').read_text())
@@ -705,7 +874,7 @@ def retain(root, verified_receipt):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['backup', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery', 'publish', 'fetch', 'observe', 'expire', 'admission'])
+    parser.add_argument('command', choices=['backup', 'snapshot', 'verify', 'copy', 'restore', 'thaw', 'replay', 'reopen', 'retain', 'pull', 'initialize', 'record-recovery', 'publish', 'fetch', 'observe', 'expire', 'admission'])
     parser.add_argument('--s3-config', type=Path, help='Protected explicit OVH endpoint/bucket/credentials and lifecycle fingerprint')
     parser.add_argument('--execute', action='store_true', help='Execute exact-version S3 expiry; only valid with expire')
     parser.add_argument('--observer-receipt', type=Path)
@@ -766,6 +935,7 @@ def main():
             with runtime.lock():
                 if a.command == 'initialize': result = runtime.initialize()
                 elif a.command == 'backup': result = runtime.backup(a.destination, a.keyring, a.recipient)
+                elif a.command == 'snapshot': result = runtime.snapshot(a.destination, a.keyring, a.recipient)
                 elif a.command == 'restore': result = runtime.restore(a.backup, a.keyring, a.grafana_password_file)
                 elif a.command == 'thaw': result = runtime.thaw()
                 elif a.command == 'replay': result = runtime.replay(a.ledger, a.ledger_copy, a.checkpoint, a.host_command, archive_inputs={k: getattr(a, k) for k in ARCHIVE_INPUTS if getattr(a, k) is not None})

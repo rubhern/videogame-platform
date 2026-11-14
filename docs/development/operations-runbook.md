@@ -1547,6 +1547,15 @@ Run every host step as root, attached to the interactive SSH session: no `nohup`
    upgrade --stage --plan-sha256 "$REVIEWED_PLAN_SHA256"
    ```
 
+   If the plan's `activation` is `handover`, no pair, fence or window is needed: run the
+   [application handover](../../deploy/public-production/README.md#application-handover-adr-0043)
+   instead of the following steps, then `upgrade --verify`. On failure it restores the previous
+   application by itself; `upgrade --inspect` tells whether `--abandon` is still needed.
+
+   ```bash
+   upgrade --handover --plan-sha256 "$REVIEWED_PLAN_SHA256" --owner-reference "$OWNER_REFERENCE"
+   ```
+
 4. **Take the pair; writers stay closed from here.** Use the active configuration and the recovery
    actor of the same bundle. The first upgrade uses `compose.accepted.json` and the installed
    candidate. Later ones use `configurationFile` from `upgrades/ACTIVE.json` and its bundle. Do **not** `thaw`.

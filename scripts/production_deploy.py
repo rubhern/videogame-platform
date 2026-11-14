@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Exact-main admission and restricted private-production deployment actor (#467)."""
+"""Exact-main admission and restricted private-production deployment actor (#467).
+
+ADR-0043: the pair the recovery runner restores is captured online, so the product serves while
+it is published and restored. A compatible application-only release then hands over without a
+fence; any other release takes its final fenced pair only after that restore succeeded.
+"""
 import argparse
 import fcntl
 import json
@@ -30,7 +35,9 @@ require = trust.require
 PREFLIGHT_CHECKS = ('access', 'recovery-ready', 'installed-runtime', 'backup-cycle', 'backup-lock',
                     'backup-runtime', 'host-s3-admission', 'backup-services', 'upgrade-plan',
                     'plan-prerequisites', 'recovery-capacity')
-CAPTURE_CHECKS = ('capture-lease', 'capture-preflight', 'capture-pair', 'capture-lease-release', 'capture-verify')
+CAPTURE_CHECKS = ('capture-lease', 'capture-preflight', 'capture-pair', 'capture-lease-release', 'capture-verify',
+                  'final-capture-lease', 'final-capture-preflight', 'final-capture-pair', 'final-capture-verify')
+ACTIVATIONS = ('fenced', 'handover')
 CAPTURE_REFUSALS = {
     'Another recovery/backup actor is active.': 'recovery-lock-busy',
     'Another runtime actor holds the recovery lease, or the engine lease is unavailable.': 'runtime-lease-unavailable',
@@ -269,7 +276,7 @@ class Rollout:
         self.record = {'revision': revision, 'runId': run_id, 'attempt': attempt, 'outcome': 'failure', 'phase': 'preflight'}
 
     def save(self, phase):
-        if phase not in ('preflight', 'planned', 'capturing'):
+        if phase not in ('preflight', 'planned', 'capturing', 'final-capturing'):
             self.record.pop('check', None)
         self.record['phase'] = phase
         upgrade.control.durable(self.directory / 'deployment.json', self.record)
@@ -315,6 +322,7 @@ class Rollout:
                     and plan['prerequisites']['keycloakAdministratorAuthenticates'] is True,
                     'A private, idle, authenticated runtime is required.')
             self.record.update(planSha256=plan['planSha256'], version=plan['target']['version'],
+                               activation=plan.get('activation', 'fenced'),
                                images=plan['target']['images'], adapterFingerprint=fingerprint,
                                migrations=plan['flyway'], sourceRunId=str(plan['target']['sourceRunId']),
                                sourceRunAttempt=str(plan['target']['sourceRunAttempt']), securityRunId=str(plan['target']['securityRunId']))
@@ -347,6 +355,12 @@ class Rollout:
                     and fresh['prerequisites']['keycloakAdministratorAuthenticates'] is True,
                     'The runtime or plan changed before capture.')
             require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before capture.')
+            # Online unless the clone does not fit; then the old fenced pair, whose fence stays closed
+            # through the restore, and the fenced activation (a handover needs the open runtime).
+            online = cycle.capture_mode(runtime) == 'online'
+            self.record['restoredCapture'] = 'online' if online else 'fenced'
+            if not online:
+                self.record['activation'] = 'fenced'
             self.save('capturing')
             pair = self.directory / 'pair'
             try:
@@ -356,7 +370,8 @@ class Rollout:
                     cycle.preflight(runtime)
                     self.check('capture-pair')
                     with cycle.budget():
-                        runtime.backup(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
+                        capture = runtime.snapshot if online else runtime.backup
+                        capture(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
                     self.check('capture-lease-release')
                 self.check('capture-verify')
                 self.record['backupId'] = cycle.core.verify(pair)['backupId']
@@ -380,6 +395,34 @@ class Rollout:
             self.save('awaiting-restore')
             return request
 
+    def final_capture(self, cycle):
+        """The fenced pre-upgrade pair, only now: the writers stay closed from here to the reopening."""
+        runtime = cycle.runtime_factory()
+        final = self.directory / 'final-pair'
+        self.save('final-capturing')
+        try:
+            self.check('final-capture-lease')
+            with runtime.lock():
+                self.check('final-capture-preflight')
+                cycle.preflight(runtime)
+                self.check('final-capture-pair')
+                with cycle.budget():
+                    runtime.backup(final, Path(cycle.config['keyring']), cycle.config['recipient'])
+            self.check('final-capture-verify')
+            self.record['finalBackupId'] = cycle.core.verify(final)['backupId']
+        except cycle.core.Refused as error:
+            self.record['category'] = CAPTURE_REFUSALS.get(str(error), 'check-refused')
+            raise
+        self.save('final-publishing')
+        offhost = cycle.invoke('publish', cycle.config['uploaderConfig'], '--backup', final,
+                               '--observer-receipt', cycle.admission())
+        publication = json.loads(Path(offhost).read_text())
+        require(publication.get('outcome') == 'success' and publication.get('kind') == 's3-publish'
+                and publication.get('backupId') == self.record['finalBackupId'], 'S3 publication did not prove the final pair.')
+        path = self.directory / 'final-publish.json'
+        upgrade.control.durable(path, publication)
+        return final, path
+
     def finish(self):
         install.secure(self.directory / 'deployment.json', mode=0o600)
         stored = json.loads((self.directory / 'deployment.json').read_text())
@@ -402,8 +445,21 @@ class Rollout:
             upgrade.control.durable(restore_path, restored)
             pair, offhost = self.directory / 'pair', self.directory / 'publish.json'
             require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before apply.')
-            self.save('applying')
-            actor.apply(stored['planSha256'], backup=pair, offhost=offhost, restore=restore_path, reference=self.reference)
+            activation = stored.get('activation', 'fenced')
+            require(activation in ACTIVATIONS, 'Unknown activation.')
+            if activation == 'handover':
+                self.save('applying')
+                actor.handover(stored['planSha256'], reference=self.reference)
+            elif stored.get('restoredCapture', 'fenced') == 'fenced':
+                # The restored pair is itself the fenced pre-upgrade point.
+                self.save('applying')
+                actor.apply(stored['planSha256'], backup=pair, offhost=offhost, restore=restore_path, reference=self.reference)
+            else:
+                final, final_offhost = self.final_capture(cycle)
+                require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before apply.')
+                self.save('applying')
+                actor.apply(stored['planSha256'], backup=final, offhost=final_offhost, restore=restore_path,
+                            reference=self.reference, proof=pair)
             self.save('verifying')
             # The apply actor loaded the pre-upgrade ACTIVE state; verify exactly as `--verify` does, from a
             # fresh load of the activation the apply just recorded, or it compares live state with the old images.
@@ -436,7 +492,8 @@ class Rollout:
             return self.record
 
 
-PHASES = ('preflight', 'planned', 'capturing', 'publishing', 'awaiting-restore', 'applying', 'verifying', 'backup-services', 'admin', 'complete')
+PHASES = ('preflight', 'planned', 'capturing', 'publishing', 'awaiting-restore', 'final-capturing', 'final-publishing',
+          'applying', 'verifying', 'backup-services', 'admin', 'complete')
 
 
 def summarize(path, revision, run_id, attempt, plan_only):
@@ -487,8 +544,10 @@ def summarize(path, revision, run_id, attempt, plan_only):
                     and re.fullmatch('[0-9a-f]{32}', value.get('backupId', '')), 'Deployment not fully verified.')
             require(isinstance(value.get('services'), list) and set(value['services']) <= set(upgrade.PERSISTENT)
                     and {'application', 'keycloak', 'caddy', 'grafana'} <= set(value['services']), 'Required services not verified.')
+            require(value.get('activation', 'fenced') in ACTIVATIONS, 'Unknown activation.')
             result.update(outcome='verified', mode='verified', backupId=value['backupId'], admin='verified',
-                          backup='published-and-restored', backupServices='reconciled', services=value['services'])
+                          backup='published-and-restored', backupServices='reconciled', services=value['services'],
+                          activation=value.get('activation', 'fenced'))
         # Compare the host's identities with independently admitted runner evidence.
         expected = json.loads(Path('release.json').read_text())
         require(expected['source_revision'] == revision and expected['images'] == images

@@ -787,16 +787,20 @@ approves D3 (expiry wins over the rehearsal pin), D6 (separate-store locks) and 
 thresholds), detailed in the
 [decision table](../../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation). Cloud expiry defaults to planning; explicit execution uses
 configuration/protection preflight, durable intent and verified exact-version absence. The
-[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is installed in private production: it refuses predictable failures before fencing, uploads only after reopening, and
+[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is installed in private production: it refuses predictable failures before capturing, captures online by default ([ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)), falls back to the fenced capture only when the host cannot hold the online copy, uploads only after the capture, and
 reopens only a fence it created. Every other fence stays closed for its owner. Public exposure, deletion-ledger barriers and archive-specific duties retain their separate acceptance requirements; do not rebuild the installed backup infrastructure. Size the
 independent destination and prove the scheduled copy/check cadence; a dump left on the VPS is not a
 backup against host/account loss. Failure/age must reach the owner through a tested private channel.
 If this cannot operate within the budget, do not open accounts.
 
-Two per-database dumps do not create one cross-database transaction. Quiesce rating
-writes and registration/identity mutation while capturing the pair, verify the
-application-principal/Keycloak relationship on isolated restore, and record the
-common recovery point. Restoration must reapply post-backup deletion requests before
+Two per-database dumps do not create one cross-database transaction. A pair therefore
+needs one common point for both databases: either quiesce rating writes and
+registration/identity mutation while capturing it (the fenced capture), or dump both
+from a private offline copy of the whole cluster taken at one WAL position (the online
+capture of [ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)), which holds exactly the state a power loss at
+that position would leave. Only a fenced pair can be the pre-upgrade point an in-place
+upgrade consumes. Verify the application-principal/Keycloak relationship on capture and
+on isolated restore, and record the common recovery point. Restoration must reapply post-backup deletion requests before
 reopening and invalidate old sessions as appropriate. Keep a minimal protected deletion
 ledger outside both databases and the VPS while any backup able to restore the deleted
 data exists; replay it idempotently and verify the result before reopening.
@@ -873,16 +877,20 @@ Private-dev credentials/forced commands authorize only private-dev. No automatic
 extra environment or general root command interface is introduced.
 
 The actor derives validated immutable publications and operational fingerprints for the selected
-SHA, then consumes a fresh paired backup's continuous write fence, existing durable S3 publication
-and a real isolated restore by a separate ephemeral GitHub-hosted job in the protected
-`production-recovery` environment. Both it and `production` require owner approval and `main` only.
+SHA, then requires an existing durable S3 publication and a real isolated restore by a separate
+ephemeral GitHub-hosted job in the protected `production-recovery` environment of a fresh pair taken
+online, while the product serves ([ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)). A compatible application-only release
+then hands over without a fence; every other release consumes the continuous write fence of a
+fenced pair taken after that restore, at most three hours after the restored pair and with equal
+runtime and schema identities. Both it and `production` require owner approval and `main` only.
 The recovery job alone imports the owner-authorized key copy and existing read-only S3 identity;
 the original WSL copy remains independent, and no decryption key reaches the VPS/deployment job.
 Prefer a decrypt-only subkey export; the explicit primary-encryption fallback and custody risk are
 recorded in [ADR-0036](../../decisions/0036-use-protected-actions-for-production-recovery.md).
 Readiness proves key usability, S3 admission and runner capacity before fencing. Immutable same-run
 artifacts bind request, backup, plan and recovery nonce; apply independently requires successful
-recovery-job completion after verified cleanup. The recovery fence persists across job/SSH handoffs.
+recovery-job completion after verified cleanup. A fenced restored pair (the memory fallback) keeps
+its fence across job/SSH handoffs.
 Scheduled backup locks and recovery leases are reused without changing timers; their foreign-fence
 checks prevent scheduled reconciliation from reopening a deployment's backup.
 After verified activation, the same rollout reconciles
@@ -898,7 +906,10 @@ owner inspection chooses resume, forward fix or isolated recovery, without blind
 Retain the previous digest and recovery point. Failed migration prevents activation;
 failed readiness/smoke is recorded as failure. An application rollback requires
 schema compatibility; otherwise use a forward fix or assessed restore. Never revert
-an applied migration. One replica means deployment interruption and no HA promise.
+an applied migration. One replica means no HA promise. A compatible application-only release
+hands over through a temporary candidate behind the edge, so public reads continue; BFF sessions
+stay in each instance's memory (ADR-0027) and end when it stops. Every other release interrupts the
+product behind the edge's maintenance response for its fenced capture, migrations and restart.
 IGDB/CDN/helper/telemetry failures preserve database-only reads; overload returns
 controlled bounded failure and admission restrictions instead of unbounded queues.
 Close public ingress on an unresolved security/data-integrity failure.

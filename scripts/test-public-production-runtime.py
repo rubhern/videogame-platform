@@ -44,6 +44,9 @@ EDGE_ADDRESSES = {"application-edge": "10.203.1.2", "identity-edge": "10.203.2.2
 # The BFF's fixed address, whose issuer calls the edge budgets separately, and the gateways
 # behind which Docker's userland proxy hides a client; the Caddyfile names both.
 BFF_ADDRESS = "10.203.1.3"
+# The application-only handover candidate (ADR-0043); never a published or long-lived service.
+CANDIDATE_ADDRESS = "10.203.1.5"
+APPLICATION_UPSTREAMS = ["application:8080", "application-candidate:8080"]
 GATEWAYS = {"application-edge": "10.203.1.1", "identity-edge": "10.203.2.1"}
 DIGEST = re.compile(r"^[a-z0-9./_:-]+@sha256:[0-9a-f]{64}$")
 # Each image comes from the GHCR repository that trusted main publishes it to.
@@ -452,8 +455,9 @@ def caddy_violations(config):
             found.append(f"Caddy server {name} must keep automatic HTTPS and its redirects")
     nodes = list(walk(config))
     dials = {upstream["dial"] for node in nodes if node.get("handler") == "reverse_proxy" for upstream in node.get("upstreams", [])}
-    if dials != {"application:8080", "keycloak:8080"}:
-        found.append(f"Caddy must proxy only to application:8080 and keycloak:8080, found {sorted(dials)}")
+    if dials != {*APPLICATION_UPSTREAMS, "keycloak:8080"}:
+        found.append(f"Caddy must proxy only to application:8080, its handover candidate and keycloak:8080, found {sorted(dials)}")
+    found += handover_violations(nodes)
     for node in nodes:
         if node.get("handler") == "reverse_proxy":
             removed = set(node.get("headers", {}).get("request", {}).get("delete", []))
@@ -471,6 +475,31 @@ def caddy_violations(config):
 
 
 PEER_KEY = "{http.request.remote.host}"
+
+
+def handover_violations(nodes):
+    """The application route prefers the application and fails over only on a dial failure."""
+    found = []
+    proxies = [n for n in nodes if n.get("handler") == "reverse_proxy"
+               and any(u["dial"].startswith("application") for u in n.get("upstreams", []))]
+    if len(proxies) != 1:
+        return ["Caddy must proxy the application from exactly one handler"]
+    proxy = proxies[0]
+    if [u["dial"] for u in proxy.get("upstreams", [])] != APPLICATION_UPSTREAMS:
+        found.append("Caddy must list the application before its handover candidate")
+    balancing = proxy.get("load_balancing", {})
+    if balancing.get("selection_policy", {}).get("policy") != "first":
+        found.append("Caddy must send every request to the application while it is available")
+    if not 0 < balancing.get("try_duration", 0) <= 30 * 10 ** 9:
+        found.append("Caddy must retry a failed dial on the other upstream for a bounded time")
+    if "retry_match" in balancing:
+        found.append("Caddy must not replay a request that already reached an upstream")
+    passive = proxy.get("health_checks", {}).get("passive", {})
+    if not passive.get("fail_duration") or set(passive) - {"fail_duration"}:
+        found.append("Caddy must mark only a failed dial as down, for a bounded time")
+    if proxy.get("health_checks", {}).get("active"):
+        found.append("Caddy must not actively probe the application: its management port stays on loopback")
+    return found
 
 
 def limiter_violations(config, nodes):
@@ -588,6 +617,11 @@ def overlay(directory, caddy_config):
                                    "networks": {"application-edge": {"ipv4_address": BFF_ADDRESS}}},
             "rogue-backchannel": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
                                   "networks": {"application-edge": {"ipv4_address": "10.203.1.4"}}},
+            # The handover candidate's fixed address shares the BFF budget, and only it does.
+            "candidate-backchannel": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
+                                      "networks": {"application-edge": {"ipv4_address": CANDIDATE_ADDRESS}}},
+            "candidate-stub": {**hardened, "profiles": ["handover"], "command": [*command, "serve", "candidate"],
+                               "networks": {"application-edge": {"aliases": ["application-candidate"]}}},
             **sources,
             "gate": {**hardened, "user": "0:0", "profiles": ["probe"], "network_mode": "none",
                      "volumes": ["recovery-state:/gate"], "entrypoint": ["python", "-I", "-c", GATE_SCRIPT]},
@@ -617,7 +651,7 @@ class Edge:
 
     def __exit__(self, *_):
         if self.started:
-            subprocess.run(self.compose + ["--profile", "probe", "down", "--volumes", "--remove-orphans"],
+            subprocess.run(self.compose + ["--profile", "probe", "--profile", "handover", "down", "--volumes", "--remove-orphans"],
                            capture_output=True, text=True)
 
     def load(self, config, gate=None):
@@ -780,6 +814,37 @@ def exercise_edge_metrics(edge):
             labels=re.findall(r'([a-zA-Z_][a-zA-Z_0-9]*)="',line.split('{',1)[1])
             assert set(labels) <= {'server','handler','code','method','le'}
     print('Private Caddy metrics and sanitized origin records distinguish 503s without client/limiter labels.')
+
+
+HANDOVER_STEPS = ("shell:2:ok", "read:2:ok", "write:2:ok", "callback:1:ok")
+
+
+def handover(edge, config):
+    """The application stops while its candidate serves, then returns; no request may fail."""
+    failures = []
+    edge.load(config, gate="ready")
+    run(edge.compose + ["--profile", "handover", "up", "--detach", "--wait", "--wait-timeout", "60", "candidate-stub"])
+    try:
+        run(edge.compose + ["stop", "application-stub"])
+        failures += run_scenario(edge, config, "handover to the candidate", [("source-a", *HANDOVER_STEPS)])
+        run(edge.compose + ["start", "application-stub"])
+        failures += run_scenario(edge, config, "both upstreams serving", [("source-b", *HANDOVER_STEPS)])
+    finally:
+        run(edge.compose + ["start", "application-stub"])
+        run(edge.compose + ["--profile", "handover", "rm", "--force", "--stop", "candidate-stub"])
+    failures += run_scenario(edge, config, "candidate retired", [("source-v6-a", *HANDOVER_STEPS)])
+    return failures
+
+
+def exercise_handover(edge, caddyfile, directory):
+    """ADR-0043 on the real edge: failover for every method, and its absence is detected."""
+    failures = handover(edge, edge_test_config(adapt(caddyfile, directory)))
+    mutated = caddyfile.replace(" application-candidate:8080", "")
+    assert mutated != caddyfile, "the handover mutation no longer applies to the Caddyfile"
+    if not handover(edge, edge_test_config(adapt(mutated, directory))):
+        failures.append("edge did not detect deliberate handover violation: candidate upstream removed")
+    print("Edge handover: application-only failover and 1 deliberate violation checked.")
+    return failures
 
 
 def exercise_limits(edge, caddyfile, directory):
@@ -986,6 +1051,14 @@ CADDY_STATIC_MUTATIONS = [
      "internal CA"),
     ("extra upstream", lambda text: text.replace("reverse_proxy application:8080", "reverse_proxy application:8081"),
      "must proxy only to application:8080"),
+    ("candidate preferred", lambda text: text.replace("application:8080 application-candidate:8080",
+                                                      "application-candidate:8080 application:8080"), "before its handover candidate"),
+    ("round-robin handover", lambda text: text.replace("\t\t\tlb_policy first\n", ""), "while it is available"),
+    ("sent requests replayed", lambda text: text.replace("\t\t\tlb_try_duration 15s\n",
+                                                         "\t\t\tlb_try_duration 15s\n\t\t\tlb_retry_match {\n\t\t\t\tmethod PUT\n\t\t\t}\n"),
+     "must not replay"),
+    ("unbounded failover wait", lambda text: text.replace("lb_try_duration 15s", "lb_try_duration 5m"), "bounded time"),
+    ("no passive failover", lambda text: text.replace("\t\t\tfail_duration 10s\n", ""), "only a failed dial"),
     ("metrics handler", lambda text: text.replace("\theader -Server\n", "\theader -Server\n\tmetrics /metrics\n", 1),
      "metrics handler"),
     ("forwarded header kept", lambda text: text.replace("\theader_up -Forwarded\n", ""), "must drop ['Forwarded']"),
@@ -1144,7 +1217,7 @@ def contract(arguments):
             with Edge(directory, env_file) as edge:
                 edge.load(edge_test_config(caddy_config), gate="ready")
                 exercise_edge_metrics(edge)
-                for service in ("prober", "backchannel-prober"):
+                for service in ("prober", "backchannel-prober", "candidate-backchannel"):
                     status, output = edge.probe(service)
                     print(output.strip().splitlines()[-1] if output.strip() else f"{service}: no output")
                     if status != 0:
@@ -1159,6 +1232,7 @@ def contract(arguments):
                         failures.append(f"edge did not detect deliberate violation: {label} (expected '{fragment}')")
                 print(f"Edge behaviour: {len(CADDY_ROUTE_MUTATIONS)} deliberate route violations checked.")
                 failures += exercise_limits(edge, caddyfile, directory)
+                failures += exercise_handover(edge, caddyfile, directory)
     return failures
 
 

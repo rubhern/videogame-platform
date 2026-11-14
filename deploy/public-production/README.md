@@ -512,7 +512,10 @@ cloud attestation acceptance and real cloud-only recovery are required before ac
 ## Scheduled backup cycle (#276)
 
 **Active on private production since 2026-11-08** (owner activation; first supervised cycle captured,
-reopened and uploaded with about 2.5 minutes of unavailability). Nothing in the repository enables a
+reopened and uploaded with about 2.5 minutes of unavailability, then fenced). The online capture
+below ([ADR-0043](../../docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md))
+reaches the host with the next deployment of the backup units; until a supervised online cycle runs
+there, its host behaviour is unproven. Nothing in the repository enables a
 timer, a workflow job or a provider resource; the host installation does. The installed units run
 `backup-cycle` from the active upgrade bundle's `candidate/`. The [Actions actor](#owner-approved-actions-deployment-467)
 reconciles only their two `ExecStart` paths after upgrade, preserving timers and all other unit settings. Both services also need `ReadWritePaths` on the public keyring: its
@@ -523,16 +526,21 @@ owns cadence and ceilings; [the research](../../docs/research/public-production-
 owns the evidence and its limits.
 
 [`bin/backup-cycle`](bin/backup-cycle) runs on the VPS at 02:30 and 14:30 UTC. It reuses the
-existing actor, lease, gate and encrypted pair, and adds no backup format:
+existing actor, lease, gate and encrypted pair format, and adds no backup format:
 
 1. **Check without a fence.** Public key, separate credentials, open gate, no identity
    maintenance, pending journal, unfinished upgrade or running synchronization, required services
    running, disk and tmpfs for the database sizes, and S3 admission. Any refusal skips the slot with
-   no downtime.
-2. **Capture under one lease,** within a 30-minute fence budget by default.
-3. **Reopen** the roles and gate, start Keycloak, the edge and the application in that order,
-   restart Grafana if it was running, and check readiness.
-4. **Upload** only after reopening, with a fresh admission for each attempt.
+   no downtime. Then choose the capture: **online**, unless `captureMode` is `fenced` or the host's
+   available memory cannot hold the clone, the largest dump and a tenth of the host's memory; the
+   fallback is recorded as `captureMode: fenced-fallback` and `backup-cycle check` reports it.
+2. **Capture under one lease,** within a 30-minute budget by default. Online, the actor's
+   `snapshot` copies the whole cluster with `pg_basebackup` through the PostgreSQL container's local
+   socket into a clone with no network, held in tmpfs, and dumps both databases there; no service
+   stops and no fence closes. Fenced, the existing `backup` stops the writers behind the closed gate.
+3. **Reopen,** after a fenced capture only: roles and gate, then Keycloak, the edge if it is down and
+   the application, Grafana if it was running, and readiness.
+4. **Upload** only after the capture, with a fresh admission for each attempt.
 5. **Keep** only the last uploaded pair on the host, and receipts for 40 days.
 
 `CYCLE.json` records each step before it happens, so the
@@ -542,6 +550,8 @@ left, within two minutes of boot and every ten minutes afterwards.
 | Failure | Result |
 |---|---|
 | Any predictable condition in step 1 | Slot skipped; product untouched; failure reported |
+| Online copy fails, is interrupted or exceeds its budget | Product untouched; the clone is removed, nothing uploaded, failure reported |
+| Clone removal fails, or the host dies during an online capture | Reconcile removes every clone carrying this project's label; a published pair then uploads. The next slot waits until then |
 | Capture fails, is interrupted or exceeds its budget | Own fence undone, product restarted, nothing uploaded, failure reported |
 | Thaw fails after a valid pair | Own fence undone, and that pair still uploads |
 | Host dies or reboots during the capture | Reconcile reopens; a published pair uploads if its window is open |
@@ -551,14 +561,19 @@ left, within two minutes of boot and every ten minutes afterwards.
 | Window closes | Pair is never uploaded late, because its lock would pass the ceiling; the next slot replaces it |
 | Fence owned by a manual backup, upgrade, restore or replay | Never touched. `owner-required` if it replaced this tool's fence, and captures stop |
 
-**Reopening is limited by ownership.** The actor's `reopen_capture` accepts only the two capture
+**Reopening is limited by ownership.** An online capture never closes a fence, so it never reopens
+one. The actor's `reopen_capture` accepts only the two capture
 phases, recorded with this run's identity. A capture only reads the databases, so undoing its fence
 loses nothing. Manual `backup`, whose fence the in-place upgrade depends on, keeps its explicit
 `thaw` and records no owner. A running synchronization defers the slot rather than being interrupted;
 a long run can therefore age the upload until the alerts below fire.
 
-**Availability cost.** The fence stops the edge, so the product is unreachable, without a maintenance
-page, for the whole capture twice a day. Its duration on the real host is unmeasured.
+**Availability cost.** Online: none planned; the copy and the dumps add disk and CPU load for their
+duration, and the host keeps the clone's memory until it is removed. Fenced: the edge stays up and
+answers with the maintenance response while writers are stopped; once the gate reopens, requests
+wait up to 15 seconds and then fail with 502 until the application is ready again. Its duration on
+the real host is unmeasured. The disposable rehearsal below proves both
+against a client reading through the real edge.
 
 ### Protected inputs and provider identities
 
@@ -566,8 +581,9 @@ Create these only after separate owner authorization. No repository file contain
 `/etc/gameometro/production/backup-cycle.json` is owner-only, with exactly these fields:
 `authorized` (`true` only at activation), `admin`, `project`, `state`, `keyring`, `recipient`, `work`,
 `uploaderConfig`, `admissionConfig`, `s3Python` (a virtual environment holding `s3-requirements.txt`),
-`status` (the sampler's `--backup-receipt` path), and optionally `maxRetainedBytes` and
-`maxFenceSeconds`. The admission reader's file needs the same `lifecycleSha256` as the
+`status` (the sampler's `--backup-receipt` path), and optionally `maxRetainedBytes`,
+`maxFenceSeconds` (the capture budget in either mode) and `captureMode` (`online`, the default, or
+`fenced`). The admission reader's file needs the same `lifecycleSha256` as the
 [S3 configuration](#s3-transport-preparation-276).
 
 | Identity | Held in | Rights | Denied |
@@ -679,17 +695,30 @@ python3 "$recovery" backup --config /protected/compose.json \
   --project gameometro-production --state /protected/recovery-journal \
   --keyring /protected/public-keyring --recipient OWNER_40_HEX_FINGERPRINT \
   --destination /protected/backups/NEW_PAIR --receipt /protected/receipts/backup.json
+python3 "$recovery" snapshot --config /protected/compose.json \
+  --project gameometro-production --state /protected/recovery-journal \
+  --keyring /protected/public-keyring --recipient OWNER_40_HEX_FINGERPRINT \
+  --destination /protected/backups/NEW_ONLINE_PAIR --receipt /protected/receipts/snapshot.json
 python3 "$recovery" verify --backup /protected/backups/NEW_PAIR \
   --receipt /protected/receipts/integrity.json
 ```
 
+`snapshot` is the online capture of [ADR-0043](../../docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md):
+it refuses a closed gate, copies the whole cluster at one WAL position into a clone labelled
+`gameometro.backup-snapshot=<project>`, with no network, no TCP listener and its data in tmpfs, and
+produces the same encrypted pair with `fence: cluster-snapshot`. Every commit before its recovery
+point is in the pair, and possibly some made during the copy; it is the state a power loss at that
+WAL position would leave. It never closes a fence, so an in-place upgrade cannot consume it as its
+pre-upgrade point.
+
 The keyring used by `backup` must contain only the owner's public encryption key;
 secret keys and ambiguous recipients are refused. The actor closes the persistent
 startup gate, sets the three application/identity roles and the optional provisioned
-`videogame_grafana` reader to `NOLOGIN`, stops the edge, application, migration,
+`videogame_grafana` reader to `NOLOGIN`, stops the application, migration,
 Keycloak and Grafana when configured, terminates and waits for existing database
 sessions to roll back, then refuses unknown login roles, remaining connections,
-prepared transactions or subscriptions. A runtime-volume lease excludes concurrent recovery actors even from different
+prepared transactions or subscriptions. The edge keeps running and answers every request with the
+maintenance response while the gate is closed (#485). A runtime-volume lease excludes concurrent recovery actors even from different
 owner journals or machines, and every actor refuses while an
 [identity-maintenance](#identity-maintenance) fence is held. Privileged PostgreSQL/host administration
 must be exclusive during this maintenance window; no mechanism protects against a
@@ -975,7 +1004,8 @@ host.** The [platform design](../../docs/architecture/deployment/mvp-platform-an
 owns the limit classes, source identity, refusal semantics and calibration status;
 the Caddyfile owns every threshold. The edge reads the `recovery-state` gate
 read-only, so a closed or interrupted recovery is a 503 maintenance response on both
-hosts even if the edge is started during it. Recovery commands still stop the edge.
+hosts even if the edge is started during it. Recovery commands keep the edge running (#485), so a
+fence is a maintenance response, never a refused connection.
 
 ### Maintenance modes
 
@@ -986,8 +1016,8 @@ refuses to start while the other is active, so they never overlap.
 |---|---|---|
 | Purpose | Unverified-account cleanup and its retry | Paired backup, restore, deletion replay and reopening |
 | Owner | `bin/identity-maintenance` (`IDENTITY-MAINTENANCE.json`) | `bin/recovery` (no `READY`, or `PENDING.json`) |
-| Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503, then the edge is stopped |
-| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration, edge and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
+| Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503 until the gate reopens; the edge keeps running |
+| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
 | Startup | Unchanged | Application and migration wrappers refuse without `READY` |
 | Release | `exit` by the same run after a second drain | `thaw` or `reopen` with their evidence; services started separately |
 
@@ -1665,12 +1695,14 @@ owns the authorized sequence; this section owns the contract.
 | None (plan) | Read-only: prints the plan and its hash. Its only effects are a private scratch directory it removes and bounded helper containers without network or write access to state |
 | `--stage` | Writes the immutable bundle `/srv/gameometro/installations/<sha12>-private` and pulls absent pinned digests. The runtime is untouched |
 | `--apply` | Runs the upgrade under the backup fence, for the reviewed hash and an owner reference |
-| `--resume` | Fences again and repeats the same claimed upgrade |
-| `--abandon` | Returns an upgrade whose schema and identity did not advance to the backup's own fence, so `recovery thaw` works |
+| `--handover` | Only for a plan whose `activation` is `handover`: replaces the application without a fence ([below](#application-handover-adr-0043)) |
+| `--resume` | Fences again and repeats the same claimed upgrade. Refuses a handover |
+| `--abandon` | Returns an upgrade whose schema and identity did not advance to the backup's own fence, so `recovery thaw` works. For a handover, restores the previous application and stops the candidate |
 | `--forward-fix-of <failed-sha>` | With plan, `--stage` and `--apply`: replaces a failed target with a newer published one, under the original recovery point |
 | `--verify`, `--inspect` | Read-only comparison with the activation; journal and fence diagnostics with the recovery boundary |
 
-There is no force, skip or rollback mode. Target selection is the full source SHA alone: the
+There is no force or skip mode, and only a handover rolls back, because it changes nothing the
+previous image cannot serve. Target selection is the full source SHA alone: the
 digests come from that commit's retained publication records, checked against its
 successful build and security runs and strict ancestry over the active source.
 
@@ -1714,7 +1746,9 @@ credential while Keycloak runs, because the realm migration needs it only after 
 [canonical pair](#paired-backup-and-recovery-candidate) under 24 hours old, captured from the
 active configuration with its images, whose ciphertext verifies, plus a receipt of
 its off-host copy (`recovery pull` on the destination, or `publish`) and of an isolated restore
-of that same pair. The two receipts are owner-supplied attestations that the host cannot
+of that same pair, or, with `--restored-backup`, of an earlier pair whose issuer, recipient, images,
+configuration and schema identities equal the final pair's and whose recovery point is at most three
+hours older ([ADR-0043](../../docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)). The two receipts are owner-supplied attestations that the host cannot
 independently prove. Writers must still be closed by that backup: its journal phase and
 pair identity must match, roles must be `NOLOGIN` and drained, and the schema identities
 must equal the manifest. A thaw in between therefore needs a new pair, and `--resume`, `--abandon`
@@ -1739,6 +1773,40 @@ restore, thaw and identity maintenance refuse throughout and after an interrupti
    through it. The localizer and Grafana start last.
 7. Smoke source, version, health, private TLS, denied routes, the issuer contract, an
    anonymous personal-route refusal and a catalogue read, plus monitoring, reader and row counts.
+
+#### Application handover (ADR-0043)
+
+The plan records `activation: handover` only when the target changes nothing but the application and
+migration image, bound files and the reported version: no other service, setting, secret, Flyway
+migration, realm import or realm state, no forward fix, an active edge that already lists
+`application-candidate` and its address, and an application on its fixed edge address. Otherwise it
+records `activation: fenced` and lists the reasons in `handoverRefusals`.
+
+`--handover` refuses a closed gate, identity maintenance, recorded synchronization or translation
+work, a running candidate, a live schema that is not the target's endpoint and less free memory than
+one more application ceiling plus 256 MiB. Then, under the recovery lease and without any fence:
+
+1. Start `application-candidate`: the target application with the edge address `10.203.1.5`,
+   recurring acquisition off and the application's restart policy, from `compose.candidate.json` in
+   the upgrade directory, and wait for its readiness.
+2. Stop the application with a 30-second drain. The edge dials the candidate for new requests.
+3. Recreate the application on the target image and wait for its readiness. The edge prefers it again.
+4. Stop the candidate with the same drain; its stopped container is kept, never removed.
+5. Smoke as above, then name the target in `upgrades/ACTIVE.json`.
+
+Any failure or cancellation starts the previous application from the active configuration, stops a
+running candidate, and records `rolled-back`; that journal blocks nothing, and the same release can be
+handed over again. A failed roll-back stays `failed` with `containment: inconclusive`; `--abandon`
+retries it. A reboot during a handover leaves whichever instances were running to restart; inspect,
+then `--abandon`.
+
+**Limits.** Requests already sent to a stopping instance finish within the drain; a request on a
+connection the instance closes is not replayed unless it is a `GET`, so a write may fail once and must
+be repeated by the person. BFF sessions live in each instance's memory (ADR-0027): signed-in visitors
+are signed out when the application stops, and sessions created on the candidate end when it stops;
+remembered Keycloak sessions let them back in without a password. During the overlap, an
+administrative session revocation acts on the application only; the candidate's sessions end when it
+stops. Do not run a revocation or an account erasure during a handover.
 
 **Optional services.** The localizer and Grafana stay [optional for product readiness](#post-acceptance-runtime-transition):
 either may be stopped before the upgrade, and the upgrade starts both, as the transition does. If one
@@ -1952,16 +2020,29 @@ actual runner capacity. The host also checks the installed backup cycle, clock, 
 work, forward migrations, access acknowledgements and free administrative backends.
 
 The host stages images and captures a fresh canonical pair under the existing recovery lease and
-cycle lock, without the scheduled cycle's ownership marker. It publishes the ciphertext to existing
-S3 and durably records its request, then releases SSH. Its continuous backup fence stays closed
-across jobs; scheduled capture/reconciliation cannot reopen a foreign fence. Timers remain enabled
-and can skip a busy/fenced slot. Recovery fetches the exact S3 versions, checks hashes and performs
-#455's real isolated PostgreSQL restore, schema and application/Keycloak identity checks. It removes
-GPG, passphrase, plaintext, ciphertext and disposable Docker resources before publishing success.
-The host requires **successful completion of that same recovery job**, not just an artifact or SSH
-exit zero, and checks run/attempt, request hash, nonce, plan and backup identity before #455 apply.
+cycle lock, without the scheduled cycle's ownership marker. Since
+[ADR-0043](../../docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)
+this pair is **online** (`recovery snapshot`), so the product keeps serving while it is published and
+restored; only when the clone does not fit in memory is it the fenced pair, whose fence then stays
+closed across jobs as before. It publishes the ciphertext to existing S3 and durably records its
+request, then releases SSH. Scheduled capture/reconciliation cannot reopen a foreign fence. Timers
+remain enabled and can skip a busy/fenced slot. Recovery fetches the exact S3 versions, checks hashes
+and performs #455's real isolated PostgreSQL restore, schema and application/Keycloak identity checks.
+It removes GPG, passphrase, plaintext, ciphertext and disposable Docker resources before publishing
+success. The host requires **successful completion of that same recovery job**, not just an artifact
+or SSH exit zero, and checks run/attempt, request hash, nonce, plan and backup identity. Then the
+plan's activation decides:
+
+| Activation | After the restore |
+|---|---|
+| `handover` (a compatible application-only release) | `--handover`: no fence at all |
+| `fenced`, restored pair online | A fresh fenced pair (`final-capturing`), its own S3 publication (`final-publishing`), then `--apply` with `--restored-backup` naming the restored pair |
+| `fenced`, restored pair fenced (memory fallback) | `--apply` on that same pair, as before ADR-0043 |
+
 Apply revalidates the plan and continuous fence. Verification, the two existing backup-service
 source paths and the independent #464 operator finish the rollout without changing timers or issuer.
+The receipt reports the `activation`. A failed final capture leaves its fence closed and never
+applies: inspect it as any failed capture, never by rerunning the dispatch.
 
 #### One-time protected environments and secrets
 
