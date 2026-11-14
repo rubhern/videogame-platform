@@ -464,7 +464,10 @@ def configure_sessions(realm: Realm, desired: dict[str, object], arguments: argp
         name: expected for name, expected in expected_mappers.items()
         if any((current_mappers[name] or {}).get(key) != value for key, value in expected.items())
     }
-    differing.extend(changed_mappers)
+    if "native remember me" in changed_mappers:
+        differing.append("rememberMeMapper")
+    if "private profile email" in changed_mappers:
+        differing.append("private profile email")
     if not differing:
         print(f"Realm {realm.name} session policy is aligned; nothing changed.")
         return 0

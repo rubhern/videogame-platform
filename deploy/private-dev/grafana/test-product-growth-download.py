@@ -40,6 +40,17 @@ class BaseImageDownloadTest(unittest.TestCase):
                 self.assertEqual(run.call_args_list[0], run.call_args_list[1])
                 sleep.assert_called_once_with(5)
 
+    def test_mailpit_registry_token_timeout_is_retried(self):
+        mailpit = re.search(r'image: (\S+)', (growth.DEPLOY / 'compose.mail.yaml').read_text())[1]
+        timeout = 'net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)'
+        with patch.object(growth.image_pull.subprocess, 'run', side_effect=[
+                self.result(1, timeout), self.result(0),
+        ]) as run, patch.object(growth.image_pull.time, 'sleep') as sleep:
+            growth.image_pull.pull_image(mailpit)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.args[0], ['docker', 'pull', '--quiet', mailpit])
+        sleep.assert_called_once_with(5)
+
     def test_exhausted_registry_failure_stays_a_failure(self):
         with patch.object(growth.subprocess, 'run', return_value=self.result(1, '503 Service Unavailable')) as run, \
                 patch.object(growth.image_pull.time, 'sleep') as sleep:
