@@ -103,6 +103,27 @@ REALM_COMMAND = 'deploy/private-dev/bin/configure-keycloak-identity'
 MIGRATION_DIRECTORY = 'backend/src/main/resources/db/migration/'
 BFF_CLIENT = 'videogame-platform-bff'
 REMEMBER_MAPPER = 'native remember me'
+PROFILE_EMAIL_MAPPER = {
+    'name': 'private profile email',
+    'protocol': 'openid-connect',
+    'protocolMapper': 'oidc-usermodel-property-mapper',
+    'consentRequired': False,
+    'config': {
+        'user.attribute': 'email',
+        'claim.name': 'email',
+        'jsonType.label': 'String',
+        'id.token.claim': 'false',
+        'access.token.claim': 'false',
+        'userinfo.token.claim': 'true',
+        'introspection.token.claim': 'false',
+        'lightweight.claim': 'false',
+    },
+}
+# The scoped Admin API alignment verifies this mapper's complete configuration.
+PROFILE_EMAIL_SQL = (
+    f"coalesce(c.client_id='{BFF_CLIENT}' AND c.realm_id=r.id AND "
+    f"m.name='{PROFILE_EMAIL_MAPPER['name']}', false)"
+)
 # Session portion of the reviewed realm migration; the notice actor owns localization.
 SESSION_SETTINGS = ('rememberMe', 'ssoSessionIdleTimeout', 'ssoSessionMaxLifespan',
                     'ssoSessionIdleTimeoutRememberMe', 'ssoSessionMaxLifespanRememberMe')
@@ -140,7 +161,9 @@ REALM_SQL = """SELECT json_build_object('passwordPolicy',coalesce(password_polic
  'ssoSessionMaxLifespanRememberMe',sso_max_lifespan_remember_me,'rememberMeMapper',EXISTS(
   SELECT FROM protocol_mapper m JOIN client c ON c.id=m.client_id WHERE c.realm_id=r.id
   AND c.client_id='""" + BFF_CLIENT + """' AND m.name='""" + REMEMBER_MAPPER + """'
-  AND m.protocol_mapper_name='gameometro-remember-me')) FROM realm r WHERE r.name='gameometro';"""
+  AND m.protocol_mapper_name='gameometro-remember-me'),'profileEmailMapper',EXISTS(
+  SELECT FROM protocol_mapper m JOIN client c ON c.id=m.client_id WHERE """ + PROFILE_EMAIL_SQL + """
+  AND m.protocol_mapper_name='oidc-usermodel-property-mapper')) FROM realm r WHERE r.name='gameometro';"""
 # Digests only: nothing here returns an identity, an address or a credential. Accounts first: they
 # must be untouched by the target image's startup, and everything must be untouched by the alignment.
 ACCOUNT_DIGESTS = {
@@ -175,9 +198,11 @@ CONFIGURATION_DIGESTS = {
     'clientScopes': "client_scope t,r WHERE t.realm_id=r.id",
     'clientScopeLinks': "client_scope_client t JOIN client c ON c.id=t.client_id,r WHERE c.realm_id=r.id",
     'mappers': "protocol_mapper t LEFT JOIN client c ON c.id=t.client_id LEFT JOIN client_scope s ON s.id=t.client_scope_id,r "
-               "WHERE (c.realm_id=r.id OR s.realm_id=r.id) AND t.name<>'" + REMEMBER_MAPPER + "'",
+               "WHERE (c.realm_id=r.id OR s.realm_id=r.id) AND t.name<>'" + REMEMBER_MAPPER + "'"
+               " AND NOT " + PROFILE_EMAIL_SQL.replace("m.name", "t.name"),
     'mapperConfig': "protocol_mapper_config t JOIN protocol_mapper m ON m.id=t.protocol_mapper_id LEFT JOIN client c ON c.id=m.client_id "
-                    "LEFT JOIN client_scope s ON s.id=m.client_scope_id,r WHERE (c.realm_id=r.id OR s.realm_id=r.id) AND m.name<>'" + REMEMBER_MAPPER + "'",
+                    "LEFT JOIN client_scope s ON s.id=m.client_scope_id,r WHERE (c.realm_id=r.id OR s.realm_id=r.id) AND m.name<>'" + REMEMBER_MAPPER + "'"
+                    " AND NOT " + PROFILE_EMAIL_SQL,
 }
 _DIGEST = "(SELECT json_build_array(count(*),md5(coalesce(string_agg(to_jsonb(t)::text,E'\\n' ORDER BY to_jsonb(t)::text),''))) FROM {})"
 IDENTITY_SQL = ("WITH r AS (SELECT id FROM realm WHERE name='gameometro') SELECT json_build_object("
@@ -256,7 +281,7 @@ def flyway_delta(history, files):
 
 
 def realm_import_delta(previous, target):
-    """Compare two realm imports semantically. Only the reviewed session, password-policy and registration-notice migrations may differ."""
+    """Compare two realm imports semantically. Allow only the reviewed session, password, profile mapper and notice changes."""
     def clients(realm):
         return {c['clientId']: c for c in realm.get('clients', [])}
     try:
@@ -279,7 +304,7 @@ def realm_import_delta(previous, target):
                 'The realm import changed a client; a reviewed realm delta is required.')
         added = [m for m in new_mappers if m not in old_mappers]
         require(name == BFF_CLIENT or not added, 'The realm import changed a client mapper outside the BFF.')
-        require(all(m.get('name') == REMEMBER_MAPPER for m in added),
+        require(all(m.get('name') == REMEMBER_MAPPER or m == PROFILE_EMAIL_MAPPER for m in added),
                 'The realm import added an unreviewed protocol mapper.')
         mappers += [m['name'] for m in added]
     return {'settings': changed, 'mappers': mappers}
@@ -290,7 +315,7 @@ def desired_session_state(realm):
     mapper = any(m.get('name') == REMEMBER_MAPPER and m.get('protocolMapper') == 'gameometro-remember-me'
                  for m in bff.get('protocolMappers', []))
     return {**{k: realm[k] for k in SESSION_SETTINGS}, PASSWORD_POLICY: realm.get(PASSWORD_POLICY, ''),
-            'rememberMeMapper': mapper}
+            'rememberMeMapper': mapper, 'profileEmailMapper': PROFILE_EMAIL_MAPPER in bff.get('protocolMappers', [])}
 
 
 def verify_backup_evidence(manifest, images, config_hash, offhost, restore, *, now=None):
@@ -921,7 +946,7 @@ class Upgrade:
         return {'registrationNotice': notice_plan,
                 'changes': {k: {'from': live[k], 'to': desired[k]} for k in desired if live[k] != desired[k]},
                 'preserved': 'users, credentials, identities, client secret, redirect URIs and every other realm setting',
-                'method': 'scoped session, password-policy and registration-notice actors through the Admin API, never an import'}
+                'method': 'scoped session, password-policy, profile mapper and registration-notice actors through the Admin API, never an import'}
 
     def accepted_dashboard(self, api, source):
         """#452 mounted one reviewed dashboard over the candidate's copy; the target must not lose it."""
@@ -1369,7 +1394,7 @@ class Upgrade:
             self.preserved(before, after, set(before) - ({'realmLocalizations'} if notice_migration else set()))
         live = self.query('videogame_keycloak', REALM_SQL)
         desired = desired_session_state(json.loads((host.source / REALM_IMPORT).read_text()))
-        require(live == desired, 'The realm does not hold the reviewed session and password policy.')
+        require(live == desired, 'The realm does not hold the reviewed session settings, password policy and BFF mappers.')
         record['identityAfter'] = {'users': after['users'][0], 'credentials': after['credentials'][0]}
 
     def replace_superseded(self, host, record, reviewed):

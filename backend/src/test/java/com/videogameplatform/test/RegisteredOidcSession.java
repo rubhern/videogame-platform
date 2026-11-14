@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
@@ -34,6 +35,11 @@ public final class RegisteredOidcSession {
 
     public static RequestPostProcessor oidcSession(Consumer<OidcIdToken.Builder> idToken) {
         return register(oidcLogin().idToken(authenticatedNow(idToken)));
+    }
+
+    public static RequestPostProcessor oidcSessionWithUserInfo(
+            Consumer<OidcIdToken.Builder> idToken, Consumer<OidcUserInfo.Builder> userInfo) {
+        return register(oidcLogin().idToken(authenticatedNow(idToken)).userInfoToken(userInfo));
     }
 
     /**

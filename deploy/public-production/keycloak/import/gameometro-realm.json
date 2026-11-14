@@ -197,6 +197,22 @@
           "protocolMapper": "gameometro-remember-me",
           "consentRequired": false,
           "config": {}
+        },
+        {
+          "name": "private profile email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "false",
+            "lightweight.claim": "false"
+          }
         }
       ]
     }

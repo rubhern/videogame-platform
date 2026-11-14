@@ -65,7 +65,7 @@ applies only to an absent realm. For an existing production realm, the shared
 `--origin <identity-origin> --realm gameometro --sessions-only`, with protected
 `--admin-username` / `--admin-password-file` inputs. Run `--check`, review drift,
 apply with `--snapshot-dir <protected-directory-outside-checkout>` and recheck during
-an authorized rollout. It changes only the shared session fields and BFF mapper;
+an authorized rollout. It reconciles the shared session fields, password policy and reviewed BFF mappers;
 repeated applies without drift do nothing. Restore with the same target and scope
 plus `--restore <session-snapshot>`. The command's full private-dev identity policy
 must never be applied to production. Rollback must account for remembered SSO and
@@ -1748,16 +1748,30 @@ not fenced for it. A failed required service, or a cancellation, fences the runt
 **Existing realm.** Keycloak's startup import skips an existing realm, so a new image does not
 migrate it. The tool runs the shared
 [`--sessions-only` alignment](#remember-me-provider-compatibility) on the private identity
-network, with the administrator password crossing stdin, never an import. It changes only the
-five session settings and the BFF Remember Me mapper, and snapshots the pre-change values.
+network with the administrator password supplied over stdin. It snapshots the session
+settings, password policy and reviewed BFF mappers before applying changes.
 The private-admin alignment separately handles the approved master frontend attribute.
+
+**Private profile email (#475).** The production BFF client in the
+[realm import](keycloak/import/gameometro-realm.json) maps the account email into UserInfo.
+The BFF uses that response at sign-in, after Spring checks its subject against the
+validated ID token. The existing private profile response exposes the email with
+`Cache-Control: no-store`. The session endpoint keeps its minimal response, and the
+email stays out of the tokens used for sign-in and logout.
+
+The in-place upgrade applies and checks the dedicated mapper on the existing
+`gameometro` BFF client through the same scoped alignment. To verify on the installed
+runtime, sign out, sign back in with a test account that has an email, and open
+**Mi perfil**. Confirm it shows that account's email and an anonymous request to
+`/api/v1/me/profile` returns `401`. A session created before alignment needs a fresh
+sign-in to pick up the claim.
 
 **Registration copy migrations (#434 and #472).**
 The upgrade admits the reviewed Spanish registration copy in
 [`production_registration_notice.py`](../../scripts/production_registration_notice.py).
 The #434 migration updates the notice. The #472 migration aligns the notice,
 the checkbox label and its required-field error with the [conditions of use](../../docs/legal/public-texts-es.md#condiciones-de-uso).
-Every other import difference still refuses. The target publication must also contain
+Import differences outside the reviewed upgrade scope still cause planning to refuse. The target publication must also contain
 the exact notice actor matching the reviewed operator; planning refuses an older or
 incompatible target before any live realm query. The plan identifies this notice migration
 explicitly. A new startup import alone cannot update the existing realm.

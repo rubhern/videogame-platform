@@ -37,6 +37,12 @@ describe("Mi perfil", () => {
     expect(await screen.findByText("Inicio anónimo")).toBeVisible();
     expect(router.state.location.state).toBeNull();
   });
+  it("shows the signed-in account email from the private profile", async () => {
+    bff({ profile: { email: "private@example.test" } });
+    renderApp("/mi-perfil");
+    expect(await screen.findByText("private@example.test")).toBeVisible();
+    expect(screen.queryByText("No disponible")).not.toBeInTheDocument();
+  });
   it("shows honest missing fields and existing personal and Keycloak destinations", async () => {
     bff(); renderApp("/mi-perfil");
     expect(await screen.findByRole("heading", { name: "Tu cuenta" })).toBeVisible();
