@@ -53,6 +53,10 @@ browser path with `bash scripts/validate-browser.sh`.
 The Vite development proxy targets the local BFF. Set GAMEOMETRO_DEV_BACKEND when the
 local BFF runs on another port.
 
+To preview the [navigation loading indicator](../docs/development/frontend-design.md#navigation-and-scroll-position),
+open [the local demo](http://localhost:5173/__dev/navegacion) in Vite and select
+**Abrir una página que tarda 5 segundos**. The demo works without a backend.
+
 ## Public legal pages
 
 `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies` are anonymous routes in

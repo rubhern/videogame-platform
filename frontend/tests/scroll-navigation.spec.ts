@@ -307,7 +307,7 @@ for (const width of [390, 412, 1320]) {
 }
 
 
-test("a pending search keeps one result status and announces navigation separately", async ({ page }) => {
+test("a fast search keeps one result status without flashing the navigation overlay", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 740 });
   await fixtures(page);
   await page.goto("/search?q=juego&pageSize=12");
@@ -323,17 +323,21 @@ test("a pending search keeps one result status and announces navigation separate
     return route.fallback();
   });
   const search = page.getByRole("combobox", { name: "Buscar juegos" });
+  await page.clock.install();
+  const overlay = page.getByRole("dialog", { name: "Cargando página…" });
   await search.fill("otro");
   await search.press("Enter");
   await expect.poll(() => requested).toBe(true);
   await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
   await expect(page.getByRole("status")).toHaveCount(1);
-  await expect(page.locator(".app-frame > [aria-live=polite]")).toHaveText("Cargando página…");
+  await expect(overlay).toBeHidden();
   finishRead?.();
   await expect(page).toHaveURL(/q=otro/);
   await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("status")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
+  await page.clock.fastForward(1_000);
+  await expect(overlay).toBeHidden();
 });
 
 test.describe("shared shell on a high-density touch screen", () => {

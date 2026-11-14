@@ -95,6 +95,49 @@ test("Plataformas leads to a platform's catalogue and a direct load or refresh r
     .toHaveAttribute("aria-current", "true");
 });
 
+test("a slow catalogue navigation blocks the page until the request fails and offers retry", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await stubCatalogue(page);
+  const allowFailure = Promise.withResolvers<undefined>();
+  const endpoint = "**/api/v1/platform-games?*";
+  await page.route(endpoint, async route => {
+    await allowFailure.promise;
+    await route.fulfill({ status: 500, json: {} });
+  });
+  await page.goto("/plataformas");
+
+  const link = page.getByRole("list", { name: "Plataformas destacadas" })
+    .getByRole("link", { name: "Explorar catálogo", exact: true }).first();
+  const trigger = await link.elementHandle();
+  const triggerBox = await link.boundingBox();
+  const overlay = page.getByRole("dialog", { name: "Cargando página…" });
+  const request = page.waitForRequest(endpoint);
+  await page.clock.install();
+
+  try {
+    await link.click();
+    await request;
+    await expect(overlay).toBeHidden();
+    await page.clock.fastForward(1_000);
+    await expect(overlay).toBeVisible();
+    await expect(overlay).toBeFocused();
+
+    await trigger?.evaluate(element => element.focus());
+    await page.keyboard.press("Tab");
+    expect(await trigger?.evaluate(element => element === document.activeElement)).toBe(false);
+    if (!triggerBox) throw new Error("Expected the catalogue link to have a visible box");
+    await page.mouse.click(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height / 2);
+    await expect(overlay).toBeVisible();
+    await expect(page).toHaveURL(/\/plataformas$/);
+  } finally {
+    allowFailure.resolve(undefined);
+  }
+
+  await expect(overlay).toBeHidden();
+  await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
+  await expect(page.getByRole("main")).toBeFocused();
+});
+
 for (const [width, columns] of [[320, 2], [360, 2], [390, 2], [834, 4], [1320, 6]] as const) {
   test(`reflows the opening, controls and cover grid without overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });

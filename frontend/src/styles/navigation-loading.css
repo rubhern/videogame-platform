@@ -1,0 +1,116 @@
+@layer components {
+  html:has(.navigation-loading[open]) {
+    overflow: hidden;
+  }
+
+  .navigation-loading {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 1rem;
+    overflow: hidden;
+    overscroll-behavior: none;
+    color: var(--color-ice-light);
+    background: transparent;
+  }
+
+  .navigation-loading[open] {
+    display: grid;
+    place-items: center;
+  }
+
+  .navigation-loading::backdrop {
+    background:
+      radial-gradient(ellipse at center, var(--color-raised), transparent 70%),
+      color-mix(in srgb, var(--color-night) 94%, transparent);
+  }
+
+  .navigation-loading-content {
+    display: grid;
+    justify-items: center;
+    gap: 1.5rem;
+    margin: 0;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 650;
+  }
+
+  .navigation-loading-dial {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(8rem, 28vw, 11rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-ice) 32%, transparent);
+    box-shadow:
+      inset 0 0 2rem color-mix(in srgb, var(--color-ice) 10%, transparent),
+      0 0 3rem color-mix(in srgb, var(--color-ice) 20%, transparent);
+  }
+
+  .navigation-loading-dial::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    background: conic-gradient(from 30deg, transparent 55%, var(--color-ice) 88%, var(--color-ice-light));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2px));
+  }
+
+  .navigation-loading-mark {
+    display: block;
+    width: 68%;
+    filter: drop-shadow(0 0 0.75rem color-mix(in srgb, var(--color-ice) 30%, transparent));
+  }
+
+  .navigation-loading-mark svg {
+    display: block;
+    width: 100%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .navigation-loading[open] .navigation-loading-content {
+      animation: navigation-loading-enter 200ms ease-out;
+    }
+
+    .navigation-loading[open] .navigation-loading-dial::before {
+      animation: navigation-loading-orbit 1.45s linear infinite;
+    }
+
+    .navigation-loading[open] .gm-needle {
+      transform-box: view-box;
+      transform-origin: 32px 32px;
+      animation: navigation-loading-needle 1.45s ease-in-out infinite alternate;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .navigation-loading::backdrop { background: Canvas; }
+    .navigation-loading-content { color: CanvasText; }
+    .navigation-loading-dial { border-color: CanvasText; }
+    .navigation-loading-dial::before {
+      background: none;
+      mask: none;
+      border-block-start: 3px solid Highlight;
+    }
+    .navigation-loading-mark .gm-ring { stroke: CanvasText; }
+    .navigation-loading-mark .gm-needle > * { fill: Highlight; }
+  }
+}
+
+@keyframes navigation-loading-enter {
+  from { opacity: 0; }
+}
+
+@keyframes navigation-loading-orbit {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes navigation-loading-needle {
+  from { transform: rotate(-26deg); }
+  to { transform: rotate(38deg); }
+}

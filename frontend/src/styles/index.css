@@ -3,6 +3,7 @@
 @import "./fonts.css";
 @import "tailwindcss";
 @import "./foundation.css";
+@import "./navigation-loading.css";
 @import "./thermal.css";
 @import "./stage.css";
 @import "./catalogue.css";
