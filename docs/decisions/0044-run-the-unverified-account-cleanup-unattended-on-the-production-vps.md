@@ -1,6 +1,6 @@
 # ADR-0044: Run the unverified-account cleanup unattended on the production VPS
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-14
 - **Owner:** Ruben Hernandez
 - **Scope:** Where the 30-day unverified-account cleanup runs, which keys and storage identities it
