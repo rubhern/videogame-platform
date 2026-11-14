@@ -136,7 +136,12 @@
 
   /* ---------------------------------------------------------------- Discovery controls */
 
-  /* Its own stacking layer, so the order's list and the platform switcher paint above the cards. */
+  /* Keep the platform switcher above the toolbar when its panel overlaps the controls. */
+  .platform-catalogue-head .platform-navigation {
+    z-index: 11;
+  }
+
+  /* The order's list paints above the catalogue results. */
   .catalogue-controls {
     position: relative;
     z-index: 10;
