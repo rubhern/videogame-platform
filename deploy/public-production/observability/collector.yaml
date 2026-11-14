@@ -27,6 +27,20 @@ exporters:
       initial_interval: 2s
       max_interval: 10s
       max_elapsed_time: 60s
+  # Sampled application traces (ADR-0046). Same bounded queue and short retry as the logs: an absent
+  # or refusing Tempo loses spans, never holds the application, the metrics or the logs.
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    timeout: 10s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 256
+    retry_on_failure:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 10s
+      max_elapsed_time: 60s
   prometheus:
     endpoint: 0.0.0.0:9464
     translation_strategy: UnderscoreEscapingWithSuffixes
@@ -52,6 +66,14 @@ service:
       - batch
       exporters:
       - otlphttp/loki
+    traces:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - batch
+      exporters:
+      - otlphttp/tempo
   telemetry:
     logs:
       level: info

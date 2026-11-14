@@ -52,7 +52,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='vgp-prod-telemetry-') as directory:
         d=Path(directory);d.chmod(0o755)
         config=test.rendered(d)
-        selected=['grafana','prometheus','telemetry','node-exporter','blackbox','loki']
+        selected=['grafana','prometheus','telemetry','node-exporter','blackbox','loki','tempo']
         config['services']={k:v for k,v in config['services'].items() if k in selected}
         config['networks']={'fixture':{'internal':True},'loopback':{}}
         config['name']='vgp-prod-telemetry-'+secrets.token_hex(4)
@@ -137,6 +137,7 @@ def main():
             for uid in ('private-dev-prometheus','private-dev-postgres'):
                 assert api('/api/datasources/uid/'+uid+'/health')['status']=='OK'
             poll(lambda:api('/api/datasources/uid/private-dev-loki/health')['status']=='OK','Production Grafana reaches Loki through its provisioned datasource',seconds=120)
+            poll(lambda:api('/api/datasources/uid/production-tempo/health')['status']=='OK','Production Grafana reaches Tempo through its provisioned datasource',seconds=120)
             checked=0
             for dashboard in dashboards:
                 obj=api('/api/dashboards/uid/'+dashboard['uid'])['dashboard']
@@ -189,9 +190,10 @@ def main():
             # ADR-0040: one application log record through the real Collector into Loki, read back
             # through Grafana's datasource the way the owner explores it.
             marker='log-proof-'+secrets.token_hex(6)
+            trace_id,span_id=secrets.token_hex(16),secrets.token_hex(8)
             record={'resourceLogs':[{'resource':{'attributes':[{'key':k,'value':{'stringValue':v}} for k,v in {'service.name':'videogame-platform-backend','deployment.environment.name':'production'}.items()]},
                      'scopeLogs':[{'scope':{'name':'com.videogameplatform.feedback.adapter.SmtpFeedbackReceiver'},'logRecords':[{'timeUnixNano':str(time.time_ns()),'severityText':'WARN','severityNumber':13,
-                     'body':{'stringValue':'Feedback SMTP acceptance could not be confirmed '+marker},'attributes':[{'key':'correlationId','value':{'stringValue':marker}}]}]}]}]}
+                     'traceId':trace_id,'spanId':span_id,'body':{'stringValue':'Feedback SMTP acceptance could not be confirmed '+marker},'attributes':[{'key':'correlationId','value':{'stringValue':marker}}]}]}]}]}
             (d/'log.json').write_text(json.dumps(record))
             run(compose+['exec','-T','mock','python','-c',send.replace('/v1/metrics','/v1/logs').replace('metric.json','log.json')])
             def logged():
@@ -199,6 +201,23 @@ def main():
                 result=api('/api/ds/query',{'from':str(int((time.time()-900)*1000)),'to':str(int(time.time()*1000)),'queries':[model]})
                 return marker in json.dumps(result['results']['A'].get('frames',[]))
             poll(logged,'OTLP log -> Collector -> Loki -> Grafana Explore returned the marked record',seconds=120)
+            # ADR-0046: the span of that request through the real Collector into Tempo, read through
+            # Grafana's datasource, and the log line found by the trace ID its derived field links on.
+            start=time.time_ns()
+            span={'resourceSpans':[{'resource':{'attributes':[{'key':k,'value':{'stringValue':v}} for k,v in {'service.name':'videogame-platform-backend','deployment.environment.name':'production'}.items()]},
+                   'scopeSpans':[{'scope':{'name':'org.springframework.boot'},'spans':[{'traceId':trace_id,'spanId':span_id,'name':'http post /api/feedback','kind':2,
+                   'startTimeUnixNano':str(start),'endTimeUnixNano':str(start+25_000_000),'attributes':[{'key':'uri','value':{'stringValue':'/api/feedback'}}]}]}]}]}
+            (d/'span.json').write_text(json.dumps(span))
+            run(compose+['exec','-T','mock','python','-c',send.replace('/v1/metrics','/v1/traces').replace('metric.json','span.json')])
+            def traced():
+                try:return 'http post /api/feedback' in json.dumps(api('/api/datasources/proxy/uid/production-tempo/api/v2/traces/'+trace_id))
+                except Exception:return False
+            poll(traced,'OTLP span -> Collector -> Tempo -> Grafana datasource returned the marked trace',seconds=120)
+            def linked():
+                model={'refId':'A','datasource':{'uid':'private-dev-loki','type':'loki'},'expr':'{service_name="videogame-platform-backend"} | trace_id="'+trace_id+'"','queryType':'range','maxLines':10}
+                result=api('/api/ds/query',{'from':str(int((time.time()-900)*1000)),'to':str(int(time.time()*1000)),'queries':[model]})
+                return marker in json.dumps(result['results']['A'].get('frames',[]))
+            poll(linked,'The log line carries the trace ID that links it to Tempo',seconds=60)
             # Measure bounded representative dashboard refresh and rule-evaluation overhead.
             samples=[]
             ids=run(compose+['ps','-q',*selected]).split()

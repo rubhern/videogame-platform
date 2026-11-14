@@ -217,8 +217,16 @@ outside every backup and restore, and an optional service for upgrades. Its
 stream, line and query bounds. The sustained rate permits roughly 1.7 GiB of uncompressed
 input per day; plan **8 GiB of host disk for Loki** as a stop/review threshold, not a quota.
 
-Telemetry, metrics/log storage and Grafana are never application startup/readiness
-or request dependencies. Trace storage and remote export remain deferred. Private-dev
+Production traces follow [ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md):
+one request in ten is exported over OTLP → the same Collector → one Tempo on the internal
+telemetry network → production Grafana, linked to and from the Loki logs. Tempo keeps 72 hours
+in its own disposable named volume, outside every backup and restore, and is an optional
+service for upgrades. Its [configuration](../../../deploy/public-production/observability/tempo.yaml)
+owns ingestion, trace-size and query bounds; plan **4 GiB of host disk for Tempo** as a
+stop/review threshold.
+
+Telemetry, metrics/log/trace storage and Grafana are never application startup/readiness
+or request dependencies. Private-dev trace storage (#230) and remote export remain deferred. Private-dev
 [Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
 the existing stack. Native Telegram is prepared but disabled by default; its protected
 activation and the separable optional Keycloak growth scrape are owned by the
@@ -665,13 +673,13 @@ measured peak and the production OOM recorded in the
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
 | Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
-| Collector / Prometheus / Grafana / Loki total | 1.00 |
+| Collector / Prometheus / Grafana / Loki / Tempo total, with the host sampler | 1.34 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **5.875** |
+| Steady service ceilings total | **6.22** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
 | Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.53** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.19** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -681,8 +689,9 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-The monitoring allocation includes 960 MiB of steady services, of which Loki holds
-384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)), and a separate
+The monitoring allocation includes 1312 MiB of steady services, of which Loki holds
+384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)) and Tempo
+320 MiB ([ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md)), and a separate
 64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor
 allowance with backup work; it is not steady application capacity. Recovery lease and
 HTTP helper containers each have a 96 MiB ceiling and must be counted alongside
