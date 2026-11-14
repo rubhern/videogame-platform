@@ -1,0 +1,11 @@
+[Unit]
+Description=Delete accounts still unverified 30 days after creation, once a day
+[Timer]
+# Clear of the 02:30 and 14:30 UTC backups and the 03:00/04:00 UTC catalogue synchronizations.
+OnCalendar=*-*-* 06:15:00 UTC
+# A slot missed while the host was down runs once after boot.
+Persistent=true
+RandomizedDelaySec=10min
+AccuracySec=1min
+[Install]
+WantedBy=timers.target

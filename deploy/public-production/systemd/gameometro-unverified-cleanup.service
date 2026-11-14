@@ -1,0 +1,20 @@
+[Unit]
+Description=Gameometro 30-day unverified-account cleanup (prepared, not installed)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/unverified-cleanup run --config /etc/gameometro/production/unverified-cleanup.json
+# Retry, then at most five bounded rounds; each holds the identity fence for at most two minutes.
+TimeoutStartSec=2h
+# Let a stopped ledger run reach its own fence release before systemd escalates.
+TimeoutStopSec=6min
+KillMode=mixed
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Ledger, archive, proof store and gpg-agent socket live under the admin directory.
+ReadWritePaths=/var/lib/gameometro/production /etc/gameometro/production/observability
+# Docker administration is root-equivalent; this unit must stay root-only.

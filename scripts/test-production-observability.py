@@ -191,6 +191,22 @@ def edge_observations(text):
         self.assertNotIn('production_backup_cycle_last_capture_seconds',text)
         # A status that cannot say it is healthy asks for attention.
         self.assertIn('production_backup_cycle_attention 1',sampler.render([],backup={'kind':'backup-cycle','outcome':'success'},now=self.NOW))
+
+    def test_unverified_cleanup_status_drives_attention_and_last_success(self):
+        self.assertNotIn('unverified_cleanup', sampler.render([], now=self.NOW))
+        self.assertNotIn('unverified_cleanup', sampler.render([], cleanup={'kind': 'backup-cycle'}, now=self.NOW))
+        healthy = {'kind': 'unverified-cleanup', 'outcome': 'success', 'attention': False, 'backlog': False,
+                   'lastSuccessAt': '2027-01-15T06:15:00Z'}
+        text = sampler.render([], cleanup=healthy, now=self.NOW)
+        self.assertIn('production_unverified_cleanup_attention 0', text)
+        self.assertIn('production_unverified_cleanup_backlog 0', text)
+        self.assertIn('production_unverified_cleanup_last_success_seconds', text)
+        failed = {'kind': 'unverified-cleanup', 'outcome': 'failure', 'attention': True, 'lastSuccessAt': None}
+        text = sampler.render([], cleanup=failed, now=self.NOW)
+        self.assertIn('production_unverified_cleanup_attention 1', text)
+        self.assertNotIn('production_unverified_cleanup_last_success_seconds', text)
+        # A malformed status never reads as healthy.
+        self.assertIn('production_unverified_cleanup_attention 1', sampler.render([], cleanup={'kind': 'unverified-cleanup'}, now=self.NOW))
         self.assertEqual(text.count('production_container_running{'), 11)
         self.assertIn('production_host_sample_timestamp_seconds 1800000000', text)
 
@@ -306,6 +322,8 @@ def promtool():
     case('prod-backup-stale-warning',[('production_backup_cycle_last_upload_seconds','-60000+0x14 900+60x40')])
     case('prod-backup-stale-critical',[('production_backup_cycle_last_upload_seconds','-100000+0x14 900+60x40')])
     case('prod-backup-cycle-attention',[('production_backup_cycle_attention','1+0x14 0+0x40')])
+    case('prod-unverified-cleanup-attention',[('production_unverified_cleanup_attention','1+0x14 0+0x40'),('production_unverified_cleanup_last_success_seconds','0+60x55')])
+    case('prod-unverified-cleanup-attention',[('production_unverified_cleanup_attention','0+0x55'),('production_unverified_cleanup_last_success_seconds','-200000+0x14 900+60x40')])
     case('prod-upstream-503',[('production_edge_responses_5m{origin="upstream",status="502"}','10+0x14 0+0x40')],clear='30m')
     # Missing an expected scrape target, including its disappearance from the config.
     expected=['application-otlp','collector','caddy','host','keycloak-product','keycloak-security','tls-product','tls-identity','identity-health','prometheus']

@@ -551,6 +551,39 @@ class BackupUnitTests(unittest.TestCase):
                 path.write_text(path.read_text() + 'ExecStart=/bin/sh -c evil\n')
                 with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
 
+    def test_installed_cleanup_unit_is_retargeted_with_the_backup_units(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            cleanup = root/deploy.CLEANUP_UNIT
+            source = ('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/unverified-cleanup run'
+                      ' --config /etc/gameometro/production/unverified-cleanup.json\nReadWritePaths=/var/lib/gameometro/production\n')
+            cleanup.write_text(source)
+            timer = root/'gameometro-unverified-cleanup.timer'
+            timer.write_text('NEVER CHANGE')
+            drops = {}
+            def systemctl(args, **_):
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(cleanup.read_text(), source.replace('/opt/gameometro/runtime', str(target)))
+                self.assertEqual(timer.read_text(), 'NEVER CHANGE')
+                # The backup keyring override is not an accepted cleanup override.
+                drops[deploy.CLEANUP_UNIT] = str(root/(deploy.CLEANUP_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                drops.clear()
+                # Another tool or configuration under the cleanup unit refuses before any unit changes.
+                cleanup.write_text(source.replace('unverified-cleanup run', 'backup-cycle run'))
+                backup = (root/'gameometro-backup.service').read_text()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
+
     def test_accepted_keyring_override_is_preserved_and_other_directives_refuse(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

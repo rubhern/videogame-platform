@@ -838,6 +838,7 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 | Failed or missing verified off-host backups | Verify the independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
 | Stale off-host upload, warning at 14 hours and critical at 24 | Fed by the [scheduled cycle](../../deploy/public-production/README.md#scheduled-backup-cycle-276). The host reports its own upload, so this is a second route: only the independent observer proves integrity. Validate slots, deferral by a running synchronization and the admission window |
 | Backup cycle needs the owner | A reopening failed or a fence belongs to someone else. The cycle stops acting at `owner-required`; validate delivery in the failure drills |
+| Unverified-account cleanup needs the owner (warning) | The [daily cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup) failed, or no run has succeeded for 36 hours. Absent until the timer is installed. A killed run can leave the identity fence closed. Validate the window against the timer and a forced failure |
 | TLS expiry and failed probes | Verify both hostname chains, warning/critical lead times, local probe failure, actual ACME renewal failure and recovery with the real domains before exposure |
 | Series budget and monitoring resources | Review active/head series, refresh/query concurrency, rule evaluations, retention/compaction and disk growth at the qualified workload; stop ingestion before threatening durable product state |
 

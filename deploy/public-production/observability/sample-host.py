@@ -109,7 +109,7 @@ def snapshot(project):
     return [json.loads(line) for line in command(['inspect', '--format', template, *ids]).splitlines()]
 
 
-def render(containers, offhost=None, backup=None, capacity=None, now=None, cgroup_root=Path('/sys/fs/cgroup')):
+def render(containers, offhost=None, backup=None, capacity=None, now=None, cgroup_root=Path('/sys/fs/cgroup'), cleanup=None):
     now = time.time() if now is None else now
     lines = []
     def emit(name, value, service=None):
@@ -171,6 +171,14 @@ def render(containers, offhost=None, backup=None, capacity=None, now=None, cgrou
                 emit(f'backup_cycle_last_{name}_seconds', timestamp(backup[field]))
             except (KeyError, TypeError, ValueError, AttributeError):  # No upload yet, or an unreadable date.
                 pass
+    # #539: absent until the cleanup timer is installed; a failed run or a stale success alerts.
+    if cleanup and cleanup.get('kind') == 'unverified-cleanup':
+        emit('unverified_cleanup_attention', int(cleanup.get('attention') is not False or cleanup.get('outcome') != 'success'))
+        emit('unverified_cleanup_backlog', int(cleanup.get('backlog') is True))
+        try:
+            emit('unverified_cleanup_last_success_seconds', timestamp(cleanup['lastSuccessAt']))
+        except (KeyError, TypeError, ValueError, AttributeError):  # No success yet.
+            pass
     calibrated = False
     if capacity:
         try:
@@ -221,6 +229,7 @@ def main():
     parser.add_argument('--offhost-evidence', type=Path)
     parser.add_argument('--backup-receipt', type=Path)
     parser.add_argument('--capacity-evidence', type=Path)
+    parser.add_argument('--cleanup-receipt', type=Path)
     args = parser.parse_args()
     def evidence(path):
         try:
@@ -230,7 +239,8 @@ def main():
     try:
         containers=snapshot(args.project)
         content = render(containers, evidence(args.offhost_evidence),
-                         evidence(args.backup_receipt), evidence(args.capacity_evidence))
+                         evidence(args.backup_receipt), evidence(args.capacity_evidence),
+                         cleanup=evidence(args.cleanup_receipt))
         try:
             logs=command(['logs','--since','5m','--tail','20000',next(item['id'] for item in containers if item['service']=='caddy')],max_bytes=4*1024*1024)
             # subprocess stdout is bounded by the container log ceiling, but reject a

@@ -2185,6 +2185,84 @@
           "isPaused": false
         },
         {
+          "uid": "prod-unverified-cleanup-attention",
+          "title": "Unverified-account cleanup needs the owner",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "((production_unverified_cleanup_attention == 1) or (time() - production_unverified_cleanup_last_success_seconds > 36 * 3600)) * 0 + 1",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "1m",
+          "annotations": {
+            "summary": "Unverified-account cleanup needs the owner",
+            "action": "The daily 30-day cleanup failed or has not succeeded for 36 hours. Read its journal; if an identity fence remains, release it with the same run ID; then run retry. Never delete the fence file by hand.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
+            "__dashboardUid__": "vgp-production",
+            "__panelId__": "15",
+            "calibration": "#276/#539: validate the 36-hour window against the daily timer and the identity fence on the selected VPS. Operating hypothesis."
+          },
+          "labels": {
+            "environment": "production",
+            "service": "platform",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
           "uid": "prod-tls-warning",
           "title": "TLS certificate expires soon warning",
           "condition": "B",

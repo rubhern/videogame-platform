@@ -1081,14 +1081,85 @@ holds options from the [privacy procedure](../../docs/development/operations-run
 and append `--execute --maintenance-command "python3 deploy/public-production/bin/identity-maintenance --config /protected/compose.json --project gameometro-production --state /protected/recovery-journal"`.
 Use the same global inputs and maintenance command for `retry`; inspect ledger status
 before admitting a new cleanup. Keep keys and both archive/ledger copies in their
-approved independent protection domains. No timer is installed. Actual host drain,
-backlog/cadence, archive access and second-copy independence remain #276 gates.
+approved independent protection domains. Production runs this daily from the
+[scheduled cleanup](#scheduled-unverified-account-cleanup) once the owner installs it.
 
 Reproduce the synthetic transport exercise with
 `python3 scripts/rehearse-production-cleanup.py --revision FULL_TRUSTED_MAIN_SHA --evidence NEW_DIRECTORY --browser --model-dir EXISTING_APPROVED_MODEL`.
 Its receipt distinguishes the locally modified transport/configuration fingerprint
 from the trusted-main application and dependency images. This is working-tree
 integration evidence, never permission to promote an unpublished configuration.
+
+### Scheduled unverified-account cleanup
+
+**Prepared for #539; not installed.**
+[ADR-0044](../../docs/decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)
+owns why it runs on the VPS, which keys and identities it holds, and the accepted residual risk.
+[`bin/unverified-cleanup`](bin/unverified-cleanup) owns the configuration fields and their
+checks. `run` completes any incomplete erasure with `retry`, then runs `cleanup-unverified
+--execute` with the transport and fence above, and records its status. `check` does the same
+validation, lists the ledger and probes for candidates, without entering maintenance. The
+[service and timer](systemd/) run it daily at 06:15 UTC.
+
+Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-only directories,
+`0600` files). Use nothing from the owner's personal keyring and none of the backup identities:
+
+1. Create a dedicated keyring with a signing key and an archive key, then record both full
+   fingerprints:
+
+   ```bash
+   K=/var/lib/gameometro/production/privacy/gnupg; install -d -m 0700 "$K"
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup signing' ed25519 sign never
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup archive' cv25519 encr never
+   ```
+
+   Export both secret keys into the owner's separately protected reconstruction material
+   before the first run. Off the VPS, replaying an incomplete cleanup and reviewing,
+   verifying or purging its archives need these keys and their fingerprints, not the
+   owner's personal ones. If this copy is lost along with the VPS, the cleanup's legal
+   archives cannot be read.
+
+2. Create four S3 identities, one per ledger and archive destination, that can put, get, head and
+   list but cannot delete. Prove the refused delete against the provider. Write the
+   [two-copy configuration](../private-dev/lib/personal_data_cloud.py) that names them.
+3. Store the Keycloak administrative credential in an owner-only file. Create the ledger,
+   archive, proof and holds directories, then rebuild the local ledger from its cloud copies
+   with `ledger-fetch` (see the [privacy procedure](../../docs/development/operations-runbook.md#privacy-phase-2-administration)).
+4. Write `/etc/gameometro/production/unverified-cleanup.json` (`0600`). Its `status` is
+   `/etc/gameometro/production/observability/unverified-cleanup.json`, and `s3Python` is the
+   backup cycle's interpreter. Then confirm that the check prints `"configuration": "ok"`:
+
+   ```bash
+   sudo python3 /opt/gameometro/runtime/deploy/public-production/bin/unverified-cleanup check --config /etc/gameometro/production/unverified-cleanup.json
+   ```
+
+5. Install the units, start one supervised run with a synthetic unverified account older than
+   30 days, and confirm the ledger, the archive and verified absence, plus the status file:
+
+   ```bash
+   sudo install -m 0644 deploy/public-production/systemd/gameometro-unverified-cleanup.* /etc/systemd/system/
+   ```
+
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl start gameometro-unverified-cleanup.service
+   ```
+
+6. Reinstall `observability/systemd/gameometro-telemetry.service`, which now passes
+   `--cleanup-receipt`, then enable the timer. Activation is a separate owner decision:
+
+   ```bash
+   sudo systemctl enable --now gameometro-unverified-cleanup.timer
+   ```
+
+Once the service exists, every deployment holds it to the reviewed `ExecStart` pattern and
+repoints it with the backup services; any other command or a drop-in refuses the deployment.
+Deployments never change the timer.
+
+A run that fails or is killed sets the
+[*Unverified-account cleanup needs the owner*](../../docs/development/observability.md#production-alert-interpretation-and-calibration)
+alert. Read the unit's journal and the ledger `status`. If `identity-maintenance` still shows a
+fence, release it with `exit` and that run's ID; never delete the file. The next run retries
+pending work by itself. To pause, stop the timer; a deployment does not start it.
 
 ### Limiter memory
 
