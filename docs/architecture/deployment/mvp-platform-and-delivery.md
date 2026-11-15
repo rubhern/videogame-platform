@@ -529,7 +529,8 @@ and running in private-dev; no revocation procedure has been operated on a host:
 durable access fence and an authenticated private management claim/acknowledgement operation.
 A protected administrative runner automatically invokes the existing #274 erasure steps.
 The owner-approved private-dev policy uses PostgreSQL recovery without external ledger/archive
-requirements; production activation retains independent evidence and #276 qualification.
+requirements; production retains independent evidence and runs the runner on the VPS with the
+#539 custody ([ADR-0047](../../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)).
 No SSH connection originates in the web application and no management port becomes browser-reachable.
 The [ADR amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 owns the changed revocation decision; the

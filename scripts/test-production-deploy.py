@@ -584,6 +584,40 @@ class BackupUnitTests(unittest.TestCase):
                 with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
                 self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
 
+    def test_installed_deletion_runner_is_retargeted_and_restarted_onto_the_release(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            template = (deploy.ROOT/'deploy/public-production/systemd'/deploy.DELETION_UNIT).read_text()
+            runner = root/deploy.DELETION_UNIT
+            runner.write_text(template)
+            calls, drops = [], {}
+            def systemctl(args, **_):
+                calls.append([str(a) for a in args])
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            restart = ['/usr/bin/systemctl', 'try-restart', '--no-block', deploy.DELETION_UNIT]
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(runner.read_text(), template.replace('/opt/gameometro/runtime', str(target)))
+                self.assertIn(restart, calls)
+                # An unchanged unit is not restarted.
+                calls.clear()
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertNotIn(restart, calls)
+                for changed in (runner.read_text().replace('account-deletion.json', 'other.json'),
+                                runner.read_text().replace('account-deletion run', 'unverified-cleanup run')):
+                    runner.write_text(changed)
+                    with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                runner.write_text(template)
+                drops[deploy.DELETION_UNIT] = str(root/(deploy.DELETION_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+
     def test_installed_telemetry_unit_is_retargeted_and_held_to_its_template(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

@@ -53,6 +53,8 @@ def optional_secret(name, environment):
     """Credentials are required when their integration is enabled."""
     if name.startswith('feedback-smtp-'):
         return environment.get('FEEDBACK_ENABLED') != 'true'
+    if name == 'account-deletion-executor-capability':
+        return environment.get('ACCOUNT_DELETION_EXECUTOR_ENABLED') != 'true'
     return name.startswith('grafana-telegram-') or (name.startswith('igdb-') and environment.get(SCHEDULING) != 'true')
 
 

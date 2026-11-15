@@ -1875,9 +1875,10 @@ The supported `identity.deletion-executor.enabled` and `credential-file` propert
 initialized from `ACCOUNT_DELETION_EXECUTOR_ENABLED` and
 `ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE`. Both default to disabled/unconfigured.
 An enabled instance refuses startup unless the dedicated capability file is private and
-holds 32 random bytes encoded as 64 lowercase hexadecimal characters. The prepared `deploy/public-production/compose.account-deletion.yaml` overlay enables
-only this capability and mounts its file; it is absent from every default promotion command.
-This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
+holds 32 random bytes encoded as 64 lowercase hexadecimal characters. Production carries both
+settings off in its base Compose; the
+[production procedure](../../deploy/public-production/README.md#self-service-account-deletion)
+turns them on. This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
 The endpoint exists only with explicit enablement and a separate management port. It is
 never on the product port, edge allowlist or public OpenAPI, and rejects browser-originated
 commands. Every action also requires the dedicated Bearer capability, even on loopback.
@@ -1887,18 +1888,21 @@ the owner's existing protected administration context. It is the one added proce
 independent evidence/keys must survive loss of the web host. It serves no HTTP interface,
 introduces no broker/database/service and never polls from a browser. Supervision restarts
 this command; production durable state remains PostgreSQL and the existing #274 ledger.
-A source-only systemd unit is prepared for the owner-approved private-dev policy; no timer,
-service unit or real-host process has been installed by this change. The bounded `--once` option
+A source-only systemd unit is prepared for the owner-approved private-dev policy. Production runs
+the same loop through `deploy/public-production/bin/account-deletion` and its own unit
+([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)). The
+bounded `--once` option
 is for qualification/tests; ordinary operation continuously processes new requests.
 
 The private config pins `issuer`, an argument-array `host_command` for the existing runtime
 adapter, `ledger`, `ledger_copy`, `proof_root`, `archive_root`, `archive_copy`, `gnupg_home`,
 `recipient`, `signer`, `holds`, plus `credential_file` and the exact `management_url` ending
 in `/actuator/accountdeletionexecutor`. The URL must be HTTPS or loopback HTTP. The HTTP
-client disables environment proxies and redirects and bounds time/response bytes. Production
-must provide the existing protected administration path to the private management interface;
-no automatically provisioned destination is assumed. The runner may use existing owner-side
-administrative transport; no SSH client is added to the web application.
+client disables environment proxies and redirects and bounds time/response bytes. In
+production the management port answers only on the application container's loopback: the
+production runner builds this configuration from the unattended cleanup's, and reaches the
+port through `docker exec` with the capability on stdin. No SSH client is added to the web
+application.
 
 Startup preflights both ledger/archive paths, signing/decryption keys and suppression/hold
 stores before announcing readiness. A heartbeat every twenty seconds remains fresh for sixty
@@ -1913,9 +1917,9 @@ file. Keep management inaccessible to browsers/other networks throughout qualifi
 The implementation reuses the existing administrative runtime and a single polling process.
 It requires no additional paid service by design, but actual availability, equipment and
 operating costs still need qualification; existing owner equipment is not an uptime promise.
-Production #276 must qualify the supervised execution context, protected management channel,
-secret ownership/rotation, independently durable storage failure domains, archive/key access,
-interruption recovery and restore replay before activation. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
+Production activation ([#543](https://github.com/rubhern/videogame-platform/issues/543)) reuses
+the qualified #539 custody and qualifies the runner with a synthetic account: end-to-end
+deletion, interruption recovery and restore replay on a disposable copy. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
 its installation and live acceptance remain pending. No production requirement is
 silently waived to enable a development demo.
 

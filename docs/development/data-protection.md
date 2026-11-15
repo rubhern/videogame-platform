@@ -159,8 +159,10 @@ promise staffed or immediate support.
    by just setting an email and `emailVerified=true`. No automatic change-email
    command is implemented; rehearse the exact
    admin flow synthetically before using it with public accounts.
-5. Self-service export and automatic erasure are functionally implemented in #272,
-   pending owner review and production operating qualification. The protected runner
+5. Self-service export and automatic erasure are functionally implemented in #272. Production
+   runs the protected runner on the VPS with the #539 custody
+   ([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md), #543),
+   pending its activation and synthetic qualification. The protected runner
    automatically claims persisted requests and reuses #274 without manual fulfillment;
    local/disposable functional evidence does not establish physical independence. The principal/session is the authorization source; a recent
    OIDC authentication and CSRF protect deliberate deletion. The supported JSON covers

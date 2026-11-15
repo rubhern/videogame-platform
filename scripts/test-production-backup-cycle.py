@@ -728,9 +728,9 @@ class Prepared(unittest.TestCase):
         for path in self.UNITS.glob('gameometro-backup*.service'):
             self.assertIn('prepared, not installed', path.read_text())
             self.assertIn('--config /etc/gameometro/production/backup-cycle.json', path.read_text())
-        # The #539 cleanup shares the directory; its own suite owns its command.
+        # The #539 cleanup and #543 deletion runner share the directory; their own suites own their commands.
         self.assertEqual({p.name for p in self.UNITS.glob('*.service')} - {p.name for p in self.UNITS.glob('gameometro-backup*.service')},
-                         {'gameometro-unverified-cleanup.service'})
+                         {'gameometro-unverified-cleanup.service', 'gameometro-account-deletion.service'})
         self.assertIn('prepared, not installed', (self.UNITS / 'gameometro-unverified-cleanup.service').read_text())
 
     def test_watch_workflow_is_inert_public_safe_and_pinned(self):

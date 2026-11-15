@@ -58,7 +58,10 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
     services['caddy'] = service(caddy, volumes=[bind(bundle / 'Caddyfile.private', '/etc/caddy/Caddyfile'),
                                                 {'type': 'volume', 'source': 'caddy-data', 'target': '/data'}])
     services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': scheduling, 'TELEMETRY_SERVICE_VERSION': '1',
-                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro'},
+                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+                                                                upgrade.DELETION_ENABLED: 'false',
+                                                                upgrade.DELETION_CREDENTIAL: '/run/secrets/' + upgrade.DELETION_SECRET},
+                                      secrets=[{'source': upgrade.DELETION_SECRET, 'target': '/run/secrets/' + upgrade.DELETION_SECRET}],
                                       volumes=[bind(candidate / 'deploy/public-production/bin/run-application', '/opt/run-application')])
     services['migration'] = {**service(application, volumes=[bind(candidate / 'deploy/public-production/bin/run-migrations', '/opt/run-migrations'),
                                                              bind(candidate / 'deploy/private-dev/bin/run-migrations', upgrade.MIGRATION_ENTRYPOINT)]), 'restart': 'no'}
@@ -67,7 +70,9 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
         'GRAFANA_TELEGRAM_ENABLED': 'false', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED': 'false',
         'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
         volumes=[bind(candidate / 'deploy/private-dev/grafana/dashboards', '/etc/grafana/canonical-dashboards')])
-    return {'name': prepare.PROJECT, 'services': services, 'secrets': {'keycloak_admin_password': {'file': '/s/admin'}},
+    return {'name': prepare.PROJECT, 'services': services,
+            'secrets': {'keycloak_admin_password': {'file': '/s/admin'},
+                        upgrade.DELETION_SECRET: {'file': '/s/account-deletion-executor-capability'}},
             'networks': {'identity-data': {'name': 'n'}}, 'volumes': {'postgres-data': {'name': 'v'}}}
 
 
@@ -579,8 +584,10 @@ class Delta(DeltaFixture):
             'telegram flag unknown': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'TRUE'),
             'product notices without alerts': environment('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'true'),
             'alerts without product notices': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
-            'deletion overlay': environment('application', 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'true'),
-            'deletion capability': lambda c: c['secrets'].__setitem__('account_deletion_executor_capability', {'file': '/x'}),
+            'deletion flag unknown': environment('application', upgrade.DELETION_ENABLED, 'yes'),
+            'deletion credential elsewhere': environment('application', upgrade.DELETION_CREDENTIAL, '/run/secrets/other'),
+            'deletion private-dev policy': environment('application', 'ACCOUNT_DELETION_COMPLETION_POLICY', 'private-dev'),
+            'deletion capability unmounted': set_service('application', 'secrets', []),
             'localizer ceiling': set_service('catalogue-localizer', 'mem_limit', '100'),
             'plugin policy': environment('grafana', 'GF_PLUGINS_DISABLE_PLUGINS', ''),
             'dashboard unmounted': set_service('grafana', 'volumes', []),
@@ -773,9 +780,60 @@ class ReviewedAdditions(DeltaFixture):
             {key: '/run/secrets/' + name for name, (_, key) in upgrade.SECRET_ADDITIONS.items()})
         return target
 
+    def without_deletion(self, value):
+        value['services']['application']['environment'].pop(upgrade.DELETION_ENABLED)
+        value['services']['application']['environment'].pop(upgrade.DELETION_CREDENTIAL)
+        value['services']['application']['secrets'] = []
+        value['secrets'].pop(upgrade.DELETION_SECRET)
+        return value
+
+    def test_the_deletion_executor_is_added_off_beside_a_pre_543_runtime(self):
+        self.active = self.without_deletion(self.active)
+        upgrade.validate_runtime(self.without_deletion(rendered(self.new_bundle)), IMAGES)
+        result, changed = self.reconcile()
+        upgrade.validate_runtime(result, IMAGES)
+        self.assertEqual(upgrade.secret_additions(self.active, result), [upgrade.DELETION_SECRET])
+        self.assertIn('secrets', changed['application'])
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({upgrade.DELETION_ENABLED, upgrade.DELETION_CREDENTIAL} <= set(keys['application']))
+
+    def test_self_service_deletion_is_activated_once_and_never_silently_disabled(self):
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        result, _ = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        self.active['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        for value in ('false', 'yes'):
+            with self.subTest(value=value):
+                target['services']['application']['environment'][upgrade.DELETION_ENABLED] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        # A release that drops the executor settings would silently disable it.
+        self.assertRaises(trust.Refused, self.reconcile, self.without_deletion(rendered(self.new_bundle)))
+
+    def test_an_enabled_executor_needs_the_application_owned_capability(self):
+        path = self.root / 'capability'
+        self.assertFalse(upgrade.deletion_capability_ready(path))
+        path.write_text('a' * 64 + '\n')
+        path.chmod(0o600)
+        with patch.object(upgrade, 'APPLICATION_UID', os.getuid()):
+            self.assertTrue(upgrade.deletion_capability_ready(path))
+            for mode in (0o640, 0o604):
+                path.chmod(mode)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.chmod(0o600)
+            for value in ('', 'A' * 64, 'a' * 63, 'g' * 64):
+                path.write_text(value)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.write_text('a' * 64)
+            link = self.root / 'link'
+            link.symlink_to(path)
+            self.assertFalse(upgrade.deletion_capability_ready(link))
+        self.assertFalse(upgrade.deletion_capability_ready(path), 'Another owner than UID 10001 refuses.')
+
     def test_reviewed_secret_additions_are_accepted_with_their_file_settings(self):
         result, changed = self.reconcile(self.with_feedback())
-        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(upgrade.SECRET_ADDITIONS))
+        # The fixture's active runtime already holds the #543 capability.
+        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(set(upgrade.SECRET_ADDITIONS) - {upgrade.DELETION_SECRET}))
         self.assertIn('secrets', changed['application'])
 
     def test_any_other_secret_change_still_refuses(self):
@@ -870,10 +928,21 @@ class ReviewedAdditions(DeltaFixture):
         owners = []
         with patch.object(upgrade.install, 'secure'), \
                 patch.object(upgrade.os, 'fchown', side_effect=lambda fd, uid, gid: owners.append((uid, gid))):
-            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), {'feedback-smtp-username'})
-            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), ['feedback-smtp-username'])
+            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             {'feedback-smtp-username', 'account-deletion-executor-capability'})
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             ['account-deletion-executor-capability', 'feedback-smtp-username'])
             created = secrets_dir / 'feedback-smtp-username'
-            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners), (b'', 0o640, [(0, 900)]))
+            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners[-1]), (b'', 0o640, (0, 900)))
+            # #543: the capability placeholder is created empty only while the executor is off.
+            capability = secrets_dir / 'account-deletion-executor-capability'
+            self.assertEqual(capability.read_bytes(), b'')
+            capability.unlink()
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'true'
+            with self.assertRaisesRegex(trust.Refused, 'provisioned before the upgrade'):
+                actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'false'
+            actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
             self.assertEqual((secrets_dir / 'feedback-smtp-password').read_text(), 'kept')
             self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), [])
             created.unlink()

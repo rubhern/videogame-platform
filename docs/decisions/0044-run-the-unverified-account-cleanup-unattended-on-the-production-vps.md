@@ -99,6 +99,7 @@ The owner chose the VPS and a dedicated archive key pair on 2026-11-14.
 
 ## Revisit when
 
-- Self-service deletion (#543) needs a long-running runner on the same custody.
+- Self-service deletion (#543) needs a long-running runner on the same custody: proposed in
+  [ADR-0047](0047-run-self-service-account-deletion-on-the-production-vps.md).
 - The archive should become unreadable from the VPS: adopt the encrypt-only protocol.
 - A VPS compromise, or a change in retention, makes the residual risk unacceptable.

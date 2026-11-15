@@ -64,7 +64,10 @@ PUBLISHED = {'application': 'application', 'migration': 'application', 'keycloak
              'caddy': 'caddy', 'catalogue-localizer': 'catalogue-localizer'}
 ALLOWED_FIELDS = {'image', 'environment', 'volumes', 'labels', 'mem_limit', 'pids_limit'}
 PROTECTED_ENVIRONMENT = ('KC_', 'OIDC_', 'APPLICATION_OIDC_')
-FORBIDDEN_ENVIRONMENT = ('ACCOUNT_DELETION_EXECUTOR_ENABLED', 'ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE')
+# #543: the self-service deletion executor and the only reviewed form of its settings.
+DELETION_ENABLED, DELETION_CREDENTIAL = 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE'
+DELETION_SECRET = 'account_deletion_executor_capability'
+APPLICATION_UID = 10001
 DASHBOARD_TARGET = acceptance.DASHBOARD_TARGET
 # Dependency-safe activation: the BFF validates its issuer through the edge at startup.
 ACTIVATION = ('telemetry', 'prometheus', 'node-exporter', 'blackbox', 'caddy', 'application')
@@ -100,15 +103,18 @@ PROOF_IDENTITY = ('issuer', 'databases', 'recipient', 'images', 'configurationSh
 # with this default; any other change to the input inventory still refuses. Extend these tables in
 # the same change that adds a production runtime input, secret or protected setting
 # (docs/development/delivery-lifecycle.md#production-upgrade-compatibility).
-INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': ''}
+INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': '',
+                  'PRODUCTION_ACCOUNT_DELETION_ENABLED': 'false'}
 # Owner-chosen values, read from this protected file on every plan; only these keys are accepted.
 OWNER_INPUTS = Path('/etc/gameometro/production/runtime-inputs.env')
-OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX', 'PRODUCTION_TELEGRAM_ENABLED')
+OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX', 'PRODUCTION_TELEGRAM_ENABLED',
+                    'PRODUCTION_ACCOUNT_DELETION_ENABLED')
 # Secrets a target may add: Compose name -> (consumer, its *_FILE setting). The upgrade creates a
 # missing file empty (root, the secret group, 0640) only while its integration stays disabled.
 SECRET_ADDITIONS = {
     'feedback_smtp_username': ('application', 'FEEDBACK_SMTP_USERNAME_FILE'),
     'feedback_smtp_password': ('application', 'FEEDBACK_SMTP_PASSWORD_FILE'),
+    DELETION_SECRET: ('application', DELETION_CREDENTIAL),
 }
 # Existing settings a target may change: (service, setting) -> (accepted previous value, target value),
 # or None when the owner inputs select the value (validated by validate_runtime).
@@ -118,6 +124,9 @@ SETTING_TRANSITIONS = {
     ('application', 'FEEDBACK_INBOX'): None,
     # ADR-0046: the one reviewed activation of sampled trace export.
     ('application', 'TELEMETRY_OTLP_TRACES_ENABLED'): ('false', 'true'),
+    # #543: roll forward only. Once requests can be admitted, a release never silently stops their
+    # processing; stopping the host runner is the reviewed way to refuse new requests.
+    ('application', DELETION_ENABLED): ('false', 'true'),
     # #550: the owner turns alert and registration-notice delivery on, or back off, through
     # runtime-inputs.env; one switch drives both, as validate_runtime requires.
     ('grafana', 'GRAFANA_TELEGRAM_ENABLED'): (('false', 'true'), ('true', 'false')),
@@ -509,6 +518,17 @@ def telegram_ready(secrets):
     return bool(re.fullmatch(r'[0-9]{1,20}:[A-Za-z0-9_-]{20,128}', token) and re.fullmatch(r'-?[0-9]{1,20}', chat))
 
 
+def deletion_capability_ready(path):
+    """What the application requires of an enabled executor's capability. Never prints it."""
+    try:
+        status = path.lstat()
+        token = path.read_text().strip() if status.st_size <= 128 else ''
+    except OSError:
+        return False
+    return (not path.is_symlink() and status.st_uid == APPLICATION_UID and not status.st_mode & 0o077
+            and re.fullmatch(r'[0-9a-f]{64}', token) is not None)
+
+
 def runtime_inputs(previous, example, owner):
     """The target's runtime inputs: the active values, reviewed defaults for new inputs, then owner choices."""
     expected = set(example)
@@ -601,8 +621,15 @@ def validate_runtime(config, images):
         require(environment['FEEDBACK_ENABLED'] in ('true', 'false')
                 and (environment['FEEDBACK_ENABLED'] == 'false' or environment.get('FEEDBACK_INBOX')),
                 'Feedback delivery needs an explicit flag and, when on, an owner inbox.')
-    require(not set(environment) & set(FORBIDDEN_ENVIRONMENT) and 'account_deletion_executor_capability' not in config.get('secrets', {}),
-            'A deferred overlay would be activated.')
+    # A release before #543 carries none of the executor settings, which means off.
+    deletion = {DELETION_ENABLED: 'false', DELETION_CREDENTIAL: '/run/secrets/' + DELETION_SECRET} \
+        if not ({DELETION_ENABLED, DELETION_CREDENTIAL} & set(environment) or DELETION_SECRET in config.get('secrets', {})) else environment
+    require(deletion.get(DELETION_ENABLED) in ('true', 'false')
+            and deletion.get(DELETION_CREDENTIAL) == '/run/secrets/' + DELETION_SECRET
+            and environment.get('ACCOUNT_DELETION_COMPLETION_POLICY', 'independent') == 'independent'
+            and (deletion is not environment or {'source': DELETION_SECRET, 'target': '/run/secrets/' + DELETION_SECRET}
+                 in services['application'].get('secrets', [])),
+            'Self-service deletion needs its reviewed executor settings and the independent policy.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),
             'The accepted localizer ceiling is not preserved.')
     require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in GRAFANA_PLUGIN_POLICIES,
@@ -998,6 +1025,10 @@ class Upgrade:
         example = (source / 'deploy/public-production/runtime.env.example').read_text()
         values, inputs = runtime_inputs(values, prepare.parse_runtime_env(example), self.owner_inputs())
         require(values['PRODUCTION_TELEGRAM_ENABLED'] in ('true', 'false'), 'Alert delivery needs an explicit flag.')
+        require(values['PRODUCTION_ACCOUNT_DELETION_ENABLED'] in ('true', 'false'), 'Self-service deletion needs an explicit flag.')
+        if values['PRODUCTION_ACCOUNT_DELETION_ENABLED'] == 'true':
+            require(deletion_capability_ready(Path(values['PRODUCTION_SECRETS_DIR']) / 'account-deletion-executor-capability'),
+                    'Self-service deletion needs its capability owned by UID 10001, mode 0600, 64 hex; value withheld.')
         if values['PRODUCTION_TELEGRAM_ENABLED'] == 'true':
             require(telegram_ready(Path(values['PRODUCTION_SECRETS_DIR'])),
                     'Alert delivery needs a valid production Telegram bot token and chat ID; values withheld.')
