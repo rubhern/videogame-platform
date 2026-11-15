@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Automatically claim persisted requests and run the existing #274 engine in protected administration.
 
-The owner supervises this process in the existing protected context; production runs it through
-`deploy/public-production/bin/account-deletion` (#543). No SSH client or identity administration
+The owner supervises this process in the existing protected context; the production runner
+subclasses it (#543). No SSH client or identity administration
 credentials live in the web application.
 """
 import argparse
