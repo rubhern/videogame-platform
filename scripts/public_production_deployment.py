@@ -29,6 +29,7 @@ RUNTIME_FILES = frozenset((
     'deploy/private-dev/grafana/provision-reader.sql',
     'deploy/private-dev/grafana/notifications.json.template',
     'deploy/private-dev/grafana/provisioning/alerting/private-dev.json',
+    'deploy/private-dev/grafana/provisioning/alerting/product-activity.json',
     'docker/keycloak/import/videogame-platform-realm.json',
     'tools/catalogue-localization/models.json',
     'scripts/public_production_deployment.py', 'scripts/private_dev_promotion.py',

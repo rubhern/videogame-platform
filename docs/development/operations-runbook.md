@@ -267,7 +267,9 @@ inspection; this alert set has no independent watchdog.
 
 ## Telegram delivery
 
-Follow the [single setup/activation procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+Only production Grafana delivers alerts; private-dev delivers none
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). Follow the
+[production activation procedure](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery).
 In Grafana, inspect Alerting's rule instances, notification policies, contact point
 and notification errors. A firing rule does not prove message delivery. For failed
 HTTPS sends, inspect the bounded Grafana info logs for redacted errors, token revocation,
@@ -333,11 +335,10 @@ No growth activity while idle is normal, and an email-verification event is not 
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
 
-Registration notices are opt-in window observations. No closing message is sent when
+Registration notices are window observations, sent by production only, with its alerts. No closing message is sent when
 the window ends; several registrations can share one notice, and sparse/restarted
 collection can miss one. The displayed count is an estimate, not an exact account
-total. Live Telegram remains pending owner credentials and
-separate send approval; a passing TLS mock is not delivery evidence. Ratings counters
+total. A passing TLS mock is not delivery evidence; the owner's contact-point test is. Ratings counters
 only observe committed
 commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
 the current active SQL total for inventory, never counter subtraction or a rolling

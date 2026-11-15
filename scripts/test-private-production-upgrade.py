@@ -64,7 +64,8 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
                                                              bind(candidate / 'deploy/private-dev/bin/run-migrations', upgrade.MIGRATION_ENTRYPOINT)]), 'restart': 'no'}
     services['catalogue-localizer'] = service(localizer, mem_limit=acceptance.LOCALIZER_MEMORY)
     services['grafana'] = service('grafana@sha256:' + 'f' * 64, environment={
-        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
+        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED': 'false',
+        'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
         volumes=[bind(candidate / 'deploy/private-dev/grafana/dashboards', '/etc/grafana/canonical-dashboards')])
     return {'name': prepare.PROJECT, 'services': services, 'secrets': {'keycloak_admin_password': {'file': '/s/admin'}},
             'networks': {'identity-data': {'name': 'n'}}, 'volumes': {'postgres-data': {'name': 'v'}}}
@@ -575,7 +576,9 @@ class Delta(DeltaFixture):
             'unselected digest': set_service('keycloak', 'image', OLD['keycloak']),
             'scheduling unknown': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'TRUE'),
             'schedule override': environment('application', 'CATALOGUE_SYNC_NEAR_TERM_CRON', '0 * * * * *'),
-            'telegram on': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
+            'telegram flag unknown': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'TRUE'),
+            'product notices without alerts': environment('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'true'),
+            'alerts without product notices': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
             'deletion overlay': environment('application', 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'true'),
             'deletion capability': lambda c: c['secrets'].__setitem__('account_deletion_executor_capability', {'file': '/x'}),
             'localizer ceiling': set_service('catalogue-localizer', 'mem_limit', '100'),
@@ -722,6 +725,45 @@ class ReviewedAdditions(DeltaFixture):
                 target['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = after
                 self.assertRaises(trust.Refused, self.reconcile, target)
 
+    def test_alert_and_notice_delivery_is_switched_by_the_owner(self):
+        target = rendered(self.new_bundle)
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        result, changed = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(keys['grafana'], ['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'GRAFANA_TELEGRAM_ENABLED'])
+        # Switching delivery off again is reviewed too; any other value refuses.
+        self.active['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='false', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='false')
+        self.reconcile(target)
+        for key in ('GRAFANA_TELEGRAM_ENABLED', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'):
+            with self.subTest(key=key):
+                broken = copy.deepcopy(target)
+                broken['services']['grafana']['environment'][key] = 'yes'
+                self.assertRaises(trust.Refused, self.reconcile, broken)
+
+    def test_delivery_needs_well_formed_telegram_files(self):
+        secrets = self.root / 'telegram'
+        secrets.mkdir()
+        self.assertFalse(upgrade.telegram_ready(secrets))
+        token, chat = secrets / 'grafana-telegram-bot-token', secrets / 'grafana-telegram-chat-id'
+        token.write_text('')
+        chat.write_text('')
+        self.assertFalse(upgrade.telegram_ready(secrets), 'Empty placeholders keep delivery off.')
+        token.write_text('123456:' + 'A' * 35 + '\n')
+        chat.write_text('-100123\n')
+        self.assertTrue(upgrade.telegram_ready(secrets))
+        for value in ('123456:short', '123456:' + 'A' * 35 + ' x', 'bot123456:' + 'A' * 35):
+            with self.subTest(token=value):
+                token.write_text(value)
+                self.assertFalse(upgrade.telegram_ready(secrets))
+        token.write_text('123456:' + 'A' * 35)
+        chat.write_text('@channel')
+        self.assertFalse(upgrade.telegram_ready(secrets))
+
     def with_feedback(self, target=None):
         target = target or rendered(self.new_bundle)
         target['secrets'].update({name: {'file': '/s/' + name.replace('_', '-')} for name in upgrade.SECRET_ADDITIONS})
@@ -796,7 +838,7 @@ class ReviewedAdditions(DeltaFixture):
             'unreviewed new input': (previous, {**example, 'PRODUCTION_OTHER': 'x'}, {}),
             'reviewed input with another default': (previous, {**example, 'PRODUCTION_FEEDBACK_ENABLED': 'true'}, {}),
             'removed input': ({**previous, 'PRODUCTION_GONE': 'x'}, example, {}),
-            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_TELEGRAM_ENABLED': 'true'}),
+            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_SECRETS_GID': '901'}),
             'feedback on without an inbox': (previous, example, {'PRODUCTION_FEEDBACK_ENABLED': 'true'}),
         }
         for name, arguments in refusals.items():
@@ -812,6 +854,8 @@ class ReviewedAdditions(DeltaFixture):
             self.assertEqual(actor.owner_inputs()['PRODUCTION_FEEDBACK_ENABLED'], 'true')
             secure.assert_called_with(path, mode=0o600)
             path.write_text('PRODUCTION_TELEGRAM_ENABLED=true\n')
+            self.assertEqual(actor.owner_inputs(), {'PRODUCTION_TELEGRAM_ENABLED': 'true'})
+            path.write_text('PRODUCTION_SECRETS_GID=901\n')
             self.assertRaises(trust.Refused, actor.owner_inputs)
 
     def test_staging_creates_missing_reviewed_secrets_empty_and_never_overwrites(self):

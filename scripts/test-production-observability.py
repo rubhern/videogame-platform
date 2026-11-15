@@ -86,7 +86,8 @@ def static():
         assert not any(x in services[service].get('depends_on', {}) for x in names)
     assert services['application']['environment']['TELEMETRY_OTLP_METRICS_ENABLED'] == 'true'
     assert services['application']['environment']['MANAGEMENT_SERVER_ADDRESS'] == '127.0.0.1'
-    assert services['grafana']['environment']['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'] == 'false'
+    # #550: registration notices follow the owner's single delivery switch.
+    assert services['grafana']['environment']['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'] == services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED']
     assert set(services['grafana']['networks']) == {'telemetry', 'notification-egress', 'observability-data'}
     assert set(services['postgres']['networks']) == {'application-data', 'identity-data', 'observability-data'}
     # Only the read-only, existing analytics grants and two connections; no new DB privilege.
@@ -144,6 +145,9 @@ def static():
         assert rule['labels']['category'] == 'operational'
         assert rule['annotations']['action']
         assert '#276' in rule['annotations']['calibration']
+        # #550: uncalibrated capacity is an accepted state, kept visible but never evaluated.
+        assert rule['isPaused'] == (rule['uid'] == 'prod-capacity-unknown')
+        assert 'production_offhost_verified' not in json.dumps(rule['data'])
         if rule['uid'] in ('prod-telemetry-missing','prod-sample-stale'):
             assert rule['data'][0]['model']['expr'].endswith('or vector(0)')
             assert rule['noDataState']=='Alerting' and rule['execErrState']=='Alerting'
@@ -221,7 +225,7 @@ def edge_observations(text):
         self.assertNotIn('production_unverified_cleanup_last_success_seconds', text)
         # A malformed status never reads as healthy.
         self.assertIn('production_unverified_cleanup_attention 1', sampler.render([], cleanup={'kind': 'unverified-cleanup'}, now=self.NOW))
-        self.assertEqual(text.count('production_container_running{'), 11)
+        self.assertEqual(text.count('production_container_running{'), 12)
         self.assertIn('production_host_sample_timestamp_seconds 1800000000', text)
 
     def test_local_or_corrupt_backup_never_verifies(self):
@@ -318,7 +322,9 @@ def promtool():
                                          {'eval_time':clear,'alertname':uid,'exp_alerts':[]}]})
     case('prod-memory-warning',[('production_container_memory_bytes{service="application"}','900+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
     case('prod-memory-critical',[('production_container_memory_bytes{service="application"}','950+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
-    case('prod-backup-unverified',[('production_offhost_verified','0+0x14 1+0x40'),('production_backup_attempt_observed','1+0x55'),('production_backup_last_attempt_failed','0+0x55')])
+    # #550: off-host copies are verified by the independent observer; a missing attestation never fires.
+    case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','1+0x55'),('production_backup_last_attempt_failed','1+0x14 0+0x40')])
+    case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','0+0x14 1+0x40'),('production_backup_last_attempt_failed','0+0x55')])
     case('prod-tls-critical',[('probe_ssl_earliest_cert_expiry{job="tls-product"}','100000+0x14 99999999+0x40')],labels={'job':'tls-product'})
     case('prod-identity-health',[('probe_success{job="identity-health"}','0+0x14 1+0x40')],labels={'job':'identity-health'})
     case('prod-upstream-503',[('production_edge_responses_5m{origin="upstream",status="503"}','10+0x14 0+0x40')],clear='30m')
