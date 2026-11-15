@@ -462,7 +462,7 @@ class Host:
         previous = deployment.ROOT
         try:
             deployment.ROOT = self.source
-            self.schema = deployment.verify_configuration(api, prepare.REVISION, prepare.FINGERPRINT)
+            self.schema = deployment.verify_configuration(api, prepare.REVISION, prepare.FINGERPRINT, candidate=True)
         finally:
             deployment.ROOT = previous
         receipt = json.loads((self.bundle / 'preparation.json').read_text())

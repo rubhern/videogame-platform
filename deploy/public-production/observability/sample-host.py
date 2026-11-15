@@ -16,7 +16,7 @@ import tempfile
 import time
 
 SERVICES = ('caddy', 'application', 'postgres', 'keycloak', 'catalogue-localizer',
-            'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki')
+            'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki', 'tempo')
 
 
 def protected_json(path):

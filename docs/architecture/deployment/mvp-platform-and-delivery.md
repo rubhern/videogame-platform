@@ -228,9 +228,11 @@ stop/review threshold.
 Telemetry, metrics/log/trace storage and Grafana are never application startup/readiness
 or request dependencies. Private-dev trace storage (#230) and remote export remain deferred. Private-dev
 [Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
-the existing stack. Native Telegram is prepared but disabled by default; its protected
-activation and the separable optional Keycloak growth scrape are owned by the
-[private-dev procedure](../../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+the existing stack and deliver nothing: only production Grafana sends alerts to the
+owner's Telegram, through the
+[production procedure](../../../deploy/public-production/README.md#host-telemetry-and-alert-delivery)
+(#550). The separable optional Keycloak growth scrape is owned by the
+[private-dev procedure](../../../deploy/private-dev/README.md#separable-product-growth-rollout).
 The single optimized private Keycloak image compiles native event-metrics support;
 other consumers of the shared recipe retain its disabled build default.
 Base configuration bounds collection to registration/verification and realm tags.

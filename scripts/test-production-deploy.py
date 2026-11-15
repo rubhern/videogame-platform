@@ -584,6 +584,45 @@ class BackupUnitTests(unittest.TestCase):
                 with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
                 self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
 
+    def test_installed_telemetry_unit_is_retargeted_and_held_to_its_template(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            # The owner installs the shipped template unchanged; the release repoints it.
+            template = (deploy.ROOT/'deploy/public-production/observability/systemd'/deploy.TELEMETRY_UNIT).read_text()
+            telemetry = root/deploy.TELEMETRY_UNIT
+            telemetry.write_text(template)
+            timer = root/'gameometro-telemetry.timer'
+            timer.write_text('NEVER CHANGE')
+            drops = {}
+            def systemctl(args, **_):
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(telemetry.read_text(), template.replace('/opt/gameometro/runtime', str(target)))
+                self.assertEqual(timer.read_text(), 'NEVER CHANGE')
+                # A second release repoints the already repointed unit.
+                deploy.backup_units(configuration, Path(str(target).replace('b'*12, 'c'*12)), apply=True)
+                self.assertIn('c'*12 + '-private/candidate/deploy/public-production/observability/sample-host.py', telemetry.read_text())
+                repointed = telemetry.read_text()
+                # Any drop-in, or a changed evidence path or argument, refuses before any unit changes.
+                drops[deploy.TELEMETRY_UNIT] = str(root/(deploy.TELEMETRY_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                drops.clear()
+                backup = (root/'gameometro-backup.service').read_text()
+                for changed in (repointed.replace('offhost.json', 'other.json'),
+                                repointed.replace(' --cleanup-receipt', ' --project other --cleanup-receipt'),
+                                repointed.replace('sample-host.py', 'verify-offhost.py')):
+                    telemetry.write_text(changed)
+                    with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                    self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
+
     def test_accepted_keyring_override_is_preserved_and_other_directives_refuse(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)

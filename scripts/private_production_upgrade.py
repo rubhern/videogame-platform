@@ -103,7 +103,7 @@ PROOF_IDENTITY = ('issuer', 'databases', 'recipient', 'images', 'configurationSh
 INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': ''}
 # Owner-chosen values, read from this protected file on every plan; only these keys are accepted.
 OWNER_INPUTS = Path('/etc/gameometro/production/runtime-inputs.env')
-OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX')
+OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX', 'PRODUCTION_TELEGRAM_ENABLED')
 # Secrets a target may add: Compose name -> (consumer, its *_FILE setting). The upgrade creates a
 # missing file empty (root, the secret group, 0640) only while its integration stays disabled.
 SECRET_ADDITIONS = {
@@ -118,6 +118,10 @@ SETTING_TRANSITIONS = {
     ('application', 'FEEDBACK_INBOX'): None,
     # ADR-0046: the one reviewed activation of sampled trace export.
     ('application', 'TELEMETRY_OTLP_TRACES_ENABLED'): ('false', 'true'),
+    # #550: the owner turns alert and registration-notice delivery on, or back off, through
+    # runtime-inputs.env; one switch drives both, as validate_runtime requires.
+    ('grafana', 'GRAFANA_TELEGRAM_ENABLED'): (('false', 'true'), ('true', 'false')),
+    ('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'): (('false', 'true'), ('true', 'false')),
 }
 # Grafana loads only the datasources it provisions; every other plugin stays disabled. Each reviewed
 # policy enables one more: ADR-0040 Loki, then ADR-0046 Tempo. An upgrade only moves forward to the last.
@@ -496,6 +500,15 @@ def setting_transition(name, key, before, after):
     return (before, after) in pairs
 
 
+def telegram_ready(secrets):
+    """The same shape checks Grafana's renderer applies, before a plan enables delivery. Never prints a value."""
+    try:
+        token, chat = ((secrets / name).read_text().rstrip('\n') for name in ('grafana-telegram-bot-token', 'grafana-telegram-chat-id'))
+    except OSError:
+        return False
+    return bool(re.fullmatch(r'[0-9]{1,20}:[A-Za-z0-9_-]{20,128}', token) and re.fullmatch(r'-?[0-9]{1,20}', chat))
+
+
 def runtime_inputs(previous, example, owner):
     """The target's runtime inputs: the active values, reviewed defaults for new inputs, then owner choices."""
     expected = set(example)
@@ -580,7 +593,10 @@ def validate_runtime(config, images):
             'The target no longer provides the reviewed migration entrypoint.')
     environment = services['application']['environment']
     require(install.reviewed_schedule(environment), 'Recurring acquisition must be off or on the reviewed default schedule.')
-    require(services['grafana']['environment'].get('GRAFANA_TELEGRAM_ENABLED') == 'false', 'Notifications must stay off.')
+    grafana = services['grafana']['environment']
+    require(grafana.get('GRAFANA_TELEGRAM_ENABLED') in ('true', 'false')
+            and grafana.get('GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED') == grafana['GRAFANA_TELEGRAM_ENABLED'],
+            'Alert and registration-notice delivery follow one owner switch.')
     if 'FEEDBACK_ENABLED' in environment:
         require(environment['FEEDBACK_ENABLED'] in ('true', 'false')
                 and (environment['FEEDBACK_ENABLED'] == 'false' or environment.get('FEEDBACK_INBOX')),
@@ -981,7 +997,10 @@ class Upgrade:
         values = prepare.parse_runtime_env(previous_runtime.read_text())
         example = (source / 'deploy/public-production/runtime.env.example').read_text()
         values, inputs = runtime_inputs(values, prepare.parse_runtime_env(example), self.owner_inputs())
-        require(values['PRODUCTION_TELEGRAM_ENABLED'] == 'false', 'Owner notification activation is separate.')
+        require(values['PRODUCTION_TELEGRAM_ENABLED'] in ('true', 'false'), 'Alert delivery needs an explicit flag.')
+        if values['PRODUCTION_TELEGRAM_ENABLED'] == 'true':
+            require(telegram_ready(Path(values['PRODUCTION_SECRETS_DIR'])),
+                    'Alert delivery needs a valid production Telegram bot token and chat ID; values withheld.')
         version = self.image_identities(selected['images'])['application']['version']
         require(re.fullmatch('[0-9A-Za-z.-]{1,100}', version or ''), 'The target application version is unreadable.')
         for name, image in selected['images'].items():

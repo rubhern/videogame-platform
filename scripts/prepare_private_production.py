@@ -119,7 +119,7 @@ def fingerprint(source):
     previous = deployment.ROOT
     try:
         deployment.ROOT = source
-        return deployment.local_configuration()
+        return deployment.local_configuration(candidate=True)
     finally:
         deployment.ROOT = previous
 

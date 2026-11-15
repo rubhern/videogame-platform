@@ -153,8 +153,9 @@ services:
       GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,grafana-pyroscope-datasource,influxdb,jaeger,mssql,mysql,opentsdb,stackdriver,zipkin
       GF_SNAPSHOTS_EXTERNAL_ENABLED: 'false'
       GF_LOG_MODE: console
+      # #550: one owner switch delivers operational alerts and registration notices together.
       GRAFANA_TELEGRAM_ENABLED: ${PRODUCTION_TELEGRAM_ENABLED:-false}
-      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: 'false'
+      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: ${PRODUCTION_TELEGRAM_ENABLED:-false}
       GF_SERVER_ROOT_URL: http://localhost:3000/
       GF_UNIFIED_ALERTING_MAX_ATTEMPTS: '1'
     secrets:
@@ -174,6 +175,7 @@ services:
     - ../private-dev/grafana/notifications.json.template:/etc/grafana/notifications.json.template:ro
     - ../private-dev/grafana/dashboards:/etc/grafana/canonical-dashboards:ro
     - ../private-dev/grafana/provisioning/alerting/private-dev.json:/etc/grafana/canonical-alerts.json:ro
+    - ../private-dev/grafana/provisioning/alerting/product-activity.json:/etc/grafana/canonical-product-alerts.json:ro
     - ./observability/grafana:/etc/grafana/production:ro
     networks:
     - telemetry

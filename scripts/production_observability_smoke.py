@@ -291,11 +291,18 @@ def main():
                 return any(r.get('state')=='firing' for g in api('/api/prometheus/grafana/api/v1/rules')['data']['groups'] for r in g['rules'] if r.get('name')=='Fixture production backup')
             poll(fixture_firing,'Production fixture fires while notification delivery is disabled')
             assert not messages(),'Disabled delivery must remain silent even for an active alert'
-            gf['environment']['GRAFANA_TELEGRAM_ENABLED']='true';source.write_text(json.dumps(config));run(compose+['up','-d','--no-deps','--force-recreate','grafana'])
+            # #550: one owner switch turns both routes on, as the production Compose does.
+            gf['environment'].update(GRAFANA_TELEGRAM_ENABLED='true',GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true');source.write_text(json.dumps(config));run(compose+['up','-d','--no-deps','--force-recreate','grafana'])
             origin='http://'+run(compose+['port','grafana','3000']).strip()
             poll(lambda:api('/api/health')['database']=='ok','Production notification provisioning enabled with synthetic secrets')
+            registration=api('/api/v1/provisioning/alert-rules/vgp-registration-window')
+            assert registration['labels']['environment']=='production' and registration['labels']['category']=='product'
+            assert 'realm="gameometro"' in registration['data'][0]['model']['expr']
+            routes=api('/api/v1/provisioning/policies')['routes']
+            assert [r['receiver'] for r in routes]==['private-dev-telegram','private-dev-telegram','private-dev-telegram-product']
+            print('Production registration notices are provisioned on the production realm and routed.',flush=True)
             values['fixture-backup']=1;test.sampler.atomic(d/'values.json',json.dumps(values))
-            poll(lambda:any('Environment: production' in m['text'] and 'Verified off-host backup' in m['text'] for m in messages()),'Production critical Telegram firing reached the HTTPS mock')
+            poll(lambda:any('Environment: production' in m['text'] and 'Backup attempt missing or failed' in m['text'] for m in messages()),'Production critical Telegram firing reached the HTTPS mock')
             count=len(messages());time.sleep(4);assert len(messages())==count
             values['fixture-backup']=0;test.sampler.atomic(d/'values.json',json.dumps(values))
             poll(lambda:any('Recovered:' in m['text'] and 'Environment: production' in m['text'] for m in messages()),'Production Telegram recovery reached the mock')

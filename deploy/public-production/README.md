@@ -1092,9 +1092,9 @@ integration evidence, never permission to promote an unpublished configuration.
 
 ### Scheduled unverified-account cleanup
 
-**Installed on the production host for #539.** Its alert needs the host telemetry, which is not
-installed yet ([#550](https://github.com/rubhern/videogame-platform/issues/550)); until then, read the
-status file after the daily run.
+**Installed on the production host for #539.** Its alert evaluates once the
+[host telemetry](#host-telemetry-and-alert-delivery) is installed; until then, read the status
+file after the daily run.
 [ADR-0044](../../docs/decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)
 owns why it runs on the VPS, which keys and identities it holds, and the accepted residual risk.
 [`bin/unverified-cleanup`](bin/unverified-cleanup) owns the configuration fields and their
@@ -1158,8 +1158,8 @@ The commands run from the installed release, `C=/srv/gameometro/installations/<s
    sudo systemctl daemon-reload && sudo systemctl start gameometro-unverified-cleanup.service
    ```
 
-6. Enable the timer. Activation is a separate owner decision. Once host telemetry is installed
-   (#550), its service passes `--cleanup-receipt` and the alert below evaluates:
+6. Enable the timer. Activation is a separate owner decision. The host telemetry service passes
+   `--cleanup-receipt`, so the alert below evaluates:
 
    ```bash
    sudo systemctl enable --now gameometro-unverified-cleanup.timer
@@ -1304,6 +1304,98 @@ sudo docker compose -p gameometro-production -f "$active" --profile '*' stop tem
 The Collector drops what Tempo cannot take, and the product is unaffected. The volume is
 disposable and outside every backup and restore.
 
+## Host telemetry and alert delivery
+
+[#550](https://github.com/rubhern/videogame-platform/issues/550). The host alerts read one textfile
+that the [telemetry service and timer](observability/systemd/) write every minute. Production
+Grafana is the only Grafana that delivers alerts: private-dev delivers none. Commands run from
+the installed release, `C=/srv/gameometro/installations/<sha12>-private/candidate` (the path in the
+backup service's `ExecStart`).
+
+**Install the sampler once.** Confirm that the backup cycle's `status` is
+`/etc/gameometro/production/observability/backup.json`, the sampler's `--backup-receipt`:
+
+```bash
+sudo python3 -c 'import json; print(json.load(open("/etc/gameometro/production/backup-cycle.json"))["status"])'
+```
+
+Install both units with their path rewritten, run one sample and read it back:
+
+```bash
+for u in service timer; do sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/observability/systemd/gameometro-telemetry.$u" | sudo tee /etc/systemd/system/gameometro-telemetry.$u >/dev/null; done
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl start gameometro-telemetry.service && sudo head -3 /var/lib/gameometro/production/metrics/host.prom
+```
+
+```bash
+sudo systemctl enable --now gameometro-telemetry.timer
+```
+
+The first line is `production_host_sample_timestamp_seconds`. Within three minutes, Grafana's
+*Host or backup sampler missing/stale* returns to normal, and the backup and cleanup alerts
+evaluate real values. Every deployment then holds the service to the template's `ExecStart`
+and repoints it with the backup services; another command, evidence path or a drop-in
+refuses the deployment. Deployments never change the timer. To pause sampling, stop the
+timer; the stale alert then fires, as intended.
+
+**Decisions recorded for #550:**
+
+- **Off-host copies:** the independent [backup observer](#independent-supervision) verifies the
+  cloud pairs from outside the host and notifies the owner itself. The host alert
+  *Backup attempt missing or failed* reads only the cycle status, and `offhost.json` is no
+  longer an alert input. A host attestation would put the off-host truth back on the host it
+  protects.
+- **Capacity:** no `capacity.json` qualification is planned. *Production capacity is
+  uncalibrated* stays provisioned but paused, so the proximity alerts stay off until an owner
+  qualification supplies the file and the rule is resumed.
+
+**Turn on alert delivery.** One switch sends both the operational alerts and the registration
+notices (*Registration activity observed*, on the `gameometro` realm). A notice reports a
+five-minute window, estimates its count and sends nothing when the window closes.
+
+1. In Telegram, use the official **@BotFather**. A new bot (`/newbot`) is the cleanest. To reuse
+   the former private-dev bot, issue a new token with `/revoke` first, so that no host keeps a
+   live copy. Send `/start` to the bot from the private chat that receives alerts. Never paste
+   the token into a chat, an issue, a command argument or the shell history.
+2. With a root editor (no swap or backup files), write the token into
+   `/etc/gameometro/production/secrets/grafana-telegram-bot-token`, keeping the file's owner,
+   group and mode. This root-only snippet reads it, finds the one private chat that sent
+   `/start` and writes its ID into `grafana-telegram-chat-id` beside it, printing no value:
+
+   ```bash
+   sudo python3 - <<'PY_TELEGRAM'
+   import json
+   from pathlib import Path
+   import urllib.request
+   base = Path('/etc/gameometro/production/secrets')
+   try:
+       token = (base / 'grafana-telegram-bot-token').read_text().strip()
+       with urllib.request.urlopen('https://api.telegram.org/bot' + token + '/getUpdates', timeout=20) as response:
+           updates = json.load(response)
+       candidates = {item['message']['chat']['id'] for item in updates.get('result', [])
+                     if item.get('message', {}).get('text') == '/start'
+                     and item['message']['chat'].get('type') == 'private'}
+       if not updates.get('ok') or len(candidates) != 1:
+           raise ValueError()
+       (base / 'grafana-telegram-chat-id').write_text(str(candidates.pop()) + '\n')
+   except Exception:
+       raise SystemExit('Chat capture failed; values withheld. Check the private bot/chat configuration.') from None
+   print('Chat ID saved; no values printed.')
+   PY_TELEGRAM
+   ```
+3. Add `PRODUCTION_TELEGRAM_ENABLED=true` to `/etc/gameometro/production/runtime-inputs.env`
+   (`root`, `0600`), keeping its other lines.
+4. Dispatch `Deploy Production`. The plan refuses without changing anything if either file is
+   missing, empty or malformed; it never prints the values. The deployment recreates Grafana.
+5. In Grafana, open **Alerting → Contact points** and use **Test** on the Telegram contact point
+   once. A test message proves the bot, chat and egress, not a firing and recovery cycle.
+
+To stop delivery of both, set the input to `false` and deploy again. Stopping is not revocation: after a
+leak, revoke the token in BotFather first. The contact-point names are inherited from private-dev
+and do not connect the two environments.
+
 ## Production observability candidate
 
 **Prepared and tested only in disposable local infrastructure.** Use the base runtime
@@ -1334,14 +1426,13 @@ Additional protected production files, with the same inventory/storage rules abo
 |---|---|
 | `grafana-admin-password` | Production Grafana bootstrap; rotate the persisted administrator credential through private administration as well as replacing the file |
 | `grafana-database-password` | Production Grafana and the host reader-provisioning command; update the PostgreSQL role, replace the file and recreate Grafana together |
-| `grafana-telegram-bot-token`, `grafana-telegram-chat-id` | Production Grafana only; independent production bot/destination, never private-dev values. Replace files and recreate Grafana; revoke the former bot token |
+| `grafana-telegram-bot-token`, `grafana-telegram-chat-id` | Production Grafana only, never a token another host still holds. Replace files and redeploy; revoke the former bot token |
 
 Files must exist even while delivery is off; empty Telegram placeholders are accepted
-only with `PRODUCTION_TELEGRAM_ENABLED=false`. Enabling delivery validates the
-protected values and fails closed on invalid input. Do not enable product notices.
-The generated notification configuration lives in a protected tmpfs. Its internal
-contact-point names are inherited compatibility identifiers, not a connection to
-private-dev. Grafana, Prometheus, exporters and Collector publish no ports. Use the
+only with `PRODUCTION_TELEGRAM_ENABLED=false`.
+[Alert delivery](#host-telemetry-and-alert-delivery) owns turning it on, for alerts and
+registration notices together. The generated notification configuration lives in a protected tmpfs.
+Grafana, Prometheus, exporters and Collector publish no ports. Use the
 existing private SSH boundary and a local tunnel to the Grafana container address;
 re-resolve that address after recreation. Keep the tunnel local and authenticate.
 
@@ -1350,23 +1441,23 @@ node exporter, containing only sanitized `.prom` files. The proposed single file
 must include Docker/data volumes; additional filesystems need an explicit bounded
 collector change before acceptance. The standard exporter mounts host proc/sys/root
 read-only without secrets-group membership or extra privileges. The systemd unit/timer
-under `observability/systemd/` are **templates, not installed** on the production host
-([#550](https://github.com/rubhern/videogame-platform/issues/550)). Review the absolute
-checkout path and evidence paths before installation. The host timer reads only
+under `observability/systemd/` are installed once by the owner and repointed by every
+deployment ([host telemetry](#host-telemetry-and-alert-delivery)). The host timer reads only
 selected Docker state and the bounded safe Caddy window, then atomically replaces
 one textfile. Failed sampling leaves its timestamp stale. Test cgroup v2, permissions,
 PID mapping, recreation, timer delays and the fixed root mount on the actual VPS;
 Docker Desktop's non-shared root uses a test-only mount-propagation seam.
 
-The timer expects three independent protected inputs under the observability directory:
+The timer reads these protected inputs under the observability directory:
 
 - `backup.json`: the latest sanitized receipt from the existing paired-backup actor,
   including failed attempts. Publish it atomically after every attempt; do not retain
   only successes. Missing/corrupt input alerts.
-- `offhost.json`: a monitoring attestation generated **on the independent destination**
-  by `observability/verify-offhost.py`. This is the existing filesystem/pull contract;
-  it cannot certify the new cloud target without an implemented, reviewed adapter
-  and evidence contract. Supply its verified encrypted pair directory,
+- `offhost.json`: no longer an alert input
+  ([#550](#host-telemetry-and-alert-delivery)); the dashboard still shows it. It is a
+  monitoring attestation generated **on the independent destination** by
+  `observability/verify-offhost.py`, the filesystem/pull contract, which cannot certify
+  the cloud target without a reviewed adapter. Supply its verified encrypted pair directory,
   successful `pull` receipt, matching successful full recovery/deletion-replay receipt
   and an owner-protected isolation record. The latter has `environment: production`,
   `storageIsolationVerified: true` and a timezone-qualified `reviewedAt`; it attests a
@@ -1375,7 +1466,8 @@ The timer expects three independent protected inputs under the observability dir
   Copy only its sanitized output back through an owner-reviewed private route. No
   destination credential is installed in the source runtime. Transfer loss leaves the
   earlier recovery point aging; it cannot turn into current verified health.
-- Optional `capacity.json`: owner-reviewed qualification evidence with `scope: real-vps`,
+- `unverified-cleanup.json`: the [cleanup](#scheduled-unverified-account-cleanup) status.
+- Optional `capacity.json`, not planned ([#550](#host-telemetry-and-alert-delivery)): owner-reviewed qualification evidence with `scope: real-vps`,
   `environment: production`, timezone-qualified `measuredAt`/`expiresAt` and positive
   `sustainableRps` for the representative workload. Expiry or a local scope disables
   proximity alerts. Requalify after traffic-mix or runtime changes. No example capacity
@@ -2119,12 +2211,14 @@ production-runtime CI gate proves it.
   on, the owner must provide it first, or the plan refuses.
 - **Setting transitions.** An existing setting may change only from its listed previous value
   to its listed target value. The feedback switch and inbox follow the owner inputs instead;
-  the runtime check then requires an inbox whenever delivery is on.
+  the runtime check then requires an inbox whenever delivery is on. Grafana alert delivery
+  follows its owner input both ways, and the plan checks the Telegram files before turning it on.
 - **New services.** A listed service may appear with only its listed networks and named
   volumes, read-only, without capabilities, secrets, published ports or dependencies, and
   with memory and PID ceilings. `--stage` pulls its pinned image and the apply step creates
   it with its empty volume. Added services start as optional ones: a failure is recorded and
-  never fences the product. Loki ([application logs](#application-logs)) is the only entry.
+  never fences the product. Loki ([application logs](#application-logs)) and Tempo
+  ([application traces](#application-traces)) are the entries.
 
 ### Owner-approved Actions deployment (#467)
 
