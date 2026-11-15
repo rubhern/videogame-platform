@@ -29,7 +29,6 @@ RUNTIME_FILES = frozenset((
     'deploy/private-dev/grafana/provision-reader.sql',
     'deploy/private-dev/grafana/notifications.json.template',
     'deploy/private-dev/grafana/provisioning/alerting/private-dev.json',
-    'deploy/private-dev/grafana/provisioning/alerting/product-activity.json',
     'docker/keycloak/import/videogame-platform-realm.json',
     'tools/catalogue-localization/models.json',
     'scripts/public_production_deployment.py', 'scripts/private_dev_promotion.py',
@@ -41,11 +40,21 @@ RUNTIME_FILES = frozenset((
 # Runtime sources that current revisions no longer carry but signed historical candidates do
 # (private-dev backups were removed by ADR-0037). They count when present and are never required.
 HISTORICAL_RUNTIME_FILES = frozenset(('deploy/private-dev/lib/backup-common.sh',))
+# Runtime sources production came to depend on after the signed #275 candidate (#550 mounts the
+# registration rule). That candidate's fingerprint was signed without them, so a candidate
+# fingerprint leaves them out; every other fingerprint requires them.
+LATER_RUNTIME_FILES = frozenset(('deploy/private-dev/grafana/provisioning/alerting/product-activity.json',))
 
 
-def runtime_path(path):
+def runtime_path(path, candidate=False):
+    if path in LATER_RUNTIME_FILES:
+        return not candidate
     return (any(path.startswith(d) for d in RUNTIME_DIRECTORIES) and not path.endswith('.md')
             or path in RUNTIME_FILES or path in HISTORICAL_RUNTIME_FILES)
+
+
+def candidate_path(path):
+    return runtime_path(path, candidate=True)
 
 
 def inventory(tree, predicate):
@@ -62,8 +71,9 @@ def inventory(tree, predicate):
     return trust.contract_hash(entries)
 
 
-def local_configuration():
+def local_configuration(candidate=False):
     # Actual bytes/modes, including newly added files; index flags cannot hide drift.
+    predicate = candidate_path if candidate else runtime_path
     paths = set()
     for directory in RUNTIME_DIRECTORIES:
         base = ROOT / directory
@@ -72,12 +82,12 @@ def local_configuration():
             require(not any((Path(parent) / name).is_symlink() for name in directories),
                     'Unsafe runtime source directory.')
             paths.update(Path(parent) / name for name in files)
-    paths.update(ROOT / p for p in RUNTIME_FILES)
+    paths.update(ROOT / p for p in RUNTIME_FILES | (set() if candidate else LATER_RUNTIME_FILES))
     paths.update(ROOT / p for p in HISTORICAL_RUNTIME_FILES if (ROOT / p).exists() or (ROOT / p).is_symlink())
     tree = {'truncated': False, 'tree': []}
     for path in sorted(paths):
         relative = path.relative_to(ROOT).as_posix()
-        if not runtime_path(relative):
+        if not predicate(relative):
             continue
         require(path.is_file() and not path.is_symlink()
                 and all(not parent.is_symlink() for parent in path.parents if parent != ROOT and ROOT in parent.parents),
@@ -86,13 +96,13 @@ def local_configuration():
         blob = hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest()
         tree['tree'].append({'path': relative, 'type': 'blob', 'sha': blob,
                              'mode': '100755' if path.stat().st_mode & 0o111 else '100644'})
-    return inventory(tree, runtime_path)
+    return inventory(tree, predicate)
 
 
-def verify_configuration(api, revision, expected):
+def verify_configuration(api, revision, expected, candidate=False):
     require(re.fullmatch(r'[0-9a-f]{64}', expected or ''), 'An approved configuration fingerprint is required.')
     tree = api.request(f'/git/trees/{revision}?recursive=1')
-    require(local_configuration() == expected == inventory(tree, runtime_path),
+    require(local_configuration(candidate) == expected == inventory(tree, candidate_path if candidate else runtime_path),
             'Configuration fingerprint differs from the approved input or trusted image source; separate runtime rollout required.')
     schema = inventory(tree, lambda p: p.startswith('backend/src/main/resources/db/migration/') and p.endswith('.sql'))
     return schema
