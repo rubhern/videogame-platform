@@ -630,6 +630,24 @@ def command_export(arguments: argparse.Namespace, host_command: list[str]) -> in
     return 0
 
 
+def enter_fence(fence: contextlib.ExitStack, command: str, identity: dict[str, object],
+                host_command: list[str], keycloak_user_id: str) -> dict[str, object]:
+    """Enter the #275 deny/drain fence for one production erasure; it exits when the stack closes."""
+    issuer = str(identity.get("issuer", ""))
+    if not issuer.startswith("https://") or not issuer.endswith("/realms/gameometro"):
+        raise LedgerError("Maintenance erasure requires the production issuer")
+    adapter = shlex.split(command)
+    run_id = str(uuid.uuid4())
+    # Register before entry, including lost acknowledgements and failed drains.
+    fence.callback(maintenance, adapter, "exit", run_id, issuer)
+    maintenance(adapter, "enter", run_id, issuer)
+    maintenance(adapter, "check", run_id, issuer)
+    refreshed = identify(host_command, keycloak_user_id)
+    if refreshed.get("issuer") != issuer or refreshed["userId"] != identity["userId"]:
+        raise LedgerError("Erasure identity changed inside maintenance")
+    return refreshed
+
+
 def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int:
     request = request_reference(arguments.request)
     keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
@@ -647,6 +665,9 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
                     archive = archive_from(arguments)
                     require_proof(archive)
                     archive_preflight(archive)
+                    if arguments.maintenance_command:
+                        # Production (#543): resuming mutates identity, so it runs inside the same fence.
+                        enter_fence(fence, arguments.maintenance_command, identity, host_command, keycloak_user_id)
                     run_steps(ledger, host_command, existing, replay=False, archive=archive)
                 return 0
         if existing is not None:
@@ -679,20 +700,10 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
         if self_service:
             archive_preflight(archive)
         if arguments.maintenance_command:
-            issuer = identity.get("issuer", "")
-            if not issuer.startswith("https://") or not issuer.endswith("/realms/gameometro"):
-                raise LedgerError("Maintenance erasure requires the production issuer")
             if archive is not None:
                 archive_preflight(archive)
-            adapter = shlex.split(arguments.maintenance_command)
-            run_id = str(uuid.uuid4())
-            # Register before entry, including lost acknowledgements and failed drains.
-            fence.callback(maintenance, adapter, "exit", run_id, issuer)
-            maintenance(adapter, "enter", run_id, issuer)
-            maintenance(adapter, "check", run_id, issuer)
-            refreshed = identify(host_command, keycloak_user_id)
-            if (refreshed.get("issuer") != issuer or refreshed["userId"] != identity["userId"]
-                    or refreshed["account"] == "absent"):
+            refreshed = enter_fence(fence, arguments.maintenance_command, identity, host_command, keycloak_user_id)
+            if refreshed["account"] == "absent":
                 raise LedgerError("Erasure identity changed inside maintenance")
         # Write-ahead: the request is durable before the first mutation.
         ledger.append({"event": "requested", "request": request, "keycloakUserId": keycloak_user_id,

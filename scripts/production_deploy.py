@@ -31,6 +31,9 @@ WORKFLOW = '.github/workflows/deploy-production.yml'
 BACKUP_UNITS = Path('/etc/systemd/system')
 CLEANUP_UNIT = 'gameometro-unverified-cleanup.service'
 CLEANUP_CONFIG = Path('/etc/gameometro/production/unverified-cleanup.json')
+# #543: the self-service deletion runner, likewise held to its one reviewed command line.
+DELETION_UNIT = 'gameometro-account-deletion.service'
+DELETION_CONFIG = Path('/etc/gameometro/production/account-deletion.json')
 # #550: the host telemetry sampler, held to its one reviewed command line once the owner installs it.
 TELEMETRY_UNIT = 'gameometro-telemetry.service'
 TELEMETRY_EVIDENCE = Path('/etc/gameometro/production/observability')
@@ -243,7 +246,8 @@ def load_cycle(path):
 def backup_units(config_path, target_source, apply=False):
     """Retarget only the existing backup, cleanup and telemetry service ExecStarts; never touch timers.
 
-    The cleanup (#539) and telemetry (#550) services are optional until the owner installs them;
+    The cleanup (#539), deletion (#543) and telemetry (#550) services are optional until the owner
+    installs them;
     once present each is held to its reviewed pattern, so a release never leaves it running a
     superseded bundle.
     """
@@ -253,6 +257,8 @@ def backup_units(config_path, target_source, apply=False):
                 ('gameometro-backup-reconcile.service', tool('backup-cycle'), 'reconcile --config ' + str(config_path))]
     if (BACKUP_UNITS / CLEANUP_UNIT).exists():
         services.append((CLEANUP_UNIT, tool('unverified-cleanup'), 'run --config ' + str(CLEANUP_CONFIG)))
+    if (BACKUP_UNITS / DELETION_UNIT).exists():
+        services.append((DELETION_UNIT, tool('account-deletion'), 'run --config ' + str(DELETION_CONFIG)))
     if (BACKUP_UNITS / TELEMETRY_UNIT).exists():
         services.append((TELEMETRY_UNIT, 'deploy/public-production/observability/sample-host.py', TELEMETRY_ARGUMENTS))
     for name, script, arguments in services:
@@ -286,6 +292,11 @@ def backup_units(config_path, target_source, apply=False):
             if before != after:
                 admin.write_unit(path, after)
         invoke(['/usr/bin/systemctl', 'daemon-reload'])
+        # Timers start the others afresh; the long-running deletion runner must restart onto the new
+        # release. Without waiting: it first finishes its current erasure, and it is restarted only if
+        # it already runs.
+        if any(path.name == DELETION_UNIT and before != after for path, before, after in units):
+            invoke(['/usr/bin/systemctl', 'try-restart', '--no-block', DELETION_UNIT])
     return units
 
 

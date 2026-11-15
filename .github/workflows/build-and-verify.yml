@@ -372,6 +372,7 @@ jobs:
             python3 scripts/test-production-identity-maintenance.py
             python3 scripts/test-production-cleanup.py
             python3 scripts/test-production-unverified-cleanup.py
+            python3 scripts/test-production-account-deletion.py
           ) &
           operations_pid=$!
           python3 scripts/test-production-observability.py --smoke &

@@ -40,6 +40,7 @@ what the repository checks and what only a real host can prove.
 | [`bin/backup-cycle`](bin/backup-cycle), [`bin/backup-watch`](bin/backup-watch), [`systemd/`](systemd/) | [Scheduled backup cycle](#scheduled-backup-cycle-276) and its existing independent supervision |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
 | [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
+| [`bin/unverified-cleanup`](bin/unverified-cleanup), [`bin/account-deletion`](bin/account-deletion) | [Unverified-account cleanup](#scheduled-unverified-account-cleanup) and the [self-service deletion runner](#self-service-account-deletion) on the same custody |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
 
@@ -246,6 +247,7 @@ is file delivery on one host, not an encrypted vault.
 | `keycloak-bff-client-secret` | Confidential BFF client credential | `keycloak` (realm import), `application` | Client secret in Keycloak plus file |
 | `keycloak-smtp-username`, `keycloak-smtp-password` | Transactional relay credentials | `keycloak` (realm import) | Stored in the realm, inside the identity database |
 | `feedback-smtp-username`, `feedback-smtp-password` | Dedicated feedback relay credentials | `application` | File only; may be empty while feedback is disabled |
+| `account-deletion-executor-capability` | Self-service deletion executor capability, shared with the host runner | `application` | File only; may be empty while self-service deletion is off. When on, 64 lowercase hex characters, owned by UID 10001 with mode `0600` ([#543](#self-service-account-deletion)) |
 | `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
 
 Storage requirements, verified on the host before first start:
@@ -1940,8 +1942,9 @@ one-shot actor, the accepted localizer ceiling, the accepted Grafana plugin poli
 reviewed successor that loads only Loki, the mounted
 localization dashboard, the same image for migration and application, zero publications,
 recurring synchronization either off or on the application's default schedule with no cron
-override (#484), and Telegram and the
-[account-deletion overlay](#optional-automatic-account-deletion) off. Installation run and configuration labels survive unchanged on every service; a new label
+override (#484), alert delivery that follows one owner switch for alerts and registration
+notices, and the [deletion executor](#self-service-account-deletion) in its reviewed settings with
+the independent policy. Installation run and configuration labels survive unchanged on every service; a new label
 names the upgrade on recreated ones.
 
 **Refusals before any change.** No recorded completed installation and transition, drifted live
@@ -2789,13 +2792,60 @@ ledger/archive and public acceptance. The [production timers](#scheduled-backup-
 application containers; Lenovo must be unavailable for the cloud-only proof.
 
 
-## Optional automatic account deletion
+## Self-service account deletion
 
-The prepared `compose.account-deletion.yaml` overlay is opt-in and is not consumed by the
-current promotion command. It exposes no management port and passes no Keycloak credentials
-to the application. Before activating it, qualify the existing #274 independent evidence/key
-boundary, protected executor availability/channel and recovery under #276. The
-[runbook](../../docs/development/operations-runbook.md#protected-executor-configuration)
-owns configuration, the dedicated capability secret, rotation, runner supervision and pending
-request recovery. File-backed Compose secrets must be privately readable by runtime uid 10001;
-never commit capability material. This source preparation is not deployment or acceptance.
+[#543](https://github.com/rubhern/videogame-platform/issues/543). «Mi perfil → Eliminar mi cuenta»
+admits a request only while the application's executor is enabled and the host runner sent a
+heartbeat in the last 60 seconds. The [runbook](../../docs/development/operations-runbook.md#self-service-account-deletion)
+owns the protocol and its guarantees. [`bin/account-deletion`](bin/account-deletion) owns the
+production runner, and its [unit](systemd/gameometro-account-deletion.service) supervises it.
+
+**How it runs.** The runner reuses the [unattended cleanup](#scheduled-unverified-account-cleanup)'s
+protected configuration: the same ledger, cloud copies, archive, proof store, keys, identity
+transport and deny/drain fence. Both erasures therefore share one ledger; whichever holds its
+lock first runs, and the other retries later. The executor answers only on the application
+container's loopback, so each exchange runs `docker exec` into the one running application and
+sends the capability on stdin. Nothing is published, and no other container or host can reach
+the endpoint. While an upgrade or handover journal is active, the runner sends no heartbeat and
+claims nothing, so admission closes until the release finishes. Each erasure holds the identity
+fence for its own steps, as one cleanup round does.
+
+**Activate it, after the cleanup is installed.** Commands run from the installed release `C`.
+
+1. Create the capability, readable only by the application's UID:
+
+   ```bash
+   sudo sh -c 'umask 077; od -An -N32 -tx1 /dev/urandom | tr -d " \n" > /etc/gameometro/production/secrets/account-deletion-executor-capability'
+   ```
+
+   ```bash
+   sudo chown 10001 /etc/gameometro/production/secrets/account-deletion-executor-capability && sudo chmod 0600 /etc/gameometro/production/secrets/account-deletion-executor-capability
+   ```
+
+2. Write `/etc/gameometro/production/account-deletion.json` (`root`, `0600`):
+   `{"cleanupConfig": "/etc/gameometro/production/unverified-cleanup.json", "credentialFile": "/etc/gameometro/production/secrets/account-deletion-executor-capability"}`.
+3. Add `PRODUCTION_ACCOUNT_DELETION_ENABLED=true` to `/etc/gameometro/production/runtime-inputs.env`
+   and dispatch `Deploy Production`. The plan refuses unless the capability has that owner, mode
+   and shape. Enabling is forward only: a later release that would disable the executor refuses.
+4. Check the runner, then install and start its unit:
+
+   ```bash
+   sudo python3 "$C/deploy/public-production/bin/account-deletion" check --config /etc/gameometro/production/account-deletion.json
+   ```
+
+   ```bash
+   sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/systemd/gameometro-account-deletion.service" | sudo tee /etc/systemd/system/gameometro-account-deletion.service >/dev/null
+   ```
+
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl enable --now gameometro-account-deletion.service
+   ```
+
+5. Qualify it with a synthetic account only: one deletion end to end (both cloud ledger copies,
+   the sealed proof, both archive copies, absence in PostgreSQL and Keycloak), and one runner
+   stopped mid-erasure that resumes the same request after restart.
+
+Every deployment then holds the unit to its reviewed `ExecStart`, repoints it and restarts it
+onto the new release without waiting; the runner first finishes its current erasure. To refuse
+new requests, stop the unit: within 60 seconds the profile reports deletion unavailable, and
+pending requests stay blocked and resume when it starts again.

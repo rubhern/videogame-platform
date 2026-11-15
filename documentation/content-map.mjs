@@ -29,6 +29,7 @@ export const groups = [
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
     ['docs/decisions/0046-keep-sampled-production-traces-in-tempo.md', 'Sampled production traces · proposed'],
+    ['docs/decisions/0047-run-self-service-account-deletion-on-the-production-vps.md', 'Self-service deletion on the VPS · proposed'],
     ['docs/decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md', 'Unattended unverified-account cleanup · proposed'],
     ['docs/decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md', 'Planned-downtime reduction · proposed'],
     ['docs/decisions/0042-manage-approved-product-settings-in-postgresql.md', 'Product settings · proposed'],
