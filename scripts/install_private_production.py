@@ -49,11 +49,15 @@ def reviewed_schedule(environment):
         environment.get(SCHEDULING) == 'true' and not set(environment) & set(SCHEDULE_OVERRIDES))
 
 
+DELETION_CAPABILITY = 'account-deletion-executor-capability'
+APPLICATION_UID = 10001
+
+
 def optional_secret(name, environment):
     """Credentials are required when their integration is enabled."""
     if name.startswith('feedback-smtp-'):
         return environment.get('FEEDBACK_ENABLED') != 'true'
-    if name == 'account-deletion-executor-capability':
+    if name == DELETION_CAPABILITY:
         return environment.get('ACCOUNT_DELETION_EXECUTOR_ENABLED') != 'true'
     return name.startswith('grafana-telegram-') or (name.startswith('igdb-') and environment.get(SCHEDULING) != 'true')
 
@@ -87,6 +91,19 @@ def secure(path, *, mode=None, directory=False, gid=None):
             and info.st_uid == 0 and not info.st_mode & 0o022, 'Unsafe protected owner/type/permissions.')
     require(mode is None or stat.S_IMODE(info.st_mode) == mode, 'Unexpected protected mode.')
     require(gid is None or info.st_gid == gid, 'Unexpected secret group.')
+    for parent in path.parents:
+        ancestor = parent.lstat()
+        require(ancestor.st_uid == 0 and not ancestor.st_mode & 0o022, 'Writable/untrusted protected-path ancestor.')
+    require('system.posix_acl_access' not in os.listxattr(path), 'Unexpected protected-file ACL.')
+    return info
+
+
+def application_owned(path):
+    """A secret only the application UID reads (0600), in a root-owned protected directory."""
+    require(path.is_absolute() and path.resolve() == path, 'Symlinked or relative protected path.')
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == APPLICATION_UID and stat.S_IMODE(info.st_mode) == 0o600,
+            'The enabled account-deletion capability must be owned by UID 10001 with mode 0600.')
     for parent in path.parents:
         ancestor = parent.lstat()
         require(ancestor.st_uid == 0 and not ancestor.st_mode & 0o022, 'Writable/untrusted protected-path ancestor.')
@@ -553,7 +570,14 @@ class Host:
                 # An upgrade plan: staging creates this reviewed optional secret empty.
                 require(optional and not path.exists(), 'A planned secret addition must be optional and absent.')
                 continue
-            st = secure(path, mode=0o640, gid=gid)
+            if path.name == DELETION_CAPABILITY and not optional:
+                # The application refuses a capability with any group or other bit, so the enabled
+                # file belongs to its UID alone; disabled, it stays the empty root-owned placeholder.
+                require(self.images['application']['user'].split(':')[0] == str(APPLICATION_UID),
+                        'Unexpected application image user.')
+                st = application_owned(path)
+            else:
+                st = secure(path, mode=0o640, gid=gid)
             require(st.st_size <= 4096 and (st.st_size > 0 or optional), 'Empty or oversized required secret.')
             value = path.read_bytes().decode('utf-8').rstrip('\n')
             require((value or optional) and value == value.strip() and not any(c in value for c in '\r\n\x00'),

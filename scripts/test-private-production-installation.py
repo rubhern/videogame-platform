@@ -597,6 +597,24 @@ class Contracts(unittest.TestCase):
                         checked_store.assert_not_called()
                     self.assertTrue(commands and all(c[0] == 'openssl' for c in commands))
 
+    def test_enabled_deletion_capability_belongs_to_the_application_uid_alone(self):
+        # The application refuses any group/other bit, so the root:group 0640 rule cannot apply.
+        path = Path('/etc/gameometro/production/secrets/account-deletion-executor-capability')
+        directory = SimpleNamespace(st_uid=0, st_mode=0o40750)
+        for uid, mode, accepted in ((10001, 0o100600, True), (0, 0o100600, False), (10001, 0o100640, False),
+                                    (10001, 0o100400, False), (0, 0o100640, False)):
+            with self.subTest(uid=uid, mode=oct(mode)):
+                info = SimpleNamespace(st_uid=uid, st_mode=mode, st_size=64)
+                with patch.object(Path, 'resolve', lambda p: p), \
+                        patch.object(Path, 'lstat', lambda p: info if p == path else directory), \
+                        patch.object(install.os, 'listxattr', return_value=[]):
+                    if accepted:
+                        self.assertIs(install.application_owned(path), info)
+                    else:
+                        with self.assertRaises(trust.Refused): install.application_owned(path)
+        self.assertTrue(install.optional_secret(path.name, {'ACCOUNT_DELETION_EXECUTOR_ENABLED': 'false'}))
+        self.assertFalse(install.optional_secret(path.name, {'ACCOUNT_DELETION_EXECUTOR_ENABLED': 'true'}))
+
     def test_provider_credentials_are_required_while_recurring_acquisition_is_on(self):
         on, off = {install.SCHEDULING: 'true'}, {install.SCHEDULING: 'false'}
         self.assertFalse(install.optional_secret('igdb-client-id', on))
