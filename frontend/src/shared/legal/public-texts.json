@@ -25,6 +25,10 @@
         },
         {
           "kind": "paragraph",
+          "text": "Si eliges «Continuar con Google» o «Continuar con Microsoft», ese proveedor comprueba tu identidad y nos comunica el identificador de tu cuenta en él y tu email; Google indica además si ese email está verificado. Guardamos ese identificador vinculado a tu cuenta de Gameómetro. No recibimos la contraseña de ese proveedor ni guardamos sus credenciales de acceso, y no conservamos tu nombre ni otros datos de tu perfil aunque el proveedor los envíe. Si el email de Microsoft no está verificado, te pediremos verificarlo. Si ya tenías una cuenta con ese email, solo la vinculamos cuando confirmas que es tuya con su contraseña. Al crear la cuenta de este modo aceptas las mismas condiciones de uso. Siempre puedes entrar con tu email creando una contraseña desde «¿Has olvidado tu contraseña?»."
+        },
+        {
+          "kind": "paragraph",
           "text": "Guardamos tus puntuaciones, el juego al que corresponden y las fechas de creación y modificación. Tu lista personal no se publica. Cada puntuación contribuye a la media, el número de votos y la distribución pública del juego, sin mostrar tu identidad. No prometemos anonimato absoluto: las estadísticas de grupos pequeños pueden permitir inferencias. No hay perfiles públicos, publicidad ni venta de datos personales."
         },
         {
@@ -70,6 +74,10 @@
         {
           "kind": "paragraph",
           "text": "Si aceptas la analítica, Google Ireland Limited trata los datos de medición como encargado del tratamiento conforme a sus [condiciones de tratamiento de datos](https://business.safety.google/adsprocessorterms/). Google puede tratar datos en Estados Unidos y en otros países; esas transferencias se amparan en el Marco de Privacidad de Datos UE-EE. UU., en el que Google LLC está certificada, y en cláusulas contractuales tipo cuando proceda. Tienes más información en [cómo utiliza Google los datos de los sitios que usan sus servicios](https://policies.google.com/technologies/partner-sites). Si rechazas la analítica o no eliges, tu navegador no se conecta con Google Analytics."
+        },
+        {
+          "kind": "paragraph",
+          "text": "Si usas «Continuar con Google» o «Continuar con Microsoft», Google y Microsoft tratan como responsables independientes los datos de tu acceso a su servicio, incluido que inicias sesión en Gameómetro, según sus propias políticas de privacidad ([Google](https://policies.google.com/privacy), [Microsoft](https://privacy.microsoft.com/es-es/privacystatement)). Gameómetro no les envía tus puntuaciones ni otros datos de tu cuenta. Si no usas estas opciones, tu navegador no se conecta con ellos para iniciar sesión."
         },
         {
           "kind": "paragraph",

@@ -14,6 +14,11 @@ COPY docker/keycloak/remember-me-mapper/ ./
 RUN mkdir classes \
     && javac --release 21 -cp '/keycloak-libs/*' -d classes src/com/videogameplatform/keycloak/RememberMeMapper.java \
     && jar --create --file remember-me-mapper.jar --date=2026-10-25T00:00:00Z -C classes . -C resources .
+WORKDIR /brokered-terms
+COPY docker/keycloak/brokered-terms/ ./
+RUN mkdir classes \
+    && javac --release 21 -cp '/keycloak-libs/*' -d classes src/com/videogameplatform/keycloak/BrokeredTermsAuthenticatorFactory.java \
+    && jar --create --file brokered-terms.jar --date=2026-11-14T00:00:00Z -C classes . -C resources .
 
 FROM keycloak-base
 
@@ -27,7 +32,7 @@ ENV KC_CACHE=local \
     KC_METRICS_ENABLED=true \
     KC_EVENT_METRICS_USER_ENABLED=${KEYCLOAK_EVENT_METRICS_USER_ENABLED}
 
-COPY --from=mapper-build --chown=keycloak:keycloak /mapper/remember-me-mapper.jar /opt/keycloak/providers/
+COPY --from=mapper-build --chown=keycloak:keycloak /mapper/remember-me-mapper.jar /brokered-terms/brokered-terms.jar /opt/keycloak/providers/
 RUN /opt/keycloak/bin/kc.sh build
 
 # One theme source, with brand and font assets copied from their canonical frontend owners.

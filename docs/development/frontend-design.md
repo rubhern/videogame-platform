@@ -454,6 +454,16 @@ from Chromium and automated accessibility evidence.
   visible and operable independently of the disclosure, with the conditions of use
   emphasised in its label. The theme enhances the inherited
   Keycloak markup; the complete notice remains readable when the theme script is unavailable.
+  When Google or Microsoft sign-in is enabled (#548), sign-in, registration and the
+  re-authentication that links a provider show them after the primary action, under a hairline
+  and the quiet label **O continúa con**. Each is a full-width secondary control: night, hairline,
+  6px corners, at least 44px tall. It reads **Continuar con Google** or **Continuar con
+  Microsoft**, and the visible name is its accessible name. The provider's mark keeps its own
+  unmodified colours as decorative artwork beside the name. It is never tinted, and forced colours
+  keep it. Linking an existing account makes adding the provider the primary action and choosing
+  another email secondary. The terms step for a new provider account presents the approved notice
+  as the registration form does, under the registration title, collapsed under its heading with
+  the legal links visible, and with **Acepto las condiciones** primary and **No acepto** secondary.
   Keycloak owns the templates and account-flow logic. Do not reproduce the catalogue header
   or introduce a React login screen. Keep registration prominent and validation and recovery
   readable. Art for the stage remains an optional later iteration, never a dependency of
