@@ -56,16 +56,18 @@ def execute(config, command):
     args.request = command["requestId"]
     args.keycloak_user_id = command["subject"]
     args.archive_profile = None
-    # Production (#543): the #275 deny/drain fence and the two-copy cloud ledger and archive,
-    # exactly as the unattended cleanup uses them. The production issuer refuses without them.
+    # Production (#543): the two-copy cloud ledger and archive, exactly as the unattended cleanup
+    # uses them; the production issuer refuses without them. An optional maintenance command
+    # still fences each erasure, but production self-service runs without it (#564): the revoke
+    # step disables the one requesting account before any other mutation.
     args.maintenance_command = config.get("maintenance_command")
     if args.maintenance_command is not None and (not isinstance(args.maintenance_command, str) or not args.maintenance_command):
         raise ValueError("The maintenance command must be one command line")
     if config.get("cloud_copies"):
         ledger.CLOUD = ledger.cloud_module.CloudCopies(pathlib.Path(config["cloud_copies"]))
     ledger.MUTATING = True
-    if config["issuer"] == ledger.PRODUCTION_ISSUER and not (args.maintenance_command and ledger.CLOUD):
-        raise ValueError("Production self-service needs the identity fence and the cloud copies")
+    if config["issuer"] == ledger.PRODUCTION_ISSUER and not ledger.CLOUD:
+        raise ValueError("Production self-service needs the cloud copies")
     args.self_service = True
     args.expected_issuer = config["issuer"]
     args.expected_user = command["userId"]

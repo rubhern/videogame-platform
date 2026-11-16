@@ -1019,16 +1019,18 @@ refuses to start while the other is active, so they never overlap.
 | Purpose | Unverified-account cleanup and its retry | Paired backup, restore, deletion replay and reopening |
 | Owner | `bin/identity-maintenance` (`IDENTITY-MAINTENANCE.json`) | `bin/recovery` (no `READY`, or `PENDING.json`) |
 | Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503 until the gate reopens; the edge keeps running |
-| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
+| Owner administration (#464) | Grafana and the Keycloak console answer 503 | Grafana and the Keycloak console answer 503 |
+| Writers | Keycloak keeps running and serving Admin calls on its private network (the cleanup transport); drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
 | Startup | Unchanged | Application and migration wrappers refuse without `READY` |
 | Release | `exit` by the same run after a second drain | `thaw` or `reopen` with their evidence; services started separately |
 
 Neither mode has an alternate public route. Only the edge publishes ports; it routes no
 Keycloak administration, management or Actuator path, and refuses non-canonical identity
 paths that Keycloak would otherwise route to a limited endpoint. The application calls
-Keycloak only through the edge, as an OIDC client, never its Admin API. The remaining
-writer is the owner's private administration, which both modes deliberately keep and
-which no mechanism here can stop a root or superuser from bypassing.
+Keycloak only through the edge, as an OIDC client, never its Admin API. The owner's #464
+ingress is closed in both modes, by the same gate files. The remaining writers are Admin calls
+on the private network, which the identity-only fence deliberately keeps for the cleanup and
+which no mechanism here can stop a root or superuser from making.
 
 ### Identity maintenance
 
@@ -2801,14 +2803,23 @@ owns the protocol and its guarantees. [`bin/account-deletion`](bin/account-delet
 production runner, and its [unit](systemd/gameometro-account-deletion.service) supervises it.
 
 **How it runs.** The runner reuses the [unattended cleanup](#scheduled-unverified-account-cleanup)'s
-protected configuration: the same ledger, cloud copies, archive, proof store, keys, identity
-transport and deny/drain fence. Both erasures therefore share one ledger; whichever holds its
-lock first runs, and the other retries later. The executor answers only on the application
+protected configuration: the same ledger, cloud copies, archive, proof store, keys and identity
+transport. Both erasures therefore share one ledger; whichever holds its lock first runs, and
+the other retries later. The executor answers only on the application
 container's loopback, so each exchange runs `docker exec` into the one running application and
 sends the capability on stdin. Nothing is published, and no other container or host can reach
 the endpoint. While an upgrade or handover journal is active, the runner sends no heartbeat and
-claims nothing, so admission closes until the release finishes. Each erasure holds the identity
-fence for its own steps, as one cleanup round does.
+claims nothing, so admission closes until the release finishes.
+
+**Only the requesting account is closed** ([#564](https://github.com/rubhern/videogame-platform/issues/564)).
+The runner calls the transport with `--self-service` instead of the cleanup's `--identity-cleanup`,
+so no [identity maintenance](#identity-maintenance) fence is entered. The erasure's first step
+disables that account, signs out its Keycloak sessions, checks that none remains and ends its BFF
+sessions; every later step refuses while the account is enabled. Sign-in, registration and the
+private administration stay open for everyone else. A resumed erasure repeats the same first
+step. A new registration with the same email can only succeed after the deletion and is a new,
+unrelated account. The cleanup keeps the global fence, because one of its candidates could
+verify while it is being erased.
 
 **Activate it, after the cleanup is installed.** Commands run from the installed release `C`.
 
