@@ -6,8 +6,10 @@ application's executor, claims one request at a time and runs the existing
 `personal-data-self-service` erasure with independent evidence. No deletion logic lives here.
 This file only supplies the production pieces:
 
-- the custody, transport and fence of the unattended cleanup (#539, ADR-0044), read from that
-  tool's own protected configuration, so both erasures share one ledger and one archive;
+- the custody and transport of the unattended cleanup (#539, ADR-0044), read from that tool's
+  own protected configuration, so both erasures share one ledger and one archive. The transport
+  runs in its self-service mode: the erasure's `revoke` step disables only the requesting
+  account, and no global identity fence closes sign-in for everyone else (#564);
 - the management transport: the executor answers only on the application container's
   loopback, so each exchange goes through `docker exec` into that container. The capability
   travels on stdin, never in a command line;
@@ -106,12 +108,15 @@ class ProductionRunner(runner.Runner):
         self.stopped = threading.Event()
 
     def erasure_config(self):
-        """The bridge's configuration from the cleanup's custody, transport and fence; rebuilt per claim."""
-        ledger, fence = cleanup.commands(self.cleanup)
-        host = ledger[ledger.index('--host-command') + 1]
+        """The bridge's configuration from the cleanup's custody and transport; rebuilt per claim."""
+        ledger, _fence = cleanup.commands(self.cleanup)
+        host = shlex.split(ledger[ledger.index('--host-command') + 1])
+        require(host.count('--identity-cleanup') == 1, 'Unexpected cleanup transport.')
+        # The same transport, in its self-service mode: per-account protection, no global fence.
+        host[host.index('--identity-cleanup')] = '--self-service'
         c = self.cleanup
-        return {'policy': 'independent', 'issuer': core.ISSUER, 'host_command': shlex.split(host),
-                'maintenance_command': fence, 'cloud_copies': c['cloudCopies'],
+        return {'policy': 'independent', 'issuer': core.ISSUER, 'host_command': host,
+                'cloud_copies': c['cloudCopies'],
                 'ledger': c['ledger'], 'ledger_copy': c['ledgerCopy'], 'proof_root': c['proofRoot'],
                 'archive_root': c['archiveRoot'], 'archive_copy': c['archiveCopy'], 'gnupg_home': c['gnupgHome'],
                 'recipient': c['recipient'], 'signer': c['signer'], 'holds': c['holds']}

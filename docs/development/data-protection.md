@@ -162,7 +162,8 @@ promise staffed or immediate support.
 5. Self-service export and automatic erasure are functionally implemented in #272. Production
    runs the protected runner on the VPS with the #539 custody
    ([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md), #543),
-   pending its activation and synthetic qualification. The protected runner
+   active since 2026-11-15 after its synthetic qualification. Each erasure closes only the
+   requesting account, never sign-in for others (#564). The protected runner
    automatically claims persisted requests and reuses #274 without manual fulfillment;
    local/disposable functional evidence does not establish physical independence. The principal/session is the authorization source; a recent
    OIDC authentication and CSRF protect deliberate deletion. The supported JSON covers

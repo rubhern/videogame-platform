@@ -35,9 +35,15 @@ A supervised systemd runner on the VPS processes self-service requests with the 
   - The upgrader adds the settings and the empty capability off. It turns them on only forward,
     after checking the capability, and refuses a release that would silently disable them.
 - **Custody:** the runner reads the cleanup's protected configuration, so both erasures use one
-  ledger, one archive, the same keys, the same identity transport and the same deny/drain fence.
-  Each erasure enters the fence for its own steps, including when it resumes after an
-  interruption.
+  ledger, one archive, the same keys and the same identity transport.
+- **Per-account protection** ([#564](https://github.com/rubhern/videogame-platform/issues/564)):
+  a self-service erasure does not enter the global deny/drain fence. The transport's
+  `--self-service` mode runs the existing steps without it. The first step disables the
+  requesting account, signs out its Keycloak and BFF sessions and proves that none remains.
+  Every later step refuses while the account is enabled, and a resumed erasure repeats that step.
+  The cleanup keeps the global fence, because one of its candidates could verify while it is
+  being erased; a self-service request concerns one known account whose request is already
+  committed.
 - **Transport:** each exchange runs `docker exec` into the one running application container and
   reaches the loopback management port with the image's `nc`. The capability travels on stdin,
   never in a command line. Nothing is published.
@@ -63,8 +69,11 @@ A supervised systemd runner on the VPS processes self-service requests with the 
 
 - **Residual risk:** ADR-0044's residual risk now also covers self-service erasures. A VPS
   compromise can read the archived emails of deleted accounts.
-- **Identity outage:** each self-service erasure closes the identity host behind its maintenance
-  response for its steps, as a cleanup round does.
+- **No identity outage:** sign-in, registration and the owner's private administration stay
+  open for every other account during a self-service erasure. The first production erasure
+  under the global fence, on 2026-11-15, closed them for one to two minutes; #564 removed that.
+- **Re-registration:** while the disabled account exists, its email cannot register again. After
+  the deletion, a registration with the same email is a new, unrelated account.
 - **Contention:** a self-service erasure and the daily cleanup can collide on the ledger lock. The
   loser retries: five minutes for the runner, the next day for the cleanup, with its alert.
 - **Releases:** an upgrade pauses admission for its duration, and a request already admitted waits
@@ -72,7 +81,6 @@ A supervised systemd runner on the VPS processes self-service requests with the 
 
 ## Revisit when
 
-- Deletion volume makes the per-erasure identity fence noticeable.
 - The archive must become unreadable from the VPS (ADR-0044).
 - The management port gains authentication for every operation, which would allow a direct
   private listener.
