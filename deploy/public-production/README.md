@@ -1105,7 +1105,10 @@ owns why it runs on the VPS, which keys and identities it holds, and the accepte
 checks. `run` completes any incomplete erasure with `retry`, then runs `cleanup-unverified
 --execute` with the transport and fence above, and records its status. `check` does the same
 validation, lists the ledger and probes for candidates, without entering maintenance. The
-[service and timer](systemd/) run it daily at 06:15 UTC.
+[service and timer](systemd/) run it daily at 03:00 Madrid time, outside user hours, because a
+round with candidates closes identity for one to two minutes. Deployments never change an
+installed timer: after a timer change, reinstall the timer file from the installed release
+and run `systemctl daemon-reload`.
 
 Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-only directories,
 `0600` files). Use nothing from the owner's personal keyring and none of the backup identities.
