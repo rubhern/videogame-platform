@@ -15,6 +15,30 @@ or is skipped unexpectedly, and also when an inapplicable job runs unexpectedly.
 Unknown paths and changes to shared CI/classification logic select broad validation.
 Secret scanning remains applicable to every pull request.
 
+### Environment admission
+
+Trusted `main` publishes the verified application image after the source secret
+scan and the application build, runtime and image checks. The complete integration
+and security suites continue in parallel. Private-dev can proceed once its own
+checks have passed for that SHA and digest. The selection includes the source
+checks, the published image, and affected deployment risks such as OpenAPI, real
+PostgreSQL migrations, identity and private-dev runtime. It covers the entire
+change from the last proven private-dev deployment. A failed, cancelled or
+unexpectedly skipped required check refuses promotion. CI and unclassified
+changes, an unavailable baseline, or the owner's full-CI fallback require the
+complete gates. The [private-dev operator guide](../../deploy/private-dev/README.md#promote-and-verify)
+explains how to use the fallback.
+
+Production qualification requires the complete successful trusted-main quality
+and security runs and current publication evidence for the application and all
+production dependency images of the selected SHA. A release-only failure may
+leave private-dev eligible. The production verifier always requires its own
+evidence and verifies it again before the protected host and recovery steps. See
+the [candidate procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+and the [delivery lifecycle](delivery-lifecycle.md#production-upgrade-compatibility).
+
+## Validation commands
+
 | Area | Main local entry point |
 |---|---|
 | Documentation | `bash scripts/validate-docs.sh` |
@@ -101,8 +125,12 @@ conditions; time to merge-ready is measured from the earliest paired workflow cr
 to completion of both required gates, excluding publication. Scheduling wait includes
 workflow orchestration and is not a precise per-job runner queue metric. Failed,
 cancelled and rerun attempts are excluded from the successful-run distribution and
-must be investigated separately. Keep run links, timing evidence, cache limitations,
-risks and rollback in the issue/PR, rather than copying a changing baseline here.
+must be investigated separately. For delivery timing, launch the private-dev
+workflow immediately after merge and record push, application publication,
+private-dev verification, deployment receipt, and full release evidence times.
+Track time waiting for dispatch separately and sum the job durations for runner
+usage. Keep run links, timing evidence, cache limitations, risks and rollback in
+the issue or PR.
 
 Independent container/runtime checks may run in parallel; every applicable result
 remains required. Production runtime operations, observability and edge exercises run
@@ -110,7 +138,9 @@ concurrently on one runner with separate disposable topologies; every branch res
 is checked. The packaged browser suite is sharded over independent disposable
 application/database stacks; the complete suite still runs locally by default. Every
 matrix leg remains required, including cancellation and unexpected-skip handling.
-The identity gate runs its independent topologies as parallel legs
+The browser and applicable identity legs download the same JAR from their
+workflow run. The producer runs Maven tests when the backend gate is inapplicable.
+Each leg still builds its own disposable test topology. The identity gate runs its independent topologies as parallel legs
 of one required check, each with its own disposable Keycloak, PostgreSQL and BFF, because
 the timed journeys mutate realm and client state. Packaged browser/identity journeys may
 omit duplicate Maven tests only when the separate backend gate is required for that

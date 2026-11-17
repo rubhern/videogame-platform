@@ -45,6 +45,16 @@ run_case() {
 run_case "catalogue localization" "tools/catalogue-localization/helper.py" "backend,container,codeql_java" "frontend,identity,browser"
 run_case "localization dependencies" "tools/catalogue-localization/runtime-requirements.txt" "backend,container,dependencies,codeql_java" "frontend,identity,browser"
 
+run_case application-image-validator \
+  'scripts/validate-container-image.sh' \
+  'container,build,frontend,backend' \
+  'private_dev_runtime,localization_image,production_runtime'
+
+run_case private-notifications \
+  'deploy/private-dev/grafana/check-notifications.py' \
+  'private_dev_runtime,container,production_runtime' \
+  'localization_image'
+
 run_case docs-only \
   'docs/product/product-brief.md' \
   'documentation' \
@@ -451,5 +461,6 @@ if ((failures > 0)); then
 fi
 
 python3 "$repository_root/scripts/test-ci-delivery.py"
+python3 "$repository_root/scripts/test-private-dev-promotion.py"
 
 printf 'CI change-detection tests passed.\n'
