@@ -131,6 +131,8 @@ SETTING_TRANSITIONS = {
     # runtime-inputs.env; one switch drives both, as validate_runtime requires.
     ('grafana', 'GRAFANA_TELEGRAM_ENABLED'): (('false', 'true'), ('true', 'false')),
     ('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'): (('false', 'true'), ('true', 'false')),
+    # #451: the Go heap target follows Prometheus's raised 192 MiB ceiling; roll forward only.
+    ('prometheus', 'GOMEMLIMIT'): ('64MiB', '128MiB'),
 }
 # Grafana loads only the datasources it provisions; every other plugin stays disabled. Each reviewed
 # policy enables one more: ADR-0040 Loki, then ADR-0046 Tempo. An upgrade only moves forward to the last.

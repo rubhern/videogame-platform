@@ -722,7 +722,7 @@
               "datasourceUid": "private-dev-prometheus",
               "model": {
                 "refId": "A",
-                "expr": "((production_container_memory_bytes / production_container_memory_limit_bytes) >= 0.85 and (production_container_memory_bytes / production_container_memory_limit_bytes) < 0.95) * 0 + 1",
+                "expr": "((((production_container_memory_anon_bytes + production_container_memory_shmem_bytes) or production_container_memory_bytes) / production_container_memory_limit_bytes) >= 0.85) * 0 + 1",
                 "instant": true,
                 "range": false,
                 "format": "table",
@@ -770,6 +770,7 @@
           "noDataState": "OK",
           "execErrState": "KeepLast",
           "for": "2m",
+          "keepFiringFor": "10m",
           "annotations": {
             "summary": "{{ $labels.service }}: Container memory pressure warning",
             "action": "Inspect working set and pressure for the affected service. Pause product background work or reduce monitoring collection/query concurrency; do not raise the VPS envelope.",
@@ -876,7 +877,7 @@
               "datasourceUid": "private-dev-prometheus",
               "model": {
                 "refId": "A",
-                "expr": "((production_container_memory_bytes / production_container_memory_limit_bytes) >= 0.95) * 0 + 1",
+                "expr": "((((production_container_memory_anon_bytes + production_container_memory_shmem_bytes) or production_container_memory_bytes) / production_container_memory_limit_bytes) >= 0.95) * 0 + 1",
                 "instant": true,
                 "range": false,
                 "format": "table",
@@ -924,6 +925,7 @@
           "noDataState": "OK",
           "execErrState": "KeepLast",
           "for": "1m",
+          "keepFiringFor": "10m",
           "annotations": {
             "summary": "{{ $labels.service }}: Container memory pressure critical",
             "action": "Inspect working set and pressure for the affected service. Pause product background work or reduce monitoring collection/query concurrency; do not raise the VPS envelope.",
@@ -953,7 +955,7 @@
               "datasourceUid": "private-dev-prometheus",
               "model": {
                 "refId": "A",
-                "expr": "(rate(production_container_cpu_throttled_periods_total[5m]) / clamp_min(rate(production_container_cpu_periods_total[5m]), 0.001) > 0.2) * 0 + 1",
+                "expr": "((rate(production_container_cpu_throttled_periods_total[5m]) / clamp_min(rate(production_container_cpu_periods_total[5m]), 0.001) > 0.2) and (rate(production_container_cpu_seconds_total[5m]) / production_container_cpu_limit_cores > 0.5)) * 0 + 1",
                 "instant": true,
                 "range": false,
                 "format": "table",
@@ -1001,9 +1003,10 @@
           "noDataState": "OK",
           "execErrState": "KeepLast",
           "for": "10m",
+          "keepFiringFor": "10m",
           "annotations": {
             "summary": "{{ $labels.service }}: Sustained container CPU throttling",
-            "action": "Compare CPU quota and pressure with traffic. Pause background work first.",
+            "action": "The container is throttled while using more than half its CPU quota, so the quota is slowing real work. Compare with traffic and pause background work first. Throttling of a nearly idle container is burst noise and never fires.",
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#production-monitoring",
             "__dashboardUid__": "vgp-production",
             "__panelId__": "6",

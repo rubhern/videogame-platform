@@ -657,5 +657,17 @@ done < <(git ls-files)
   exit 1
 }
 
+# The plain-language Grafana guide names every provisioned alert rule and no retired one.
+python3 - <<'PY'
+import json, re, sys
+sources = ["deploy/public-production/observability/grafana/alerts.json",
+           "deploy/private-dev/grafana/provisioning/alerting/private-dev.json",
+           "deploy/private-dev/grafana/provisioning/alerting/product-activity.json"]
+rules = {rule["uid"] for source in sources for group in json.load(open(source))["groups"] for rule in group["rules"]}
+named = set(re.findall(r"\(`((?:prod|vgp)-[a-z0-9-]+)`\)", open("docs/development/grafana-guide.md").read()))
+if rules != named:
+    sys.exit(f"Grafana guide alert list is out of date. Missing: {sorted(rules - named)}; retired: {sorted(named - rules)}")
+PY
+
 git diff --check
 printf 'Documentation validation passed.\n'
