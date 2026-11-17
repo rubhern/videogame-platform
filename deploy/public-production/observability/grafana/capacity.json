@@ -134,6 +134,7 @@
     {
       "id": 5,
       "title": "Container memory headroom",
+      "description": "Memory the kernel cannot reclaim (anonymous plus shared) against each container limit, the reading the memory pressure alerts judge. Reclaimable file cache is excluded; a missing breakdown falls back to total usage.",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -148,7 +149,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "production_container_memory_bytes / production_container_memory_limit_bytes",
+          "expr": "((production_container_memory_anon_bytes + production_container_memory_shmem_bytes) or production_container_memory_bytes) / production_container_memory_limit_bytes",
           "legendFormat": "{{service}}"
         }
       ],
