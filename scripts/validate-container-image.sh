@@ -99,6 +99,19 @@ assert(readiness.response.ok && JSON.parse(readiness.body).status === "UP", "rea
 const root = await request("/");
 assert(root.response.ok && root.body.includes('<div id="root">'), "packaged frontend is missing");
 
+// Microsoft verifies the Entra publisher domain (#548) by fetching this exact file from the
+// product origin: it must be the packaged JSON, never the SPA entry point.
+const publisherDomain = await request("/.well-known/microsoft-identity-association.json");
+assert(publisherDomain.response.ok, "Microsoft publisher-domain file is missing");
+assert(
+  publisherDomain.response.headers.get("content-type")?.includes("application/json"),
+  "Microsoft publisher-domain file is not JSON",
+);
+assert(
+  JSON.parse(publisherDomain.body).associatedApplications?.[0]?.applicationId?.length === 36,
+  "Microsoft publisher-domain file has no application",
+);
+
 const browserRoute = await request("/games/pragmata");
 assert(
   browserRoute.response.ok && browserRoute.body.includes('<div id="root">'),

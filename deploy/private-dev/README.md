@@ -587,7 +587,7 @@ against an existing local realm; a freshly imported local realm already declares
 
 ## Google and Microsoft sign-in
 
-Post-MVP (#548, implemented; awaiting owner review; not run on `vgpdev`).
+Post-MVP (#548; enabled on `vgpdev` on 2026-11-17 with both providers).
 [ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
 owns the decision. The promoted Keycloak image already carries the brokered-terms authenticator
 and the theme. The providers exist only after this command adds them to the existing realm.
