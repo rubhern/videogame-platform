@@ -2244,9 +2244,13 @@ owns policy. The [workflow](../../.github/workflows/deploy-production.yml),
 [evidence verifier](../../scripts/production_deployment_evidence.py) and
 [ephemeral recovery adapter](../../scripts/production_recovery_executor.py) own mechanics.
 
-The exact dispatch SHA stays selected if `main` advances during approval. Existing CI, Security
-and all image-publication verifiers derive versions/digests/fingerprints; the host independently
-rechecks them and both approvals. It exports only authenticated operational trees and migrations
+Before deploying a group of private-dev changes, run **Qualify Production
+candidate** on `main` with the full SHA and application digest from the accepted
+private-dev promotion. Keep the successful summary with the release evidence. Supply the verified SHA and digest when dispatching
+**Deploy Production**. The workflow refuses if `main` advanced before dispatch
+or the digest has changed. The exact dispatch SHA stays selected if `main` advances during
+approval. The [production admission policy](../../docs/development/continuous-integration.md#environment-admission)
+owns the required evidence. The host independently rechecks it and both approvals. It exports only authenticated operational trees and migrations
 from that Git commit. No workflow input supplies a shell command, root path, image or fingerprint.
 
 The protected jobs wait up to ten minutes for both owner approvals before using production

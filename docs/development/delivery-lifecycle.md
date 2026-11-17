@@ -34,8 +34,9 @@ success/failure criteria, evidence, and adopt/change/reject decision.
 Use short-lived branches from current `main` and focused English commits. Material
 changes use a pull request describing scope, compatibility/version impact, API/data/
 security/accessibility/operations impact, validation, and residual risk. Required
-checks must pass and the owner reviews the complete diff. AI assistance is a second
-pass, not independent approval.
+checks must pass. The owner can enable GitHub auto-merge on a reviewed pull
+request without submitting a formal GitHub approval. AI assistance is a second
+pass. The owner still makes the deployment and release decisions.
 
 ## Semantic Versioning
 
@@ -87,8 +88,10 @@ owner, and expiry/removal condition.
 - Review dependency purpose, compatibility, licence, security, and rollback.
 - A merge or published image is not product acceptance. A named private release
   records version/tag, accepted journey evidence, known limits, and image digest.
-- Private-dev application promotion requires an explicit owner dispatch on main after
-  trusted-main evidence; dispatch is the sole human deployment approval. The dev
+- Private-dev application promotion requires an explicit owner dispatch on main.
+  It can be dispatched as soon as the merge lands. Only the
+  [private-dev admission evidence](continuous-integration.md#environment-admission)
+  needs to be ready to start promotion. Dispatch is the sole human deployment approval. The dev
   environment holds secrets and restricts the branch without a second reviewer gate.
   Successful deployment automation
   records technical smoke evidence; the owner still accepts the product/release.
@@ -97,8 +100,10 @@ owner, and expiry/removal condition.
   ([ADR-0039](../decisions/0039-let-private-dev-promotion-install-its-own-revision.md));
   only new secrets, model weights and realm/role state remain owner steps. See the
   [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
-- Private-production deployment requires manual dispatch of exact `main` and owner approval
-  in the protected `production` environment. The
+- Production deployment requires a selected, fully qualified `main` revision and
+  its immutable images. Group accepted private-dev changes into one candidate and
+  qualify its exact SHA before dispatch. Production deployment requires manual dispatch
+  of exact `main` and owner approval in the protected `production` environment. The
   [Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
   reuses the existing forward-only updater, durable S3 pair and isolated restore in a separate
   protected `production-recovery` job, under [ADR-0036](../decisions/0036-use-protected-actions-for-production-recovery.md).

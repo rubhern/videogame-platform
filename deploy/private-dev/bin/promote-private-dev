@@ -27,12 +27,17 @@ def installation_require(condition, message):
         raise RuntimeError(message)
 
 
+# Private-dev promotion protocol accepts a checked baseline.
 def parse_command(command):
     require(len(command) <= 300, "Promotion request exceeds the fixed protocol bound.")
     parts = shlex.split(command)
-    require(len(parts) == 5 and parts[0] == "promote", "Only the fixed promotion command is permitted.")
-    _, revision, digest, run_id, attempt = parts
+    require(len(parts) in (5, 6) and parts[0] == "promote", "Only the fixed promotion command is permitted.")
+    _, revision, digest, run_id, attempt = parts[:5]
     validate_inputs(revision, digest, run_id, attempt)
+    if len(parts) == 6:
+        baseline = parts[5]
+        validate_source_run(baseline, run_id, attempt)
+        return revision, digest, run_id, attempt, baseline
     return revision, digest, run_id, attempt
 
 
@@ -71,7 +76,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
-from private_dev_promotion import IMAGE_REPOSITORY, Refused, require, validate_inputs  # noqa: E402
+from private_dev_promotion import IMAGE_REPOSITORY, Refused, require, validate_inputs, validate_source_run  # noqa: E402
 
 
 def git(*arguments, attempts=1):
@@ -86,7 +91,23 @@ def git(*arguments, attempts=1):
     raise Refused(f"git {arguments[0]} failed on the private host: {reason}")
 
 
-def install_revision(revision):
+def verify_deployed_base(baseline):
+    require(git("rev-parse", "HEAD").strip() == baseline,
+            "Private-dev checkout changed since CI selection; use full CI or select again.")
+    containers = subprocess.run(
+        ["docker", "ps", "--filter", "label=com.docker.compose.project=videogame-platform-dev",
+         "--filter", "label=com.docker.compose.service=application", "--format", "{{.ID}}"],
+        env=SAFE_ENV, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    require(len(containers) == 1, "Private-dev needs exactly one running baseline application.")
+    deployed = subprocess.run(
+        ["docker", "inspect", "--format", '{{index .Config.Labels "org.opencontainers.image.revision"}}',
+         containers[0]], env=SAFE_ENV, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    require(deployed == baseline, "Private-dev application changed since CI selection; use full CI or select again.")
+
+
+def install_revision(revision, baseline=None):
     """Move the root-owned checkout to the promoted main commit.
 
     The deployment tooling, Compose files and runtime configuration therefore always
@@ -99,6 +120,8 @@ def install_revision(revision):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise Refused("Another private-dev deployment is running; dispatch again after it finishes.") from None
+        if baseline:
+            verify_deployed_base(baseline)
         git("fetch", "--quiet", "--no-tags", "origin", "main", attempts=3)
         ancestry = subprocess.run(["git", "-C", str(REPOSITORY_ROOT), "merge-base", "--is-ancestor", revision, "origin/main"],
                                   env=SAFE_ENV, capture_output=True, check=False)
@@ -116,10 +139,10 @@ def install_revision(revision):
 
 
 def promote(command):
-    revision, digest, run_id, attempt = parse_command(command)
+    revision, digest, run_id, attempt, *baselines = parse_command(command)
     require(socket.gethostname().split(".")[0] == "vgpdev", "Promotion is permitted only on vgpdev.")
     verify_runtime_project()
-    install_revision(revision)
+    install_revision(revision, *baselines)
     # The deployment script of the installed revision binds the supplied digest to
     # this SHA's published GHCR tag, inspects the pulled image's OCI labels and
     # reconciles the persistent services with the revision's Compose definition.
