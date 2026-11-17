@@ -29,6 +29,17 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = Path('/etc/gameometro/production/deploy.json')
 WORKFLOW = '.github/workflows/deploy-production.yml'
 BACKUP_UNITS = Path('/etc/systemd/system')
+CLEANUP_UNIT = 'gameometro-unverified-cleanup.service'
+CLEANUP_CONFIG = Path('/etc/gameometro/production/unverified-cleanup.json')
+# #543: the self-service deletion runner, likewise held to its one reviewed command line.
+DELETION_UNIT = 'gameometro-account-deletion.service'
+DELETION_CONFIG = Path('/etc/gameometro/production/account-deletion.json')
+# #550: the host telemetry sampler, held to its one reviewed command line once the owner installs it.
+TELEMETRY_UNIT = 'gameometro-telemetry.service'
+TELEMETRY_EVIDENCE = Path('/etc/gameometro/production/observability')
+TELEMETRY_ARGUMENTS = ('--output /var/lib/gameometro/production/metrics/host.prom'
+                       f' --offhost-evidence {TELEMETRY_EVIDENCE}/offhost.json --backup-receipt {TELEMETRY_EVIDENCE}/backup.json'
+                       f' --capacity-evidence {TELEMETRY_EVIDENCE}/capacity.json --cleanup-receipt {TELEMETRY_EVIDENCE}/unverified-cleanup.json')
 OPERATIONS = Path('/srv/gameometro/operations')
 EXPORT = ('deploy/', 'docker/', 'scripts/', 'tools/', 'backend/src/main/resources/db/migration/')
 require = trust.require
@@ -233,16 +244,32 @@ def load_cycle(path):
 
 
 def backup_units(config_path, target_source, apply=False):
-    """Retarget only the two existing backup service ExecStarts; never touch timers."""
+    """Retarget only the existing backup, cleanup and telemetry service ExecStarts; never touch timers.
+
+    The cleanup (#539), deletion (#543) and telemetry (#550) services are optional until the owner
+    installs them;
+    once present each is held to its reviewed pattern, so a release never leaves it running a
+    superseded bundle.
+    """
     units = []
-    for name, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+    tool = lambda name: 'deploy/public-production/bin/' + name
+    services = [('gameometro-backup.service', tool('backup-cycle'), 'run --config ' + str(config_path)),
+                ('gameometro-backup-reconcile.service', tool('backup-cycle'), 'reconcile --config ' + str(config_path))]
+    if (BACKUP_UNITS / CLEANUP_UNIT).exists():
+        services.append((CLEANUP_UNIT, tool('unverified-cleanup'), 'run --config ' + str(CLEANUP_CONFIG)))
+    if (BACKUP_UNITS / DELETION_UNIT).exists():
+        services.append((DELETION_UNIT, tool('account-deletion'), 'run --config ' + str(DELETION_CONFIG)))
+    if (BACKUP_UNITS / TELEMETRY_UNIT).exists():
+        services.append((TELEMETRY_UNIT, 'deploy/public-production/observability/sample-host.py', TELEMETRY_ARGUMENTS))
+    for name, script, arguments in services:
         path = BACKUP_UNITS / name
         install.secure(path, mode=0o644)
         fragment = invoke(['/usr/bin/systemctl', 'show', name, '--property=FragmentPath', '--value']).decode().strip()
         drops = invoke(['/usr/bin/systemctl', 'show', name, '--property=DropInPaths', '--value']).strip()
         require(fragment == str(path), 'Backup service has an unexpected source.')
         override = path.parent / (name + '.d') / 'keyring.conf'
-        require(drops.decode().split() in ([], [str(override)]), 'Backup service has an unreviewed override.')
+        accepted = ([], [str(override)]) if script.endswith('/backup-cycle') else ([],)
+        require(drops.decode().split() in accepted, 'Backup service has an unreviewed override.')
         if drops:
             install.secure(override, mode=0o644)
             require(override.stat().st_size <= 4096, 'Oversized backup override.')
@@ -253,18 +280,23 @@ def backup_units(config_path, target_source, apply=False):
         text = path.read_text()
         lines = re.findall(r'^ExecStart=(.+)$', text, re.M)
         require(len(lines) == 1, 'Unexpected backup service command inventory.')
-        allowed = (r'/usr/bin/python3 (?:/srv/gameometro/installations/[0-9a-f]{12}-private/candidate|/opt/gameometro/runtime)'
-                   + r'/deploy/public-production/bin/backup-cycle ' + command + r' --config ' + re.escape(str(config_path)))
+        allowed = (r'/usr/bin/python3 (?:/srv/gameometro/installations/[0-9a-f]{12}-private/candidate|/opt/gameometro/runtime)/'
+                   + re.escape(script + ' ' + arguments))
         require(re.fullmatch(allowed, lines[0]), 'Installed backup service command differs from the reviewed pattern.')
-        replacement = '/usr/bin/python3 ' + str(target_source / 'deploy/public-production/bin/backup-cycle') + ' ' + command + ' --config ' + str(config_path)
+        replacement = '/usr/bin/python3 ' + str(target_source / script) + ' ' + arguments
         units.append((path, text, text.replace('ExecStart=' + lines[0], 'ExecStart=' + replacement)))
     if apply:
-        # Validate BOTH units before changing either. A partial update is recoverable and never thaws.
+        # Validate every unit before changing any. A partial update is recoverable and never thaws.
         for path, before, after in units:
             require(path.read_text() == before, 'Backup service drifted before reconciliation.')
             if before != after:
                 admin.write_unit(path, after)
         invoke(['/usr/bin/systemctl', 'daemon-reload'])
+        # Timers start the others afresh; the long-running deletion runner must restart onto the new
+        # release. Without waiting: it first finishes its current erasure, and it is restarted only if
+        # it already runs.
+        if any(path.name == DELETION_UNIT and before != after for path, before, after in units):
+            invoke(['/usr/bin/systemctl', 'try-restart', '--no-block', DELETION_UNIT])
     return units
 
 

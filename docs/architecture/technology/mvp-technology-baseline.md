@@ -12,7 +12,7 @@ the lock file, Dockerfile, and Compose file.
 | Backend | Java 25, preview disabled; Spring Boot 4.1; Spring MVC; Spring Modulith 2.1; Maven Wrapper |
 | Persistence | PostgreSQL 18; Flyway Community SQL-first immutable migrations; JPA/Hibernate only in adapters; explicit JDBC/SQL read models where clearer; Testcontainers PostgreSQL |
 | API | OpenAPI 3.1.2; Redocly validation/reference; Maven OpenAPI Generator interfaces/models; manual delivery mapping |
-| Frontend | Node.js 24/npm 11; React 19.2; strict TypeScript; Vite 8.1; React Router; TanStack Query; Tailwind CSS 4; openapi-typescript/openapi-fetch |
+| Frontend | Node.js 24/npm 11; React 19.2; strict TypeScript 7 checking; Vite 8.1; React Router; TanStack Query; Tailwind CSS 4; openapi-typescript/openapi-fetch |
 | Documentation portal | Astro 7 / Starlight; static generation, local Pagefind search; existing Node.js/npm baseline; derived Mermaid and Structurizr SVGs; non-root Nginx static serving |
 | Catalogue localization | Product-curated Spanish taxonomy labels; OPUS-MT EN→ES / CTranslate2 CPU; Python 3.12 private acquisition helper under [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md); PyTorch/Transformers for model conversion only |
 | Identity | Keycloak 26.7 via same-origin server-side OIDC BFF |
@@ -33,6 +33,10 @@ the lock file, Dockerfile, and Compose file.
 - Coverage is evidence, not an arbitrary global percentage target. Prefer behaviour,
   architecture, real PostgreSQL, contract, identity, browser, and failure tests at
   meaningful seams.
+- The frontend type check invokes the native TypeScript compiler explicitly.
+  ESLint and OpenAPI type generation use the TypeScript 5 JavaScript API until
+  both tools support the native compiler API. See the [frontend package](../../../frontend/package.json)
+  for the exact pins.
 - Pin executable versions and lock dependency graphs. Review release notes,
   compatibility, security, licence, runtime architecture support, and rollback before
   upgrades. Do not copy patch versions into prose.

@@ -1,6 +1,6 @@
 # Gameómetro: textos legales aprobados
 
-- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision. The consent-gated analytics amendments to the privacy policy and cookies sections ([#507](https://github.com/rubhern/videogame-platform/issues/507)) were drafted with agent assistance on 2026-11-09 and approved by the owner on 2026-11-11; they take effect when production serves the configured measurement ID. The owner approved revised registration eligibility and acceptance in #472; the revised wording takes effect on deployment.
+- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision. The consent-gated analytics amendments to the privacy policy and cookies sections ([#507](https://github.com/rubhern/videogame-platform/issues/507)) were drafted with agent assistance on 2026-11-09 and approved by the owner on 2026-11-11; they take effect when production serves the configured measurement ID. The owner approved revised registration eligibility and acceptance in #472; the revised wording takes effect on deployment. The Google and Microsoft sign-in additions to the privacy policy ([#548](https://github.com/rubhern/videogame-platform/issues/548)) were drafted with agent assistance on 2026-11-14 and approved by the owner on 2026-11-16; they take effect when production enables either provider.
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
 - **Scope:** Approved wording for a public, free, non-commercial service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
@@ -54,6 +54,16 @@ nacimiento ni documento de identidad al registrarte. Debes verificar el email an
 de usar la cuenta. Los requisitos de edad se indican en las condiciones de uso.
 Sin el email y los datos de autenticación no podemos ofrecerte una cuenta; puedes
 seguir consultando el catálogo.
+
+Si eliges «Continuar con Google» o «Continuar con Microsoft», ese proveedor comprueba tu
+identidad y nos comunica el identificador de tu cuenta en él y tu email; Google indica
+además si ese email está verificado. Guardamos ese identificador vinculado a tu cuenta de
+Gameómetro. No recibimos la contraseña de ese proveedor ni guardamos sus credenciales de
+acceso, y no conservamos tu nombre ni otros datos de tu perfil aunque el proveedor los
+envíe. Si el email de Microsoft no está verificado, te pediremos verificarlo. Si ya tenías
+una cuenta con ese email, solo la vinculamos cuando confirmas que es tuya con su
+contraseña. Al crear la cuenta de este modo aceptas las mismas condiciones de uso. Siempre
+puedes entrar con tu email creando una contraseña desde «¿Has olvidado tu contraseña?».
 
 Guardamos tus puntuaciones, el juego al que corresponden y las fechas de creación y
 modificación. Tu lista personal no se publica. Cada puntuación contribuye a la media,
@@ -156,6 +166,13 @@ amparan en el Marco de Privacidad de Datos UE-EE. UU., en el que Google LLC est�
 certificada, y en cláusulas contractuales tipo cuando proceda. Tienes más información en
 [cómo utiliza Google los datos de los sitios que usan sus servicios](https://policies.google.com/technologies/partner-sites).
 Si rechazas la analítica o no eliges, tu navegador no se conecta con Google Analytics.
+
+Si usas «Continuar con Google» o «Continuar con Microsoft», Google y Microsoft tratan
+como responsables independientes los datos de tu acceso a su servicio, incluido que
+inicias sesión en Gameómetro, según sus propias políticas de privacidad
+([Google](https://policies.google.com/privacy), [Microsoft](https://privacy.microsoft.com/es-es/privacystatement)).
+Gameómetro no les envía tus puntuaciones ni otros datos de tu cuenta. Si no usas estas
+opciones, tu navegador no se conecta con ellos para iniciar sesión.
 
 No se venden tus datos ni se comunican a otros destinatarios salvo las necesidades
 indicadas o una obligación legal. No solicitamos tu consentimiento para publicidad
@@ -428,6 +445,11 @@ for the actual accounts or the IGDB partnership agreement has been executed.
   partnership process, but explicitly does not provide privacy-law assurances or
   replace third-party intellectual-property rights. A draft partnership agreement
   and owner acceptance to proceed do not evidence a signed agreement.
+- **Google and Microsoft sign-in (#548, approved by the owner on 2026-11-16):** the privacy additions
+  describe the data each provider sends (provider account identifier and email; Google's
+  verification flag), that names are not kept, password-only linking, and both providers
+  as independent controllers of their own sign-in service. They take effect when
+  `production_social_sign_in.py --apply` enables either provider.
 - **Supplier references:** Mailjet/Sinch DPA and OVHcloud European data-protection
   and contracts pages are linked above. The OVHcloud US agreement (OVH US LLC) is
   not presented as the agreement for the European account. Actual account/order

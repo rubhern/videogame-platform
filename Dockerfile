@@ -47,7 +47,7 @@ COPY --from=frontend-build /workspace/frontend/dist frontend/dist
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw --batch-mode --no-transfer-progress \
       -Pwith-frontend,production-image \
-      -DskipTests \
+      -Dmaven.test.skip=true \
       -Dsource.revision="${SOURCE_REVISION}" \
       clean package \
     && application_jar="$(bash scripts/backend-artifact.sh jar)" \

@@ -58,15 +58,21 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
     services['caddy'] = service(caddy, volumes=[bind(bundle / 'Caddyfile.private', '/etc/caddy/Caddyfile'),
                                                 {'type': 'volume', 'source': 'caddy-data', 'target': '/data'}])
     services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': scheduling, 'TELEMETRY_SERVICE_VERSION': '1',
-                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro'},
+                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+                                                                upgrade.DELETION_ENABLED: 'false',
+                                                                upgrade.DELETION_CREDENTIAL: '/run/secrets/' + upgrade.DELETION_SECRET},
+                                      secrets=[{'source': upgrade.DELETION_SECRET, 'target': '/run/secrets/' + upgrade.DELETION_SECRET}],
                                       volumes=[bind(candidate / 'deploy/public-production/bin/run-application', '/opt/run-application')])
     services['migration'] = {**service(application, volumes=[bind(candidate / 'deploy/public-production/bin/run-migrations', '/opt/run-migrations'),
                                                              bind(candidate / 'deploy/private-dev/bin/run-migrations', upgrade.MIGRATION_ENTRYPOINT)]), 'restart': 'no'}
     services['catalogue-localizer'] = service(localizer, mem_limit=acceptance.LOCALIZER_MEMORY)
     services['grafana'] = service('grafana@sha256:' + 'f' * 64, environment={
-        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
+        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED': 'false',
+        'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
         volumes=[bind(candidate / 'deploy/private-dev/grafana/dashboards', '/etc/grafana/canonical-dashboards')])
-    return {'name': prepare.PROJECT, 'services': services, 'secrets': {'keycloak_admin_password': {'file': '/s/admin'}},
+    return {'name': prepare.PROJECT, 'services': services,
+            'secrets': {'keycloak_admin_password': {'file': '/s/admin'},
+                        upgrade.DELETION_SECRET: {'file': '/s/account-deletion-executor-capability'}},
             'networks': {'identity-data': {'name': 'n'}}, 'volumes': {'postgres-data': {'name': 'v'}}}
 
 
@@ -575,9 +581,13 @@ class Delta(DeltaFixture):
             'unselected digest': set_service('keycloak', 'image', OLD['keycloak']),
             'scheduling unknown': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'TRUE'),
             'schedule override': environment('application', 'CATALOGUE_SYNC_NEAR_TERM_CRON', '0 * * * * *'),
-            'telegram on': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
-            'deletion overlay': environment('application', 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'true'),
-            'deletion capability': lambda c: c['secrets'].__setitem__('account_deletion_executor_capability', {'file': '/x'}),
+            'telegram flag unknown': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'TRUE'),
+            'product notices without alerts': environment('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'true'),
+            'alerts without product notices': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
+            'deletion flag unknown': environment('application', upgrade.DELETION_ENABLED, 'yes'),
+            'deletion credential elsewhere': environment('application', upgrade.DELETION_CREDENTIAL, '/run/secrets/other'),
+            'deletion private-dev policy': environment('application', 'ACCOUNT_DELETION_COMPLETION_POLICY', 'private-dev'),
+            'deletion capability unmounted': set_service('application', 'secrets', []),
             'localizer ceiling': set_service('catalogue-localizer', 'mem_limit', '100'),
             'plugin policy': environment('grafana', 'GF_PLUGINS_DISABLE_PLUGINS', ''),
             'dashboard unmounted': set_service('grafana', 'volumes', []),
@@ -643,19 +653,123 @@ class ReviewedAdditions(DeltaFixture):
                 with self.assertRaises(trust.Refused):
                     self.reconcile(target)
 
-    def test_grafana_loads_only_loki_and_may_raise_its_process_ceiling(self):
-        target = rendered(self.new_bundle)
-        grafana = target['services']['grafana']
-        grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
-        grafana['pids_limit'] = 160
-        result, changed = self.reconcile(target)
-        self.assertTrue({'environment', 'pids_limit'} <= set(changed['grafana']))
-        upgrade.validate_runtime(result, IMAGES)
-        for policy in ('elasticsearch', upgrade.GRAFANA_DISABLED_PLUGINS.replace(',tempo', '')):
-            with self.subTest(policy):
-                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = policy
+    def test_grafana_loads_only_its_datasources_and_may_raise_its_ceilings(self):
+        # From the accepted policy, or from the ADR-0040 Loki policy already in production.
+        for before in upgrade.GRAFANA_PLUGIN_POLICIES[:-1]:
+            with self.subTest(before=before):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                grafana = target['services']['grafana']
+                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
+                grafana['pids_limit'], grafana['mem_limit'] = 192, '369098752'
+                result, changed = self.reconcile(target)
+                self.assertTrue({'environment', 'pids_limit', 'mem_limit'} <= set(changed['grafana']))
+                upgrade.validate_runtime(result, IMAGES)
+        loki_only = upgrade.GRAFANA_PLUGIN_POLICIES[1]
+        for name, (before, after) in {
+                'unreviewed plugin': (acceptance.DISABLED_PLUGINS, 'elasticsearch'),
+                'another plugin enabled': (loki_only, upgrade.GRAFANA_DISABLED_PLUGINS.replace(',zipkin', '')),
+                'backwards': (upgrade.GRAFANA_DISABLED_PLUGINS, loki_only)}.items():
+            with self.subTest(name):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                target['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = after
                 with self.assertRaises(trust.Refused):
                     self.reconcile(target)
+
+    def with_tempo(self, target=None):
+        target = target or self.with_loki()
+        target['services']['tempo'] = {
+            'image': 'grafana/tempo@sha256:' + 'd' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
+            'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
+            'mem_limit': '335544320', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {'GOMEMLIMIT': '240MiB'}, 'labels': {},
+            'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/tempo.yaml', '/etc/tempo/config.yaml'),
+                        {'type': 'volume', 'source': 'tempo-data', 'target': '/var/tempo'}]}
+        target['volumes']['tempo-data'] = {'name': prepare.PROJECT + '_tempo-data'}
+        return target
+
+    def test_the_reviewed_trace_store_is_added_beside_the_running_log_store(self):
+        # Production already runs Loki (ADR-0040); this target adds only Tempo (ADR-0046).
+        self.active = self.with_loki(self.active)
+        self.active['services']['loki']['volumes'][0]['source'] = str(
+            self.old_bundle / 'candidate/deploy/public-production/observability/loki.yaml')
+        self.active['services']['loki']['labels'] = {k: self.active['services']['application']['labels'][k]
+                                                     for k in (control.RUN_LABEL, control.CONFIG_LABEL)}
+        result, changed = self.reconcile(self.with_tempo())
+        self.assertEqual(changed['tempo'], ['added'])
+        self.assertNotEqual(changed.get('loki'), ['added'])
+        self.assertEqual(result['volumes']['tempo-data'], {'name': prepare.PROJECT + '_tempo-data'})
+        self.assertEqual(result['volumes']['loki-data'], self.active['volumes']['loki-data'])
+        upgrade.validate_runtime(result, IMAGES)
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(images['tempo'], result['services']['tempo']['image'])
+        self.assertNotIn('tempo', keys)
+        self.assertLess(upgrade.OPTIONAL.index('tempo'), upgrade.OPTIONAL.index('grafana'))
+        for name, mutate in {
+                'published port': lambda c: c['services']['tempo'].__setitem__('ports', [{'target': 3200, 'published': '3200'}]),
+                'loki volume': lambda c: c['services']['tempo']['volumes'][1].__setitem__('source', 'loki-data'),
+                'unreviewed volume': lambda c: c['volumes'].__setitem__('traces', {'name': 'x'})}.items():
+            with self.subTest(name):
+                target = self.with_tempo()
+                mutate(target)
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_sampled_trace_export_is_activated_once(self):
+        self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = 'false'
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'].update(
+            TELEMETRY_OTLP_TRACES_ENABLED='true', TELEMETRY_OTLP_TRACES_ENDPOINT='http://telemetry:4318/v1/traces',
+            TELEMETRY_TRACING_SAMPLING_PROBABILITY='0.1')
+        result, changed = self.reconcile(target)
+        self.assertIn('environment', changed['application'])
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({'TELEMETRY_OTLP_TRACES_ENABLED', 'TELEMETRY_OTLP_TRACES_ENDPOINT',
+                         'TELEMETRY_TRACING_SAMPLING_PROBABILITY'} <= set(keys['application']))
+        # Roll forward only: switching export off again, or any other value, is an unreviewed change.
+        for before, after in (('true', 'false'), ('false', 'yes')):
+            with self.subTest(before=before, after=after):
+                self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = before
+                target['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = after
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_alert_and_notice_delivery_is_switched_by_the_owner(self):
+        target = rendered(self.new_bundle)
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        result, changed = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(keys['grafana'], ['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'GRAFANA_TELEGRAM_ENABLED'])
+        # Switching delivery off again is reviewed too; any other value refuses.
+        self.active['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='false', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='false')
+        self.reconcile(target)
+        for key in ('GRAFANA_TELEGRAM_ENABLED', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'):
+            with self.subTest(key=key):
+                broken = copy.deepcopy(target)
+                broken['services']['grafana']['environment'][key] = 'yes'
+                self.assertRaises(trust.Refused, self.reconcile, broken)
+
+    def test_delivery_needs_well_formed_telegram_files(self):
+        secrets = self.root / 'telegram'
+        secrets.mkdir()
+        self.assertFalse(upgrade.telegram_ready(secrets))
+        token, chat = secrets / 'grafana-telegram-bot-token', secrets / 'grafana-telegram-chat-id'
+        token.write_text('')
+        chat.write_text('')
+        self.assertFalse(upgrade.telegram_ready(secrets), 'Empty placeholders keep delivery off.')
+        token.write_text('123456:' + 'A' * 35 + '\n')
+        chat.write_text('-100123\n')
+        self.assertTrue(upgrade.telegram_ready(secrets))
+        for value in ('123456:short', '123456:' + 'A' * 35 + ' x', 'bot123456:' + 'A' * 35):
+            with self.subTest(token=value):
+                token.write_text(value)
+                self.assertFalse(upgrade.telegram_ready(secrets))
+        token.write_text('123456:' + 'A' * 35)
+        chat.write_text('@channel')
+        self.assertFalse(upgrade.telegram_ready(secrets))
 
     def with_feedback(self, target=None):
         target = target or rendered(self.new_bundle)
@@ -666,9 +780,60 @@ class ReviewedAdditions(DeltaFixture):
             {key: '/run/secrets/' + name for name, (_, key) in upgrade.SECRET_ADDITIONS.items()})
         return target
 
+    def without_deletion(self, value):
+        value['services']['application']['environment'].pop(upgrade.DELETION_ENABLED)
+        value['services']['application']['environment'].pop(upgrade.DELETION_CREDENTIAL)
+        value['services']['application']['secrets'] = []
+        value['secrets'].pop(upgrade.DELETION_SECRET)
+        return value
+
+    def test_the_deletion_executor_is_added_off_beside_a_pre_543_runtime(self):
+        self.active = self.without_deletion(self.active)
+        upgrade.validate_runtime(self.without_deletion(rendered(self.new_bundle)), IMAGES)
+        result, changed = self.reconcile()
+        upgrade.validate_runtime(result, IMAGES)
+        self.assertEqual(upgrade.secret_additions(self.active, result), [upgrade.DELETION_SECRET])
+        self.assertIn('secrets', changed['application'])
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({upgrade.DELETION_ENABLED, upgrade.DELETION_CREDENTIAL} <= set(keys['application']))
+
+    def test_self_service_deletion_is_activated_once_and_never_silently_disabled(self):
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        result, _ = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        self.active['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        for value in ('false', 'yes'):
+            with self.subTest(value=value):
+                target['services']['application']['environment'][upgrade.DELETION_ENABLED] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        # A release that drops the executor settings would silently disable it.
+        self.assertRaises(trust.Refused, self.reconcile, self.without_deletion(rendered(self.new_bundle)))
+
+    def test_an_enabled_executor_needs_the_application_owned_capability(self):
+        path = self.root / 'capability'
+        self.assertFalse(upgrade.deletion_capability_ready(path))
+        path.write_text('a' * 64 + '\n')
+        path.chmod(0o600)
+        with patch.object(upgrade, 'APPLICATION_UID', os.getuid()):
+            self.assertTrue(upgrade.deletion_capability_ready(path))
+            for mode in (0o640, 0o604):
+                path.chmod(mode)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.chmod(0o600)
+            for value in ('', 'A' * 64, 'a' * 63, 'g' * 64):
+                path.write_text(value)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.write_text('a' * 64)
+            link = self.root / 'link'
+            link.symlink_to(path)
+            self.assertFalse(upgrade.deletion_capability_ready(link))
+        self.assertFalse(upgrade.deletion_capability_ready(path), 'Another owner than UID 10001 refuses.')
+
     def test_reviewed_secret_additions_are_accepted_with_their_file_settings(self):
         result, changed = self.reconcile(self.with_feedback())
-        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(upgrade.SECRET_ADDITIONS))
+        # The fixture's active runtime already holds the #543 capability.
+        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(set(upgrade.SECRET_ADDITIONS) - {upgrade.DELETION_SECRET}))
         self.assertIn('secrets', changed['application'])
 
     def test_any_other_secret_change_still_refuses(self):
@@ -731,7 +896,7 @@ class ReviewedAdditions(DeltaFixture):
             'unreviewed new input': (previous, {**example, 'PRODUCTION_OTHER': 'x'}, {}),
             'reviewed input with another default': (previous, {**example, 'PRODUCTION_FEEDBACK_ENABLED': 'true'}, {}),
             'removed input': ({**previous, 'PRODUCTION_GONE': 'x'}, example, {}),
-            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_TELEGRAM_ENABLED': 'true'}),
+            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_SECRETS_GID': '901'}),
             'feedback on without an inbox': (previous, example, {'PRODUCTION_FEEDBACK_ENABLED': 'true'}),
         }
         for name, arguments in refusals.items():
@@ -747,6 +912,8 @@ class ReviewedAdditions(DeltaFixture):
             self.assertEqual(actor.owner_inputs()['PRODUCTION_FEEDBACK_ENABLED'], 'true')
             secure.assert_called_with(path, mode=0o600)
             path.write_text('PRODUCTION_TELEGRAM_ENABLED=true\n')
+            self.assertEqual(actor.owner_inputs(), {'PRODUCTION_TELEGRAM_ENABLED': 'true'})
+            path.write_text('PRODUCTION_SECRETS_GID=901\n')
             self.assertRaises(trust.Refused, actor.owner_inputs)
 
     def test_staging_creates_missing_reviewed_secrets_empty_and_never_overwrites(self):
@@ -761,10 +928,21 @@ class ReviewedAdditions(DeltaFixture):
         owners = []
         with patch.object(upgrade.install, 'secure'), \
                 patch.object(upgrade.os, 'fchown', side_effect=lambda fd, uid, gid: owners.append((uid, gid))):
-            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), {'feedback-smtp-username'})
-            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), ['feedback-smtp-username'])
+            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             {'feedback-smtp-username', 'account-deletion-executor-capability'})
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             ['account-deletion-executor-capability', 'feedback-smtp-username'])
             created = secrets_dir / 'feedback-smtp-username'
-            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners), (b'', 0o640, [(0, 900)]))
+            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners[-1]), (b'', 0o640, (0, 900)))
+            # #543: the capability placeholder is created empty only while the executor is off.
+            capability = secrets_dir / 'account-deletion-executor-capability'
+            self.assertEqual(capability.read_bytes(), b'')
+            capability.unlink()
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'true'
+            with self.assertRaisesRegex(trust.Refused, 'provisioned before the upgrade'):
+                actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'false'
+            actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
             self.assertEqual((secrets_dir / 'feedback-smtp-password').read_text(), 'kept')
             self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), [])
             created.unlink()
@@ -1082,7 +1260,7 @@ class Flow(FlowFixture):
             'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'notice:apply', 'realm:apply', 'realm:check', 'notice:check',
             'no-start:caddy,application,catalogue-localizer,grafana', 'roles-login:True', 'gate-open', 'fence-exit',
             'up:telemetry', 'up:prometheus', 'up:node-exporter', 'up:blackbox',
-            'up:caddy', 'up:application', 'up:loki', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
+            'up:caddy', 'up:application', 'up:loki', 'up:tempo', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
         self.assertEqual(self.log.count('gate-open'), 1, 'The gate opens exactly once, at the reviewed reopening.')
         for probe in ('authorization', 'prometheus', 'grafana'):
             self.assertIn('probe:' + probe, self.log)

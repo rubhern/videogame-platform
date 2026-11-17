@@ -171,8 +171,10 @@ services:
       # Native Telegram URLs contain the token; never enable notifier debug logs.
       GF_LOG_LEVEL: info
       GF_LOG_FILTERS: ngalert.notifier.telegram:info
-      GRAFANA_TELEGRAM_ENABLED: ${GRAFANA_TELEGRAM_ENABLED:-false}
-      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: ${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}
+      # #550: private-dev delivers no alert or notice; production Grafana alone notifies the owner.
+      # The shared renderer stays here, proven against an isolated mock, and production reuses it.
+      GRAFANA_TELEGRAM_ENABLED: "false"
+      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: "false"
       GF_SERVER_ROOT_URL: ${PRIVATE_DEV_GRAFANA_ORIGIN:-http://127.0.0.1:3000}
     secrets:
       - grafana_telegram_bot_token

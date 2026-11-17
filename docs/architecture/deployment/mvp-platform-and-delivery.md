@@ -217,12 +217,22 @@ outside every backup and restore, and an optional service for upgrades. Its
 stream, line and query bounds. The sustained rate permits roughly 1.7 GiB of uncompressed
 input per day; plan **8 GiB of host disk for Loki** as a stop/review threshold, not a quota.
 
-Telemetry, metrics/log storage and Grafana are never application startup/readiness
-or request dependencies. Trace storage and remote export remain deferred. Private-dev
+Production traces follow [ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md):
+one request in ten is exported over OTLP → the same Collector → one Tempo on the internal
+telemetry network → production Grafana, linked to and from the Loki logs. Tempo keeps 72 hours
+in its own disposable named volume, outside every backup and restore, and is an optional
+service for upgrades. Its [configuration](../../../deploy/public-production/observability/tempo.yaml)
+owns ingestion, trace-size and query bounds; plan **4 GiB of host disk for Tempo** as a
+stop/review threshold.
+
+Telemetry, metrics/log/trace storage and Grafana are never application startup/readiness
+or request dependencies. Private-dev trace storage (#230) and remote export remain deferred. Private-dev
 [Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
-the existing stack. Native Telegram is prepared but disabled by default; its protected
-activation and the separable optional Keycloak growth scrape are owned by the
-[private-dev procedure](../../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+the existing stack and deliver nothing: only production Grafana sends alerts to the
+owner's Telegram, through the
+[production procedure](../../../deploy/public-production/README.md#host-telemetry-and-alert-delivery)
+(#550). The separable optional Keycloak growth scrape is owned by the
+[private-dev procedure](../../../deploy/private-dev/README.md#separable-product-growth-rollout).
 The single optimized private Keycloak image compiles native event-metrics support;
 other consumers of the shared recipe retain its disabled build default.
 Base configuration bounds collection to registration/verification and realm tags.
@@ -251,15 +261,16 @@ remains **Continuous Delivery**: the owner dispatches the promotion workflow on 
 That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
 SHA. The workflow derives its unique trusted-main push build, current attempt and
 immutable digest from retained publication evidence, refusing missing, stale or
-ambiguous relationships without a latest-image or older-run fallback. It waits, within a
-bound, for that SHA's main build and security runs to finish, then verifies main ancestry
-and successful quality/security/publication evidence before the credential-bearing job
-and rechecks the same tuple before connecting. The dev
+ambiguous relationships. It waits, within a bound, for that SHA's
+[private-dev admission evidence](../../development/continuous-integration.md#environment-admission),
+verifies main ancestry, and rechecks the same tuple before connecting. The host
+verifies that both the installed checkout and running application still identify
+the baseline used by selective admission. The dev
 environment retains its secrets and main-only deployment policy, with no reviewer,
 wait timer or custom approval gate and no administrator bypass. Actor and triggering
 actor must both be the owner. A merge never triggers deployment.
-The original host promotion is proven; acceptance of the refined dispatch flow is
-pending. The
+The original host promotion is proven. Promotion with the selective evidence
+policy requires separate real-host acceptance. The
 [runbook](../../development/operations-runbook.md#deploying-an-immutable-digest)
 owns its real-host evidence boundary. The
 [delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.
@@ -519,7 +530,8 @@ and running in private-dev; no revocation procedure has been operated on a host:
 durable access fence and an authenticated private management claim/acknowledgement operation.
 A protected administrative runner automatically invokes the existing #274 erasure steps.
 The owner-approved private-dev policy uses PostgreSQL recovery without external ledger/archive
-requirements; production activation retains independent evidence and #276 qualification.
+requirements; production retains independent evidence and runs the runner on the VPS with the
+#539 custody ([ADR-0047](../../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)).
 No SSH connection originates in the web application and no management port becomes browser-reachable.
 The [ADR amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 owns the changed revocation decision; the
@@ -665,13 +677,13 @@ measured peak and the production OOM recorded in the
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
 | Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
-| Collector / Prometheus / Grafana / Loki total | 1.00 |
+| Collector / Prometheus / Grafana / Loki / Tempo total, with the host sampler | 1.34 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **5.875** |
+| Steady service ceilings total | **6.22** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
 | Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.53** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.19** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -681,8 +693,9 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-The monitoring allocation includes 960 MiB of steady services, of which Loki holds
-384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)), and a separate
+The monitoring allocation includes 1312 MiB of steady services, of which Loki holds
+384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)) and Tempo
+320 MiB ([ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md)), and a separate
 64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor
 allowance with backup work; it is not steady application capacity. Recovery lease and
 HTTP helper containers each have a 96 MiB ceiling and must be counted alongside

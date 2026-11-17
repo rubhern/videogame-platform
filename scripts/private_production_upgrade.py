@@ -58,19 +58,22 @@ PRIVATE_TWIN = 'compose.private.json'
 UPGRADE_LABEL = 'gameometro.upgrade.revision'
 FENCED_PHASE = 'backup-complete-writers-still-fenced'
 # The accepted first installation's services plus the reviewed additions (SERVICE_ADDITIONS).
-PERSISTENT, ONE_SHOT = (*acceptance.PERSISTENT, 'loki'), acceptance.ONE_SHOT
+PERSISTENT, ONE_SHOT = (*acceptance.PERSISTENT, 'loki', 'tempo'), acceptance.ONE_SHOT
 # Trusted main publishes these; every other image stays, and PostgreSQL never changes here.
 PUBLISHED = {'application': 'application', 'migration': 'application', 'keycloak': 'keycloak',
              'caddy': 'caddy', 'catalogue-localizer': 'catalogue-localizer'}
 ALLOWED_FIELDS = {'image', 'environment', 'volumes', 'labels', 'mem_limit', 'pids_limit'}
 PROTECTED_ENVIRONMENT = ('KC_', 'OIDC_', 'APPLICATION_OIDC_')
-FORBIDDEN_ENVIRONMENT = ('ACCOUNT_DELETION_EXECUTOR_ENABLED', 'ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE')
+# #543: the self-service deletion executor and the only reviewed form of its settings.
+DELETION_ENABLED, DELETION_CREDENTIAL = 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE'
+DELETION_SECRET = 'account_deletion_executor_capability'
+APPLICATION_UID = 10001
 DASHBOARD_TARGET = acceptance.DASHBOARD_TARGET
 # Dependency-safe activation: the BFF validates its issuer through the edge at startup.
 ACTIVATION = ('telemetry', 'prometheus', 'node-exporter', 'blackbox', 'caddy', 'application')
 # Not needed for product readiness (#452): a failure is recorded, and never fences the product.
-# Loki starts before Grafana, which provisions it as a datasource.
-OPTIONAL = ('loki', 'catalogue-localizer', 'grafana')
+# Loki and Tempo start before Grafana, which provisions them as datasources.
+OPTIONAL = ('loki', 'tempo', 'catalogue-localizer', 'grafana')
 # The reviewed guard refuses a closed gate, so only this tool, holding the lease and the identity
 # fence, runs what that guard wraps. The gate therefore stays closed until the reviewed reopening.
 MIGRATION_ENTRYPOINT = '/opt/gameometro/bin/shared-run-migrations'
@@ -100,15 +103,18 @@ PROOF_IDENTITY = ('issuer', 'databases', 'recipient', 'images', 'configurationSh
 # with this default; any other change to the input inventory still refuses. Extend these tables in
 # the same change that adds a production runtime input, secret or protected setting
 # (docs/development/delivery-lifecycle.md#production-upgrade-compatibility).
-INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': ''}
+INPUT_DEFAULTS = {'PRODUCTION_FEEDBACK_ENABLED': 'false', 'PRODUCTION_FEEDBACK_INBOX': '',
+                  'PRODUCTION_ACCOUNT_DELETION_ENABLED': 'false'}
 # Owner-chosen values, read from this protected file on every plan; only these keys are accepted.
 OWNER_INPUTS = Path('/etc/gameometro/production/runtime-inputs.env')
-OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX')
+OWNER_INPUT_KEYS = ('PRODUCTION_FEEDBACK_ENABLED', 'PRODUCTION_FEEDBACK_INBOX', 'PRODUCTION_TELEGRAM_ENABLED',
+                    'PRODUCTION_ACCOUNT_DELETION_ENABLED')
 # Secrets a target may add: Compose name -> (consumer, its *_FILE setting). The upgrade creates a
 # missing file empty (root, the secret group, 0640) only while its integration stays disabled.
 SECRET_ADDITIONS = {
     'feedback_smtp_username': ('application', 'FEEDBACK_SMTP_USERNAME_FILE'),
     'feedback_smtp_password': ('application', 'FEEDBACK_SMTP_PASSWORD_FILE'),
+    DELETION_SECRET: ('application', DELETION_CREDENTIAL),
 }
 # Existing settings a target may change: (service, setting) -> (accepted previous value, target value),
 # or None when the owner inputs select the value (validated by validate_runtime).
@@ -116,13 +122,27 @@ SETTING_TRANSITIONS = {
     ('keycloak', 'KC_LOG_LEVEL'): ('info', 'info,org.keycloak.services.managers.AuthenticationManager:error'),
     ('application', 'FEEDBACK_ENABLED'): None,
     ('application', 'FEEDBACK_INBOX'): None,
+    # ADR-0046: the one reviewed activation of sampled trace export.
+    ('application', 'TELEMETRY_OTLP_TRACES_ENABLED'): ('false', 'true'),
+    # #543: roll forward only. Once requests can be admitted, a release never silently stops their
+    # processing; stopping the host runner is the reviewed way to refuse new requests.
+    ('application', DELETION_ENABLED): ('false', 'true'),
+    # #550: the owner turns alert and registration-notice delivery on, or back off, through
+    # runtime-inputs.env; one switch drives both, as validate_runtime requires.
+    ('grafana', 'GRAFANA_TELEGRAM_ENABLED'): (('false', 'true'), ('true', 'false')),
+    ('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'): (('false', 'true'), ('true', 'false')),
 }
-# ADR-0040: Grafana loads the Loki datasource it now provisions; every other plugin stays disabled.
-GRAFANA_DISABLED_PLUGINS = ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p != 'loki')
-SETTING_TRANSITIONS[('grafana', 'GF_PLUGINS_DISABLE_PLUGINS')] = (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS)
+# Grafana loads only the datasources it provisions; every other plugin stays disabled. Each reviewed
+# policy enables one more: ADR-0040 Loki, then ADR-0046 Tempo. An upgrade only moves forward to the last.
+GRAFANA_PLUGIN_POLICIES = (acceptance.DISABLED_PLUGINS,
+                           ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p != 'loki'),
+                           ','.join(p for p in acceptance.DISABLED_PLUGINS.split(',') if p not in ('loki', 'tempo')))
+GRAFANA_DISABLED_PLUGINS = GRAFANA_PLUGIN_POLICIES[-1]
+SETTING_TRANSITIONS[('grafana', 'GF_PLUGINS_DISABLE_PLUGINS')] = tuple(
+    (before, GRAFANA_DISABLED_PLUGINS) for before in GRAFANA_PLUGIN_POLICIES[:-1])
 # Services and named volumes a target may add: service -> (its networks, its named volumes). An added
 # service gets the same private hardening as the rest; it publishes nothing and holds no secret.
-SERVICE_ADDITIONS = {'loki': ({'telemetry'}, {'loki-data'})}
+SERVICE_ADDITIONS = {'loki': ({'telemetry'}, {'loki-data'}), 'tempo': ({'telemetry'}, {'tempo-data'})}
 assert set(SERVICE_ADDITIONS) <= set(PERSISTENT)
 REALM_IMPORT = 'deploy/public-production/keycloak/import/gameometro-realm.json'
 NOTICE_COMMAND = 'scripts/production_registration_notice.py'
@@ -482,7 +502,31 @@ def setting_transition(name, key, before, after):
     if (name, key) not in SETTING_TRANSITIONS:
         return False
     expected = SETTING_TRANSITIONS[(name, key)]
-    return expected is None or (before, after) == expected
+    if expected is None:
+        return True
+    # One reviewed (before, after) pair, or a tuple of such pairs sharing one target.
+    pairs = expected if isinstance(expected[0], tuple) else (expected,)
+    return (before, after) in pairs
+
+
+def telegram_ready(secrets):
+    """The same shape checks Grafana's renderer applies, before a plan enables delivery. Never prints a value."""
+    try:
+        token, chat = ((secrets / name).read_text().rstrip('\n') for name in ('grafana-telegram-bot-token', 'grafana-telegram-chat-id'))
+    except OSError:
+        return False
+    return bool(re.fullmatch(r'[0-9]{1,20}:[A-Za-z0-9_-]{20,128}', token) and re.fullmatch(r'-?[0-9]{1,20}', chat))
+
+
+def deletion_capability_ready(path):
+    """What the application requires of an enabled executor's capability. Never prints it."""
+    try:
+        status = path.lstat()
+        token = path.read_text().strip() if status.st_size <= 128 else ''
+    except OSError:
+        return False
+    return (not path.is_symlink() and status.st_uid == APPLICATION_UID and not status.st_mode & 0o077
+            and re.fullmatch(r'[0-9a-f]{64}', token) is not None)
 
 
 def runtime_inputs(previous, example, owner):
@@ -569,16 +613,26 @@ def validate_runtime(config, images):
             'The target no longer provides the reviewed migration entrypoint.')
     environment = services['application']['environment']
     require(install.reviewed_schedule(environment), 'Recurring acquisition must be off or on the reviewed default schedule.')
-    require(services['grafana']['environment'].get('GRAFANA_TELEGRAM_ENABLED') == 'false', 'Notifications must stay off.')
+    grafana = services['grafana']['environment']
+    require(grafana.get('GRAFANA_TELEGRAM_ENABLED') in ('true', 'false')
+            and grafana.get('GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED') == grafana['GRAFANA_TELEGRAM_ENABLED'],
+            'Alert and registration-notice delivery follow one owner switch.')
     if 'FEEDBACK_ENABLED' in environment:
         require(environment['FEEDBACK_ENABLED'] in ('true', 'false')
                 and (environment['FEEDBACK_ENABLED'] == 'false' or environment.get('FEEDBACK_INBOX')),
                 'Feedback delivery needs an explicit flag and, when on, an owner inbox.')
-    require(not set(environment) & set(FORBIDDEN_ENVIRONMENT) and 'account_deletion_executor_capability' not in config.get('secrets', {}),
-            'A deferred overlay would be activated.')
+    # A release before #543 carries none of the executor settings, which means off.
+    deletion = {DELETION_ENABLED: 'false', DELETION_CREDENTIAL: '/run/secrets/' + DELETION_SECRET} \
+        if not ({DELETION_ENABLED, DELETION_CREDENTIAL} & set(environment) or DELETION_SECRET in config.get('secrets', {})) else environment
+    require(deletion.get(DELETION_ENABLED) in ('true', 'false')
+            and deletion.get(DELETION_CREDENTIAL) == '/run/secrets/' + DELETION_SECRET
+            and environment.get('ACCOUNT_DELETION_COMPLETION_POLICY', 'independent') == 'independent'
+            and (deletion is not environment or {'source': DELETION_SECRET, 'target': '/run/secrets/' + DELETION_SECRET}
+                 in services['application'].get('secrets', [])),
+            'Self-service deletion needs its reviewed executor settings and the independent policy.')
     require(int(services['catalogue-localizer']['mem_limit']) >= int(acceptance.LOCALIZER_MEMORY),
             'The accepted localizer ceiling is not preserved.')
-    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in (acceptance.DISABLED_PLUGINS, GRAFANA_DISABLED_PLUGINS),
+    require(services['grafana']['environment'].get('GF_PLUGINS_DISABLE_PLUGINS') in GRAFANA_PLUGIN_POLICIES,
             'The reviewed Grafana plugin policy is not preserved.')
     require(any(Path(DASHBOARD_TARGET).is_relative_to(m['target']) for m in services['grafana'].get('volumes', [])),
             'The accepted localization dashboard is not mounted.')
@@ -970,7 +1024,14 @@ class Upgrade:
         values = prepare.parse_runtime_env(previous_runtime.read_text())
         example = (source / 'deploy/public-production/runtime.env.example').read_text()
         values, inputs = runtime_inputs(values, prepare.parse_runtime_env(example), self.owner_inputs())
-        require(values['PRODUCTION_TELEGRAM_ENABLED'] == 'false', 'Owner notification activation is separate.')
+        require(values['PRODUCTION_TELEGRAM_ENABLED'] in ('true', 'false'), 'Alert delivery needs an explicit flag.')
+        require(values['PRODUCTION_ACCOUNT_DELETION_ENABLED'] in ('true', 'false'), 'Self-service deletion needs an explicit flag.')
+        if values['PRODUCTION_ACCOUNT_DELETION_ENABLED'] == 'true':
+            require(deletion_capability_ready(Path(values['PRODUCTION_SECRETS_DIR']) / 'account-deletion-executor-capability'),
+                    'Self-service deletion needs its capability owned by UID 10001, mode 0600, 64 hex; value withheld.')
+        if values['PRODUCTION_TELEGRAM_ENABLED'] == 'true':
+            require(telegram_ready(Path(values['PRODUCTION_SECRETS_DIR'])),
+                    'Alert delivery needs a valid production Telegram bot token and chat ID; values withheld.')
         version = self.image_identities(selected['images'])['application']['version']
         require(re.fullmatch('[0-9A-Za-z.-]{1,100}', version or ''), 'The target application version is unreadable.')
         for name, image in selected['images'].items():

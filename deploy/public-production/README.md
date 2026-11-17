@@ -40,6 +40,7 @@ what the repository checks and what only a real host can prove.
 | [`bin/backup-cycle`](bin/backup-cycle), [`bin/backup-watch`](bin/backup-watch), [`systemd/`](systemd/) | [Scheduled backup cycle](#scheduled-backup-cycle-276) and its existing independent supervision |
 | [`bin/recovery-personal-data`](bin/recovery-personal-data) | Private transport for existing privacy commands: fenced live cleanup or closed-consumer restore replay |
 | [`bin/identity-maintenance`](bin/identity-maintenance) | Identity deny/drain fence for the privacy cleanup, on the recovery gate and lease |
+| [`bin/unverified-cleanup`](bin/unverified-cleanup), [`bin/account-deletion`](bin/account-deletion) | [Unverified-account cleanup](#scheduled-unverified-account-cleanup) and the [self-service deletion runner](#self-service-account-deletion) on the same custody |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
 
@@ -246,7 +247,11 @@ is file delivery on one host, not an encrypted vault.
 | `keycloak-bff-client-secret` | Confidential BFF client credential | `keycloak` (realm import), `application` | Client secret in Keycloak plus file |
 | `keycloak-smtp-username`, `keycloak-smtp-password` | Transactional relay credentials | `keycloak` (realm import) | Stored in the realm, inside the identity database |
 | `feedback-smtp-username`, `feedback-smtp-password` | Dedicated feedback relay credentials | `application` | File only; may be empty while feedback is disabled |
+| `account-deletion-executor-capability` | Self-service deletion executor capability, shared with the host runner | `application` | File only; may be empty while self-service deletion is off. When on, 64 lowercase hex characters, owned by UID 10001 with mode `0600` ([#543](#self-service-account-deletion)) |
 | `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
+
+Google and Microsoft sign-in credentials are not in this directory: they are owner inputs of
+their own tool, described in [Google and Microsoft sign-in](#google-and-microsoft-sign-in-548).
 
 Storage requirements, verified on the host before first start:
 
@@ -1017,16 +1022,18 @@ refuses to start while the other is active, so they never overlap.
 | Purpose | Unverified-account cleanup and its retry | Paired backup, restore, deletion replay and reopening |
 | Owner | `bin/identity-maintenance` (`IDENTITY-MAINTENANCE.json`) | `bin/recovery` (no `READY`, or `PENDING.json`) |
 | Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503 until the gate reopens; the edge keeps running |
-| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
+| Owner administration (#464) | Grafana and the Keycloak console answer 503 | Grafana and the Keycloak console answer 503 |
+| Writers | Keycloak keeps running and serving Admin calls on its private network (the cleanup transport); drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
 | Startup | Unchanged | Application and migration wrappers refuse without `READY` |
 | Release | `exit` by the same run after a second drain | `thaw` or `reopen` with their evidence; services started separately |
 
 Neither mode has an alternate public route. Only the edge publishes ports; it routes no
 Keycloak administration, management or Actuator path, and refuses non-canonical identity
 paths that Keycloak would otherwise route to a limited endpoint. The application calls
-Keycloak only through the edge, as an OIDC client, never its Admin API. The remaining
-writer is the owner's private administration, which both modes deliberately keep and
-which no mechanism here can stop a root or superuser from bypassing.
+Keycloak only through the edge, as an OIDC client, never its Admin API. The owner's #464
+ingress is closed in both modes, by the same gate files. The remaining writers are Admin calls
+on the private network, which the identity-only fence deliberately keeps for the cleanup and
+which no mechanism here can stop a root or superuser from making.
 
 ### Identity maintenance
 
@@ -1081,14 +1088,102 @@ holds options from the [privacy procedure](../../docs/development/operations-run
 and append `--execute --maintenance-command "python3 deploy/public-production/bin/identity-maintenance --config /protected/compose.json --project gameometro-production --state /protected/recovery-journal"`.
 Use the same global inputs and maintenance command for `retry`; inspect ledger status
 before admitting a new cleanup. Keep keys and both archive/ledger copies in their
-approved independent protection domains. No timer is installed. Actual host drain,
-backlog/cadence, archive access and second-copy independence remain #276 gates.
+approved independent protection domains. Production runs this daily from the
+[scheduled cleanup](#scheduled-unverified-account-cleanup) once the owner installs it.
 
 Reproduce the synthetic transport exercise with
 `python3 scripts/rehearse-production-cleanup.py --revision FULL_TRUSTED_MAIN_SHA --evidence NEW_DIRECTORY --browser --model-dir EXISTING_APPROVED_MODEL`.
 Its receipt distinguishes the locally modified transport/configuration fingerprint
 from the trusted-main application and dependency images. This is working-tree
 integration evidence, never permission to promote an unpublished configuration.
+
+### Scheduled unverified-account cleanup
+
+**Installed on the production host for #539.** Its alert evaluates once the
+[host telemetry](#host-telemetry-and-alert-delivery) is installed; until then, read the status
+file after the daily run.
+[ADR-0044](../../docs/decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)
+owns why it runs on the VPS, which keys and identities it holds, and the accepted residual risk.
+[`bin/unverified-cleanup`](bin/unverified-cleanup) owns the configuration fields and their
+checks. `run` completes any incomplete erasure with `retry`, then runs `cleanup-unverified
+--execute` with the transport and fence above, and records its status. `check` does the same
+validation, lists the ledger and probes for candidates, without entering maintenance. The
+[service and timer](systemd/) run it daily at 03:00 Madrid time, outside user hours, because a
+round with candidates closes identity for one to two minutes. Deployments never change an
+installed timer: after a timer change, reinstall the timer file from the installed release
+and run `systemctl daemon-reload`.
+
+Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-only directories,
+`0600` files). Use nothing from the owner's personal keyring and none of the backup identities.
+The commands run from the installed release, `C=/srv/gameometro/installations/<sha12>-private/candidate`
+(the path in the backup service's `ExecStart`); there is no `/opt/gameometro/runtime` on the host.
+
+1. Create a dedicated keyring with a signing key and an archive key. A `cv25519` key cannot be a
+   primary key, so the archive key is a certify-only primary with an encryption subkey. Record both
+   primary fingerprints; the archive one is the `recipient`:
+
+   ```bash
+   K=/var/lib/gameometro/production/privacy/gnupg; install -d -m 0700 "$K"
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup signing' ed25519 sign never
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-generate-key 'Gameometro cleanup archive' ed25519 cert never
+   FPR=$(gpg --homedir "$K" --list-secret-keys --with-colons 'Gameometro cleanup archive' | awk -F: '/^fpr/{print $10; exit}')
+   gpg --homedir "$K" --batch --pinentry-mode loopback --passphrase '' --quick-add-key "$FPR" cv25519 encr never
+   ```
+
+   Export both secret keys into the owner's separately protected reconstruction material
+   before the first run. Off the VPS, replaying an incomplete cleanup and reviewing,
+   verifying or purging its archives need these keys and their fingerprints, not the
+   owner's personal ones. If this copy is lost along with the VPS, the cleanup's legal
+   archives cannot be read.
+
+2. Create four S3 users, one per ledger and archive bucket; the two-copy configuration refuses
+   a shared access key or credentials file. OVHcloud accepts only its own action list, has no
+   separate version actions (`GetObject` covers version reads) and needs an explicit deny. Each
+   user's policy allows `PutObject`, `GetObject`, `GetObjectRetention`, `ListBucket` and
+   `ListBucketVersions` on its bucket and key prefix (`ledger/` or `archive/`), and denies
+   `DeleteObject`, `DeleteBucket`, `PutObjectRetention` and `BypassGovernanceRetention`. Prove the
+   refused delete against the provider. Write the
+   [two-copy configuration](../private-dev/lib/personal_data_cloud.py) that names them.
+3. Store the Keycloak administrative credential in an owner-only file. Create the ledger,
+   archive, proof and holds directories, then rebuild the local ledger from its cloud copies
+   with `ledger-fetch` (see the [privacy procedure](../../docs/development/operations-runbook.md#privacy-phase-2-administration)).
+4. Write `/etc/gameometro/production/unverified-cleanup.json` (`0600`). Its `status` is
+   `/etc/gameometro/production/observability/unverified-cleanup.json`, and `s3Python` is the
+   backup cycle's interpreter. Then confirm that the check prints `"configuration": "ok"`:
+
+   ```bash
+   sudo python3 "$C/deploy/public-production/bin/unverified-cleanup" check --config /etc/gameometro/production/unverified-cleanup.json
+   ```
+
+5. Install the units with their path rewritten to the installed release, start one supervised
+   run and confirm the status file. With no candidate the run enters no maintenance and records
+   `success`; the first real erasure is then checked against the ledger, the archive and verified
+   absence:
+
+   ```bash
+   for u in service timer; do sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/systemd/gameometro-unverified-cleanup.$u" | sudo tee /etc/systemd/system/gameometro-unverified-cleanup.$u >/dev/null; done
+   ```
+
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl start gameometro-unverified-cleanup.service
+   ```
+
+6. Enable the timer. Activation is a separate owner decision. The host telemetry service passes
+   `--cleanup-receipt`, so the alert below evaluates:
+
+   ```bash
+   sudo systemctl enable --now gameometro-unverified-cleanup.timer
+   ```
+
+Once the service exists, every deployment holds it to the reviewed `ExecStart` pattern and
+repoints it with the backup services; any other command or a drop-in refuses the deployment.
+Deployments never change the timer.
+
+A run that fails or is killed sets the
+[*Unverified-account cleanup needs the owner*](../../docs/development/observability.md#production-alert-interpretation-and-calibration)
+alert. Read the unit's journal and the ledger `status`. If `identity-maintenance` still shows a
+fence, release it with `exit` and that run's ID; never delete the file. The next run retries
+pending work by itself. To pause, stop the timer; a deployment does not start it.
 
 ### Limiter memory
 
@@ -1186,6 +1281,131 @@ sudo docker compose -p gameometro-production -f "$active" --profile '*' stop lok
 The Collector drops what Loki cannot take, and the product is unaffected. The volume is
 disposable: it is outside every backup and restore. Deleting it loses only log history.
 
+## Application traces
+
+[ADR-0046](../../docs/decisions/0046-keep-sampled-production-traces-in-tempo.md) adds one
+Tempo service to the observability overlay. The application exports one request in ten over
+OTLP to the Collector, which forwards the spans to Tempo on the internal telemetry network.
+Read them in production Grafana under **Explore → Platform traces**;
+[observability](../../docs/development/observability.md#production-trace-exploration) owns the
+queries and their limits.
+
+**Rollout.** No host step. The next `Deploy Production` lists `tempo` as an added service,
+pulls its pinned image at staging and creates it with an empty `tempo-data` volume. It also
+recreates the Collector (new traces pipeline), Grafana (Tempo datasource, its plugin, and the
+log-to-trace link) and the application (sampled trace export on). If Tempo fails to start,
+the deployment completes with `tempo` under `optionalDegraded` and the application keeps
+running.
+
+**Disk.** Plan 4 GiB of host disk for the volume, a stop/review threshold rather than a quota;
+retention is 72 hours. Check its use, and measure it once after the first full day:
+
+```bash
+sudo docker system df -v | grep tempo-data
+```
+
+If it approaches the threshold, or the host's free-disk alert fires, stop only Tempo, with the
+same `active` configuration file as for Loki:
+
+```bash
+sudo docker compose -p gameometro-production -f "$active" --profile '*' stop tempo
+```
+
+The Collector drops what Tempo cannot take, and the product is unaffected. The volume is
+disposable and outside every backup and restore.
+
+## Host telemetry and alert delivery
+
+[#550](https://github.com/rubhern/videogame-platform/issues/550). The host alerts read one textfile
+that the [telemetry service and timer](observability/systemd/) write every minute. Production
+Grafana is the only Grafana that delivers alerts: private-dev delivers none. Commands run from
+the installed release, `C=/srv/gameometro/installations/<sha12>-private/candidate` (the path in the
+backup service's `ExecStart`).
+
+**Install the sampler once.** Confirm that the backup cycle's `status` is
+`/etc/gameometro/production/observability/backup.json`, the sampler's `--backup-receipt`:
+
+```bash
+sudo python3 -c 'import json; print(json.load(open("/etc/gameometro/production/backup-cycle.json"))["status"])'
+```
+
+Install both units with their path rewritten, run one sample and read it back:
+
+```bash
+for u in service timer; do sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/observability/systemd/gameometro-telemetry.$u" | sudo tee /etc/systemd/system/gameometro-telemetry.$u >/dev/null; done
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl start gameometro-telemetry.service && sudo head -3 /var/lib/gameometro/production/metrics/host.prom
+```
+
+```bash
+sudo systemctl enable --now gameometro-telemetry.timer
+```
+
+The first line is `production_host_sample_timestamp_seconds`. Within three minutes, Grafana's
+*Host or backup sampler missing/stale* returns to normal, and the backup and cleanup alerts
+evaluate real values. Every deployment then holds the service to the template's `ExecStart`
+and repoints it with the backup services; another command, evidence path or a drop-in
+refuses the deployment. Deployments never change the timer. To pause sampling, stop the
+timer; the stale alert then fires, as intended.
+
+**Decisions recorded for #550:**
+
+- **Off-host copies:** the independent [backup observer](#independent-supervision) verifies the
+  cloud pairs from outside the host and notifies the owner itself. The host alert
+  *Backup attempt missing or failed* reads only the cycle status, and `offhost.json` is no
+  longer an alert input. A host attestation would put the off-host truth back on the host it
+  protects.
+- **Capacity:** no `capacity.json` qualification is planned. *Production capacity is
+  uncalibrated* stays provisioned but paused, so the proximity alerts stay off until an owner
+  qualification supplies the file and the rule is resumed.
+
+**Turn on alert delivery.** One switch sends both the operational alerts and the registration
+notices (*Registration activity observed*, on the `gameometro` realm). A notice reports a
+five-minute window, estimates its count and sends nothing when the window closes.
+
+1. In Telegram, use the official **@BotFather**. A new bot (`/newbot`) is the cleanest. To reuse
+   the former private-dev bot, issue a new token with `/revoke` first, so that no host keeps a
+   live copy. Send `/start` to the bot from the private chat that receives alerts. Never paste
+   the token into a chat, an issue, a command argument or the shell history.
+2. With a root editor (no swap or backup files), write the token into
+   `/etc/gameometro/production/secrets/grafana-telegram-bot-token`, keeping the file's owner,
+   group and mode. This root-only snippet reads it, finds the one private chat that sent
+   `/start` and writes its ID into `grafana-telegram-chat-id` beside it, printing no value:
+
+   ```bash
+   sudo python3 - <<'PY_TELEGRAM'
+   import json
+   from pathlib import Path
+   import urllib.request
+   base = Path('/etc/gameometro/production/secrets')
+   try:
+       token = (base / 'grafana-telegram-bot-token').read_text().strip()
+       with urllib.request.urlopen('https://api.telegram.org/bot' + token + '/getUpdates', timeout=20) as response:
+           updates = json.load(response)
+       candidates = {item['message']['chat']['id'] for item in updates.get('result', [])
+                     if item.get('message', {}).get('text') == '/start'
+                     and item['message']['chat'].get('type') == 'private'}
+       if not updates.get('ok') or len(candidates) != 1:
+           raise ValueError()
+       (base / 'grafana-telegram-chat-id').write_text(str(candidates.pop()) + '\n')
+   except Exception:
+       raise SystemExit('Chat capture failed; values withheld. Check the private bot/chat configuration.') from None
+   print('Chat ID saved; no values printed.')
+   PY_TELEGRAM
+   ```
+3. Add `PRODUCTION_TELEGRAM_ENABLED=true` to `/etc/gameometro/production/runtime-inputs.env`
+   (`root`, `0600`), keeping its other lines.
+4. Dispatch `Deploy Production`. The plan refuses without changing anything if either file is
+   missing, empty or malformed; it never prints the values. The deployment recreates Grafana.
+5. In Grafana, open **Alerting → Contact points** and use **Test** on the Telegram contact point
+   once. A test message proves the bot, chat and egress, not a firing and recovery cycle.
+
+To stop delivery of both, set the input to `false` and deploy again. Stopping is not revocation: after a
+leak, revoke the token in BotFather first. The contact-point names are inherited from private-dev
+and do not connect the two environments.
+
 ## Production observability candidate
 
 **Prepared and tested only in disposable local infrastructure.** Use the base runtime
@@ -1216,14 +1436,13 @@ Additional protected production files, with the same inventory/storage rules abo
 |---|---|
 | `grafana-admin-password` | Production Grafana bootstrap; rotate the persisted administrator credential through private administration as well as replacing the file |
 | `grafana-database-password` | Production Grafana and the host reader-provisioning command; update the PostgreSQL role, replace the file and recreate Grafana together |
-| `grafana-telegram-bot-token`, `grafana-telegram-chat-id` | Production Grafana only; independent production bot/destination, never private-dev values. Replace files and recreate Grafana; revoke the former bot token |
+| `grafana-telegram-bot-token`, `grafana-telegram-chat-id` | Production Grafana only, never a token another host still holds. Replace files and redeploy; revoke the former bot token |
 
 Files must exist even while delivery is off; empty Telegram placeholders are accepted
-only with `PRODUCTION_TELEGRAM_ENABLED=false`. Enabling delivery validates the
-protected values and fails closed on invalid input. Do not enable product notices.
-The generated notification configuration lives in a protected tmpfs. Its internal
-contact-point names are inherited compatibility identifiers, not a connection to
-private-dev. Grafana, Prometheus, exporters and Collector publish no ports. Use the
+only with `PRODUCTION_TELEGRAM_ENABLED=false`.
+[Alert delivery](#host-telemetry-and-alert-delivery) owns turning it on, for alerts and
+registration notices together. The generated notification configuration lives in a protected tmpfs.
+Grafana, Prometheus, exporters and Collector publish no ports. Use the
 existing private SSH boundary and a local tunnel to the Grafana container address;
 re-resolve that address after recreation. Keep the tunnel local and authenticate.
 
@@ -1232,22 +1451,23 @@ node exporter, containing only sanitized `.prom` files. The proposed single file
 must include Docker/data volumes; additional filesystems need an explicit bounded
 collector change before acceptance. The standard exporter mounts host proc/sys/root
 read-only without secrets-group membership or extra privileges. The systemd unit/timer
-under `observability/systemd/` are **templates, not installed**. Review the absolute
-checkout path and evidence paths before installation. The host timer reads only
+under `observability/systemd/` are installed once by the owner and repointed by every
+deployment ([host telemetry](#host-telemetry-and-alert-delivery)). The host timer reads only
 selected Docker state and the bounded safe Caddy window, then atomically replaces
 one textfile. Failed sampling leaves its timestamp stale. Test cgroup v2, permissions,
 PID mapping, recreation, timer delays and the fixed root mount on the actual VPS;
 Docker Desktop's non-shared root uses a test-only mount-propagation seam.
 
-The timer expects three independent protected inputs under the observability directory:
+The timer reads these protected inputs under the observability directory:
 
 - `backup.json`: the latest sanitized receipt from the existing paired-backup actor,
   including failed attempts. Publish it atomically after every attempt; do not retain
   only successes. Missing/corrupt input alerts.
-- `offhost.json`: a monitoring attestation generated **on the independent destination**
-  by `observability/verify-offhost.py`. This is the existing filesystem/pull contract;
-  it cannot certify the new cloud target without an implemented, reviewed adapter
-  and evidence contract. Supply its verified encrypted pair directory,
+- `offhost.json`: no longer an alert input
+  ([#550](#host-telemetry-and-alert-delivery)); the dashboard still shows it. It is a
+  monitoring attestation generated **on the independent destination** by
+  `observability/verify-offhost.py`, the filesystem/pull contract, which cannot certify
+  the cloud target without a reviewed adapter. Supply its verified encrypted pair directory,
   successful `pull` receipt, matching successful full recovery/deletion-replay receipt
   and an owner-protected isolation record. The latter has `environment: production`,
   `storageIsolationVerified: true` and a timezone-qualified `reviewedAt`; it attests a
@@ -1256,7 +1476,8 @@ The timer expects three independent protected inputs under the observability dir
   Copy only its sanitized output back through an owner-reviewed private route. No
   destination credential is installed in the source runtime. Transfer loss leaves the
   earlier recovery point aging; it cannot turn into current verified health.
-- Optional `capacity.json`: owner-reviewed qualification evidence with `scope: real-vps`,
+- `unverified-cleanup.json`: the [cleanup](#scheduled-unverified-account-cleanup) status.
+- Optional `capacity.json`, not planned ([#550](#host-telemetry-and-alert-delivery)): owner-reviewed qualification evidence with `scope: real-vps`,
   `environment: production`, timezone-qualified `measuredAt`/`expiresAt` and positive
   `sustainableRps` for the representative workload. Expiry or a local scope disables
   proximity alerts. Requalify after traffic-mix or runtime changes. No example capacity
@@ -1729,8 +1950,9 @@ one-shot actor, the accepted localizer ceiling, the accepted Grafana plugin poli
 reviewed successor that loads only Loki, the mounted
 localization dashboard, the same image for migration and application, zero publications,
 recurring synchronization either off or on the application's default schedule with no cron
-override (#484), and Telegram and the
-[account-deletion overlay](#optional-automatic-account-deletion) off. Installation run and configuration labels survive unchanged on every service; a new label
+override (#484), alert delivery that follows one owner switch for alerts and registration
+notices, and the [deletion executor](#self-service-account-deletion) in its reviewed settings with
+the independent policy. Installation run and configuration labels survive unchanged on every service; a new label
 names the upgrade on recreated ones.
 
 **Refusals before any change.** No recorded completed installation and transition, drifted live
@@ -2000,12 +2222,14 @@ production-runtime CI gate proves it.
   on, the owner must provide it first, or the plan refuses.
 - **Setting transitions.** An existing setting may change only from its listed previous value
   to its listed target value. The feedback switch and inbox follow the owner inputs instead;
-  the runtime check then requires an inbox whenever delivery is on.
+  the runtime check then requires an inbox whenever delivery is on. Grafana alert delivery
+  follows its owner input both ways, and the plan checks the Telegram files before turning it on.
 - **New services.** A listed service may appear with only its listed networks and named
   volumes, read-only, without capabilities, secrets, published ports or dependencies, and
   with memory and PID ceilings. `--stage` pulls its pinned image and the apply step creates
   it with its empty volume. Added services start as optional ones: a failure is recorded and
-  never fences the product. Loki ([application logs](#application-logs)) is the only entry.
+  never fences the product. Loki ([application logs](#application-logs)) and Tempo
+  ([application traces](#application-traces)) are the entries.
 
 ### Owner-approved Actions deployment (#467)
 
@@ -2020,9 +2244,13 @@ owns policy. The [workflow](../../.github/workflows/deploy-production.yml),
 [evidence verifier](../../scripts/production_deployment_evidence.py) and
 [ephemeral recovery adapter](../../scripts/production_recovery_executor.py) own mechanics.
 
-The exact dispatch SHA stays selected if `main` advances during approval. Existing CI, Security
-and all image-publication verifiers derive versions/digests/fingerprints; the host independently
-rechecks them and both approvals. It exports only authenticated operational trees and migrations
+Before deploying a group of private-dev changes, run **Qualify Production
+candidate** on `main` with the full SHA and application digest from the accepted
+private-dev promotion. Keep the successful summary with the release evidence. Supply the verified SHA and digest when dispatching
+**Deploy Production**. The workflow refuses if `main` advanced before dispatch
+or the digest has changed. The exact dispatch SHA stays selected if `main` advances during
+approval. The [production admission policy](../../docs/development/continuous-integration.md#environment-admission)
+owns the required evidence. The host independently rechecks it and both approvals. It exports only authenticated operational trees and migrations
 from that Git commit. No workflow input supplies a shell command, root path, image or fingerprint.
 
 The protected jobs wait up to ten minutes for both owner approvals before using production
@@ -2449,6 +2677,81 @@ from outside the VPS: certificates, redirection, catalogue, refusals, closed adm
 management and database ports on IPv4 and IPv6, and the per-source search limit with and without
 forged forwarding headers. SSH exposure is reported for the owner's firewall decision, not judged.
 
+### Google and Microsoft sign-in (#548)
+
+**Implemented for review; not executed on the host.** [ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The provider buttons appear only after the owner enables a provider. Until then,
+the realm, the edge and the sign-in pages behave as before.
+
+Before enabling, the owner must:
+
+1. **Approve the privacy text.** Approve the
+   [privacy text](../../docs/legal/public-texts-es.md) and
+   [data-protection record](../../docs/development/data-protection.md) changes that name both
+   providers.
+2. **Deploy a release that includes this change.** Its Keycloak image carries the
+   `gameometro-brokered-terms` authenticator, its theme presents the providers, and its edge routes
+   only `/realms/gameometro/broker/google/*`, `/realms/gameometro/broker/microsoft/*` and the exact
+   `/realms/gameometro/broker/after-first-broker-login` return that completes a first sign-in.
+3. **Register the apps.** These are owner accounts outside this repository:
+   - **Google Cloud:** an OAuth client of type *Web application* with the `openid` and `email`
+     scopes, and an External, published consent screen naming Gameómetro, `gameometro.com` and the
+     privacy and terms URLs.
+   - **Microsoft Entra:** an app registration for *personal Microsoft accounts only*, with a web
+     platform, a client secret, and the delegated `User.Read` permission. Its publisher domain is
+     `gameometro.com`, verified through the packaged
+     [`/.well-known/microsoft-identity-association.json`](../../frontend/public/.well-known/microsoft-identity-association.json),
+     so the consent screen names the domain instead of an unverified publisher. That file names
+     the production registration's application (client) ID; a new registration replaces it in a
+     release before verification.
+
+   Both take exactly one redirect URI each:
+   `https://auth.gameometro.com/realms/gameometro/broker/google/endpoint` and
+   `https://auth.gameometro.com/realms/gameometro/broker/microsoft/endpoint`.
+4. **Write the credentials.** Put the client ID and secret of each enabled provider into
+   `/etc/gameometro/production/social-sign-in/`:
+   - files `google-client-id`, `google-client-secret`, `microsoft-client-id`, `microsoft-client-secret`;
+   - one line each;
+   - files `root`, `0600`, in a `root` `0700` directory;
+   - kept in the off-host reconstruction material.
+
+   One file of a pair alone refuses. A provider with neither file stays disabled.
+
+These files are owner inputs of [`production_social_sign_in.py`](../../scripts/production_social_sign_in.py),
+not Compose secrets or runtime inputs, so adding, rotating or removing them needs no in-place
+upgrade. Keycloak stores the secret inside the identity database, like the relay credentials.
+Run as root from the reviewed operational source:
+
+```text
+python3 -I scripts/production_social_sign_in.py --plan
+python3 -I scripts/production_social_sign_in.py --apply --owner-reference <reference>
+python3 -I scripts/production_social_sign_in.py --check
+python3 -I scripts/production_social_sign_in.py --disable --owner-reference <reference>
+```
+
+Every mode refuses an unfinished upgrade, a closed recovery gate or an identity-maintenance fence.
+It runs the active installation's reviewed
+[`configure-social-sign-in`](../private-dev/bin/configure-social-sign-in) in a disposable helper on the private
+identity network. The administrator password and the provider credentials cross its stdin, and
+nothing prints them. The actor manages only the `TERMS_AND_CONDITIONS` required action, the
+`gameometro first broker login` flow and the two providers. It refuses a flow of another shape
+rather than changing it. `--apply` and `--disable` record the owner reference and the provider
+states, never a credential, in `/var/lib/gameometro/production/social-sign-in/SOCIAL-SIGN-IN.json`.
+
+**Rotation.** Create the new secret at the provider, replace the file, run `--apply` (Keycloak keeps
+the new secret), check a real sign-in, then revoke the old secret at the provider.
+
+**Rollback and incidents.** `--disable` turns both providers off and keeps every linked identity.
+Deleting a provider in Keycloak would drop those links, so never delete one. To stop one provider,
+remove both of its files and run `--apply`. A person who only used a disabled provider recovers
+access through password recovery for the account's email. On a suspected provider-credential leak,
+revoke the secret at the provider first, then rotate as above.
+
+After `--apply`, sign up and sign in with a real Google and a real Microsoft account. Link one of
+them to an existing email account (it must ask for that account's password). Then check that
+`--check` passes. The [disposable journeys](../../scripts/validate-social-sign-in.sh) prove the
+flow on stand-in providers only, never the real provider registrations.
+
 ### Before any real user data
 
 A passing private install is **not** a recoverable or publicly accepted service.
@@ -2576,13 +2879,69 @@ ledger/archive and public acceptance. The [production timers](#scheduled-backup-
 application containers; Lenovo must be unavailable for the cloud-only proof.
 
 
-## Optional automatic account deletion
+## Self-service account deletion
 
-The prepared `compose.account-deletion.yaml` overlay is opt-in and is not consumed by the
-current promotion command. It exposes no management port and passes no Keycloak credentials
-to the application. Before activating it, qualify the existing #274 independent evidence/key
-boundary, protected executor availability/channel and recovery under #276. The
-[runbook](../../docs/development/operations-runbook.md#protected-executor-configuration)
-owns configuration, the dedicated capability secret, rotation, runner supervision and pending
-request recovery. File-backed Compose secrets must be privately readable by runtime uid 10001;
-never commit capability material. This source preparation is not deployment or acceptance.
+[#543](https://github.com/rubhern/videogame-platform/issues/543). «Mi perfil → Eliminar mi cuenta»
+admits a request only while the application's executor is enabled and the host runner sent a
+heartbeat in the last 60 seconds. The [runbook](../../docs/development/operations-runbook.md#self-service-account-deletion)
+owns the protocol and its guarantees. [`bin/account-deletion`](bin/account-deletion) owns the
+production runner, and its [unit](systemd/gameometro-account-deletion.service) supervises it.
+
+**How it runs.** The runner reuses the [unattended cleanup](#scheduled-unverified-account-cleanup)'s
+protected configuration: the same ledger, cloud copies, archive, proof store, keys and identity
+transport. Both erasures therefore share one ledger; whichever holds its lock first runs, and
+the other retries later. The executor answers only on the application
+container's loopback, so each exchange runs `docker exec` into the one running application and
+sends the capability on stdin. Nothing is published, and no other container or host can reach
+the endpoint. While an upgrade or handover journal is active, the runner sends no heartbeat and
+claims nothing, so admission closes until the release finishes.
+
+**Only the requesting account is closed** ([#564](https://github.com/rubhern/videogame-platform/issues/564)).
+The runner calls the transport with `--self-service` instead of the cleanup's `--identity-cleanup`,
+so no [identity maintenance](#identity-maintenance) fence is entered. The erasure's first step
+disables that account, signs out its Keycloak sessions, checks that none remains and ends its BFF
+sessions; every later step refuses while the account is enabled. Sign-in, registration and the
+private administration stay open for everyone else. A resumed erasure repeats the same first
+step. A new registration with the same email can only succeed after the deletion and is a new,
+unrelated account. The cleanup keeps the global fence, because one of its candidates could
+verify while it is being erased.
+
+**Activate it, after the cleanup is installed.** Commands run from the installed release `C`.
+
+1. Create the capability, readable only by the application's UID:
+
+   ```bash
+   sudo sh -c 'umask 077; od -An -N32 -tx1 /dev/urandom | tr -d " \n" > /etc/gameometro/production/secrets/account-deletion-executor-capability'
+   ```
+
+   ```bash
+   sudo chown 10001 /etc/gameometro/production/secrets/account-deletion-executor-capability && sudo chmod 0600 /etc/gameometro/production/secrets/account-deletion-executor-capability
+   ```
+
+2. Write `/etc/gameometro/production/account-deletion.json` (`root`, `0600`):
+   `{"cleanupConfig": "/etc/gameometro/production/unverified-cleanup.json", "credentialFile": "/etc/gameometro/production/secrets/account-deletion-executor-capability"}`.
+3. Add `PRODUCTION_ACCOUNT_DELETION_ENABLED=true` to `/etc/gameometro/production/runtime-inputs.env`
+   and dispatch `Deploy Production`. The plan refuses unless the capability has that owner, mode
+   and shape. Enabling is forward only: a later release that would disable the executor refuses.
+4. Check the runner, then install and start its unit:
+
+   ```bash
+   sudo python3 "$C/deploy/public-production/bin/account-deletion" check --config /etc/gameometro/production/account-deletion.json
+   ```
+
+   ```bash
+   sed "s#/opt/gameometro/runtime#$C#" "$C/deploy/public-production/systemd/gameometro-account-deletion.service" | sudo tee /etc/systemd/system/gameometro-account-deletion.service >/dev/null
+   ```
+
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl enable --now gameometro-account-deletion.service
+   ```
+
+5. Qualify it with a synthetic account only: one deletion end to end (both cloud ledger copies,
+   the sealed proof, both archive copies, absence in PostgreSQL and Keycloak), and one runner
+   stopped mid-erasure that resumes the same request after restart.
+
+Every deployment then holds the unit to its reviewed `ExecStart`, repoints it and restarts it
+onto the new release without waiting; the runner first finishes its current erasure. To refuse
+new requests, stop the unit: within 60 seconds the profile reports deletion unavailable, and
+pending requests stay blocked and resume when it starts again.

@@ -302,9 +302,9 @@ assert services["grafana"]["environment"]["GF_SMTP_ENABLED"] == "false"
 grafana_env = services["grafana"]["environment"]
 assert grafana_env["GF_LOG_LEVEL"] == "info"
 assert grafana_env["GF_LOG_FILTERS"] == "ngalert.notifier.telegram:info"
+# #550: private-dev never delivers alerts or notices, whatever its runtime env says.
 for flag in ("GRAFANA_TELEGRAM_ENABLED", "GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED"):
-    assert grafana_env.get(flag, "false") in {"true", "false"}
-assert grafana_env.get("GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED", "false") != "true" or grafana_env.get("GRAFANA_TELEGRAM_ENABLED") == "true"
+    assert grafana_env.get(flag) == "false", flag
 assert services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD__FILE"] == "/run/secrets/grafana_admin_password"
 assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
 assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"

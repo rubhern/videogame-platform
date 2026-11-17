@@ -255,6 +255,7 @@ assert [(rating["gameId"], rating["value"]) for rating in document["ratings"]] =
 assert document["ratings"][0]["title"], document["ratings"][0]
 assert document["preferredPlatforms"] == {"configured": True, "platforms": [{"platformId": PS5, "name": "PlayStation 5"}]}
 assert len(document["identitySessions"]) == 2 and all(session["ipAddress"] for session in document["identitySessions"])
+assert document["linkedSignIn"] == [], "a password-only account has no linked provider"
 assert accounts["other"]["email"] not in export_path.read_text()
 # Only allow-listed, non-secret fields leave Keycloak: no token, credential, secret, cookie or
 # session identifier, whatever the Admin API returns for the account and its sessions.
