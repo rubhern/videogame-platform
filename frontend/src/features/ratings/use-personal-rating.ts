@@ -41,7 +41,7 @@ export function usePersonalRating(gameId: string, enabled: boolean) {
 
 export type RatingCommand = (
   | { type: "save"; csrfToken: string; write: RatingWrite }
-  | { type: "delete"; csrfToken: string }) & { currentRating?: PersonalRating };
+  | { type: "delete"; csrfToken: string }) & { currentRating?: PersonalRating | null };
 
 type CommandOutcome =
   | { type: "saved"; rating: PersonalRating }
@@ -70,7 +70,9 @@ export function useRatingCommand(gameId: string) {
     retry: false,
     mutationFn: async (command) => {
       const current =
-        command.currentRating ?? queryClient.getQueryData<PersonalRating | null>(personalKey) ?? null;
+        command.currentRating === undefined
+          ? (queryClient.getQueryData<PersonalRating | null>(personalKey) ?? null)
+          : command.currentRating;
       const context = { gameId, csrfToken: command.csrfToken };
       if (command.type === "delete") {
         if (current === null) {

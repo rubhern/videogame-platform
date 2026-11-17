@@ -1329,7 +1329,7 @@ automatically. An anonymous pick starts authentication with that value; after re
 recovered value is persisted once automatically (no command when it equals the existing rating)
 and any failure surfaces like any other command.
 
-Post-MVP (#359, implemented; awaiting owner review), a signed-in player may rate by platform
+Post-MVP (#359 and #518, implemented; awaiting owner review), a visitor or signed-in player may rate by platform
 without the reading growing: it shows the rating's one contribution, `8,5/10` when it is a
 platform mean (`9/10` stays whole), and names that source for assistive technology. In the
 panel, a direct rating keeps the keypad as the quick general score, which never touches saved
@@ -1354,8 +1354,10 @@ and any general score held in the draft. A sticky footer shows the result as the
 2 plataformas puntuadas`, adding that it replaces the general score when it does) — above
 **Cancelar** and **Guardar**, enabled only for a valid change. Nothing is sent until **Guardar**;
 Escape or **Cancelar** closes without a command and focus returns to the reading. Opening lands
-on the first platform, and the sheet itself takes none of the reading's temperature. A pick
-recovered after sign-in is never applied over platform scores: a notice says so instead.
+on the first platform, and the sheet itself takes none of the reading's temperature. For a
+visitor, **Guardar** starts the [rating sign-in flow](../architecture/application/mvp-use-cases.md#identity-and-ratings).
+A returning player who already has a rating sees the recovered selection in the sheet with
+a review prompt before saving.
 
 The summary has a comfortable reading measure below the title: up to eight lines on desktop
 and six on narrower screens, with a native **Leer más** / **Mostrar menos** button only when the

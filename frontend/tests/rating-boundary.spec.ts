@@ -49,7 +49,7 @@ test("anonymous browsing offers account entry and preserves the rating boundary"
 });
 
 test.describe("real Keycloak rating journey", () => {
-  // Both journeys rate the same game; serial order keeps the community assertions deterministic.
+  // The journeys rate the same game; serial order keeps the community assertions deterministic.
   test.describe.configure({ mode: "serial" });
   test.skip(
     !username || !password,
@@ -120,6 +120,53 @@ test.describe("real Keycloak rating journey", () => {
     await expect.poll(() => context.cookies(origin)).toEqual([]);
   });
 
+
+  test("an anonymous phone user rates by platform through Keycloak and saves once", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const writes: Record<string, unknown>[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().includes("/api/v1/me/ratings/")) {
+        writes.push(request.postDataJSON());
+      }
+    });
+
+    await page.goto(gamePath);
+    await reading(page).press("Enter");
+    await page.getByRole("button", { name: "Puntuar por plataforma" }).press("Enter");
+    const sheet = page.getByRole("dialog", { name: "Puntuar por plataforma" });
+    const ps5 = sheet.getByRole("checkbox", { name: "PlayStation 5" });
+    await expect(ps5).toBeFocused();
+    await expect.poll(async () => (await sheet.boundingBox())?.width).toBe(390);
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Tab");
+    await expect(sheet.getByRole("button", { name: "Puntuar PlayStation 5" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await sheet.getByRole("button", { name: "9", exact: true }).press("Enter");
+    expect(writes).toHaveLength(0);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+
+    await sheet.getByRole("button", { name: "Guardar", exact: true }).press("Enter");
+    await expect(page).toHaveURL(/\/realms\/videogame-platform\/protocol\/openid-connect\/auth/);
+    expect(writes).toHaveLength(0);
+    await page.locator("#username").fill(username ?? "");
+    await page.locator("#password").fill(password ?? "");
+    await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
+
+    await expect(page).toHaveURL(new RegExp(`${gamePath}$`));
+    await expect(reading(page)).toHaveAccessibleName(/9\/10, nota de 1 plataforma/);
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
+    expect(writes).toEqual([{
+      platforms: [{ platformId: "10000000-0000-4000-8000-000000000001", value: 9 }],
+    }]);
+    await page.goto(`${gamePath}?rating-intent=resumed`);
+    await expect(page.getByText(/La selección para puntuar caducó/)).toBeVisible();
+    await expect(reading(page)).toHaveAccessibleName(/9\/10, nota de 1 plataforma/);
+    expect(writes).toHaveLength(1);
+
+    await reading(page).click();
+    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await expect(reading(page)).toHaveAccessibleName(/sin puntuación/);
+  });
 
   test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
     await page.goto(gamePath);

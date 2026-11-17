@@ -47,7 +47,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
         return !isPersonalApi(request)
                 && !isAdministrationApi(request)
                 && !isSessionMutation(request)
-                && !isFeedbackSubmission(request);
+                && !isFeedbackSubmission(request)
+                && !isRatingIntentStart(request);
     }
 
     @Override
@@ -91,9 +92,16 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
                 && (request.getContextPath() + FEEDBACK_PATH).equals(request.getRequestURI());
     }
 
+    private static boolean isRatingIntentStart(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && (request.getContextPath() + "/auth/rating-intent/start")
+                        .equals(request.getRequestURI());
+    }
+
     private static boolean isStateChange(HttpServletRequest request) {
         return isSessionMutation(request)
                 || isFeedbackSubmission(request)
+                || isRatingIntentStart(request)
                 || (isPersonalApi(request)
                         && (HttpMethod.POST.matches(request.getMethod())
                                 || HttpMethod.PUT.matches(request.getMethod())
