@@ -188,8 +188,9 @@ class RatingIntentControllerIntegrationTest {
                                         .formField("slug", SLUG)
                                         .formField("platform", "platform_ps5:9", "platform_pc:"))
                         .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.alreadyAuthenticated").value(false))
                         .andReturn();
-        assertThat(started.getResponse().getContentAsString()).isEqualTo("/auth/login/keycloak");
         var store =
                 new RatingReturnContextStore(
                         started.getRequest(), Clock.systemUTC(), java.time.Duration.ofMinutes(10));
@@ -200,6 +201,32 @@ class RatingIntentControllerIntegrationTest {
                 .containsExactly(
                         new PlatformScore("platform_ps5", 9),
                         new PlatformScore("platform_pc", null));
+    }
+
+    @Test
+    void platformStartResumesDirectlyWhenTheSessionIsAlreadyAuthenticated() throws Exception {
+        String start = "/auth/rating-intent/start";
+        var principal = authenticated("subject-a");
+        MvcResult proof =
+                mockMvc.perform(get(start).param("csrf", "").with(principal))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        var session = (MockHttpSession) proof.getRequest().getSession(false);
+        mockMvc.perform(
+                        post(start)
+                                .session(session)
+                                .with(principal)
+                                .header("X-CSRF-Token", proof.getResponse().getContentAsString())
+                                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                .formField("gameId", GAME_ID)
+                                .formField("slug", SLUG)
+                                .formField("platform", "platform_ps5:9"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.alreadyAuthenticated").value(true));
+        mockMvc.perform(get("/auth/rating-intent").session(session).with(principal))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gameId").value(GAME_ID))
+                .andExpect(jsonPath("$.platforms[0].value").value(9));
     }
 
     @Test

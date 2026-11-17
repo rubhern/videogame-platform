@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,7 +55,9 @@ public class RatingIntentController {
     public ResponseEntity<Void> start(
             @RequestParam("gameId") String gameId,
             @RequestParam(name = "slug", required = false) String slug,
-            @RequestParam(name = "value", required = false) String value) {
+            @RequestParam(name = "value", required = false) String value,
+            Authentication authentication) {
+        Optional<UserId> userId = ProductIdentity.resolve(authentication);
         if (!RatingBoundary.isValidGameId(gameId)) {
             return redirect(RatingBoundary.home());
         }
@@ -67,17 +68,27 @@ public class RatingIntentController {
                             gameId, slug, RatingBoundary.Outcome.INVALID));
         }
 
+        var selection =
+                new RatingReturnContext(
+                        gameId,
+                        RatingBoundary.validSlug(slug).orElse(null),
+                        selectedValue.get(),
+                        clock.instant());
+        stageSelection(selection, userId);
         return redirect(
-                startAuthentication(
-                        new RatingReturnContext(
-                                gameId,
-                                RatingBoundary.validSlug(slug).orElse(null),
-                                selectedValue.get(),
-                                clock.instant())));
+                userId.isPresent()
+                        ? RatingBoundary.gamePathWithOutcome(
+                                selection.gameId(),
+                                selection.slug(),
+                                RatingBoundary.Outcome.RESUMED)
+                        : LOGIN_ENTRY);
     }
 
     /** Issues the existing session CSRF proof before an anonymous form submission. */
-    @GetMapping(path = "/auth/rating-intent/start", params = "csrf")
+    @GetMapping(
+            path = "/auth/rating-intent/start",
+            params = "csrf",
+            produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> startCsrf(CsrfToken csrf) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(csrf.getToken());
     }
@@ -88,39 +99,41 @@ public class RatingIntentController {
      */
     @PostMapping(
             path = "/auth/rating-intent/start",
-            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> startPlatforms(
+            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PlatformRatingStart> startPlatforms(
             @RequestParam("gameId") String gameId,
             @RequestParam(name = "slug", required = false) String slug,
-            @RequestParam MultiValueMap<String, String> form) {
+            @RequestParam MultiValueMap<String, String> form,
+            Authentication authentication) {
+        Optional<UserId> userId = ProductIdentity.resolve(authentication);
         Optional<List<PlatformScore>> platforms =
                 RatingBoundary.validPlatforms(form.get("platform"));
         if (!RatingBoundary.isValidGameId(gameId) || platforms.isEmpty()) {
             return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).build();
         }
-        String target =
-                startAuthentication(
-                        new RatingReturnContext(
-                                gameId,
-                                RatingBoundary.validSlug(slug).orElse(null),
-                                null,
-                                platforms.get(),
-                                clock.instant()));
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(target);
+        stageSelection(
+                new RatingReturnContext(
+                        gameId,
+                        RatingBoundary.validSlug(slug).orElse(null),
+                        null,
+                        platforms.get(),
+                        clock.instant()),
+                userId);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(new PlatformRatingStart(userId.isPresent()));
     }
 
-    private String startAuthentication(RatingReturnContext selection) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Optional<UserId> userId = ProductIdentity.resolve(authentication);
+    private void stageSelection(RatingReturnContext selection, Optional<UserId> userId) {
         if (userId.isPresent()) {
             store.saveResumedIntent(new ResumedRatingIntent(selection, userId.get().value()));
-            return RatingBoundary.gamePathWithOutcome(
-                    selection.gameId(), selection.slug(), RatingBoundary.Outcome.RESUMED);
+        } else {
+            store.saveReturnContext(selection);
         }
-
-        store.saveReturnContext(selection);
-        return LOGIN_ENTRY;
     }
+
+    public record PlatformRatingStart(boolean alreadyAuthenticated) {}
 
     /**
      * Reads and consumes the recovered selection exactly once for the current authenticated user.
@@ -130,8 +143,7 @@ public class RatingIntentController {
      * {@code 404} with no body.
      */
     @GetMapping("/auth/rating-intent")
-    public ResponseEntity<PendingRatingIntent> pendingRatingIntent() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    public ResponseEntity<PendingRatingIntent> pendingRatingIntent(Authentication authentication) {
         Optional<UserId> userId = ProductIdentity.resolve(authentication);
         Optional<ResumedRatingIntent> resumed = store.takeResumedIntent();
         if (userId.isEmpty()

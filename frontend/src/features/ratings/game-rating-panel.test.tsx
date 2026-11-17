@@ -605,9 +605,9 @@ describe("rating by platform (#359)", () => {
   it("lets an anonymous visitor draft platform scores and starts sign-in only on save", async () => {
     const user = userEvent.setup();
     const server = serve({
-      startIntent: (request) => new Response(
-        request.method === "GET" ? "intent-proof" : "/auth/login/keycloak",
-      ),
+      startIntent: (request) => request.method === "GET"
+        ? new Response("intent-proof")
+        : Response.json({ alreadyAuthenticated: false }),
     });
     renderPanel(basePath, twoPlatformGame());
 

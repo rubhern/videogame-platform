@@ -46,7 +46,15 @@ export async function startPlatformRatingIntent(
     body,
   });
   if (!response.ok) throw new Error("Could not start rating authentication.");
-  return response.text();
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null || !("alreadyAuthenticated" in result) ||
+      typeof result.alreadyAuthenticated !== "boolean") {
+    throw new Error("Invalid rating authentication response.");
+  }
+
+  return result.alreadyAuthenticated
+    ? `/games/${encodeURIComponent(gameId)}/${encodeURIComponent(slug)}?rating-intent=resumed`
+    : "/auth/login/keycloak";
 }
 
 function isScore(value: unknown): value is number {
