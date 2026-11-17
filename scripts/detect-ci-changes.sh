@@ -149,7 +149,7 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend dependency_images
       matched=true
       ;;
-    docker/keycloak/remember-me-mapper/* | scripts/probe-remember-me-trust.*)
+    docker/keycloak/remember-me-mapper/* | docker/keycloak/brokered-terms/* | scripts/probe-remember-me-trust.*)
       enable identity browser backend dependency_images
       matched=true
       ;;
@@ -159,6 +159,11 @@ for path in "${changed_paths[@]}"; do
       ;;
     deploy/public-production/keycloak/*)
       # The production realm is proven by the identity gate; the runtime mounts and consumes it.
+      enable identity production_runtime
+      matched=true
+      ;;
+    deploy/private-dev/bin/configure-social-sign-in | scripts/validate-social-sign-in.sh | scripts/test-social-sign-in-keycloak.py | scripts/production_social_sign_in.py | scripts/test-production-social-sign-in.py)
+      # Social sign-in (ADR-0045): the actor's journeys run on real Keycloak; the host tool is an operation.
       enable identity production_runtime
       matched=true
       ;;

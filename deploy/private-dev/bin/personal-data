@@ -153,6 +153,10 @@ class Runtime:
         found = self.keycloak("GET", f"/users/{keycloak_user_id}/sessions", missing_ok=True)
         return found if isinstance(found, list) else []
 
+    def linked_providers(self, keycloak_user_id: str) -> list[dict[str, object]]:
+        found = self.keycloak("GET", f"/users/{keycloak_user_id}/federated-identity", missing_ok=True)
+        return found if isinstance(found, list) else []
+
     # Application database -------------------------------------------------------------------
 
     def sql(self, statement: str, user_id: str) -> str:
@@ -409,6 +413,12 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         for session in runtime.keycloak_sessions(keycloak_user_id)
     ]
     sessions.sort(key=lambda session: (session["startedAt"] or "", session["lastAccessAt"] or ""))
+    # Google or Microsoft sign-in (ADR-0045): which provider and the identifiers it gave the account.
+    # Keycloak keeps no provider token (storeToken is off), so there is none to leave out.
+    linked = sorted(
+        ({"provider": link.get("identityProvider"), "providerUserId": link.get("userId"),
+          "providerUsername": link.get("userName")} for link in runtime.linked_providers(keycloak_user_id)),
+        key=lambda link: str(link["provider"]))
     return {
         "format": EXPORT_FORMAT,
         "version": 1,
@@ -416,6 +426,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "productUserId": user_id,
         "account": profile,
         "identitySessions": sessions,
+        "linkedSignIn": linked,
         "ratings": runtime.ratings(user_id),
         "preferredPlatforms": runtime.preferred_platforms(user_id),
     }

@@ -301,9 +301,10 @@ auth.gameometro.com {
 		max_size 1MB
 	}
 	header -Server
-	# Allowlist of the product realm's browser and BFF paths. The admin console and API,
-	# the master realm, the account console, health and metrics are never routed.
-	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/*
+	# Allowlist of the product realm's browser and BFF paths, plus the Google and Microsoft
+	# broker start and callback paths (ADR-0045). The admin console and API, the master realm,
+	# the account console, health, metrics and every other broker alias are never routed.
+	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/* /realms/gameometro/broker/google/* /realms/gameometro/broker/microsoft/*
 	route {
 		import edge_admission
 		# Identity maintenance (bin/identity-maintenance) closes the whole identity host,
@@ -338,10 +339,12 @@ auth.gameometro.com {
 					window 5s
 					events 60
 				}
+				# Linking a provider to an existing account re-enters that account's password on
+				# the first-broker-login step, so it shares the sign-in budget.
 				zone identity-login-source {
 					match {
 						method POST
-						path /realms/gameometro/login-actions/authenticate
+						path /realms/gameometro/login-actions/authenticate /realms/gameometro/login-actions/first-broker-login
 					}
 					match {
 						method POST
@@ -407,7 +410,7 @@ auth.gameometro.com {
 				zone aggregate-identity-login {
 					match {
 						method POST
-						path /realms/gameometro/login-actions/authenticate
+						path /realms/gameometro/login-actions/authenticate /realms/gameometro/login-actions/first-broker-login
 					}
 					match {
 						method POST

@@ -239,7 +239,7 @@ jobs:
       # Every leg is part of one required result; one failure must not hide another.
       fail-fast: false
       matrix:
-        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private]
+        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private, social-sign-in]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,8 +250,8 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
-          cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}
+          # The private-dev and social sign-in legs run neither npm nor Maven, so they restore and save no cache.
+          cache: ${{ !contains(fromJSON('["private-dev", "social-sign-in"]'), matrix.leg) && 'npm' || '' }}
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
@@ -259,7 +259,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-          cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}
+          cache: ${{ !contains(fromJSON('["private-dev", "social-sign-in"]'), matrix.leg) && 'maven' || '' }}
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
@@ -277,6 +277,7 @@ jobs:
             private-dev) bash scripts/validate-private-dev-identity.sh ;;
             core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
             production) bash scripts/validate-production-identity.sh ;;
+            social-sign-in) bash scripts/validate-social-sign-in.sh ;;
             personal-data) bash scripts/validate-personal-data.sh ;;
             personal-data-private) PERSONAL_DATA_COMPLETION_POLICY=private-dev bash scripts/validate-personal-data.sh ;;
             *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
@@ -373,6 +374,7 @@ jobs:
             python3 scripts/test-production-cleanup.py
             python3 scripts/test-production-unverified-cleanup.py
             python3 scripts/test-production-account-deletion.py
+            python3 scripts/test-production-social-sign-in.py
           ) &
           operations_pid=$!
           python3 scripts/test-production-observability.py --smoke &

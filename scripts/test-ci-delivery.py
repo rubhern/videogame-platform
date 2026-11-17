@@ -75,7 +75,7 @@ class DeliveryTests(unittest.TestCase):
             'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
-                           'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py', 'test-production-account-deletion.py'],
+                           'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py', 'test-production-account-deletion.py', 'test-production-social-sign-in.py'],
             'observability': ['test-production-observability.py --smoke'],
             'edge': ['test-public-production-runtime.py'],
         }
@@ -191,7 +191,7 @@ python3() {
         jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
                 for i, match in enumerate(starts)}
         job, gate = jobs['identity-compatibility'], jobs['required-quality-gate']
-        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data', 'personal-data-private']
+        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data', 'personal-data-private', 'social-sign-in']
         self.assertIn("if: ${{ needs.detect-changes.outputs.identity == 'true' }}", job)
         self.assertIn('    needs: detect-changes\n', job)
         self.assertIn('      fail-fast: false\n', job)
@@ -202,9 +202,9 @@ python3() {
         # Only the diagnostics upload is conditional; no leg can skip its proof and pass.
         self.assertEqual(re.findall(r'^        if: (.+)$', job, re.M), ['${{ failure() && !cancelled() }}'])
         self.assertIn('name: identity-browser-diagnostics-${{ matrix.leg }}', job)
-        # The private-dev leg runs neither npm nor Maven and must not save an empty cache.
-        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}", job)
-        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}", job)
+        # The private-dev and social sign-in legs run neither npm nor Maven and must not save an empty cache.
+        self.assertIn("cache: ${{ !contains(fromJSON('[\"private-dev\", \"social-sign-in\"]'), matrix.leg) && 'npm' || '' }}", job)
+        self.assertIn("cache: ${{ !contains(fromJSON('[\"private-dev\", \"social-sign-in\"]'), matrix.leg) && 'maven' || '' }}", job)
         self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
                       "|| matrix.leg != 'personal-data' }}", job)
         self.assertIn('      - identity-compatibility\n', gate)
@@ -223,6 +223,7 @@ python3() {
             'production': 'scripts/validate-production-identity.sh',
             'personal-data': 'scripts/validate-personal-data.sh',
             'personal-data-private': 'scripts/validate-personal-data.sh private-dev',
+            'social-sign-in': 'scripts/validate-social-sign-in.sh',
         }
         self.assertEqual(sorted(expected), sorted(legs))
         for leg, command in expected.items():

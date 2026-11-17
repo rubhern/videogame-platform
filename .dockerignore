@@ -41,6 +41,8 @@
 !/docker/keycloak/themes/**
 !/docker/keycloak/remember-me-mapper/
 !/docker/keycloak/remember-me-mapper/**
+!/docker/keycloak/brokered-terms/
+!/docker/keycloak/brokered-terms/**
 !/docker/keycloak/password-blacklists/
 !/docker/keycloak/password-blacklists/gameometro-common-passwords.txt
 

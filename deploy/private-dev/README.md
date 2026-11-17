@@ -585,6 +585,41 @@ new sessions only; to end access at once, also revoke the account's sessions wit
 `--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
 against an existing local realm; a freshly imported local realm already declares the role.
 
+## Google and Microsoft sign-in
+
+Post-MVP (#548, implemented; awaiting owner review; not run on `vgpdev`).
+[ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The promoted Keycloak image already carries the brokered-terms authenticator
+and the theme. The providers exist only after this command adds them to the existing realm.
+
+1. **Register the apps.** Register separate *development* OAuth clients at Google and Microsoft
+   (personal accounts only), never the production ones. Each takes one redirect URI on this host's
+   private Keycloak origin, `PRIVATE_DEV_KEYCLOAK_ORIGIN`:
+   `<origin>/realms/videogame-platform/broker/google/endpoint` and
+   `<origin>/realms/videogame-platform/broker/microsoft/endpoint`.
+2. **Write the credentials.** Put the client IDs and secrets in `PRIVATE_DEV_SECRETS_DIR` as
+   `social-google-client-id`, `social-google-client-secret`, `social-microsoft-client-id` and
+   `social-microsoft-client-secret`, with the same owner and mode as the other protected inputs.
+   A provider with neither file is disabled. One file alone refuses.
+3. **Apply and check**, as root:
+
+   ```bash
+   social=(python3 deploy/private-dev/bin/configure-social-sign-in \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env --realm videogame-platform)
+   "${social[@]}" --check || true
+   "${social[@]}"
+   "${social[@]}" --check
+   ```
+
+The command changes only the terms required action, the `gameometro first broker login` flow and
+the two providers. It never touches accounts, clients or the identity policy, so it needs no
+snapshot.
+- **Rollback:** `--disable` turns both providers off and keeps every linked identity. Never delete a
+  provider in the Admin Console: that drops its links.
+- **Rotation:** replace the secret file and run the command again.
+- **Locally:** `bash scripts/local-dependencies.sh configure-social-sign-in` runs the same command
+  ([local setup](../../docs/development/local-setup.md#google-and-microsoft-sign-in)).
+
 ## Historical synchronization pilot
 
 Post-MVP (#246 spike; tooling prepared, not yet run on `vgpdev`).

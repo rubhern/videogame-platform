@@ -250,6 +250,9 @@ is file delivery on one host, not an encrypted vault.
 | `account-deletion-executor-capability` | Self-service deletion executor capability, shared with the host runner | `application` | File only; may be empty while self-service deletion is off. When on, 64 lowercase hex characters, owned by UID 10001 with mode `0600` ([#543](#self-service-account-deletion)) |
 | `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
 
+Google and Microsoft sign-in credentials are not in this directory: they are owner inputs of
+their own tool, described in [Google and Microsoft sign-in](#google-and-microsoft-sign-in-548).
+
 Storage requirements, verified on the host before first start:
 
 - The directory belongs to `root`, group `PRODUCTION_SECRETS_GID`, mode `0750`; each
@@ -2669,6 +2672,75 @@ A later in-place upgrade preserves the public edge: it derives the same delta fo
 from outside the VPS: certificates, redirection, catalogue, refusals, closed admin console, denied
 management and database ports on IPv4 and IPv6, and the per-source search limit with and without
 forged forwarding headers. SSH exposure is reported for the owner's firewall decision, not judged.
+
+### Google and Microsoft sign-in (#548)
+
+**Implemented for review; not executed on the host.** [ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The provider buttons appear only after the owner enables a provider. Until then,
+the realm, the edge and the sign-in pages behave as before.
+
+Before enabling, the owner must:
+
+1. **Approve the privacy text.** Approve the
+   [privacy text](../../docs/legal/public-texts-es.md) and
+   [data-protection record](../../docs/development/data-protection.md) changes that name both
+   providers.
+2. **Deploy a release that includes this change.** Its Keycloak image carries the
+   `gameometro-brokered-terms` authenticator, its theme presents the providers, and its edge routes
+   only `/realms/gameometro/broker/google/*` and `/realms/gameometro/broker/microsoft/*`.
+3. **Register the apps.** These are owner accounts outside this repository:
+   - **Google Cloud:** an OAuth client of type *Web application* with the `openid` and `email`
+     scopes, and an External, published consent screen naming Gameómetro, `gameometro.com` and the
+     privacy and terms URLs.
+   - **Microsoft Entra:** an app registration for *personal Microsoft accounts only*, with a web
+     platform, a client secret, and the delegated `User.Read` permission.
+
+   Both take exactly one redirect URI each:
+   `https://auth.gameometro.com/realms/gameometro/broker/google/endpoint` and
+   `https://auth.gameometro.com/realms/gameometro/broker/microsoft/endpoint`.
+4. **Write the credentials.** Put the client ID and secret of each enabled provider into
+   `/etc/gameometro/production/social-sign-in/`:
+   - files `google-client-id`, `google-client-secret`, `microsoft-client-id`, `microsoft-client-secret`;
+   - one line each;
+   - files `root`, `0600`, in a `root` `0700` directory;
+   - kept in the off-host reconstruction material.
+
+   One file of a pair alone refuses. A provider with neither file stays disabled.
+
+These files are owner inputs of [`production_social_sign_in.py`](../../scripts/production_social_sign_in.py),
+not Compose secrets or runtime inputs, so adding, rotating or removing them needs no in-place
+upgrade. Keycloak stores the secret inside the identity database, like the relay credentials.
+Run as root from the reviewed operational source:
+
+```text
+python3 -I scripts/production_social_sign_in.py --plan
+python3 -I scripts/production_social_sign_in.py --apply --owner-reference <reference>
+python3 -I scripts/production_social_sign_in.py --check
+python3 -I scripts/production_social_sign_in.py --disable --owner-reference <reference>
+```
+
+Every mode refuses an unfinished upgrade, a closed recovery gate or an identity-maintenance fence.
+It runs the active installation's reviewed
+[`configure-social-sign-in`](../private-dev/bin/configure-social-sign-in) in a disposable helper on the private
+identity network. The administrator password and the provider credentials cross its stdin, and
+nothing prints them. The actor manages only the `TERMS_AND_CONDITIONS` required action, the
+`gameometro first broker login` flow and the two providers. It refuses a flow of another shape
+rather than changing it. `--apply` and `--disable` record the owner reference and the provider
+states, never a credential, in `/var/lib/gameometro/production/social-sign-in/SOCIAL-SIGN-IN.json`.
+
+**Rotation.** Create the new secret at the provider, replace the file, run `--apply` (Keycloak keeps
+the new secret), check a real sign-in, then revoke the old secret at the provider.
+
+**Rollback and incidents.** `--disable` turns both providers off and keeps every linked identity.
+Deleting a provider in Keycloak would drop those links, so never delete one. To stop one provider,
+remove both of its files and run `--apply`. A person who only used a disabled provider recovers
+access through password recovery for the account's email. On a suspected provider-credential leak,
+revoke the secret at the provider first, then rotate as above.
+
+After `--apply`, sign up and sign in with a real Google and a real Microsoft account. Link one of
+them to an existing email account (it must ask for that account's password). Then check that
+`--check` passes. The [disposable journeys](../../scripts/validate-social-sign-in.sh) prove the
+flow on stand-in providers only, never the real provider registrations.
 
 ### Before any real user data
 
