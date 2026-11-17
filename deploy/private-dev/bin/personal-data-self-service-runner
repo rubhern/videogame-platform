@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Automatically claim persisted requests and run the existing #274 engine in protected administration.
 
-No service is installed. The owner starts/supervises this process in the existing protected
-context. No SSH client or identity administration credentials live in the web application.
+The owner supervises this process in the existing protected context; the production runner
+subclasses it (#543). No SSH client or identity administration
+credentials live in the web application.
 """
 import argparse
 import importlib.machinery
@@ -28,7 +29,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError("Administration redirects are forbidden")
 
 
+BRIDGE = pathlib.Path(__file__).with_name("personal-data-self-service")
+
+
 class Runner:
+    """Private-dev and test runner. The production tool (#543) replaces its transport, child and pause."""
+
     def __init__(self, config_path):
         bridge.ledger._require_private(config_path.parent, directory=True)
         bridge.ledger._require_private(config_path, directory=False)
@@ -77,7 +83,20 @@ class Runner:
         with bridge.ledger.open_ledger(args.ledger, args.ledger_copy, create=True):
             pass
 
+    def paused(self):
+        """Another actor owns the runtime: neither heartbeat nor claim, so admission closes."""
+        return False
+
+    def policy(self):
+        return self.config.get("policy", "independent")
+
+    def child(self):
+        """The erasure command for one claim; its envelope arrives on stdin."""
+        return [sys.executable, "-I", str(BRIDGE), "--config", str(self.config_path)]
+
     def tick(self):
+        if self.paused():
+            return False
         work = self.exchange({"action": "claim"})
         if work.get("idle") is True:
             return False
@@ -88,14 +107,13 @@ class Runner:
         verified, receipt = False, {}
         try:
             # Child deadline bounds one attempt. Existing write-ahead evidence survives interruption.
-            process = subprocess.run([sys.executable, "-I", str(pathlib.Path(__file__).with_name("personal-data-self-service")),
-                "--config", str(self.config_path)], input=json.dumps(envelope).encode(), capture_output=True, timeout=600)
+            process = subprocess.run(self.child(), input=json.dumps(envelope).encode(), capture_output=True, timeout=600)
             if process.returncode != 0 or len(process.stdout) > 4096:
                 raise ValueError("Erasure not verified")
             receipt = json.loads(process.stdout)
             if receipt.get("verified") is not True or receipt.get("requestId") != work["requestId"] or receipt.get("userId") != work["userId"]:
                 raise ValueError("Unrelated completion receipt")
-            if self.config.get("policy", "independent") == "independent":
+            if self.policy() == "independent":
                 for key in ("ledgerSha256", "proofSha256"):
                     if not __import__("re").fullmatch("[0-9a-f]{64}", receipt.get(key, "")):
                         raise ValueError("Missing durable evidence digest")
@@ -114,14 +132,18 @@ class Runner:
     def heartbeat(self):
         while not self.stopped.wait(20):
             try:
-                self.exchange({"action": "heartbeat"})
+                if not self.paused():
+                    self.exchange({"action": "heartbeat"})
             except Exception:
                 pass
 
     def run(self, once=False):
         self.preflight()
+        while self.paused():
+            if once or self.stopped.wait(5):
+                return False
         ready = self.exchange({"action": "heartbeat"})
-        if ready.get("policy") != self.config.get("policy", "independent"):
+        if ready.get("policy") != self.policy():
             raise ValueError("Executor policy differs from application policy")
         if once:
             return self.tick()

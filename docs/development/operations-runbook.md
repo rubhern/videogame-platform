@@ -267,7 +267,9 @@ inspection; this alert set has no independent watchdog.
 
 ## Telegram delivery
 
-Follow the [single setup/activation procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+Only production Grafana delivers alerts; private-dev delivers none
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). Follow the
+[production activation procedure](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery).
 In Grafana, inspect Alerting's rule instances, notification policies, contact point
 and notification errors. A firing rule does not prove message delivery. For failed
 HTTPS sends, inspect the bounded Grafana info logs for redacted errors, token revocation,
@@ -333,11 +335,10 @@ No growth activity while idle is normal, and an email-verification event is not 
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
 
-Registration notices are opt-in window observations. No closing message is sent when
+Registration notices are window observations, sent by production only, with its alerts. No closing message is sent when
 the window ends; several registrations can share one notice, and sparse/restarted
 collection can miss one. The displayed count is an estimate, not an exact account
-total. Live Telegram remains pending owner credentials and
-separate send approval; a passing TLS mock is not delivery evidence. Ratings counters
+total. A passing TLS mock is not delivery evidence; the owner's contact-point test is. Ratings counters
 only observe committed
 commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
 the current active SQL total for inventory, never counter subtraction or a rolling
@@ -957,6 +958,24 @@ configuration command are proven in the real identity gate. The workstation
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
 
+## Google and Microsoft sign-in
+
+Owners: the [public-production README](../../deploy/public-production/README.md#google-and-microsoft-sign-in-548)
+for enabling, rotating and disabling on the production host, the
+[private-dev README](../../deploy/private-dev/README.md#google-and-microsoft-sign-in) and
+[local setup](local-setup.md#google-and-microsoft-sign-in).
+**Disposable-gate evidence only, 2026-11-14 (#548):** `validate-social-sign-in.sh` proves the
+reviewed flow on stand-in OIDC providers. Real Google and Microsoft registrations, sign-in on
+`vgpdev` and in production are **not exercised**; record their first run in #548.
+
+| Symptom | Contain and restore |
+|---|---|
+| A provider is down or refuses | The sign-in page reports it in Spanish and email and password keep working. Wait; nothing to change |
+| A provider secret leaked or expired | Revoke or create it at the provider, replace the owner file and apply again |
+| A provider must stop at once | `--disable` (production) or the matching local/private-dev command; linked identities stay |
+| A person lost their Google or Microsoft account | They recover access with password recovery for the account's email; the link stays until an operator removes it through the Admin API on request |
+| A person asks to unlink a provider | Remove that federated identity through the Admin API only if the account keeps a password or another provider |
+
 ## Visitor feedback mail
 
 Use one synthetic message with a unique marker and no personal information. In
@@ -1036,7 +1055,8 @@ personal-data-ledger --ledger <ledger> --host-command "<host command>" \
 
 The JSON holds the Keycloak profile (with any names stored before they stopped being
 collected), the account's current Keycloak sessions with their start, last access and
-IP address, every rating with its game, title, value and times, and the preferred
+IP address, the Google or Microsoft sign-in linked to the account with the identifiers that
+provider gave it (#548), every rating with its game, title, value and times, and the preferred
 platforms (#295) with whether a choice was ever made. It is written once
 as `0600` and never overwritten; nothing is stored on the host. Send it only to the
 account's verified address, then delete the file. An export creates no ledger entry.
@@ -1672,6 +1692,11 @@ erasure/cleanup, add the following global options: `--archive-root <owner-archiv
 `--holds <protected-holds-store>`, `--gnupg-home <off-VPS-owner-keyring>`,
 `--recipient <full-encryption-key-fingerprint>` and `--signer <full-signing-key-fingerprint>`.
 Use owner-unlocked GPG keys; pass no passphrase in arguments, environment or logs.
+The [scheduled production cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)
+uses its own dedicated keys instead
+([ADR-0044](../decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)).
+To replay, review, verify or purge its `CLEAN-` archives here, import its exported keys and pass its
+recipient and signer.
 The existing `erase --request <opaque-reference> --keycloak-user-id <UUID>` selects
 the ordinary profile automatically from the account’s explicit verification state in production. No individual ratings
 are retained by that profile. A protected `<subject-UUID>.json` hold file selects a
@@ -1869,9 +1894,10 @@ The supported `identity.deletion-executor.enabled` and `credential-file` propert
 initialized from `ACCOUNT_DELETION_EXECUTOR_ENABLED` and
 `ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE`. Both default to disabled/unconfigured.
 An enabled instance refuses startup unless the dedicated capability file is private and
-holds 32 random bytes encoded as 64 lowercase hexadecimal characters. The prepared `deploy/public-production/compose.account-deletion.yaml` overlay enables
-only this capability and mounts its file; it is absent from every default promotion command.
-This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
+holds 32 random bytes encoded as 64 lowercase hexadecimal characters. Production carries both
+settings off in its base Compose; the
+[production procedure](../../deploy/public-production/README.md#self-service-account-deletion)
+turns them on. This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
 The endpoint exists only with explicit enablement and a separate management port. It is
 never on the product port, edge allowlist or public OpenAPI, and rejects browser-originated
 commands. Every action also requires the dedicated Bearer capability, even on loopback.
@@ -1881,18 +1907,21 @@ the owner's existing protected administration context. It is the one added proce
 independent evidence/keys must survive loss of the web host. It serves no HTTP interface,
 introduces no broker/database/service and never polls from a browser. Supervision restarts
 this command; production durable state remains PostgreSQL and the existing #274 ledger.
-A source-only systemd unit is prepared for the owner-approved private-dev policy; no timer,
-service unit or real-host process has been installed by this change. The bounded `--once` option
+A source-only systemd unit is prepared for the owner-approved private-dev policy. Production runs
+the same loop through `deploy/public-production/bin/account-deletion` and its own unit
+([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)). The
+bounded `--once` option
 is for qualification/tests; ordinary operation continuously processes new requests.
 
 The private config pins `issuer`, an argument-array `host_command` for the existing runtime
 adapter, `ledger`, `ledger_copy`, `proof_root`, `archive_root`, `archive_copy`, `gnupg_home`,
 `recipient`, `signer`, `holds`, plus `credential_file` and the exact `management_url` ending
 in `/actuator/accountdeletionexecutor`. The URL must be HTTPS or loopback HTTP. The HTTP
-client disables environment proxies and redirects and bounds time/response bytes. Production
-must provide the existing protected administration path to the private management interface;
-no automatically provisioned destination is assumed. The runner may use existing owner-side
-administrative transport; no SSH client is added to the web application.
+client disables environment proxies and redirects and bounds time/response bytes. In
+production the management port answers only on the application container's loopback: the
+production runner builds this configuration from the unattended cleanup's, and reaches the
+port through `docker exec` with the capability on stdin. No SSH client is added to the web
+application.
 
 Startup preflights both ledger/archive paths, signing/decryption keys and suppression/hold
 stores before announcing readiness. A heartbeat every twenty seconds remains fresh for sixty
@@ -1907,9 +1936,9 @@ file. Keep management inaccessible to browsers/other networks throughout qualifi
 The implementation reuses the existing administrative runtime and a single polling process.
 It requires no additional paid service by design, but actual availability, equipment and
 operating costs still need qualification; existing owner equipment is not an uptime promise.
-Production #276 must qualify the supervised execution context, protected management channel,
-secret ownership/rotation, independently durable storage failure domains, archive/key access,
-interruption recovery and restore replay before activation. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
+Production activation ([#543](https://github.com/rubhern/videogame-platform/issues/543)) reuses
+the qualified #539 custody and qualifies the runner with a synthetic account: end-to-end
+deletion, interruption recovery and restore replay on a disposable copy. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
 its installation and live acceptance remain pending. No production requirement is
 silently waived to enable a development demo.
 

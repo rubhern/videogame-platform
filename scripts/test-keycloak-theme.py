@@ -90,6 +90,43 @@ class KeycloakThemeTest(unittest.TestCase):
         self.assertNotIn("activar", bundle["resetPasswordMessage"])
 
 
+class SocialSignInThemeTest(unittest.TestCase):
+    """#548: Google and Microsoft presentation, linking and terms copy (ADR-0045)."""
+
+    def test_every_message_the_overridden_templates_use_is_defined(self):
+        bundle = messages()
+        for template in ("social-providers.ftl", "login-idp-link-confirm.ftl", "terms.ftl"):
+            source = (LOGIN / template).read_text(encoding="utf-8")
+            keys = set(re.findall(r'msg\("([^"]+)"', source)) | set(re.findall(r'label="([^"]+)"', source))
+            for key in keys - {"termsTitle", "termsText"}:  # realm localization owns the approved notice
+                with self.subTest(template=template, key=key):
+                    self.assertIn(key, bundle)
+
+    def test_buttons_name_the_provider_and_keep_its_untinted_mark(self):
+        bundle = messages()
+        self.assertEqual(bundle["gmSocialContinue"], "Continuar con {0}")
+        self.assertEqual(bundle["identity-provider-login-label"], "O continúa con")
+        source = (LOGIN / "social-providers.ftl").read_text(encoding="utf-8")
+        self.assertNotIn("aria-label", source, "the visible name is the accessible name")
+        self.assertEqual(source.count('aria-hidden="true"'), 2)
+        css = (LOGIN / "resources/css/gameometro.css").read_text(encoding="utf-8")
+        self.assertIn("#kc-social-providers svg.gm-social-mark {", css)
+        self.assertIn("filter: none;", css.split("#kc-social-providers svg.gm-social-mark {", 1)[1].split("}", 1)[0])
+
+    def test_registration_offers_the_providers_and_otherwise_matches_the_parent(self):
+        source = (LOGIN / "register.ftl").read_text(encoding="utf-8")
+        self.assertIn('<#elseif section = "socialProviders">', source)
+        self.assertIn("<@registerCommons.termsAcceptance/>", source)
+
+    def test_linking_puts_the_existing_account_first_and_terms_have_clear_actions(self):
+        link = (LOGIN / "login-idp-link-confirm.ftl").read_text(encoding="utf-8")
+        self.assertLess(link.index('id="linkAccount"'), link.index('id="updateProfile"'))
+        self.assertIn("kcButtonPrimaryClass", link.split('id="linkAccount"')[0].rsplit("<button", 1)[1])
+        bundle = messages()
+        self.assertEqual((bundle["gmTermsAccept"], bundle["gmTermsDecline"]), ("Acepto las condiciones", "No acepto"))
+        self.assertIn("contraseña", bundle["federatedIdentityConfirmLinkMessage"])
+
+
 class PasswordPolicyTest(unittest.TestCase):
     """#473: one approved policy, its shipped denylist and the copy that announces it."""
 

@@ -10,10 +10,11 @@ import type { GameDetails } from "../game-details/game-details-api";
 import {
   getPendingRatingIntent,
   ratingIntentStartUrl,
+  type PlatformSelection,
 } from "../session/rating-intent";
 import { useSession } from "../session/use-session";
 import { SelectIcon } from "../../shared/ui/select-icon";
-import type { PersonalRating, RatingCommandError } from "./personal-rating-api";
+import type { PersonalRating, RatingCommandError, RatingWrite } from "./personal-rating-api";
 import {
   contributionSource,
   formatPersonalScore,
@@ -45,10 +46,12 @@ const ineligibleReasons: Record<
 
 type Outcome = "expired" | "cancelled" | "invalid";
 
-const outcomeNotices: Record<Outcome | "by-platform", string> = {
+const outcomeNotices: Record<Outcome | "by-platform" | "unavailable" | "platform", string> = {
   expired: "La selección para puntuar caducó. Vuelve a elegir tu puntuación.",
   cancelled: "No se completó el inicio de sesión. Tu puntuación no se ha guardado.",
-  invalid: "La puntuación seleccionada no era válida. Elige un valor del 1 al 10.",
+  invalid: "La selección para puntuar no era válida. Revisa tu puntuación y vuelve a intentarlo.",
+  unavailable: "No se pudo recuperar tu selección. Vuelve a elegir tu puntuación.",
+  platform: "Una de las plataformas seleccionadas ya no está disponible. Vuelve a elegir tus plataformas.",
   "by-platform":
     "Ya tenías este juego puntuado por plataforma, así que no hemos cambiado nada. Revisa tus plataformas si quieres otra puntuación.",
 };
@@ -93,7 +96,7 @@ type Feedback =
  * conditional (`If-None-Match: *` / `If-Match`), never retried automatically, and a rejected or
  * ambiguous command keeps the last valid personal and community state visible.
  *
- * <p>Post-MVP (#359) a signed-in player may also rate by platform. Picking on the keypad stays the
+ * <p>Players may also rate by platform. Picking on the keypad stays the
  * quick general score and never touches saved platforms. **Puntuar por plataforma** opens a modal
  * sheet for the played platforms and their optional scores; once any platform is scored, the
  * reading is their mean and the panel shows that breakdown instead of the keypad, so a general
@@ -116,7 +119,8 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [open, setOpen] = useState(false);
   const [editingPlatforms, setEditingPlatforms] = useState(false);
-  const [platformsSaved, setPlatformsSaved] = useState(false);
+  const [recoveredPlatforms, setRecoveredPlatforms] = useState<PlatformSelection[]>();
+  const [resumeNotice, setResumeNotice] = useState<"expired" | "unavailable" | "platform" | "by-platform" | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const resumedOnce = useRef(false);
@@ -127,14 +131,14 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   const resume = useQuery({
     queryKey: ["rating-intent", game.gameId],
     queryFn: ({ signal }) => getPendingRatingIntent(signal),
-    enabled: marker === "resumed",
+    enabled: marker === "resumed" && authenticated,
+    gcTime: 0,
     retry: false,
     staleTime: Infinity,
   });
-  const recovered = marker === "resumed" ? (resume.data?.value ?? null) : null;
-  // Whether this visit returned from sign-in, kept after the single-use marker is consumed.
-  const [returnedFromSignIn] = useState(marker === "resumed");
-  const notice = isOutcome(marker) ? marker : null;
+  const intent = marker === "resumed" && resume.data?.gameId === game.gameId ? resume.data : null;
+  const recovered = intent?.value ?? null;
+  const notice = isOutcome(marker) ? marker : resumeNotice;
 
   const eligibility = game.ratingEligibility;
   const eligible = eligibility.eligible;
@@ -144,9 +148,6 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   const inFlight =
     busy && command.variables?.type === "save" ? (command.variables.write.value ?? null) : null;
   const byPlatform = persisted?.mode === "platforms";
-  // A pick made before sign-in is never applied over platform scores; the visit says so instead.
-  const skippedResume =
-    returnedFromSignIn && byPlatform && (resume.data?.value ?? null) !== null && !platformsSaved;
   // The reading: the general value being saved, else the recovered one awaiting its automatic
   // save, else the persisted rating's one contribution.
   const selected =
@@ -155,8 +156,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   // An ineligible game without a rating has nothing to open: the reading states why instead.
   const usable = eligible || persisted !== null;
   const reason = eligible ? null : ineligibleReasons[eligibility.reason];
-  // Platform rating needs a session and a game with known platforms, or one already saved.
-  const platforms = authenticated && !checking ? platformOptions(game, persisted) : [];
+  const platforms = !checking ? platformOptions(game, persisted) : [];
 
   function clearMarker() {
     if (marker === null) return;
@@ -180,18 +180,23 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       return;
     }
     if (value === persisted?.value) return;
+    // Only the general score: saved platforms stay as they are.
+    saveRating(csrfToken, { value });
+  }
+
+  function saveRating(token: string, write: RatingWrite, createOnly = false) {
     command.mutate(
-      // Only the general score: saved platforms stay as they are.
-      { type: "save", csrfToken, write: { value } },
+      { type: "save", csrfToken: token, write, ...(createOnly ? { currentRating: null } : {}) },
       {
         onSuccess: (outcome) => {
           if (outcome.type !== "saved") return;
           trackEvent("rating_saved", {
             action: persisted === null ? "create" : "update",
-            mode: "direct",
+            mode: outcome.rating.mode,
             platform_count: countBucket(outcome.rating.platforms.length),
           });
           clearMarker();
+          setResumeNotice(null);
           setFeedback({
             tone: "success",
             text: `Puntuación guardada: ${formatPersonalScore(outcome.rating.contribution)}/10.`,
@@ -202,15 +207,37 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
     );
   }
 
-  // The visitor already chose this value before authenticating: persist it once on return. The
-  // marker is cleared as the command starts so the effect cannot fire twice; a value equal to the
-  // existing rating needs no command. Failures surface like any other command.
-  const readyToResume = recovered !== null && csrfToken !== null && !checking;
-  useEffect(() => {
-    if (!readyToResume || recovered === null || resumedOnce.current) return;
-    resumedOnce.current = true;
+  function resumeRating() {
     clearMarker();
-    if (!byPlatform && recovered !== persisted?.value) save(recovered);
+    if (session.isError || resume.isError || personal.isError) {
+      setResumeNotice("unavailable");
+    } else if (intent === null || csrfToken === null) {
+      setResumeNotice("expired");
+    } else if (intent.platforms) {
+      if (!eligible) return;
+      const available = new Set(platforms.map((platform) => platform.platformId));
+      if (intent.platforms.some(({ platformId }) => !available.has(platformId))) {
+        setResumeNotice("platform");
+      } else if (persisted === null) {
+        saveRating(csrfToken, { platforms: intent.platforms }, true);
+      } else {
+        setRecoveredPlatforms(intent.platforms);
+        editPlatforms();
+      }
+    } else if (byPlatform) {
+      setResumeNotice("by-platform");
+    } else if (eligible) {
+      save(intent.value);
+    }
+  }
+
+  // The server read consumes the selection. Keep its outcome when the return marker is cleared.
+  const readyToResume =
+    marker === "resumed" && !checking && (!authenticated || resume.isFetched);
+  useEffect(() => {
+    if (!readyToResume || resumedOnce.current) return;
+    resumedOnce.current = true;
+    resumeRating();
     // The command captures its own inputs; re-running on later renders must not repeat it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyToResume]);
@@ -280,12 +307,14 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   function editPlatforms() {
     trackEvent("rating_platforms_open", { has_rating: persisted === null ? "no" : "yes" });
     setFeedback(null);
+    setResumeNotice(null);
     close(false);
     setEditingPlatforms(true);
   }
 
   function platformsClosed(saved: PersonalRating | null) {
     setEditingPlatforms(false);
+    setRecoveredPlatforms(undefined);
     trigger.current?.focus();
     if (saved === null) trackEvent("rating_abandoned", { step: "platforms" });
     else {
@@ -296,7 +325,6 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       });
     }
     if (saved !== null) {
-      setPlatformsSaved(true);
       setFeedback({
         tone: "success",
         text: `Puntuación guardada: ${formatPersonalScore(saved.contribution)}/10.`,
@@ -393,9 +421,9 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
         {status}
       </p>
 
-      {notice !== null || skippedResume ? (
+      {notice !== null ? (
         <p className="game-rating-notice" role="status">
-          {outcomeNotices[skippedResume ? "by-platform" : (notice ?? "invalid")]}
+          {outcomeNotices[notice]}
         </p>
       ) : null}
 
@@ -478,12 +506,13 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
         </div>
       ) : null}
 
-      {editingPlatforms && csrfToken !== null ? (
+      {editingPlatforms ? (
         <PlatformRatingDialog
           csrfToken={csrfToken}
           game={game}
           onClose={platformsClosed}
           rating={persisted}
+          {...(recoveredPlatforms ? { recoveredPlatforms } : {})}
         />
       ) : null}
     </section>

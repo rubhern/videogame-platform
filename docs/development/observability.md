@@ -123,7 +123,11 @@ with a dedicated short statement timeout; health details remain hidden.
 - Never use user, game, release, request, correlation, URL, search, provider, or raw
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an
-  explicit endpoint is configured.
+  explicit endpoint is configured; production exports a sampled share of traces
+  ([production trace exploration](#production-trace-exploration)).
+- HTTP observations keep only the route template, method, status and outcome; the full
+  URL never becomes a span attribute. JDBC spans record parameterized statement text and
+  never bound values, so visitor input always reaches SQL as a bound parameter.
 - Exported resources carry bounded `deployment.environment.name` and `service.version`
   attributes from `TELEMETRY_DEPLOYMENT_ENVIRONMENT` and `TELEMETRY_SERVICE_VERSION`;
   they never derive either value from visitor input.
@@ -338,7 +342,9 @@ when a manually requested command fails to complete.
 ### Notification boundary
 
 Alerts remain visible in authenticated, private Grafana **Alerting → Alert rules**.
-Native Telegram delivery is **off by default**. One rendered policy tree groups
+Native Telegram delivery is **off by default**. Only production can turn it on, with one owner
+switch for operational alerts and registration notices; private-dev pins both flags off
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). One rendered policy tree groups
 operational alerts by environment/service/category/severity, waits to collect related
 instances, deduplicates identical alerts and repeats persistent incidents. Native
 `DatasourceError`/`DatasourceNoData` have an explicit operational fallback route.
@@ -353,7 +359,7 @@ the latter never claims a successful run. Large
 groups render a bounded preview and direct the owner to the full group in Grafana,
 keeping the plain-text message below Telegram's size limit for this fixed rule set.
 
-The [operator procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery)
+The [production procedure](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery)
 owns protected files, activation, rotation and rollback. SMTP remains disabled;
 Mailpit remains the password-recovery test sink. Native Telegram uses outgoing HTTPS
 only, adding no service, inbound webhook or public monitoring endpoint. Grafana
@@ -361,7 +367,7 @@ stores the token encrypted in its existing database; the chat ID is a normal con
 setting and therefore remains readable to authorized Grafana administrators. The
 rendered file contains both values on bounded tmpfs (directory 0700, file 0600).
 No token/chat value enters Compose environment/metadata, rule labels or annotations.
-When delivery is disabled, the private-dev start wrapper routes proxy-aware outbound
+When delivery is disabled, the shared start wrapper routes proxy-aware outbound
 HTTPS to a closed loopback port and fixes the internal bypass list. This is a native
 sender kill switch, not a new proxy service: the pinned sender honors HTTPS_PROXY.
 It prevents an old persisted receiver sending during Grafana's file-policy reload
@@ -376,7 +382,7 @@ as non-retryable within an attempt; later notification cycles may try again. Fai
 attempts remain visible in Grafana/logs. A timeout can mean a delivered message whose
 acknowledgement was lost; neither deduplication nor persistence guarantees exactly-once
 external delivery. Host/Grafana failure still needs independent owner inspection.
-No real Telegram delivery or live-host alert rollout has been proven by this change.
+Real production delivery is proven only by the owner's contact-point test after activation.
 
 ## Product growth observations
 
@@ -572,6 +578,33 @@ the Collector or Loki was away or refusing load. Retention is six days and delet
 asynchronous, completing within the seven-day routine-log limit. This is best-effort diagnostics, not audit evidence. The
 [application log privacy rules](#application-logs) still govern every log statement: Loki
 does not sanitize what the application writes.
+
+## Production trace exploration
+
+[ADR-0046](../decisions/0046-keep-sampled-production-traces-in-tempo.md) keeps one request in
+ten as a trace in Tempo, through the same Collector. Open production Grafana, then **Explore**
+with the **Platform traces** datasource. The
+[production procedure](../../deploy/public-production/README.md#application-traces) owns access,
+disk checks and recovery.
+
+A trace shows the server span of the request (route template, method, status), the Spring
+Security filter and authorization spans, and one span per SQL statement with its
+parameterized text, so the slow part of a request is visible. Ways in:
+
+- From a log line in **Platform logs**: lines written inside a sampled request carry
+  `trace_id` metadata and an **Open trace** link.
+- From a span: **Logs for this span** opens that request's log lines.
+- Search by route and duration, for example:
+
+```traceql
+{ resource.service.name = "videogame-platform-backend" && span:kind = server && duration > 500ms }
+```
+
+Nine requests in ten have no stored trace even though their logs show a trace ID, so a slow
+route may need several occurrences before one is sampled. Spans can also be lost while the
+Collector or Tempo is away or refusing load. Retention is 72 hours. Traces are diagnostics,
+not audit evidence, and the [privacy rules](#correlation-logs-metrics-and-traces) above
+decide what a span may carry.
 
 ## Application logs
 
@@ -827,7 +860,7 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 
 | Additional signal family | Interpretation and #276 acceptance/calibration |
 |---|---|
-| Traffic trend and measured capacity proximity | Compare current rate with its longer baseline plus CPU pressure and a volume guard. Qualify the representative traffic mix, sustainable rate, workload changes, warning/critical fractions and pending periods. No rate capacity is supplied by default |
+| Traffic trend and measured capacity proximity | Compare current rate with its longer baseline plus CPU pressure and a volume guard. Qualify the representative traffic mix, sustainable rate, workload changes, warning/critical fractions and pending periods. No rate capacity is supplied, and none is planned ([#550](https://github.com/rubhern/videogame-platform/issues/550)): the uncalibrated rule is paused, and the proximity rules stay inactive |
 | HTTP error share, edge 429/503 and upstream HTTP/transport failures | Validate count/share guards under quiet traffic, bursts and maintenance; correlate with latency and resource headroom. Edge counts use final sanitized origin records |
 | Container CPU, throttling, memory, OOM/restarts and missing state | Validate actual cgroup v2 fields, quota headroom, chargeable page cache, recreation/reset and deliberate stop/restart behaviour. A restart signal warrants inspection; it does not prove OOM |
 | Host available memory, swap and memory/I/O pressure | Test pressure before failure, pause background jobs first, and verify the approved available-memory reserve under job/deployment overlap |
@@ -835,9 +868,10 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 | Disk free reserve and predicted depletion | Validate the filesystem mapping, growth lookback/prediction horizon, reserves, WAL/image/backup overlap and job stop response. Root filesystem collection assumes the proposed single data filesystem; another mount needs explicit collection before acceptance |
 | Identity failures, lockout, mail sending/failure and health | Calibrate aggregate count windows against legitimate/shared-source traffic and actual relay allowance. These signals are indicators, not proof of distinct attackers or inbox delivery |
 | Telemetry target, host sampler and edge-window availability | Exercise missing/down/removed targets, frozen exports, malformed textfiles, dropped records and delayed timers. Scrape success alone does not prove fresh application exports |
-| Failed or missing verified off-host backups | Verify the independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
+| Backup attempt missing or failed | The host's cycle status is absent or its last attempt failed. Off-host integrity is not a host signal: the [independent observer](../../deploy/public-production/README.md#independent-supervision) verifies the cloud pairs and notifies the owner itself (#550) |
 | Stale off-host upload, warning at 14 hours and critical at 24 | Fed by the [scheduled cycle](../../deploy/public-production/README.md#scheduled-backup-cycle-276). The host reports its own upload, so this is a second route: only the independent observer proves integrity. Validate slots, deferral by a running synchronization and the admission window |
 | Backup cycle needs the owner | A reopening failed or a fence belongs to someone else. The cycle stops acting at `owner-required`; validate delivery in the failure drills |
+| Unverified-account cleanup needs the owner (warning) | The [daily cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup) failed, or no run has succeeded for 36 hours. Absent until the cleanup and [host telemetry](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery) are installed. A killed run can leave the identity fence closed. Validate the window against the timer and a forced failure |
 | TLS expiry and failed probes | Verify both hostname chains, warning/critical lead times, local probe failure, actual ACME renewal failure and recovery with the real domains before exposure |
 | Series budget and monitoring resources | Review active/head series, refresh/query concurrency, rule evaluations, retention/compaction and disk growth at the qualified workload; stop ingestion before threatening durable product state |
 
@@ -850,8 +884,9 @@ explicit healthy zero, so a healthy empty condition cannot become a Grafana NoDa
 incident; optional/lazy activity counters
 can be absent during quiet traffic. Warning/critical resource bands are mutually
 exclusive. Native notification grouping, bounded message rendering and repeat intervals
-are reused; all delivery is off until explicitly enabled with production-only secrets.
-Information-only product notifications stay off.
+are reused. Delivery is off until the owner
+[turns it on](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery) with
+production-only secrets. The same switch sends the registration notices.
 
 The [platform resource envelope](../architecture/deployment/mvp-platform-and-delivery.md#resource-and-work-envelope-proposal-not-capacity-evidence)
 remains unchanged. The overlay and host unit share its monitoring allocation. Go

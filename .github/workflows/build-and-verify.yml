@@ -9,7 +9,7 @@ on:
       - main
 
 concurrency:
-  group: quality-gates-${{ github.event.pull_request.number || github.ref }}
+  group: quality-gates-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
@@ -31,6 +31,8 @@ jobs:
       identity: ${{ steps.changes.outputs.identity }}
       provider_fixtures: ${{ steps.changes.outputs.provider_fixtures }}
       container: ${{ steps.changes.outputs.container }}
+      private_dev_runtime: ${{ steps.changes.outputs.private_dev_runtime }}
+      localization_image: ${{ steps.changes.outputs.localization_image }}
       production_runtime: ${{ steps.changes.outputs.production_runtime }}
       dependency_images: ${{ steps.changes.outputs.dependency_images }}
       build: ${{ steps.changes.outputs.build }}
@@ -115,7 +117,7 @@ jobs:
         run: npm ci --prefix documentation --ignore-scripts
 
       - name: Audit portal dependency security
-        run: npm audit --prefix documentation --audit-level=high
+        run: node scripts/audit-build-dependencies.mjs --portal
 
       - name: Install portal browser
         working-directory: documentation
@@ -175,18 +177,14 @@ jobs:
       - name: Run frontend verification
         run: npm run frontend:verify
 
-  browser-smoke:
-    name: Packaged application Chromium smoke and accessibility check (${{ matrix.shard }}/2)
-    if: ${{ needs.detect-changes.outputs.browser == 'true' }}
+  package-journeys:
+    name: Package application for browser and identity journeys
+    if: ${{ needs.detect-changes.outputs.browser == 'true' || needs.detect-changes.outputs.identity == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -211,10 +209,59 @@ jobs:
             backend/pom.xml
             .mvn/wrapper/maven-wrapper.properties
 
+      - name: Package the test application and retain Maven tests when no backend gate applies
+        env:
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: bash scripts/package-application.sh
+
+      - name: Preserve the exact packaged application for isolated journeys
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packaged-journeys-${{ github.sha }}
+          path: backend/target/*.jar
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 3
+
+  browser-smoke:
+    name: Packaged application Chromium smoke and accessibility check (${{ matrix.shard }}/2)
+    if: ${{ needs.detect-changes.outputs.browser == 'true' }}
+    needs: [detect-changes, package-journeys]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Load the packaged application from this workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: packaged-journeys-${{ github.sha }}
+          path: backend/target
+
+      - name: Install locked browser-test dependencies
+        run: npm ci --ignore-scripts
+
       - name: Run the pinned browser smoke test without retries
         env:
-          # When no backend gate applies, shard 1 retains the packaging tests.
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.shard != 1 }}
+          BROWSER_REUSE_PACKAGE: "true"
           BROWSER_SHARD: ${{ matrix.shard }}/2
         run: bash scripts/validate-browser.sh
 
@@ -228,9 +275,9 @@ jobs:
           retention-days: 7
 
   identity-compatibility:
-    name: Real Keycloak 26.7 OIDC BFF compatibility (${{ matrix.leg }})
+    name: Real Keycloak OIDC BFF compatibility (${{ matrix.leg }})
     if: ${{ needs.detect-changes.outputs.identity == 'true' }}
-    needs: detect-changes
+    needs: [detect-changes, package-journeys]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
@@ -239,7 +286,7 @@ jobs:
       # Every leg is part of one required result; one failure must not hide another.
       fail-fast: false
       matrix:
-        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private]
+        leg: [private-dev, core, renewal, idle, production, personal-data, personal-data-private, social-sign-in]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,33 +297,35 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          # The private-dev leg runs neither npm nor Maven, so it restores and saves no cache.
-          cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}
+          # The private-dev and social sign-in legs run neither npm nor Maven, so they restore and save no cache.
+          cache: ${{ !contains(fromJSON('["private-dev", "social-sign-in"]'), matrix.leg) && 'npm' || '' }}
           cache-dependency-path: package-lock.json
 
-      - name: Set up Java 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - name: Load the packaged application from this workflow run
+        if: ${{ !contains(fromJSON('["private-dev", "social-sign-in"]'), matrix.leg) }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          distribution: temurin
-          java-version: 25
-          cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}
-          cache-dependency-path: |
-            pom.xml
-            backend/pom.xml
-            .mvn/wrapper/maven-wrapper.properties
+          name: packaged-journeys-${{ github.sha }}
+          path: backend/target
+
+      - name: Install locked browser-test dependencies
+        if: ${{ !contains(fromJSON('["private-dev", "social-sign-in"]'), matrix.leg) }}
+        run: npm ci --ignore-scripts
 
       # Each leg owns a disposable Keycloak, PostgreSQL, Mailpit and BFF on its own runner;
       # the timed legs mutate realm and client state that must not be shared.
       - name: Prove the ${{ matrix.leg }} identity leg without retries
         env:
           IDENTITY_LEG: ${{ matrix.leg }}
-          # Without the separate backend gate, exactly one packaging leg keeps the Maven tests.
-          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' || matrix.leg != 'personal-data' }}
+          IDENTITY_REUSE_PACKAGE: "true"
+          PRODUCTION_IDENTITY_REUSE_PACKAGE: "true"
+          PERSONAL_DATA_REUSE_PACKAGE: "true"
         run: |
           case "$IDENTITY_LEG" in
             private-dev) bash scripts/validate-private-dev-identity.sh ;;
             core | renewal | idle) IDENTITY_REMEMBER_ME_PHASE="$IDENTITY_LEG" bash scripts/validate-identity.sh ;;
             production) bash scripts/validate-production-identity.sh ;;
+            social-sign-in) bash scripts/validate-social-sign-in.sh ;;
             personal-data) bash scripts/validate-personal-data.sh ;;
             personal-data-private) PERSONAL_DATA_COMPLETION_POLICY=private-dev bash scripts/validate-personal-data.sh ;;
             *) printf 'Unknown identity leg: %s\n' "$IDENTITY_LEG" >&2; exit 2 ;;
@@ -293,7 +342,7 @@ jobs:
 
   runtime-telemetry:
     name: Private-dev topology and telemetry
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.private_dev_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -371,6 +420,9 @@ jobs:
             python3 scripts/test-production-recovery-lock.py
             python3 scripts/test-production-identity-maintenance.py
             python3 scripts/test-production-cleanup.py
+            python3 scripts/test-production-unverified-cleanup.py
+            python3 scripts/test-production-account-deletion.py
+            python3 scripts/test-production-social-sign-in.py
           ) &
           operations_pid=$!
           python3 scripts/test-production-observability.py --smoke &
@@ -391,7 +443,7 @@ jobs:
 
   runtime-alerts:
     name: Private-dev alert rules and Grafana lifecycle
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.private_dev_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -408,7 +460,7 @@ jobs:
 
   runtime-product-growth:
     name: Private-dev optimized Keycloak registration metrics
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.private_dev_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -434,7 +486,7 @@ jobs:
 
   runtime-notifications:
     name: Private-dev native Telegram routing against isolated mock
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.private_dev_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -450,7 +502,7 @@ jobs:
 
   runtime-logs:
     name: Private-dev structured log collection
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.private_dev_runtime == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -467,7 +519,7 @@ jobs:
 
   localization-image:
     name: AMD64 localization helper image
-    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    if: ${{ needs.detect-changes.outputs.localization_image == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -508,9 +560,23 @@ jobs:
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
           cache-binary: false
 
+      - name: Select today's vulnerability database cache
+        id: trivy-date
+        run: echo "utc_date=$(date -u +%F)" >>"$GITHUB_OUTPUT"
+
+      - name: Restore Trivy databases with their freshness metadata
+        id: trivy-db
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/application-trivy-db
+          key: application-trivy-${{ runner.os }}-${{ hashFiles('scripts/validate-container-image.sh') }}-${{ steps.trivy-date.outputs.utc_date }}
+          restore-keys: application-trivy-${{ runner.os }}-${{ hashFiles('scripts/validate-container-image.sh') }}-
+
       - name: Build, inspect, run and scan the AMD64 application image
         env:
           SOURCE_REVISION: ${{ github.sha }}
+          TRIVY_DB_CACHE_DIRECTORY: ${{ runner.temp }}/application-trivy-db
         run: bash scripts/validate-container-image.sh
 
       - name: Preserve manifest, runtime, scan and CycloneDX evidence
@@ -518,6 +584,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-evidence-${{ github.sha }}
+          overwrite: true
           path: |
             target/container-evidence/
             !target/container-evidence/application-image.oci.tar
@@ -529,6 +596,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-oci-${{ github.sha }}
+          overwrite: true
           compression-level: 0
           path: |
             target/container-evidence/application-image.oci.tar
@@ -536,6 +604,14 @@ jobs:
             target/container-evidence/image-digest.txt
           if-no-files-found: error
           retention-days: 1
+
+      - name: Cache only the databases validated by Trivy on trusted main
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.trivy-db.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/application-trivy-db
+          key: ${{ steps.trivy-db.outputs.cache-primary-key }}
 
   dependency-images:
     name: AMD64 production dependency image
@@ -573,6 +649,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-evidence-${{ matrix.image }}-${{ github.sha }}
+          overwrite: true
           path: |
             target/dependency-image-evidence/${{ matrix.image }}/
             !target/dependency-image-evidence/${{ matrix.image }}/image.oci.tar
@@ -584,6 +661,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-oci-${{ matrix.image }}-${{ github.sha }}
+          overwrite: true
           compression-level: 0
           path: |
             target/dependency-image-evidence/${{ matrix.image }}/image.oci.tar
@@ -757,6 +835,7 @@ jobs:
       - documentation-contracts
       - frontend
       - browser-smoke
+      - package-journeys
       - identity-compatibility
       - container-image
       - runtime-telemetry
@@ -789,11 +868,15 @@ jobs:
           FRONTEND_EXPECTED: ${{ needs.detect-changes.outputs.frontend }}
           FRONTEND: ${{ needs.frontend.result }}
           BROWSER_EXPECTED: ${{ needs.detect-changes.outputs.browser }}
+          PACKAGE_EXPECTED: ${{ needs.detect-changes.outputs.browser == 'true' || needs.detect-changes.outputs.identity == 'true' }}
+          PACKAGE_JOURNEYS: ${{ needs.package-journeys.result }}
           BROWSER_SMOKE: ${{ needs.browser-smoke.result }}
           IDENTITY_EXPECTED: ${{ needs.detect-changes.outputs.identity }}
           IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}
           CONTAINER_EXPECTED: ${{ needs.detect-changes.outputs.container }}
           CONTAINER_IMAGE: ${{ needs.container-image.result }}
+          PRIVATE_DEV_RUNTIME_EXPECTED: ${{ needs.detect-changes.outputs.private_dev_runtime }}
+          LOCALIZATION_IMAGE_EXPECTED: ${{ needs.detect-changes.outputs.localization_image }}
           RUNTIME_TELEMETRY: ${{ needs.runtime-telemetry.result }}
           PRODUCTION_RUNTIME_EXPECTED: ${{ needs.detect-changes.outputs.production_runtime }}
           PRODUCTION_RUNTIME: ${{ needs.production-runtime.result }}
@@ -817,28 +900,48 @@ jobs:
             detect-changes true "$DETECT_CHANGES" \
             documentation-contracts "$DOCUMENTATION_EXPECTED" "$DOCUMENTATION_CONTRACTS" \
             frontend "$FRONTEND_EXPECTED" "$FRONTEND" \
+            package-journeys "$PACKAGE_EXPECTED" "$PACKAGE_JOURNEYS" \
             browser-smoke "$BROWSER_EXPECTED" "$BROWSER_SMOKE" \
             identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY" \
             container-image "$CONTAINER_EXPECTED" "$CONTAINER_IMAGE" \
-            runtime-telemetry "$CONTAINER_EXPECTED" "$RUNTIME_TELEMETRY" \
+            runtime-telemetry "$PRIVATE_DEV_RUNTIME_EXPECTED" "$RUNTIME_TELEMETRY" \
             production-runtime "$PRODUCTION_RUNTIME_EXPECTED" "$PRODUCTION_RUNTIME" \
-            runtime-alerts "$CONTAINER_EXPECTED" "$RUNTIME_ALERTS" \
-            runtime-product-growth "$CONTAINER_EXPECTED" "$RUNTIME_PRODUCT_GROWTH" \
-            runtime-notifications "$CONTAINER_EXPECTED" "$RUNTIME_NOTIFICATIONS" \
-            runtime-logs "$CONTAINER_EXPECTED" "$RUNTIME_LOGS" \
-            localization-image "$CONTAINER_EXPECTED" "$LOCALIZATION_IMAGE" \
+            runtime-alerts "$PRIVATE_DEV_RUNTIME_EXPECTED" "$RUNTIME_ALERTS" \
+            runtime-product-growth "$PRIVATE_DEV_RUNTIME_EXPECTED" "$RUNTIME_PRODUCT_GROWTH" \
+            runtime-notifications "$PRIVATE_DEV_RUNTIME_EXPECTED" "$RUNTIME_NOTIFICATIONS" \
+            runtime-logs "$PRIVATE_DEV_RUNTIME_EXPECTED" "$RUNTIME_LOGS" \
+            localization-image "$LOCALIZATION_IMAGE_EXPECTED" "$LOCALIZATION_IMAGE" \
             dependency-images "$DEPENDENCY_IMAGES_EXPECTED" "$DEPENDENCY_IMAGES" \
             backend "$BACKEND_EXPECTED" "$BACKEND" \
             migrations "$MIGRATIONS_EXPECTED" "$MIGRATIONS" \
             provider-fixtures "$PROVIDER_EXPECTED" "$PROVIDER_FIXTURES" \
             sonarcloud "$SONAR_EXPECTED" "$SONARCLOUD"
 
+  publication-secrets:
+    name: Secret scan before application publication
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan committed history for secrets
+        uses: ./.github/actions/scan-source-secrets
+        with:
+          token: ${{ github.token }}
+
   publish-container-image:
     name: Publish immutable application image
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs:
       - container-image
-      - required-quality-gate
+      - publication-secrets
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -875,17 +978,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Publish the already-scanned AMD64 image by commit SHA
-        run: |
-          docker run --rm \
-            --volume "$PWD/target/container-evidence:/evidence:ro" \
-            --volume "$HOME/.docker/config.json:/auth.json:ro" \
-            "$SKOPEO_IMAGE" \
-            copy \
-              --all \
-              --preserve-digests \
-              --authfile /auth.json \
-              oci-archive:/evidence/application-image.oci.tar \
-              "docker://$IMAGE_NAME:$IMAGE_TAG"
+        run: bash scripts/publish-ci-image.sh target/container-evidence application-image.oci.tar
 
       - name: Verify and record the published digest and platforms
         run: |
@@ -918,6 +1011,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: application-image-publication-${{ github.sha }}
+          overwrite: true
           path: target/container-evidence/published-image.txt
           if-no-files-found: error
           retention-days: 30
@@ -969,17 +1063,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Publish the already-scanned AMD64 image by commit SHA
-        run: |
-          docker run --rm \
-            --volume "$PWD/target/dependency-image-evidence:/evidence:ro" \
-            --volume "$HOME/.docker/config.json:/auth.json:ro" \
-            "$SKOPEO_IMAGE" \
-            copy \
-              --all \
-              --preserve-digests \
-              --authfile /auth.json \
-              oci-archive:/evidence/image.oci.tar \
-              "docker://$IMAGE_NAME:$IMAGE_TAG"
+        run: bash scripts/publish-ci-image.sh target/dependency-image-evidence image.oci.tar
 
       - name: Verify and record the published digest and platform
         run: |
@@ -1019,6 +1103,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-image-publication-${{ matrix.image }}-${{ github.sha }}
+          overwrite: true
           path: target/dependency-image-evidence/published-image.txt
           if-no-files-found: error
           retention-days: 30
