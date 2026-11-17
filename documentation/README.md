@@ -89,7 +89,7 @@ build-only tooling, absent from the static runtime. Preserve upstream licences w
 redistributing tooling. Optional dependencies differ by build platform; the supported
 container target remains AMD64.
 
-Run `npm audit --audit-level=high` and the repository-pinned image vulnerability
+Run `node scripts/audit.mjs` from this directory and the repository-pinned image vulnerability
 scanner when dependencies/images change. Build/search/browser checks cover the
 security overrides. The runtime copies only `dist`, has no npm/Java/Chromium or source
 tree, and does not embed secrets. Its CSP allows Starlight's inline initialization
@@ -101,3 +101,21 @@ This portal starts as its own initial pre-1.0 `0.1.0` artefact. It does not chan
 backend, frontend or OpenAPI versions. Follow the
 [delivery lifecycle](../docs/development/delivery-lifecycle.md#semantic-versioning)
 for subsequent changes and publication approval.
+
+### Temporary build dependency exception
+
+Owner-approved on 2026-11-17 for seven days, ending 2026-11-24 at 18:07:32 UTC.
+The portal audit temporarily accepts only [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+and findings inherited exclusively from it. The advisory affects picomatch through
+4.0.7 and had no published fix when assessed. The owner, Ruben Hernandez, accepts
+the remaining build-time denial-of-service risk during this window.
+
+Compensating controls are repository-controlled build inputs, time-bounded CI,
+loopback-only development serving, and a static runtime that copies only built
+files. No caller supplies glob patterns to the deployed portal. Every other high
+or critical finding continues to block the audit. Missing audit evidence and
+expiry also block it. The audit helper owns the executable scope and deadline.
+
+Remove this exception and restore direct npm audit when a patched version becomes
+available and the lockfile has been updated. If the advisory disappears from the
+audit, the helper reports that removal is due. Any renewal needs a new owner decision.

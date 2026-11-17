@@ -117,7 +117,7 @@ jobs:
         run: npm ci --prefix documentation --ignore-scripts
 
       - name: Audit portal dependency security
-        run: npm audit --prefix documentation --audit-level=high
+        run: node documentation/scripts/audit.mjs
 
       - name: Install portal browser
         working-directory: documentation
