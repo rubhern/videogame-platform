@@ -1,6 +1,7 @@
-import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
+import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
+import { registerWithVerifiedEmail } from "./fixtures/registration";
 
 const applicationOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin;
 const username = process.env.OIDC_TEST_USERNAME;
@@ -22,11 +23,11 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   ).find((cookie) => cookie.name === "vgp_session");
   expect(authorizationSessionCookie).toBeDefined();
 
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   expect(browserRequests).not.toContainEqual(
     expect.stringMatching(/\/login-actions\/required-action(?:\?|$)/),
   );
@@ -93,11 +94,11 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
     sessionCookie?.value,
   );
   await page.goto("/auth/logout");
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
   expect(await sessionState(page)).toEqual({ authenticated: false });
   expect(await context.cookies(applicationOrigin)).toEqual([]);
   await page.goto("/auth/login/keycloak");
-  await expect(page.getByLabel("Usuario", { exact: true })).toBeVisible();
+  await expect(page.locator("#username")).toBeVisible();
 });
 
 async function sessionState(page: import("@playwright/test").Page) {
@@ -120,7 +121,7 @@ test("account entry returns to the game without inventing a rating and logout si
   await page.goto(gamePath);
   await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(/\/realms\/videogame-platform\/protocol\/openid-connect\/auth/);
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(gamePath.replace("?", "\\?")));
@@ -131,8 +132,8 @@ test("account entry returns to the game without inventing a rating and logout si
   await expect(page.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   // Keycloak returns only to the realm's exact post-logout URI, the landing page.
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await expect(page.getByRole("navigation", { name: "Acceso a tu cuenta" }).getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
 });
 
 /** The #290 theme keeps the brand identity: no glass, serif or mono voice and nothing perpetual. */
@@ -195,10 +196,10 @@ for (const width of [1320, 390, 320]) {
     const authorizationUrl = new URL(page.url());
     authorizationUrl.searchParams.set("kc_action", "UPDATE_PASSWORD");
     await page.goto(authorizationUrl.toString());
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Elige una nueva contraseña" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Elige tu contraseña" })).toBeVisible();
     await expect(page.locator("#password-new")).toBeVisible();
     await expect(page.locator("#password-confirm")).toBeVisible();
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
@@ -209,10 +210,10 @@ for (const width of [1320, 390, 320]) {
 
 test("an external return target falls back to the landing page after real authentication", async ({ page }) => {
   await page.goto("/auth/start?returnTo=" + encodeURIComponent("//attacker.example/steal"));
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   const unicodeReturn = await page.request.get(
     "/auth/start?returnTo=" + encodeURIComponent("/search?q=Pokémon"),
@@ -224,7 +225,7 @@ test("an external return target falls back to the landing page after real authen
 
 test("direct personal-ratings account entry and logout return to sensible product pages", async ({ page }, testInfo) => {
   await page.goto("/auth/start?returnTo=%2Fmis-puntuaciones");
-  await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+  await page.locator("#username").fill(username ?? "");
   await page.locator("#password").fill(password ?? "");
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
   await expect(page).toHaveURL(`${applicationOrigin}/mis-puntuaciones`);
@@ -233,19 +234,22 @@ test("direct personal-ratings account entry and logout return to sensible produc
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 950 });
+  // Phones carry the account actions in the Menú sheet (#358).
+  await page.getByRole("button", { name: "Menú" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("product-account-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(page.getByRole("button", { name: "Acceder a tu cuenta" })).toBeVisible();
+  await page.getByRole("group", { name: "Mi cuenta" }).getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  await page.getByRole("button", { name: "Menú" }).click();
+  await expect(page.getByRole("group", { name: "Tu cuenta" }).getByRole("link", { name: "Iniciar sesión" })).toBeVisible();
 });
 
 for (const width of [1320, 390]) {
   test(`create account opens Keycloak registration directly at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem");
-    if (width < 620) await page.getByRole("button", { name: "Acceder a tu cuenta" }).click();
+    if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
     await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Empieza tu historia." })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("prompt")).toBe("create");
@@ -255,19 +259,12 @@ for (const width of [1320, 390]) {
   });
 }
 
-test("direct self-registration authenticates and returns to the game without a rating intent", async ({ page }) => {
+test("direct self-registration verifies the email, authenticates and returns to the game without a rating intent", async ({ page, request }) => {
   const game = "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
   await page.goto(game);
   await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Empieza tu historia." })).toBeVisible();
-  const unique = `account-${Date.now()}`;
-  await page.locator("#firstName").fill("Synthetic");
-  await page.locator("#lastName").fill("Player");
-  await page.locator("#email").fill(`${unique}@example.test`);
-  await page.locator("#username").fill(unique);
-  await page.locator("#password").fill("Str0ng-Passw0rd!");
-  await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
-  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await registerWithVerifiedEmail(page, request, `account-${Date.now()}@example.test`, "Str0ng-Passw0rd!");
   await expect(page).toHaveURL(`${applicationOrigin}${game}`);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   expect((await page.request.get("/auth/rating-intent")).status()).toBe(404);

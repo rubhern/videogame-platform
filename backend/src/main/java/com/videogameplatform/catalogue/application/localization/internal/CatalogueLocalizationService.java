@@ -47,21 +47,32 @@ public final class CatalogueLocalizationService implements LocalizeCatalogueUseC
 
     @Override
     public Batch backfill(String kind, UUID id, int limit) {
+        return scan(kind, id, limit, false);
+    }
+
+    @Override
+    public Batch scan(String kind, UUID id, int limit) {
+        return scan(kind, id, limit, true);
+    }
+
+    private Batch scan(String kind, UUID id, int limit, boolean advanceOnFailure) {
         if ((!kind.isEmpty() && !Set.of("GENRE", "GAME_MODE", "SUMMARY").contains(kind))
                 || limit < 1
                 || limit > 100) throw new IllegalArgumentException("Invalid localization batch");
         var targets = store.targetsAfter(kind, id, limit + 1);
         Report report = new Report(0, 0, 0, 0);
-        int inspected = Math.min(limit, targets.size());
+        int inspected = 0;
         String lastKind = kind;
         UUID lastId = id;
-        for (Target target : targets.subList(0, inspected)) {
+        for (Target target : targets.subList(0, Math.min(limit, targets.size()))) {
+            if (Thread.currentThread().isInterrupted()) break;
             report = report.plus(localize(target));
+            inspected++;
             lastKind = target.kind().name();
             lastId = target.id();
         }
-        // A failed/busy target retains the batch cursor: replay successes and retry failures.
-        if (report.failed() > 0) {
+        // The management command replays the batch if any target failed or was busy.
+        if (!advanceOnFailure && report.failed() > 0) {
             lastKind = kind;
             lastId = id;
         }
@@ -70,7 +81,7 @@ public final class CatalogueLocalizationService implements LocalizeCatalogueUseC
                         lastKind,
                         lastId,
                         inspected,
-                        targets.size() <= limit && report.failed() == 0,
+                        inspected == targets.size() && (advanceOnFailure || report.failed() == 0),
                         report);
         events.backfill(batch);
         return batch;
@@ -80,23 +91,21 @@ public final class CatalogueLocalizationService implements LocalizeCatalogueUseC
         UUID claim = null;
         try {
             if (target.current()) return result(target, Outcome.SKIPPED);
-            if (store.translated(target.fingerprint()).isPresent()) {
-                return result(target, store.publish(target) ? Outcome.REUSED : Outcome.SKIPPED);
-            }
+            var cached = store.translated(target.fingerprint());
+            if (cached.isPresent()) return reuse(target, cached.orElseThrow());
             var acquired = store.claim(target);
             if (acquired.isEmpty()) {
                 // Another process might have completed between lookup and reservation.
-                if (store.translated(target.fingerprint()).isPresent() && store.publish(target))
-                    return result(target, Outcome.REUSED);
+                cached = store.translated(target.fingerprint());
+                if (cached.isPresent()) return reuse(target, cached.orElseThrow());
                 return result(target, Outcome.BUSY);
             }
             claim = acquired.orElseThrow();
             var translation = translator.translate(normalize(target.source()));
-            int bound = target.kind() == LocalizationStore.Kind.SUMMARY ? 20000 : 200;
             if (translation == null
                     || translation.text() == null
                     || translation.text().isBlank()
-                    || translation.text().length() > bound
+                    || !fits(target, translation.text())
                     || translation.text().indexOf('\u0000') >= 0
                     || translation.revision() == null
                     || translation.revision().isBlank()
@@ -119,6 +128,16 @@ public final class CatalogueLocalizationService implements LocalizeCatalogueUseC
             }
             return result(target, Outcome.FAILED);
         }
+    }
+
+    private Report reuse(Target target, CatalogueTranslationPort.Translation translation) {
+        if (!fits(target, translation.text())) return result(target, Outcome.FAILED);
+        return result(target, store.publish(target) ? Outcome.REUSED : Outcome.SKIPPED);
+    }
+
+    private static boolean fits(Target target, String text) {
+        int bound = target.kind() == LocalizationStore.Kind.SUMMARY ? 20000 : 200;
+        return text.codePointCount(0, text.length()) <= bound;
     }
 
     private Report result(Target target, Outcome outcome) {

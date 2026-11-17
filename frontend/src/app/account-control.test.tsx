@@ -74,19 +74,6 @@ describe("header account control", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens the compact entry and returns focus on Escape", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: false })));
-    const user = userEvent.setup();
-    renderControl();
-    const trigger = await screen.findByRole("button", { name: "Acceder a tu cuenta" });
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await user.click(trigger);
-    expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await user.keyboard("{Escape}");
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(trigger).toHaveFocus();
-  });
-
   it("exposes Mi cuenta and a CSRF-protected logout for an authenticated session", async () => {
     let authenticated = true;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

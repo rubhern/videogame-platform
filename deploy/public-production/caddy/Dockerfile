@@ -12,16 +12,24 @@ FROM ${CADDY_BUILDER_IMAGE} AS build
 ARG CADDY_VERSION=v2.11.7
 ARG CADDY_RATELIMIT_MODULE=github.com/mholt/caddy-ratelimit@5625512f24f6f59d6f64fb3aafe5eecff0b286db
 # Caddy's public HTTP/2 server is golang.org/x/net/http2; v0.59.0 has reachable denial-of-service
-# advisories (GO-2026-6603, -6610, -6611, -6612, -6617), fixed in v0.60.0.
-ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.60.0
+# advisories; v0.62.0 also fixes GO-2026-6860 and GO-2026-6866.
+ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.62.0
+# GO-2026-6865: panic on two-block frames. Stock Caddy's compression stack uses this module.
+ARG CADDY_COMPRESS_OVERRIDE=github.com/klauspost/compress=github.com/klauspost/compress@v1.20.2
+# GO-2026-5932: the unmaintained x/crypto/openpgp package. The fix has no tagged release yet.
+ARG CADDY_CRYPTO_OVERRIDE=golang.org/x/crypto=golang.org/x/crypto@v0.58.1-0.20261009181718-2f1f834330b2
+# GO-2026-6859: net/http MaxBytesReader header race, fixed in go1.27.4. The pinned builder ships
+# go1.27.3; Go fetches this exact toolchain and verifies it against the checksum database.
+# Remove it once the builder image ships go1.27.4 or later.
 ENV CGO_ENABLED=0 \
+    GOTOOLCHAIN=go1.27.4 \
     GOFLAGS=-trimpath \
     GOPROXY=https://proxy.golang.org \
     GONOSUMDB= \
     GOPRIVATE= \
     GOSUMDB=sum.golang.org
 RUN xcaddy build "$CADDY_VERSION" --output /out/caddy --with "$CADDY_RATELIMIT_MODULE" \
-        --replace "$CADDY_NET_OVERRIDE" \
+        --replace "$CADDY_NET_OVERRIDE" --replace "$CADDY_COMPRESS_OVERRIDE" --replace "$CADDY_CRYPTO_OVERRIDE" \
     && /out/caddy list-modules | grep -qx 'http.handlers.rate_limit'
 
 FROM ${CADDY_IMAGE}

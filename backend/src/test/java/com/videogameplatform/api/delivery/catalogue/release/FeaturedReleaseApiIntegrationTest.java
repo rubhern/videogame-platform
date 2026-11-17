@@ -142,45 +142,50 @@ class FeaturedReleaseApiIntegrationTest {
     }
 
     @Test
-    void aWeekRanksOnlyGamesWhoseOwnFirstReleaseFallsInsideIt() throws Exception {
-        var wolverine = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000c");
+    void aWeekRanksItsExactDaysWhateverTheGamesFirstRelease() throws Exception {
         // The seed dates Wolverine's first release on 15 September and its only release on Friday
-        // 25 September: September features it, but no week genuinely holds both.
-        JsonNode before = json(get("/api/v1/featured-releases?week=2026-W39"));
-        assertThat(before.path("window").path("from").stringValue()).isEqualTo("2026-09-21");
-        assertThat(before.path("window").path("to").stringValue()).isEqualTo("2026-09-27");
-        assertThat(before.path("selection").path("status").stringValue())
-                .isEqualTo("no_qualifying_releases");
-        assertThat(
-                        json(get("/api/v1/featured-releases?week=2026-W38"))
-                                .path("selection")
-                                .path("status")
-                                .stringValue())
-                .isEqualTo("no_qualifying_releases");
-        try {
-            jdbc.update(
-                    "UPDATE catalogue.game_featured_evidence SET first_release_date=DATE '2026-09-25' WHERE game_id=?",
-                    wolverine);
-            HttpResponse<String> response = get("/api/v1/featured-releases?week=2026-W39");
-            JsonNode body = OBJECT_MAPPER.readTree(response.body());
+        // 25 September: that week features it, as the explorer lists it there.
+        HttpResponse<String> response = get("/api/v1/featured-releases?week=2026-W39");
+        JsonNode body = OBJECT_MAPPER.readTree(response.body());
 
-            OPENAPI.assertJsonResponse(response, 200, "FeaturedReleases");
-            assertThat(body.path("selection").path("status").stringValue()).isEqualTo("ranked");
-            assertThat(ids(body.path("items"), "canonicalTitle"))
-                    .containsExactly("Marvel's Wolverine");
-            JsonNode date = body.path("items").get(0).path("releases").get(0).path("releaseDate");
-            assertThat(date.path("precision").stringValue()).isEqualTo("day");
-            assertThat(date.path("value").stringValue()).isEqualTo("2026-09-25");
-            // Crimson Desert's October is month precision: no week of October may claim it.
-            for (String week :
-                    List.of("2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44")) {
-                assertThat(json(get("/api/v1/featured-releases?week=" + week)).path("items"))
-                        .isEmpty();
+        OPENAPI.assertJsonResponse(response, 200, "FeaturedReleases");
+        assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-09-21");
+        assertThat(body.path("window").path("to").stringValue()).isEqualTo("2026-09-27");
+        assertThat(body.path("selection").path("status").stringValue()).isEqualTo("ranked");
+        assertThat(ids(body.path("items"), "canonicalTitle")).containsExactly("Marvel's Wolverine");
+        JsonNode date = body.path("items").get(0).path("releases").get(0).path("releaseDate");
+        assertThat(date.path("precision").stringValue()).isEqualTo("day");
+        assertThat(date.path("value").stringValue()).isEqualTo("2026-09-25");
+        // Crimson Desert's October is month precision and still open: no week of October claims it.
+        for (String week : List.of("2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44")) {
+            assertThat(json(get("/api/v1/featured-releases?week=" + week)).path("items")).isEmpty();
+        }
+    }
+
+    @Test
+    void isTheHeadOfTheExplorerHypeOrderForTheSamePeriodAndPlatforms() throws Exception {
+        for (String platforms : List.of("", "&platformIds=10000000-0000-4000-8000-000000000001")) {
+            for (String[] period :
+                    List.of(
+                            new String[] {"month=2026-09", "2026-09-01", "2026-09-30"},
+                            new String[] {"month=2026-10", "2026-10-01", "2026-10-31"},
+                            new String[] {"week=2026-W39", "2026-09-21", "2026-09-27"})) {
+                JsonNode featured = json(get("/api/v1/featured-releases?" + period[0] + platforms));
+                JsonNode explorer =
+                        json(
+                                get(
+                                        "/api/v1/releases?sort=hype&from="
+                                                + period[1]
+                                                + "&to="
+                                                + period[2]
+                                                + platforms));
+                for (int i = 0; i < featured.path("items").size(); i++) {
+                    JsonNode expected = explorer.path("items").get(i);
+                    JsonNode actual = featured.path("items").get(i);
+                    assertThat(actual.path("gameId")).isEqualTo(expected.path("gameId"));
+                    assertThat(actual.path("releases")).isEqualTo(expected.path("releases"));
+                }
             }
-        } finally {
-            jdbc.update(
-                    "UPDATE catalogue.game_featured_evidence SET first_release_date=DATE '2026-09-15' WHERE game_id=?",
-                    wolverine);
         }
     }
 
@@ -216,29 +221,30 @@ class FeaturedReleaseApiIntegrationTest {
 
     @Test
     void ranksAnotherMonthFromLocalPopularityAndPresentsItsQualifyingReleases() throws Exception {
-        HttpResponse<String> october = get("/api/v1/featured-releases?month=2026-10");
-        JsonNode body = OBJECT_MAPPER.readTree(october.body());
+        HttpResponse<String> september = get("/api/v1/featured-releases?month=2026-09");
+        JsonNode body = OBJECT_MAPPER.readTree(september.body());
 
-        OPENAPI.assertJsonResponse(october, 200, "FeaturedReleases");
-        assertThat(body.path("month").stringValue()).isEqualTo("2026-10");
+        OPENAPI.assertJsonResponse(september, 200, "FeaturedReleases");
+        assertThat(body.path("month").stringValue()).isEqualTo("2026-09");
         assertThat(body.path("evaluatedOn").stringValue()).isEqualTo("2026-08-13");
         assertThat(body.path("selection").path("status").stringValue()).isEqualTo("ranked");
         assertThat(body.path("selection").path("popularityFreshness").stringValue())
                 .isEqualTo("fresh");
         assertThat(body.path("selection").path("popularityObservedAt").stringValue())
                 .isEqualTo("2026-08-09T10:00:00Z");
-        assertThat(ids(body.path("items"), "canonicalTitle")).containsExactly("Crimson Desert");
+        assertThat(ids(body.path("items"), "canonicalTitle")).containsExactly("Marvel's Wolverine");
         JsonNode releases = body.path("items").get(0).path("releases");
-        assertThat(releases).hasSize(2);
+        assertThat(releases).isNotEmpty();
         releases.forEach(
                 release -> {
                     assertThat(release.path("releaseDate").path("precision").stringValue())
-                            .isEqualTo("month");
+                            .isEqualTo("day");
                     assertThat(release.path("releaseDate").path("value").stringValue())
-                            .isEqualTo("2026-10");
+                            .isEqualTo("2026-09-25");
+                    assertThat(release.path("stage").stringValue()).isEqualTo("full_release");
                 });
         // The signal value itself never reaches the browser.
-        assertThat(october.body())
+        assertThat(september.body())
                 .doesNotContain("visits", "hypes", "version_parent", "first_release_date");
         // The seed stores no provider media and only a product cover: the product-owned landscape
         // fallback fills the frame, and the canonical title stays without a logo.
@@ -249,11 +255,12 @@ class FeaturedReleaseApiIntegrationTest {
         assertThat(image.path("attribution").isNull()).isTrue();
         assertThat(body.path("items").get(0).has("logo")).isFalse();
 
-        assertThat(
-                        ids(
-                                json(get("/api/v1/featured-releases?month=2026-09")).path("items"),
-                                "canonicalTitle"))
-                .containsExactly("Marvel's Wolverine");
+        // Crimson Desert has Hypes, but October is known only to the month and has not ended: the
+        // explorer's default leaves it out, so it is not a qualifying release yet.
+        JsonNode october = json(get("/api/v1/featured-releases?month=2026-10"));
+        assertThat(october.path("selection").path("status").stringValue())
+                .isEqualTo("no_qualifying_releases");
+        assertThat(october.path("items")).isEmpty();
         // Both ends of the current year are selectable; December has no qualifying seed release.
         OPENAPI.assertJsonResponse(
                 get("/api/v1/featured-releases?month=2026-01"), 200, "FeaturedReleases");
@@ -265,9 +272,10 @@ class FeaturedReleaseApiIntegrationTest {
 
     @Test
     void restrictsTheRankingToExplicitPlatformsWithoutAnySessionInput() throws Exception {
-        JsonNode october = json(get("/api/v1/featured-releases?month=2026-10"));
+        JsonNode september = json(get("/api/v1/featured-releases?month=2026-09"));
         List<String> presented = new java.util.ArrayList<>();
-        october.path("items")
+        september
+                .path("items")
                 .get(0)
                 .path("releases")
                 .forEach(
@@ -286,11 +294,11 @@ class FeaturedReleaseApiIntegrationTest {
                         .orElseThrow();
 
         HttpResponse<String> matching =
-                get("/api/v1/featured-releases?month=2026-10&platformIds=" + presented.getFirst());
+                get("/api/v1/featured-releases?month=2026-09&platformIds=" + presented.getFirst());
         OPENAPI.assertJsonResponse(matching, 200, "FeaturedReleases");
         JsonNode restricted = json(matching);
         assertThat(ids(restricted.path("items"), "canonicalTitle"))
-                .containsExactly("Crimson Desert");
+                .containsExactly("Marvel's Wolverine");
         restricted
                 .path("items")
                 .get(0)
@@ -302,20 +310,19 @@ class FeaturedReleaseApiIntegrationTest {
                                                         .path("platformId")
                                                         .stringValue())
                                         .isEqualTo(presented.getFirst()));
-        assertThat(matching.headers().firstValue("ETag"))
-                .isNotEqualTo(
-                        get("/api/v1/featured-releases?month=2026-10")
-                                .headers()
-                                .firstValue("ETag"));
 
-        JsonNode none = json(get("/api/v1/featured-releases?month=2026-10&platformIds=" + other));
+        HttpResponse<String> withoutMatch =
+                get("/api/v1/featured-releases?month=2026-09&platformIds=" + other);
+        assertThat(withoutMatch.headers().firstValue("ETag"))
+                .isNotEqualTo(matching.headers().firstValue("ETag"));
+        JsonNode none = json(withoutMatch);
         assertThat(none.path("selection").path("status").stringValue())
                 .isEqualTo("no_qualifying_releases");
         assertThat(none.path("items")).isEmpty();
 
         HttpResponse<String> unknown =
                 get(
-                        "/api/v1/featured-releases?month=2026-10&platformIds="
+                        "/api/v1/featured-releases?month=2026-09&platformIds="
                                 + presented.getFirst()
                                 + "&platformIds=platform_unknown");
         assertProblem(unknown, 422, "PLATFORM_NOT_SUPPORTED");
@@ -332,7 +339,7 @@ class FeaturedReleaseApiIntegrationTest {
     @Test
     void servesOnlyDiscoveryMetadataWithLocalizedSummaryFallbackAndChangingValidators()
             throws Exception {
-        var game = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000a");
+        var game = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000c");
         var original =
                 jdbc.queryForMap(
                         "SELECT summary_kind,summary_text,summary_language,summary_source_kind,summary_source_name,summary_source_entity_type FROM catalogue.game_snapshot WHERE game_id=?",
@@ -357,7 +364,7 @@ class FeaturedReleaseApiIntegrationTest {
             jdbc.update(
                     "UPDATE catalogue.game_snapshot SET summary_kind='sourced',summary_text='Featured original source.',summary_language='en',summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='game_summary' WHERE game_id=?",
                     game);
-            var fallback = get("/api/v1/featured-releases?month=2026-10");
+            var fallback = get("/api/v1/featured-releases?month=2026-09");
             OPENAPI.assertJsonResponse(fallback, 200, "FeaturedReleases");
             var first = json(fallback).path("items").get(0);
             assertThat(ids(first.path("genres"), "name")).containsExactly("Aventura", "Estrategia");
@@ -378,7 +385,7 @@ class FeaturedReleaseApiIntegrationTest {
                     game);
             var translated =
                     get(
-                            "/api/v1/featured-releases?month=2026-10",
+                            "/api/v1/featured-releases?month=2026-09",
                             "If-None-Match",
                             fallback.headers().firstValue("ETag").orElseThrow());
             OPENAPI.assertJsonResponse(translated, 200, "FeaturedReleases");
@@ -390,7 +397,7 @@ class FeaturedReleaseApiIntegrationTest {
             jdbc.update(
                     "UPDATE catalogue.game_snapshot SET summary_text='Changed featured source.' WHERE game_id=?",
                     game);
-            var stale = get("/api/v1/featured-releases?month=2026-10");
+            var stale = get("/api/v1/featured-releases?month=2026-09");
             OPENAPI.assertJsonResponse(stale, 200, "FeaturedReleases");
             var oldSummary = json(stale).path("items").get(0).path("summary");
             assertThat(oldSummary.path("text").asString())
@@ -425,35 +432,36 @@ class FeaturedReleaseApiIntegrationTest {
 
     @Test
     void presentsStoredProviderMediaAsApprovedCdnRenditionsWithAttribution() throws Exception {
-        String crimsonDesert = "30000000-0000-4000-8000-00000000000a";
+        String wolverine = "30000000-0000-4000-8000-00000000000c";
         String insert =
                 "INSERT INTO catalogue.game_featured_media (game_id, media_role, media_kind,"
                         + " image_reference, width, height, transparent, source_name, source_url,"
                         + " observed_at) VALUES (CAST(? AS uuid), ?, ?, ?, ?, ?, ?, 'IGDB',"
-                        + " 'https://www.igdb.com/games/crimson-desert', now())";
+                        + " 'https://www.igdb.com/games/wolverine', now())";
         try {
-            jdbc.update(insert, crimsonDesert, "image", "artwork", "arcrimson", 2560, 1440, false);
-            jdbc.update(insert, crimsonDesert, "logo", "logo", "locrimson", 900, 320, true);
+            jdbc.update(insert, wolverine, "image", "artwork", "arwolverine", 2560, 1440, false);
+            jdbc.update(insert, wolverine, "logo", "logo", "lowolverine", 900, 320, true);
 
-            HttpResponse<String> october = get("/api/v1/featured-releases?month=2026-10");
-            OPENAPI.assertJsonResponse(october, 200, "FeaturedReleases");
-            JsonNode item = OBJECT_MAPPER.readTree(october.body()).path("items").get(0);
+            HttpResponse<String> september = get("/api/v1/featured-releases?month=2026-09");
+            OPENAPI.assertJsonResponse(september, 200, "FeaturedReleases");
+            JsonNode item = OBJECT_MAPPER.readTree(september.body()).path("items").get(0);
 
             JsonNode image = item.path("featuredImage");
             assertThat(image.path("kind").stringValue()).isEqualTo("artwork");
             assertThat(image.path("presentation").stringValue()).isEqualTo("fill");
             assertThat(image.path("url").stringValue())
-                    .isEqualTo("https://images.igdb.com/igdb/image/upload/t_1080p/arcrimson.webp");
+                    .isEqualTo(
+                            "https://images.igdb.com/igdb/image/upload/t_1080p/arwolverine.webp");
             assertThat(image.path("compactUrl").stringValue())
-                    .isEqualTo("https://images.igdb.com/igdb/image/upload/t_720p/arcrimson.webp");
+                    .isEqualTo("https://images.igdb.com/igdb/image/upload/t_720p/arwolverine.webp");
             assertThat(image.path("alternativeText").stringValue())
-                    .isEqualTo("Arte de Crimson Desert");
+                    .isEqualTo("Arte de Marvel's Wolverine");
             assertThat(image.path("attribution").path("sourceUrl").stringValue())
-                    .isEqualTo("https://www.igdb.com/games/crimson-desert");
+                    .isEqualTo("https://www.igdb.com/games/wolverine");
             JsonNode logo = item.path("logo");
             assertThat(logo.path("url").stringValue())
-                    .isEqualTo("https://images.igdb.com/igdb/image/upload/t_720p/locrimson.png");
-            assertThat(logo.path("alternativeText").stringValue()).isEqualTo("Crimson Desert");
+                    .isEqualTo("https://images.igdb.com/igdb/image/upload/t_720p/lowolverine.png");
+            assertThat(logo.path("alternativeText").stringValue()).isEqualTo("Marvel's Wolverine");
             assertThat(
                             meterRegistry
                                     .find("catalogue.featured.selection")
@@ -463,7 +471,7 @@ class FeaturedReleaseApiIntegrationTest {
         } finally {
             jdbc.update(
                     "DELETE FROM catalogue.game_featured_media WHERE game_id = CAST(? AS uuid)",
-                    crimsonDesert);
+                    wolverine);
         }
     }
 
@@ -521,7 +529,7 @@ class FeaturedReleaseApiIntegrationTest {
 
     @Test
     void measuresOnlyBoundedSelectionDimensions() throws Exception {
-        get("/api/v1/featured-releases?month=2026-10");
+        get("/api/v1/featured-releases?month=2026-09");
         get("/api/v1/featured-releases?granularity=week");
 
         Counter ranked =

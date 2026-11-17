@@ -124,9 +124,11 @@ the preferred ad-hoc path) and an exceptional management command, all using the 
 application path and the same single run ownership. Any of their runs can be stopped or
 abandoned from the same page (`UC-013`).
 [`application.yaml`](src/main/resources/application.yaml) owns policy defaults;
-`backend/.env.example` names local opt-in/override settings. Cron and date windows use
-the application clock's `Europe/Madrid` zone. Keep scheduling disabled for normal local
-work even when manually testing provider credentials. The
+`backend/.env.example` names the local settings: like private dev, local runs only the
+weekly upcoming policy
+([ADR-0037](../docs/decisions/0037-align-local-and-private-dev-with-production.md)), which
+does nothing without IGDB credentials. Cron and date windows use the application clock's
+`Europe/Madrid` zone. The
 [operations runbook](../docs/development/operations-runbook.md#catalogue-synchronization)
 owns policy rationale, failure handling and the pending private-dev exercise.
 
@@ -142,7 +144,7 @@ curl --fail 'http://localhost:8081/actuator/cataloguecoverage?from=1997-01-01&to
 
 One POST paginates internally until every IGDB Game with a release date in the
 interval has been reconciled; there is no total Game limit. Each provider page reads
-its Games' logos; each Game request carries Hypes, first-release
+its Games' logos and their Want to Play, Visits and parent-product signals (#458); each Game request carries Hypes, first-release
 and edition evidence along with artwork and screenshot metadata for featured discovery
 (`UC-010`), and the IGDB player score with its rating count; the report counts signals
 observed, cleared and kept unavailable, featured images and logos observed, and player

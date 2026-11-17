@@ -57,8 +57,9 @@ for (const width of [320, 390, 620, 720, 834, 1100, 1180, 1320]) {
 
     const brand = page.getByRole("link", { name: "Gameómetro · Inicio" });
     await expect(brand).toBeVisible();
-    // Compact layouts keep the standalone G; wider layouts use the integrated lockup.
-    const compact = width < 720 || (width >= 1024 && width < 1180);
+    // Phones and tablets lead with the integrated lockup (#358); only the crowded single desktop
+    // row keeps the standalone G.
+    const compact = width >= 1024 && width < 1180;
     await expect(brand.locator(".brand-logo")).toBeVisible({ visible: !compact });
     await expect(brand.locator(".brand-mark")).toBeVisible({ visible: compact });
     await expect(page.getByRole("contentinfo")).toContainText("Gameómetro");

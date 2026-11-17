@@ -62,6 +62,9 @@ services:
       args:
         KEYCLOAK_EVENT_METRICS_USER_ENABLED: "true"
     entrypoint: ["/opt/videogame-platform/bin/run-keycloak"]
+    # Production's runtime policy (event metrics bounds and resource admission), not a copy.
+    env_file:
+      - ../public-production/keycloak/abuse.env
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak
@@ -71,15 +74,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
-      # Event metrics are compiled into this private image; keep runtime labels/events bounded.
-      KC_EVENT_METRICS_USER_EVENTS: login,register,verify_email,send_verify_email,send_reset_password,reset_password,user_disabled_by_temporary_lockout
-      KC_EVENT_METRICS_USER_TAGS: realm
-      # Resource admission, not per-account or per-IP rate quotas.
-      KC_HTTP_POOL_MAX_THREADS: "8"
-      KC_HTTP_MAX_QUEUED_REQUESTS: "16"
-      KC_DB_POOL_INITIAL_SIZE: "1"
-      KC_DB_POOL_MIN_SIZE: "1"
-      KC_DB_POOL_MAX_SIZE: "5"
+      KC_HTTP_ACCESS_LOG_ENABLED: "false"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
       KC_PROXY_HEADERS: xforwarded
@@ -140,7 +135,7 @@ services:
       service: mailpit
     networks:
       - mail
-    # Owner-only UI through the SSH tunnel; SMTP stays on the Keycloak-only mail network.
+    # Owner-only UI through the SSH tunnel; SMTP stays on the dedicated mail network.
     ports:
       - "127.0.0.1:8025:8025"
 
@@ -176,8 +171,10 @@ services:
       # Native Telegram URLs contain the token; never enable notifier debug logs.
       GF_LOG_LEVEL: info
       GF_LOG_FILTERS: ngalert.notifier.telegram:info
-      GRAFANA_TELEGRAM_ENABLED: ${GRAFANA_TELEGRAM_ENABLED:-false}
-      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: ${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}
+      # #550: private-dev delivers no alert or notice; production Grafana alone notifies the owner.
+      # The shared renderer stays here, proven against an isolated mock, and production reuses it.
+      GRAFANA_TELEGRAM_ENABLED: "false"
+      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: "false"
       GF_SERVER_ROOT_URL: ${PRIVATE_DEV_GRAFANA_ORIGIN:-http://127.0.0.1:3000}
     secrets:
       - grafana_telegram_bot_token
@@ -202,10 +199,17 @@ services:
     image: ${APPLICATION_IMAGE:?Set APPLICATION_IMAGE to an immutable GHCR digest in runtime.env}
     entrypoint: ["/opt/videogame-platform/bin/run-application"]
     environment:
+      FEEDBACK_ENABLED: "true"
+      FEEDBACK_SMTP_HOST: mailpit
+      FEEDBACK_SMTP_PORT: 1025
+      FEEDBACK_SMTP_AUTH: "false"
+      FEEDBACK_SMTP_STARTTLS: "false"
+      FEEDBACK_FROM: gameometro@example.invalid
+      FEEDBACK_INBOX: feedback@example.invalid
       SPRING_PROFILES_ACTIVE: oidc,structured
       APPLICATION_PUBLIC_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
       APPLICATION_OIDC_REDIRECT_URI: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}/login/oauth2/code/keycloak
-      APPLICATION_HSTS_ENABLED: "true"
+      PLATFORM_HTTPSECURITY_HSTS_ENABLED: "true"
       # Tailscale Serve terminates the tailnet HTTPS and forwards plaintext HTTP to this
       # loopback-published port, overwriting X-Forwarded-Proto=https on every request. NATIVE
       # activates Tomcat's RemoteIpValve, which honours X-Forwarded-Proto/For only from internal
@@ -239,15 +243,10 @@ services:
       TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
       TELEMETRY_OTLP_METRICS_STEP: 60s
       TELEMETRY_TRACING_SAMPLING_PROBABILITY: "0.1"
-      # Explicit opt-in. Null passthrough values are omitted when unset, leaving application.yaml
-      # as the sole owner of policy defaults; runtime.env may override any of these settings.
-      CATALOGUE_SYNC_SCHEDULING_ENABLED: ${CATALOGUE_SYNC_SCHEDULING_ENABLED:-false}
-      CATALOGUE_SYNC_NEAR_TERM_CRON:
-      CATALOGUE_SYNC_NEAR_TERM_PAST_DAYS:
-      CATALOGUE_SYNC_NEAR_TERM_FUTURE_DAYS:
-      CATALOGUE_SYNC_UPCOMING_CRON:
-      CATALOGUE_SYNC_UPCOMING_PAST_DAYS:
-      CATALOGUE_SYNC_UPCOMING_FUTURE_DAYS:
+      # Production's recurring acquisition minus the daily near-term policy: only the weekly
+      # upcoming policy runs, on application.yaml's default schedule and windows.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
+      CATALOGUE_SYNC_NEAR_TERM_CRON: "-"
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:
@@ -270,6 +269,7 @@ services:
       - edge
       - data
       - telemetry
+      - mail
     ports:
       - "127.0.0.1:${APPLICATION_LOOPBACK_PORT:-8080}:8080"
     depends_on:
@@ -362,8 +362,15 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    networks:
-      - edge
+    # Tailscale Serve may bind its listeners to tailscale0 only (seen from 1.104), which
+    # refuses connections arriving from a Docker bridge. The smoke checks the operator's
+    # real HTTPS origin, so it runs in the host network namespace; it is unprivileged,
+    # holds only the smoke credentials and runs once per deployment. Without Docker DNS
+    # there, deploy-private-dev supplies the candidate's edge address for its management
+    # checks; the documentation-range default fails closed if anything else starts it.
+    network_mode: host
+    extra_hosts:
+      - "application:${SMOKE_APPLICATION_ADDRESS:-192.0.2.1}"
     depends_on:
       application:
         condition: service_healthy
@@ -422,5 +429,5 @@ networks:
     internal: true
   # Separate non-internal bridge for loopback publishing; Alloy cannot join product edge.
   log-ingress:
-  # Keycloak and Mailpit only. Non-internal solely so Docker can publish the loopback UI.
+  # Keycloak, the application and Mailpit only. Non-internal solely so Docker can publish the loopback UI.
   mail:

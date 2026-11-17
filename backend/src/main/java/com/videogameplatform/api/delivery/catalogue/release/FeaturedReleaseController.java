@@ -210,7 +210,7 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
         return response;
     }
 
-    private static FeaturedImage toImage(FeaturedReleasesResult.FeaturedImage source) {
+    static FeaturedImage toImage(FeaturedReleasesResult.FeaturedImage source) {
         return switch (source) {
             case FeaturedReleasesResult.FeaturedImage.Provider provider ->
                     new ProviderFeaturedImage(
@@ -247,7 +247,7 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
         return new Attribution(source.label(), source.sourceUrl());
     }
 
-    private static FeaturedSelection toSelection(FeaturedReleasesResult.Selection source) {
+    static FeaturedSelection toSelection(FeaturedReleasesResult.Selection source) {
         return switch (source) {
             case FeaturedReleasesResult.Selection.Ranked ranked ->
                     new FeaturedSelection(FeaturedSelection.StatusEnum.RANKED)

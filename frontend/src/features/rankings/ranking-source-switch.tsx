@@ -11,9 +11,9 @@ const SOURCES: readonly { source: RankingSource; label: string }[] = [
 /**
  * The one choice TOPómetro offers: whose ratings rank the games. Each source is a native link, so
  * the choice lives in the URL and in history, carries its source's own mark and is never mixed
- * with the other.
+ * with the other. On a platform's TOPómetro each source keeps the platform.
  */
-export function RankingSourceSwitch({ source }: { source: RankingSource }) {
+export function RankingSourceSwitch({ source, platformKey }: { source: RankingSource; platformKey?: string }) {
   return (
     <nav aria-label="Puntuaciones del TOPómetro" className="ranking-sources">
       <ul className="ranking-source-list">
@@ -24,7 +24,7 @@ export function RankingSourceSwitch({ source }: { source: RankingSource }) {
               className="ranking-source"
               data-source={entry.source}
               preventScrollReset
-              to={rankingPath(entry.source)}
+              to={rankingPath(entry.source, platformKey)}
             >
               {entry.source === "igdb" ? (
                 <img alt="" className="ranking-source-mark" height="22" src="/assets/providers/igdb.svg" width="44" />

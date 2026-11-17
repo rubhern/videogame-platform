@@ -99,6 +99,19 @@ assert(readiness.response.ok && JSON.parse(readiness.body).status === "UP", "rea
 const root = await request("/");
 assert(root.response.ok && root.body.includes('<div id="root">'), "packaged frontend is missing");
 
+// Microsoft verifies the Entra publisher domain (#548) by fetching this exact file from the
+// product origin: it must be the packaged JSON, never the SPA entry point.
+const publisherDomain = await request("/.well-known/microsoft-identity-association.json");
+assert(publisherDomain.response.ok, "Microsoft publisher-domain file is missing");
+assert(
+  publisherDomain.response.headers.get("content-type")?.includes("application/json"),
+  "Microsoft publisher-domain file is not JSON",
+);
+assert(
+  JSON.parse(publisherDomain.body).associatedApplications?.[0]?.applicationId?.length === 36,
+  "Microsoft publisher-domain file has no application",
+);
+
 const browserRoute = await request("/games/pragmata");
 assert(
   browserRoute.response.ok && browserRoute.body.includes('<div id="root">'),
@@ -297,33 +310,42 @@ PY
 scan_image() {
   local architecture="$1"
   local tag="$2"
+  local report="trivy-${architecture}.json"
+  local reports="$migration_secret_directory/scanner-reports"
+  mkdir -p "$reports"
+  local -a db_mounts=()
+  if [[ -n "${TRIVY_DB_CACHE_DIRECTORY:-}" ]]; then
+    local db
+    for db in db java-db; do
+      mkdir -p "$TRIVY_DB_CACHE_DIRECTORY/$db"
+      db_mounts+=(--volume "$(realpath "$TRIVY_DB_CACHE_DIRECTORY/$db"):/root/.cache/trivy/$db")
+    done
+  fi
 
   docker run --rm \
     --volume /var/run/docker.sock:/var/run/docker.sock \
     --volume "$trivy_cache:/root/.cache/trivy" \
+    "${db_mounts[@]}" \
     "$trivy_image" image \
       --no-progress \
       --scanners vuln,secret \
-      --severity HIGH,CRITICAL \
-      --exit-code 1 \
-      "$tag" | tee "$evidence_directory/trivy-${architecture}.txt"
-
-  docker run --rm \
-    --volume /var/run/docker.sock:/var/run/docker.sock \
-    --volume "$trivy_cache:/root/.cache/trivy" \
-    "$trivy_image" image \
-      --no-progress \
-      --scanners vuln,secret \
+      --list-all-pkgs \
       --format json \
-      "$tag" >"$evidence_directory/trivy-${architecture}.json"
+      "$tag" >"$reports/$report"
+
+  # Run both renderers against the same full scan. The table conversion still
+  # applies the threshold and fails the image job on HIGH/CRITICAL findings.
+  docker run --rm \
+    --volume "$reports:/evidence:ro" \
+    "$trivy_image" convert --format table --scanners vuln,secret \
+      --severity HIGH,CRITICAL --exit-code 1 "/evidence/$report" \
+    | tee "$evidence_directory/trivy-${architecture}.txt"
 
   docker run --rm \
-    --volume /var/run/docker.sock:/var/run/docker.sock \
-    --volume "$trivy_cache:/root/.cache/trivy" \
-    "$trivy_image" image \
-      --no-progress \
-      --format cyclonedx \
-      "$tag" >"$evidence_directory/sbom-${architecture}.cdx.json"
+    --volume "$reports:/evidence:ro" \
+    "$trivy_image" convert --format cyclonedx "/evidence/$report" \
+    >"$evidence_directory/sbom-${architecture}.cdx.json"
+  cp "$reports/$report" "$evidence_directory/$report"
 }
 
 require_command docker

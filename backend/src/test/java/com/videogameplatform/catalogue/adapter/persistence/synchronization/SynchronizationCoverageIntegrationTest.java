@@ -10,6 +10,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
+import com.videogameplatform.catalogue.application.synchronization.port.ImportPolicyRevision;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Duration;
@@ -93,6 +94,21 @@ class SynchronizationCoverageIntegrationTest {
                         covered("1997-06-01", "1997-06-30", june),
                         covered("1997-07-01", "1997-12-31", year));
         assertThat(storedIntervals()).isEqualTo(3);
+    }
+
+    @Test
+    void aScanRecordsTheCurrentImportPolicyAndARemainderKeepsTheEarlierOne() {
+        cover("1997-01-01", "1997-12-31", T1);
+        jdbc.update("UPDATE catalogue.synchronization_coverage SET import_policy_revision=1");
+
+        cover("1997-06-01", "1997-06-30", T2);
+
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT import_policy_revision FROM catalogue.synchronization_coverage"
+                                        + " ORDER BY covered_from",
+                                Integer.class))
+                .containsExactly(1, ImportPolicyRevision.CURRENT, 1);
     }
 
     @Test

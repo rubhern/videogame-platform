@@ -16,10 +16,12 @@ guidance, and nothing here is maintained to reflect the current system.
 | [Performance baseline](performance-baseline/README.md) | Measured catalogue, synthetic dataset profiles and first low-rate public HTTP baseline for #85 |
 | [Historical synchronization pilot](historical-sync-pilot.md) | #246 spike: method, measurements available from existing instrumentation, remaining gaps and how pilot evidence refines chunking, checkpointing, concurrency and limits; tooling prepared, no real pilot yet |
 | [Portable production candidate acceptance](public-production-candidate-acceptance.md) | #275 increment 8 frozen gate matrix, final 9ffc05a candidate campaign, security disposition, sanitized evidence, owner acceptance record and #276 handoff; no purchase/exposure authorization |
+| [Public production release acceptance](public-production-release-acceptance.md) | #276 real-host qualification, release identity, gate evidence, public opening 2026-11-08, and signed owner acceptance |
 | [Automated off-host backup storage](public-production-backup-storage.md) | #276: owner-approved Lite 3, OVHcloud/direct-S3 and revised budget; retained provider evidence, 200 GiB planning estimate, spending controls/pending risk decision and retention/cloud-host gates; no account, purchase or implementation |
 | [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 | [Public-release rights and privacy](public-release-rights-and-privacy.md) | #274: IGDB/Twitch terms per content type, verified personal-data inventory, GDPR/Spanish requirements, revocation comparison and deletion-ledger design, licence contingency, approved decisions, open uncertainties, launch blockers, and the phase 2 plan with the production-realm evidence and the transactional email provider comparison; no legal advice |
 | [Browser session lifetime and remember-me](browser-session-lifetime.md) | #361 lifetime evidence; #374 native-mapper limits, owner-approved narrow SPI, reproducible signed-claim probe and all-environment implementation boundary; nothing deployed |
+| [Product analytics evaluation](product-analytics.md) | #330 product questions, minimum event dictionary, GA4 vs Umami comparison and owner decision to adopt GA4 (2026-11-09); nothing installed |
 
 ## Point-in-time reviews
 
@@ -30,6 +32,7 @@ Do not update them when the code changes.
 
 | Review | Revision |
 |---|---|
+| [Post-launch Keycloak account journey review](reviews/keycloak-account-journey-review-2026-11-12.md) | 2026-11-12 to 2026-11-13; #472 live anonymous and controlled-account findings |
 | [Gameómetro user-facing copy audit](reviews/user-facing-copy-audit-2026-10-19.md) | `1532f1d`, 2026-10-19; #286 phase 1, inventory and proposals pending owner review |
 | [Repository quality review](reviews/repository-quality-review-2026-08-27.md) | `9a23801`, 2026-08-27 |
 | [MVP close-out: architecture](mvp-closeout-review/architecture-review.md), [code](mvp-closeout-review/code-review.md), [DevOps](mvp-closeout-review/devops-review.md), [infrastructure](mvp-closeout-review/infrastructure-review.md), [observability](mvp-closeout-review/observability-review.md) | `d10bc44`, MVP close-out |

@@ -117,90 +117,10 @@
     -webkit-mask-size: contain;
   }
 
-  .app-select-icon-playstation {
-    mask-image: url("/assets/platforms/playstation-5.png");
-    -webkit-mask-image: url("/assets/platforms/playstation-5.png");
-  }
-
-  .app-select-icon-nintendo-switch {
-    mask-image: url("/assets/platforms/nintendo-switch.png");
-    -webkit-mask-image: url("/assets/platforms/nintendo-switch.png");
-  }
-
-  .app-select-icon-nintendo-switch-2 {
-    mask-image: url("/assets/platforms/nintendo-switch-2.png");
-    -webkit-mask-image: url("/assets/platforms/nintendo-switch-2.png");
-  }
-
-  .app-select-icon-android {
-    mask-image: url("/assets/platforms/android.png");
-    -webkit-mask-image: url("/assets/platforms/android.png");
-  }
-
-  .app-select-icon-ios {
-    mask-image: url("/assets/platforms/ios.png");
-    -webkit-mask-image: url("/assets/platforms/ios.png");
-  }
-
-  .app-select-icon-linux {
-    mask-image: url("/assets/platforms/linux.png");
-    -webkit-mask-image: url("/assets/platforms/linux.png");
-  }
-
-  .app-select-icon-macos {
-    mask-image: url("/assets/platforms/macos.png");
-    -webkit-mask-image: url("/assets/platforms/macos.png");
-  }
-
-  .app-select-icon-meta-quest {
-    mask-image: url("/assets/platforms/meta-quest.png");
-    -webkit-mask-image: url("/assets/platforms/meta-quest.png");
-  }
-
-  .app-select-icon-playstation-4 {
-    mask-image: url("/assets/platforms/playstation-4.png");
-    -webkit-mask-image: url("/assets/platforms/playstation-4.png");
-  }
-
-  .app-select-icon-playstation-5 {
-    mask-image: url("/assets/platforms/playstation-5.png");
-    -webkit-mask-image: url("/assets/platforms/playstation-5.png");
-  }
-
-  .app-select-icon-playstation-vr2 {
-    mask-image: url("/assets/platforms/playstation-vr2.png");
-    -webkit-mask-image: url("/assets/platforms/playstation-vr2.png");
-  }
-
-  .app-select-icon-windows {
-    mask-image: url("/assets/platforms/windows.png");
-    -webkit-mask-image: url("/assets/platforms/windows.png");
-  }
-
-  .app-select-icon-xbox {
-    mask-image: url("/assets/platforms/xbox-series-x-s.png");
-    -webkit-mask-image: url("/assets/platforms/xbox-series-x-s.png");
-  }
-
-  .app-select-icon-xbox-one {
-    mask-image: url("/assets/platforms/xbox-one.png");
-    -webkit-mask-image: url("/assets/platforms/xbox-one.png");
-  }
-
-  .app-select-icon-xbox-series-x-s {
-    mask-image: url("/assets/platforms/xbox-series-x-s.png");
-    -webkit-mask-image: url("/assets/platforms/xbox-series-x-s.png");
-  }
-
   .app-select-icon-playstation-4,
   .app-select-icon-playstation-5,
   .app-select-icon-xbox-series-x-s {
     transform: scale(1.35);
-  }
-
-  .app-select-icon-steamvr {
-    mask-image: url("/assets/platforms/steamvr.png");
-    -webkit-mask-image: url("/assets/platforms/steamvr.png");
   }
 
   .app-select-icon-japan {

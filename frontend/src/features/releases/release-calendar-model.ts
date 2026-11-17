@@ -9,18 +9,28 @@ import { calendarDay } from "./releases-search";
  * calendar arithmetic over contract strings; the browser's clock never decides "today".
  */
 
-/** 0 is a day without releases; 1 to 4 run from lowest to highest daily total Hype. */
+/** The five calendar bands, from the grey base to the highest daily total Hype. */
 export type DensityLevel = 0 | 1 | 2 | 3 | 4;
 
-/** Fixed daily total-Hype bands: blue, yellow, orange, red; independent of game count. */
-export const DENSITY_THRESHOLDS = [10, 30, 100, 150] as const;
+/**
+ * The approved daily total-Hype bands, blue, yellow, orange and red, independent of game count.
+ * The API serves the operator's current thresholds with every month (#450); these only stand in
+ * where no month has been read.
+ */
+export const DEFAULT_INTEREST_THRESHOLDS: readonly number[] = [10, 30, 100, 150];
+
+/** The approved day preview size, standing in only where no month has been read. */
+export const DEFAULT_DAY_PREVIEW_SIZE = 3;
 
 /** Qualitative equivalent of colour, also exposed as the day's accessible description. */
-export const HYPE_LABELS = ["Sin destacados", "Interés bajo", "Interés moderado", "Interés alto", "Interés muy alto"] as const;
+export const EXPECTATION_LABELS = ["Expectación 1 de 5", "Expectación 2 de 5", "Expectación 3 de 5", "Expectación 4 de 5", "Expectación 5 de 5"] as const;
 
-export function densityLevel(totalHype: number): DensityLevel {
+export function densityLevel(
+  totalHype: number,
+  thresholds: readonly number[] = DEFAULT_INTEREST_THRESHOLDS,
+): DensityLevel {
   let level: DensityLevel = 0;
-  DENSITY_THRESHOLDS.forEach((threshold, index) => {
+  thresholds.slice(0, 4).forEach((threshold, index) => {
     if (totalHype >= threshold) level = (index + 1) as DensityLevel;
   });
   return level;
@@ -55,6 +65,9 @@ export type ReleaseCalendarModel = {
   activeDays: CalendarDay[];
   /** Days holding at least one release. */
   daysWithReleases: number;
+  interestThresholds: readonly number[];
+  /** How many leading games a chosen day previews, as the operator set it. */
+  dayPreviewSize: number;
   /** Months that may be requested, oldest first, and the adjacent ones. */
   months: string[];
   previous: string | null;
@@ -193,7 +206,7 @@ export function toReleaseCalendarModel(calendar: ReleaseCalendar): ReleaseCalend
       day: new Date(time).getUTCDate(),
       gameCount,
       totalHype,
-      density: densityLevel(totalHype),
+      density: densityLevel(totalHype, calendar.presentation.interestThresholds),
       past: today !== null && time < today,
       today: time === today,
       label: `${WEEKDAYS[new Date(time).getUTCDay()] ?? ""}, ${formatCalendarDay(date)}`,
@@ -209,6 +222,8 @@ export function toReleaseCalendarModel(calendar: ReleaseCalendar): ReleaseCalend
     days,
     activeDays: days.filter((day) => !day.past),
     daysWithReleases: calendar.days.length,
+    interestThresholds: calendar.presentation.interestThresholds,
+    dayPreviewSize: calendar.presentation.dayPreviewSize,
     months: monthsBetween(first, last),
     previous: previous ?? null,
     next: next ?? null,

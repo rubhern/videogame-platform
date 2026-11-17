@@ -139,7 +139,7 @@ describe("Mis plataformas on Destacados", () => {
   it("ranks only the preferred platforms by default, asking the API before ranking", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await screen.findByRole("heading", { name: /Juego uno/ });
     // The first and only read is already the restricted one; nothing filters the six afterwards.
@@ -160,7 +160,7 @@ describe("Mis plataformas on Destacados", () => {
   it("shows every platform in both screens while unchecked, without changing the saved choice", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    const { router } = renderApp("/?week=2026-W40");
+    const { router } = renderApp("/lanzamientos/destacados?week=2026-W40");
 
     await user.click(await platformsCheck(user));
 
@@ -187,7 +187,7 @@ describe("Mis plataformas on Destacados", () => {
   it("names an empty selection of the preferred platforms and offers every platform", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests, { featuredItems: [] });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     expect(
       await screen.findByRole("heading", { name: /Tus plataformas no tienen lanzamientos/ }),
@@ -200,7 +200,7 @@ describe("Mis plataformas on Destacados", () => {
 
   it("keeps the general Destacados for an anonymous visitor", async () => {
     const fetchMock = stubBff({ kind: "anonymous" });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await screen.findByRole("heading", { name: /Juego uno/ });
     expect(reads(fetchMock, "/api/v1/featured-releases")[0]?.searchParams.has("platformIds")).toBe(false);
@@ -211,7 +211,7 @@ describe("Mis plataformas on Destacados", () => {
   it("offers only the management link to a signed-in visitor without preferences", async () => {
     const user = userEvent.setup();
     stubBff({ kind: "signed-in", preferences: { configured: true, platforms: [] } });
-    renderApp("/");
+    renderApp("/lanzamientos/destacados");
 
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
     expect(await screen.findByRole("link", { name: "Mis plataformas" })).toBeInTheDocument();
@@ -222,28 +222,28 @@ describe("Mis plataformas on Destacados", () => {
 describe("Mis plataformas on Explorar lanzamientos", () => {
   it("applies the preferred platforms by default and shows them in Plataforma", async () => {
     const fetchMock = stubBff(withInterests);
-    renderApp("/lanzamientos?from=2026-10-01&to=2026-10-31&sort=hype&regionIds=worldwide");
+    renderApp("/lanzamientos?from=2026-10-01&to=2026-10-31&sort=releaseDate&regionIds=worldwide");
 
     expect(await screen.findByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Mis plataformas");
     const read = reads(fetchMock, "/api/v1/releases").at(-1);
     expect(read?.searchParams.getAll("platformIds")).toEqual(["switch-2", "ps5"]);
     // Dates, order and region stay exactly as the URL names them.
     expect(read?.searchParams.get("from")).toBe("2026-10-01");
-    expect(read?.searchParams.get("sort")).toBe("hype");
+    expect(read?.searchParams.get("sort")).toBe("releaseDate");
     expect(read?.searchParams.getAll("regionIds")).toEqual(["worldwide"]);
   });
 
   it("turns the preferences off for a manual platform choice that starts from what is shown", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    const { router, interests } = renderApp("/lanzamientos?sort=hype");
+    const { router, interests } = renderApp("/lanzamientos?sort=releaseDate");
 
     await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
     await user.click(within(screen.getByRole("listbox", { name: "Plataforma" })).getByRole("option", { name: /Windows PC/ }));
 
     await waitFor(() =>
       expect(router.state.location.search).toBe(
-        "?sort=hype&platformIds=switch-2&platformIds=ps5&platformIds=pc",
+        "?sort=releaseDate&platformIds=switch-2&platformIds=ps5&platformIds=pc",
       ),
     );
     expect(interests.enabled()).toBe(false);
@@ -251,7 +251,7 @@ describe("Mis plataformas on Explorar lanzamientos", () => {
 
     // Applying the preferences again replaces the manual choice; nothing intersects.
     await user.click(screen.getByRole("checkbox", { name: "Filtrar por mis plataformas" }));
-    await waitFor(() => expect(router.state.location.search).toBe("?sort=hype"));
+    await waitFor(() => expect(router.state.location.search).toBe("?sort=releaseDate"));
     await waitFor(() =>
       expect(reads(fetchMock, "/api/v1/releases").at(-1)?.searchParams.getAll("platformIds")).toEqual([
         "switch-2",

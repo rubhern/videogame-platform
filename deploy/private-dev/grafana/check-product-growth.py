@@ -122,6 +122,7 @@ def main():
         project = 'vgp-growth-proof-' + secrets.token_hex(4)
         compose = ['docker', 'compose', '--project-name', project, '--file', str(source)]
         try:
+            image_pull.pull_image(mailpit)
             run(compose + ['up', '--detach', 'keycloak', 'mailpit', 'prometheus', 'grafana'])
             subprocess.run(compose + ['run', '--rm', 'browser'], check=True, timeout=240)
             # A fresh augmentation followed by container recreation must preserve PostgreSQL identities.

@@ -1,16 +1,18 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.3.0
+  version: 5.17.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
     calendar, weekly and monthly featured releases, the player-rating game ranking,
-    bounded-catalogue search, public game details, the selectable platform taxonomy, BFF
+    bounded-catalogue search, the catalogue of one platform, the most anticipated upcoming releases
+    of one platform, public game details, the selectable platform taxonomy, BFF
     session discovery, the authenticated user's ratings, rating statistics and preferred
     platforms, and the catalogue operator's synchronization status, coverage, bounded and
-    historical synchronization requests and the stop or abandonment of one run. It contains
-    only the twenty-five approved method/path operations.
+    historical synchronization requests, the stop or abandonment of one run, catalogue
+    translation coverage and execution controls, and editorial anticipation lists. It contains
+    the approved method/path operations, including private profile, data export and deletion.
 
     Authentication navigation under `/auth` and the management-port synchronization, repair
     and localization commands are separate BFF and operational boundaries and are
@@ -21,8 +23,14 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Feedback
+    description: Anonymous visitor feedback handed to the configured receiving channel.
+  - name: Profile
+    description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
     description: Operator-controlled durable calendar-month backfill.
+  - name: Catalogue translations
+    description: Operator-only coverage and durable translation execution.
   - name: Releases
     description: Public release exploration over an inclusive date range.
   - name: Release calendar
@@ -37,20 +45,246 @@ tags:
     description: |
       Public player-rating rankings of the released games in the local catalogue (TOPómetro),
       one source at a time.
+  - name: Platform catalogue
+    description: |
+      Public browsing of every locally known game of one platform or platform family, without a
+      search query.
+  - name: Upcoming highlights
+    description: |
+      Public ranking of one platform's most anticipated upcoming games by locally observed
+      attention (Próximos destacados), never by quality.
   - name: Platform preferences
     description: |
       The current user's preferred platforms, which the client applies to release discovery as
       an explicit platform filter. Public reads never vary on them.
   - name: Session
     description: Minimal BFF session state without identity or provider tokens.
+  - name: Web analytics
+    description: |
+      Public, non-personal configuration the client needs to offer consent-gated product
+      analytics. It never reveals whether a visitor consented.
   - name: Catalogue administration
     description: |
       Catalogue acquisition for sessions holding the catalogue operator authority: reads of
       local run and coverage evidence, a command that requests a bounded synchronization and
       returns before any provider work, and commands that stop or abandon one identified run.
       No operation here waits for, or exposes, the provider.
+  - name: Editorial attention
+    description: |
+      The catalogue operator's editorial anticipation lists (`UC-021`): the prompt a language
+      model answers with an editorial file, its preview against the catalogue, and the loaded
+      lists whose 1–100 scores rank release attention together with the provider signals.
+  - name: Product settings
+    description: |
+      The catalogue operator's product settings (`UC-024`): the closed, typed list of
+      presentation and ranking values the operator may change without a restart or deployment,
+      each with its default, range and origin, how the presentation windows compare with the
+      configured acquisition horizon, and the recent audited changes. Secrets, endpoints,
+      schedules and safety bounds are never editable here.
 security: []
 paths:
+  /feedback:
+    post:
+      tags: [Feedback]
+      operationId: submitFeedback
+      summary: Submit visitor feedback
+      description: |
+        Anonymous JSON command with no query parameters. Cookies and identity are irrelevant.
+        Cross-origin browser requests are rejected. The JSON request is limited to 32 KiB.
+        A 204 means the configured SMTP receiver accepted the message, not that it reached
+        an inbox or was read. The client never replays automatically. If acceptance is
+        unconfirmed after a timeout or connection loss, a manual retry may send a second copy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackSubmission' }
+            example: { category: suggestion, message: 'Me gustaría ver más juegos cooperativos.' }
+      responses:
+        '204':
+          description: The configured SMTP receiver accepted the message.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '403':
+          description: Cross-origin browser metadata was rejected before any send.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                originRejected: { $ref: '#/components/examples/FeedbackOriginRejected' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: Unsupported query or property, blank message or invalid field.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                invalidFeedback: { $ref: '#/components/examples/FeedbackInvalid' }
+                propertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
+                parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503':
+          description: |
+            The receiving channel is unavailable or SMTP acceptance could not be confirmed
+            (FEEDBACK_UNAVAILABLE), or capacity or maintenance prevents sending. Wait at
+            least Retry-After seconds before a deliberate retry.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Retry-After: { $ref: '#/components/headers/RetryAfter' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                feedbackUnavailable: { $ref: '#/components/examples/FeedbackUnavailable' }
+                serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
+                serviceMaintenance: { $ref: '#/components/examples/ServiceMaintenance' }
+  /me/profile:
+    get:
+      tags: [Profile]
+      operationId: getMyProfile
+      summary: Read my private account summary
+      description: |
+        Validated server-session identity projection only. Optional absent fields are unknown,
+        never inferred from browser input. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Private account summary with optional available identity fields.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrivateProfile' }
+              example: { deletionAvailable: false }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/data-export:
+    get:
+      tags: [Profile]
+      operationId: exportMyData
+      summary: Download my complete supported personal data
+      description: |
+        One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
+        exportedAt, account (available session-validated name/email), ratings (gameId, title,
+        direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
+        and preferredPlatforms (configured, savedAt when configured, platforms). No credentials,
+        tokens, provider payloads or other users' data. Reads one consistent local snapshot.
+        Preparation is bounded to 10000 ratings, 16 MiB and 30 seconds; budget or source failure
+        returns an error before any successful download, never a truncated successful export.
+        Empty collections are valid. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Complete versioned JSON attachment.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Content-Disposition:
+              schema: { type: string }
+              description: Fixed safe attachment filename gameometro-datos.json.
+          content:
+            application/json:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/AccountUnavailable' }
+  /me/account-deletion:
+    post:
+      tags: [Profile]
+      operationId: requestMyAccountDeletion
+      summary: Confirm and request deletion of my account
+      description: |
+        Requires literal ELIMINAR confirmation, same-origin CSRF and validated original OIDC
+        auth_time within five minutes (missing/future time is refused). No user selector.
+        Atomically records one intent per principal and blocks authenticated access. An automatic protected
+        polling executor reuses the independent two-copy ledger and legal archive erasure engine.
+        Admission requires explicit enablement and fresh authenticated executor readiness; otherwise
+        503 changes nothing.
+        202 means pending, never erased, and ends the requesting BFF session immediately.
+        Completion requires verified absence and, in production, independent durable evidence.
+        Retries preserve the same intent. A fixed receipt cookie permits status reads after
+        session invalidation, expires after 24 hours and cannot authorize any mutation.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountDeletionConfirmation' }
+            example: { confirmation: ELIMINAR }
+      responses:
+        '202':
+          description: Deletion accepted, requesting BFF session ended and access blocked; completion remains unverified.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+            Set-Cookie:
+              schema: { type: string }
+              description: HttpOnly SameSite=Strict path-scoped receipt; Secure outside loopback.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountDeletionStatus' }
+              example: { state: pending }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccountDeletionForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/AccountUnavailable' }
+  /account-deletion:
+    get:
+      tags: [Profile]
+      operationId: getAccountDeletionStatus
+      summary: Read only the deletion outcome authorized by my receipt
+      description: |
+        No account identity or query parameters. Requires the opaque receipt cookie issued by
+        the authenticated confirmation. Missing/expired receipts are 401. The receipt permits
+        no commands or personal-data reads. Complete means the engine verified all erasure
+        steps and independent durable evidence; pending includes retryable failures.
+      security: [{ deletionReceipt: [] }]
+      responses:
+        '200':
+          description: Restricted deletion outcome.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountDeletionStatus' }
+              example: { state: pending }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /releases:
     get:
       tags: [Releases]
@@ -80,7 +314,7 @@ paths:
         (never restricted by the active platform set), region options reflect the current range
         and the active platform selection (never restricted by the active region set), and a
         currently selected valid value always stays representable. `sort` orders the games
-        before pagination, by date, Hype, community score or external player score; every
+        before pagination, by date, attention (`hype`), community score or external player score; every
         order reads local state only and never calls a provider. Empty, review-required, imprecise-date and fallback-cover results are
         valid states. PostgreSQL groups by game, applies the range and filters, distinct facet
         discovery, presented-release selection, total ordering, count, limit, and offset before
@@ -290,34 +524,32 @@ paths:
     get:
       tags: [Release calendar]
       operationId: getReleaseCalendar
-      summary: Count highlighted games releasing on each day of one calendar month
+      summary: Count games releasing on each day of one calendar month
       description: |
         Reads, from the last valid local catalogue publication, how many games release on each
-        day of one calendar month, for a monthly calendar. Without `month` the current month in
-        `Europe/Madrid` is served. Navigation never goes back: a month must lie between the
-        current month and the last calendar month lying entirely inside the configured forward
-        acquisition horizon, the same forward bound featured months use; the current month is
-        always accepted. The bound states what acquisition is configured to cover, never that the
-        local catalogue is complete.
+        day of one calendar month. Without month, the current month in Europe/Madrid is served.
+        By default a month must lie between the
+        current month and the operator's months-forward bound (`UC-024`, 5 by default), the same
+        forward bound featured months use; the current month is always accepted. The bound never
+        states that the local catalogue is complete. `presentation` carries the operator's
+        interest thresholds and day preview size.
 
-        This is the highlights calendar: only games with locally stored IGDB Hypes >= 10
-        qualify; missing or lower Hype is excluded. The threshold is fixed, not a percentile
-        recomputed per request. It filters contextual facets as well as day counts.
+        By default, days are counted from the evaluation date onward. With includePast=true, the
+        whole requested month is counted. That mode accepts months intersecting any period
+        reachable under the featured week or month bounds (UC-010). Both modes read the current
+        published catalogue and locally stored Hype.
 
-        The calendar is active from the evaluation date on: days of the month before it are
-        never counted. A day holds only releases with that exact day, under the release
-        explorer's own rules (`GET /releases`): never cancelled, and on the evaluation date not
-        delayed either. `days` lists each day from the evaluation date (or the month's first day,
-        for a later month) to the month's last day holding at least one such release that matches
-        the active filters, in ascending order; a day without one is absent.
-        `totalHype` is the sum of local Hypes of the qualifying games on that day, counting each
-        game once regardless of how many matching platforms or regions it has. The sum uses the
-        same active filters as `gameCount` and excludes games below the highlights threshold.
-        `gameCount` counts games, not releases: a game releasing on several platforms or regions that day
-        counts once. The full explorer lists every qualifying release of that day without a
-        highlights restriction, so its `page.totalItems` may exceed the calendar's `gameCount`.
-        The calendar preview reads the leading games from `GET /releases` with `sort=hype` and
-        a page size capped by both three and the day's highlighted-game count.
+        Each day uses the same exact-date
+        candidates and platform/region filters as GET /releases for that day with approximate dates
+        disabled. Cancelled releases are excluded, as are delayed releases on or before the evaluation date.
+        Days with qualifying games appear in ascending order. Since 5.16.0, every qualifying game
+        counts, including games without Hype and games releasing in early or advance access, beta or
+        alpha. The day's gameCount equals the explorer's total for that day and filters. The calendar
+        reads one bounded page at a time from GET /releases with sort=hype.
+
+        totalHype retains the interest signal: it sums local Hypes at or above the operator's minimum
+        (10 by default) once per game with a matching full or unknown-stage release on that day.
+        It can be zero. Previously gameCount and the available facets covered only this subset.
 
         A release known only to its month, quarter or year, or with an unknown (TBA) date, never
         belongs to a day and is not counted; nothing is attributed to an invented day or month.
@@ -330,6 +562,7 @@ paths:
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseCalendarMonth'
+        - $ref: '#/components/parameters/ReleaseCalendarIncludePast'
         - $ref: '#/components/parameters/PlatformIdsQuery'
         - $ref: '#/components/parameters/RegionIdsQuery'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -365,8 +598,10 @@ paths:
                         - { regionId: region_worldwide, name: Mundial }
                     days:
                       - { date: '2026-10-21', gameCount: 1, totalHype: 20 }
+                      - { date: '2026-10-22', gameCount: 2, totalHype: 0 }
                       - { date: '2026-10-23', gameCount: 3, totalHype: 60 }
                       - { date: '2026-10-30', gameCount: 12, totalHype: 240 }
+                    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 }
                 filteredFutureMonth:
                   summary: A later month filtered by platform
                   description: Requested with `month=2027-02&platformIds=platform_ps5`.
@@ -384,6 +619,7 @@ paths:
                         - { regionId: region_worldwide, name: Mundial }
                     days:
                       - { date: '2027-02-26', gameCount: 2, totalHype: 40 }
+                    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 }
                 empty:
                   summary: The last month inside the horizon holds nothing yet
                   value:
@@ -394,6 +630,7 @@ paths:
                     activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters: { platforms: [], regions: [] }
                     days: []
+                    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 }
         '304': { $ref: '#/components/responses/PublicNotModified' }
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
@@ -410,27 +647,31 @@ paths:
       summary: Read the automatic featured releases of one calendar week or month
       description: |
         Reads the automatic selection of one calendar period from the last valid local catalogue:
-        an ISO 8601 week, Monday to Sunday, or a calendar month. Candidates are the games with a
-        qualifying commercial release inside the period: its known date period lies entirely
-        inside it (an exact day of the period, or, for a month, month precision equal to the
-        month) and it is neither cancelled, delayed, nor pending review. A week therefore only
-        ever holds day-precision releases; a month, quarter, year or unknown date is never
-        assigned to a week. Only Full Release participates. A candidate must be an accepted
-        import type, not an edition, with its own known first release in this period and
-        positive locally stored IGDB Hypes. Candidates rank by Hypes descending, then `gameId`
-        ascending. A game without a usable popularity signal stays a normal catalogue and
-        discovery result but is not ranked, and no popularity value is ever invented. The first
-        item is the period's featured release and up to five more follow; fewer items are
-        returned rather than filling slots. Popularity measures provider-observed attention,
-        never quality, a rating, or an editorial recommendation, and the signal value itself is
+        an ISO 8601 week, Monday to Sunday, or a calendar month.
+
+        Since 5.9.0 the selection is the head of the release explorer: for the same period and
+        platforms, the items are the first games of `GET /releases` with `from` and `to` set to
+        the period's window, `sort=hype` and approximate dates left out, in the same order, each
+        presenting the same releases and date, counting only games with release attention
+        (`ReleaseSort` `hype`). Since 5.14.0 only a launch gives a game attention: a release
+        whose `stage` is `full_release` or `unknown` in the period. Early access, advance access,
+        betas and alphas never feature, although the explorer still lists them. Ports, remakes
+        and editions take part whatever the game's first release was. Candidates rank by attention descending
+        (since 5.14.0), then the `releaseDate` order, whose last key is the unique `gameId`. A game
+        without any attention signal stays a normal catalogue and discovery result but is not
+        ranked, and no value is ever invented. The first item is the period's featured release and
+        up to five more follow; fewer items are returned rather than filling slots. Clients
+        should expect a port as the featured release; a featured game may still present an early
+        or advance access release on another platform beside its launch, so read each `stage`. Attention combines provider-observed interest with the operator's editorial
+        anticipation list for the period; it never measures quality or a rating, and its value is
         not exposed. The application derives the evaluation date, the current week and the
         current month in `Europe/Madrid`. Without parameters the current calendar month is
         served. Any period inside the navigation bounds may be selected; it is ranked with the
-        same current local popularity evidence, because no popularity history is kept. Weeks
-        reach 16 weeks before and after the current week. Months reach 10 calendar months back,
-        across years, and forward to the last calendar month lying entirely inside the
-        configured forward horizon of catalogue acquisition; the bound states what acquisition
-        is configured to cover, never that the local catalogue is complete. `navigation` names
+        same current local popularity evidence, because no popularity history is kept. The
+        navigation bounds and the attention weights are operator product settings (`UC-024`):
+        by default weeks reach 16 weeks before and after the current week, and months reach 10
+        calendar months back, across years, and 5 forward. The bounds never state that the
+        local catalogue is complete. `navigation` names
         the adjacent periods inside these bounds. PostgreSQL selects the
         qualifying releases, ranks and limits the games, and presents at most one release per
         platform before anything reaches the application. Each item also carries the landscape
@@ -659,11 +900,10 @@ paths:
                     selection: { status: no_qualifying_releases }
                     items: []
                 lastMonth:
-                  summary: The last month inside the forward acquisition horizon
+                  summary: The last month inside the months-forward bound
                   description: |
-                    With a 180-day forward acquisition horizon evaluated on 3 October 2026, the
-                    horizon ends on 1 April 2027, so March 2027 is the last month lying entirely
-                    inside it and `next` is absent.
+                    With 5 months forward evaluated on 3 October 2026, March 2027 is the last
+                    month that may be presented and `next` is absent.
                   value:
                     granularity: month
                     month: 2027-03
@@ -693,16 +933,28 @@ paths:
         eligibility rules, then orders them by the unrounded mean descending, the number of
         ratings behind it descending and the unique `gameId` ascending, counts them and pages
         them. A game without a score from the source is not ranked and never counts as zero. An
-        IGDB players' score is ranked only from 100 ratings on; a community score from one
-        rating is ranked like any other and states its count. `position` is the
+        IGDB players' score is ranked only from the operator's minimum number of ratings on (50
+        by default); a community score from the operator's minimum on (1 by default) and states
+        its count (`UC-024`). `position` is the
         game's place in that one sequence, so the first page's first three items are the
         podium and later pages continue it. Scores change independently of the catalogue, so a
         game may move between two page reads; a client that reads several pages keeps the first
         occurrence of a `gameId`. It never varies on the session or preferred platforms and
         never calls a provider.
+
+        Since 5.5.0, `platformIds` scopes the ranking to games released on those platforms
+        (`RNK-005`): only a release on one of them that proves rating eligibility at the
+        evaluation date makes a game a candidate, so a game released elsewhere years before is
+        not ranked on a platform until it has effectively come out there. The scope is applied
+        before ordering, counting and paging, never to a page of the global ranking. Each game
+        still appears once and keeps its global score from the source: no per-platform score
+        or mean is ranked or shown. Each scoped item adds `platformRelease`, the release that
+        presents the game on the scope at its own date precision. Without `platformIds` the
+        ranking and its items are unchanged.
       security: []
       parameters:
         - $ref: '#/components/parameters/RankingSourceQuery'
+        - $ref: '#/components/parameters/FeaturedPlatformIdsQuery'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -776,6 +1028,44 @@ paths:
                           latestKnownYear: 2023
                         score: { source: gameometro, kind: community, value: 9.0, scale: 10, count: 1 }
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                platformScoped:
+                  summary: Requested with `platformIds=platform_ps5`; the global score, the PS5 release
+                  value:
+                    source: igdb_players
+                    items:
+                      - position: 1
+                        gameId: game_example_one
+                        slug: example-one
+                        canonicalTitle: Example One
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Portada oficial no disponible
+                          attribution: null
+                        genres: []
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_ps4, name: PlayStation 4 }
+                            - { platformId: platform_ps5, name: PlayStation 5 }
+                          totalPlatforms: 2
+                          earliestKnownYear: 2015
+                          latestKnownYear: 2021
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_worldwide, name: Worldwide }
+                          releaseDate: { precision: day, value: '2021-06-11' }
+                          status: released
+                        score:
+                          source: igdb
+                          kind: player
+                          value: 9.4
+                          scale: 10
+                          count: 5494
+                          attribution:
+                            label: Jugadores IGDB
+                            sourceUrl: https://www.igdb.com/games/example-one
+                          observedAt: '2026-10-20T08:00:00Z'
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   summary: No game holds a score from the source yet
                   value:
@@ -787,6 +1077,295 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/RankingValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /platform-games:
+    get:
+      tags: [Platform catalogue]
+      operationId: browsePlatformGames
+      summary: Browse the local catalogue of one platform
+      description: |
+        Explorar catálogo (`UC-019`): a bounded page of the games of the last valid local catalogue
+        publication that hold a release on any of the requested platforms, without a search
+        query. A platform family such as Xbox Series X|S or a featured platform is sent as the
+        product platform identifiers it groups; no platform entity is invented for it. Cancelled
+        releases never associate a game with a platform.
+
+        Each game appears once, whatever its releases and regions on those platforms, and carries
+        one `platformRelease`: the release of the platform scope that presents it. A game with a
+        release that has effectively occurred at the evaluation date (`Europe/Madrid`) is presented
+        by one of those releases; otherwise by an expected release with a known date, otherwise by a
+        delayed or undated one. Occurrence derives from the effective date under the same rule as
+        game details (an exact day from that day on, a month, quarter or year once it has ended, an
+        unknown date only with explicit released evidence), never from a stored status, and delayed
+        evidence never occurs. Within that class the presentation precedence of `ReleaseItem`
+        chooses, ending with the earliest date and `releaseId`. Its `status` is therefore
+        `released` exactly for the games `releaseState=released` selects; `scheduled`, `announced`
+        (unknown date) and `delayed` are the games still to come, and `cancelled` never appears.
+        The date keeps its real precision and is never narrowed to an invented day.
+
+        `q` optionally narrows the scope to games whose canonical title or an approved alias
+        matches under the `searchGames` rules (normalized, all tokens, word prefixes, non-fuzzy);
+        it filters and never reorders. `releaseState`, the inclusive year range on the presented
+        release's known year and `genreIds` (OR within the dimension) combine with AND. A year
+        range excludes a presented release with an unknown date. `availableFilters` is faceted:
+        its genres are those of the games matching every other active filter, never narrowed by
+        the active genre selection, and a selected genre always stays representable; its years
+        span the presented releases matching every filter except the year range.
+
+        PostgreSQL selects, deduplicates, presents, filters, counts, orders and pages the games
+        before the page reaches the application. Scores, genres and the matched alias are read
+        for the returned page only. The total counts games, not releases, and makes no claim of
+        exhaustive historical coverage. It never varies on the session or preferred platforms and
+        never calls a provider.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlatformScopeQuery'
+        - $ref: '#/components/parameters/PlatformGamesQuery'
+        - $ref: '#/components/parameters/PlatformGamesReleaseState'
+        - $ref: '#/components/parameters/PlatformGamesFromYear'
+        - $ref: '#/components/parameters/PlatformGamesToYear'
+        - $ref: '#/components/parameters/GenreIdsQuery'
+        - $ref: '#/components/parameters/PlatformGamesSortQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: A deterministic page of the platform scope's games, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformGamesPage' }
+              examples:
+                browse:
+                  summary: A platform's games without a query, latest first
+                  value:
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                    availableFilters:
+                      genres:
+                        - { genreId: genre_adventure, name: Aventura }
+                        - { genreId: genre_platform, name: Plataformas }
+                      earliestYear: 2025
+                      latestYear: 2027
+                    items:
+                      - gameId: game_example_upcoming
+                        slug: example-upcoming
+                        canonicalTitle: Example Upcoming
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample2.webp
+                          alternativeText: Portada de Example Upcoming
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/example-upcoming
+                        genres:
+                          - { genreId: genre_adventure, name: Aventura }
+                        platformRelease:
+                          platform: { platformId: platform_switch2, name: Nintendo Switch 2 }
+                          region: { regionId: region_worldwide, name: Mundial }
+                          releaseDate: { precision: quarter, value: 2027-Q1 }
+                          status: scheduled
+                        scores:
+                          community: { status: available, mean: null, count: 0 }
+                      - gameId: game_example_released
+                        slug: example-released
+                        canonicalTitle: Example Released
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Portada oficial no disponible
+                          attribution: null
+                        genres: []
+                        platformRelease:
+                          platform: { platformId: platform_switch2, name: Nintendo Switch 2 }
+                          region: { regionId: region_europe, name: Europa }
+                          releaseDate: { precision: day, value: '2026-06-05' }
+                          status: released
+                        scores:
+                          community: { status: available, mean: 8.5, count: 3 }
+                          external:
+                            source: igdb
+                            kind: player
+                            value: 8.4
+                            scale: 10
+                            count: 212
+                            attribution:
+                              label: Jugadores IGDB
+                              sourceUrl: https://www.igdb.com/games/example-released
+                            observedAt: '2026-10-20T08:00:00Z'
+                    page: { number: 1, size: 24, totalItems: 2, totalPages: 1 }
+                empty:
+                  summary: No game of the scope matches the filters
+                  value:
+                    platforms:
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                    availableFilters:
+                      genres:
+                        - { genreId: genre_pinball, name: Pinball }
+                    items: []
+                    page: { number: 1, size: 24, totalItems: 0, totalPages: 0 }
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/PlatformGamesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /platform-upcoming-highlights:
+    get:
+      tags: [Upcoming highlights]
+      operationId: getPlatformUpcomingHighlights
+      summary: Rank the most anticipated upcoming games of one platform
+      description: |
+        Próximos destacados (`UC-020`): at most ten distinct games of the last valid local
+        catalogue publication that are still to come on the requested platform scope inside a
+        moving horizon of the operator's calendar months (`UC-024`, six by default), ranked by release attention over the horizon (the
+        `ReleaseSort` `hype` order, since 5.14.0) descending, then `gameId` ascending. A platform family is sent as the product platform
+        identifiers it groups, as for `browsePlatformGames`; no platform entity is invented for it.
+
+        The application derives the evaluation date in `Europe/Madrid`. The horizon (`window`)
+        starts on it and ends on the day before the same day of the month that many calendar
+        months later; when that day does not exist, it ends on the last day of that month (from 31 August
+        to 28 February; in a leap year to 29 February). The visitor never chooses the dates.
+
+        A release qualifies on a scope platform when it is a launch (`stage` `full_release`, or
+        `unknown` since 5.14.0), neither cancelled nor
+        delayed nor pending review, and its known date can only fall inside the horizon and after
+        the evaluation date: an exact day after the evaluation date and no later than `window.to`,
+        or a month or quarter that has not ended and ends no later than `window.to`. A year or
+        unknown (TBA) date never qualifies, and no date is narrowed to an invented day. A game is a
+        candidate when it has a qualifying release on the scope, no release on the scope that has
+        already effectively occurred (the `browsePlatformGames` occurrence rule, so released and
+        upcoming agree with Explorar catálogo), and is not known to be an edition rather than a
+        distinct product. A game already released on another platform may be a candidate: what
+        matters is that it is new to this platform. Only candidates with an attention signal are
+        ranked; a candidate without one is not ranked and no value is ever invented.
+
+        Each item presents one qualifying release of the scope, chosen by the `ReleaseItem`
+        presentation precedence with the earliest date first, and carries the landscape image of
+        `FeaturedImage`: the first item uses the hero policy, the others the card policy. Attention
+        combines provider-observed interest with the operator's editorial anticipation lists:
+        never quality, a rating or a community opinion, and the value itself is not exposed. The selection never claims
+        that the local catalogue holds every release of the platform. PostgreSQL selects,
+        deduplicates, ranks and limits the games and presents their release before anything
+        reaches the application. It never varies on the session or preferred platforms and never
+        calls a provider.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlatformScopeQuery'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: The platform scope's upcoming highlights, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformUpcomingHighlights' }
+              examples:
+                ranked:
+                  summary: The most anticipated upcoming game of a platform and the next one
+                  description: |
+                    Evaluated on 27 October 2026. The first game presents a wide artwork; the second
+                    has no usable landscape media, so its provider cover is shown whole, and its
+                    release is known only to its quarter.
+                  value:
+                    platforms:
+                      - { platformId: platform_ps5, name: PlayStation 5 }
+                    evaluatedOn: '2026-10-27'
+                    window: { from: '2026-10-27', to: '2027-04-26' }
+                    selection:
+                      status: ranked
+                      popularityFreshness: fresh
+                      popularityObservedAt: '2026-10-26T05:00:00Z'
+                    items:
+                      - position: 1
+                        gameId: game_upcoming_example
+                        slug: juego-esperado-de-ejemplo
+                        canonicalTitle: Juego esperado de ejemplo
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coupcoming.webp
+                          alternativeText: Portada de Juego esperado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-esperado-de-ejemplo
+                        featuredImage:
+                          kind: artwork
+                          presentation: fill
+                          url: https://images.igdb.com/igdb/image/upload/t_1080p/arupcoming.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_720p/arupcoming.webp
+                          alternativeText: Arte de Juego esperado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-esperado-de-ejemplo
+                        genres:
+                          - { genreId: adventure, name: Aventura }
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_worldwide, name: Mundial }
+                          releaseDate: { precision: day, value: '2027-02-12' }
+                          status: scheduled
+                      - position: 2
+                        gameId: game_port_example
+                        slug: adaptacion-de-ejemplo
+                        canonicalTitle: Adaptación de ejemplo
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          alternativeText: Portada de Adaptación de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/adaptacion-de-ejemplo
+                        featuredImage:
+                          kind: cover
+                          presentation: contain
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coport.webp
+                          alternativeText: Portada de Adaptación de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/adaptacion-de-ejemplo
+                        genres: []
+                        platformRelease:
+                          platform: { platformId: platform_ps5, name: PlayStation 5 }
+                          region: { regionId: region_europe, name: Europa }
+                          releaseDate: { precision: quarter, value: 2027-Q1 }
+                          status: scheduled
+                popularityUnavailable:
+                  summary: Upcoming games exist on the platform but none has attention
+                  value:
+                    platforms:
+                      - { platformId: platform_switch2, name: Nintendo Switch 2 }
+                    evaluatedOn: '2026-08-31'
+                    window: { from: '2026-08-31', to: '2027-02-28' }
+                    selection: { status: popularity_unavailable }
+                    items: []
+                noQualifyingReleases:
+                  summary: The local catalogue holds no upcoming game of the platform in the horizon
+                  value:
+                    platforms:
+                      - { platformId: platform_xbox_one, name: Xbox One }
+                    evaluatedOn: '2026-10-27'
+                    window: { from: '2026-10-27', to: '2027-04-26' }
+                    selection: { status: no_qualifying_releases }
+                    items: []
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/UpcomingHighlightsValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
@@ -1293,6 +1872,37 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /web-analytics:
+    get:
+      tags: [Web analytics]
+      operationId: getWebAnalyticsConfiguration
+      summary: Read the deployment's product analytics configuration
+      description: |
+        Post-MVP (#507, `UC-022`): tells the client whether this deployment measures product
+        analytics and, if so, with which Google Analytics 4 measurement ID. Without
+        `googleAnalytics` the deployment measures nothing, and the client neither asks for
+        consent nor loads any analytics script. The representation is identical for every
+        visitor and session, comes from deployment configuration only, and never reports a
+        visitor's consent, which stays in their browser.
+      security: []
+      responses:
+        '200':
+          description: The deployment's analytics configuration.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebAnalyticsConfiguration' }
+              examples:
+                enabled:
+                  value: { googleAnalytics: { measurementId: G-ABC123XYZ9 } }
+                disabled:
+                  value: {}
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/rating-insights:
     get:
       tags: [Ratings]
@@ -1742,6 +2352,98 @@ paths:
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/PlatformPreferencesValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/translations/coverage:
+    get:
+      tags: [Catalogue translations]
+      operationId: getTranslationCoverage
+      summary: Read catalogue translation coverage
+      description: |
+        Counts come from persisted source fingerprints, claims and provenance. The bounded
+        aggregate may be cached briefly. Read execution status separately for progress polling.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Operator translation coverage.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationCoverage' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/translations/execution:
+    get:
+      tags: [Catalogue translations]
+      operationId: getTranslationExecution
+      summary: Read catalogue translation execution
+      description: |
+        Reads the latest durable checkpoint. Processed counts include already-current
+        targets and never describe overall catalogue coverage. The total is an estimate
+        taken at the start of the pass over the eligible catalogue.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Operator translation execution.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationExecution' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    post:
+      tags: [Catalogue translations]
+      operationId: controlTranslationExecution
+      summary: Start, stop or resume catalogue translation
+      description: |
+        Requires session-bound CSRF proof. A command applies to the observed execution ID,
+        omitted only before the first run. Acceptance does not imply completion. Stop takes
+        effect between batches. Resume continues from the checkpoint after a stop or
+        interruption, including a pause after a failed batch. If a pass ended with unresolved
+        failures, resume begins a new pass that skips current content.
+        Application startup never resumes an execution.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TranslationExecutionCommand' }
+      responses:
+        '202':
+          description: Operator translation execution.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranslationExecution' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/TranslationExecutionConflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/TranslationValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
@@ -2227,8 +2929,252 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/editorial-attention:
+    get:
+      tags: [Editorial attention]
+      operationId: getEditorialAttention
+      summary: Read the editorial anticipation prompt and the loaded lists
+      description: |
+        Requires an authenticated session holding the catalogue operator authority (`UC-021`).
+        Returns the versioned prompt an operator gives a language model with web access to
+        obtain an editorial anticipation file, and at most 36 loaded lists, latest range first.
+        In `prompt.template`, `{{FROM}}` and `{{TO}}` stand for the first and last ISO day of the
+        range; the client substitutes them. Lists never overlap: every day belongs to at most
+        one list. Nothing here reads the provider.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The prompt and the loaded lists.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditorialAttentionOverview' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/AdministrationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/editorial-attention/previews:
+    post:
+      tags: [Editorial attention]
+      operationId: previewEditorialAttentionFile
+      summary: Preview how an editorial anticipation file would load
+      description: |
+        Requires the catalogue operator authority and session-bound CSRF proof. Reads the file
+        text as the language model returned it (a surrounding Markdown code fence is tolerated,
+        and members the schema does not name are ignored), validates it and matches every entry
+        to a catalogued game: by the IGDB page slug first, else by a title exactly one catalogued
+        game carries. Each entry states its match and warnings, and the preview names the list
+        with the same range that loading would replace and any other list it overlaps. Nothing
+        is stored.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditorialAttentionUpload' }
+      responses:
+        '200':
+          description: The validated file and how each entry would load.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditorialAttentionPreview' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/EditorialAttentionFileRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/editorial-attention/lists:
+    post:
+      tags: [Editorial attention]
+      operationId: loadEditorialAttentionList
+      summary: Load an editorial anticipation file as the list of its range
+      description: |
+        Requires the catalogue operator authority and session-bound CSRF proof. Validates and
+        matches the file as the preview does, then applies the operator's `assignments`: each
+        names an entry by rank and either a catalogued game, which replaces the automatic match,
+        or none, which leaves the entry out. Entries without a game are left out, and a game named
+        twice keeps its highest score. The list replaces the list with exactly the same range in
+        one transaction; a list overlapping the range otherwise is refused with `409` and nothing
+        changes. From the next read on, the release attention of every range overlapping the list
+        includes its scores.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditorialAttentionLoad' }
+      responses:
+        '201':
+          description: The stored list.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditorialAttentionListDetail' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/EditorialAttentionRangeConflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/EditorialAttentionFileRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/editorial-attention/lists/{listId}:
+    parameters:
+      - $ref: '#/components/parameters/EditorialAttentionListIdPath'
+    get:
+      tags: [Editorial attention]
+      operationId: getEditorialAttentionList
+      summary: Read one editorial anticipation list with its entries
+      description: |
+        Requires the catalogue operator authority. Returns the list and its at most fifty
+        entries in rank order, each with the catalogued game it scores.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The list and its entries.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditorialAttentionListDetail' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/EditorialAttentionListNotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    delete:
+      tags: [Editorial attention]
+      operationId: deleteEditorialAttentionList
+      summary: Delete one editorial anticipation list
+      description: |
+        Requires the catalogue operator authority and session-bound CSRF proof. Deletes the list
+        and its entries; from the next read on, the release attention of its range is computed
+        from the provider signals alone.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: The list was deleted.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '404': { $ref: '#/components/responses/EditorialAttentionListNotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/product-settings:
+    get:
+      tags: [Product settings]
+      operationId: getProductSettings
+      summary: Read the operator-editable product settings
+      description: |
+        Requires an authenticated session holding the catalogue operator authority. Returns every
+        registered setting with its effective value, default, inclusive range and origin, the
+        settings `revision` an update must name, how the featured and upcoming presentation
+        windows compare with the configured acquisition horizon, and at most 30 recent changes,
+        newest first. Nothing here reads the provider.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The settings, their coverage and their recent changes.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductSettingsOverview' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/AdministrationValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    put:
+      tags: [Product settings]
+      operationId: updateProductSettings
+      summary: Change product settings
+      description: |
+        Requires the catalogue operator authority and session-bound CSRF proof. Applies every
+        change, or none: each names a registered setting once and either a new value inside its
+        range and kind or no `value`, which restores the default. The resulting settings must keep
+        at least one positive provider attention weight and strictly ascending calendar interest
+        thresholds. `revision` is the revision the changes were prepared from; when another
+        change came first the update is refused with `409` and nothing changes. Each accepted
+        change is audited with the authenticated operator, its time and its previous and new
+        effective values, and public reads use it from their next request on. A wider
+        synchronization window applies from the next scheduled run; nothing requests provider
+        work now.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductSettingsUpdate' }
+      responses:
+        '200':
+          description: The settings after the update.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductSettingsOverview' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/ProductSettingsRevisionConflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ProductSettingRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
 components:
   securitySchemes:
+    deletionReceipt:
+      type: apiKey
+      in: cookie
+      name: gameometro_deletion
+      description: Restricted opaque deletion-status receipt, never authentication.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -2305,8 +3251,9 @@ components:
       required: false
       description: |
         ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
-        so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
-        before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+        so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within the
+        operator's weeks back and forward (16 by default) of the current week in
+        `Europe/Madrid`. A malformed week, week 53 of a
         year with 52 weeks, a week outside the bounds, or a week combined with `month` or
         `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
       schema: { $ref: '#/components/schemas/IsoWeek' }
@@ -2316,9 +3263,9 @@ components:
       in: query
       required: false
       description: |
-        Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
-        the current month in `Europe/Madrid`, across years, and the last calendar month lying
-        entirely inside the configured forward acquisition horizon; the current month is always
+        Calendar month to feature as `YYYY-MM`. It must lie between the operator's months back
+        (10 by default) before the current month in `Europe/Madrid`, across years, and the
+        operator's months forward (5 by default) after it; the current month is always
         accepted. A malformed month, a month outside the bounds, or a month combined with
         `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
       schema: { $ref: '#/components/schemas/CalendarMonth' }
@@ -2328,13 +3275,17 @@ components:
       in: query
       required: false
       description: |
-        Calendar month to count as `YYYY-MM`; omit it for the current month in `Europe/Madrid`.
-        It must lie between the current month and the last calendar month lying entirely inside
-        the configured forward acquisition horizon; the current month is always accepted. A
-        malformed month or a month outside the bounds, including any earlier month, yields 422
-        `FILTER_INVALID` for `/query/month`.
+        Calendar month to count as YYYY-MM. Omit it for the current month in Europe/Madrid.
+        The operation description states the bounds for each mode. A malformed month or a
+        month outside the applicable bounds yields 422 FILTER_INVALID for /query/month.
       schema: { $ref: '#/components/schemas/CalendarMonth' }
       example: 2026-11
+    ReleaseCalendarIncludePast:
+      name: includePast
+      in: query
+      required: false
+      description: Count the full month and use the featured-period bounds for timeline navigation.
+      schema: { type: boolean, default: false }
     PlatformIdsQuery:
       name: platformIds
       in: query
@@ -2372,6 +3323,81 @@ components:
         maxItems: 50
         items: { $ref: '#/components/schemas/PlatformId' }
       example: [platform_ps5, platform_switch2]
+    PlatformScopeQuery:
+      name: platformIds
+      in: query
+      required: true
+      description: |
+        Repeatable platform scope (`platformIds=a&platformIds=b`): the product platform
+        identifiers of one platform or one platform family, combined with OR. At least one is
+        required: without it the request is malformed (400 `REQUEST_MALFORMED`). Values are
+        trimmed and de-duplicated; an unknown value yields 422 `PLATFORM_NOT_SUPPORTED`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 20
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/PlatformId' }
+      example: [platform_switch2]
+    PlatformGamesQuery:
+      name: q
+      in: query
+      required: false
+      description: |
+        Optional title search inside the platform scope, trimmed, with 1 to 100 Unicode code
+        points. A query whose normalized form holds no token yields 422 `SEARCH_QUERY_INVALID`.
+      schema: { type: string, minLength: 1, maxLength: 100, pattern: '.*\S.*' }
+      example: zelda
+    PlatformGamesReleaseState:
+      name: releaseState
+      in: query
+      required: false
+      description: |
+        Omit it for every game of the scope. `released` keeps the games whose presented release
+        has effectively occurred at the evaluation date; `upcoming` keeps the others: expected,
+        delayed or still undated.
+      schema: { $ref: '#/components/schemas/PlatformGameReleaseState' }
+      example: upcoming
+    PlatformGamesFromYear:
+      name: fromYear
+      in: query
+      required: false
+      description: |
+        First calendar year, inclusive, of the presented release's known date. Either bound may be
+        sent alone; a `fromYear` after `toYear` yields 422 `FILTER_INVALID` for `/query/toYear`.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      example: 2026
+    PlatformGamesToYear:
+      name: toYear
+      in: query
+      required: false
+      description: Last calendar year, inclusive, of the presented release's known date.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      example: 2027
+    GenreIdsQuery:
+      name: genreIds
+      in: query
+      required: false
+      description: |
+        Repeatable multi-select genre filter (`genreIds=a&genreIds=b`) over the existing
+        localized product genres; values combine with OR. Values are trimmed and de-duplicated; an
+        unknown value yields 422 `FILTER_INVALID` for `/query/genreIds`.
+      style: form
+      explode: true
+      schema:
+        type: array
+        maxItems: 30
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/GenreId' }
+      example: [genre_adventure]
+    PlatformGamesSortQuery:
+      name: sort
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/PlatformGamesSort' }
+      example: release_date_asc
     RegionIdsQuery:
       name: regionIds
       in: query
@@ -2450,6 +3476,13 @@ components:
       description: Opaque public representation tag for a conditional read.
       schema: { type: string }
       example: '"catalogue-version-opaque"'
+    EditorialAttentionListIdPath:
+      name: listId
+      in: path
+      required: true
+      description: The list to act on, as the editorial attention overview names it.
+      schema: { $ref: '#/components/schemas/EditorialAttentionListId' }
+      example: 6f1d2c3b-4a5e-4f6a-8b7c-9d0e1f2a3b4c
     SynchronizationRunIdPath:
       name: runId
       in: path
@@ -2533,6 +3566,42 @@ components:
       example: 60
 
   schemas:
+    FeedbackSubmission:
+      type: object
+      additionalProperties: false
+      required: [category, message]
+      properties:
+        category: { type: string, enum: [suggestion, bug, incorrect_game_information, other] }
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Plain text with at least one non-whitespace character. No attachments.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Optional single ASCII email address with a dot-atom local part and a fully qualified DNS domain. Omit when absent.
+    PrivateProfile:
+      type: object
+      additionalProperties: false
+      required: [deletionAvailable]
+      properties:
+        name: { type: string, maxLength: 500 }
+        email: { type: string, maxLength: 500 }
+        deletionAvailable: { type: boolean }
+    AccountDeletionConfirmation:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation: { type: string, enum: [ELIMINAR] }
+    AccountDeletionStatus:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, enum: [pending, complete] }
     ReleaseSort:
       type: string
       enum: [releaseDate, hype, rating, externalPlayerScore]
@@ -2544,14 +3613,51 @@ components:
         `gameId`. `releaseDate` is ascending by each game's first presented release: the last
         day of its known period (the day itself for an exact date), an exact day before a month,
         quarter or year period ending the same day, then the case-insensitive canonical title.
-        `hype` puts the highest locally stored IGDB Hypes first, the popularity signal
-        Destacados ranks with, whose value is never exposed. `rating` puts the highest
+        `hype` puts the highest release attention first; only a game with a launch in the range
+        (a release whose `stage` is `full_release` or `unknown`) has attention, and a game first
+        launched before `from` is a re-release, the order Destacados ranks with, whose
+        value is never exposed. Since 5.14.0 attention is computed over the requested range's
+        candidates: the mean of locally stored IGDB Hypes, Want to Play and Visits, each on a
+        log scale relative to the strongest candidate (a remake, remaster, port or expanded game
+        may claim half of its parent product's signal; a game first released before `from`
+        keeps half of its own), averaged with the 1–100 score of the game in the operator's
+        editorial anticipation list covering the range. The name `hype` is kept so existing links
+        keep working. `rating` puts the highest
         Gameómetro community mean, at the one decimal shown, first, then the larger number of
         ratings. `externalPlayerScore` puts the highest locally stored external player score
         (currently IGDB players), at the one decimal of its /10 `ExternalPlayerScore` value,
         first, then the larger number of that source's ratings. A game without the chosen
         signal follows every game with one and is never treated as zero; ties continue with the
         `releaseDate` order.
+
+    PlatformGamesSort:
+      type: string
+      enum: [release_date_desc, release_date_asc, title_asc, title_desc, community_score, external_player_score]
+      default: release_date_desc
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [release_date_desc, release_date_asc, title_asc, title_desc, community_score, external_player_score]
+      description: |
+        The order of the games, applied before pagination; every order ends in the unique
+        `gameId`. The date orders position each game by its presented release: the last day of
+        its known period (the day itself for an exact date), then an exact day before a month,
+        quarter or year ending the same day, then the normalized canonical title. A presented
+        release with an unknown date follows every dated one in both directions and is never
+        treated as a date. `release_date_desc` (the default) puts the latest first,
+        `release_date_asc` the earliest. The title orders use the normalized canonical title.
+        `community_score` puts the highest Gameómetro community mean, at the one decimal shown,
+        first, then more ratings; `external_player_score` the highest stored external player
+        score (currently IGDB players) at the one decimal of its /10 value, then more of that
+        source's ratings. A game without the chosen score follows every game with one and is
+        never treated as zero; ties continue with `release_date_desc`.
+    PlatformGameReleaseState:
+      type: string
+      enum: [released, upcoming]
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [released, upcoming]
+      description: |
+        Whether a game's presented release on the platform scope has effectively occurred at the
+        evaluation date (`released`) or not yet (`upcoming`), derived from its effective date,
+        never from a stored status.
 
     RankingSource:
       type: string
@@ -2562,9 +3668,10 @@ components:
       description: |
         The one population whose ratings rank the games. `igdb_players` is the IGDB players'
         rating mean and count stored locally with each game (`ExternalPlayerScore`), ranked only
-        when at least 100 ratings stand behind it; it is the default because it covers most
-        games. `gameometro_community` is the Gameómetro community mean of one contribution per
-        rating and its number of ratings, ranked from the first rating. Sources are never
+        when the operator's minimum number of ratings stands behind it (50 by default); it is the
+        default because it covers most games. `gameometro_community` is the Gameómetro community
+        mean of one contribution per rating and its number of ratings, ranked from the operator's
+        minimum (the first rating by default). Sources are never
         combined, and
         critic or combined provider scores are never used.
 
@@ -3016,7 +4123,9 @@ components:
         ranking, and both popularity fields are present. `popularity_unavailable`: the period has
         qualifying releases but none of their games has a usable popularity signal, so nothing is
         ranked. `no_qualifying_releases`: the local catalogue holds no qualifying release inside
-        the period. A stale selection is still the last valid local ranking.
+        the period. A qualifying release is one the release explorer's range admits for the
+        period, with approximate dates left out. A stale selection is still the last valid local
+        ranking.
       properties:
         status:
           type: string
@@ -3057,9 +4166,9 @@ components:
             Ranked games, highest popularity first. The first item is the period's featured
             release and up to five other featured releases follow. Each item holds only the game's
             qualifying releases inside the period, at most one per platform, chosen by the
-            `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
-            before month precision, then the earlier date. Empty unless `selection.status` is
-            `ranked`.
+            `ReleaseItem` presentation precedence, in the order the release explorer presents
+            them: the last day of the known period first, then an exact day before a coarser
+            period ending that day. Empty unless `selection.status` is `ranked`.
           items: { $ref: '#/components/schemas/FeaturedReleaseItem' }
     FeaturedReleaseItem:
       type: object
@@ -3219,7 +4328,7 @@ components:
         page: { $ref: '#/components/schemas/PageMetadata' }
     ReleaseCalendar:
       type: object
-      required: [month, evaluatedOn, window, navigation, activeFilters, availableFilters, days]
+      required: [month, evaluatedOn, window, navigation, activeFilters, availableFilters, days, presentation]
       properties:
         month: { $ref: '#/components/schemas/CalendarMonth' }
         evaluatedOn:
@@ -3228,15 +4337,36 @@ components:
           description: Today in `Europe/Madrid`, which decides the current month, the first counted day and the delayed rule.
         window:
           $ref: '#/components/schemas/ReleaseWindow'
-          description: The month's first and last day, inclusive; days before `evaluatedOn` are not counted.
+          description: The month's first and last day, inclusive.
         navigation: { $ref: '#/components/schemas/ReleaseCalendarNavigation' }
         activeFilters: { $ref: '#/components/schemas/ActiveFilters' }
         availableFilters: { $ref: '#/components/schemas/AvailableFilters' }
         days:
           type: array
           maxItems: 31
-          description: Days from the evaluation date on with at least one qualifying exact-day release, ascending.
+          description: Counted days with at least one qualifying exact-day release, ascending.
           items: { $ref: '#/components/schemas/ReleaseCalendarDay' }
+        presentation: { $ref: '#/components/schemas/ReleaseCalendarPresentation' }
+    ReleaseCalendarPresentation:
+      type: object
+      required: [interestThresholds, dayPreviewSize]
+      description: |
+        How the month is presented, from the operator's product settings (`UC-024`). Identical
+        for every visitor; it changes only when the operator changes a setting.
+      properties:
+        interestThresholds:
+          type: array
+          minItems: 4
+          maxItems: 4
+          description: |
+            The four strictly ascending daily total-Hype thresholds above the base band for days with releases.
+          items: { type: integer, format: int64, minimum: 1 }
+        dayPreviewSize:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: How many leading games a chosen day previews before the full list.
+      additionalProperties: false
     ReleaseCalendarNavigation:
       type: object
       required: [first, last]
@@ -3262,8 +4392,10 @@ components:
         totalHype:
           type: integer
           format: int64
-          minimum: 10
-          description: Sum of local Hypes of qualifying games on this day, each game once across platforms and regions, after active filters.
+          minimum: 0
+          description: |
+            Sum of local Hypes at or above the operator's minimum (10 by default) for games with
+            a matching full or unknown-stage release that day. Each game contributes once.
       unevaluatedProperties: false
     GameRankingPage:
       type: object
@@ -3299,6 +4431,12 @@ components:
           items: { $ref: '#/components/schemas/Genre' }
           description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
         releaseSummary: { $ref: '#/components/schemas/CompactReleaseSummary' }
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            Present exactly when the request names `platformIds`: the eligible release that
+            presents the game on that scope (`RNK-005`), with its own platform, region and date
+            precision; its status is the effective one, always `released`.
         score: { $ref: '#/components/schemas/RankingScore' }
       additionalProperties: false
     RankingScore:
@@ -3322,6 +4460,130 @@ components:
       description: |
         The Gameómetro community mean of one contribution per rating, half up to one decimal,
         and the positive number of ratings behind it, including one.
+    PlatformGamesPage:
+      type: object
+      required: [platforms, availableFilters, items, page]
+      properties:
+        platforms:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Platform' }
+          description: The requested platform scope, ordered by case-insensitive name then `platformId`.
+        availableFilters: { $ref: '#/components/schemas/PlatformGamesFilters' }
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PlatformGameItem' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+      additionalProperties: false
+    PlatformGamesFilters:
+      type: object
+      required: [genres]
+      properties:
+        genres:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: |
+            The genres of the games matching every other active filter, ordered by case-insensitive
+            name then `genreId`, always including a selected genre.
+        earliestYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+        latestYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+      additionalProperties: false
+      description: |
+        Contextual choices for the platform scope. The years are the earliest and latest known
+        years of the presented releases matching every filter except the year range; both are
+        omitted when none has a known date.
+    PlatformGameItem:
+      type: object
+      required: [gameId, slug, canonicalTitle, primaryCover, genres, platformRelease, scores]
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        canonicalTitle: { type: string, minLength: 1 }
+        matchedAlias:
+          type: string
+          minLength: 1
+          description: Present only when `q` matched an approved alias and not the canonical title.
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            The release that presents the game on the platform scope, with its own platform,
+            region, date precision and effective status; never `cancelled`.
+        scores: { $ref: '#/components/schemas/DiscoveryScores' }
+      additionalProperties: false
+    PlatformUpcomingHighlights:
+      type: object
+      required: [platforms, evaluatedOn, window, selection, items]
+      properties:
+        platforms:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Platform' }
+          description: The requested platform scope, ordered by case-insensitive name then `platformId`.
+        evaluatedOn: { type: string, format: date }
+        window:
+          $ref: '#/components/schemas/ReleaseWindow'
+          description: |
+            The horizon of the operator's calendar months (six by default), inclusive: from the
+            evaluation date to the day before the same day of the month that many months later,
+            or that month's last day when the day does not exist in it.
+        selection:
+          $ref: '#/components/schemas/FeaturedSelection'
+          description: |
+            `ranked` when at least one candidate has an attention signal; `popularity_unavailable`
+            when the scope has candidates but none has one; `no_qualifying_releases` when the
+            local catalogue holds no candidate in the horizon. The freshness fields describe the
+            oldest attention evidence among the ranked games.
+        items:
+          type: array
+          maxItems: 10
+          description: |
+            The ranking, highest attention first, then `gameId` ascending; each game appears once.
+            Empty unless `selection.status` is `ranked`, and shorter than ten when fewer
+            candidates have attention: no slot is filled artificially.
+          items: { $ref: '#/components/schemas/UpcomingHighlightItem' }
+      additionalProperties: false
+    UpcomingHighlightItem:
+      type: object
+      required: [position, gameId, slug, canonicalTitle, primaryCover, featuredImage, genres, platformRelease]
+      properties:
+        position:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 10
+          description: The game's place in the ranking, consecutive from 1.
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        featuredImage:
+          $ref: '#/components/schemas/FeaturedImage'
+          description: The hero policy's image for the first item and the card policy's for the others.
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
+        platformRelease:
+          $ref: '#/components/schemas/ReleaseSummary'
+          description: |
+            The qualifying release that presents the game on the scope, with its own platform,
+            region, date at its real precision and effective status (`scheduled`).
+      additionalProperties: false
     GameSearchPage:
       type: object
       required: [items, page]
@@ -3508,6 +4770,21 @@ components:
       description: |
         `catalogue_administration` reads catalogue synchronization status and coverage,
         requests a bounded synchronization, and stops or abandons a run.
+    WebAnalyticsConfiguration:
+      type: object
+      additionalProperties: false
+      properties:
+        googleAnalytics:
+          $ref: '#/components/schemas/GoogleAnalyticsConfiguration'
+    GoogleAnalyticsConfiguration:
+      type: object
+      additionalProperties: false
+      required: [measurementId]
+      properties:
+        measurementId:
+          type: string
+          pattern: '^G-[A-Z0-9]{4,20}$'
+          description: The public Google Analytics 4 web stream measurement ID.
     SessionState:
       oneOf:
         - $ref: '#/components/schemas/AnonymousSession'
@@ -3662,6 +4939,9 @@ components:
         Says nothing about ownership, playing time or the platform's quality.
       required: [items, otherPlatforms, gamesWithoutPlatforms, gamesOnSeveralPlatforms]
       properties:
+        distribution:
+          $ref: '#/components/schemas/PersonalPlatformDistribution'
+          description: Added in 5.7.0; absent only on earlier servers, never inferred from items.
         items:
           type: array
           maxItems: 6
@@ -3684,6 +4964,43 @@ components:
           format: int64
           minimum: 0
           description: Rated games recorded on two or more platforms.
+      unevaluatedProperties: false
+    PersonalPlatformDistribution:
+      type: object
+      description: |
+        Exhaustive distribution of recorded game–platform associations, independent of the top-six
+        items. Each saved selection contributes one, including unscored selections. A game on PS5
+        and Windows contributes to both; two other platforms contribute two to other. The sum is
+        the percentage denominator, never the number of rated games. Missing selections contribute
+        nothing. All five counts are zero when no platforms are recorded. Product taxonomy IDs,
+        not provider identifiers, define the four featured categories; every other ID is other.
+      required: [ps5, switch2, xboxSeries, windowsPc, other]
+      properties:
+        ps5:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'PS5: product platform 10000000-0000-4000-8000-000000000001.'
+        switch2:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Switch 2: product platform 10000000-0000-4000-8000-000000000002.'
+        xboxSeries:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'Xbox Series X|S: product platform 10000000-0000-4000-8000-000000000004.'
+        windowsPc:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 'PC Windows: product platform 10000000-0000-4000-8000-000000000003.'
+        other:
+          type: integer
+          format: int64
+          minimum: 0
+          description: All explicitly recorded selections outside the four featured product IDs.
       unevaluatedProperties: false
     PersonalPlatformInsight:
       type: object
@@ -3872,6 +5189,50 @@ components:
       type: integer
       format: int64
       minimum: 0
+    TranslationCoverage:
+      type: object
+      required: [observedAt, rows]
+      properties:
+        observedAt: { type: string, format: date-time }
+        rows:
+          type: array
+          maxItems: 48
+          items: { $ref: '#/components/schemas/TranslationCoverageRow' }
+    TranslationCoverageRow:
+      type: object
+      required: [kind, status, lastValidRetained, items]
+      properties:
+        kind: { type: string, enum: [summary, genre, game_mode] }
+        status: { type: string, enum: [current, missing, stale, reusable, retryable, busy, not_applicable] }
+        origin: { type: string, enum: [curated, machine] }
+        lastValidRetained: { type: boolean }
+        items: { $ref: '#/components/schemas/RunCount' }
+    TranslationExecution:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [not_started, running, stopping, stopped, interrupted, completed, attention]
+        executionId: { type: string, format: uuid }
+        currentKind: { type: string, enum: [summary, genre, game_mode] }
+        estimatedTotal: { $ref: '#/components/schemas/RunCount' }
+        processed: { $ref: '#/components/schemas/RunCount' }
+        succeeded: { $ref: '#/components/schemas/RunCount' }
+        skipped: { $ref: '#/components/schemas/RunCount' }
+        failed: { $ref: '#/components/schemas/RunCount' }
+        startedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        reason:
+          type: string
+          enum: [batch_failed, remaining_failures, worker_failed]
+    TranslationExecutionCommand:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { type: string, enum: [start, stop, resume] }
+        executionId: { type: string, format: uuid }
     HistoricalSynchronizationTarget:
       type: object
       required: [from, to, coveredMonths]
@@ -3881,7 +5242,11 @@ components:
         coveredMonths:
           type: string
           enum: [skip, rerun]
-          description: Explicit intent for completely covered chunks; never skip partial coverage.
+          description: |
+            Explicit intent for completely covered chunks; never skip partial coverage. Since 5.10.0,
+            `skip` trusts only coverage scanned under the current import policy: a chunk covered
+            before the policy last widened is processed, because that scan may have deferred
+            works now admitted.
       additionalProperties: false
     HistoricalSynchronizationStatus:
       type: object
@@ -3918,6 +5283,179 @@ components:
           maxLength: 100
           description: Stable operational code; never a raw error message or provider payload.
       unevaluatedProperties: false
+    EditorialAttentionListId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: Opaque identity of one editorial anticipation list; an unknown value is not found.
+    EditorialAttentionPrompt:
+      type: object
+      required: [version, template]
+      properties:
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The prompt and file schema version a file names in `generator.prompt`.
+        template:
+          type: string
+          minLength: 1
+          maxLength: 20000
+          description: The prompt text; `{{FROM}}` and `{{TO}}` stand for the range's ISO days.
+      additionalProperties: false
+    EditorialAttentionListSummary:
+      type: object
+      required: [listId, from, to, promptVersion, loadedAt, entryCount]
+      properties:
+        listId: { $ref: '#/components/schemas/EditorialAttentionListId' }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        promptVersion: { type: string, minLength: 1, maxLength: 64 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        generatedAt:
+          type: string
+          format: date-time
+          description: When the file says it was generated; absent when it does not say.
+        loadedAt: { type: string, format: date-time }
+        entryCount: { type: integer, minimum: 1, maximum: 50 }
+      additionalProperties: false
+    EditorialAttentionOverview:
+      type: object
+      required: [prompt, lists]
+      properties:
+        prompt: { $ref: '#/components/schemas/EditorialAttentionPrompt' }
+        lists:
+          type: array
+          maxItems: 36
+          description: The loaded lists, latest range first.
+          items: { $ref: '#/components/schemas/EditorialAttentionListSummary' }
+      additionalProperties: false
+    EditorialAttentionUpload:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 200000
+          description: |
+            The file text exactly as the language model returned it. Version 1 of the file is a
+            JSON object with `schemaVersion` 1, `range` (`from`, `to`, inclusive ISO days, at most
+            92 days), `generatedAt`, `generator` (`prompt`, `model`) and 1 to 50 `entries`, each
+            with a unique `rank` (1–50), `igdbSlug` (or null), `title`, `releaseDate` (or null),
+            an integer `score` (1–100), `rationale` (at most 500 characters) and at most 10
+            `sources`. The prompt template states it in full.
+      additionalProperties: false
+    EditorialAttentionAssignment:
+      type: object
+      required: [rank]
+      description: The operator's game for the entry of one rank; without `gameId` the entry is left out.
+      properties:
+        rank: { type: integer, minimum: 1, maximum: 50 }
+        gameId: { type: string, format: uuid }
+      additionalProperties: false
+    EditorialAttentionLoad:
+      type: object
+      required: [content, assignments]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 200000
+          description: The file text, as `EditorialAttentionUpload.content`.
+        assignments:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/EditorialAttentionAssignment' }
+      additionalProperties: false
+    EditorialAttentionGameMatch:
+      type: object
+      required: [gameId, title, slug, matchedBy]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string, minLength: 1 }
+        slug: { type: string, minLength: 1 }
+        matchedBy:
+          type: string
+          enum: [igdb_slug, title]
+        releaseInRange:
+          type: string
+          format: date
+          description: The earliest exact day of the game's releases inside the range, when it has one.
+      additionalProperties: false
+    EditorialAttentionWarning:
+      type: string
+      enum: [unmatched, ambiguous_title, no_release_in_range, release_date_differs, duplicate_game]
+      description: |
+        `unmatched`: no catalogued game carries the slug or exactly the title.
+        `ambiguous_title`: several catalogued games carry exactly the title.
+        `no_release_in_range`: the game has no release in the range, so the entry ranks nothing.
+        `release_date_differs`: the game's exact release days in the range exclude the file's date.
+        `duplicate_game`: an earlier entry names the same game; the highest score is kept.
+    EditorialAttentionPreviewEntry:
+      type: object
+      required: [rank, title, score, warnings]
+      properties:
+        rank: { type: integer, minimum: 1, maximum: 50 }
+        igdbSlug: { type: string, minLength: 1, maxLength: 200 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        releaseDate: { type: string, format: date }
+        score: { type: integer, minimum: 1, maximum: 100 }
+        rationale: { type: string, minLength: 1, maxLength: 500 }
+        match: { $ref: '#/components/schemas/EditorialAttentionGameMatch' }
+        warnings:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/EditorialAttentionWarning' }
+      additionalProperties: false
+    EditorialAttentionPreview:
+      type: object
+      required: [from, to, promptVersion, entries]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        promptVersion: { type: string, minLength: 1, maxLength: 64 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        generatedAt: { type: string, format: date-time }
+        replaces:
+          $ref: '#/components/schemas/EditorialAttentionListSummary'
+          description: The list with exactly this range, which loading would replace.
+        conflict:
+          $ref: '#/components/schemas/EditorialAttentionListSummary'
+          description: Another list overlapping the range; loading is refused until it is deleted.
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/EditorialAttentionPreviewEntry' }
+      additionalProperties: false
+    EditorialAttentionListEntry:
+      type: object
+      required: [rank, gameId, title, slug, fileTitle, score, sources]
+      properties:
+        rank: { type: integer, minimum: 1, maximum: 50 }
+        gameId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, description: The catalogued game's title. }
+        slug: { type: string, minLength: 1 }
+        fileTitle: { type: string, minLength: 1, maxLength: 200, description: The title the file gave. }
+        score: { type: integer, minimum: 1, maximum: 100 }
+        rationale: { type: string, minLength: 1, maxLength: 500 }
+        sources:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 500 }
+      additionalProperties: false
+    EditorialAttentionListDetail:
+      type: object
+      required: [list, entries]
+      properties:
+        list: { $ref: '#/components/schemas/EditorialAttentionListSummary' }
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/EditorialAttentionListEntry' }
+      additionalProperties: false
     CatalogueSynchronizationWindow:
       type: object
       required: [from, to]
@@ -3988,12 +5526,157 @@ components:
         scanCompletedAt: { type: string, format: date-time }
         failedGames: { $ref: '#/components/schemas/RunCount' }
       unevaluatedProperties: false
+    ProductSettingKey:
+      type: string
+      description: The stable key of a registered product setting.
+      enum:
+        - featured.weeks-back
+        - featured.weeks-forward
+        - featured.months-back
+        - featured.months-forward
+        - upcoming-highlights.horizon-months
+        - attention.hypes-weight
+        - attention.want-to-play-weight
+        - attention.visits-weight
+        - attention.editorial-weight
+        - attention.inherited-share
+        - attention.re-release-share
+        - rankings.igdb-minimum-ratings
+        - rankings.community-minimum-ratings
+        - calendar.minimum-hypes
+        - calendar.day-preview-size
+        - calendar.low-interest-hypes
+        - calendar.moderate-interest-hypes
+        - calendar.high-interest-hypes
+        - calendar.very-high-interest-hypes
+        - synchronization.near-term.past-days
+        - synchronization.near-term.future-days
+        - synchronization.upcoming.past-days
+        - synchronization.upcoming.future-days
+    ProductSettingsOverview:
+      type: object
+      required: [revision, settings, coverage, recentChanges]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The settings revision; every accepted change advances it by one.
+        settings:
+          type: array
+          maxItems: 64
+          description: Every registered setting, in registry order.
+          items: { $ref: '#/components/schemas/ProductSettingValue' }
+        coverage: { $ref: '#/components/schemas/ProductSettingsCoverage' }
+        recentChanges:
+          type: array
+          maxItems: 30
+          description: The most recent changes, newest revision first.
+          items: { $ref: '#/components/schemas/ProductSettingChange' }
+      additionalProperties: false
+    ProductSettingValue:
+      type: object
+      required: [key, group, kind, value, defaultValue, minimum, maximum, origin]
+      properties:
+        key: { $ref: '#/components/schemas/ProductSettingKey' }
+        group:
+          type: string
+          enum: [featured, upcoming_highlights, attention, rankings, calendar, synchronization]
+        kind:
+          type: string
+          enum: [integer, decimal]
+          description: An integer setting takes whole numbers; a decimal one at most four decimals.
+        value: { type: number, description: The effective value public reads use now. }
+        defaultValue:
+          type: number
+          description: The approved default, or the deployment's configured value for a synchronization window.
+        minimum: { type: number }
+        maximum: { type: number }
+        origin:
+          type: string
+          enum: [default, deployment, operator, invalid_override]
+          description: |
+            `default` and `deployment` mean no operator value is stored; `invalid_override` means
+            a stored value no longer fits the setting or its rules and the default applies.
+        changedAt:
+          type: string
+          format: date-time
+          description: When the operator last set the value; present only with origin `operator`.
+      additionalProperties: false
+    ProductSettingsCoverage:
+      type: object
+      required: [evaluatedOn, schedulingEnabled, acquisitionForwardDays, acquisitionEnd, featuredLastMonth, featuredBeyondAcquisition, upcomingHorizonEnd, upcomingBeyondAcquisition]
+      description: |
+        How far presentation reaches compared with the configured acquisition horizon, in
+        `Europe/Madrid`. The horizon is the widest future window of the scheduled policies this
+        deployment registers. It states what scheduled acquisition is configured to reach, never
+        that the catalogue holds those releases; a window beyond it shows periods nothing fills
+        automatically.
+      properties:
+        evaluatedOn: { type: string, format: date }
+        schedulingEnabled:
+          type: boolean
+          description: Whether this deployment runs the scheduled acquisition policies at all.
+        acquisitionForwardDays: { type: integer, minimum: 0 }
+        acquisitionEnd: { type: string, format: date }
+        featuredLastMonth: { $ref: '#/components/schemas/CalendarMonth' }
+        featuredBeyondAcquisition: { type: boolean }
+        upcomingHorizonEnd: { type: string, format: date }
+        upcomingBeyondAcquisition: { type: boolean }
+      additionalProperties: false
+    ProductSettingChange:
+      type: object
+      required: [revision, key, previousValue, newValue, restoredDefault, changedAt]
+      properties:
+        revision: { type: integer, format: int64, minimum: 1 }
+        key:
+          type: string
+          minLength: 1
+          description: The setting's key; a key no longer registered is still listed.
+        previousValue: { type: number }
+        newValue: { type: number }
+        restoredDefault: { type: boolean }
+        changedAt: { type: string, format: date-time }
+      additionalProperties: false
+    ProductSettingsUpdate:
+      type: object
+      required: [revision, changes]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The settings revision the changes were prepared from.
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items: { $ref: '#/components/schemas/ProductSettingUpdateChange' }
+      additionalProperties: false
+    ProductSettingUpdateChange:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: A registered setting's key, at most once per update.
+        value:
+          type: number
+          description: The new value; absent restores the default.
+      additionalProperties: false
     ProblemCode:
       type: string
       enum:
         - HISTORICAL_SYNCHRONIZATION_RANGE_INVALID
         - HISTORICAL_SYNCHRONIZATION_NOT_FOUND
+        - TRANSLATION_EXECUTION_CONFLICT
         - HISTORICAL_SYNCHRONIZATION_CONFLICT
+        - RECENT_AUTHENTICATION_REQUIRED
+        - ACCOUNT_OPERATION_UNAVAILABLE
+        - FEEDBACK_INVALID
+        - FEEDBACK_UNAVAILABLE
         - REQUEST_MALFORMED
         - REQUEST_PROPERTY_UNKNOWN
         - REQUEST_PARAMETER_UNKNOWN
@@ -4036,6 +5719,11 @@ components:
         - SYNCHRONIZATION_RUN_NOT_FOUND
         - SYNCHRONIZATION_RUN_FINISHED
         - SYNCHRONIZATION_RUN_NOT_STALE
+        - EDITORIAL_ATTENTION_FILE_INVALID
+        - EDITORIAL_ATTENTION_RANGE_CONFLICT
+        - EDITORIAL_ATTENTION_LIST_NOT_FOUND
+        - PRODUCT_SETTING_INVALID
+        - PRODUCT_SETTINGS_REVISION_CONFLICT
     ErrorCategory:
       type: string
       enum: [validation, authentication, authorization, not_found, business_rule, conflict, dependency, technical]
@@ -4071,6 +5759,30 @@ components:
       description: RFC 9457 Problem Details with stable product extensions.
 
   responses:
+    ProfileValidationFailed:
+      description: REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AccountUnavailable:
+      description: ACCOUNT_OPERATION_UNAVAILABLE; source, budget or protected erasure capability unavailable. No successful partial export or deletion claimed.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AccountDeletionForbidden:
+      description: CSRF_VALIDATION_FAILED or RECENT_AUTHENTICATION_REQUIRED; no deletion admitted.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     HistoricalSynchronizationRejected:
       description: HISTORICAL_SYNCHRONIZATION_RANGE_INVALID; the operation changed no historical target.
       headers:
@@ -4081,6 +5793,22 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     HistoricalSynchronizationNotFound:
       description: HISTORICAL_SYNCHRONIZATION_NOT_FOUND; the operation changed no historical target.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TranslationValidationFailed:
+      description: The request includes a query parameter or body property outside the contract.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TranslationExecutionConflict:
+      description: TRANSLATION_EXECUTION_CONFLICT; the execution has changed or does not accept this command.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -4164,6 +5892,65 @@ components:
           examples:
             accessDenied: { $ref: '#/components/examples/AccessDenied' }
             csrfValidationFailed: { $ref: '#/components/examples/CsrfValidationFailed' }
+    EditorialAttentionFileRejected:
+      description: |
+        The file is not valid JSON of the supported schema, a value is out of range, an
+        assignment names an unknown rank or game, or no entry names a catalogued game. `pointer`
+        names the member, into the file under `/content` or into the request. Nothing was stored.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            editorialAttentionFileInvalid: { $ref: '#/components/examples/EditorialAttentionFileInvalid' }
+            requestPropertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
+    ProductSettingRejected:
+      description: |
+        A change names an unknown setting or one already named, a value is outside its
+        setting's range or kind, or the resulting settings break a cross-setting rule. `pointer`
+        names the member (`/changes/{index}/key`, `/changes/{index}/value` or `/changes`).
+        Nothing changed.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            productSettingInvalid: { $ref: '#/components/examples/ProductSettingInvalid' }
+            requestPropertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
+    ProductSettingsRevisionConflict:
+      description: Another change came first; nothing changed. Read the settings again and retry.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            productSettingsRevisionConflict: { $ref: '#/components/examples/ProductSettingsRevisionConflict' }
+    EditorialAttentionRangeConflict:
+      description: Another list covers part of the range; nothing changed. Delete it, then load again.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            editorialAttentionRangeConflict: { $ref: '#/components/examples/EditorialAttentionRangeConflict' }
+    EditorialAttentionListNotFound:
+      description: No list has this identity; nothing changed.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            editorialAttentionListNotFound: { $ref: '#/components/examples/EditorialAttentionListNotFound' }
     SynchronizationAlreadyRunning:
       description: Another synchronization holds the single run ownership; nothing was started.
       headers:
@@ -4409,8 +6196,38 @@ components:
             searchQueryInvalid: { $ref: '#/components/examples/SearchQueryInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    PlatformGamesValidationFailed:
+      description: |
+        The platform scope, search query, year range, genres, order, pagination or request
+        parameters are invalid: an unknown platform, a query without a token, a
+        `fromYear` after `toYear`, an unknown genre, an unsupported sort or release state, or an
+        unknown parameter.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
+            searchQueryInvalid: { $ref: '#/components/examples/SearchQueryInvalid' }
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+            sortInvalid: { $ref: '#/components/examples/SortInvalid' }
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    UpcomingHighlightsValidationFailed:
+      description: The platform scope names an unknown platform, or a request parameter is unknown.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     RankingValidationFailed:
-      description: The ranking source, the pagination or a request parameter is invalid.
+      description: The ranking source, the platform scope, the pagination or a request parameter is invalid.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -4419,6 +6236,7 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             sortInvalid: { $ref: '#/components/examples/SortInvalid' }
+            platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     PersonalRatingsValidationFailed:
@@ -4571,6 +6389,36 @@ components:
             internalError: { $ref: '#/components/examples/InternalError' }
 
   examples:
+    FeedbackOriginRejected:
+      value:
+        type: urn:videogame-platform:problem:csrf-validation-failed
+        title: CSRF validation failed
+        status: 403
+        detail: Submit the feedback form from the same origin.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: CSRF_VALIDATION_FAILED
+        category: authorization
+        correlationId: correlation-opaque
+    FeedbackUnavailable:
+      value:
+        type: urn:videogame-platform:problem:feedback-unavailable
+        title: Feedback channel is unavailable
+        status: 503
+        detail: SMTP acceptance could not be confirmed.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: FEEDBACK_UNAVAILABLE
+        category: technical
+        correlationId: correlation-opaque
+    FeedbackInvalid:
+      value:
+        type: urn:videogame-platform:problem:feedback-invalid
+        title: Feedback is invalid
+        status: 422
+        detail: Feedback is invalid.
+        instance: urn:videogame-platform:problem-instance:correlation-opaque
+        code: FEEDBACK_INVALID
+        category: validation
+        correlationId: correlation-opaque
     ServiceOverloaded:
       value:
         type: urn:videogame-platform:problem:service-overloaded
@@ -4673,6 +6521,64 @@ components:
           - pointer: /synchronization
             code: SYNCHRONIZATION_DISABLED
             message: Configure provider access before requesting a synchronization.
+    EditorialAttentionFileInvalid:
+      value:
+        type: urn:videogame-platform:problem:editorial-attention-file-invalid
+        title: Editorial attention file rejected
+        status: 422
+        detail: Correct the indicated member of the file, then preview it again.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: EDITORIAL_ATTENTION_FILE_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /content/entries/3/score
+            code: EDITORIAL_ATTENTION_FILE_INVALID
+            message: Use an integer from 1 to 100.
+    ProductSettingInvalid:
+      value:
+        type: urn:videogame-platform:problem:product-setting-invalid
+        title: Product setting change rejected
+        status: 422
+        detail: Correct the indicated change, then save again.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PRODUCT_SETTING_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /changes/0/value
+            code: PRODUCT_SETTING_INVALID
+            message: Use a value inside the setting's range and kind.
+    ProductSettingsRevisionConflict:
+      value:
+        type: urn:videogame-platform:problem:product-settings-revision-conflict
+        title: Product settings changed meanwhile
+        status: 409
+        detail: Read the settings again, then repeat the change.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PRODUCT_SETTINGS_REVISION_CONFLICT
+        category: conflict
+        correlationId: correlation-opaque
+    EditorialAttentionRangeConflict:
+      value:
+        type: urn:videogame-platform:problem:editorial-attention-range-conflict
+        title: Another editorial list covers part of the range
+        status: 409
+        detail: Delete the overlapping list, then load the file again.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: EDITORIAL_ATTENTION_RANGE_CONFLICT
+        category: conflict
+        correlationId: correlation-opaque
+    EditorialAttentionListNotFound:
+      value:
+        type: urn:videogame-platform:problem:editorial-attention-list-not-found
+        title: Editorial list was not found
+        status: 404
+        detail: No list has this identity; nothing changed.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: EDITORIAL_ATTENTION_LIST_NOT_FOUND
+        category: not_found
+        correlationId: correlation-opaque
     SynchronizationAlreadyRunning:
       value:
         type: urn:videogame-platform:problem:synchronization-already-running

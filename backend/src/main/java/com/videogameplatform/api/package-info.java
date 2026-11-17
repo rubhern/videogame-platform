@@ -9,9 +9,12 @@
             "catalogue::releases",
             "catalogue::search",
             "catalogue::rankings",
+            "catalogue::platformgames",
             "catalogue::details",
             "catalogue::preferences",
+            "catalogue::settings",
             "identity::application",
-            "ratings::application"
+            "ratings::application",
+            "feedback::application"
         })
 package com.videogameplatform.api;

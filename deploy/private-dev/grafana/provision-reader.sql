@@ -16,10 +16,15 @@ ALTER ROLE videogame_grafana SET default_transaction_read_only = on;
 ALTER ROLE videogame_grafana SET statement_timeout = '3s';
 ALTER ROLE videogame_grafana SET lock_timeout = '500ms';
 ALTER ROLE videogame_grafana SET idle_in_transaction_session_timeout = '5s';
+-- PostgreSQL has one CPU here: JIT and parallel workers only add contention, and two dashboard
+-- panels querying the coverage view at once exceeded the statement limit with them.
+ALTER ROLE videogame_grafana SET jit = off;
+ALTER ROLE videogame_grafana SET max_parallel_workers_per_gather = 0;
 GRANT CONNECT ON DATABASE videogame_platform TO videogame_grafana;
 GRANT USAGE ON SCHEMA catalogue, ratings, public TO videogame_grafana;
 GRANT SELECT ON catalogue.observability_inventory, catalogue.observability_release_quality,
-    catalogue.observability_runs, catalogue.observability_player_scores, ratings.observability_summary,
+    catalogue.observability_runs, catalogue.observability_player_scores,
+    catalogue.observability_localization_coverage, ratings.observability_summary,
     ratings.observability_score_distribution, ratings.observability_game_rankings,
     public.observability_database TO videogame_grafana;
 COMMIT;

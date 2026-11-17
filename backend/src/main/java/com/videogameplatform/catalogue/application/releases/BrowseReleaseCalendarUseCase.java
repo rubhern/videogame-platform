@@ -20,7 +20,15 @@ public interface BrowseReleaseCalendarUseCase {
      * visitor never supplies. Platform and region filters combine as in {@link
      * BrowseReleasesUseCase}.
      */
-    record Query(Optional<YearMonth> month, List<String> platformIds, List<String> regionIds) {
+    record Query(
+            Optional<YearMonth> month,
+            List<String> platformIds,
+            List<String> regionIds,
+            boolean includePast) {
+        public Query(Optional<YearMonth> month, List<String> platformIds, List<String> regionIds) {
+            this(month, platformIds, regionIds, false);
+        }
+
         public Query {
             Objects.requireNonNull(month, "month");
             platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);

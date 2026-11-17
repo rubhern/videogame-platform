@@ -37,6 +37,7 @@ public interface HistoricalBackfillStore {
             CatalogueSynchronizationReport report,
             Instant now);
 
+    /** Whether the whole period was scanned under the current {@link ImportPolicyRevision}. */
     boolean covered(LocalDate from, LocalDate to);
 
     void progress(UUID runId, CatalogueSynchronizationReport.Counters counters, Instant now);

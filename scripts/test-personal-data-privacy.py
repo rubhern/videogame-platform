@@ -429,6 +429,46 @@ result=run(test,"archive-review","--request","REQ-DEFAULT-PENDING","--extend-unt
 assert "synthetic@example.test" not in result.stdout+result.stderr and "bearer-secret" not in result.stderr
 result=run(test,"archive-review","--request","REQ-DEFAULT-PENDING","--hold-reason","CASE-OPAQUE-1")
 assert "CASE-OPAQUE-1" not in result.stdout and json.loads(result.stdout)["held"] is True
+# #272 owner-side orchestration seam: independent real-GPG evidence, per-entry retry and receipt.
+import uuid, hashlib
+bridge = ROOT / "deploy/private-dev/bin/personal-data-self-service"
+for fault_step in ("revoke:after", "delete-ratings:after", "delete-identity:after", "verify:after"):
+    test = fixture()
+    run(test, "status", expect=1)  # Prepare roots; a new fixture has no ledger yet.
+    state = test.read_state(); state["accounts"][TARGET]["emailVerified"] = True; test.write_state(state)
+    issuer = state["issuer"]
+    uid = str(uuid.UUID(bytes=hashlib.md5(f"{issuer}\n{TARGET}".encode()).digest(), version=3))
+    envelope = {"version": 1, "issuer": issuer, "subject": TARGET, "userId": uid, "requestId": str(uuid.uuid4())}
+    config = {"issuer": issuer, "ledger": str(test.ledger), "ledger_copy": str(test.copy),
+        "proof_root": str(test.directory/"proof"), "archive_root": str(test.directory/"archive"),
+        "archive_copy": str(test.directory/"archive-copy"), "gnupg_home": str(keydir),
+        "recipient": fingerprint, "signer": fingerprint, "holds": str(test.directory/"holds"),
+        "host_command": [sys.executable, "-I", str(test.host)]}
+    cfg = test.owner/"self-service.json"; cfg.write_text(json.dumps(config)); cfg.chmod(0o600)
+    env = {**os.environ, "FAKE_STATE": str(test.state), "FAKE_FAULT": str(test.fault)}
+    def invoke(value=envelope):
+        return subprocess.run([sys.executable, "-I", str(bridge), "--config", str(cfg)],
+            input=json.dumps(value), text=True, capture_output=True, env=env, timeout=90)
+    # Wrong issuer/derived identity and arbitrary command fields never mutate anything.
+    before = test.read_state()
+    for bad in ({**envelope, "issuer": "https://wrong.test/realms/gameometro"},
+                {**envelope, "userId": str(uuid.uuid4())}, {**envelope, "command": "export"}):
+        assert invoke(bad).returncode == 1 and test.read_state() == before
+    test.fault.write_text(fault_step)
+    failed = invoke(); assert failed.returncode == 1 and not failed.stdout
+    assert test.events()[0]["request"] == envelope["requestId"]
+    assert test.events()[0]["archiveProfile"] == "requested-account-v1"
+    success = invoke(); assert success.returncode == 0, success.stderr
+    receipt = json.loads(success.stdout)
+    assert {key: receipt[key] for key in ("verified", "requestId", "userId")} == {"verified": True, "requestId": envelope["requestId"], "userId": uid}
+    assert len(receipt["ledgerSha256"]) == 64 and len(receipt["proofSha256"]) == 64
+    assert test.ledger.read_bytes() == test.copy.read_bytes()
+    before = test.read_state(); assert invoke().returncode == 0 and test.read_state() == before
+    assert invoke({**envelope, "requestId": str(uuid.uuid4())}).returncode == 1
+    proof = json.loads((test.directory/"proof"/(envelope["requestId"]+".json")).read_text())
+    assert proof["verifiedAbsent"] and OTHER in test.read_state()["accounts"]
+    assert "synthetic@example.test" not in success.stdout + failed.stderr
+
 print("Privacy lifecycle passed: real-GPG allowlists/sealing/tamper/retention/holds/purge/restored-archive refusal; "
       "conditional preflight, guarded cleanup retry/new verification/late holds/absent identity, "
       "redacted diagnostics, explicit verification, existing erasure retry and backup replay with synthetic runtime.")

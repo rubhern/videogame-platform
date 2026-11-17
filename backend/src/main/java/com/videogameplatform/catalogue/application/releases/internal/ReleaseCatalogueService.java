@@ -10,6 +10,8 @@ import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseRe
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Result;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.domain.AttentionWeights;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -23,16 +25,19 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
     private final CatalogueCoverPolicy coverPolicy;
     private final Clock clock;
     private final ReleaseBrowsePolicy browsePolicy;
+    private final CurrentProductSettings settings;
 
     public ReleaseCatalogueService(
             ReleaseBrowseReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            ReleaseBrowsePolicy browsePolicy) {
+            ReleaseBrowsePolicy browsePolicy,
+            CurrentProductSettings settings) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.clock = clock;
         this.browsePolicy = browsePolicy;
+        this.settings = settings;
     }
 
     @Override
@@ -59,7 +64,11 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         // range that ends earlier has nothing for them to admit.
                                         query.includeApproximateDates()
                                                 && !window.to().isBefore(evaluatedOn),
-                                        browsePolicy.releaseGroupLimit()))
+                                        browsePolicy.releaseGroupLimit(),
+                                        // Only the attention order reads the operator's weights.
+                                        query.sort() == Sort.HYPE
+                                                ? settings.current().attention()
+                                                : AttentionWeights.DEFAULT))
                         .orElseThrow(CatalogueNotReadyException::new);
 
         ReleaseFilters.validate(platformIds, regionIds, result.platforms(), result.regions());

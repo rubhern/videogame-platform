@@ -41,9 +41,12 @@ required_files=(
   "backend/postman/featured-releases.postman_collection.json"
   "backend/postman/game-details.postman_collection.json"
   "backend/postman/game-rankings.postman_collection.json"
+  "backend/postman/platform-games.postman_collection.json"
+  "backend/postman/upcoming-highlights.postman_collection.json"
   "backend/postman/personal-ratings.postman_collection.json"
   "backend/postman/platform-preferences.postman_collection.json"
   "backend/postman/session.postman_collection.json"
+  "backend/postman/web-analytics.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -266,9 +269,12 @@ json_documents = (
     "backend/postman/featured-releases.postman_collection.json",
     "backend/postman/game-details.postman_collection.json",
     "backend/postman/game-rankings.postman_collection.json",
+    "backend/postman/platform-games.postman_collection.json",
+    "backend/postman/upcoming-highlights.postman_collection.json",
     "backend/postman/personal-ratings.postman_collection.json",
     "backend/postman/platform-preferences.postman_collection.json",
     "backend/postman/session.postman_collection.json",
+    "backend/postman/web-analytics.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -434,6 +440,7 @@ expected_backend_variables = {
     "APPLICATION_API_ADMISSION_ENABLED",
     "APPLICATION_API_MAX_REQUESTS",
     "APPLICATION_API_MAX_WRITES",
+    "APPLICATION_GA4_MEASUREMENT_ID",
     "SPRING_PROFILES_ACTIVE",
     "SERVER_PORT",
     "MANAGEMENT_SERVER_ADDRESS",
@@ -473,6 +480,7 @@ expected_backend_variables = {
     "IGDB_MAX_RETRIES",
     "IGDB_RETRY_BACKOFF",
     "CATALOGUE_SYNC_SCHEDULING_ENABLED",
+    "CATALOGUE_SYNC_NEAR_TERM_CRON",
     "CATALOGUE_SYNC_PROVIDER_PAGE_SIZE",
     "CATALOGUE_SYNC_MAX_RELEASES_PER_GAME",
     "CATALOGUE_SYNC_RETAINED_RUNS",

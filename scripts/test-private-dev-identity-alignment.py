@@ -73,7 +73,7 @@ REDIRECT_URI = f"{APPLICATION}/login/oauth2/code/keycloak"
 ISSUER = f"{ORIGIN}/realms/{REALM}"
 ADMIN_REALM = f"/admin/realms/{REALM}"
 INVALID_CREDENTIALS = "Email o contraseña incorrectos."
-DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
+DECLARATION_REQUIRED = "Para crear tu cuenta, acepta las condiciones de uso."
 VERIFY_TITLE = "Verifica tu email"
 RECOVERY_SENT = "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña."
 
@@ -268,9 +268,11 @@ def action_link(message: dict) -> str:
 
 def choose_password(browser: Browser, page: Response, password: str) -> Response:
     assert "kc-passwd-update-form" in page.body, page_text(page.body)[:300]
-    rejected = "Corta-2026!"
-    refused = browser.open(form_action(page.body, "kc-passwd-update-form"), {"password-new": rejected, "password-confirm": rejected})
-    assert "La contraseña debe tener al menos 12 caracteres." in page_text(refused.body), page_text(refused.body)[:300]
+    refused = page
+    for rejected, message in (("Corta-7", "La contraseña debe tener al menos 8 caracteres."),
+                              ("Password123", "Esa contraseña es demasiado habitual.")):
+        refused = browser.open(form_action(refused.body, "kc-passwd-update-form"), {"password-new": rejected, "password-confirm": rejected})
+        assert message in page_text(refused.body), page_text(refused.body)[:300]
     remember(password)
     return browser.open(form_action(refused.body, "kc-passwd-update-form"), {"password-new": password, "password-confirm": password})
 
@@ -305,7 +307,14 @@ def unique(purpose: str, domain: str = "example.test") -> str:
 for mapper in legacy_client["protocolMappers"]:
     if mapper["protocolMapper"] == "gameometro-remember-me":
         assert admin("DELETE", f"{ADMIN_REALM}/clients/{legacy_client['id']}/protocol-mappers/models/{mapper['id']}")[0] == 204
-assert admin("PUT", ADMIN_REALM, {"rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
+# New local imports include the terms acceptance flow and legal localization. Recreate
+# the historical registration baseline so apply/restore still prove its migration.
+assert admin("PUT", ADMIN_REALM, {"registrationFlow": identity.BUILT_IN_REGISTRATION_FLOW, "rememberMe": False, "ssoSessionMaxLifespan": 36000, "ssoSessionIdleTimeoutRememberMe": 0, "ssoSessionMaxLifespanRememberMe": 0})[0] == 204
+for flow in get(f"{ADMIN_REALM}/authentication/flows"):
+    if flow["alias"] == identity.desired_policy()["registrationFlow"]["alias"]:
+        assert admin("DELETE", f"{ADMIN_REALM}/authentication/flows/{flow['id']}")[0] == 204
+for key in get(f"{ADMIN_REALM}/localization/es"):
+    assert admin("DELETE", f"{ADMIN_REALM}/localization/es/{urllib.parse.quote(key, safe='')}")[0] == 204
 legacy_password = "legacy-1"
 verified_name, verified_email = "legacy-verified", unique("legacy-verified", "gameometro.com")
 reserved_name, reserved_email = "legacy-reserved", unique("legacy-reserved")
@@ -345,10 +354,10 @@ repeated = command(identity_command, "--sessions-only", "--snapshot-dir", str(se
 assert repeated.returncode == 0 and "nothing changed" in repeated.stdout
 assert len(list(session_directory.glob("*.json"))) == 1
 session_realm = get(ADMIN_REALM)
-for name in identity.SESSION_SETTINGS:
+for name in identity.SHARED_SETTINGS:
     assert session_realm[name] == identity.desired_policy()["settings"][name]
 for name, value in before_realm.items():
-    if name not in identity.SESSION_SETTINGS:
+    if name not in identity.SHARED_SETTINGS:
         assert session_realm.get(name) == value, f"session alignment changed unrelated setting: {name}"
 [session_client] = get(f"{ADMIN_REALM}/clients?clientId={CLIENT_ID}")
 assert {key: value for key, value in session_client.items() if key != "protocolMappers"} == {
@@ -372,7 +381,7 @@ production_directory.mkdir(mode=0o700)
 configured = command(identity_command, "--realm", "gameometro", "--sessions-only", "--snapshot-dir", str(production_directory))
 assert configured.returncode == 0, configured.stdout + configured.stderr
 assert command(identity_command, "--realm", "gameometro", "--sessions-only", "--check").returncode == 0
-for name in identity.SESSION_SETTINGS:
+for name in identity.SHARED_SETTINGS:
     assert get("/admin/realms/gameometro")[name] == identity.desired_policy()["settings"][name]
 assert get(ADMIN_REALM) == before_realm
 [production_snapshot] = production_directory.glob("*.json")
@@ -444,11 +453,16 @@ assert signs_in(pending_email, legacy_password), "a verified legacy account keep
 answer, _ = sign_in(unique("nobody"), legacy_password)
 assert not code(answer) and INVALID_CREDENTIALS in page_text(answer.body)
 
-# 5. Registration asks only for email and the mandatory 18+ declaration; mail stays in Mailpit.
+# 5. Registration asks only for email and the mandatory acceptance of the terms; mail stays in Mailpit.
 device = Browser()
 login, _ = device.authorize()
 assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}
 registration = device.open(page_link(login.body, "/login-actions/registration"))
+assert "Responsable: Rubén Hernández López" in page_text(registration.body)
+assert "Para prestar el servicio utilizamos proveedores externos" in page_text(registration.body)
+assert "no te pedimos que consientas" in page_text(registration.body)
+assert "/privacidad" in registration.body and "/condiciones" in registration.body
+assert "Texto aprobado por el titular" not in registration.body and "Internal editorial" not in registration.body
 assert form_fields(registration.body, "kc-register-form") == {"email", "termsAccepted"}, form_fields(registration.body, "kc-register-form")
 player = unique("player")
 undeclared = device.open(form_action(registration.body, "kc-register-form"), {"email": player})
@@ -569,6 +583,6 @@ assert legacy_restored_client == bff_client
 EVIDENCE.joinpath("sensitive-values.txt").write_text("\n".join(sensitive) + "\n", encoding="utf-8")
 print(
     "Private-dev identity alignment proven: identity-preserving apply and exact restore, email sign-in, "
-    "18+ registration with verification, password policy, temporary lockout, smoke by email, #273 recovery "
+    "terms-gated registration with verification, password policy, temporary lockout, smoke by email, #273 recovery "
     "through the authenticated relay transport and back to Mailpit."
 )

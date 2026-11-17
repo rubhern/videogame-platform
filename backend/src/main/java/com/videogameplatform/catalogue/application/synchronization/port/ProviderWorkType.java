@@ -21,6 +21,8 @@ public enum ProviderWorkType {
     ADD_ON,
     /** An expansion that requires its parent work. */
     EXPANSION,
+    /** A parent work reissued with added content, released as its own record. */
+    EXPANDED_GAME,
     /** One instalment of a serialized work. */
     EPISODE,
     /** A set of instalments of a serialized work. */
@@ -31,7 +33,7 @@ public enum ProviderWorkType {
     PACK,
     /** A patch or revision, not a work. */
     UPDATE,
-    /** The same work carried to another platform; the release model already expresses this. */
+    /** The same work carried to another platform, released as its own record. */
     PORT,
     /** A community modification of another work. */
     MOD,

@@ -6,12 +6,14 @@ import com.videogameplatform.api.generated.model.GameRankingPage;
 import com.videogameplatform.api.generated.model.RankingSource;
 import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase;
+import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Public HTTP adapter for UC-018 (TOPómetro). */
+/** Public HTTP adapter for UC-018 (TOPómetro), global or on one platform scope. */
 @RestController
 @RequestMapping("/api/v1")
 public class GameRankingController implements RankingsApi {
@@ -40,12 +42,17 @@ public class GameRankingController implements RankingsApi {
 
     @Override
     public ResponseEntity<GameRankingPage> rankGames(
-            RankingSource source, Integer page, Integer pageSize, String ifNoneMatch) {
+            RankingSource source,
+            Set<String> platformIds,
+            Integer page,
+            Integer pageSize,
+            String ifNoneMatch) {
         RankingSource requested = source == null ? RankingSource.igdb_players : source;
+        List<String> scope = platformIds == null ? List.of() : List.copyOf(platformIds);
         GameRanking ranking =
                 useCase.rank(
                         new RankGamesUseCase.Query(
-                                GameRankingApiMapper.toSource(requested), page, pageSize));
+                                GameRankingApiMapper.toSource(requested), scope, page, pageSize));
         GameRankingPage body = mapper.toResponse(ranking, requested);
         String entityTag = conditionalRequests.strongEntityTag(body);
 
@@ -56,7 +63,7 @@ public class GameRankingController implements RankingsApi {
             return ResponseEntity.status(304).headers(headers).build();
         }
 
-        metrics.recordPage(requested.getValue(), body.getItems().size());
+        metrics.recordPage(requested.getValue(), !scope.isEmpty(), body.getItems().size());
         return ResponseEntity.ok().headers(headers).body(body);
     }
 }

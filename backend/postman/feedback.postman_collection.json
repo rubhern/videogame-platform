@@ -1,0 +1,152 @@
+{
+  "info": {
+    "_postman_id": "83296f45-1ed7-41ae-8a87-f394f28a2360",
+    "name": "VideoGame Platform Backend - Visitor Feedback",
+    "description": "Run against the packaged local application and Mailpit with synthetic input. A 204 means the receiver accepted the test message; verify it in Mailpit.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit anonymous synthetic feedback",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Matches the feedback contract\", function () {",
+              "    pm.response.to.have.status(204);",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.be.empty;",
+              "    pm.expect(pm.response.text()).to.equal(\"\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"category\": \"suggestion\", \"message\": \"Mensaje sintético de Postman\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/feedback",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "feedback"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reject a blank message",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Matches the feedback contract\", function () {",
+              "    pm.response.to.have.status(422);",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.be.empty;",
+              "    pm.expect(pm.response.json().code).to.equal(\"FEEDBACK_INVALID\");",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"category\": \"other\", \"message\": \" \"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/feedback",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "feedback"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reject a cross-origin submission",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Matches the feedback contract\", function () {",
+              "    pm.response.to.have.status(403);",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.be.empty;",
+              "    pm.expect(pm.response.json().code).to.equal(\"CSRF_VALIDATION_FAILED\");",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Origin",
+            "value": "https://elsewhere.example",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"category\": \"suggestion\", \"message\": \"Mensaje sintético de Postman\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/feedback",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "feedback"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

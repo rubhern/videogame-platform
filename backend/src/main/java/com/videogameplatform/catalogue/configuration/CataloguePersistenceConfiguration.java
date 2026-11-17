@@ -3,11 +3,13 @@ package com.videogameplatform.catalogue.configuration;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcFeaturedReleaseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcReleaseBrowseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcReleaseCalendarReadAdapter;
+import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcUpcomingHighlightsReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.search.JdbcGameSearchReadAdapter;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseCalendarReadPort;
+import com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import javax.sql.DataSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -23,6 +25,37 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(CatalogueJdbcProperties.class)
 class CataloguePersistenceConfiguration {
+    /**
+     * The store of the operator's editorial anticipation lists (UC-023). Lookups and writes are
+     * bounded by one file's fifty entries; a load commits as one transaction.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore
+            editorialAttentionStore(
+                    DataSource dataSource,
+                    PlatformTransactionManager transactionManager,
+                    CatalogueJdbcProperties properties) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.setQueryTimeout(properties.readTimeoutSeconds());
+        TransactionTemplate writeTransaction = new TransactionTemplate(transactionManager);
+        writeTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        writeTransaction.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.attention
+                .JdbcEditorialAttentionStore(
+                new NamedParameterJdbcTemplate(jdbcTemplate), writeTransaction);
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.preferences.ExportPlatformPreferences
+            exportPlatformPreferences(
+                    CatalogueReadExecution execution,
+                    com.videogameplatform.catalogue.application.preferences.port
+                                    .PlatformPreferenceStore
+                            store) {
+        return new com.videogameplatform.catalogue.adapter.persistence.preferences
+                .JdbcPreferenceExport(execution.jdbcOperations(), store);
+    }
+
     @Bean
     com.videogameplatform.catalogue.application.details.port.GameListingReadPort
             gameListingReadPort(CatalogueReadExecution execution) {
@@ -86,6 +119,12 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    UpcomingHighlightsReadPort upcomingHighlightsReadPort(CatalogueReadExecution execution) {
+        return new JdbcUpcomingHighlightsReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     GameSearchReadPort gameSearchReadPort(CatalogueReadExecution execution) {
         return new JdbcGameSearchReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());
@@ -96,6 +135,14 @@ class CataloguePersistenceConfiguration {
             gameRankingReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.rankings
                 .JdbcGameRankingReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.platformgames.port.PlatformGamesReadPort
+            platformGamesReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.platformgames
+                .JdbcPlatformGamesReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());
     }
 
@@ -128,6 +175,24 @@ class CataloguePersistenceConfiguration {
         write.setTimeout(properties.readTimeoutSeconds());
         return new com.videogameplatform.catalogue.adapter.persistence.preferences
                 .JdbcPlatformPreferenceStore(
+                execution.jdbcOperations(), execution.readTransaction(), write);
+    }
+
+    /**
+     * The operator's product settings (UC-024): reads share the read-only policy; an update is one
+     * bounded read-committed transaction serialized by the revision row lock.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.settings.port.ProductSettingStore
+            productSettingStore(
+                    CatalogueReadExecution execution,
+                    PlatformTransactionManager transactionManager,
+                    CatalogueJdbcProperties properties) {
+        TransactionTemplate write = new TransactionTemplate(transactionManager);
+        write.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        write.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.settings
+                .JdbcProductSettingStore(
                 execution.jdbcOperations(), execution.readTransaction(), write);
     }
 

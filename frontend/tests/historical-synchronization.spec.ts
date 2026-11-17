@@ -29,11 +29,37 @@ for (const width of [1320, 834, 390, 320]) {
 }
 test("historical form and state remain usable with forced colours and keyboard tabs", async ({ page }) => {
   await install(page, "not_started"); await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  await page.route("**/api/v1/admin/catalogue/translations/coverage", (route) =>
+    route.fulfill({ json: { observedAt: "2026-11-11T07:00:00Z", rows: [] } }));
+  await page.route("**/api/v1/admin/catalogue/translations/execution", (route) =>
+    route.fulfill({ json: { state: "not_started" } }));
+  await page.route("**/api/v1/admin/catalogue/editorial-attention", (route) =>
+    route.fulfill({ json: { prompt: { version: "editorial-anticipation@2", template: "{{FROM}} – {{TO}}" }, lists: [] } }));
+  await page.route("**/api/v1/admin/catalogue/product-settings", (route) =>
+    route.fulfill({ json: { revision: 0, settings: [], recentChanges: [], coverage: {
+      evaluatedOn: "2026-11-12", schedulingEnabled: true, acquisitionForwardDays: 180, acquisitionEnd: "2027-05-11",
+      featuredLastMonth: "2027-04", featuredBeyondAcquisition: false, upcomingHorizonEnd: "2027-05-11",
+      upcomingBeyondAcquisition: false,
+    } } }));
   await page.goto("/administracion/catalogo?tab=historica");
   await expect(page.getByRole("button", { name: "Iniciar histórico" })).toBeVisible();
   const tab = page.getByRole("tab", { name: "Sincronización histórica" });
   await tab.focus(); await page.keyboard.press("Home"); await expect(page.getByRole("tab", { name: "Ejecuciones" })).toBeFocused();
-  await page.keyboard.press("End"); await expect(tab).toBeFocused();
+  await page.keyboard.press("End");
+  const settings = page.getByRole("tab", { name: "Ajustes" });
+  await expect(settings).toBeFocused();
+  await expect(settings).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowLeft");
+  const editorial = page.getByRole("tab", { name: "Interés editorial" });
+  await expect(editorial).toBeFocused();
+  await expect(editorial).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowLeft");
+  const translations = page.getByRole("tab", { name: "Traducciones" });
+  await expect(translations).toBeFocused();
+  await expect(translations).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowLeft");
+  await expect(tab).toBeFocused();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Desde", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Desde", { exact: true })).toBeEnabled();
   await page.screenshot({ path: "test-results/historical-forced-colours.png", fullPage: true });

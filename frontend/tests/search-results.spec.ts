@@ -7,6 +7,47 @@ import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 type GameSummary = GameSearchPage["items"][number];
 
+for (const width of [320, 390, 834, 1320]) {
+  test(`the lit search heading survives reverse scrolling at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 740 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.route("**/api/v1/session", route => route.fulfill({ json: { authenticated: false } }));
+    // Use real image painting without depending on the provider CDN.
+    await page.route("**/test-cover.svg", route => route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><path fill="#dbbe81" d="M0 0h200v300H0z"/></svg>',
+    }));
+    await page.route("**/api/v1/games?*", route => route.fulfill({ json: {
+      items: Array.from({ length: 12 }, (_, index) => result(index + 1, {
+        primaryCover: { kind: "provider", url: "/test-cover.svg", alternativeText: "Portada",
+          attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com" } },
+      })),
+      page: { number: 1, size: 12, totalItems: 12, totalPages: 1 },
+    } }));
+    await page.goto("/search?q=con");
+    const heading = page.locator(".page-head");
+    await expect(page.locator(".stage-light-source")).toHaveCount(3);
+    await page.evaluate(() => document.fonts.ready);
+    // Finished opacity animations must release their compositing effects. Retaining them
+    // can leave mobile headings blank when off-screen tiles are painted again.
+    await expect.poll(() => heading.evaluate(element => element.getAnimations().length)).toBe(0);
+    await expect.poll(() => page.locator(".stage-light-source").first()
+      .evaluate(element => element.getAnimations().length)).toBe(0);
+    const before = await heading.screenshot();
+    for (let pass = 0; pass < 2; pass++) {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+      // Mobile browser chrome changes the viewport while scrolling.
+      await page.setViewportSize({ width, height: 820 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.setViewportSize({ width, height: 740 });
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+      expect(await heading.screenshot()).toEqual(before);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
 const ps5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" };
 const pc = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
 const xbox = { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" };

@@ -44,6 +44,9 @@ EDGE_ADDRESSES = {"application-edge": "10.203.1.2", "identity-edge": "10.203.2.2
 # The BFF's fixed address, whose issuer calls the edge budgets separately, and the gateways
 # behind which Docker's userland proxy hides a client; the Caddyfile names both.
 BFF_ADDRESS = "10.203.1.3"
+# The application-only handover candidate (ADR-0043); never a published or long-lived service.
+CANDIDATE_ADDRESS = "10.203.1.5"
+APPLICATION_UPSTREAMS = ["application:8080", "application-candidate:8080"]
 GATEWAYS = {"application-edge": "10.203.1.1", "identity-edge": "10.203.2.1"}
 DIGEST = re.compile(r"^[a-z0-9./_:-]+@sha256:[0-9a-f]{64}$")
 # Each image comes from the GHCR repository that trusted main publishes it to.
@@ -75,7 +78,8 @@ SECRETS = {
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret",
                  "keycloak_smtp_username", "keycloak_smtp_password"},
     "catalogue-localizer": set(),
-    "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
+    "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret",
+                    "feedback_smtp_username", "feedback_smtp_password", "account_deletion_executor_capability"},
     "migration": {"application_migration_db_password"},
 }
 SECRET_FILES = {
@@ -89,11 +93,14 @@ SECRET_FILES = {
     "keycloak_smtp_password": "keycloak-smtp-password",
     "igdb_client_id": "igdb-client-id",
     "igdb_client_secret": "igdb-client-secret",
+    "feedback_smtp_username": "feedback-smtp-username",
+    "feedback_smtp_password": "feedback-smtp-password",
+    "account_deletion_executor_capability": "account-deletion-executor-capability",
 }
 # Ceilings from the platform design's qualification envelope, in MiB.
-MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 768, "application": 1536,
+MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 1792, "application": 1536,
           "migration": 512}
-STEADY_MEMORY_BUDGET_MIB = 3968  # 3.875 GiB: the envelope's steady services without telemetry.
+STEADY_MEMORY_BUDGET_MIB = 4992  # 4.875 GiB: the envelope's steady services without telemetry.
 # Read-only wrappers outside this directory that production may mount, and nothing else.
 SHARED_MOUNTS = {
     ROOT / "docker/postgres/init",
@@ -118,6 +125,7 @@ APPLICATION_ENVIRONMENT = {
     "SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES": re.escape(EDGE_ADDRESSES["application-edge"]),
     "APPLICATION_FLYWAY_ENABLED": "false",
     "APPLICATION_API_ADMISSION_ENABLED": "false",
+    "APPLICATION_GA4_MEASUREMENT_ID": "G-J3Y4VJZ7BN",
     "MANAGEMENT_SERVER_ADDRESS": "127.0.0.1",
     "OIDC_ISSUER_URI": ISSUER,
     "OIDC_AUTHORIZATION_URI": f"{ISSUER}/protocol/openid-connect/auth",
@@ -128,14 +136,14 @@ APPLICATION_ENVIRONMENT = {
     "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
     "APPLICATION_SESSION_COOKIE_SECURE": "true",
     "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "production",
-    "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+    "CATALOGUE_SYNC_SCHEDULING_ENABLED": "true",
 }
 KEYCLOAK_ENVIRONMENT = {
     "KC_HOSTNAME": IDENTITY_ORIGIN,
     "KC_HTTP_ENABLED": "true",
     "KC_PROXY_HEADERS": "xforwarded",
     "KC_PROXY_TRUSTED_ADDRESSES": EDGE_ADDRESSES["identity-edge"],
-    "KC_LOG_LEVEL": "info",
+    "KC_LOG_LEVEL": "info,org.keycloak.services.managers.AuthenticationManager:error",
     "KC_HTTP_ACCESS_LOG_ENABLED": "false",
     "APPLICATION_PUBLIC_HOST": "gameometro.com",
     "APPLICATION_PUBLIC_ORIGIN": APPLICATION_ORIGIN,
@@ -344,6 +352,8 @@ def service_violations(name, service, config, secrets_dir):
             found.append(f"{name} must retain the production recovery startup guard and read-only authorization volume")
     if name == "application":
         found += environment_violations(name, environment, APPLICATION_ENVIRONMENT)
+        if any(key.startswith("CATALOGUE_SYNC_") and key.endswith("_CRON") for key in environment):
+            found.append("application must keep the default synchronization schedule (#484), without a cron override")
     if name == "keycloak":
         found += environment_violations(name, environment, {**KEYCLOAK_ENVIRONMENT, **abuse_settings()})
         imports = [volume for volume in service.get("volumes") or [] if volume.get("target") == "/opt/keycloak/data/import"]
@@ -446,8 +456,9 @@ def caddy_violations(config):
             found.append(f"Caddy server {name} must keep automatic HTTPS and its redirects")
     nodes = list(walk(config))
     dials = {upstream["dial"] for node in nodes if node.get("handler") == "reverse_proxy" for upstream in node.get("upstreams", [])}
-    if dials != {"application:8080", "keycloak:8080"}:
-        found.append(f"Caddy must proxy only to application:8080 and keycloak:8080, found {sorted(dials)}")
+    if dials != {*APPLICATION_UPSTREAMS, "keycloak:8080"}:
+        found.append(f"Caddy must proxy only to application:8080, its handover candidate and keycloak:8080, found {sorted(dials)}")
+    found += handover_violations(nodes)
     for node in nodes:
         if node.get("handler") == "reverse_proxy":
             removed = set(node.get("headers", {}).get("request", {}).get("delete", []))
@@ -465,6 +476,31 @@ def caddy_violations(config):
 
 
 PEER_KEY = "{http.request.remote.host}"
+
+
+def handover_violations(nodes):
+    """The application route prefers the application and fails over only on a dial failure."""
+    found = []
+    proxies = [n for n in nodes if n.get("handler") == "reverse_proxy"
+               and any(u["dial"].startswith("application") for u in n.get("upstreams", []))]
+    if len(proxies) != 1:
+        return ["Caddy must proxy the application from exactly one handler"]
+    proxy = proxies[0]
+    if [u["dial"] for u in proxy.get("upstreams", [])] != APPLICATION_UPSTREAMS:
+        found.append("Caddy must list the application before its handover candidate")
+    balancing = proxy.get("load_balancing", {})
+    if balancing.get("selection_policy", {}).get("policy") != "first":
+        found.append("Caddy must send every request to the application while it is available")
+    if not 0 < balancing.get("try_duration", 0) <= 30 * 10 ** 9:
+        found.append("Caddy must retry a failed dial on the other upstream for a bounded time")
+    if "retry_match" in balancing:
+        found.append("Caddy must not replay a request that already reached an upstream")
+    passive = proxy.get("health_checks", {}).get("passive", {})
+    if not passive.get("fail_duration") or set(passive) - {"fail_duration"}:
+        found.append("Caddy must mark only a failed dial as down, for a bounded time")
+    if proxy.get("health_checks", {}).get("active"):
+        found.append("Caddy must not actively probe the application: its management port stays on loopback")
+    return found
 
 
 def limiter_violations(config, nodes):
@@ -582,6 +618,11 @@ def overlay(directory, caddy_config):
                                    "networks": {"application-edge": {"ipv4_address": BFF_ADDRESS}}},
             "rogue-backchannel": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
                                   "networks": {"application-edge": {"ipv4_address": "10.203.1.4"}}},
+            # The handover candidate's fixed address shares the BFF budget, and only it does.
+            "candidate-backchannel": {**hardened, "profiles": ["probe"], "command": [*command, "backchannel"],
+                                      "networks": {"application-edge": {"ipv4_address": CANDIDATE_ADDRESS}}},
+            "candidate-stub": {**hardened, "profiles": ["handover"], "command": [*command, "serve", "candidate"],
+                               "networks": {"application-edge": {"aliases": ["application-candidate"]}}},
             **sources,
             "gate": {**hardened, "user": "0:0", "profiles": ["probe"], "network_mode": "none",
                      "volumes": ["recovery-state:/gate"], "entrypoint": ["python", "-I", "-c", GATE_SCRIPT]},
@@ -611,7 +652,7 @@ class Edge:
 
     def __exit__(self, *_):
         if self.started:
-            subprocess.run(self.compose + ["--profile", "probe", "down", "--volumes", "--remove-orphans"],
+            subprocess.run(self.compose + ["--profile", "probe", "--profile", "handover", "down", "--volumes", "--remove-orphans"],
                            capture_output=True, text=True)
 
     def load(self, config, gate=None):
@@ -632,13 +673,13 @@ class Edge:
     def gate(self, state):
         run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull", "gate", state])
 
-    def probe(self, service, *arguments):
+    def probe(self, service, *arguments, attempts=20):
         command = ["python", "-I", "/probe/edge.py", *arguments] if arguments else []
-        for attempt in range(20):
+        for attempt in range(attempts):
             result = subprocess.run(self.compose + ["--profile", "probe", "run", "--rm", "--no-deps", "--quiet-pull",
                                                     service, *command], capture_output=True, text=True)
             # Wait for the internal CA certificates rather than reporting a startup race.
-            if "transport failure" not in result.stdout or attempt == 19 or "aborted" in " ".join(arguments):
+            if "transport failure" not in result.stdout or attempt == attempts - 1 or "aborted" in " ".join(arguments):
                 output = result.stdout if result.stdout.strip() else result.stderr
                 return result.returncode, output
             time.sleep(1)
@@ -655,8 +696,10 @@ BURSTS = [
      [("source-a", "read:40:ok", "read:1:limited", "pause:retry-after", "read:1:ok")]),
     ("expensive search per-source", [("source-a", "search:20:ok", "releases:1:limited", "read:1:ok")]),
     ("product write per-source", [("source-a", "write:30:ok", "write:1:limited", "read:1:ok")]),
+    ("feedback per-source", [("source-a", "feedback:3:ok", "feedback:1:limited", "write:1:ok"),
+                             ("source-b", "feedback:3:ok")]),
     ("identity per-source", [("source-a", "identity-page:60:ok", "identity-resource:1:limited")]),
-    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
+    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited", "link-login:1:limited")]),
     ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
                                  "registration-slashes:1:limited", "login:1:ok")]),
     ("recovery per-source", [("source-a", "recovery:6:ok", "recovery:1:limited", "registration:1:ok")]),
@@ -669,11 +712,13 @@ BURSTS = [
                                                             "true-client-ip", "cluster-client-ip")]),
         ("source-b", "read:40:ok", "read:1:limited"),
     ]),
+    # Use the feedback zone's long window to test source grouping across
+    # separate container starts. The catalogue scenario above tests the short read window.
     ("IPv4 and IPv6 /64 sources", [
-        ("source-v6-a", "read:40:ok", "read:1:limited"),
-        ("source-v6-b", "read:1:limited"),
-        ("source-v6-c", "read:40:ok", "read:1:limited"),
-        ("source-a", "read:40:ok"),
+        ("source-v6-a", "feedback:3:ok", "feedback:1:limited"),
+        ("source-v6-b", "feedback:1:limited"),
+        ("source-v6-c", "feedback:3:ok", "feedback:1:limited"),
+        ("source-a", "feedback:3:ok"),
     ]),
     ("shared household", [("source-a", "household")]),
     # The BFF's issuer calls have their own budget; nothing else from its address does.
@@ -683,11 +728,15 @@ BURSTS = [
     ]),
 ]
 # Aggregate budgets scaled down: the first source's refused requests must not consume them.
-AGGREGATE_SCALE = [("zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 10s\n\t\t\t\tevents 600",
+AGGREGATE_SCALE = [("\t\t\t\twindow 24h\n\t\t\t\tevents 40",
+                    "\t\t\t\twindow 24h\n\t\t\t\tevents 4"),
+                   ("zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 10s\n\t\t\t\tevents 600",
                     "zone aggregate-application-api {\n\t\t\t\tmatch {\n\t\t\t\t\tpath /api/*\n\t\t\t\t}\n\t\t\t\tkey static\n\t\t\t\twindow 2m\n\t\t\t\tevents 50"),
                    ("\t\t\t\t\tkey static\n\t\t\t\t\twindow 1m\n\t\t\t\t\tevents 60\n",
                     "\t\t\t\t\tkey static\n\t\t\t\t\twindow 5m\n\t\t\t\t\tevents 8\n")]
 AGGREGATES = [
+    ("aggregate feedback", [("source-a", "feedback:3:ok", "feedback:1:limited"),
+                            ("source-b", "feedback:1:ok", "feedback:1:overloaded", "write:1:ok")]),
     ("aggregate API capacity", [("source-a", "read:40:ok", "read:5:limited"),
                                 ("source-b", "read:10:ok", "read:1:overloaded", "shell:1:ok")]),
     ("aggregate identity mail", [("source-a", "registration:6:ok", "registration:1:limited"),
@@ -732,13 +781,13 @@ GATE_MUTATIONS = [
 ]
 
 
-def run_scenario(edge, config, label, clients):
+def run_scenario(edge, config, label, clients, attempts=20):
     failures = []
     for client, *steps in clients:
         arguments = steps if steps[:1] == [LIMIT] else [LIMIT, *steps]
         if steps and steps[0] in ("probe", "backchannel"):
             arguments = steps
-        status, output = edge.probe(client, *arguments)
+        status, output = edge.probe(client, *arguments, attempts=attempts)
         if status != 0:
             failures.append(f"edge scenario '{label}' failed for {client}:\n{output}")
     return failures
@@ -768,6 +817,43 @@ def exercise_edge_metrics(edge):
             labels=re.findall(r'([a-zA-Z_][a-zA-Z_0-9]*)="',line.split('{',1)[1])
             assert set(labels) <= {'server','handler','code','method','le'}
     print('Private Caddy metrics and sanitized origin records distinguish 503s without client/limiter labels.')
+
+
+HANDOVER_STEPS = ("shell:2:ok", "read:2:ok", "write:2:ok", "callback:1:ok")
+
+
+def handover(edge, config, mutated=False):
+    """The application stops while its candidate serves, then returns; no request may fail.
+
+    A mutated edge waits its full failover budget per request, longer than the client's timeout:
+    one request, one attempt, so the expected failure is not retried as a startup race.
+    """
+    failures = []
+    edge.load(config, gate="ready")
+    run(edge.compose + ["--profile", "handover", "up", "--detach", "--wait", "--wait-timeout", "60", "candidate-stub"])
+    try:
+        run(edge.compose + ["stop", "application-stub"])
+        if mutated:
+            return run_scenario(edge, config, "handover to the candidate", [("source-a", "shell:1:ok")], attempts=1)
+        failures += run_scenario(edge, config, "handover to the candidate", [("source-a", *HANDOVER_STEPS)])
+        run(edge.compose + ["start", "application-stub"])
+        failures += run_scenario(edge, config, "both upstreams serving", [("source-b", *HANDOVER_STEPS)])
+    finally:
+        run(edge.compose + ["start", "application-stub"])
+        run(edge.compose + ["--profile", "handover", "rm", "--force", "--stop", "candidate-stub"])
+    failures += run_scenario(edge, config, "candidate retired", [("source-v6-a", *HANDOVER_STEPS)])
+    return failures
+
+
+def exercise_handover(edge, caddyfile, directory):
+    """ADR-0043 on the real edge: failover for every method, and its absence is detected."""
+    failures = handover(edge, edge_test_config(adapt(caddyfile, directory)))
+    mutated = caddyfile.replace(" application-candidate:8080", "")
+    assert mutated != caddyfile, "the handover mutation no longer applies to the Caddyfile"
+    if not handover(edge, edge_test_config(adapt(mutated, directory)), mutated=True):
+        failures.append("edge did not detect deliberate handover violation: candidate upstream removed")
+    print("Edge handover: application-only failover and 1 deliberate violation checked.")
+    return failures
 
 
 def exercise_limits(edge, caddyfile, directory):
@@ -974,6 +1060,14 @@ CADDY_STATIC_MUTATIONS = [
      "internal CA"),
     ("extra upstream", lambda text: text.replace("reverse_proxy application:8080", "reverse_proxy application:8081"),
      "must proxy only to application:8080"),
+    ("candidate preferred", lambda text: text.replace("application:8080 application-candidate:8080",
+                                                      "application-candidate:8080 application:8080"), "before its handover candidate"),
+    ("round-robin handover", lambda text: text.replace("\t\t\tlb_policy first\n", ""), "while it is available"),
+    ("sent requests replayed", lambda text: text.replace("\t\t\tlb_try_duration 15s\n",
+                                                         "\t\t\tlb_try_duration 15s\n\t\t\tlb_retry_match {\n\t\t\t\tmethod PUT\n\t\t\t}\n"),
+     "must not replay"),
+    ("unbounded failover wait", lambda text: text.replace("lb_try_duration 15s", "lb_try_duration 5m"), "bounded time"),
+    ("no passive failover", lambda text: text.replace("\t\t\tfail_duration 10s\n", ""), "only a failed dial"),
     ("metrics handler", lambda text: text.replace("\theader -Server\n", "\theader -Server\n\tmetrics /metrics\n", 1),
      "metrics handler"),
     ("forwarded header kept", lambda text: text.replace("\theader_up -Forwarded\n", ""), "must drop ['Forwarded']"),
@@ -1132,7 +1226,7 @@ def contract(arguments):
             with Edge(directory, env_file) as edge:
                 edge.load(edge_test_config(caddy_config), gate="ready")
                 exercise_edge_metrics(edge)
-                for service in ("prober", "backchannel-prober"):
+                for service in ("prober", "backchannel-prober", "candidate-backchannel"):
                     status, output = edge.probe(service)
                     print(output.strip().splitlines()[-1] if output.strip() else f"{service}: no output")
                     if status != 0:
@@ -1147,6 +1241,7 @@ def contract(arguments):
                         failures.append(f"edge did not detect deliberate violation: {label} (expected '{fragment}')")
                 print(f"Edge behaviour: {len(CADDY_ROUTE_MUTATIONS)} deliberate route violations checked.")
                 failures += exercise_limits(edge, caddyfile, directory)
+                failures += exercise_handover(edge, caddyfile, directory)
     return failures
 
 

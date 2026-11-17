@@ -126,12 +126,19 @@ html.login-pf body#keycloak-bg {
   text-transform: none;
 }
 
-#kc-header-wrapper::before {
+:is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
   display: block;
   width: 152px;
   height: 28px;
   background: url('../img/gameometro-logo.svg') left center / contain no-repeat;
   content: '';
+}
+
+#kc-header-wrapper > a {
+  display: flex;
+  min-height: inherit;
+  align-items: center;
+  text-decoration: none;
 }
 
 /* ------------------------------------------------------------------ Panel */
@@ -310,8 +317,7 @@ html.login-pf body#keycloak-bg {
   color: var(--gm-muted);
 }
 
-/* The terms that registration requires: a quiet plate whose first line names it, then the
-   declaration as one checkbox row the label can toggle. */
+/* The legal notice and its separate, native acknowledgement. */
 .form-group:has(#kc-registration-terms-text) > div {
   border: 1px solid var(--gm-line);
   border-radius: 4px;
@@ -323,14 +329,29 @@ html.login-pf body#keycloak-bg {
   line-height: 1.5;
 }
 
+.gm-registration-disclosure summary {
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.gm-registration-links {
+  margin: 8px 0 0;
+  color: var(--gm-muted);
+  font-weight: 400;
+}
+
 #kc-registration-terms-text {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--gm-muted);
   font-weight: 400;
 }
 
 #kc-registration-terms-text p {
   margin: 0;
+}
+
+#kc-registration-terms-text p + p {
+  margin-top: 8px;
 }
 
 .form-group:has(> div > #termsAccepted) > div:first-child {
@@ -536,6 +557,14 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
   text-align: left;
 }
 
+/* Owner decision (#474): neither a first password nor a recovery offers "sign out other
+   devices". The native option is unchecked by default, so hiding it keeps that behaviour;
+   the group goes too so no empty gap remains. */
+#kc-passwd-update-form #kc-form-options,
+#kc-passwd-update-form .pf-v5-c-form__group:has(> #kc-form-options) {
+  display: none;
+}
+
 #kc-form-options a,
 #kc-info-wrapper a,
 #kc-form-options .pf-v5-c-button.pf-m-link {
@@ -738,7 +767,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     margin-bottom: 40px;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     width: 174px;
     height: 32px;
   }
@@ -787,7 +816,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     margin: 0;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     width: 196px;
     height: 36px;
   }
@@ -895,7 +924,7 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
     color: CanvasText !important;
   }
 
-  #kc-header-wrapper::before {
+  :is(#kc-header-wrapper:not(:has(> a)), #kc-header-wrapper > a)::before {
     display: none;
   }
 
@@ -934,11 +963,94 @@ a.pf-v5-c-button:not(.pf-m-link):hover {
   }
 
   a,
-  .gm-exit a {
+  .gm-exit a,
+  #kc-header-wrapper > a {
     color: LinkText;
   }
 }
 
 .kc-login-tooltip .kc-tooltip-text {
   transition: none;
+}
+
+/* ------------------------------------------------------------------ Social sign-in (#548) */
+
+/* A hairline divider names the alternative; the provider buttons are secondary controls. */
+.gm-social-divider {
+  text-align: center;
+}
+
+.gm-social-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gm-social-button.pf-v5-c-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.gm-social-button:focus-visible {
+  outline: 2px solid var(--gm-ice-light);
+  outline-offset: 2px;
+}
+
+/* The provider marks keep their own colours: the parent theme's recolouring filter is undone. */
+#kc-social-providers svg.gm-social-mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+
+.gm-social-button.pf-m-aria-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .gm-social-mark {
+    forced-color-adjust: none;
+  }
+}
+
+.gm-link-actions {
+  display: grid;
+  gap: 10px;
+}
+
+/* The terms step after a provider sign-up presents the notice as the registration form does. */
+.gm-terms-notice {
+  margin-bottom: 24px;
+  border: 1px solid var(--gm-line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  color: var(--gm-ink);
+  background: var(--gm-control);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+#gm-terms-text {
+  margin-top: 8px;
+  color: var(--gm-muted);
+  font-weight: 400;
+}
+
+#gm-terms p {
+  margin: 0;
+}
+
+#gm-terms-text p + p {
+  margin-top: 8px;
 }

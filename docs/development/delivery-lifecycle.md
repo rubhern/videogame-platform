@@ -34,8 +34,9 @@ success/failure criteria, evidence, and adopt/change/reject decision.
 Use short-lived branches from current `main` and focused English commits. Material
 changes use a pull request describing scope, compatibility/version impact, API/data/
 security/accessibility/operations impact, validation, and residual risk. Required
-checks must pass and the owner reviews the complete diff. AI assistance is a second
-pass, not independent approval.
+checks must pass. The owner can enable GitHub auto-merge on a reviewed pull
+request without submitting a formal GitHub approval. AI assistance is a second
+pass. The owner still makes the deployment and release decisions.
 
 ## Semantic Versioning
 
@@ -87,18 +88,57 @@ owner, and expiry/removal condition.
 - Review dependency purpose, compatibility, licence, security, and rollback.
 - A merge or published image is not product acceptance. A named private release
   records version/tag, accepted journey evidence, known limits, and image digest.
-- Private-dev application promotion requires an explicit owner dispatch on main after
-  trusted-main evidence; dispatch is the sole human deployment approval. The dev
+- Private-dev application promotion requires an explicit owner dispatch on main.
+  It can be dispatched as soon as the merge lands. Only the
+  [private-dev admission evidence](continuous-integration.md#environment-admission)
+  needs to be ready to start promotion. Dispatch is the sole human deployment approval. The dev
   environment holds secrets and restricts the branch without a second reviewer gate.
   Successful deployment automation
   records technical smoke evidence; the owner still accepts the product/release.
-  Separate runtime/dependency rollouts, including the required private-dev catalogue
-  localizer, require their own reviewed operational decision and applied-runtime
-  acknowledgement before application promotion;
-  see the [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+  Promotion installs the dispatched revision on the host and reconciles its runtime
+  services, including the catalogue localizer
+  ([ADR-0039](../decisions/0039-let-private-dev-promotion-install-its-own-revision.md));
+  only new secrets, model weights and realm/role state remain owner steps. See the
+  [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+- Production deployment requires a selected, fully qualified `main` revision and
+  its immutable images. Group accepted private-dev changes into one candidate and
+  qualify its exact SHA before dispatch. Production deployment requires manual dispatch
+  of exact `main` and owner approval in the protected `production` environment. The
+  [Actions procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+  reuses the existing forward-only updater, durable S3 pair and isolated restore in a separate
+  protected `production-recovery` job, under [ADR-0036](../decisions/0036-use-protected-actions-for-production-recovery.md).
+  That environment requires its own owner approval; its key copy never reaches the deployment job/VPS. Initial access setup and first real-host acceptance require separate authorization;
+  workflow implementation alone passes no public gate. Every change must stay deployable
+  by the in-place upgrader; see [production upgrade compatibility](#production-upgrade-compatibility).
 - The owner-approved public-release direction does not authorize contracting or
   exposure. Apply the [public-production gates](#public-production-gates); no service,
   DNS/ingress or existing infrastructure is changed during the #252 investigation.
+
+### Production upgrade compatibility
+
+Production is updated only by the in-place upgrader
+(`scripts/private_production_upgrade.py`), which refuses any difference it has no reviewed
+rule for. A change that adds or alters any of the following must extend the upgrader in the
+same pull request:
+
+- a production runtime input (`deploy/public-production/runtime.env.example`);
+- a Compose secret, or a `*_FILE` setting that reads one;
+- an existing setting of a running service, including `KC_*` and other identity settings;
+- the service inventory, networks, volumes, or a file bound into PostgreSQL;
+- the realm import, beyond the reviewed session and registration-notice migrations.
+
+The extension is the narrowest reviewed rule. A new input gets a safe default the upgrader
+fills in, an owner-chosen value goes through the owner input keys, a new optional secret is
+created empty while its integration stays off, a changed setting gets an exact
+transition, and a new service is listed with its own networks and named volumes. The upgrader's reviewed-addition tables and the
+[production operator guide](../../deploy/public-production/README.md#reviewed-runtime-additions)
+own the mechanics.
+
+`scripts/test-private-production-upgrade-compatibility.py` enforces this in the
+production-runtime CI gate. It renders the accepted first installation and the pull
+request's base, then runs the upgrader's own checks against the changed tree. A failure there
+is the refusal `Deploy Production` would hit at `upgrade-plan`. Fix it with a reviewed
+upgrader rule, never by weakening the test or the upgrader.
 
 ## Public production gates
 
@@ -159,8 +199,9 @@ launch, with protected-state/evidence preservation.
 
 **Owner decision, 2026-10-17 (#274): conditionally accept the residual account
 enumeration risk of native Keycloak registration and the observed recovery timing
-branch.** Keep self-registration available to any adult under the approved account
-policy; do not develop a custom Keycloak extension. This replaces the absolute
+branch.** Keep self-registration available under the
+[approved account policy](../product/product-brief.md#public-release-and-sustainability)
+and retain Keycloak's native registration. This replaces the absolute
 registration non-enumeration criterion, not the other accounts/privacy, isolation,
 capacity or exposure gates. It approves a risk treatment, **not public opening or
 completion of its conditions**. The [R17 assessment](../research/public-release-rights-and-privacy.md#76-abuse-increment-and-r17-reassessment)
@@ -171,8 +212,8 @@ An existing submitted email can be distinguished from a new one at registration,
 including an unverified pending account. Recovery has a generic visible response but
 SMTP-dependent timing. This does not expose passwords, tokens, personal ratings or
 prove verified/active membership. Targeted inference, credential stuffing and mail
-abuse remain possible. Acceptance is proportionate to the adult, non-commercial
-videogame context with private personal data and no sensitive-topic membership;
+abuse remain possible. The original risk acceptance was assessed for an adult,
+non-commercial videogame service with private personal data and no sensitive-topic membership;
 custom authentication code would add security and upgrade-maintenance risk. It is
 not a claim of anonymity, timing indistinguishability or legal certification.
 
@@ -220,6 +261,7 @@ native self-registration enabled for restricted/disposable validation.
 - [ ] Acceptance criteria and approved scope are satisfied.
 - [ ] Boundaries and important invariants remain clear and tested.
 - [ ] Contracts, migrations, configuration, and documentation changed together when affected.
+- [ ] Production stays deployable: the [upgrader covers](#production-upgrade-compatibility) any changed runtime input, secret or protected setting.
 - [ ] Semantic Versioning impact is assessed and references are consistent.
 - [ ] Security, privacy, accessibility, provider, and operational impacts are addressed.
 - [ ] Relevant local checks and required current-commit CI evidence pass.

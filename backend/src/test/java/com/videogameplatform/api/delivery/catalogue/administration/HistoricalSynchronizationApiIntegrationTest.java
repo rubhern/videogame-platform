@@ -57,7 +57,10 @@ class HistoricalSynchronizationApiIntegrationTest {
     @Test
     void authorizedStartAndNamedResumeReturnDurableContractSnapshots() throws Exception {
         jdbc().update(
-                        "INSERT INTO catalogue.synchronization_coverage VALUES('IGDB',DATE '2024-01-01',DATE '2024-02-29',gen_random_uuid(),now(),now(),0)");
+                        "INSERT INTO catalogue.synchronization_coverage (provider,covered_from,covered_to,run_id,scan_started_at,scan_completed_at,failed_games,import_policy_revision) VALUES('IGDB',DATE '2024-01-01',DATE '2024-02-29',gen_random_uuid(),now(),now(),0,"
+                                + com.videogameplatform.catalogue.application.synchronization.port
+                                        .ImportPolicyRevision.CURRENT
+                                + ")");
         var response =
                 mvc.perform(
                                 post(PATH)

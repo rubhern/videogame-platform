@@ -20,8 +20,10 @@ import re
 import secrets
 import socket
 import statistics
+import subprocess
 import ssl
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -55,9 +57,11 @@ ISSUER = f"{ORIGIN}/realms/{REALM}"
 ADMIN_REALM = f"/admin/realms/{REALM}"
 
 INVALID_CREDENTIALS = "Email o contraseña incorrectos."
-DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso."
-DECLARATION_LABEL = "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro."
+DECLARATION_REQUIRED = "Para crear tu cuenta, acepta las condiciones de uso."
+DECLARATION_LABEL = "He leído y acepto las condiciones de uso de Gameómetro."
 VERIFY_TITLE = "Verifica tu email"
+ACTIVATION_INSTRUCTION = "Último paso para activar tu cuenta: crea la contraseña con la que iniciarás sesión."
+RECOVERY_INSTRUCTION = "Escribe tu nueva contraseña y confírmala."
 RECOVERY_SENT = "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña."
 # product_roles appears only for an account holding a BFF client role (#247).
 ID_TOKEN_CLAIMS = {"exp", "iat", "auth_time", "jti", "iss", "aud", "sub", "typ", "azp", "nonce", "sid", "at_hash", "product_roles", "gameometro_remember_me"}
@@ -304,7 +308,9 @@ def choose_password(browser: Browser, page: Response, email: str, password: str)
     assert user is not None
     stored_before = admin("GET", f"{ADMIN_REALM}/users/{user['id']}/credentials")
     for rejected, message in (
-        ("Corta-2026!", "La contraseña debe tener al menos 12 caracteres."),
+        ("Corta-7", "La contraseña debe tener al menos 8 caracteres."),
+        # The denylist compares case-insensitively.
+        ("PassWord123", "Esa contraseña es demasiado habitual."),
         ("x" * 129, "La contraseña puede tener como máximo 128 caracteres."),
         (email, "La contraseña no puede"),
         (f"Mi-{email}-2026", "La contraseña no puede contener tu email."),
@@ -320,6 +326,13 @@ def choose_password(browser: Browser, page: Response, email: str, password: str)
 def synthetic_password() -> str:
     """A fresh password that satisfies the realm policy; nothing reusable is committed."""
     password = "Gm-" + secrets.token_urlsafe(18)
+    remember(password)
+    return password
+
+
+def shortest_unicode_password() -> str:
+    """The policy minimum, eight characters, including non-ASCII letters."""
+    password = "Ñ" + secrets.token_urlsafe(6)[:6] + "é"
     remember(password)
     return password
 
@@ -358,12 +371,17 @@ assert status == 200 and len(clients) == 1
 status, secret = admin("GET", f"{ADMIN_REALM}/clients/{clients[0]['id']}/client-secret")
 assert status == 200 and secret["value"] == CLIENT_SECRET, "the client secret comes from the runtime input"
 
-# 2. Registration asks only for an email and the explicit adult and terms declaration.
+# 2. Registration asks only for an email and the explicit acceptance of the terms.
 device = Browser()
 login, _, _ = device.authorize()
 assert form_fields(login.body, "kc-form-login") == {"username", "password", "rememberMe"}
 assert "Email" in page_text(login.body)
 registration = device.open(page_link(login.body, "/login-actions/registration"))
+assert "Responsable: Rubén Hernández López" in page_text(registration.body)
+assert "Para prestar el servicio utilizamos proveedores externos" in page_text(registration.body)
+assert "no te pedimos que consientas" in page_text(registration.body)
+assert "/privacidad" in registration.body and "/condiciones" in registration.body
+assert "Texto aprobado por el titular" not in registration.body and "Internal editorial" not in registration.body
 assert form_fields(registration.body, "kc-register-form") == {"email", "termsAccepted"}, (
     "no name, birth date, identity document or pre-verification password is collected"
 )
@@ -433,14 +451,60 @@ other_device = Browser()
 confirmation = other_device.open(verification_link)
 assert f"Confirma que {player} es tu email." in page_text(confirmation.body), page_text(confirmation.body)[:300]
 password_page = other_device.open(page_link(confirmation.body, "/login-actions/action-token"))
+assert ACTIVATION_INSTRUCTION in page_text(password_page.body), page_text(password_page.body)[:300]
+assert RECOVERY_INSTRUCTION not in page_text(password_page.body), "first-time activation reads as recovery"
 player_password = synthetic_password()
 done = choose_password(other_device, password_page, player, player_password)
-assert "Tu cuenta se ha actualizado." in page_text(done.body), page_text(done.body)[:300]
+assert "Tu cuenta está lista. Ya puedes iniciar sesión." in page_text(done.body), page_text(done.body)[:300]
 verified = account_details(player)
 assert verified["emailVerified"] is True and verified.get("requiredActions", []) == []
 assert credentials(verified["id"]) == ["password"]
 reused = Browser().open(verification_link)
 assert "Tu email ya estaba verificado." in page_text(reused.body) and "kc-passwd-update-form" not in reused.body
+
+# Reproduce a persisted realm created before #475 and exercise the actual upgrade command.
+mapper_path = f"{ADMIN_REALM}/clients/{clients[0]['id']}/protocol-mappers/models"
+status, mappers = admin("GET", mapper_path)
+assert status == 200
+[profile_mapper] = [mapper for mapper in mappers if mapper["name"] == "private profile email"]
+assert admin("DELETE", f"{mapper_path}/{profile_mapper['id']}")[0] == 204
+before_answer, before_verifier, _ = sign_in(player, player_password)
+before_code = callback(before_answer)["code"]
+remember(before_code)
+status, before_tokens = token_request({
+    "grant_type": "authorization_code", "code": before_code,
+    "redirect_uri": REDIRECT_URI, "code_verifier": before_verifier,
+})
+assert status == 200
+before_userinfo = urllib.request.Request(
+    f"{ISSUER}/protocol/openid-connect/userinfo",
+    headers={"Authorization": f"Bearer {before_tokens['access_token']}"},
+)
+with urllib.request.urlopen(before_userinfo, context=TLS) as response:
+    assert json.load(response) == {"sub": verified["id"]}, "the old production client omits email"
+
+with tempfile.TemporaryDirectory() as directory:
+    command = [
+        sys.executable, "deploy/private-dev/bin/configure-keycloak-identity",
+        "--origin", ORIGIN, "--realm", REALM, "--sessions-only",
+        "--admin-username", ADMIN_USERNAME, "--admin-password-file", "/dev/stdin",
+    ]
+    environment = {**os.environ, "SSL_CERT_FILE": required_environment("KEYCLOAK_TEST_CA_FILE")}
+    def align(*options):
+        return subprocess.run([*command, *options], input=ADMIN_PASSWORD, text=True,
+                              env=environment, capture_output=True, timeout=30)
+
+    check = align("--check")
+    assert check.returncode == 1 and "private profile email" in check.stderr
+    applied = align("--snapshot-dir", directory)
+    assert applied.returncode == 0, applied.stderr
+    assert align("--check").returncode == 0
+    assert align("--snapshot-dir", directory).returncode == 0
+    [snapshot] = pathlib.Path(directory).iterdir()
+    assert json.loads(snapshot.read_text())["profileEmailMapper"] is None
+    assert align("--restore", str(snapshot)).returncode == 0
+    assert align("--check").returncode == 1
+    assert align("--snapshot-dir", directory).returncode == 0
 
 # 8. Sign-in returns a code only to the exact callback; the BFF's exchange gets minimal claims.
 answer, verifier, state = sign_in(player, player_password)
@@ -451,9 +515,11 @@ consumed_codes.append(returned["code"].split(".", 1)[0])
 status, tokens = token_request(
     {"grant_type": "authorization_code", "code": returned["code"], "redirect_uri": REDIRECT_URI, "code_verifier": verifier}
 )
-assert status == 200 and tokens["scope"] == "openid", tokens
+assert status == 200 and tokens["scope"] == "openid"
 identity = claims(tokens["id_token"])
 assert set(identity) <= ID_TOKEN_CLAIMS, f"unexpected ID-token claims: {set(identity) - ID_TOKEN_CLAIMS}"
+for token in ("id_token", "access_token", "refresh_token"):
+    assert "email" not in claims(tokens[token]), f"the {token} must omit the account email"
 assert identity["gameometro_remember_me"] is False, "registration without opt-in remains ordinary"
 assert "gameometro_remember_me" not in claims(tokens["access_token"]), "the mode claim is ID-token-only"
 assert not identity.get("product_roles"), "a newly registered account holds no product role"
@@ -463,7 +529,9 @@ userinfo = urllib.request.Request(
     f"{ISSUER}/protocol/openid-connect/userinfo", headers={"Authorization": f"Bearer {tokens['access_token']}"}
 )
 with urllib.request.urlopen(userinfo, context=TLS) as response:
-    assert json.load(response) == {"sub": verified["id"]}, "no profile data leaves Keycloak"
+    assert json.load(response) == {"sub": verified["id"], "email": player}, (
+        "UserInfo carries only the subject and the email of the same account"
+    )
 status, refreshed = token_request({"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]})
 assert status == 200 and refreshed["refresh_token"] != tokens["refresh_token"]
 status, reuse = token_request({"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]})
@@ -474,6 +542,8 @@ status, replay = token_request(
 assert status == 400 and replay["error"] == "invalid_grant"
 status, revoked = token_request({"grant_type": "refresh_token", "refresh_token": refreshed["refresh_token"]})
 assert status == 400 and revoked["error"] == "invalid_grant", "a replayed code revokes what it issued"
+
+print("Private profile email proven before and after existing-realm alignment; no email in tokens.")
 
 # 9. Verifying on the registering device resumes the original authorization to the BFF.
 resuming = Browser()
@@ -612,8 +682,9 @@ assert RECOVERY_SENT in page_text(answer.body)
 assert reset_mail["Subject"] == "Crea una nueva contraseña de Gameómetro"
 assert mailpit("/api/v1/search?" + urllib.parse.urlencode({"query": f'to:"{unknown}"'}))["messages_count"] == 0
 password_page = recovering.open(action_link(reset_mail))
-assert "Escribe tu nueva contraseña y confírmala." in page_text(password_page.body)
-recovered_password = synthetic_password()
+assert RECOVERY_INSTRUCTION in page_text(password_page.body)
+assert ACTIVATION_INSTRUCTION not in page_text(password_page.body), "recovery reads as activation"
+recovered_password = shortest_unicode_password()
 finished = choose_password(recovering, password_page, player, recovered_password)
 assert "code" in callback(finished), finished.location or page_text(finished.body)[:300]
 remember_code(callback(finished)["code"])

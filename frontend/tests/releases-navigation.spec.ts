@@ -16,7 +16,8 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/release-calendar**", route => route.fulfill({ status: 503, json: { code: "CATALOGUE_NOT_READY" } }));
 });
 
-for (const width of [320, 390, 834, 1320]) {
+// From tablet width the sections are visible; phones carry them in the Menú sheet (header spec).
+for (const width of [720, 834, 1320]) {
   test(`release disclosure supports touch, keyboard, active routes and history at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/?month=2026-08");
@@ -30,7 +31,7 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro"]);
     await expect(nav.getByRole("link", { name: "Destacados", exact: true })).toHaveAttribute("aria-current", "page");
-    const panel = page.locator(".releases-panel");
+    const panel = page.locator(".releases-panel").filter({ visible: true });
     const box = await panel.boundingBox();
     if (!box) throw new Error("The releases panel is not rendered");
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -96,7 +97,12 @@ test("direct canonical links reload and forced colours keep current navigation a
 for (const forcedColors of ["none", "active"] as const) {
   test(`route and skip-link focus never draw a page outline with forced colours ${forcedColors}`, async ({ page }) => {
     await page.emulateMedia({ forcedColors, reducedMotion: "reduce" });
+    // A keyboard route change from the home focuses the main landmark without drawing it.
     await page.goto("/");
+    await page.getByRole("button", { name: "Lanzamientos", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
     const main = page.getByRole("main");
     await expect(main).toBeFocused();
@@ -127,7 +133,7 @@ for (const forcedColors of ["none", "active"] as const) {
   });
 }
 
-for (const path of ["/", "/lanzamientos/destacados", "/lanzamientos/destacados?granularity=month"]) {
+for (const path of ["/lanzamientos/destacados", "/lanzamientos/destacados?granularity=month", "/?granularity=month"]) {
   test(`cold navigation keeps the featured loading surface while its read is pending: ${path}`, async ({ page }) => {
     await page.route("**/api/v1/featured-releases*", () => undefined);
     await page.goto(path);

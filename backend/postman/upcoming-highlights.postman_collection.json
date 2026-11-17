@@ -1,0 +1,387 @@
+{
+  "info": {
+    "_postman_id": "721554fd-7883-5bb8-8610-d7ee29f15fb4",
+    "name": "VideoGame Platform Backend - Upcoming Highlights",
+    "description": "Executable examples for the OpenAPI GET /api/v1/platform-upcoming-highlights contract (UC-020, Próximos destacados) implemented through the Maven-generated UpcomingHighlightsApi interface and one bounded PostgreSQL statement. Runs against the local database; no provider credential or request-path provider call is required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Upcoming highlights of a featured platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-upcoming-highlights contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body.window).to.have.all.keys(\"from\", \"to\");",
+              "    pm.expect(body.window.from).to.eql(body.evaluatedOn);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items.length).to.be.at.most(10);",
+              "    if (body.selection.status !== \"ranked\") pm.expect(body.items).to.be.empty;",
+              "    body.items.forEach(function (item, index) {",
+              "        pm.expect(item).to.have.all.keys(\"position\", \"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"genres\", \"platformRelease\");",
+              "        pm.expect(item.position).to.eql(index + 1);",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease.status).to.eql(\"scheduled\");",
+              "        pm.expect([\"day\", \"month\", \"quarter\"]).to.include(item.platformRelease.releaseDate.precision);",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"The horizon is six calendar months from the Madrid evaluation date\", function () {",
+              "    const body = pm.response.json();",
+              "    const from = new Date(body.window.from + \"T00:00:00Z\");",
+              "    const to = new Date(body.window.to + \"T00:00:00Z\");",
+              "    const days = Math.round((to - from) / 86400000);",
+              "    pm.expect(days).to.be.within(179, 184);",
+              "});",
+              "",
+              "pm.test(\"Each game appears once, only from the scope and without a Hypes value\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(scope).to.include(item.platformRelease.platform.platformId);",
+              "        pm.expect(item).to.not.have.property(\"hypes\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Public headers carry a validator\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "    pm.collectionVariables.set(\"upcomingHighlightsEtag\", pm.response.headers.get(\"ETag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights?platformIds=10000000-0000-4000-8000-000000000001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        "description": "UC-020: the ten most anticipated games still to come on PlayStation 5 within six calendar months, ranked by locally stored positive IGDB Hypes, then gameId. A fresh seeded database may hold no qualifying release, and an empty selection is a valid outcome."
+      },
+      "response": []
+    },
+    {
+      "name": "Conditional upcoming highlights read",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Equivalent validator returns 304\", function () {",
+              "    pm.response.to.have.status(304);",
+              "    pm.expect(pm.response.text()).to.eql(\"\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"upcomingHighlightsEtag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "{{upcomingHighlightsEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights?platformIds=10000000-0000-4000-8000-000000000001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        "description": "Reuses the preceding response validator. Run the collection in order."
+      },
+      "response": []
+    },
+    {
+      "name": "Platform family scope",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test(\"Response follows the reviewed platform-upcoming-highlights contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"platforms\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body.window).to.have.all.keys(\"from\", \"to\");",
+              "    pm.expect(body.window.from).to.eql(body.evaluatedOn);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items.length).to.be.at.most(10);",
+              "    if (body.selection.status !== \"ranked\") pm.expect(body.items).to.be.empty;",
+              "    body.items.forEach(function (item, index) {",
+              "        pm.expect(item).to.have.all.keys(\"position\", \"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"genres\", \"platformRelease\");",
+              "        pm.expect(item.position).to.eql(index + 1);",
+              "        pm.expect(item.genres.length).to.be.at.most(2);",
+              "        pm.expect(item.platformRelease.status).to.eql(\"scheduled\");",
+              "        pm.expect([\"day\", \"month\", \"quarter\"]).to.include(item.platformRelease.releaseDate.precision);",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"The horizon is six calendar months from the Madrid evaluation date\", function () {",
+              "    const body = pm.response.json();",
+              "    const from = new Date(body.window.from + \"T00:00:00Z\");",
+              "    const to = new Date(body.window.to + \"T00:00:00Z\");",
+              "    const days = Math.round((to - from) / 86400000);",
+              "    pm.expect(days).to.be.within(179, 184);",
+              "});",
+              "",
+              "pm.test(\"Each game appears once, only from the scope and without a Hypes value\", function () {",
+              "    const body = pm.response.json();",
+              "    const scope = body.platforms.map(function (platform) { return platform.platformId; });",
+              "    const ids = body.items.map(function (item) { return item.gameId; });",
+              "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(scope).to.include(item.platformRelease.platform.platformId);",
+              "        pm.expect(item).to.not.have.property(\"hypes\");",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"The family is named by both product platforms\", function () {",
+              "    pm.expect(pm.response.json().platforms.length).to.eql(2);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights?platformIds=10000000-0000-4000-8000-000000000001&platformIds=10000000-0000-4000-8000-000000000004",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000004"
+            }
+          ]
+        },
+        "description": "A family is sent as the product platform identifiers it groups and combined with OR before ranking; no platform entity is invented."
+      },
+      "response": []
+    },
+    {
+      "name": "Missing platform scope",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () { pm.response.to.have.status(400); });",
+              "pm.test(\"A missing scope is a malformed request\", function () {",
+              "    pm.expect(pm.response.json().code).to.eql(\"REQUEST_MALFORMED\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ]
+        },
+        "description": "The scope is required: the ranking is always that of an explicit platform."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown upcoming highlights platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () { pm.response.to.have.status(422); });",
+              "pm.test(\"An unknown platform is a stable validation error\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/platformIds\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights?platformIds=platform_unknown",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "platform_unknown"
+            }
+          ]
+        },
+        "description": "A platform outside the local taxonomy is rejected before anything is ranked."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown upcoming highlights parameter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () { pm.response.to.have.status(422); });",
+              "pm.test(\"The horizon is never chosen by the visitor\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/month\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/platform-upcoming-highlights?platformIds=10000000-0000-4000-8000-000000000001&month=2026-11",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform-upcoming-highlights"
+          ],
+          "query": [
+            {
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "month",
+              "value": "2026-11"
+            }
+          ]
+        },
+        "description": "The horizon and ranking are fixed product rules; the API rejects any date, order or filter parameter instead of ignoring it."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "upcomingHighlightsEtag",
+      "value": ""
+    }
+  ]
+}

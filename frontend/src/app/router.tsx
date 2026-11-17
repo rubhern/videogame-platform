@@ -1,45 +1,64 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
+import { AboutPage } from "../pages/about-page";
+import { ContactPage } from "../pages/contact-page";
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { FeaturedReleasesPage } from "../pages/featured-releases-page";
-import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
+import { HomePage } from "../pages/home-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { PlatformCataloguePage } from "../pages/platform-catalogue-page";
+import { PlatformTopometroPage } from "../pages/platform-topometro-page";
+import { PlatformsPage } from "../pages/platforms-page";
+import { PlatformUpcomingPage } from "../pages/platform-upcoming-page";
 import { ReleaseCalendarPage } from "../pages/release-calendar-page";
 import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
 import { TopometroPage } from "../pages/topometro-page";
+import { MyProfilePage, AccountDeletionPage } from "../pages/my-profile-page";
 import { MyPlatformsPage } from "../pages/my-platforms-page";
 import { RatingInsightsPage } from "../pages/rating-insights-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { WelcomePage } from "../pages/welcome-page";
-import { legalPublicationApproved } from "../shared/legal/publication";
+import { PLATFORM_CATALOGUE_ROUTE } from "../features/platform-catalogue/platform-catalogue-search";
+import { PLATFORM_TOPOMETRO_ROUTE } from "../features/rankings/ranking-search";
+import { PLATFORM_UPCOMING_ROUTE } from "../features/upcoming-highlights/upcoming-highlights-path";
 import { legalRoutes } from "../shared/legal/legal-routes";
 import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { routeReadiness } from "./route-readiness";
 import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
 import { MemoryScrollRestoration } from "./memory-scroll-restoration";
+import { navigationLoadingDemoRoutes } from "./navigation-loading-demo";
 
 export const appRoutes: RouteObject[] = [
   {
     path: "/",
     element: <AppShell />,
     children: [
-      { index: true, element: <DiscoveryPage /> },
+      { index: true, element: <HomePage /> },
       { path: "lanzamientos/destacados", element: <FeaturedReleasesPage /> },
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "lanzamientos/calendario", element: <ReleaseCalendarPage /> },
       { path: "topometro", element: <TopometroPage /> },
+      { path: "plataformas", element: <PlatformsPage /> },
+      { path: PLATFORM_CATALOGUE_ROUTE, element: <PlatformCataloguePage /> },
+      { path: PLATFORM_TOPOMETRO_ROUTE, element: <PlatformTopometroPage /> },
+      { path: PLATFORM_UPCOMING_ROUTE, element: <PlatformUpcomingPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
+      { path: "mi-perfil", element: <MyProfilePage /> },
+      { path: "mi-perfil/borrado", element: <AccountDeletionPage /> },
       { path: "mis-plataformas", element: <MyPlatformsPage /> },
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
-      ...(import.meta.env.DEV || legalPublicationApproved ? legalRoutes(true) : []),
+      { path: "sobre-gameometro", element: <AboutPage /> },
+      { path: "contacto", element: <ContactPage /> },
+      ...legalRoutes(),
+      ...(import.meta.env.DEV ? navigationLoadingDemoRoutes : []),
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -56,7 +75,13 @@ export function createAppRouter(queryClient: QueryClient, interests: InterestsSw
           ...child,
           // Initial restoration needs the ready page's height, not its fallback.
           element: <>{child.element}<MemoryScrollRestoration /></>,
-          loader,
+          loader: child.loader ?? loader,
+          ...(child.index ? {
+            shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+              currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search
+                ? false
+                : defaultShouldRevalidate,
+          } satisfies Pick<RouteObject, "shouldRevalidate"> : {}),
           ...(child.path?.startsWith("games/") ? {
             // The public game read has no query parameters. Consuming an auth
             // marker must not refetch over a rating command's returned aggregate.

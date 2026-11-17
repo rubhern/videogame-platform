@@ -4,7 +4,7 @@
 - **Date:** 2026-10-03
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
-- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151); amended by [#329](https://github.com/rubhern/videogame-platform/issues/329)
+- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151); amended by [#329](https://github.com/rubhern/videogame-platform/issues/329) and [#457](https://github.com/rubhern/videogame-platform/issues/457)
 
 ## Context
 
@@ -98,6 +98,52 @@ decisions above are unchanged.
   far forward months may be browsed. A game whose first-release evidence lies in another week
   than its catalogued day appears in its month and in no week.
 
+## Amendment 2026-11-06
+
+[#457](https://github.com/rubhern/videogame-platform/issues/457) changes who competes. The owner
+compared November 2026 in Destacados and Explorar, saw two different "most hyped" lists for one
+month, and decided that Destacados must include everything Explorar includes. Hypes stays the only
+signal; IGDB's other popularity measures were compared and left out.
+
+- **Selection.** For one period and platforms, Destacados is the head of the explorer's Hype order,
+  counting only positive Hypes and leaving approximate dates out as the explorer's default does. This
+  replaces the Full Release, first-release, distinct-product, delay and pending-review gates of the
+  decision above and the "same rule, narrower period" of the previous amendment. Both reads share
+  one SQL definition.
+- **Evidence kept.** Featured evidence still carries the first-release date and eligibility.
+  Próximos destacados reads the eligibility, while the first-release date no longer has a product
+  reader; removing it is a separate schema decision.
+- **Accepted consequences.** A port or an early access launch can be *Lanzamiento del mes*, and its
+  hero and card state *Acceso previo* or *Acceso anticipado*. A game launched years ago can feature
+  with Hypes its new release did not earn, because Hypes belong to the Game. A game can feature in
+  several periods. Editions compete with their base game. New platform releases of older games take
+  places from new launches: on 6 November 2026, November holds Stellar Blade, Zero Parades and
+  Metaphor: ReFantazio instead of Dreadmoor, Tanuki and Void/Breaker.
+- **Evidence.** Over the generated 100k-release catalogue the query keeps the period index and has no
+  sequential scan of releases, games, featured evidence or media, at about 6 ms for a month and 4 ms
+  for a week. On the private-dev catalogue, November 2026 took about 15 ms. These are point-in-time
+  plans, not latency gates.
+
+## Amendment 2026-11-12
+
+[ADR-0041](0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md), proposed for
+[#458](https://github.com/rubhern/videogame-platform/issues/458), replaces the ranking signal. Release
+attention combines Hypes, Want to Play and Visits with an operator-loaded editorial anticipation list.
+The selection rule of the 2026-11-06 amendment, the evidence kept here, the media policy and the
+navigation bounds are unchanged, except that only launches (full or unknown stage) now feature: the
+2026-11-06 consequence that an early access launch can be *Lanzamiento del mes* no longer holds. The
+calendar's Hypes threshold and sums (`UC-016`) stay, counted over launches only.
+
+## Amendment 2026-11-12 (#450)
+
+[ADR-0042](0042-manage-approved-product-settings-in-postgresql.md), proposed for [#450](https://github.com/rubhern/videogame-platform/issues/450), makes the
+navigation bounds operator product settings: weeks back and forward, months back and months
+forward, with the previous values as defaults except months forward, which defaults to five. The
+owner decided that months forward are no longer clipped to the forward acquisition horizon of the
+2026-10-17 amendment: the setting decides, and the administration panel warns when it reaches
+beyond the horizon. The calendar's minimum Hypes, interest bands and day preview size are settings
+too. The ranking rule, evidence and media policy are unchanged.
+
 ## Alternatives considered
 
 - **Call IGDB from the featured request:** rejected by ADR-0004; provider latency and
@@ -152,4 +198,4 @@ when recurring automatic synchronization is approved, when a month's candidates 
 to tens of thousands (the signal is probed once per candidate), when IGDB documents or
 changes the image-type labels the media policy reads (title key art, covers, logos and
 icons are observed, undocumented labels), or when IGDB changes Hypes' meaning
-or terms. Any multi-signal score needs its own decision.
+or terms. Any multi-signal score needs its own decision; ADR-0041 is that decision.

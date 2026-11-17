@@ -4,7 +4,7 @@
 
 Runs where the runtime is (the private-dev host or a disposable gate) and keeps no state: the
 owner's personal-data-ledger drives it, records every step before and after it runs, and replays
-the recorded erasures after a restore. Accounts are addressed only by their Keycloak user ID; the
+the recorded erasures after a production restore. Accounts are addressed only by their Keycloak user ID; the
 product UserId is derived from the exact OIDC issuer the application uses, as the BFF does.
 
 Every command prints one JSON object. `export` and the restricted archive read commands
@@ -20,12 +20,12 @@ import datetime
 import hashlib
 import importlib.machinery
 import importlib.util
-import ipaddress
 import json
 import pathlib
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -35,7 +35,6 @@ sys.dont_write_bytecode = True
 
 repository_root = pathlib.Path(__file__).resolve().parents[3]
 compose_file = repository_root / "deploy/private-dev/compose.yaml"
-rehearsal_override = repository_root / "deploy/private-dev/compose.restore-rehearsal.yaml"
 # Connection handling and the admin client stay owned by the existing Keycloak commands.
 _loader = importlib.machinery.SourceFileLoader(
     "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
@@ -154,6 +153,10 @@ class Runtime:
         found = self.keycloak("GET", f"/users/{keycloak_user_id}/sessions", missing_ok=True)
         return found if isinstance(found, list) else []
 
+    def linked_providers(self, keycloak_user_id: str) -> list[dict[str, object]]:
+        found = self.keycloak("GET", f"/users/{keycloak_user_id}/federated-identity", missing_ok=True)
+        return found if isinstance(found, list) else []
+
     # Application database -------------------------------------------------------------------
 
     def sql(self, statement: str, user_id: str) -> str:
@@ -197,11 +200,16 @@ class Runtime:
         return json.loads(rows)
 
     def delete_ratings(self, user_id: str) -> int:
-        return int(self.sql(
-            "WITH deleted AS (DELETE FROM ratings.rating WHERE user_id = :'user_id' RETURNING 1)\n"
-            "SELECT count(*) FROM deleted;\n",
-            user_id,
-        ))
+        statement = (repository_root / "deploy/private-dev/lib/erase-rating-batch.sql").read_text()
+        total, deadline = 0, time.monotonic() + 120
+        for _ in range(100):
+            if time.monotonic() >= deadline:
+                raise ProvisioningError("Erasure batch budget reached; retry the same ledger entry")
+            deleted = int(self.sql(statement, user_id))
+            total += deleted
+            if deleted < 100:
+                return total
+        raise ProvisioningError("Erasure row budget reached; retry the same ledger entry")
 
     # Preferred platforms (#295) live in Catalogue beside the taxonomy they name. A database
     # restored from before they existed has no such table, which simply holds nothing to erase.
@@ -405,6 +413,12 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         for session in runtime.keycloak_sessions(keycloak_user_id)
     ]
     sessions.sort(key=lambda session: (session["startedAt"] or "", session["lastAccessAt"] or ""))
+    # Google or Microsoft sign-in (ADR-0045): which provider and the identifiers it gave the account.
+    # Keycloak keeps no provider token (storeToken is off), so there is none to leave out.
+    linked = sorted(
+        ({"provider": link.get("identityProvider"), "providerUserId": link.get("userId"),
+          "providerUsername": link.get("userName")} for link in runtime.linked_providers(keycloak_user_id)),
+        key=lambda link: str(link["provider"]))
     return {
         "format": EXPORT_FORMAT,
         "version": 1,
@@ -412,6 +426,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "productUserId": user_id,
         "account": profile,
         "identitySessions": sessions,
+        "linkedSignIn": linked,
         "ratings": runtime.ratings(user_id),
         "preferredPlatforms": runtime.preferred_platforms(user_id),
     }
@@ -493,12 +508,10 @@ STEPS = {
 }
 
 
-def compose_command(env_file: pathlib.Path, project: str, live_project: str) -> list[str]:
-    command = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file)]
-    if project != live_project:
-        command += ["--file", str(rehearsal_override)]
+def compose_command(env_file: pathlib.Path, project: str) -> list[str]:
     # The application service sits behind the profile that deployments select.
-    return command + ["--project-name", project, "--profile", "application"]
+    return ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file),
+            "--project-name", project, "--profile", "application"]
 
 
 def compose_container(compose: list[str], service: str) -> str | None:
@@ -528,31 +541,14 @@ def compose_issuer(compose: list[str]) -> str:
     return issuer
 
 
-def loopback_origin(value: str) -> str:
-    parsed = urllib.parse.urlparse(value)
-    try:
-        loopback = parsed.hostname is not None and ipaddress.ip_address(parsed.hostname).is_loopback
-    except ValueError:
-        loopback = False
-    if parsed.scheme != "http" or not loopback or not parsed.port or parsed.path not in ("", "/"):
-        raise ProvisioningError("--keycloak-origin must be a loopback origin such as http://127.0.0.1:<port>")
-    return value.rstrip("/")
-
-
 def private_dev_runtime(arguments: argparse.Namespace) -> Runtime:
     env_file = arguments.private_dev_env_file.resolve(strict=True)
     origin, username, password = mail.private_dev_connection(env_file)
-    live_project = provisioning.parse_runtime_environment(env_file).get("COMPOSE_PROJECT_NAME", LIVE_PROJECT)
-    project = arguments.project or live_project
+    # Private-dev keeps no backups, so the live project is the only private-dev target.
+    project = provisioning.parse_runtime_environment(env_file).get("COMPOSE_PROJECT_NAME", LIVE_PROJECT)
     if not PROJECT_NAME.fullmatch(project):
-        raise ProvisioningError("--project must be a lower-case Compose project name")
-    if arguments.keycloak_origin:
-        # Restores reach Keycloak on its loopback port: an isolated project publishes only that,
-        # and a rebuilt host may not serve the private HTTPS origin yet.
-        origin = loopback_origin(arguments.keycloak_origin)
-    elif project != live_project:
-        raise ProvisioningError("A restored project needs --keycloak-origin")
-    compose = compose_command(env_file, project, live_project)
+        raise ProvisioningError("COMPOSE_PROJECT_NAME must be a lower-case Compose project name")
+    compose = compose_command(env_file, project)
     postgres = compose_container(compose, "postgres")
     if not postgres:
         raise ProvisioningError(f"PostgreSQL is not running in project {project}")
@@ -600,8 +596,6 @@ def main() -> int:
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--private-dev-env-file", type=pathlib.Path, help="Protected private-dev runtime.env")
     target.add_argument("--origin", help="Keycloak origin of a disposable runtime (tests)")
-    parser.add_argument("--project", help="Compose project; a restored one instead of the live project")
-    parser.add_argument("--keycloak-origin", help="Loopback Keycloak origin; required for a restored project")
     parser.add_argument("--admin-username", help="With --origin")
     parser.add_argument("--admin-password-file", type=pathlib.Path, help="With --origin")
     parser.add_argument("--issuer", help="With --origin: the application's exact OIDC issuer")
@@ -627,8 +621,6 @@ def main() -> int:
         canonical_uuid(arguments.user_id, "--user-id")
     if arguments.command in STEPS and arguments.user_id is None:
         parser.error(f"{arguments.command} requires --user-id")
-    if arguments.origin and (arguments.project or arguments.keycloak_origin):
-        parser.error("--project and --keycloak-origin apply only to --private-dev-env-file")
 
     runtime = explicit_runtime(arguments) if arguments.origin else private_dev_runtime(arguments)
     if arguments.command == "cleanup-candidates":

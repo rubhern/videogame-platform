@@ -1,11 +1,14 @@
 package com.videogameplatform.catalogue.application.rankings;
 
+import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
+import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.ExternalPlayerScore;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One page of one source's ranking of the current local publication. Every identifier is a
@@ -23,7 +26,10 @@ public record GameRanking(
         items = List.copyOf(items);
     }
 
-    /** One ranked game and the reading of the ranked source that placed it. */
+    /**
+     * One ranked game and the reading of the ranked source that placed it. {@code platformRelease}
+     * is present exactly on a platform-scoped ranking.
+     */
     public record Item(
             long position,
             String gameId,
@@ -32,13 +38,32 @@ public record GameRanking(
             CatalogueCover primaryCover,
             List<GameDetailsResult.Term> genres,
             ReleaseSummary releaseSummary,
+            Optional<PlatformRelease> platformRelease,
             Score score) {
         public Item {
             if (position < 1) {
                 throw new IllegalArgumentException("A ranking position is one-based");
             }
             genres = List.copyOf(genres);
+            Objects.requireNonNull(platformRelease, "platformRelease");
             Objects.requireNonNull(score, "score");
+        }
+    }
+
+    /**
+     * The eligible release that presents a ranked game on the platform scope (RNK-005), at its own
+     * precision, with its effective status.
+     */
+    public record PlatformRelease(
+            Taxonomy platform,
+            Taxonomy region,
+            CatalogueReleaseDate releaseDate,
+            CatalogueReleaseStatus status) {
+        public PlatformRelease {
+            Objects.requireNonNull(platform, "platform");
+            Objects.requireNonNull(region, "region");
+            Objects.requireNonNull(releaseDate, "releaseDate");
+            Objects.requireNonNull(status, "status");
         }
     }
 

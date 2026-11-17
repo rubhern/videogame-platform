@@ -57,6 +57,8 @@ categories=(
   identity
   provider_fixtures
   container
+  private_dev_runtime
+  localization_image
   production_runtime
   dependency_images
   build
@@ -97,16 +99,15 @@ else
     exit 2
   fi
   git rev-parse --verify "${head_sha}^{commit}" >/dev/null
+  paths_file="$(mktemp)"
+  trap 'rm -f -- "$paths_file"' EXIT
   if [[ "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
-    while IFS= read -r -d '' path; do
-      changed_paths+=("$path")
-    done < <(git diff-tree --root --no-commit-id --recursive --name-only -z --no-renames "$head_sha")
+    git diff-tree --root --no-commit-id --recursive --name-only -z --no-renames "$head_sha" >"$paths_file"
   else
     git rev-parse --verify "${base_sha}^{commit}" >/dev/null
-    while IFS= read -r -d '' path; do
-      changed_paths+=("$path")
-    done < <(git diff --name-only -z --no-renames "$base_sha" "$head_sha")
+    git diff --name-only -z --no-renames "$base_sha" "$head_sha" >"$paths_file"
   fi
+  mapfile -d '' -t changed_paths <"$paths_file"
 fi
 
 unknown_path=false
@@ -123,7 +124,7 @@ for path in "${changed_paths[@]}"; do
       enable documentation openapi frontend backend
       matched=true
       ;;
-    .github/workflows/* | .github/dependabot.yml | scripts/detect-ci-changes.sh | scripts/test-ci-change-detection.sh | scripts/verify-ci-results.sh | scripts/validate-actions.sh)
+    .github/workflows/* | .github/actions/* | .github/dependabot.yml | scripts/detect-ci-changes.sh | scripts/test-ci-change-detection.sh | scripts/verify-ci-results.sh | scripts/validate-actions.sh)
       enable ci documentation
       matched=true
       ;;
@@ -144,16 +145,16 @@ for path in "${changed_paths[@]}"; do
       enable build frontend browser backend container
       matched=true
       ;;
-    docker/keycloak/themes/*)
-      # The theme is baked into the published production Keycloak image.
+    docker/keycloak/themes/* | docker/keycloak/password-blacklists/* | scripts/build-password-denylist.py)
+      # The theme and the password denylist are baked into the published production Keycloak image.
       enable identity browser backend dependency_images
       matched=true
       ;;
-    docker/keycloak/remember-me-mapper/* | scripts/probe-remember-me-trust.*)
+    docker/keycloak/remember-me-mapper/* | docker/keycloak/brokered-terms/* | scripts/probe-remember-me-trust.*)
       enable identity browser backend dependency_images
       matched=true
       ;;
-    scripts/validate-identity.sh | scripts/test-keycloak-theme.py | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
+    scripts/validate-identity.sh | scripts/test-keycloak-theme.py | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application*.yaml)
       enable identity browser backend
       matched=true
       ;;
@@ -162,16 +163,21 @@ for path in "${changed_paths[@]}"; do
       enable identity production_runtime
       matched=true
       ;;
+    deploy/private-dev/bin/configure-social-sign-in | scripts/validate-social-sign-in.sh | scripts/test-social-sign-in-keycloak.py | scripts/production_social_sign_in.py | scripts/test-production-social-sign-in.py)
+      # Social sign-in (ADR-0045): the actor's journeys run on real Keycloak; the host tool is an operation.
+      enable identity production_runtime
+      matched=true
+      ;;
     deploy/public-production/caddy/*)
       # The edge image is rebuilt and scanned, and its Caddyfile is exercised by the runtime contract.
       enable production_runtime dependency_images
       matched=true
       ;;
-    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/test-production-cleanup.py | scripts/rehearse-production-cleanup.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
+    deploy/public-production/* | scripts/prepare_private_production.py | scripts/install_private_production.py | scripts/private_production_control.py | scripts/private_production_acceptance.py | scripts/private_production_upgrade.py | scripts/production_deploy.py | scripts/production_deployment_evidence.py | scripts/production_recovery_executor.py | scripts/test-production-deploy*.py | scripts/production_registration_notice.py | scripts/private_production_admin.py | scripts/production_public_ingress.py | scripts/test-production-public-ingress.py | scripts/rehearse-private-production-upgrade.py | scripts/validate_private_production_truststore.py | scripts/test-private-production-*.py | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py | scripts/public_production_integration.py | scripts/test-public-production-integration.py | scripts/public_production_deployment.py | scripts/test-public-production-deployment.py | scripts/run-production-runtime-browser.sh | scripts/test-production-recovery*.py | scripts/test-production-identity-maintenance.py | scripts/test-production-cleanup.py | scripts/test-production-unverified-cleanup.py | scripts/test-production-account-deletion.py | scripts/rehearse-production-cleanup.py | scripts/measure-edge-limiter-memory.py | scripts/rehearse-production-recovery.py | scripts/reconstruct-production-recovery.py | scripts/test-production-observability.py | scripts/production_observability_smoke.py | scripts/fixtures/production-telemetry.py)
       enable production_runtime
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py)
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/fixtures/private-dev-identity/* | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py | scripts/test-private-dev-account-deletion-runner.py | scripts/test-account-deletion*.py)
       # The production realm and its BFF contract are proven only by the real Keycloak identity gate.
       enable identity
       matched=true
@@ -192,41 +198,41 @@ for path in "${changed_paths[@]}"; do
       ;;
     deploy/private-dev/bin/run-application | deploy/private-dev/bin/run-migrations)
       # Environment-neutral secret wrappers that the production runtime also mounts.
-      enable documentation build backend migrations identity container production_runtime
+      enable documentation build backend migrations identity container private_dev_runtime production_runtime
       matched=true
       ;;
     scripts/provision-grafana-reader.sh)
-      enable documentation build backend migrations identity container production_runtime
+      enable documentation build backend migrations identity container private_dev_runtime production_runtime
       matched=true
       ;;
     deploy/private-dev/grafana/* | deploy/private-dev/prometheus/* | deploy/private-dev/otel/* | deploy/private-dev/compose.observability.yaml)
       # Canonical definitions feed both private-dev and the production telemetry candidate.
-      enable documentation build backend migrations identity container production_runtime
+      enable documentation build backend migrations identity container private_dev_runtime production_runtime
       matched=true
       ;;
     deploy/private-dev/keycloak/*)
       # One Keycloak recipe for local, private-dev and the published production image.
-      enable documentation build backend migrations identity container dependency_images
+      enable documentation build backend migrations identity container private_dev_runtime dependency_images
       matched=true
       ;;
-    deploy/private-dev/lib/backup-common.sh | deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger)
-      enable documentation build backend migrations identity container production_runtime
+    deploy/private-dev/bin/personal-data | deploy/private-dev/bin/personal-data-ledger | deploy/private-dev/bin/personal-data-self-service | deploy/private-dev/bin/personal-data-self-service-runner | deploy/private-dev/lib/personal_data_cloud.py | deploy/private-dev/lib/personal_data_archive.py | scripts/test-personal-data-cloud.py)
+      enable documentation build backend migrations identity container private_dev_runtime production_runtime
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
-      enable documentation build backend migrations identity container
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-account-deletion.py | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | scripts/test-historical-sync-pilot.py | scripts/fixtures/historical-sync-pilot/* | deploy/private-dev/*)
+      enable documentation build backend migrations identity container private_dev_runtime
       matched=true
       ;;
     scripts/backend-artifact.sh)
       enable documentation build browser backend identity container
       matched=true
       ;;
-    scripts/local-dependencies.sh | scripts/test-local-observability.sh | scripts/test-local-localization.sh)
-      enable documentation build backend migrations identity container
+    scripts/local-dependencies.sh | scripts/local-account-deletion.py | scripts/test-local-account-deletion.py | scripts/test-local-observability.sh | scripts/test-local-localization.sh)
+      enable documentation build backend migrations identity container private_dev_runtime
       matched=true
       ;;
-    compose.yaml | compose.observability.yaml | compose.localization.yaml)
-      enable build container identity migrations backend
+    compose.yaml | compose.observability.yaml | compose.localization.yaml | compose.account-deletion.yaml)
+      enable build container private_dev_runtime identity migrations backend
       matched=true
       ;;
     pom.xml | mvnw | mvnw.cmd | .mvn/*)
@@ -257,7 +263,7 @@ for path in "${changed_paths[@]}"; do
       enable frontend codeql_javascript
       matched=true
       ;;
-    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts | frontend/tests/production-identity.spec.ts | frontend/tests/remember-me.spec.ts)
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts | frontend/tests/production-identity.spec.ts | frontend/tests/remember-me.spec.ts | frontend/tests/fixtures/registration.ts)
       # These journeys run only inside the real Keycloak identity gate.
       enable frontend browser identity codeql_javascript
       matched=true
@@ -265,6 +271,10 @@ for path in "${changed_paths[@]}"; do
     frontend/src/shared/brand/gameometro-logo.svg | frontend/src/shared/brand/gameometro-mark.svg | frontend/public/assets/fonts/*)
       # Brand assets copied into the Keycloak theme image.
       enable frontend browser codeql_javascript dependency_images
+      matched=true
+      ;;
+    frontend/src/features/session/* | frontend/src/shared/auth/* | frontend/src/features/*/use-personal-rating.ts)
+      enable frontend browser identity codeql_javascript
       matched=true
       ;;
     frontend/src/* | frontend/public/* | frontend/tests/*)
@@ -284,11 +294,11 @@ for path in "${changed_paths[@]}"; do
       matched=true
       ;;
     tools/catalogue-localization/*requirements.txt | tools/catalogue-localization/models.json)
-      enable backend container dependencies codeql_java dependency_images
+      enable backend container localization_image dependencies codeql_java dependency_images
       matched=true
       ;;
     tools/catalogue-localization/* | scripts/localize-catalogue.py)
-      enable backend container codeql_java dependency_images
+      enable backend container localization_image codeql_java dependency_images
       matched=true
       ;;
     tools/igdb-poc/pom.xml)
