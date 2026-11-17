@@ -22,6 +22,10 @@ type FeaturedHeroProps = {
   timeline: PeriodTimeline | null;
   /** `octubre de 2026` or `la semana del 12 al 18 de octubre de 2026`. */
   periodPhrase: string;
+  /**
+   * Ways out that close the copy inside the G, above the title's stretched target (the home's,
+   * #382). Destacados has none: its title is the only way into the game.
+   */
 };
 
 /** Phones show this many platform marks and the exact count of the rest, as the cards do. */
@@ -97,7 +101,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
   } as CSSProperties;
 
   return (
-    <article aria-labelledby="featured-lead-title" className="featured-hero-section" style={style}>
+    <article aria-labelledby="featured-lead-title" className="featured-hero-section" data-analytics-list="featured_hero" data-analytics-position="1" style={style}>
       <div className="featured-hero">
         {/* The game's own light washes the stage; its art runs up behind the header on wide
             screens and sits above the copy on narrow ones. */}
@@ -164,6 +168,11 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
                       <span aria-hidden="true">{primaryGroup.shortDate}</span>
                       <span className="sr-only">{primaryGroup.date}</span>
                     </li>
+                    {lead.stage === null ? null : (
+                      <li className="featured-hero-stage">
+                        <span className="featured-release-stage">{lead.stage}</span>
+                      </li>
+                    )}
                     <li className="featured-hero-platforms">
                       {/* Recognized platforms show their marks, named for assistive technology and
                           as a tooltip; an unrecognized one keeps its name beside the generic mark.

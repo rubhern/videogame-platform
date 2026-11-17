@@ -13,9 +13,9 @@
   "registrationAllowed": true,
   "resetPasswordAllowed": true,
   "rememberMe": true,
-  "loginWithEmailAllowed": false,
+  "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "verifyEmail": false,
+  "verifyEmail": true,
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 28800,
@@ -35,7 +35,7 @@
         "subComponents": {},
         "config": {
           "kc.user.profile.config": [
-            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"vgpDeploymentSmoke\",\"displayName\":\"Deployment smoke ownership marker\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"min\":4,\"max\":4}}}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}}},{\"name\":\"vgpDeploymentSmoke\",\"displayName\":\"Deployment smoke ownership marker\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"min\":4,\"max\":4}}}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
           ]
         }
       }
@@ -114,5 +114,99 @@
     }
   ],
   "ssoSessionIdleTimeoutRememberMe": 604800,
-  "ssoSessionMaxLifespanRememberMe": 2592000
+  "ssoSessionMaxLifespanRememberMe": 2592000,
+  "registrationFlow": "gameometro registration",
+  "authenticationFlows": [
+    {
+      "alias": "gameometro registration",
+      "description": "Self-registration with the mandatory adult and terms declaration",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-page-form",
+          "authenticatorFlow": true,
+          "flowAlias": "gameometro registration form",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "gameometro registration form",
+      "description": "Email, password and declaration; no other personal data",
+      "providerId": "form-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-user-creation",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "registration-password-action",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 50,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "registration-terms-and-conditions",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 70,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "localizationTexts": {
+    "es": {
+      "termsTitle": "Antes de crear tu cuenta",
+      "termsText": "<p>Responsable: Rubén Hernández López. Trataremos tu email, los datos necesarios para proteger tu cuenta y tus puntuaciones para prestarte el servicio que solicitas. La gestión de cuenta y puntuaciones se basa en la ejecución de las condiciones de uso; la seguridad, en nuestro interés legítimo, según se explica en la política de privacidad. Puedes ejercer tus derechos en <a href=\"mailto:hola@gameometro.com\">hola@gameometro.com</a>. Consulta la política de privacidad para conocer destinatarios, conservación, transferencias y todos tus derechos.</p><p>Para prestar el servicio utilizamos proveedores externos de alojamiento y correo. Las imágenes pueden cargarse desde un servicio externo. Algunos tratamientos pueden implicar transferencias internacionales, detalladas en la política de privacidad.</p><p>La información de privacidad se facilita para que conozcas el tratamiento; no te pedimos que consientas tratamientos opcionales para utilizar tu cuenta.</p><p>Consulta la <a href=\"${APPLICATION_PUBLIC_ORIGIN}/privacidad\">política de privacidad</a> y las <a href=\"${APPLICATION_PUBLIC_ORIGIN}/condiciones\">condiciones de uso</a> antes de registrarte.</p>",
+      "acceptTerms": "He leído y acepto las condiciones de uso de Gameómetro.",
+      "termsAcceptanceRequired": "Para crear tu cuenta, acepta las condiciones de uso.",
+      "emailInstruction": "Indica tu email. Si corresponde a una cuenta, te enviaremos un enlace para crear una nueva contraseña.",
+      "emailSentMessage": "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña.",
+      "invalidPasswordNotContainsUsernameMessage": "La contraseña no puede contener tu email.",
+      "missingUsernameMessage": "Indica tu email.",
+      "invalidUserMessage": "Email o contraseña incorrectos.",
+      "accountTemporarilyDisabledMessage": "Email o contraseña incorrectos."
+    }
+  },
+  "editUsernameAllowed": false,
+  "passwordPolicy": "length(8) and maxLength(128) and notEmail and notContainsUsername and passwordBlacklist(gameometro-common-passwords.txt)",
+  "bruteForceProtected": true,
+  "bruteForceStrategy": "MULTIPLE",
+  "permanentLockout": false,
+  "maxTemporaryLockouts": 0,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "clientSessionIdleTimeout": 0,
+  "clientSessionMaxLifespan": 0,
+  "offlineSessionIdleTimeout": 1800,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 28800,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanLogin": 1800,
+  "accessCodeLifespanUserAction": 300,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "eventsEnabled": false,
+  "eventsListeners": [],
+  "enabledEventTypes": [],
+  "adminEventsEnabled": false,
+  "adminEventsDetailsEnabled": false,
+  "registrationEmailAsUsername": true
 }

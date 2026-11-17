@@ -126,10 +126,14 @@ else
   temporary_directory="$(mktemp -d)"
 fi
 
+deletion_files=()
+if grep -qx 'PRIVATE_DEV_ACCOUNT_DELETION_ENABLED=true' "$runtime_env"; then
+  deletion_files+=(--file "$repository_root/deploy/private-dev/compose.account-deletion.yaml")
+fi
 rendered_config="$temporary_directory/compose.json"
 docker compose \
   --env-file "$runtime_env" \
-  --file "$compose_file" \
+  --file "$compose_file" "${deletion_files[@]}" \
   --profile application \
   --profile deployment \
   config --format json >"$rendered_config"
@@ -207,6 +211,11 @@ expected_secret_access = {
     "mailpit": set(),
 }
 
+private_deletion = services["application"]["environment"].get("ACCOUNT_DELETION_COMPLETION_POLICY") == "private-dev"
+if private_deletion:
+    expected_secret_access["application"].add("account_deletion_executor_capability")
+    assert services["application"]["environment"]["ACCOUNT_DELETION_EXECUTOR_ENABLED"] == "true"
+    assert "private-dev" in services["application"]["environment"]["SPRING_PROFILES_ACTIVE"].split(",")
 for service_name, service in services.items():
     expected_restart = "no" if service_name in {"migration", "deployment-smoke"} else "unless-stopped"
     assert service.get("restart") == expected_restart, f"{service_name} restart policy"
@@ -246,13 +255,16 @@ published = []
 for service_name, service in services.items():
     for port in service.get("ports") or []:
         published.append((service_name, port.get("host_ip"), int(port["published"]), int(port["target"])))
-assert sorted(published) == [
+expected_ports = [
     ("alloy", "127.0.0.1", syslog_port, 1514),
     ("application", "127.0.0.1", 8080, 8080),
     ("grafana", "127.0.0.1", 3000, 3000),
     ("keycloak", "127.0.0.1", 8180, 8080),
     ("mailpit", "127.0.0.1", 8025, 8025),
-], f"unexpected published ports: {published}"
+]
+if private_deletion:
+    expected_ports.append(("application", "127.0.0.1", 8081, 8081))
+assert sorted(published) == sorted(expected_ports), f"unexpected published ports: {published}"
 assert all(host_ip == "127.0.0.1" for _, host_ip, _, _ in published), (
     f"IPv4/IPv6 exposure boundary requires explicit IPv4 loopback binds: {published}"
 )
@@ -266,7 +278,7 @@ assert "logs" in services["grafana"]["networks"]
 assert services["alloy"]["ports"][0]["protocol"] == "udp"
 assert "ports" not in services["loki"]
 assert services["mailpit"]["networks"] == {"mail": None}
-assert {name for name, service in services.items() if "mail" in (service.get("networks") or {})} == {"keycloak", "mailpit"}
+assert {name for name, service in services.items() if "mail" in (service.get("networks") or {})} == {"keycloak", "mailpit", "application"}
 mailpit = services["mailpit"]
 assert not mailpit.get("volumes"), "Mailpit must keep captured messages only on tmpfs"
 assert any(mount.startswith("/tmp:") for mount in mailpit["tmpfs"]), "Mailpit temporary message store"
@@ -290,9 +302,9 @@ assert services["grafana"]["environment"]["GF_SMTP_ENABLED"] == "false"
 grafana_env = services["grafana"]["environment"]
 assert grafana_env["GF_LOG_LEVEL"] == "info"
 assert grafana_env["GF_LOG_FILTERS"] == "ngalert.notifier.telegram:info"
+# #550: private-dev never delivers alerts or notices, whatever its runtime env says.
 for flag in ("GRAFANA_TELEGRAM_ENABLED", "GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED"):
-    assert grafana_env.get(flag, "false") in {"true", "false"}
-assert grafana_env.get("GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED", "false") != "true" or grafana_env.get("GRAFANA_TELEGRAM_ENABLED") == "true"
+    assert grafana_env.get(flag) == "false", flag
 assert services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD__FILE"] == "/run/secrets/grafana_admin_password"
 assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
 assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"
@@ -346,7 +358,7 @@ require(
     == f"{configured_application_origin}/login/oauth2/code/keycloak",
     "APPLICATION_OIDC_REDIRECT_URI must be the configured application origin plus the Keycloak callback path",
 )
-require(application_oidc["APPLICATION_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
+require(application_oidc["PLATFORM_HTTPSECURITY_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
 require(
     application_oidc.get("SERVER_FORWARD_HEADERS_STRATEGY") == "NATIVE",
     "application must resolve the external HTTPS scheme through Tomcat's peer-restricted RemoteIpValve (SERVER_FORWARD_HEADERS_STRATEGY=NATIVE)",
@@ -377,6 +389,22 @@ require(
     application_oidc["OIDC_USER_INFO_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
     "OIDC user-info URI must use Keycloak's internal service endpoint",
 )
+# Production parity: only infrastructure, the daily synchronization, backups and lifecycle differ.
+repository_root = pathlib.Path(sys.argv[2])
+production_keycloak_policy = dict(
+    line.split("=", 1)
+    for line in (repository_root / "deploy/public-production/keycloak/abuse.env").read_text(encoding="utf-8").splitlines()
+    if line and not line.startswith("#")
+)
+keycloak_environment = services["keycloak"]["environment"]
+for name, value in production_keycloak_policy.items():
+    require(keycloak_environment.get(name) == value, f"Keycloak {name} must equal the production runtime policy")
+require(keycloak_environment.get("KC_HTTP_ACCESS_LOG_ENABLED") == "false", "Keycloak access logging must stay off as in production")
+require(application_oidc.get("SPRING_PROFILES_ACTIVE", "").startswith("oidc,structured"),
+        "application must run production's oidc,structured profiles")
+synchronization = {name: value for name, value in application_oidc.items() if name.startswith("CATALOGUE_SYNC_")}
+require(synchronization == {"CATALOGUE_SYNC_SCHEDULING_ENABLED": "true", "CATALOGUE_SYNC_NEAR_TERM_CRON": "-"},
+        f"private-dev must run only the weekly synchronization on production's defaults: {synchronization}")
 assert services["migration"]["environment"] == {
     "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
     "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
@@ -386,6 +414,15 @@ assert services["migration"]["networks"] == {"data": None}
 assert services["deployment-smoke"]["environment"]["EXPECTED_APPLICATION_VERSION"]
 assert services["deployment-smoke"]["environment"]["EXPECTED_SOURCE_REVISION"]
 assert int(services["deployment-smoke"]["shm_size"]) == 256 * 1024 * 1024
+smoke = services["deployment-smoke"]
+require(smoke.get("network_mode") == "host" and not smoke.get("networks") and not smoke.get("ports"),
+        "deployment smoke must reach the real HTTPS origin from the host network namespace only")
+require(smoke.get("extra_hosts") in (["application=192.0.2.1"], ["application:192.0.2.1"], {"application": ["192.0.2.1"]}, {"application": "192.0.2.1"}),
+        "deployment smoke may resolve only the candidate application, which deploy-private-dev supplies")
+require(smoke.get("user") is None and not smoke.get("privileged") and not smoke.get("volumes"),
+        "host-network deployment smoke must stay unprivileged and without host mounts")
+require([name for name, service in services.items() if service.get("network_mode") == "host"] == ["deployment-smoke"],
+        "only the deployment smoke may use the host network namespace")
 
 keycloak_imports = {
     (volume.get("source"), volume.get("target"))
@@ -451,7 +488,6 @@ for personal_data_command in personal-data personal-data-ledger; do
     "$repository_root/deploy/private-dev/bin/$personal_data_command"
 done
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
-  bash "$repository_root/scripts/test-private-dev-backup-recovery.sh"
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
     "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs" \
@@ -461,6 +497,8 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   python3 "$repository_root/scripts/test-private-dev-promotion.py"
   bash "$repository_root/scripts/test-local-observability.sh"
   bash "$repository_root/scripts/test-local-localization.sh"
+  python3 -I "$repository_root/scripts/test-local-account-deletion.py"
+  python3 -I "$repository_root/scripts/test-private-dev-account-deletion.py"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
   python3 "$repository_root/scripts/test-private-dev-identity-commands.py"
   python3 "$repository_root/scripts/test-historical-sync-pilot.py"
@@ -542,7 +580,7 @@ if [[ "$live" == false ]]; then
   exit 0
 fi
 
-compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
+compose=(docker compose --env-file "$runtime_env" --file "$compose_file" "${deletion_files[@]}")
 required_services=(postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer mailpit)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"

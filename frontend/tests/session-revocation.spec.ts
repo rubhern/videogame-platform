@@ -1,4 +1,4 @@
-import { reachFeaturedAfterSignIn } from "./fixtures/sign-in-destination";
+import { reachHomeAfterSignIn } from "./fixtures/sign-in-destination";
 import { createHash } from "node:crypto";
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
@@ -118,8 +118,8 @@ test("logout ends this browser's Keycloak session so the next sign-in asks for c
   await returned;
   await shared.page.waitForLoadState("load");
 
-  await expect(shared.page).toHaveURL(`${applicationOrigin}/lanzamientos/destacados`);
-  await expect(shared.page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
+  await expect(shared.page).toHaveURL(`${applicationOrigin}/`);
+  await expect(shared.page.getByRole("navigation", { name: "Acceso a tu cuenta" }).getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
   expect(await sessionState(shared.page)).toEqual({ authenticated: false });
   expect(await shared.page.context().cookies(applicationOrigin)).toEqual([]);
   const endSession = navigation.find((url) => url.includes("/protocol/openid-connect/logout"));
@@ -129,7 +129,7 @@ test("logout ends this browser's Keycloak session so the next sign-in asks for c
 
   // Another person on this device must type credentials: no silent single sign-on.
   await shared.page.goto("/auth/login/keycloak");
-  await expect(shared.page.getByLabel("Usuario", { exact: true })).toBeVisible();
+  await expect(shared.page.locator("#username")).toBeVisible();
   await expect(shared.page.locator("#password")).toBeVisible();
   // The same account's other device is untouched in both the BFF and Keycloak.
   expect(await sessionState(otherDevice.page)).toMatchObject({ authenticated: true });
@@ -142,13 +142,13 @@ async function signIn(browser: Browser, player: Player): Promise<Device> {
   const page = await context.newPage();
   await page.goto("/auth/login/keycloak");
   await submitCredentials(page, player);
-  await reachFeaturedAfterSignIn(page, applicationOrigin);
+  await reachHomeAfterSignIn(page, applicationOrigin);
   expect(await sessionState(page)).toMatchObject({ authenticated: true });
   return { page, close: () => context.close() };
 }
 
 async function submitCredentials(page: Page, player: Player) {
-  await page.getByLabel("Usuario", { exact: true }).fill(player.username);
+  await page.locator("#username").fill(player.username);
   await page.locator("#password").fill(player.password);
   await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 }
@@ -203,14 +203,14 @@ async function adminToken(request: APIRequestContext) {
 }
 
 async function createPlayer(request: APIRequestContext, name: string): Promise<Player> {
-  const username = `revocation-${name}-${crypto.randomUUID()}`;
+  const username = `revocation-${name}-${crypto.randomUUID()}@example.test`; // email as username, as in production
   const password = "Sesion-Revocada-2026!";
   const headers = await adminToken(request);
   const created = await request.post(`${realmAdmin}/users`, {
     headers,
     data: {
       username,
-      email: `${username}@example.test`,
+      email: username,
       emailVerified: true,
       enabled: true,
       firstName: "Synthetic",

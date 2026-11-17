@@ -1,13 +1,20 @@
 package com.videogameplatform.catalogue.application.rankings;
 
+import java.util.List;
+
 /**
  * Public application contract for UC-018: one page of the ranking of released games by the player
- * ratings of exactly one source (TOPómetro, ADR-0034).
+ * ratings of exactly one source (TOPómetro, ADR-0034), globally or on one platform scope.
  */
 public interface RankGamesUseCase {
 
     int MAX_PAGE_SIZE = 100;
 
+    /**
+     * @throws com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException
+     *     with {@code PLATFORM_NOT_SUPPORTED} when a scope platform is not part of the local
+     *     taxonomy
+     */
     GameRanking rank(Query query);
 
     /**
@@ -16,11 +23,14 @@ public interface RankGamesUseCase {
      */
     enum Source {
         /**
-         * The IGDB players' rating mean and count stored with each game (XSC-001–XSC-004), from
-         * one hundred ratings on.
+         * The IGDB players' rating mean and count stored with each game (XSC-001–XSC-004), by
+         * default from fifty ratings on; the operator may tune the minimum (#450).
          */
-        IGDB_PLAYERS(100),
-        /** The Gameómetro community mean of one contribution per rating (AGG-004), from the first. */
+        IGDB_PLAYERS(50),
+        /**
+         * The Gameómetro community mean of one contribution per rating (AGG-004), by default from
+         * the first; the operator may tune the minimum (#450).
+         */
         GAMEOMETRO_COMMUNITY(1);
 
         private final int minimumRatings;
@@ -29,22 +39,33 @@ public interface RankGamesUseCase {
             this.minimumRatings = minimumRatings;
         }
 
+        /** The approved default minimum number of ratings. */
         public int minimumRatings() {
             return minimumRatings;
         }
     }
 
-    record Query(Source source, int pageNumber, int pageSize) {
+    /**
+     * {@code platformIds} scopes the ranking to games released on those product platforms
+     * (RNK-005), combining its values with OR; empty ranks every platform.
+     */
+    record Query(Source source, List<String> platformIds, int pageNumber, int pageSize) {
         public Query {
             if (source == null) {
                 throw new IllegalArgumentException("A ranking source is required");
             }
+            platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
             if (pageNumber < 1) {
                 throw new IllegalArgumentException("Page number must be one-based");
             }
             if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
                 throw new IllegalArgumentException("Page size must be between 1 and 100");
             }
+        }
+
+        /** The global ranking, across every platform. */
+        public Query(Source source, int pageNumber, int pageSize) {
+            this(source, List.of(), pageNumber, pageSize);
         }
     }
 }

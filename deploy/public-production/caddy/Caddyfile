@@ -228,6 +228,15 @@ gameometro.com {
 				window 10s
 				events 20
 			}
+			zone application-feedback-source {
+				match {
+					method POST
+					path /api/v1/feedback
+				}
+				import source_zone
+				window 10m
+				events 3
+			}
 			zone application-write-source {
 				match {
 					not method GET HEAD
@@ -253,6 +262,15 @@ gameometro.com {
 				window 10s
 				events 600
 			}
+			zone aggregate-application-feedback {
+				match {
+					method POST
+					path /api/v1/feedback
+				}
+				key static
+				window 24h
+				events 40
+			}
 			zone aggregate-application-write {
 				match {
 					not method GET HEAD
@@ -264,8 +282,14 @@ gameometro.com {
 			}
 			import limiter_options
 		}
-		reverse_proxy application:8080 {
+		# The application first. Its temporary candidate exists only while an application-only
+		# release hands over (ADR-0043): a failed dial marks an upstream down for fail_duration
+		# and retries on the other, for every method, since nothing reached the upstream.
+		reverse_proxy application:8080 application-candidate:8080 {
 			import upstream_headers
+			lb_policy first
+			lb_try_duration 15s
+			fail_duration 10s
 		}
 	}
 	import limit_errors
@@ -277,9 +301,11 @@ auth.gameometro.com {
 		max_size 1MB
 	}
 	header -Server
-	# Allowlist of the product realm's browser and BFF paths. The admin console and API,
-	# the master realm, the account console, health and metrics are never routed.
-	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/*
+	# Allowlist of the product realm's browser and BFF paths, plus the Google and Microsoft
+	# broker start and callback paths and the exact return that completes a first provider
+	# sign-in (ADR-0045). The admin console and API, the master realm, the account console,
+	# health, metrics and every other broker alias or endpoint are never routed.
+	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/* /realms/gameometro/broker/google/* /realms/gameometro/broker/microsoft/* /realms/gameometro/broker/after-first-broker-login
 	route {
 		import edge_admission
 		# Identity maintenance (bin/identity-maintenance) closes the whole identity host,
@@ -300,13 +326,13 @@ auth.gameometro.com {
 		}
 		handle @identity {
 			rate_limit {
-				# The BFF's server-side calls come from its fixed address, which no external client
-				# can present as a TCP peer; they have their own budget below. Any other request
-				# from that address is limited like every other source.
+				# The BFF's server-side calls come from its fixed address, or its handover candidate's
+				# (ADR-0043), which no external client can present as a TCP peer; they have their own
+				# budget below. Any other request from those addresses is limited like every other source.
 				zone identity-source {
 					match {
 						not {
-							remote_ip 10.203.1.3
+							remote_ip 10.203.1.3 10.203.1.5
 							path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
 						}
 					}
@@ -314,15 +340,17 @@ auth.gameometro.com {
 					window 5s
 					events 60
 				}
+				# Linking a provider to an existing account re-enters that account's password on
+				# the first-broker-login step, so it shares the sign-in budget.
 				zone identity-login-source {
 					match {
 						method POST
-						path /realms/gameometro/login-actions/authenticate
+						path /realms/gameometro/login-actions/authenticate /realms/gameometro/login-actions/first-broker-login
 					}
 					match {
 						method POST
 						path /realms/gameometro/protocol/openid-connect/token
-						not remote_ip 10.203.1.3
+						not remote_ip 10.203.1.3 10.203.1.5
 					}
 					import source_zone
 					window 30s
@@ -372,7 +400,7 @@ auth.gameometro.com {
 				zone aggregate-identity {
 					match {
 						not {
-							remote_ip 10.203.1.3
+							remote_ip 10.203.1.3 10.203.1.5
 							path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
 						}
 					}
@@ -383,12 +411,12 @@ auth.gameometro.com {
 				zone aggregate-identity-login {
 					match {
 						method POST
-						path /realms/gameometro/login-actions/authenticate
+						path /realms/gameometro/login-actions/authenticate /realms/gameometro/login-actions/first-broker-login
 					}
 					match {
 						method POST
 						path /realms/gameometro/protocol/openid-connect/token
-						not remote_ip 10.203.1.3
+						not remote_ip 10.203.1.3 10.203.1.5
 					}
 					key static
 					window 1m
@@ -409,7 +437,7 @@ auth.gameometro.com {
 				}
 				zone aggregate-identity-backchannel {
 					match {
-						remote_ip 10.203.1.3
+						remote_ip 10.203.1.3 10.203.1.5
 						path /realms/gameometro/protocol/openid-connect/token /realms/gameometro/protocol/openid-connect/userinfo /realms/gameometro/protocol/openid-connect/certs /realms/gameometro/.well-known/openid-configuration
 					}
 					key static

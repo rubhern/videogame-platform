@@ -37,6 +37,11 @@ class CatalogueSchedulingConfigurationTest {
                             () -> mock(ScheduledSynchronizationStore.class))
                     .withBean(Clock.class, () -> clock)
                     .withBean(
+                            com.videogameplatform.catalogue.application.settings
+                                    .CurrentProductSettings.class,
+                            com.videogameplatform.catalogue.application.settings.TestProductSettings
+                                    ::defaults)
+                    .withBean(
                             CatalogueSynchronizationMetrics.class,
                             () -> new CatalogueSynchronizationMetrics(new SimpleMeterRegistry()));
 

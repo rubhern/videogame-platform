@@ -20,7 +20,7 @@ final class IgdbWorkTypeMapper {
                     Map.entry("remake", ProviderWorkType.REMAKE),
                     Map.entry("remaster", ProviderWorkType.REMASTER),
                     Map.entry("standalone_expansion", ProviderWorkType.STANDALONE_EXPANSION),
-                    Map.entry("expanded_game", ProviderWorkType.EXPANSION),
+                    Map.entry("expanded_game", ProviderWorkType.EXPANDED_GAME),
                     Map.entry("expansion", ProviderWorkType.EXPANSION),
                     Map.entry("dlc_addon", ProviderWorkType.ADD_ON),
                     Map.entry("episode", ProviderWorkType.EPISODE),

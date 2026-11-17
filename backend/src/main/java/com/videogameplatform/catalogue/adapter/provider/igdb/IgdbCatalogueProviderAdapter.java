@@ -1,8 +1,10 @@
 package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbAttentionGamePayload;
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbGamePayload;
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbImagePayload;
+import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbPopularityPrimitivePayload;
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbReleaseDatePayload;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
@@ -50,6 +52,17 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
      */
     private static final int MAX_LOGO_PAGES_PER_REQUEST_GROUP = 4;
 
+    /**
+     * Games per primitive request. Each Game has at most one current value of each of the two
+     * requested types, so a full answer stays below the provider's row ceiling and a ceiling-sized
+     * answer means the provider returned more than asked.
+     */
+    private static final int ATTENTION_GAMES_PER_PRIMITIVE_REQUEST = 200;
+
+    /** Provider game types whose attention may borrow from the product they derive from. */
+    private static final java.util.Set<String> DERIVED_GAME_TYPES =
+            java.util.Set.of("remake", "remaster", "port", "expanded game");
+
     /** Larger than any real image; a bigger stated dimension is not plausible metadata. */
     private static final int MAX_IMAGE_DIMENSION = 30_000;
 
@@ -59,6 +72,10 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
     private static final TypeReference<List<IgdbReleaseDatePayload>> RELEASE_LIST =
             new TypeReference<>() {};
     private static final TypeReference<List<IgdbImagePayload>> IMAGE_LIST =
+            new TypeReference<>() {};
+    private static final TypeReference<List<IgdbAttentionGamePayload>> ATTENTION_GAME_LIST =
+            new TypeReference<>() {};
+    private static final TypeReference<List<IgdbPopularityPrimitivePayload>> PRIMITIVE_LIST =
             new TypeReference<>() {};
 
     private final IgdbApiClient apiClient;
@@ -256,6 +273,197 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
             metrics.recordMappingFailures(List.of(ProviderMappingFailure.IMAGE_REFERENCE_INVALID));
         }
         return new LogoBatch(logos, statistics);
+    }
+
+    /**
+     * Reads the attention signals of a page's Games with bounded requests: one Game request for the
+     * game types and related products with their Hypes, then the Want to Play and Visits primitives
+     * of those Games and their parent products in groups. Any inconsistent answer fails the whole
+     * lookup, so the caller keeps every last valid signal; an out-of-range value alone is absent.
+     */
+    @Override
+    public AttentionBatch attention(List<String> providerIds) {
+        if (providerIds.size() > MAX_ROWS_PER_REQUEST) {
+            throw new IllegalArgumentException("Too many provider Game IDs");
+        }
+        List<String> distinct = List.copyOf(new java.util.LinkedHashSet<>(providerIds));
+        if (distinct.isEmpty()) {
+            return new AttentionBatch(Map.of(), ProviderCallStatistics.none());
+        }
+        IgdbApiClient.ApiResponse gameResponse =
+                query(
+                        CatalogueSynchronizationMetrics.OPERATION_ATTENTION,
+                        IgdbQueries.GAMES_ENDPOINT,
+                        IgdbQueries.attentionGames(distinct));
+        ProviderCallStatistics statistics = gameResponse.statistics();
+        List<IgdbAttentionGamePayload> games =
+                read(gameResponse.body(), ATTENTION_GAME_LIST, statistics);
+        java.util.Set<String> requested = java.util.Set.copyOf(distinct);
+        Map<String, Optional<IgdbAttentionGamePayload.Parent>> parents = new LinkedHashMap<>();
+        for (IgdbAttentionGamePayload game : games) {
+            if (game == null
+                    || game.id() == null
+                    || !requested.contains(Long.toString(game.id()))
+                    || parents.containsKey(Long.toString(game.id()))) {
+                throw new ProviderRequestException(
+                        ProviderFailureCode.PROVIDER_RESPONSE_INVALID, statistics);
+            }
+            parents.put(Long.toString(game.id()), derivedParent(game));
+        }
+        java.util.Set<String> primitiveGames = new java.util.LinkedHashSet<>(parents.keySet());
+        parents.values()
+                .forEach(
+                        parent -> parent.ifPresent(p -> primitiveGames.add(Long.toString(p.id()))));
+        List<String> primitiveIds = List.copyOf(primitiveGames);
+        Map<String, Map<Long, IgdbPopularityPrimitivePayload>> primitives = new LinkedHashMap<>();
+        for (int from = 0;
+                from < primitiveIds.size();
+                from += ATTENTION_GAMES_PER_PRIMITIVE_REQUEST) {
+            List<String> group =
+                    primitiveIds.subList(
+                            from,
+                            Math.min(
+                                    primitiveIds.size(),
+                                    from + ATTENTION_GAMES_PER_PRIMITIVE_REQUEST));
+            IgdbApiClient.ApiResponse response;
+            try {
+                response =
+                        query(
+                                CatalogueSynchronizationMetrics.OPERATION_ATTENTION,
+                                IgdbQueries.POPULARITY_PRIMITIVES_ENDPOINT,
+                                IgdbQueries.attentionPrimitives(group, MAX_ROWS_PER_REQUEST));
+            } catch (ProviderRequestException failure) {
+                throw new ProviderRequestException(
+                        failure.code(), statistics.plus(failure.statistics()));
+            }
+            statistics = statistics.plus(response.statistics());
+            List<IgdbPopularityPrimitivePayload> rows =
+                    read(response.body(), PRIMITIVE_LIST, statistics);
+            java.util.Set<String> groupIds = java.util.Set.copyOf(group);
+            if (rows.size() >= MAX_ROWS_PER_REQUEST) {
+                throw new ProviderRequestException(
+                        ProviderFailureCode.PROVIDER_RESPONSE_INVALID, statistics);
+            }
+            for (IgdbPopularityPrimitivePayload row : rows) {
+                if (row == null
+                        || row.gameId() == null
+                        || !groupIds.contains(Long.toString(row.gameId()))
+                        || row.popularityType() == null
+                        || (row.popularityType() != IgdbQueries.POPULARITY_VISITS
+                                && row.popularityType() != IgdbQueries.POPULARITY_WANT_TO_PLAY)) {
+                    throw new ProviderRequestException(
+                            ProviderFailureCode.PROVIDER_RESPONSE_INVALID, statistics);
+                }
+                // Several calculations of one type keep the latest; equal times keep the first.
+                primitives
+                        .computeIfAbsent(Long.toString(row.gameId()), id -> new LinkedHashMap<>())
+                        .merge(
+                                row.popularityType(),
+                                row,
+                                (kept, offered) ->
+                                        calculatedAt(offered) > calculatedAt(kept)
+                                                ? offered
+                                                : kept);
+            }
+        }
+        Map<String, ProviderAttention> attention = new LinkedHashMap<>();
+        for (Map.Entry<String, Optional<IgdbAttentionGamePayload.Parent>> game :
+                parents.entrySet()) {
+            Map<Long, IgdbPopularityPrimitivePayload> own =
+                    primitives.getOrDefault(game.getKey(), Map.of());
+            Optional<ParentAttention> parent =
+                    game.getValue()
+                            .map(
+                                    p ->
+                                            new ParentAttention(
+                                                    positiveHypes(p.hypes()),
+                                                    share(
+                                                            primitives
+                                                                    .getOrDefault(
+                                                                            Long.toString(p.id()),
+                                                                            Map.of())
+                                                                    .get(
+                                                                            IgdbQueries
+                                                                                    .POPULARITY_WANT_TO_PLAY)),
+                                                    share(
+                                                            primitives
+                                                                    .getOrDefault(
+                                                                            Long.toString(p.id()),
+                                                                            Map.of())
+                                                                    .get(
+                                                                            IgdbQueries
+                                                                                    .POPULARITY_VISITS))))
+                            .filter(p -> !p.isEmpty());
+            ProviderAttention value =
+                    new ProviderAttention(
+                            share(own.get(IgdbQueries.POPULARITY_WANT_TO_PLAY)),
+                            share(own.get(IgdbQueries.POPULARITY_VISITS)),
+                            parent);
+            attention.put(game.getKey(), value);
+        }
+        if (primitives.values().stream().anyMatch(rows -> unusable(rows.values()))) {
+            metrics.recordMappingFailures(
+                    List.of(ProviderMappingFailure.FEATURED_EVIDENCE_INVALID));
+        }
+        return new AttentionBatch(attention, statistics);
+    }
+
+    /**
+     * The product a derived Game comes from: its version parent, else its parent game. Only a
+     * remake, remaster, port or expanded game borrows attention; any other type has none.
+     */
+    private static Optional<IgdbAttentionGamePayload.Parent> derivedParent(
+            IgdbAttentionGamePayload game) {
+        String type =
+                game.gameType() == null
+                        ? ""
+                        : game.gameType().value().toLowerCase(Locale.ROOT).strip();
+        if (!DERIVED_GAME_TYPES.contains(type)) {
+            return Optional.empty();
+        }
+        IgdbAttentionGamePayload.Parent parent =
+                game.versionParent() != null ? game.versionParent() : game.parentGame();
+        if (parent == null
+                || parent.id() == null
+                || parent.id() <= 0
+                || parent.id().equals(game.id())) {
+            return Optional.empty();
+        }
+        return Optional.of(parent);
+    }
+
+    private static Optional<Long> positiveHypes(java.math.BigDecimal hypes) {
+        if (hypes == null) {
+            return Optional.empty();
+        }
+        try {
+            long value = hypes.longValueExact();
+            return value > 0 ? Optional.of(value) : Optional.empty();
+        } catch (ArithmeticException notWhole) {
+            return Optional.empty();
+        }
+    }
+
+    /** A primitive's value as a provider share in (0, 1]; anything else is no signal. */
+    private static Optional<Double> share(IgdbPopularityPrimitivePayload primitive) {
+        if (primitive == null || primitive.value() == null) {
+            return Optional.empty();
+        }
+        double value = primitive.value().doubleValue();
+        return value > 0 && value <= 1 ? Optional.of(value) : Optional.empty();
+    }
+
+    private static boolean unusable(java.util.Collection<IgdbPopularityPrimitivePayload> rows) {
+        return rows.stream()
+                .anyMatch(
+                        row ->
+                                row.value() != null
+                                        && share(row).isEmpty()
+                                        && row.value().signum() != 0);
+    }
+
+    private static long calculatedAt(IgdbPopularityPrimitivePayload primitive) {
+        return primitive.calculatedAt() == null ? Long.MIN_VALUE : primitive.calculatedAt();
     }
 
     private ProviderWork toWork(IgdbGamePayload game, List<IgdbReleaseDatePayload> releaseDates) {

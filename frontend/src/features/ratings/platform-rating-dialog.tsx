@@ -1,10 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 
+import { assignLocation } from "../../shared/browser/navigate";
 import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
+import { trackEvent } from "../analytics/events";
+import { markSignInStart } from "../analytics/sign-in-intent";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import type { GameDetails } from "../game-details/game-details-api";
+import { ratingIntentStartUrl, startPlatformRatingIntent, type PlatformSelection } from "../session/rating-intent";
 import type { PersonalRating, RatingCommandError, RatingWrite } from "./personal-rating-api";
 import { formatPersonalScore, platformOptions, type PlatformOption } from "./personal-score";
 import { RatingKeypad } from "./rating-keypad";
@@ -47,10 +51,12 @@ export function PlatformRatingDialog({
   rating,
   csrfToken,
   onClose,
+  recoveredPlatforms,
 }: {
-  game: Pick<GameDetails, "gameId" | "canonicalTitle" | "releases">;
+  game: Pick<GameDetails, "gameId" | "slug" | "canonicalTitle" | "releases">;
   rating: PersonalRating | null;
-  csrfToken: string;
+  csrfToken: string | null;
+  recoveredPlatforms?: readonly PlatformSelection[];
   onClose: (saved: PersonalRating | null) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -58,16 +64,26 @@ export function PlatformRatingDialog({
   const leadId = useId();
   const feedbackId = useId();
   const keypadIdBase = useId();
-  const options = platformOptions(game, rating);
+  // The draft keeps the version it was opened against, even if a background read gets a new one.
+  const [initialRating] = useState(rating);
+  const options = platformOptions(game, initialRating);
   const [played, setPlayed] = useState<ReadonlyMap<string, number | null>>(
-    () => new Map(rating?.platforms.map((entry) => [entry.platform.platformId, entry.value])),
+    () => {
+      const initial = new Map(initialRating?.platforms.map((entry) => [entry.platform.platformId, entry.value]));
+      for (const { platformId, value } of recoveredPlatforms ?? []) {
+        initial.set(platformId, value ?? initial.get(platformId) ?? null);
+      }
+      return initial;
+    },
   );
-  const [general, setGeneral] = useState<number | null>(rating?.value ?? null);
+  const [general, setGeneral] = useState<number | null>(initialRating?.value ?? null);
   const [scoring, setScoring] = useState<string | null>(null);
   const [failure, setFailure] = useState<RatingCommandError | null>(null);
   const savedRef = useRef<PersonalRating | null>(null);
   const command = useRatingCommand(game.gameId);
-  const busy = command.isPending;
+  const [startingSignIn, setStartingSignIn] = useState(false);
+  const [signInFailed, setSignInFailed] = useState(false);
+  const busy = command.isPending || startingSignIn;
 
   useEffect(() => {
     const element = dialog.current;
@@ -75,6 +91,16 @@ export function PlatformRatingDialog({
     element.showModal?.();
     // Opening lands on the first platform rather than the close control.
     element.querySelector<HTMLInputElement>('input[type="checkbox"]')?.focus();
+  }, []);
+
+  useEffect(() => {
+    function restoreAfterNavigation(event: PageTransitionEvent) {
+      if (event.persisted) setStartingSignIn(false);
+    }
+
+    // Going back from Keycloak can restore the still-open draft from the browser cache.
+    window.addEventListener("pageshow", restoreAfterNavigation);
+    return () => window.removeEventListener("pageshow", restoreAfterNavigation);
   }, []);
 
   const chosen = options.filter((option) => played.has(option.platformId));
@@ -95,10 +121,10 @@ export function PlatformRatingDialog({
     }),
   };
   const unchanged =
-    rating !== null &&
-    (scores.length > 0 ? rating.value === null : rating.value === general) &&
-    rating.platforms.length === chosen.length &&
-    rating.platforms.every(
+    initialRating !== null &&
+    (scores.length > 0 ? initialRating.value === null : initialRating.value === general) &&
+    initialRating.platforms.length === chosen.length &&
+    initialRating.platforms.every(
       (entry) => played.get(entry.platform.platformId) === entry.value,
     );
   const canSave = contribution !== null && !unchanged && !busy;
@@ -127,12 +153,33 @@ export function PlatformRatingDialog({
     requestAnimationFrame(() => document.getElementById(`${keypadIdBase}-${index}-score`)?.focus());
   }
 
+  function navigateToSignIn(target: string) {
+    trackEvent("rating_sign_in");
+    markSignInStart("rating");
+    assignLocation(target);
+  }
+
   function save() {
     if (!canSave) return;
     setFailure(null);
+    setSignInFailed(false);
+    if (csrfToken === null) {
+      setStartingSignIn(true);
+      if (write.value != null) {
+        navigateToSignIn(ratingIntentStartUrl(game.gameId, game.slug, write.value));
+      } else {
+        void startPlatformRatingIntent(game.gameId, game.slug, write.platforms ?? [])
+          .then(navigateToSignIn)
+          .catch(() => {
+            setStartingSignIn(false);
+            setSignInFailed(true);
+          });
+      }
+      return;
+    }
     command.mutate(
       // The precondition comes from the rating this sheet edits, wherever it was read.
-      { type: "save", csrfToken, write, ...(rating === null ? {} : { currentRating: rating }) },
+      { type: "save", csrfToken, write, currentRating: initialRating },
       {
         onSuccess: (outcome) => {
           if (outcome.type === "saved") savedRef.current = outcome.rating;
@@ -154,7 +201,7 @@ export function PlatformRatingDialog({
           ? "La nota de tu plataforma puntuada"
           : `Media de tus ${scores.length} plataformas puntuadas`;
   // Scoring a platform replaces a saved general score: say so before it is saved.
-  const replacesGeneral = scores.length > 0 && rating?.value !== null && rating?.value !== undefined;
+  const replacesGeneral = scores.length > 0 && initialRating?.value !== null && initialRating?.value !== undefined;
 
   return (
     <dialog
@@ -181,8 +228,9 @@ export function PlatformRatingDialog({
 
         <div className="platform-rating-body">
           <p className="platform-rating-lead" id={leadId}>
-            Marca dónde has jugado a {game.canonicalTitle} y puntúa alguna plataforma, o desmarca
-            todas para dar una puntuación general.
+            {recoveredPlatforms
+              ? "Ya tenías una puntuación para este juego. Revisa los cambios antes de guardar."
+              : `Marca dónde has jugado a ${game.canonicalTitle} y puntúa alguna plataforma, o desmarca todas para dar una puntuación general.`}
           </p>
 
           <fieldset className="platform-rating-options">
@@ -286,6 +334,11 @@ export function PlatformRatingDialog({
               </span>
             </p>
           </div>
+          {signInFailed ? (
+            <p className="game-rating-feedback game-rating-feedback-error" id={feedbackId} role="alert">
+              No se pudo iniciar sesión. Vuelve a pulsar Guardar para intentarlo de nuevo.
+            </p>
+          ) : null}
           {failure ? (
             <div
               className="game-rating-feedback game-rating-feedback-error"
@@ -300,7 +353,7 @@ export function PlatformRatingDialog({
           ) : null}
           {busy ? (
             <p className="sr-only" role="status">
-              Guardando tus plataformas…
+              {startingSignIn ? "Abriendo el inicio de sesión…" : "Guardando tus plataformas…"}
             </p>
           ) : null}
           <div className="platform-rating-actions">
@@ -308,7 +361,7 @@ export function PlatformRatingDialog({
               Cancelar
             </button>
             <button
-              aria-describedby={failure ? feedbackId : undefined}
+              aria-describedby={failure || signInFailed ? feedbackId : undefined}
               className="button button-primary"
               disabled={!canSave}
               onClick={save}

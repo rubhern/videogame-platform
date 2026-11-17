@@ -30,6 +30,10 @@ public final class PostgreSqlTestDatabase {
 
     private PostgreSqlTestDatabase() {}
 
+    public static String containerId() {
+        return POSTGRESQL.getContainerId();
+    }
+
     public static String adminUrl(String databaseName) {
         return jdbcUrl(databaseName);
     }

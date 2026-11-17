@@ -40,8 +40,8 @@ export function RankingRow({
         </h3>
         <div className="ranking-facts">
           <p className="ranking-year">
-            <span className="sr-only">Lanzamiento: </span>
-            {game.year}
+            <span className="sr-only">{game.yearLabel}</span>
+            <span aria-hidden="true">{game.year}</span>
           </p>
           <GameGenres genres={game.genres} />
         </div>

@@ -1,0 +1,2 @@
+# Optional owner-side recovery adapter only; never part of the application image.
+boto3==1.43.121

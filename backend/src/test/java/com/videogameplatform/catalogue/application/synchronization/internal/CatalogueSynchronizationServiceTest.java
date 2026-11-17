@@ -557,6 +557,8 @@ class CatalogueSynchronizationServiceTest {
         "STANDALONE_EXPANSION,false,true",
         "MAIN_GAME,true,false",
         "REMAKE,true,false",
+        "PORT,false,true",
+        "EXPANDED_GAME,false,true",
         "ADD_ON,false,false"
     })
     void featuredEvidenceUsesExistingImportTypesAndExcludesEditionsOnlyFromFeatured(
@@ -914,6 +916,10 @@ class CatalogueSynchronizationServiceTest {
         when(store.checkpoint(RUN)).thenReturn(RunControl.CONTINUE);
         when(provider.logos(any()))
                 .thenReturn(new LogoBatch(Map.of(), ProviderCallStatistics.none()));
+        when(provider.attention(any()))
+                .thenReturn(
+                        new CatalogueProviderPort.AttentionBatch(
+                                Map.of(), ProviderCallStatistics.none()));
     }
 
     private void workWithMedia(

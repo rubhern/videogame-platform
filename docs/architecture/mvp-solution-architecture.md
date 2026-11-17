@@ -69,6 +69,10 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
   implemented, awaiting owner review): the only role the BFF reads is the
   `catalogue-operator` client role from its validated ID token, mapped at sign-in to the
   operator authority that catalogue administration requires.
+  Proposed (#548, [ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md);
+  implemented, awaiting owner review): Keycloak may broker Google and Microsoft sign-in. A
+  brokered person is still a Keycloak user, so the subject, the BFF and `UserId` are unchanged;
+  Keycloak links a provider to an existing account only after that account's password.
 - IGDB data is untrusted input and must be normalized and validated before
   publication. It is the catalogue's acquisition source, never its serving source, and
   provider identities never become product identity.
@@ -85,7 +89,13 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 | Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, `Mis puntuaciones`, and personal statistics |
 | Identity | BFF session and external OIDC integration; not product credentials or authorization |
 | API | Same-origin HTTP delivery and mapping; no business policy |
+| Feedback | Anonymous message submission and the outbound receiving-channel port |
 | Platform | Runtime composition, configuration, health, correlation, metrics, and tracing |
+
+Post-MVP (#383, implemented for review), API delivery calls the Feedback application
+contract. The Feedback module owns validation and synchronous acceptance and keeps
+SMTP behind its outbound port. It depends on no other business module. See
+[UC-022](application/mvp-use-cases.md#visitor-feedback-uc-022-post-mvp-383).
 
 Ratings evaluates release eligibility from a narrow Catalogue application context.
 It never reads Catalogue tables or provider types. Catalogue does not depend on
@@ -290,3 +300,23 @@ History never auto-resumes at startup. The
 owns lifecycle guarantees and the [runbook](../development/operations-runbook.md#historical-synchronization)
 owns operator recovery. [ADR-0032](../decisions/0032-checkpoint-historical-synchronization-by-month.md)
 records the proposal's tradeoffs for owner review.
+
+
+## Prepared private profile and account lifecycle (#272)
+
+Pending owner review and runtime qualification. API delivery composes private session
+identity with Ratings-owned bounded export reads and Catalogue-owned preferences through
+their public application contracts. Export preparation uses one repeatable-read snapshot
+and fixed row/byte/time budgets; the file is delivered only after complete preparation.
+Identity owns the durable deletion admission/access fence, executor heartbeat and bounded
+leases. A single protected administrative runner automatically polls an authenticated private
+management operation and invokes the existing #274 engine. Production requires verified independent
+evidence; the owner-approved explicit private-dev profile/realm uses the same steps and PostgreSQL
+retry state without external evidence or backup/replay guarantees. Admission ends the requesting
+session and the UI returns directly to anonymous home; background verification continues. This integration is implemented; default activation remains off until configuration
+and qualification. Local/CI exercise it with disposable resources and synthetic accounts.
+The application establishes no SSH connection; no credentials, deletion SQL or legal keys cross into domain/application code.
+The [use case](application/mvp-use-cases.md#private-account-lifecycle-uc-021-post-mvp-272),
+[prepared revocation amendment](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
+and [runbook](../development/operations-runbook.md#self-service-account-deletion) own
+behavior, decision review and operational qualification. Production remains gated.

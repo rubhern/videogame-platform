@@ -1,0 +1,19 @@
+[Unit]
+Description=Finish an interrupted Gameometro backup cycle (prepared, not installed)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle reconcile --config /etc/gameometro/production/backup-cycle.json
+TimeoutStartSec=2h
+TimeoutStopSec=6min
+KillMode=mixed
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/gameometro/production /etc/gameometro/production/observability
+# gpg --list-secret-keys starts gpg-agent, whose socket lives in the keyring home (ProtectHome hides /run/user).
+ReadWritePaths=/etc/gameometro/production/backup-public-keyring
+# Docker administration is root-equivalent; this unit must stay root-only.

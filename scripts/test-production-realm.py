@@ -57,10 +57,12 @@ local_and_private_dev += [
 # The private-dev identity command reads the import as its single policy source and applies a
 # subset through the Admin API; it never mounts or imports it.
 policy_reader = repository_root / "deploy/private-dev/bin/configure-keycloak-identity"
+# The secret-free Keycloak runtime policy is the one production file they may consume directly.
+shared_runtime_policy = "public-production/keycloak/abuse.env"
 for path in local_and_private_dev:
     if path == policy_reader:
         continue
-    assert "public-production/" not in path.read_text(encoding="utf-8", errors="ignore"), path
+    assert "public-production/" not in path.read_text(encoding="utf-8", errors="ignore").replace(shared_runtime_policy, ""), path
 assert "public-production/keycloak/import/gameometro-realm.json" in policy_reader.read_text(encoding="utf-8")
 
 # Only reviewed runtime inputs are substituted at import; display-name keys are lower case.
@@ -100,7 +102,8 @@ for name, value in expected_policy.items():
 
 policies = dict(re.findall(r"([A-Za-z]+)(?:\(([^)]*)\))?", realm["passwordPolicy"]))
 policies.pop("and", None)
-assert policies == {"length": "12", "maxLength": "128", "notEmail": "", "notContainsUsername": ""}, policies
+assert policies == {"length": "8", "maxLength": "128", "notEmail": "", "notContainsUsername": "",
+                    "passwordBlacklist": "gameometro-common-passwords.txt"}, policies
 
 profile = json.loads(
     realm["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0]
@@ -116,19 +119,23 @@ assert {execution["authenticator"]: execution["requirement"] for execution in fo
     "registration-user-creation": "REQUIRED",
     "registration-password-action": "REQUIRED",
     "registration-terms-and-conditions": "REQUIRED",
-}, "registration needs the declaration and no third-party captcha"
+}, "registration needs terms acceptance and no third-party captcha"
 top = flows["gameometro registration"]["authenticationExecutions"]
 assert [(step["authenticator"], step["flowAlias"], step["requirement"]) for step in top] == [
     ("registration-page-form", "gameometro registration form", "REQUIRED")
 ]
 
-declaration = realm["localizationTexts"]["es"]
-assert "18 años" in declaration["acceptTerms"] and "condiciones" in declaration["acceptTerms"]
-assert "18 años" in declaration["termsAcceptanceRequired"]
-assert "email" in declaration["emailInstruction"] and "usuario" not in declaration["emailInstruction"]
-assert "nacimiento" not in text and "DNI" not in text
+spanish = realm["localizationTexts"]["es"]
+assert spanish["acceptTerms"] == "He leído y acepto las condiciones de uso de Gameómetro."
+assert spanish["termsAcceptanceRequired"] == "Para crear tu cuenta, acepta las condiciones de uso."
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/privacidad"' in spanish["termsText"]
+assert 'href="https://${APPLICATION_PUBLIC_HOST}/condiciones"' in spanish["termsText"]
+assert "Responsable: Rubén Hernández López" in spanish["termsText"]
+assert "Texto aprobado" not in spanish["termsText"]
+assert "email" in spanish["emailInstruction"] and "usuario" not in spanish["emailInstruction"]
+# Public copy may explain that birth date and ID are not collected; profile assertions above own the fields.
 # A temporary lockout must read exactly like a wrong password, so it reveals nothing.
-assert declaration["accountTemporarilyDisabledMessage"] == declaration["invalidUserMessage"]
+assert spanish["accountTemporarilyDisabledMessage"] == spanish["invalidUserMessage"]
 
 # --- Brute force, sessions and tokens ---
 assert realm["bruteForceProtected"] is True
@@ -212,6 +219,22 @@ assert "*" not in json.dumps(client), "no wildcard origin or redirect"
 assert not any(name.startswith("backchannel.") for name in client_attributes), "ADR-0027: no back-channel logout"
 # The BFF reads product roles only from its own ID token: no access token, user info or
 # introspection carries them (#247).
+profile_email = {
+    "name": "private profile email",
+    "protocol": "openid-connect",
+    "protocolMapper": "oidc-usermodel-property-mapper",
+    "consentRequired": False,
+    "config": {
+        "user.attribute": "email",
+        "claim.name": "email",
+        "jsonType.label": "String",
+        "id.token.claim": "false",
+        "access.token.claim": "false",
+        "userinfo.token.claim": "true",
+        "introspection.token.claim": "false",
+        "lightweight.claim": "false",
+    },
+}
 assert client["protocolMappers"] == [
     {
         "name": "product roles",
@@ -231,13 +254,14 @@ assert client["protocolMappers"] == [
         },
     },
     {"name": "native remember me", "protocol": "openid-connect", "protocolMapper": "gameometro-remember-me", "consentRequired": False, "config": {}},
+    profile_email,
 ]
 # Private-dev and local realms are aligned from their own import, which must declare the same
 # role and mapper as production (configure-keycloak-operator reads it, never this file).
 local_realm = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text(encoding="utf-8"))
 [local_client] = [entry for entry in local_realm["clients"] if entry["clientId"] == client["clientId"]]
 assert local_realm["roles"] == realm["roles"], "local and production realms declare the same client roles"
-assert local_client["protocolMappers"] == client["protocolMappers"], "local and production BFF mappers match"
+assert client["protocolMappers"] == [*local_client["protocolMappers"], profile_email]
 
 print("Production realm import is isolated, minimal and matches the reviewed identity policy.")
 
@@ -254,10 +278,13 @@ assert set(runtime["KC_EVENT_METRICS_USER_EVENTS"].split(",")) == {
     "login", "register", "verify_email", "send_verify_email", "send_reset_password",
     "reset_password", "user_disabled_by_temporary_lockout",
 }
-private_compose = (repository_root / "deploy/private-dev/compose.yaml").read_text()
-for name, value in runtime.items():
-    assert re.search(r"^\s+" + re.escape(name) + r': "?' + re.escape(value) + r'"?$',
-                     private_compose, re.MULTILINE), name
+# Local and private-dev Keycloak consume this file itself, never a copy of its values.
+for compose_file, reference in (("deploy/private-dev/compose.yaml", "../public-production/keycloak/abuse.env"),
+                                ("compose.yaml", "deploy/public-production/keycloak/abuse.env")):
+    compose_text = (repository_root / compose_file).read_text()
+    assert re.search(r"^    env_file:\n      - " + re.escape(reference) + "$", compose_text, re.MULTILINE), compose_file
+    for name in runtime:
+        assert name not in compose_text, (compose_file, name)
 runner = (repository_root / "scripts/validate-production-identity.sh").read_text()
 assert "--build-arg KEYCLOAK_EVENT_METRICS_USER_ENABLED=true" in runner
 assert '--env-file "$repository_root/deploy/public-production/keycloak/abuse.env"' in runner

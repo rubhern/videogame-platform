@@ -1,6 +1,6 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-import { legalPublicationApproved } from "./publication";
 
 type DocumentKey = "privacidad" | "condiciones" | "aviso-legal" | "cookies";
 // The footer's reading order (#283), not the routes' declaration order.
@@ -9,24 +9,23 @@ const documents: ReadonlyArray<readonly [DocumentKey, string]> = [
 ];
 
 /**
- * The footer's two link columns. They exist only where the legal routes do, and Contacto shares
- * that gate. `Sobre Gameómetro` links ahead of its page by owner decision (#283): until the page
- * exists, the route reads as not found.
+ * Shared footer destinations, available in every application build. `legalActions` closes the
+ * Legal column with list items the shell owns, such as the cookie settings (#507).
  */
-export function LegalLinks({ review = import.meta.env.DEV }: { review?: boolean }) {
-  if (!legalPublicationApproved && !review) return null;
+export function LegalLinks({ legalActions }: { legalActions?: ReactNode }) {
   return <div className="site-footer-links">
     <nav className="site-footer-column" aria-labelledby="site-footer-product">
       <p className="site-footer-heading" id="site-footer-product">Gameómetro</p>
       <ul>
         <li><Link to="/sobre-gameometro">Sobre Gameómetro</Link></li>
-        <li><a href="mailto:hola@gameometro.com">Contacto</a></li>
+        <li><Link to="/contacto">Contacto y sugerencias</Link></li>
       </ul>
     </nav>
     <nav className="site-footer-column" aria-labelledby="site-footer-legal">
       <p className="site-footer-heading" id="site-footer-legal">Legal</p>
       <ul>
         {documents.map(([key, label]) => <li key={key}><Link to={`/${key}`}>{label}</Link></li>)}
+        {legalActions}
       </ul>
     </nav>
   </div>;

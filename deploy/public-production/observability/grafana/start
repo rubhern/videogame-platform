@@ -11,6 +11,10 @@ cp /etc/grafana/production/capacity.json /tmp/production-dashboards/
 sed -e 's/"environment": "private-dev"/"environment": "production"/g' \
     -e 's/Platform logs/bounded Docker diagnostics/g' -e 's/#private-dev-alerts/#production-monitoring/g' \
     /etc/grafana/canonical-alerts.json > /tmp/grafana-provisioning/alerting/shared.json
+# The same registration-window rule, on the production realm (#550).
+sed -e 's/"environment": "private-dev"/"environment": "production"/g' \
+    -e 's/realm=\\"videogame-platform\\"/realm=\\"gameometro\\"/g' \
+    /etc/grafana/canonical-product-alerts.json > /tmp/grafana-provisioning/alerting/product.json
 cp /etc/grafana/production/alerts.json /tmp/grafana-provisioning/alerting/production.json
 cp /etc/grafana/production/dashboards.yaml /tmp/grafana-provisioning/dashboards/production.yaml
 # The shared launcher reads only this environment's secret files and enforces delivery off.

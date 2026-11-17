@@ -16,8 +16,13 @@
 | `UC-011` | Inspect catalogue acquisition state | Catalogue operator    | Post-MVP (#247): read the run in flight, at most twenty finished retained runs with their outcome and counters, and durable coverage of an inclusive release-date range as bounded consecutive periods; local evidence only, never a provider call or a synchronization start; only a session holding the operator authority |
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
-| `UC-016` | Count a month's highlighted releases per day | Visitor | Post-MVP (#250): application derives the evaluation date and the current month in `Europe/Madrid` and validates a requested month from the current one to the last month wholly inside the forward acquisition horizon, never an earlier one; PostgreSQL counts, per day from the evaluation date to the month's end, the games with local Hypes >= 10 and a qualifying exact-day release under `UC-001`'s rules and filters; days already gone by and month, quarter, year or unknown dates are never counted; at most 31 days; empty is a valid state; never call provider |
-| `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — 100 IGDB ratings, one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
+| `UC-016` | Count a month’s games releasing per day | Visitor | Post-MVP: counts every game with an eligible exact-day release from the Madrid evaluation date, with the same filters as UC-001. Returns at most 31 days and the aggregate Hype used for each day’s expectation band. |
+| `UC-018` | Rank released games by player ratings (TOPómetro) | Visitor | Post-MVP (#386): application derives the evaluation date in `Europe/Madrid`; for exactly one source — IGDB players (default) or the Gameómetro community — PostgreSQL selects the games holding a usable score from it on at least the source's minimum sample — an operator setting (`UC-024`), by default 50 IGDB ratings and one community rating (`RNK-001`–`RNK-004`) — and a release that proves rating eligibility, orders them by the unrounded mean descending, the count descending and `GameId` ascending, counts and pages them, and returns each game's place and the reading that placed it; post-MVP (#387), an optional platform scope of product platform IDs (one platform or one family) admits only games whose eligible release lies on the scope (`RNK-005`) before that order, count and page, keeps each game's global reading and presents its scope release; an unknown scope platform is rejected; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
+| `UC-019` | Explore the local games of one platform (Explorar catálogo) | Visitor | Post-MVP (#389): application validates a platform scope of product platform IDs (one platform or one family, never an invented platform entity), an optional title search normalized under `UC-002`, an optional released or upcoming state, an inclusive known-year range and genres, and derives the evaluation date in `Europe/Madrid`; PostgreSQL keeps one presented release per game on the scope (`PCAT-001`–`PCAT-003`), filters, computes the contextual genre and year facets, counts games and orders them by presented date, title or one score with a unique `gameId` tie-breaker before paging; empty is a valid state; never varies on the session or preferred platforms and never calls a provider |
+| `UC-020` | Rank a platform's most anticipated upcoming games (Próximos destacados) | Visitor | Post-MVP (#388): application validates a platform scope of product platform IDs as `UC-019` does and derives the evaluation date and the horizon of the operator's calendar months (`UC-024`, six by default) in `Europe/Madrid`; PostgreSQL selects the scope's qualifying releases inside the horizon (`UPC-001`), keeps the distinct games still new to the scope (`UPC-002`), ranks them by release attention descending and `gameId` ascending, limits the ranking to ten and presents one qualifying release per game (`UPC-003`); unranked and empty are valid states; never varies on the session or preferred platforms and never calls a provider |
+| `UC-023` | Load an editorial anticipation list | Catalogue operator | Post-MVP (#458): read the versioned prompt for a language model, preview its answer against the catalogue (IGDB slug, else an exact title one game carries), assign or exclude entries, and load the list of one range of at most 92 days, replacing the same range and refusing an overlap; the list scores up to 50 games from 1 to 100 for release attention (`ATT-004`) |
+| `UC-024` | Manage product settings | Catalogue operator | Post-MVP (#450): read every registered product setting with its effective value, default, range and origin, how the presentation windows compare with the configured acquisition horizon and the recent audited changes; apply a set of changes prepared from the current settings revision all or nothing, refusing unknown keys, values outside their range or kind, broken cross-setting rules and a superseded revision; effective from the next public read, never a provider call; only a session holding the operator authority |
+| `UC-022` | Send feedback | Visitor | Post-MVP (#383): send one categorized message and optional reply address to the configured receiving channel |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -29,13 +34,14 @@ itself for an exact date), then an exact day before a month, quarter or year end
 same day, then the unique `releaseId`. A game is positioned by its first presented
 release under that order, then its case-insensitive canonical title and `gameId`, and
 its releases keep the same order. Post-MVP (#285), the visitor may instead order games
-by Hype, highest first; by the Gameómetro community mean at the one decimal shown,
+by attention (sort `hype`, labelled **Interés**), highest first; by the Gameómetro community mean at the one decimal shown,
 highest first and then by more ratings; or by the stored external player score (currently
 IGDB players) at the one decimal of its /10 presentation, highest first and then by more
 of that source's ratings. A game without the chosen signal, including one whose last check
 found no external score, follows every game with one and is never treated as zero, and ties continue with the date order and
-`gameId`. Hype is the locally stored IGDB evidence that `UC-010` ranks with, and its
-value is never exposed; the external player score is Catalogue's own stored evidence
+`gameId`. Attention is release attention over the requested range and filters
+(`ATT-001` to `ATT-006`, [ADR-0041](../../decisions/0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md)),
+the order `UC-010` ranks with, and its value is never exposed; the external player score is Catalogue's own stored evidence
 (#255), read without any provider call. The community mean comes from a Catalogue-owned projection that
 Ratings maintains through a Catalogue application contract inside each rating write
 ([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), so
@@ -112,32 +118,22 @@ region therefore does not appear in an unrelated range merely because it exists.
 The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
 
-Post-MVP (#250, implemented; awaiting owner review), `UC-016` is the highlights calendar (**Calendario de destacados**), a second
-view of **Lanzamientos** beside the explorer. It reads one calendar month at a time, the
-current month in `Europe/Madrid` by default; navigation never goes back, and it reaches forward
-to the same last month that `UC-010` months reach, so both monthly views share one bound. The
-calendar is active from the evaluation date on (owner decision): the current month is counted
-from today, and a day that has gone by is never counted or chosen. A day holds only releases
-with that exact day, classified exactly as `UC-001` classifies a range of that single day
-without approximate dates, with the same multi-select filters and contextual facets. Its count
-is of games, not releases. Only games with locally stored IGDB Hypes >= 10 qualify; lower,
-null or absent Hype is excluded before contextual facets, counts and pagination. The threshold is fixed, informed by the private-dev Hype distribution reviewed for the owner's
-2026-10-21 request, rather than a percentile recalculated per request. The count covers highlights only; the full explorer lists all games for that day and the same
-platform/region filters, so its total can be larger.
-A release known only to its month, quarter or year, or with an unknown (TBA) date, is never
-placed on a day or counted (owner decision: no separate imprecise-date line). PostgreSQL
-filters, groups, counts and sums the local Hype once per game and day, irrespective of
-matching platforms or regions. The daily `totalHype` follows the same filters as its count,
-includes every qualifying game (not only the preview), and drives the calendar colours. Work stays
-in PostgreSQL over the shared period index, so a response holds at most 31 days
-and no game page is read. The games of a chosen day are an ordinary `UC-001` read of that one
-day ordered by Hype with `UC-001`'s fallback and tie-breakers. The preview's page size is the
-smaller of three and the highlighted-game count: high-Hype games precede every lower or
-missing signal, so a short highlighted day never fills its preview with other games.
-**Ver todos los lanzamientos del día** opens the unrestricted explorer for that day in the
-same order and platform/region context. No highlights filter exists in the explorer or its API.
-The calendar never shows numeric Hype.
-The API owns the bounds and the evaluation date; the browser never decides "today".
+Post-MVP, UC-016 provides **Calendario de lanzamientos**, a second view of **Lanzamientos**.
+It reads one month at a time from the current month through the shared forward bound of UC-010.
+The application evaluates today in Europe/Madrid. From that date onward, each day counts every
+game with an eligible exact-day release under UC-001 and the same platform and region filters.
+Multiple releases of a game on the same day count once. Approximate dates keep their original
+precision. The calendar's day count matches the explorer's total for the same day and filters.
+
+Only full and unknown-stage releases contribute to the day's interest signal (ATT-007). PostgreSQL
+sums local Hypes at or above the operator's minimum once per matching game and day. Games outside
+that interest calculation still count. The month response contains at most 31 aggregate rows.
+The home timeline reads full months, including elapsed days, within the months intersecting the
+featured week or month bounds of UC-010. It applies the same rules using the current published
+catalogue and current local Hypes. The dedicated calendar starts counting at the evaluation date.
+
+The chosen day's games use bounded UC-001 pages ordered by attention (ATT-005). The calendar
+offers all pages and a link to the explorer on the same day with the same filters.
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
 the featured view of release discovery, **Destacados** (#385), alongside **Explorar** (#285)
@@ -145,42 +141,42 @@ and **Calendario** (#250) in the **Lanzamientos** navigation disclosure. It
 represents one calendar period, an ISO week from Monday to Sunday or a calendar month, both
 evaluated in `Europe/Madrid`; the URL carries the selection. The frontend opens on the
 current week (owner decision, #329), while a request naming no period still reads the
-current month. Navigation is bounded by the application, never by the client: weeks reach
-16 weeks before and after the current week; months reach 10 calendar months back, across
-years, and forward to the last calendar month lying wholly inside the configured forward
-acquisition horizon, the widest future window of the recurring
-[catalogue synchronization](../../development/operations-runbook.md#catalogue-synchronization)
-policies that are not disabled. That bound says what acquisition is configured to cover,
-not that a period was scanned or that the catalogue is complete; coverage stays the
-operational evidence ADR-0017 owns. A period outside the bounds is rejected as an invalid
-filter, and the response names the adjacent periods still inside them. A release qualifies for the period when its known date lies
-wholly inside it (an exact day of it or, for a month, month precision equal to the month;
-quarter, year and unknown dates never do, and a week admits exact days only) and it is
-neither cancelled, delayed nor pending
-review, the same negative evidence that blocks rating eligibility. Only Full Release
-qualifies. A candidate also satisfies `FEAT-001`: an accepted import type, no edition
-parent, its own known first release in the period, and positive Hypes. A game whose
-first-release evidence falls in another week than its catalogued day therefore features in
-its month but in no week; nothing assigns it to an invented week. These gates affect
-only featured discovery; the normal catalogue and the release explorer remain unchanged.
+current month. Navigation is bounded by the application, never by the client, with the
+operator's settings (`UC-024`): by default weeks reach 16 weeks before and after the current
+week, and months reach 10 calendar months back, across years, and 5 forward. Months forward
+are no longer clipped to the acquisition horizon (ADR-0042); the administration panel warns
+when they reach beyond it, and coverage stays the operational evidence ADR-0017 owns. A period outside the bounds is rejected as an invalid
+filter, and the response names the adjacent periods still inside them. Since #457 (owner decision,
+2026-11-06) the selection is the head of the release explorer's attention order for the same period and
+platforms (`FEAT-001`, `FEAT-002`): a release qualifies exactly as `UC-001` admits it with approximate
+dates left out, and both reads share one SQL definition so they cannot drift apart. A port, a remake,
+an edition and a new platform release therefore take part, whatever the game's first release, and a
+game may feature again in a later period for another platform's release. Since #458 only a launch
+enters (`ATT-007`): a release of full or unknown stage in the period; early access, advance access,
+betas and alphas never feature, so a game's advance access and its launch a few days later never
+both lead a week. Only release attention is
+added (`ATT-006`). Up to the evaluation date a release must have happened, so a past period also holds the month,
+quarter or year periods that ended and overlap it, never placed on an invented day. After it an exact
+day is expected, a delayed one included, and a period known only by an open month is not claimed.
 Post-MVP (#295), a request may name explicit platforms: only a qualifying release on one of them makes
 its game a candidate and is presented, before ranking and limiting, so a restricted selection is
 the ranking of the restricted candidates and never a filtered copy of the unrestricted six.
-Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
-with the unique `gameId` as the only tie-breaker. A candidate without a signal is not
+Candidates are ranked by release attention (`ATT-005`, since #458), highest first,
+then by the explorer's date order, which ends in the unique `gameId`. A candidate without a signal is not
 ranked and nothing is invented for it; it remains a normal catalogue and discovery
 result. The first ranked game is the period's featured release (*Lanzamiento de la
-semana* or *Lanzamiento del mes*) and up to five more follow; fewer are shown rather than filling slots. Each presents,
+semana* or *Lanzamiento del mes*), whatever kind of release it is, and up to five more follow; fewer are shown rather than filling slots. Each presents,
 of its qualifying releases in the period, at most one per platform under the shared
-presented-release precedence with the earliest date first. The selection states why it
+presented-release precedence, in the explorer's order. The selection states why it
 holds what it holds: ranked, popularity unavailable (qualifying releases without any
 signal) or no qualifying releases. A ranked selection carries the freshness of its
 oldest signal under the catalogue freshness policy; a stale ranking is still the last
 valid local one. Any other period is ranked with the same current local signals, because
-no popularity history is kept, so consecutive periods may legitimately repeat games. Popularity measures provider-observed attention, never
-quality, a rating or an editorial recommendation, and its value is not exposed. Work is
+no popularity history is kept, so consecutive periods may legitimately repeat games. Attention combines
+provider-observed signals with the operator's editorial anticipation list (`UC-023`); it never measures
+quality or a rating, and its value is not exposed. Work is
 bounded by the period's releases and request memory by the six ranked games and their
-bounded release groups; the popularity table is never scanned. Each ranked game presents
+bounded release groups; each candidate probes its signal by key, so the popularity table is never scanned. Each ranked game presents
 its stored context-selected landscape image and optional secondary-card logo
 (`FEAT-003`, `FEAT-004`); the hero always renders the canonical title as product-owned text.
 Without a suitable stored image a card shows its cover whole, and without a provider cover the
@@ -197,7 +193,10 @@ or provider calculation timestamp remains. Current-release repair also receives 
 evidence with the Game. Hero and card media are selected independently under `FEAT-003`:
 artworks and screenshots arrive with the Game, logos use a bounded page lookup, and missing or
 invalid media keep the last valid selection. Featured evidence and media do not advance
-the catalogue revision. Explicit repair has no logo lookup.
+the catalogue revision. Explicit repair has no logo lookup. Since #458 each provider page also reads
+its Games' Want to Play and Visits shares and, for a derived product, its parent's Hypes, Want to Play
+and Visits in one bounded lookup; a failed lookup keeps every last valid signal and never fails a
+Game, and explicit repair does not refresh them.
 [ADR-0021](../../decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
 records the decision.
 
@@ -211,7 +210,67 @@ rated; release stage does not participate, as in that policy. Positions are cons
 pages of one source, so the first three are the podium; ties never share a place. Scores change
 independently of the catalogue, so a game can move between two page reads, and a client keeps
 its first occurrence. The ranked source's reading is the same value its order used, rounded for
-display only. Platform-scoped rankings (#387) are a separate follow-up.
+display only.
+
+Post-MVP (#387, implemented; awaiting owner review), the same `UC-018` ranks one platform scope,
+the **TOPómetro** destination of the Plataformas section. The scope joins the existing
+eligibility test rather than forming a second ranking: a game takes part only while an eligible
+release lies on a scope platform (`RNK-005`), so a game released elsewhere years before is not
+ranked on a newer platform until it has effectively come out there, and the order, count and
+pages are those of the scoped candidates, never a filtered copy of the global sequence. The
+reading is the game's global reading from the source; no per-platform score or mean is ranked
+or shown. Each place adds its presented scope release, chosen among the game's eligible scope
+releases by the `REL-013` precedence and read for the returned page only. Evidence (2026-10-27,
+opt-in `GameRankingScalabilityIT`, 100,000 games): a scoped first page reads in about 2–7 ms on a
+platform holding every game and about 80 ms for IGDB players on one holding one game in a
+hundred, whose page walks further down the rank index; scoped counts take 2–122 ms, as the global
+count does. The sparse page grows with the scored games ranked above the platform's twentieth,
+so a per-publication projection of ranked games per platform is the remedy when a measured
+platform scope exceeds the page budget.
+
+Post-MVP (#389, implemented; awaiting owner review), `UC-019` is **Explorar catálogo**, the
+platform destination of the Plataformas section. A game belongs to a scope while one of its current
+releases on a scope platform is not cancelled; the release that presents it follows `PCAT-002`, so
+a game that is out is always shown by a release that is out, and its status is the effective status
+of that release, never a stored one. The optional search reuses the `UC-002` normalization and
+text-search vectors as a filter inside the scope and never reorders. Genres and the known years are
+contextual facets: each leaves out its own dimension and keeps a selected genre representable.
+Scores are composed by API delivery for the returned page only, as on discovery pages; the two
+score orders read the Catalogue-owned stored external score and community projection
+([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), never
+Ratings tables. One statement derives the presented releases once and returns the page, the total
+and both facets in one repeatable-read snapshot, so request memory is `O(pageSize)` plus the bounded
+genre taxonomy; the statement runs without PostgreSQL JIT compilation, which measured 15–700 ms of
+compile time for no gain. Evidence (2026-10-27): on a copy of the real local catalogue (21,839
+games, 40,681 releases) a page reads in about 90–105 ms for Windows PC (18,735 games) and 7–23 ms
+for Nintendo Switch 2 and PlayStation 5; the opt-in `PlatformGamesScalabilityIT` measures about
+0.5–0.7 s for one platform holding 100,000 games and 198,000 releases, dominated by deriving every
+game's presented release. That cost grows with the platform's own releases, not the page; a
+per-publication projection of each game's presented release per platform is the remedy when a
+measured platform scope makes the page read exceed its budget.
+
+Post-MVP (#388, implemented; awaiting owner review), `UC-020` is **Próximos destacados**, the
+third platform destination of the Plataformas section, beside its TOPómetro and Explorar catálogo.
+It ranks attention, never quality: release attention over the horizon (`ATT-001` to `ATT-006`), the
+order `UC-010` ranks with, whose value is never exposed; a game first released before the evaluation
+date is a re-release there (`ATT-003`), so a game released years ago on
+another platform qualifies while it is still to come on this one. The horizon runs from the
+evaluation date to the day before the same day that many calendar months later, or to the last day
+of that month when the day does not exist in it, and the visitor never chooses it. Its length is
+the operator's setting (`UC-024`, six months by default, from 1 to 24); the ten-game limit is
+fixed with the page layout. A horizon beyond the configured acquisition shows months nothing
+synchronizes automatically, which the administration panel states. Candidates none of
+which has attention yield `popularity_unavailable`, a horizon without candidates
+`no_qualifying_releases`; nothing fills a missing place. One statement, in one repeatable-read
+snapshot, selects the horizon's releases through the shared period index, probes each candidate's
+scope releases and attention evidence by key, ranks and limits, presents the ten releases and states whether any
+candidate exists; genres are then read for the ten games only, so request memory is `O(limit)`.
+The work grows with the releases inside the horizon across every platform, never with the
+catalogue's history. Evidence (2026-10-27, a copy of the real local catalogue: 21,839 games, 40,681
+releases): about 4,900 releases fall inside the horizon, Windows PC ranks among 727 qualifying
+releases in about 7 ms warm and PlayStation 5 and Nintendo Switch 2 in about 2–3 ms. A partial index
+of qualifying releases per platform is the remedy when a measured horizon makes the read exceed its
+budget.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.
@@ -265,7 +324,9 @@ scheduled adapter, outside application reconciliation and domain rules; the
 provider returns `SKIPPED / SYNCHRONIZATION_ALREADY_RUNNING` without provider work;
 no credentials returns `SKIPPED / SYNCHRONIZATION_DISABLED` without persistence work.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns Game selection, import policy, stable Release identity and per-Game atomicity.
+owns Game selection, import policy, stable Release identity and per-Game atomicity. Since #456 a
+port or an expanded game is imported as a Game of its own, like a main game, so it can be
+rated and ranked separately from its parent; identical titles keep distinct slugs.
 It also acquires the platform and region taxonomy that accepted releases use, resolving
 each provider entity through a typed external reference and creating the product entity
 when the reference is unknown, per
@@ -343,11 +404,22 @@ summaries stay outside enrichment ownership. `UC-003` serves Spanish when availa
 marks it as product-derived, and retains source language/provenance; missing translation
 serves the source, while stale last-valid content has explicit status. No read calls inference.
 
-The operator localization command pages taxonomy and stored summary targets by
-`(kind, internal UUID)` with a maximum of 100 per batch, skips current/curated content,
-and retains a failed batch's cursor for safe replay. Successful PostgreSQL state is the
-durable progress. It uses no IGDB request or distributed job framework. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
-owns the runtime and concurrency decision.
+Post-MVP (#448, implemented locally; live acceptance pending), catalogue operators can
+inspect coverage and control one translation execution through the same-origin
+administration boundary. The latest execution has a durable checkpoint and counters.
+Start is explicit, stop acknowledges the current batch, and resume after an
+interruption keeps the saved cursor. Isolated failures do not block later targets.
+A retry after a completed pass with failures skips current or curated
+content. The progress estimate counts eligible targets visited, including skips,
+while coverage reads the current catalogue evidence independently. New or changed
+sources behind the cursor may require another pass.
+
+Both operator entry points use the same bounded keyset scan and source reservations.
+The private management command retains its failed-batch cursor. The browser never
+uses that command. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
+owns runtime and source concurrency. The
+[runbook](../../development/operations-runbook.md#translation-administration-acceptance)
+owns the operator procedure.
 
 ## Preferred platforms
 
@@ -376,6 +448,18 @@ decision); the API keeps the whole selectable taxonomy. `UC-002`, `UC-003` and `
 not chosen yet is offered the choice once per document on the way into release discovery,
 after authentication; saving or skipping records the choice, and rating and personal
 returns are never interrupted.
+
+## Web analytics
+
+| ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
+|----------|-------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `UC-022` | Read the deployment's analytics configuration | Visitor | Post-MVP (#507): return the public GA4 measurement ID from deployment configuration, or nothing when the deployment measures nothing; identical for every visitor and session, publicly cacheable, never a visitor's consent, a database read or a provider call |
+
+Post-MVP (#507, owner-approved 2026-11-11): the browser alone owns the visitor's
+analytics choice. It asks only when the deployment configures an ID, loads Google Analytics only
+after acceptance and reports route templates and a closed event dictionary;
+[ADR-0038](../../decisions/0038-measure-product-use-with-consent-gated-ga4.md) owns the decision
+and the [data-protection record](../../development/data-protection.md) the processing.
 
 ## Identity and ratings
 
@@ -407,10 +491,18 @@ and platform support follow, and any failure changes nothing. The write stores t
 its platform rows and their Ratings-owned labels in one transaction under the per-game lock,
 and the response carries the rating's mode, direct value, exposed contribution and
 platforms with the recomputed aggregate. Platform choices are never inferred from preferred
-platforms (#295), devices or releases, and a pick recovered after authentication
-(`UC-004`) is a direct value that is never applied over platform scores. Authentication cancellation
-or invalid/expired/replayed context creates no rating. Any failed rating command
-preserves personal and aggregate state.
+platforms (#295), devices or releases.
+
+Post-MVP (#518, implemented and awaiting owner review), a visitor may draft played platforms
+and their scores before authenticating. Confirming stores the bounded selection in the existing
+short-lived server-side rating context and starts the `UC-004` sign-in flow. After sign-in, the
+game page consumes the selection once for the authenticated principal and game. When an eligible
+game has no personal rating, the page tries a conditional create with the recovered platforms.
+When a personal rating exists, the page opens a draft with its saved platforms and the recovered
+selection for explicit review before any conditional update. A recovered general pick remains
+subject to the existing rule that it cannot replace platform scores. Authentication cancellation,
+invalid, expired or replayed context, and rejected commands leave personal and aggregate ratings
+intact.
 
 Post-MVP (#279, `Mis puntuaciones`, implemented; awaiting owner review): `UC-008` also returns
 each paged Game's current external player score. After the user-scoped search, sort, count
@@ -490,9 +582,18 @@ contribution never reach it. Ratings without any recorded platform stay valid an
 counted. Return up to six platforms by played count descending, scored count descending,
 case-insensitive name then platform ID ascending, plus the number of further platforms.
 
+Post-MVP (#398, implemented; awaiting owner review): the same read also returns five
+exhaustive association counts for PS5, Switch 2, Xbox Series X|S, PC Windows and Otras,
+independent of that top-six limit. Each saved game–platform selection contributes one,
+with or without a platform score; two other platforms on a game contribute two to Otras.
+The denominator is all recorded associations, never distinct games. Missing selections
+contribute to no category and their game count stays separate. Product platform identity
+selects the four featured groups; every other explicitly recorded identity belongs to Otras.
+No associations means five zero counts, not an invented full slice.
+
 PostgreSQL scopes by principal before aggregation, ordering and limits in one read-only
 repeatable-read snapshot. Java receives ten buckets, two lists of at most six genres,
-at most two games, twelve months and at most six platforms: constant memory as the
+at most two games, twelve months, at most six platforms and one five-count aggregate: constant memory as the
 user's collection grows. Database work grows with that user's ratings, their
 at-most-fifty projected genre links and at-most-fifty platforms per game, with indexed
 user/game access; no process-local correctness state.
@@ -569,7 +670,8 @@ maintenance on private management, not a product-facing endpoint or historical l
 
 Owner-requested extension, implemented subject to review and private-dev acceptance. The
 catalogue operator explicitly starts one historical target and chooses whether already-covered
-months are skipped or re-run. Deterministic calendar-month chunks clip the first and last
+months are skipped or re-run. A skip trusts only coverage scanned under the current import policy
+(#456), so a month covered before the policy widened is processed either way. Deterministic calendar-month chunks clip the first and last
 month to the requested dates. Only UC-009 acquires provider data, with all supported Games
 and platforms and unchanged per-Game reconciliation. Completed months, including empty ones,
 are durable checkpoints independent of run-history retention. Known data-quality failures
@@ -586,3 +688,106 @@ local progress, including completed/skipped/remaining months, current counters, 
 stable failure reasons. Month completion is acquisition evidence, never a guarantee that all
 Games were imported without errors. The existing coverage view remains canonical. Commands
 require the authenticated catalogue-operator authority, same-origin BFF and CSRF proof.
+
+
+### Private account lifecycle (UC-021, post-MVP #272)
+
+Owner-requested implementation, pending review and acceptance. **Mi perfil** exposes
+only the authenticated account's available session-validated email, personal
+navigation and Keycloak-owned security. Missing fields are unknown. No public profile,
+credential editor or new statistics model is introduced.
+
+Export captures the current profile projection, every retained personal rating with
+its game context, direct and per-platform scores and timestamps, and preferred-platform
+choice including its save time. A consistent local snapshot is read through module-owned
+contracts in bounded cursor batches. A bounded complete JSON document is prepared before
+successful delivery; exceeding the byte/time budget fails explicitly, never truncates.
+Credentials, tokens, raw provider data and other accounts are excluded.
+
+Deletion requires explicit confirmation, CSRF and a validated OIDC `auth_time` within
+five minutes, without an `iat` fallback. A missing or future time requires reauthentication.
+A durable principal-derived intent blocks new authenticated access before execution;
+existing personal writes settle under the session-revocation fence. Admission is idempotent
+per identity. An opaque, short-lived, HttpOnly receipt allows only status reads after
+session invalidation. Acceptance ends the requesting BFF session and immediately returns the
+browser to anonymous home; no waiting screen or automatic completion notice is shown.
+Acceptance is pending, never a claim of completed deletion.
+
+The existing erasure engine remains authoritative. Independent ledger/archive obligations apply
+to production; the owner-approved private-dev policy reuses its idempotent steps without external
+ledger/archive/backup prerequisites, preserving PostgreSQL recovery and access blocking;
+see the [operational sequence](../../development/operations-runbook.md#self-service-account-deletion).
+A protected polling executor retries the same leased intent after interruption. It marks completion
+only after verified absence and, in production, independent durable engine evidence. Failure remains blocked
+and recoverable, never automatically re-enables an account. The owner reviews the prepared
+[ADR-0027 amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
+before rollout.
+
+
+### Editorial anticipation lists (UC-023, post-MVP #458)
+
+Post-MVP (#458, implemented; awaiting owner review), the catalogue operator corrects what provider
+signals cannot see. Under **Interés editorial** in the administration panel the operator chooses a
+range, copies the versioned prompt (`editorial-anticipation@2`) into a language model with web
+access, and uploads the JSON file the prompt asks it to deliver, or pastes its answer. Files of an
+earlier prompt version with the same schema still load. The application owns the prompt and the file schema
+together; a change to either is a new prompt version.
+
+A preview reads the file as the model returned it: a surrounding Markdown fence and members the
+schema does not name are tolerated, and any invalid member is refused with its JSON Pointer. Each
+entry is matched to a catalogued game by the IGDB page slug the catalogue keeps for attribution,
+else by a title that exactly one catalogued game carries after search normalization. Each entry
+states its match and warnings: unmatched, ambiguous title, no release in the range, a release date
+that differs from every exact catalogue day in the range, or a game named twice. The preview also
+names the list it would replace and any other list it overlaps. Nothing is stored.
+
+Loading repeats the validation and matching, then applies the operator's assignments by rank: a
+catalogued game replaces the match, and an empty assignment leaves the entry out. Entries without a
+game are left out, and a game named twice keeps its highest score. Loading for exactly the same
+range replaces that list in one transaction. A range overlapping another list is refused, with a
+database exclusion constraint as the guarantee. From the next read, the list's scores take the
+operator's editorial weight (half by default, `UC-024`) of release attention for every range that overlaps it (`ATT-004`, `ATT-005`).
+Deleting a list returns its ranges to provider signals alone. All work is bounded by one file's
+50 entries and keyed lookups, and no provider or model is called by the application.
+[ADR-0041](../../decisions/0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md)
+records the decision.
+
+### Product settings (UC-024, post-MVP #450)
+
+Post-MVP (#450, implemented; awaiting owner review), the catalogue operator changes the approved
+presentation, ranking and synchronization-window values under **Ajustes** in the administration
+panel, without a restart or a deployment. The closed registry of settings, their ranges and their
+defaults is `ProductSetting`; [ADR-0042](../../decisions/0042-manage-approved-product-settings-in-postgresql.md)
+records the decision and classifies every other configuration, which stays external.
+
+The read returns every setting with its effective value, default, inclusive range, kind and
+origin: the approved default, the deployment's configured window, an operator's value, or a stored
+value no longer valid that the default replaces. It also compares the featured, calendar and
+Próximos destacados windows with the configured acquisition horizon, the widest future window of
+the scheduled policies the deployment registers, and lists at most 30 recent changes. Nothing is
+read from the provider.
+
+An update names the settings revision it was prepared from and applies all its changes or none.
+A change names a registered setting once and either a value inside its kind and range or no value,
+which restores the default. The resulting settings keep at least one positive provider attention
+weight and strictly ascending calendar interest bands. A superseded revision is refused without
+change; a row lock serializes concurrent updates. Each accepted change is audited with the
+revision, the previous and new effective values, the time and the session's derived `UserId`.
+
+Every affected public read (`UC-001`'s attention order, `UC-010`, `UC-016`, `UC-018`, `UC-020`)
+and each scheduled synchronization reads one snapshot of the settings when it starts, so a change
+applies from the next operation everywhere. A missing or invalid stored value never fails a read.
+The work is one primary-key read of a registry-bounded table per operation.
+
+### Visitor feedback (UC-022, post-MVP #383)
+
+A visitor can send a suggestion, problem report, game-data correction or other
+comment without an account. The optional address is for a reply. The operation
+does not infer identity, capture diagnostics, store a copy or queue a retry. It
+validates before handing one plain-text message to the configured channel, and
+confirms only when that channel accepts it. Acceptance can precede final mailbox
+delivery. A failed or indeterminate send leaves the browser draft available for
+an explicit retry, which may duplicate a message already accepted by the relay.
+
+See the [HTTP contract](../api/openapi.yaml) and
+[feedback processing record](../../development/data-protection.md#record-of-processing-activities).

@@ -1,6 +1,20 @@
 spring:
   application:
     name: videogame-platform-backend
+  mail:
+    host: ${FEEDBACK_SMTP_HOST:}
+    port: ${FEEDBACK_SMTP_PORT:587}
+    username: ${FEEDBACK_SMTP_USERNAME:}
+    password: ${FEEDBACK_SMTP_PASSWORD:}
+    properties:
+      "[mail.smtp.auth]": ${FEEDBACK_SMTP_AUTH:true}
+      "[mail.smtp.starttls.enable]": ${FEEDBACK_SMTP_STARTTLS:true}
+      "[mail.smtp.starttls.required]": ${FEEDBACK_SMTP_STARTTLS:true}
+      "[mail.smtp.ssl.checkserveridentity]": true
+      "[mail.smtp.connectiontimeout]": 3000
+      "[mail.smtp.timeout]": 4000
+      "[mail.smtp.writetimeout]": 4000
+      "[mail.smtp.quitwait]": false
   jackson:
     deserialization:
       fail-on-unknown-properties: true
@@ -31,6 +45,11 @@ spring:
     runtime:
       verification-enabled: true
 
+feedback:
+  enabled: ${FEEDBACK_ENABLED:false}
+  from: ${FEEDBACK_FROM:}
+  inbox: ${FEEDBACK_INBOX:}
+
 server:
   shutdown: graceful
   servlet:
@@ -44,6 +63,10 @@ server:
         path: /
 
 identity:
+  deletion-executor:
+    completion-policy: ${ACCOUNT_DELETION_COMPLETION_POLICY:independent}
+    enabled: ${ACCOUNT_DELETION_EXECUTOR_ENABLED:false}
+    credential-file: ${ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE:}
   session:
     # Ordinary: from auth_time. Remembered: from BFF creation, capped from auth_time below.
     absolute-timeout: ${APPLICATION_SESSION_ABSOLUTE_TIMEOUT:8h}
@@ -117,6 +140,9 @@ api:
     enabled: ${APPLICATION_API_ADMISSION_ENABLED:false}
     max-requests: ${APPLICATION_API_MAX_REQUESTS:8}
     max-writes: ${APPLICATION_API_MAX_WRITES:2}
+  web-analytics:
+    # Public GA4 measurement ID (#507); blank keeps product analytics off in this deployment.
+    google-analytics-measurement-id: ${APPLICATION_GA4_MEASUREMENT_ID:}
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, no-cache}
   games:
@@ -127,6 +153,15 @@ platform:
     catalogue-store-query-timeout: ${APPLICATION_CATALOGUE_READINESS_TIMEOUT:2s}
 
 management:
+  health:
+    mail:
+      enabled: false
+  logging:
+    export:
+      otlp:
+        # Off by default: the console is the primary log stream everywhere. Production turns this on
+        # to feed its Loki through the collector.
+        enabled: ${TELEMETRY_OTLP_LOGS_ENABLED:false}
   server:
     address: ${MANAGEMENT_SERVER_ADDRESS:127.0.0.1}
     port: ${MANAGEMENT_SERVER_PORT:8081}
@@ -143,8 +178,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation
+        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation,accountdeletionexecutor
   metrics:
+    # JDBC statement observations exist for trace spans (ADR-0046); they add no metric series.
+    enable:
+      jdbc.query: false
     distribution:
       percentiles-histogram:
         http.server.requests: true
@@ -162,6 +200,16 @@ management:
           connect-timeout: 1s
           endpoint: ${TELEMETRY_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
           timeout: 5s
+    logging:
+      export:
+        # Bounded queue: a stalled collector drops log records, never request threads.
+        max-queue-size: 2048
+        otlp:
+          connect-timeout: 1s
+          endpoint: ${TELEMETRY_OTLP_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+          timeout: 5s
+      limits:
+        max-attribute-value-length: 4096
   otlp:
     metrics:
       export:
@@ -176,6 +224,16 @@ management:
       type: w3c
     sampling:
       probability: ${TELEMETRY_TRACING_SAMPLING_PROBABILITY:1.0}
+
+# JDBC spans for sampled traces (ADR-0046): one span per statement with its parameterized text, never
+# bound values, result-set operations or connection spans. Statement SQL must keep binding visitor
+# input; TraceExportPrivacyIntegrationTest proves it for search.
+jdbc:
+  includes: query
+  datasource-proxy:
+    include-parameter-values: false
+  resultset-operations:
+    enabled: false
 
 logging:
   include-application-name: false

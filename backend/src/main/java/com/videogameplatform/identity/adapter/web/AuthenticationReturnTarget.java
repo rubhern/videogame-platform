@@ -63,6 +63,7 @@ public final class AuthenticationReturnTarget {
             } else if ("/search".equals(path)) {
                 allowed = SEARCH_QUERY;
             } else if ("/mis-puntuaciones".equals(path)
+                    || "/mi-perfil".equals(path)
                     || "/mis-plataformas".equals(path)
                     || "/mis-puntuaciones/estadisticas".equals(path)) {
                 allowed = Set.of();

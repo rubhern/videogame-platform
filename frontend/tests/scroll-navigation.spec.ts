@@ -182,8 +182,10 @@ for (const width of [390, 412, 1320]) {
       await expect(page).toHaveURL(/platformIds=windows-pc/);
       await at(page, before);
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
-  await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
+      // Phones reach the sections through the Menú sheet (#358).
+      if (width < 720) await page.getByRole("button", { name: "Menú" }).click();
+      else await page.getByRole("button", { name: "Lanzamientos", exact: true }).click();
+      await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Destacados", exact: true }).click();
       await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
       await at(page, 0);
       await expect(page.getByRole("main")).toBeFocused();
@@ -248,7 +250,7 @@ for (const width of [390, 412, 1320]) {
 
     test("Featured title and selectors are painted on their first upward reentry", async ({ page }) => {
       await fixtures(page);
-      await page.goto("/");
+      await page.goto("/lanzamientos/destacados");
       const selector = page.getByRole("navigation", { name: "Periodo de Destacados" });
       await expect(selector).toBeVisible();
       const title = page.getByRole("heading", { name: "Destacados de la semana", exact: true });
@@ -305,7 +307,7 @@ for (const width of [390, 412, 1320]) {
 }
 
 
-test("a pending search keeps one result status and announces navigation separately", async ({ page }) => {
+test("a fast search keeps one result status without flashing the navigation overlay", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 740 });
   await fixtures(page);
   await page.goto("/search?q=juego&pageSize=12");
@@ -321,33 +323,37 @@ test("a pending search keeps one result status and announces navigation separate
     return route.fallback();
   });
   const search = page.getByRole("combobox", { name: "Buscar juegos" });
+  await page.clock.install();
+  const overlay = page.getByRole("dialog", { name: "Cargando página…" });
   await search.fill("otro");
   await search.press("Enter");
   await expect.poll(() => requested).toBe(true);
   await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
   await expect(page.getByRole("status")).toHaveCount(1);
-  await expect(page.locator(".app-frame > [aria-live=polite]")).toHaveText("Cargando página…");
+  await expect(overlay).toBeHidden();
   finishRead?.();
   await expect(page).toHaveURL(/q=otro/);
   await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("status")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
+  await page.clock.fastForward(1_000);
+  await expect(overlay).toBeHidden();
 });
 
 test.describe("shared shell on a high-density touch screen", () => {
   test.use({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3.5 });
-  for (const path of ["/", "/lanzamientos?pageSize=12", "/lanzamientos?from=2026-08-14&to=2026-11-13&pageSize=12", "/search?q=juego&pageSize=12"]) {
+  for (const path of ["/lanzamientos/destacados", "/lanzamientos?pageSize=12", "/lanzamientos?from=2026-08-14&to=2026-11-13&pageSize=12", "/search?q=juego&pageSize=12"]) {
     test(`header and page opening repaint after deep scroll and toolbar resize: ${path}`, async ({ page }) => {
       await fixtures(page);
       await page.goto(path);
       const header = page.getByRole("banner");
       const title = page.getByRole("heading", { level: 1 });
-      const controls = path === "/"
+      const controls = path === "/lanzamientos/destacados"
         ? page.getByRole("navigation", { name: "Periodo de Destacados" })
         // Phones fold the explorer's controls, so their toggle is what must paint there.
         : path.startsWith("/lanzamientos") ? page.locator(".releases-controls-toggle") : null;
       await expect(title).toBeVisible();
-      if (path.startsWith("/lanzamientos")) {
+      if (path.startsWith("/lanzamientos?")) {
         // Owner-selected plain canvas: provider covers must not create a backdrop.
         await expect(page.locator(".stage-light")).toHaveCount(0);
         await expect(page.locator(".catalogue-cover").first()).toBeVisible();

@@ -71,9 +71,7 @@ public final class RatingResumeAuthenticationSuccessHandler
                                         new IllegalStateException(
                                                 "Successful authentication without a resolvable"
                                                         + " product identity"));
-        store.saveResumedIntent(
-                new ResumedRatingIntent(
-                        pending.gameId(), pending.slug(), pending.value(), userId.value()));
+        store.saveResumedIntent(new ResumedRatingIntent(pending, userId.value()));
         sendTo(
                 request,
                 response,

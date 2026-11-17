@@ -39,8 +39,9 @@ test("actual multipart account emails render safely and their native actions wor
         alias: action.alias, enabled: action.enabled, defaultAction: action.defaultAction,
       })),
     }, null, 2));
-    const username = `email-review-${crypto.randomUUID()}`;
-    const address = `${username}@example.test`;
+    // Email as username, as in production.
+    const address = `email-review-${crypto.randomUUID()}@example.test`;
+    const username = address;
     const password = `Synthetic-${crypto.randomUUID()}!`;
     const created = await request.post(`${realm}/users`, { headers, data: {
       username, email: address, firstName: "Synthetic", lastName: "Reviewer", enabled: true,
@@ -62,7 +63,7 @@ test("actual multipart account emails render safely and their native actions wor
       if (flow === "recovery") {
         await page.goto(auth);
         await page.getByRole("link", { name: "¿Has olvidado tu contraseña?", exact: true }).click();
-        await page.getByLabel("Usuario", { exact: true }).fill(username);
+        await page.locator("#username").fill(username);
         await page.getByRole("button", { name: "Continuar", exact: true }).click();
       } else {
         const response = flow === "smtp-test"
@@ -217,7 +218,7 @@ test("actual multipart account emails render safely and their native actions wor
         const signInContext = await browser.newContext({ ignoreHTTPSErrors: mode === "after-public" });
         const signIn = await signInContext.newPage();
         await signIn.goto(auth);
-        await signIn.getByLabel("Usuario", { exact: true }).fill(username);
+        await signIn.locator("#username").fill(username);
         await signIn.locator("#password").fill(newPassword);
         await signIn.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
         stage = `${flow}: authenticate with changed password`;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Acquire a digest-pinned CI image; retry registry HTTP failures, never its execution."""
+"""Acquire a digest-pinned CI image; retry transient registry failures, never its execution."""
 import re
 import subprocess
 import sys
@@ -16,7 +16,7 @@ def pull_image(image):
             return
         if attempt == 2 or not re.search(
                 r'\b(?:429 Too Many Requests|500 Internal Server Error|502 Bad Gateway|'
-                r'503 Service Unavailable|504 Gateway Timeout)\b', result.stderr):
+                r'503 Service Unavailable|504 Gateway Timeout|Client\.Timeout exceeded while awaiting headers)\b', result.stderr):
             raise RuntimeError(result.stderr)
         delay = 5 * (attempt + 1)
         print(f'Temporary registry failure downloading pinned CI image; retrying in {delay}s '

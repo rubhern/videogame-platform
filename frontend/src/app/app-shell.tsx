@@ -1,10 +1,14 @@
 import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
+import { AnalyticsBoundary } from "../features/analytics/analytics-boundary";
 import { ReleasesNavigation } from "./releases-navigation";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
+import { useMediaQuery } from "../shared/browser/use-media-query";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
+import { NavigationMenu } from "./navigation-menu";
+import { NavigationLoading } from "./navigation-loading";
 import { SiteFooter } from "./site-footer";
 
 export function AppShell() {
@@ -13,6 +17,8 @@ export function AppShell() {
   const navigation = useNavigation();
   const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
+  // Below tablet width the sections and the account share one menu instead of shrinking links.
+  const compactHeader = useMediaQuery("(max-width: 719px)");
 
   useEffect(() => {
     if (previousPage.current === pageIdentity) {
@@ -41,6 +47,7 @@ export function AppShell() {
       <a className="skip-link button button-primary" href="#main-content">
         Saltar al contenido
       </a>
+      <AnalyticsBoundary />
       <header className="site-header">
         <div className="header-layout page-container">
           <Link className="brand" to="/" aria-label="Gameómetro · Inicio">
@@ -48,18 +55,16 @@ export function AppShell() {
             <BrandLogo className="brand-logo" />
           </Link>
 
-          <ReleasesNavigation />
+          {compactHeader ? null : <ReleasesNavigation />}
 
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 
-          <AccountControl />
+          {compactHeader ? <NavigationMenu /> : <AccountControl />}
         </div>
       </header>
 
-      <p className="sr-only" aria-live="polite">
-        {navigation.state === "loading" ? "Cargando página…" : ""}
-      </p>
-      <main aria-busy={navigation.state === "loading"} id="main-content" ref={mainContentRef} tabIndex={-1}>
+      <NavigationLoading pending={navigation.state !== "idle"} />
+      <main aria-busy={navigation.state !== "idle"} id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>
 

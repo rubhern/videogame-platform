@@ -146,7 +146,6 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_CACHE: local
-      KC_LOG_LEVEL: info
       KC_HTTP_ACCESS_LOG_ENABLED: "false"
       APPLICATION_PUBLIC_HOST: gameometro.com
       APPLICATION_PUBLIC_ORIGIN: https://gameometro.com
@@ -218,7 +217,9 @@ services:
     networks:
       - application-data
     restart: unless-stopped
-    mem_limit: 768m
+    # Covers the largest bounded request plus model file cache: the operations runbook owns
+    # the measurements and the soak that must stay stable before a larger run.
+    mem_limit: 1792m
     cpus: 1.0
     pids_limit: 64
     logging: *bounded-logging
@@ -245,6 +246,9 @@ services:
       APPLICATION_FLYWAY_ENABLED: "false"
       # No calibrated production admission values exist; enabling needs a reviewed change.
       APPLICATION_API_ADMISSION_ENABLED: "false"
+      # Public GA4 measurement ID (#507, ADR-0038); only production measures. Visitors are
+      # asked first, and removing it turns analytics off.
+      APPLICATION_GA4_MEASUREMENT_ID: G-J3Y4VJZ7BN
       CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
       # Management (health, revocation, synchronization) stays on container loopback.
       MANAGEMENT_SERVER_ADDRESS: 127.0.0.1
@@ -262,8 +266,21 @@ services:
       # Telemetry export belongs to a later increment.
       TELEMETRY_OTLP_TRACES_ENABLED: "false"
       TELEMETRY_OTLP_METRICS_ENABLED: "false"
-      # Recurring acquisition stays off until a reviewed production schedule exists.
-      CATALOGUE_SYNC_SCHEDULING_ENABLED: "false"
+      TELEMETRY_OTLP_LOGS_ENABLED: "false"
+      # Recurring acquisition (#484) on the application's default schedule; installer and
+      # upgrader refuse a cron override and require non-empty provider credentials.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "true"
+      FEEDBACK_ENABLED: ${PRODUCTION_FEEDBACK_ENABLED:-false}
+      FEEDBACK_SMTP_HOST: ${PRODUCTION_SMTP_RELAY_HOST:?Set PRODUCTION_SMTP_RELAY_HOST in runtime.env}
+      FEEDBACK_SMTP_PORT: ${PRODUCTION_SMTP_RELAY_PORT:?Set PRODUCTION_SMTP_RELAY_PORT in runtime.env}
+      FEEDBACK_FROM: ${PRODUCTION_SMTP_RELAY_FROM:?Set PRODUCTION_SMTP_RELAY_FROM in runtime.env}
+      FEEDBACK_INBOX: ${PRODUCTION_FEEDBACK_INBOX:-}
+      FEEDBACK_SMTP_USERNAME_FILE: /run/secrets/feedback_smtp_username
+      FEEDBACK_SMTP_PASSWORD_FILE: /run/secrets/feedback_smtp_password
+      # #543: self-service account deletion. The host runner claims requests through the
+      # loopback-only management port with this capability, never through the edge.
+      ACCOUNT_DELETION_EXECUTOR_ENABLED: ${PRODUCTION_ACCOUNT_DELETION_ENABLED:-false}
+      ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE: /run/secrets/account_deletion_executor_capability
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:
@@ -271,6 +288,9 @@ services:
       - keycloak_bff_client_secret
       - igdb_client_id
       - igdb_client_secret
+      - feedback_smtp_username
+      - feedback_smtp_password
+      - account_deletion_executor_capability
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
@@ -361,6 +381,13 @@ secrets:
   igdb_client_secret:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-secret
 
+  feedback_smtp_username:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-username
+  feedback_smtp_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-password
+  account_deletion_executor_capability:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/account-deletion-executor-capability
+
 volumes:
   recovery-state:
   caddy-data:
@@ -394,7 +421,7 @@ networks:
     internal: true
     ipam:
       config:
-        # Combined runtime: seven dynamic consumers plus bounded operator probes.
+        # Combined runtime: nine dynamic consumers plus bounded operator probes.
         # Keep allocation away from the edge's fixed metrics address.
         - subnet: 10.203.3.0/27
           gateway: 10.203.3.1

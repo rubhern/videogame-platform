@@ -38,17 +38,47 @@ for excluded in ("realm", "sslRequired", "smtpServer", "clients", "registrationF
     assert excluded not in identity.MANAGED_REALM_SETTINGS, excluded
 # Local and private/production session semantics come from the same reviewed values.
 local = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text())
-assert {name: local[name] for name in identity.SESSION_SETTINGS} == {
-    name: production[name] for name in identity.SESSION_SETTINGS}
+assert {name: local[name] for name in identity.SHARED_SETTINGS} == {
+    name: production[name] for name in identity.SHARED_SETTINGS}
 assert next(mapper for client in local["clients"] if client["clientId"] == "videogame-platform-bff"
     for mapper in client["protocolMappers"] if mapper["protocolMapper"] == "gameometro-remember-me") == desired["rememberMeMapper"]
+# Fresh local and private-dev realms start with the full reviewed production policy, the same one
+# the command applies to an existing realm: settings, profile, registration flow and texts.
+assert {name: local[name] for name in identity.MANAGED_REALM_SETTINGS} == desired["settings"]
+local_profile = json.loads(local["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0])
+assert [{"multivalued": False, **attribute} for attribute in local_profile["attributes"]
+        if attribute["name"] != mail.provisioning.MARKER_ATTRIBUTE] == desired["profileAttributes"]
+assert local["registrationFlow"] == desired["registrationFlow"]["alias"]
+assert local["authenticationFlows"] == production["authenticationFlows"]
+assert {key: value.replace("${APPLICATION_PUBLIC_ORIGIN}", "http://localhost:8080")
+        for key, value in local["localizationTexts"]["es"].items()} == desired["localization"]
+# The alignment proof keeps the realm as private-dev held it before the policy, frozen.
+legacy = json.loads((repository_root / "scripts/fixtures/private-dev-identity/legacy-videogame-platform-realm.json").read_text())
+assert legacy["realm"] == local["realm"] and legacy["verifyEmail"] is False and legacy["loginWithEmailAllowed"] is False
 assert [attribute["name"] for attribute in desired["profileAttributes"]] == ["username", "email"]
 assert desired["registrationFlow"]["form"]["steps"] == [
     ("registration-user-creation", "REQUIRED"),
     ("registration-password-action", "REQUIRED"),
     ("registration-terms-and-conditions", "REQUIRED"),
 ]
-assert "18 años" in desired["localization"]["acceptTerms"]
+assert desired["localization"]["acceptTerms"] == "He leído y acepto las condiciones de uso de Gameómetro."
+for origin in ("http://localhost:8080", "https://private-dev.example.test"):
+    notice = identity.desired_policy(origin)["localization"]["termsText"]
+    assert f'href="{origin}/privacidad"' in notice
+    assert f'href="{origin}/condiciones"' in notice
+    assert "${" not in notice and "gameometro.com/privacidad" not in notice
+for unsafe in ('https://app.test/path', 'https://user:pass@app.test', 'https://app.test/?next=x', 'https://app.test/\"'):
+    try:
+        identity.desired_policy(unsafe)
+        raise AssertionError("unsafe application origin accepted")
+    except identity.ProvisioningError:
+        pass
+
+# New local imports also require the native declaration without a second consent action.
+assert local["registrationFlow"] == production["registrationFlow"]
+local_steps = next(flow for flow in local["authenticationFlows"] if flow["providerId"] == "form-flow")["authenticationExecutions"]
+assert [(step["authenticator"], step["requirement"]) for step in local_steps] == desired["registrationFlow"]["form"]["steps"]
+assert 'href="${APPLICATION_PUBLIC_ORIGIN}/privacidad"' in local["localizationTexts"]["es"]["termsText"]
 
 # Session-only production reconciliation must target the explicit realm, not private-dev.
 class RealmAdmin:

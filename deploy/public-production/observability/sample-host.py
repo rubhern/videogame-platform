@@ -16,7 +16,7 @@ import tempfile
 import time
 
 SERVICES = ('caddy', 'application', 'postgres', 'keycloak', 'catalogue-localizer',
-            'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox')
+            'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki', 'tempo')
 
 
 def protected_json(path):
@@ -55,12 +55,26 @@ def cgroup_values(directory):
     quota, period = (directory / 'cpu.max').read_text().split()
     if limit == 'max' or quota == 'max':
         raise ValueError('Expected bounded cgroup v2')
-    return {'cpu_seconds_total': int(cpu['usage_usec']) / 1e6,
-            'cpu_throttled_periods_total': int(cpu.get('nr_throttled', 0)),
-            'cpu_periods_total': int(cpu.get('nr_periods', 0)),
-            'cpu_limit_cores': int(quota) / int(period),
-            'memory_bytes': int((directory / 'memory.current').read_text()),
-            'memory_limit_bytes': int(limit), 'oom_total': int(memory['oom_kill'])}
+    values = {'cpu_seconds_total': int(cpu['usage_usec']) / 1e6,
+              'cpu_throttled_periods_total': int(cpu.get('nr_throttled', 0)),
+              'cpu_periods_total': int(cpu.get('nr_periods', 0)),
+              'cpu_limit_cores': int(quota) / int(period),
+              'memory_bytes': int((directory / 'memory.current').read_text()),
+              'memory_limit_bytes': int(limit), 'oom_total': int(memory['oom_kill'])}
+    # memory_bytes includes reclaimable file cache; anonymous memory is what the trend needs.
+    # pids.max counts every thread of every process, so it explains an EAGAIN that a single
+    # Go runtime's own thread count cannot. An unavailable reading stays absent, never zero.
+    optional = {'memory_anon_bytes': lambda: fields('memory.stat')['anon'],
+                'memory_peak_bytes': lambda: (directory / 'memory.peak').read_text(),
+                'pids_current': lambda: (directory / 'pids.current').read_text(),
+                'pids_limit': lambda: (directory / 'pids.max').read_text(),
+                'pids_max_events_total': lambda: fields('pids.events')['max']}
+    for name, reader in optional.items():
+        try:
+            values[name] = int(reader())
+        except (OSError, KeyError, ValueError):
+            pass
+    return values
 
 
 def command(args, max_bytes=16384):
@@ -95,7 +109,7 @@ def snapshot(project):
     return [json.loads(line) for line in command(['inspect', '--format', template, *ids]).splitlines()]
 
 
-def render(containers, offhost=None, backup=None, capacity=None, now=None, cgroup_root=Path('/sys/fs/cgroup')):
+def render(containers, offhost=None, backup=None, capacity=None, now=None, cgroup_root=Path('/sys/fs/cgroup'), cleanup=None):
     now = time.time() if now is None else now
     lines = []
     def emit(name, value, service=None):
@@ -148,7 +162,23 @@ def render(containers, offhost=None, backup=None, capacity=None, now=None, cgrou
         emit('offhost_verification_seconds', timestamp(offhost['verifiedAt']))
     emit('backup_attempt_observed', int(bool(backup)))
     if backup:
-        emit('backup_last_attempt_failed', int(backup.get('outcome') != 'success' or backup.get('kind') not in ('paired-backup', 'backup')))
+        emit('backup_last_attempt_failed', int(backup.get('outcome') != 'success' or backup.get('kind') not in ('paired-backup', 'backup', 'backup-cycle')))
+    if backup and backup.get('kind') == 'backup-cycle':
+        emit('backup_cycle_attention', int(backup.get('attention') is not False))
+        emit('backup_cycle_capacity_warning', int(backup.get('capacityWarning') is True))
+        for name, field in (('capture', 'lastCaptureAt'), ('upload', 'lastUploadAt')):
+            try:
+                emit(f'backup_cycle_last_{name}_seconds', timestamp(backup[field]))
+            except (KeyError, TypeError, ValueError, AttributeError):  # No upload yet, or an unreadable date.
+                pass
+    # #539: absent until the cleanup timer is installed; a failed run or a stale success alerts.
+    if cleanup and cleanup.get('kind') == 'unverified-cleanup':
+        emit('unverified_cleanup_attention', int(cleanup.get('attention') is not False or cleanup.get('outcome') != 'success'))
+        emit('unverified_cleanup_backlog', int(cleanup.get('backlog') is True))
+        try:
+            emit('unverified_cleanup_last_success_seconds', timestamp(cleanup['lastSuccessAt']))
+        except (KeyError, TypeError, ValueError, AttributeError):  # No success yet.
+            pass
     calibrated = False
     if capacity:
         try:
@@ -199,6 +229,7 @@ def main():
     parser.add_argument('--offhost-evidence', type=Path)
     parser.add_argument('--backup-receipt', type=Path)
     parser.add_argument('--capacity-evidence', type=Path)
+    parser.add_argument('--cleanup-receipt', type=Path)
     args = parser.parse_args()
     def evidence(path):
         try:
@@ -208,7 +239,8 @@ def main():
     try:
         containers=snapshot(args.project)
         content = render(containers, evidence(args.offhost_evidence),
-                         evidence(args.backup_receipt), evidence(args.capacity_evidence))
+                         evidence(args.backup_receipt), evidence(args.capacity_evidence),
+                         cleanup=evidence(args.cleanup_receipt))
         try:
             logs=command(['logs','--since','5m','--tail','20000',next(item['id'] for item in containers if item['service']=='caddy')],max_bytes=4*1024*1024)
             # subprocess stdout is bounded by the container log ceiling, but reject a

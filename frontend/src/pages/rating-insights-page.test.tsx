@@ -56,11 +56,12 @@ describe("Tus estadísticas", () => {
     stub(() => Response.json(ratingInsightsFixture()));
     renderApp(path);
     const section = await screen.findByRole("region", { name: "Dónde has jugado" });
-    expect(section).toHaveTextContent("62 de 84 juegos con plataforma");
-    // The ring is the collection's one partition: 53 + 9 + 22 = 84.
+    expect(section).toHaveTextContent("73 selecciones en total");
+    expect(section).toHaveTextContent("22 juegos sin plataforma indicada; no entran en el gráfico");
     const legend = within(section).getAllByRole("listitem").filter(row => row.closest(".insights-donut-legend"));
     expect(legend.map(row => row.textContent?.replace(/\s/g, " "))).toEqual([
-      "En una plataforma 53 63,1 %", "En varias plataformas 9 10,7 %", "Sin plataforma indicada 22 26,2 %"]);
+      "PS5 31 42,5 %", "Switch 2 9 12,3 %", "Xbox Series X|S 4 5,5 %", "PC Windows 18 24,6 %", "Otras 11 15,1 %"]);
+    await userEvent.click(within(section).getByText("Tus puntuaciones por plataforma"));
     const rows = within(section).getAllByRole("listitem").filter(row => row.closest("ol"));
     expect(rows).toHaveLength(6);
     expect(rows[0]).toHaveTextContent("PlayStation 5");
@@ -75,11 +76,13 @@ describe("Tus estadísticas", () => {
 
   it("states missing platform information without inventing one or drawing empty bars", async () => {
     const data = ratingInsightsFixture();
-    stub(() => Response.json({ ...data, platforms: { items: [], otherPlatforms: 0, gamesWithoutPlatforms: 84, gamesOnSeveralPlatforms: 0 } }));
+    stub(() => Response.json({ ...data, platforms: { items: [], otherPlatforms: 0, gamesWithoutPlatforms: 84, gamesOnSeveralPlatforms: 0, distribution: { ps5: 0, switch2: 0, xboxSeries: 0, windowsPc: 0, other: 0 } } }));
     renderApp(path);
     const section = await screen.findByRole("region", { name: "Dónde has jugado" });
     expect(section).toHaveTextContent("Aún no has indicado en qué plataformas jugaste tus 84 juegos.");
-    expect(within(section).queryByRole("list")).not.toBeInTheDocument();
+    expect(within(section).getAllByRole("listitem")).toHaveLength(5);
+    expect(section.querySelectorAll(".insights-donut-slice")).toHaveLength(0);
+    expect(section).toHaveTextContent("0 selecciones en total");
     expect(within(section).getByRole("link", { name: "Ir a Mis puntuaciones" })).toHaveAttribute("href", "/mis-puntuaciones");
     // The rest of the page keeps its readings.
     expect(screen.getByRole("heading", { name: "Así puntúas" })).toBeVisible();
@@ -92,6 +95,7 @@ describe("Tus estadísticas", () => {
     renderApp(path);
     const section = await screen.findByRole("region", { name: "Dónde has jugado" });
     expect(section).toHaveTextContent("Todavía no has puntuado ningún juego por plataforma");
+    await userEvent.click(within(section).getByText("Tus puntuaciones por plataforma"));
     expect(within(section).getAllByText("Sin puntuar")).toHaveLength(6);
     expect(section).not.toHaveTextContent("fuera de esta lista");
     const readout = screen.getByText(/La aguja marca tu media exacta, 7,2/);

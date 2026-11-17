@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import datetime
 import unittest
 import urllib.parse
 import urllib.request
@@ -64,7 +65,7 @@ def static():
     with tempfile.TemporaryDirectory() as temp:
         config = rendered(temp)
     services = config['services']
-    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox'}
+    names = {'telemetry', 'prometheus', 'grafana', 'node-exporter', 'blackbox', 'loki', 'tempo'}
     # The base-only topology cannot reveal exhaustion when the overlay starts.
     ipam = config['networks']['telemetry']['ipam']['config'][0]
     subnet, pool = (ipaddress.ip_network(ipam[k]) for k in ('subnet','ip_range'))
@@ -73,7 +74,7 @@ def static():
     assert ipaddress.ip_address(ipam['gateway']) not in pool
     assert ipaddress.ip_address('10.203.3.2') not in pool
 
-    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 640
+    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1376
     for name in names:
         service = services[name]
         assert not service.get('ports') and not service.get('privileged')
@@ -85,7 +86,8 @@ def static():
         assert not any(x in services[service].get('depends_on', {}) for x in names)
     assert services['application']['environment']['TELEMETRY_OTLP_METRICS_ENABLED'] == 'true'
     assert services['application']['environment']['MANAGEMENT_SERVER_ADDRESS'] == '127.0.0.1'
-    assert services['grafana']['environment']['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'] == 'false'
+    # #550: registration notices follow the owner's single delivery switch.
+    assert services['grafana']['environment']['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'] == services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED']
     assert set(services['grafana']['networks']) == {'telemetry', 'notification-egress', 'observability-data'}
     assert set(services['postgres']['networks']) == {'application-data', 'identity-data', 'observability-data'}
     # Only the read-only, existing analytics grants and two connections; no new DB privilege.
@@ -101,18 +103,58 @@ def static():
             for target in panel.get('targets', []):
                 datasource = target.get('datasource', panel.get('datasource', {}))
                 assert datasource.get('uid') in ('private-dev-prometheus', 'private-dev-postgres')
+    # Only PostgreSQL and Prometheus backends may run: each plugin consumes Grafana's PID ceiling.
+    disabled = set(services['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'].split(','))
+    used = {t['datasource']['type'] for path in canonical for p in json.loads(path.read_text())['panels'] for t in p.get('targets', [])}
+    assert used == {'prometheus', 'grafana-postgresql-datasource'} and not used & disabled
+    assert services['grafana']['pids_limit'] == 192
+    # ADR-0040: application logs reach Loki only through the collector, on the internal network.
+    assert 'loki' not in disabled
+    assert set(services['loki']['networks']) == {'telemetry'} and services['loki']['user'] == '10001:10001'
+    assert [v['source'] for v in services['loki']['volumes'] if v['type'] == 'volume'] == ['loki-data']
+    assert services['application']['environment']['TELEMETRY_OTLP_LOGS_ENABLED'] == 'true'
+    assert services['application']['environment']['TELEMETRY_OTLP_LOGS_ENDPOINT'] == 'http://telemetry:4318/v1/logs'
+    collector = (OBS / 'collector.yaml').read_text()
+    assert re.search(r'\n    logs:\n      receivers:\n      - otlp\n(?:.*\n)*?      exporters:\n      - otlphttp/loki\n', collector)
+    assert '  otlphttp/loki:\n    endpoint: http://loki:3100/otlp\n' in collector
+    # ADR-0046: a sampled share of traces reaches Tempo only through the collector, on the internal network.
+    assert 'tempo' not in disabled
+    assert set(services['tempo']['networks']) == {'telemetry'} and services['tempo']['user'] == '10001:10001'
+    assert [v['source'] for v in services['tempo']['volumes'] if v['type'] == 'volume'] == ['tempo-data']
+    environment = services['application']['environment']
+    assert environment['TELEMETRY_OTLP_TRACES_ENABLED'] == 'true'
+    assert environment['TELEMETRY_OTLP_TRACES_ENDPOINT'] == 'http://telemetry:4318/v1/traces'
+    assert 0 < float(environment['TELEMETRY_TRACING_SAMPLING_PROBABILITY']) <= 0.1
+    assert re.search(r'\n    traces:\n      receivers:\n      - otlp\n(?:.*\n)*?      exporters:\n      - otlphttp/tempo\n', collector)
+    assert '  otlphttp/tempo:\n    endpoint: http://tempo:4318\n' in collector
+    tempo = (OBS / 'tempo.yaml').read_text()
+    for line in ('  grpc_listen_address: 127.0.0.1', '    block_retention: 72h', '  reporting_enabled: false',
+                 '    backend: local'):
+        assert '\n' + line + '\n' in '\n' + tempo, line
+    loki = (OBS / 'loki.yaml').read_text()
+    for line in ('auth_enabled: false', '  grpc_listen_address: 127.0.0.1', '  retention_enabled: true',
+                 '  retention_period: 144h'):
+        assert '\n' + line + '\n' in '\n' + loki, line
+    assert 'catalogue.observability_localization_coverage' in sql
+    synchronization = json.loads((SHARED / 'grafana/dashboards/vgp-synchronization.json').read_text())
+    localization = [t for p in synchronization['panels'] for t in p.get('targets', []) if 'localization' in (t.get('expr', '') + t.get('rawSql', ''))]
+    assert len(localization) == 4 and not any('or vector(0)' in t.get('expr', '') for t in localization)
     for rule in rules():
+        assert 'localiz' not in rule['title'].lower() and 'localiz' not in rule['uid'], 'Localizer alert policy belongs to #451'
         assert rule['labels']['environment'] == 'production'
         assert rule['labels']['category'] == 'operational'
         assert rule['annotations']['action']
         assert '#276' in rule['annotations']['calibration']
+        # #550: uncalibrated capacity is an accepted state, kept visible but never evaluated.
+        assert rule['isPaused'] == (rule['uid'] == 'prod-capacity-unknown')
+        assert 'production_offhost_verified' not in json.dumps(rule['data'])
         if rule['uid'] in ('prod-telemetry-missing','prod-sample-stale'):
             assert rule['data'][0]['model']['expr'].endswith('or vector(0)')
             assert rule['noDataState']=='Alerting' and rule['execErrState']=='Alerting'
         dashboard=json.loads((OBS/'grafana/capacity.json').read_text())
         assert int(rule['annotations']['__panelId__']) in {panel['id'] for panel in dashboard['panels']}
         assert rule['data'][0]['datasourceUid'] in ('private-dev-prometheus', 'private-dev-postgres')
-    print('Production isolation, 640 MiB envelope, canonical dashboards and datasource contracts passed.', flush=True)
+    print('Production isolation, 1024 MiB envelope, canonical dashboards and datasource contracts passed.', flush=True)
 
 
 class HostSignals(unittest.TestCase):
@@ -158,7 +200,32 @@ def edge_observations(text):
         self.assertNotIn('production_offhost_recovery_point_seconds', text)
         self.assertNotIn('production_capacity_rps ', text)
         self.assertIn('production_backup_last_attempt_failed 1',sampler.render([],backup={'kind':'backup','outcome':'failure'},now=self.NOW))
-        self.assertEqual(text.count('production_container_running{'), 10)
+        cycle={'kind':'backup-cycle','outcome':'success','attention':False,'capacityWarning':True,'lastUploadAt':datetime.datetime.fromtimestamp(self.NOW-60,datetime.timezone.utc).isoformat(),'lastCaptureAt':None}
+        text=sampler.render([],backup=cycle,now=self.NOW)
+        self.assertIn('production_backup_last_attempt_failed 0',text)
+        self.assertIn('production_backup_cycle_attention 0',text)
+        self.assertIn('production_backup_cycle_capacity_warning 1',text)
+        self.assertIn('production_backup_cycle_last_upload_seconds',text)
+        self.assertNotIn('production_backup_cycle_last_capture_seconds',text)
+        # A status that cannot say it is healthy asks for attention.
+        self.assertIn('production_backup_cycle_attention 1',sampler.render([],backup={'kind':'backup-cycle','outcome':'success'},now=self.NOW))
+
+    def test_unverified_cleanup_status_drives_attention_and_last_success(self):
+        self.assertNotIn('unverified_cleanup', sampler.render([], now=self.NOW))
+        self.assertNotIn('unverified_cleanup', sampler.render([], cleanup={'kind': 'backup-cycle'}, now=self.NOW))
+        healthy = {'kind': 'unverified-cleanup', 'outcome': 'success', 'attention': False, 'backlog': False,
+                   'lastSuccessAt': '2027-01-15T06:15:00Z'}
+        text = sampler.render([], cleanup=healthy, now=self.NOW)
+        self.assertIn('production_unverified_cleanup_attention 0', text)
+        self.assertIn('production_unverified_cleanup_backlog 0', text)
+        self.assertIn('production_unverified_cleanup_last_success_seconds', text)
+        failed = {'kind': 'unverified-cleanup', 'outcome': 'failure', 'attention': True, 'lastSuccessAt': None}
+        text = sampler.render([], cleanup=failed, now=self.NOW)
+        self.assertIn('production_unverified_cleanup_attention 1', text)
+        self.assertNotIn('production_unverified_cleanup_last_success_seconds', text)
+        # A malformed status never reads as healthy.
+        self.assertIn('production_unverified_cleanup_attention 1', sampler.render([], cleanup={'kind': 'unverified-cleanup'}, now=self.NOW))
+        self.assertEqual(text.count('production_container_running{'), 12)
         self.assertIn('production_host_sample_timestamp_seconds 1800000000', text)
 
     def test_local_or_corrupt_backup_never_verifies(self):
@@ -187,6 +254,8 @@ def edge_observations(text):
         restore={'kind':'recovery-rehearsal','outcome':'success','deletionReplay':True,'readiness':True,'scope':'owner-reconstructed-target','backupId':'fixture'}
         isolation={'environment':'production','storageIsolationVerified':True,'reviewedAt':date}
         self.assertTrue(verifier.attest(manifest,pull,restore,isolation,self.NOW)['independentRecoveryVerified'])
+        self.assertTrue(verifier.attest(manifest,{**pull,'kind':'s3-fetch'},restore,isolation,self.NOW)['independentRecoveryVerified'])
+        with self.assertRaises(ValueError):verifier.attest(manifest,{**pull,'kind':'s3-publish'},restore,isolation,self.NOW)
         for key,value in [('scope','isolated-local'),('deletionReplay',False),('backupId','other')]:
             altered={**restore,key:value}
             with self.assertRaises(ValueError):verifier.attest(manifest,pull,altered,isolation,self.NOW)
@@ -213,6 +282,14 @@ def edge_observations(text):
             values = sampler.cgroup_values(d)
             self.assertEqual(values['cpu_seconds_total'], 1)
             self.assertEqual(values['oom_total'], 1)
+            # An older kernel or a missing controller file stays absent, never zero.
+            self.assertFalse({'memory_anon_bytes', 'memory_peak_bytes', 'pids_current', 'pids_limit', 'pids_max_events_total'} & set(values))
+            for name,content in {'memory.stat':'anon 700\nfile 200\n','memory.peak':'950','pids.current':'33','pids.max':'128','pids.events':'max 2\n'}.items():
+                (d/name).write_text(content)
+            values = sampler.cgroup_values(d)
+            self.assertEqual((values['memory_anon_bytes'],values['memory_peak_bytes'],values['pids_current'],values['pids_limit'],values['pids_max_events_total']),(700,950,33,128,2))
+            (d/'pids.max').write_text('max')
+            self.assertNotIn('pids_limit', sampler.cgroup_values(d))
             sampler.atomic(d/'host.prom','old')
             sampler.atomic(d/'host.prom','new')
             self.assertEqual((d/'host.prom').read_text(),'new')
@@ -245,7 +322,9 @@ def promtool():
                                          {'eval_time':clear,'alertname':uid,'exp_alerts':[]}]})
     case('prod-memory-warning',[('production_container_memory_bytes{service="application"}','900+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
     case('prod-memory-critical',[('production_container_memory_bytes{service="application"}','950+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
-    case('prod-backup-unverified',[('production_offhost_verified','0+0x14 1+0x40'),('production_backup_attempt_observed','1+0x55'),('production_backup_last_attempt_failed','0+0x55')])
+    # #550: off-host copies are verified by the independent observer; a missing attestation never fires.
+    case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','1+0x55'),('production_backup_last_attempt_failed','1+0x14 0+0x40')])
+    case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','0+0x14 1+0x40'),('production_backup_last_attempt_failed','0+0x55')])
     case('prod-tls-critical',[('probe_ssl_earliest_cert_expiry{job="tls-product"}','100000+0x14 99999999+0x40')],labels={'job':'tls-product'})
     case('prod-identity-health',[('probe_success{job="identity-health"}','0+0x14 1+0x40')],labels={'job':'identity-health'})
     case('prod-upstream-503',[('production_edge_responses_5m{origin="upstream",status="503"}','10+0x14 0+0x40')],clear='30m')
@@ -260,8 +339,11 @@ def promtool():
     case('prod-pool-critical',[('hikaricp_connections_timeout_total','0+2x14 28+0x40')],clear='30m')
     case('prod-sample-stale',[('production_host_sample_timestamp_seconds','0+60x55'),('production_edge_observation_complete','0+0x14 1+0x40'),('production_edge_access_records_5m','1+0x55'),('node_textfile_scrape_error','0+0x55')])
     case('prod-oom-restarts',[('production_container_oom_killed{service="application"}','1+0x14 0+0x40')],labels={'service':'application'})
-    case('prod-backup-stale-warning',[('production_offhost_recovery_point_seconds','-70000+0x14 900+60x40')])
-    case('prod-backup-stale-critical',[('production_offhost_recovery_point_seconds','-100000+0x14 900+60x40')])
+    case('prod-backup-stale-warning',[('production_backup_cycle_last_upload_seconds','-60000+0x14 900+60x40')])
+    case('prod-backup-stale-critical',[('production_backup_cycle_last_upload_seconds','-100000+0x14 900+60x40')])
+    case('prod-backup-cycle-attention',[('production_backup_cycle_attention','1+0x14 0+0x40')])
+    case('prod-unverified-cleanup-attention',[('production_unverified_cleanup_attention','1+0x14 0+0x40'),('production_unverified_cleanup_last_success_seconds','0+60x55')])
+    case('prod-unverified-cleanup-attention',[('production_unverified_cleanup_attention','0+0x55'),('production_unverified_cleanup_last_success_seconds','-200000+0x14 900+60x40')])
     case('prod-upstream-503',[('production_edge_responses_5m{origin="upstream",status="502"}','10+0x14 0+0x40')],clear='30m')
     # Missing an expected scrape target, including its disappearance from the config.
     expected=['application-otlp','collector','caddy','host','keycloak-product','keycloak-security','tls-product','tls-identity','identity-health','prometheus']

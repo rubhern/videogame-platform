@@ -37,6 +37,20 @@ public class AuthenticationEntryController {
                 "/auth/login/keycloak" + ("register".equals(intent) ? "?intent=register" : ""));
     }
 
+    @GetMapping("/auth/profile/reauthenticate")
+    public ResponseEntity<Void> reauthenticateProfile() {
+        store.saveAuthenticationContext(
+                new AuthenticationReturnContext("/mi-perfil", clock.instant()));
+        return redirect("/auth/login/keycloak?reauthenticate=true");
+    }
+
+    @GetMapping("/auth/profile/security")
+    public ResponseEntity<Void> accountSecurity() {
+        store.saveAuthenticationContext(
+                new AuthenticationReturnContext("/mi-perfil", clock.instant()));
+        return redirect("/auth/login/keycloak?accountSecurity=true");
+    }
+
     private static ResponseEntity<Void> redirect(String target) {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(target))

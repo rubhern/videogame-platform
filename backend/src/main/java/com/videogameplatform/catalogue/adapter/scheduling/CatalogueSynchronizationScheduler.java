@@ -3,6 +3,9 @@ package com.videogameplatform.catalogue.adapter.scheduling;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.observability.SynchronizationTrigger;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationAssessment;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -34,7 +37,13 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
     private final ScheduledSynchronizationStore pending;
     private final Policy nearTerm;
     private final Policy upcoming;
+    private final CurrentProductSettings settings;
 
+    /**
+     * The policies' cron expressions decide when each runs. The window each run requests is read
+     * from the operator's product settings when the run is scheduled (#450), whose defaults are
+     * the policies' configured windows.
+     */
     public CatalogueSynchronizationScheduler(
             SynchronizeCatalogueUseCase synchronization,
             CatalogueSynchronizationMetrics metrics,
@@ -43,7 +52,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
             Policy nearTerm,
             Policy upcoming,
             HistoricalBackfillStore ownership,
-            ScheduledSynchronizationStore pending) {
+            ScheduledSynchronizationStore pending,
+            CurrentProductSettings settings) {
         this.synchronization = synchronization;
         this.ownership = ownership;
         this.pending = pending;
@@ -52,6 +62,7 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
         this.scheduler = scheduler;
         this.nearTerm = nearTerm;
         this.upcoming = upcoming;
+        this.settings = settings;
     }
 
     @Override
@@ -68,16 +79,27 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
         if (!ScheduledTaskRegistrar.CRON_DISABLED.equals(policy.cron())) {
             // Lenient cron resumes after completion; no replay of missed runs after downtime.
             registrar.addTriggerTask(
-                    () -> defer(trigger, policy), new CronTrigger(policy.cron(), clock.getZone()));
+                    () -> defer(trigger), new CronTrigger(policy.cron(), clock.getZone()));
         }
     }
 
-    private void defer(SynchronizationTrigger trigger, Policy policy) {
+    private void defer(SynchronizationTrigger trigger) {
         LocalDate today = LocalDate.now(clock);
+        ProductSettings current = settings.current();
+        int pastDays =
+                current.integer(
+                        trigger == SynchronizationTrigger.NEAR_TERM
+                                ? ProductSetting.SYNCHRONIZATION_NEAR_TERM_PAST_DAYS
+                                : ProductSetting.SYNCHRONIZATION_UPCOMING_PAST_DAYS);
+        int futureDays =
+                current.integer(
+                        trigger == SynchronizationTrigger.NEAR_TERM
+                                ? ProductSetting.SYNCHRONIZATION_NEAR_TERM_FUTURE_DAYS
+                                : ProductSetting.SYNCHRONIZATION_UPCOMING_FUTURE_DAYS);
         pending.defer(
                 policyKey(trigger),
                 new CatalogueSynchronizationRequest(
-                        today.minusDays(policy.pastDays()), today.plusDays(policy.futureDays())),
+                        today.minusDays(pastDays), today.plusDays(futureDays)),
                 clock.instant());
     }
 
@@ -180,7 +202,10 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
         return true;
     }
 
-    /** Operational tuning, never a domain invariant; '-' disables just this policy. */
+    /**
+     * Operational tuning, never a domain invariant; '-' disables just this policy. The windows are
+     * the defaults of the operator's synchronization window settings.
+     */
     public record Policy(String cron, int pastDays, int futureDays) {
         public Policy {
             if (cron == null

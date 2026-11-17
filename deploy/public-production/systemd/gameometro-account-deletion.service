@@ -1,0 +1,27 @@
+[Unit]
+Description=Gameometro self-service account deletion runner
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/account-deletion run --config /etc/gameometro/production/account-deletion.json
+# A refused start (application recreated, upgrade active) retries; admission stays closed meanwhile.
+Restart=always
+RestartSec=30
+# Let one bounded erasure (ten minutes) reach its own fence release before systemd escalates.
+TimeoutStopSec=11min
+KillMode=mixed
+UMask=0077
+MemoryMax=256M
+TasksMax=64
+CPUQuota=25%
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Ledger, archive, proof store, gpg-agent socket and the erasure configuration live under the admin directory.
+ReadWritePaths=/var/lib/gameometro/production /etc/gameometro/production/observability
+# Docker administration is root-equivalent; this unit must stay root-only.
+[Install]
+WantedBy=multi-user.target

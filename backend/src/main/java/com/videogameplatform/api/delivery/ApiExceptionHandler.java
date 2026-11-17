@@ -4,6 +4,7 @@ import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.CatalogueSynchronizationWindow;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.FeaturedGranularity;
+import com.videogameplatform.api.generated.model.FeedbackSubmission;
 import com.videogameplatform.api.generated.model.PlatformPreferencesWrite;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
@@ -79,6 +80,29 @@ public class ApiExceptionHandler {
     private static final String GAME_ID_PATH_POINTER = "/path/gameId";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(com.videogameplatform.identity.application.AccountOperationException.class)
+    public ResponseEntity<Problem> accountOperation(
+            com.videogameplatform.identity.application.AccountOperationException failure,
+            HttpServletResponse response) {
+        boolean recent =
+                failure.reason()
+                        == com.videogameplatform.identity.application.AccountOperationException
+                                .Reason.RECENT_AUTHENTICATION;
+        return problem(
+                response,
+                recent ? HttpStatus.FORBIDDEN : HttpStatus.SERVICE_UNAVAILABLE,
+                recent
+                        ? ProblemCode.RECENT_AUTHENTICATION_REQUIRED
+                        : ProblemCode.ACCOUNT_OPERATION_UNAVAILABLE,
+                recent ? "Recent authentication required" : "Account operation unavailable",
+                recent
+                        ? "Authenticate again before confirming account deletion."
+                        : "Retry later or contact the owner. No completion is claimed.",
+                recent ? ErrorCategory.AUTHENTICATION : ErrorCategory.TECHNICAL,
+                "/",
+                "Account operation was not completed.");
+    }
+
     @ExceptionHandler(ApiRequestException.class)
     public ResponseEntity<Problem> requestInvalid(
             ApiRequestException exception, HttpServletResponse response) {
@@ -144,6 +168,16 @@ public class ApiExceptionHandler {
                             ErrorCategory.NOT_FOUND,
                             exception.pointer(),
                             "The named historical synchronization does not exist.");
+            case TRANSLATION_EXECUTION_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Translation execution rejected",
+                            "Read the execution again. It has changed or does not accept this command.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Read the execution again before issuing a command.");
             case HISTORICAL_SYNCHRONIZATION_CONFLICT ->
                     problem(
                             response,
@@ -185,6 +219,57 @@ public class ApiExceptionHandler {
                             ErrorCategory.CONFLICT,
                             exception.pointer(),
                             "Only one synchronization runs at a time.");
+            case EDITORIAL_ATTENTION_FILE_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Editorial attention file rejected",
+                            "Correct the indicated member of the file, then preview it again.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a value the editorial file schema accepts.");
+            case EDITORIAL_ATTENTION_RANGE_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Another editorial list covers part of the range",
+                            "Delete the overlapping list, then load the file again.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Editorial list ranges never overlap.");
+            case PRODUCT_SETTING_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Product setting change rejected",
+                            "Correct the indicated change, then save again.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a registered setting once, a value inside its range and kind,"
+                                    + " and keep the cross-setting rules.");
+            case PRODUCT_SETTINGS_REVISION_CONFLICT ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "Product settings changed meanwhile",
+                            "Read the settings again, then repeat the change.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Settings change one revision at a time.");
+            case EDITORIAL_ATTENTION_LIST_NOT_FOUND ->
+                    problem(
+                            response,
+                            HttpStatus.NOT_FOUND,
+                            exception.code(),
+                            "Editorial list was not found",
+                            "No list has this identity; nothing changed.",
+                            ErrorCategory.NOT_FOUND,
+                            exception.pointer(),
+                            "Use a list identity from the editorial attention overview.");
             case SYNCHRONIZATION_RUN_NOT_FOUND ->
                     problem(
                             response,
@@ -226,8 +311,33 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "This query parameter is not supported.");
+            case FEEDBACK_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Feedback is invalid",
+                            "Check the selected category, message and optional contact email.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Correct the indicated field.");
+            case REQUEST_TOO_LARGE ->
+                    problem(
+                            response,
+                            HttpStatus.CONTENT_TOO_LARGE,
+                            exception.code(),
+                            "Request is too large",
+                            "The request body exceeds the allowed size.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Send a smaller body.");
+            case FEEDBACK_UNAVAILABLE, SERVICE_OVERLOADED ->
+                    feedbackUnavailable(exception, response);
             case PRECONDITION_REQUIRED -> preconditionRequired(response);
-            case REQUEST_MALFORMED -> preconditionHeaderMalformed(response, exception.pointer());
+            case REQUEST_MALFORMED ->
+                    "/body".equals(exception.pointer())
+                            ? requestMalformed(response)
+                            : preconditionHeaderMalformed(response, exception.pointer());
             default -> unexpectedFailure(exception, response);
         };
     }
@@ -258,6 +368,24 @@ public class ApiExceptionHandler {
      * The session was revoked or ended after the security filters admitted the request; answers
      * exactly like the authentication entry point.
      */
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.administration
+                    .EditorialAttentionFileInvalidException.class)
+    ResponseEntity<Problem> editorialAttentionFileInvalid(
+            com.videogameplatform.catalogue.application.administration
+                            .EditorialAttentionFileInvalidException
+                    exception,
+            HttpServletResponse response) {
+        // An assignment pointer names the request; any other names the file under /content.
+        String pointer =
+                exception.pointer().startsWith("/assignments")
+                        ? exception.pointer()
+                        : "/content" + exception.pointer();
+        return requestInvalid(
+                new ApiRequestException(ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID, pointer),
+                response);
+    }
+
     @ExceptionHandler(CurrentUserUnavailableException.class)
     ResponseEntity<Problem> currentUserUnavailable(HttpServletResponse response) {
         String correlationId = correlationId(response);
@@ -488,6 +616,30 @@ public class ApiExceptionHandler {
                 new ApiRequestException(ProblemCode.FILTER_INVALID, pointer), response);
     }
 
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.platformgames.PlatformGamesQueryException
+                    .class)
+    ResponseEntity<Problem> platformGamesQueryInvalid(
+            com.videogameplatform.catalogue.application.platformgames.PlatformGamesQueryException
+                    exception,
+            HttpServletResponse response) {
+        return switch (exception.code()) {
+            case PLATFORM_NOT_SUPPORTED ->
+                    taxonomyUnsupported(
+                            new ReleaseQueryValidationException(
+                                    ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED),
+                            response);
+            case GENRE_NOT_SUPPORTED ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/genreIds"),
+                            response);
+            case YEAR_RANGE_INVALID ->
+                    requestInvalid(
+                            new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/toYear"),
+                            response);
+        };
+    }
+
     @ExceptionHandler(SearchQueryInvalidException.class)
     ResponseEntity<Problem> searchQueryInvalid(HttpServletResponse response) {
         return searchQueryInvalid(response, "/query/q");
@@ -594,6 +746,13 @@ public class ApiExceptionHandler {
     ResponseEntity<Problem> requestBodyInvalid(
             MethodArgumentNotValidException exception, HttpServletResponse response) {
         var fields = exception.getBindingResult().getFieldErrors();
+        if (exception.getParameter().getParameterType() == FeedbackSubmission.class
+                && !fields.isEmpty()) {
+            return requestInvalid(
+                    new ApiRequestException(
+                            ProblemCode.FEEDBACK_INVALID, "/body/" + fields.getFirst().getField()),
+                    response);
+        }
         if (fields.stream()
                 .anyMatch(
                         error ->
@@ -660,6 +819,42 @@ public class ApiExceptionHandler {
         return requestMalformed(response);
     }
 
+    /**
+     * The Problem code of an administration body that failed its schema: an editorial file or
+     * load (UC-023), or a product settings update (UC-024).
+     */
+    private static Optional<ProblemCode> bodyFieldCode(HandlerMethodValidationException exception) {
+        for (var result : exception.getParameterValidationResults()) {
+            Class<?> type = result.getMethodParameter().getParameterType();
+            if (com.videogameplatform.api.generated.model.EditorialAttentionUpload.class.equals(
+                            type)
+                    || com.videogameplatform.api.generated.model.EditorialAttentionLoad.class
+                            .equals(type)) {
+                return Optional.of(ProblemCode.EDITORIAL_ATTENTION_FILE_INVALID);
+            }
+            if (com.videogameplatform.api.generated.model.ProductSettingsUpdate.class.equals(
+                    type)) {
+                return Optional.of(ProblemCode.PRODUCT_SETTING_INVALID);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The JSON Pointer of the first invalid body field, or of {@code fallback}. */
+    private static String firstFieldPointer(
+            HandlerMethodValidationException exception, String fallback) {
+        String field =
+                exception.getParameterValidationResults().stream()
+                        .filter(ParameterErrors.class::isInstance)
+                        .map(ParameterErrors.class::cast)
+                        .map(ParameterErrors::getFieldError)
+                        .filter(java.util.Objects::nonNull)
+                        .map(FieldError::getField)
+                        .findFirst()
+                        .orElse(fallback);
+        return "/" + field.replace('.', '/').replace("[", "/").replace("]", "");
+    }
+
     @ExceptionHandler(HandlerMethodValidationException.class)
     ResponseEntity<Problem> requestConstraintInvalid(
             HandlerMethodValidationException exception, HttpServletResponse response) {
@@ -705,6 +900,19 @@ public class ApiExceptionHandler {
                     new ApiRequestException(
                             ProblemCode.HISTORICAL_SYNCHRONIZATION_RANGE_INVALID,
                             "/historicalSynchronization"),
+                    response);
+        }
+        Optional<ProblemCode> bodyCode = bodyFieldCode(exception);
+        if (bodyCode.isPresent()) {
+            // An administration body outside its schema names the member to correct.
+            return requestInvalid(
+                    new ApiRequestException(
+                            bodyCode.get(),
+                            firstFieldPointer(
+                                    exception,
+                                    bodyCode.get() == ProblemCode.PRODUCT_SETTING_INVALID
+                                            ? "changes"
+                                            : "content")),
                     response);
         }
         if (exception.getParameterValidationResults().stream()
@@ -851,6 +1059,27 @@ public class ApiExceptionHandler {
             }
         }
         return false;
+    }
+
+    private static ResponseEntity<Problem> feedbackUnavailable(
+            ApiRequestException exception, HttpServletResponse response) {
+        boolean busy = exception.code() == ProblemCode.SERVICE_OVERLOADED;
+        var result =
+                problem(
+                        response,
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        exception.code(),
+                        busy ? "Service is overloaded" : "Feedback channel is unavailable",
+                        busy
+                                ? "Feedback capacity is busy."
+                                : "SMTP acceptance could not be confirmed.",
+                        ErrorCategory.TECHNICAL,
+                        "/request",
+                        "Wait before retrying explicitly.");
+        return ResponseEntity.status(result.getStatusCode())
+                .headers(result.getHeaders())
+                .header("Retry-After", busy ? "5" : "30")
+                .body(result.getBody());
     }
 
     private static ResponseEntity<Problem> internalError(HttpServletResponse response) {

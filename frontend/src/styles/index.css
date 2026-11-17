@@ -3,6 +3,7 @@
 @import "./fonts.css";
 @import "tailwindcss";
 @import "./foundation.css";
+@import "./navigation-loading.css";
 @import "./thermal.css";
 @import "./stage.css";
 @import "./catalogue.css";
@@ -18,6 +19,15 @@
 @import "./app-select.css";
 @import "./search-suggestions.css";
 @import "./administration.css";
+@import "./platform-logos.css";
+@import "./platforms.css";
+@import "./platform-catalogue.css";
+@import "./upcoming-highlights.css";
+@import "./platform-navigation.css";
+@import "./home.css";
+@import "./community.css";
+@import "./consent.css";
+@import "./profile.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

@@ -25,6 +25,7 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
     await page.setViewportSize({width,height:900});
     await accessible(page);
     await page.screenshot({path:testInfo.outputPath(`personal-statistics-${width}.png`),fullPage:true});
+    await page.getByRole("region",{name:"Dónde has jugado"}).screenshot({path:testInfo.outputPath(`platform-distribution-${width}.png`)});
   }
   expect(reads).toBe(1);
   // The needle reads the exact mean on the columns' own scale: 7,2 falls inside column 7, right of its centre.
@@ -34,13 +35,17 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
   expect(needle?.x).toBeGreaterThan(seven);
   expect(needle?.x).toBeLessThan((seven+eight)/2);
   const platforms=page.getByRole("region",{name:"Dónde has jugado"});
-  await expect(platforms).toContainText("62 de 84 juegos con plataforma");
-  // The ring's slices are the collection's one partition and its arcs follow their counts.
+  await expect(platforms).toContainText("73 selecciones en total");
+  await expect(platforms).toContainText("22 juegos sin plataforma indicada");
   const slices=await platforms.locator(".insights-donut-slice").evaluateAll(nodes => nodes.map(node => Number.parseFloat(node.getAttribute("stroke-dasharray") ?? "0")));
-  expect(slices).toHaveLength(3);
-  expect(slices.reduce((sum,length) => sum+length,0)).toBeCloseTo(100-3*1.2,1);
-  expect(slices[0]).toBeCloseTo(53/84*100-1.2,1);
-  await expect(platforms.getByRole("listitem").filter({hasText:"Xbox Series X|S"})).toContainText("Sin puntuar");
+  expect(slices).toHaveLength(5);
+  expect(slices.reduce((sum,length) => sum+length,0)).toBeCloseTo(100,5);
+  expect(slices[0]).toBeCloseTo(31/73*100,5);
+  const disclosure=platforms.getByText("Tus puntuaciones por plataforma");
+  await disclosure.focus();
+  await page.keyboard.press("Enter");
+  await expect(platforms.locator("ol").getByRole("listitem").filter({hasText:"Xbox Series X|S"})).toContainText("Sin puntuar");
+  await accessible(page);
   const nine=page.getByRole("button",{name:/^9 de 10: 18 juegos/});
   await nine.focus();
   await page.keyboard.press("Enter");
@@ -65,7 +70,9 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
   // Scored and played-only segments stay distinct as fill against outline, not by colour.
   await expect(page.locator(".insights-platform-played > span").first()).toHaveCSS("background-color","rgb(0, 0, 0)");
   await expect(page.locator(".insights-platform-played").first()).toHaveCSS("border-top-style","solid");
-  await expect(page.locator(".insights-donut-slice.insights-donut-one")).toHaveCSS("stroke","rgb(0, 0, 0)");
+  await expect(page.locator(".insights-donut-pattern-base").first()).toHaveCSS("fill","rgb(0, 0, 0)");
+  await expect(page.locator(".insights-donut-pattern-mark").first()).toHaveCSS("fill","rgb(255, 255, 255)");
+  await expect(platforms.locator(".insights-donut-legend li")).toHaveCount(5);
   await page.screenshot({path:testInfo.outputPath("personal-statistics-forced-colours.png"),fullPage:true});
   expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState==="running").length)).toBe(0);
 });
@@ -138,6 +145,7 @@ test("large collections keep exact accessible counts without overflowing narrow 
     activity:original.activity.map(month=>({...month,count:month.count*factor})),
     olderRatings:original.olderRatings*factor,
     platforms:{...original.platforms,
+      distribution: { ps5: 31*factor, switch2: 9*factor, xboxSeries: 4*factor, windowsPc: 18*factor, other: 11*factor },
       items:original.platforms.items.map(item=>({...item,playedGames:item.playedGames*factor,scoredGames:item.scoredGames*factor})),
       gamesWithoutPlatforms:original.platforms.gamesWithoutPlatforms*factor,
       gamesOnSeveralPlatforms:original.platforms.gamesOnSeveralPlatforms*factor},
@@ -145,11 +153,32 @@ test("large collections keep exact accessible counts without overflowing narrow 
   await page.route("**/api/v1/me/rating-insights",route=>route.fulfill({json:data}));
   await page.goto(path);
   await expect(page.getByRole("button",{name:/^9 de 10: 180.000 juegos/})).toBeVisible();
-  await expect(page.getByRole("region",{name:"Dónde has jugado"})).toContainText("310.000 juegos");
+  await expect(page.getByRole("region",{name:"Dónde has jugado"})).toContainText("730.000 selecciones en total");
   // Narrow chart labels never spill into a neighbour's column.
   for(const label of await page.locator(".insights-month-count, .insights-bin-fill > span").all()) {
     const [own,parent]=await label.evaluate(node => [node.scrollWidth,(node.closest(".insights-month, .insights-bin") as HTMLElement).clientWidth+8]);
     expect(own).toBeLessThanOrEqual(parent ?? 0);
   }
   await accessible(page);
+});
+
+test("zero and single-slice platform distributions retain all five numerical categories", async ({page}, testInfo) => {
+  await session(page);
+  const original=ratingInsightsFixture();
+  let data={...original, platforms:{...original.platforms,items:[],gamesWithoutPlatforms:84,
+    distribution:{ps5:0,switch2:0,xboxSeries:0,windowsPc:0,other:0}}};
+  await page.route("**/api/v1/me/rating-insights", route=>route.fulfill({json:data}));
+  await page.setViewportSize({width:320,height:900});
+  await page.goto(path);
+  const platforms=page.getByRole("region",{name:"Dónde has jugado"});
+  await expect(platforms.locator(".insights-donut-legend li")).toHaveCount(5);
+  await expect(platforms.locator(".insights-donut-slice")).toHaveCount(0);
+  await expect(platforms).toContainText("0 selecciones en total");
+  await accessible(page);
+  data={...data,platforms:{...data.platforms,items:original.platforms.items.slice(3,4).map(item=>({...item,playedGames:84,scoredGames:0,mean:null})),gamesWithoutPlatforms:0,distribution:{ps5:0,switch2:0,xboxSeries:0,windowsPc:0,other:84}}};
+  await page.reload();
+  await expect(platforms.locator(".insights-donut-slice")).toHaveCount(1);
+  await expect(platforms.locator('[data-slice="other"]')).toContainText("84 100 %");
+  await accessible(page);
+  await page.screenshot({path:testInfo.outputPath("platforms-single-slice-320.png"),fullPage:true});
 });

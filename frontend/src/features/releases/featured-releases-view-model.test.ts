@@ -244,6 +244,56 @@ describe("featured releases view model", () => {
     expect(uncertain.lead?.facts).toEqual(["Fecha por confirmar", "Fecha pendiente de revisión"]);
   });
 
+  it("states a non-full stage for the visible release, on the lead and the others", () => {
+    const model = toFeaturedReleasesViewModel(
+      response({
+        items: [
+          item("a", [release({ stage: "advance_access" })]),
+          item("b", [release({ stage: "early_access" })]),
+          item("c", [release({ stage: "beta" })]),
+          item("d", [release({ stage: "full_release" })]),
+          item("e", [release({ stage: "unknown" })]),
+        ],
+      }),
+    );
+    expect(model.lead?.stage).toBe("Acceso previo");
+    expect(model.others.map((other) => other.stage)).toEqual([
+      "Acceso anticipado",
+      "Beta",
+      null,
+      null,
+    ]);
+  });
+
+  it("states a stage only when it holds for every platform of the visible row", () => {
+    const pc = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
+    const stageOf = (releases: Release[]) =>
+      toFeaturedReleasesViewModel(response({ items: [item("a", releases)] })).lead?.stage;
+    expect(
+      stageOf([
+        release({ stage: "early_access" }),
+        release({ releaseId: "r2", platform: pc, stage: "full_release" }),
+      ]),
+    ).toBeNull();
+    expect(
+      stageOf([
+        release({ stage: "early_access" }),
+        release({ releaseId: "r2", platform: pc, stage: "early_access" }),
+      ]),
+    ).toBe("Acceso anticipado");
+    // A later date is another row behind the overflow, so its stage does not touch this one.
+    expect(
+      stageOf([
+        release({ stage: "advance_access" }),
+        release({
+          releaseId: "r2",
+          releaseDate: { precision: "day", value: "2026-10-20" },
+          stage: "full_release",
+        }),
+      ]),
+    ).toBe("Acceso previo");
+  });
+
   it("never leads the hero with a cover: landscape art, the designed fallback, then the cover", () => {
     const model = toFeaturedReleasesViewModel(
       response({

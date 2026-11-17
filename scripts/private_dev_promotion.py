@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted-main evidence and installed deployment-contract checks; no host mutations."""
+"""Trusted-main evidence checks for private-dev promotion; no host mutations."""
 
 import argparse
 import hashlib
@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -18,6 +19,11 @@ REPOSITORY = "rubhern/videogame-platform"
 IMAGE_REPOSITORY = f"ghcr.io/{REPOSITORY}"
 API_ROOT = f"https://api.github.com/repos/{REPOSITORY}"
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+READ_ATTEMPTS = 5
+# Promotion may be dispatched as soon as a commit lands on main; discovery waits
+# for that commit's own CI instead of refusing while it is still running.
+CI_WAIT_SECONDS = 90 * 60
+CI_POLL_SECONDS = 30
 
 
 class Refused(RuntimeError):
@@ -50,6 +56,23 @@ class GitHub:
         self.token = token
 
     def request(self, path, archive=False):
+        # Retry only transient read failures, never rejected or invalid evidence.
+        for attempt in range(READ_ATTEMPTS):
+            last = attempt == READ_ATTEMPTS - 1
+            try:
+                return self._request_once(path, archive)
+            except urllib.error.HTTPError as error:
+                status = error.code
+                error.close()
+                if status not in (500, 502, 503, 504) or last:
+                    raise Refused(f"GitHub evidence is unavailable (HTTP {status}); promotion refused.") from None
+            except (urllib.error.URLError, TimeoutError):
+                if last:
+                    raise Refused("GitHub evidence is unavailable (network failure); promotion refused.") from None
+            print("Transient evidence read failure; retrying bounded read.", file=sys.stderr)
+            time.sleep(2 ** attempt)
+
+    def _request_once(self, path, archive=False):
         headers = {
             "Accept": "application/vnd.github+json", "User-Agent": "vgp-private-dev-promotion",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -61,8 +84,9 @@ class GitHub:
             response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
         except urllib.error.HTTPError as error:
             if not archive or error.code != 302:
-                raise Refused(f"GitHub evidence is unavailable (HTTP {error.code}); promotion refused.") from None
+                raise
             location = error.headers.get("Location", "")
+            error.close()
             require(location.startswith("https://"), "Artifact redirect must use HTTPS.")
             # Signed storage requests never receive the GitHub credential.
             response = urllib.request.urlopen(location, timeout=30)
@@ -72,25 +96,36 @@ class GitHub:
         return data if archive else json.loads(data)
 
 
-def verify_run(api, run_id, revision, workflow, gates, attempt=None):
+def trusted_run(api, run_id, revision, workflow, attempt=None):
     run = api.request(f"/actions/runs/{run_id}")
     require(
         run.get("id") == int(run_id)
-        and run.get("head_repository", {}).get("full_name") == REPOSITORY
+        and (run.get("head_repository") or {}).get("full_name") == REPOSITORY
         and run.get("event") == "push"
         and run.get("head_branch") == "main"
         and run.get("head_sha") == revision
-        and run.get("path") == f".github/workflows/{workflow}"
-        and run.get("status") == "completed"
-        and run.get("conclusion") == "success",
-        f"{workflow} must be a successful trusted-main push for the selected revision.",
+        and run.get("path") == f".github/workflows/{workflow}",
+        f"{workflow} must be a trusted-main push for the selected revision.",
     )
     if attempt is not None:
         require(run.get("run_attempt") == int(attempt), "The selected CI run attempt is stale.")
+    return run
+
+
+def run_jobs(api, run_id):
     jobs = api.request(f"/actions/runs/{run_id}/jobs?filter=latest&per_page=100")
-    require(jobs.get("total_count", 101) <= 100, "CI job evidence exceeds the supported bound.")
+    require(jobs.get("total_count", 101) == len(jobs["jobs"]) <= 100,
+            "CI job evidence is incomplete or exceeds the supported bound.")
+    return jobs["jobs"]
+
+
+def verify_run(api, run_id, revision, workflow, gates, attempt=None):
+    run = trusted_run(api, run_id, revision, workflow, attempt)
+    require(run.get("status") == "completed" and run.get("conclusion") == "success",
+            f"{workflow} must be a successful trusted-main push for the selected revision.")
+    jobs = run_jobs(api, run_id)
     for gate in gates:
-        matching = [job for job in jobs["jobs"] if job.get("name") == gate]
+        matching = [job for job in jobs if job.get("name") == gate]
         require(len(matching) == 1 and matching[0].get("conclusion") == "success", f"Required CI job is not successful: {gate}")
     return run
 
@@ -100,29 +135,48 @@ def verify_trusted_main(api, revision, digest, run_id, attempt):
     run = verify_run(api, run_id, revision, "build-and-verify.yml", (
         "Required quality gate", "Publish immutable application image",
     ), attempt)
+    verify_main_ancestry(api, revision)
+    security = api.request(
+        f"/actions/workflows/security.yml/runs?head_sha={revision}&branch=main&event=push&per_page=100"
+    )
+    runs = security["workflow_runs"]
+    require(security.get("total_count") == len(runs) == 1, "Trusted-main security evidence is absent or ambiguous.")
+    security_id = runs[0]["id"]
+    verify_run(api, security_id, revision, "security.yml", ("Required security gate",), runs[0]["run_attempt"])
+    return run, security_id
+
+
+def verify_main_ancestry(api, revision):
     comparison = api.request(f"/compare/{revision}...main")
     require(
         comparison.get("status") in ("ahead", "identical")
         and comparison.get("merge_base_commit", {}).get("sha") == revision,
         "The selected revision is not on current main.",
     )
-    security_runs = api.request(
-        f"/actions/workflows/security.yml/runs?head_sha={revision}&branch=main&event=push&per_page=1"
-    )["workflow_runs"]
-    require(len(security_runs) == 1, "Trusted-main security evidence is absent.")
-    security_id = security_runs[0]["id"]
-    verify_run(api, security_id, revision, "security.yml", ("Required security gate",))
-    return run, security_id
 
 
 def verify_publication(api, run, revision, digest=None):
+    # A release-only rerun may leave the image and its publication untouched.
+    # Prefer job-level timestamps and require a new publication if the image job
+    # changed. Older callers/retained evidence keep the run-attempt boundary.
+    fresh_after = run["run_started_at"]
+    jobs = run_jobs(api, run["id"])
+    publications = [job for job in jobs if job.get("name") == "Publish immutable application image"]
+    builds = [job for job in jobs if job.get("name") == "AMD64 application image"]
+    if (len(publications) == len(builds) == 1 and publications[0].get("started_at")
+            and builds[0].get("completed_at")):
+        publication, build = publications[0], builds[0]
+        require(build.get("conclusion") == "success" and publication.get("conclusion") == "success"
+                and build["completed_at"] <= publication["started_at"],
+                "Publication does not follow the latest successful application image build.")
+        fresh_after = publication["started_at"]
     name = f"application-image-publication-{revision}"
     artifacts = api.request(f"/actions/runs/{run['id']}/artifacts?per_page=100")
     require(artifacts.get("total_count", 101) <= 100, "Publication evidence exceeds the supported bound.")
     matches = [item for item in artifacts["artifacts"] if item["name"] == name]
     require(len(matches) == 1 and not matches[0]["expired"], "The retained publication record is absent/expired.")
     artifact = matches[0]
-    require(artifact["created_at"] >= run["run_started_at"], "Publication evidence predates the current run attempt.")
+    require(artifact["created_at"] >= fresh_after, "Publication evidence predates the current run attempt.")
     archive = api.request(f"/actions/artifacts/{artifact['id']}/zip", archive=True)
     with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
         require(bundle.namelist() == ["published-image.txt"], "Unexpected publication archive contents.")
@@ -140,8 +194,32 @@ def verify_publication(api, run, revision, digest=None):
     return published_digest
 
 
+def wait_for_main_ci(api, revision, timeout=CI_WAIT_SECONDS, interval=CI_POLL_SECONDS,
+                     clock=time.monotonic, sleep=time.sleep):
+    """Wait until the revision's trusted-main build and security runs have finished."""
+    require(re.fullmatch(r"[0-9a-f]{40}", revision), "A full lowercase dispatch SHA is required.")
+    deadline = clock() + timeout
+    while True:
+        pending = []
+        for workflow in ("build-and-verify.yml", "security.yml"):
+            runs = api.request(
+                f"/actions/workflows/{workflow}/runs?head_sha={revision}&branch=main&event=push&per_page=100"
+            )["workflow_runs"]
+            if not runs or any(run.get("status") != "completed" for run in runs):
+                pending.append(workflow)
+                continue
+            require(all(run.get("conclusion") == "success" for run in runs),
+                    f"{workflow} finished without success for the dispatch SHA; promotion refused.")
+        if not pending:
+            return
+        require(clock() < deadline,
+                f"Trusted-main CI did not finish within {timeout // 60} minutes: {', '.join(pending)}.")
+        print(f"Waiting for trusted-main CI: {', '.join(pending)}.", file=sys.stderr)
+        sleep(interval)
+
+
 def discover_promotion(api, revision):
-    """Resolve only the dispatch SHA; never pick a newer/older run or image."""
+    """Resolve a fully qualified SHA for production or the private-dev full-CI fallback."""
     require(re.fullmatch(r"[0-9a-f]{40}", revision), "A full lowercase dispatch SHA is required.")
     listing = api.request(
         f"/actions/workflows/build-and-verify.yml/runs?head_sha={revision}&branch=main&event=push&per_page=100"
@@ -165,6 +243,140 @@ def discover_promotion(api, revision):
             "securityRunId": security_id}
 
 
+# Reuse trusted-main jobs that also contribute to release qualification. Only this
+# dev-only selection may admit a publication while the release workflow runs.
+FAST_QUALITY = {
+    "openapi": ("Documentation and API contracts",),
+    "frontend": ("Frontend static, type, component and build checks",),
+    "backend": ("Java backend, architecture and PostgreSQL integration",),
+    "migrations": ("Fresh PostgreSQL 18 migration",),
+    "identity": tuple(f"Real Keycloak OIDC BFF compatibility ({leg})" for leg in (
+        "private-dev", "core", "renewal", "idle", "production", "personal-data",
+        "personal-data-private", "social-sign-in",
+    )),
+    "private_dev_runtime": (
+        "Private-dev topology and telemetry", "Private-dev alert rules and Grafana lifecycle",
+        "Private-dev optimized Keycloak registration metrics",
+        "Private-dev native Telegram routing against isolated mock",
+        "Private-dev structured log collection and search",
+    ),
+    "localization_image": ("AMD64 localization helper image",),
+}
+FAST_SECURITY = {
+    "dependencies": ("Dependency review",),
+    "npm_dependencies": ("npm dependency audit",),
+}
+FAST_BASE = "Private-dev promotion protocol accepts a checked baseline."
+
+
+def git_result(*args):
+    return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+
+
+def last_deployed_base(api, revision):
+    listing = api.request("/actions/workflows/deploy-private-dev.yml/runs?"
+                          "branch=main&event=workflow_dispatch&status=completed&per_page=1")
+    runs = listing["workflow_runs"]
+    if len(runs) != 1:
+        return None
+    previous = runs[0]
+    base = previous.get("head_sha", "")
+    if (previous.get("conclusion") != "success" or previous.get("head_branch") != "main"
+            or previous.get("event") != "workflow_dispatch"
+            or previous.get("path") != ".github/workflows/deploy-private-dev.yml"
+            or (previous.get("head_repository") or {}).get("full_name") != REPOSITORY
+            or (previous.get("actor") or {}).get("login") != "rubhern"
+            or (previous.get("triggering_actor") or {}).get("login") != "rubhern"
+            or not re.fullmatch(r"[0-9a-f]{40}", base)):
+        return None
+    deployment_jobs = [job for job in run_jobs(api, previous["id"])
+                       if job.get("name") == "Owner-approved private-dev application promotion"]
+    if len(deployment_jobs) != 1 or deployment_jobs[0].get("conclusion") != "success":
+        return None
+    ancestry = git_result("merge-base", "--is-ancestor", base, revision)
+    require(ancestry.returncode != 1,
+            "Dispatch SHA predates or diverges from the last successful private-dev promotion.")
+    if ancestry.returncode != 0:
+        return None
+    host = git_result("show", f"{base}:deploy/private-dev/bin/promote-private-dev")
+    return base if host.returncode == 0 and FAST_BASE in host.stdout else None
+
+
+def fast_requirements(base, revision):
+    # Compare every change since the last deployed version, including skipped
+    # main revisions and deletions. The host independently checks this baseline.
+    result = subprocess.run(["bash", "scripts/detect-ci-changes.sh", "--base", base, "--head", revision],
+                            capture_output=True, text=True, check=False)
+    require(result.returncode == 0, "Could not classify the private-dev deployment range.")
+    changes = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    require(all(changes.get(key) in ("true", "false") for key in (*FAST_QUALITY, *FAST_SECURITY, "ci")),
+            "Incomplete private-dev change classification.")
+    if changes["ci"] == "true":
+        return None
+    quality = ["Detect affected CI areas", "Secret scan before application publication",
+               "AMD64 application image", "Publish immutable application image"]
+    security = ["Detect affected security areas", "Secret scan"]
+    for expected, mapping in ((quality, FAST_QUALITY), (security, FAST_SECURITY)):
+        for category, jobs in mapping.items():
+            if changes[category] == "true":
+                expected.extend(jobs)
+    return quality, security
+
+
+def fast_run(api, revision, workflow, required, expected=None):
+    listing = api.request(f"/actions/workflows/{workflow}/runs?head_sha={revision}"
+                          "&branch=main&event=push&per_page=100")
+    candidates = listing["workflow_runs"]
+    require(listing.get("total_count") == len(candidates) <= 1,
+            f"{workflow} has ambiguous evidence for the dispatch SHA.")
+    if not candidates:
+        return None
+    candidate = candidates[0]
+    identity = str(candidate["id"]), str(candidate["run_attempt"])
+    validate_source_run(revision, *identity)
+    require(expected is None or identity == expected, f"{workflow} was rerun or replaced; select it again.")
+    run = trusted_run(api, identity[0], revision, workflow, identity[1])
+    require(run.get("conclusion") not in ("cancelled", "action_required", "startup_failure", "stale", "timed_out"),
+            f"{workflow} did not yield usable fast-gate evidence.")
+    jobs = run_jobs(api, run["id"])
+    pending = False
+    for gate in required:
+        matches = [job for job in jobs if job.get("name") == gate]
+        require(len(matches) <= 1, f"Ambiguous required private-dev check: {gate}")
+        if not matches or matches[0].get("status") != "completed":
+            require(run.get("status") != "completed", f"Required private-dev check is absent: {gate}")
+            pending = True
+        else:
+            require(matches[0].get("conclusion") == "success", f"Required private-dev check failed: {gate}")
+    return None if pending else run
+
+
+def fast_promotion(api, revision, requirements, *, wait=False, expected_build=None, expected_security=None,
+                   clock=time.monotonic, sleep=time.sleep):
+    quality, security = requirements
+    verify_main_ancestry(api, revision)
+    deadline = clock() + CI_WAIT_SECONDS
+    while True:
+        build = fast_run(api, revision, "build-and-verify.yml", quality, expected_build)
+        scan = fast_run(api, revision, "security.yml", security, expected_security)
+        if build and scan:
+            break
+        require(wait and clock() < deadline, "The required private-dev checks are not ready.")
+        print("Waiting for required private-dev checks and immutable image publication.", file=sys.stderr)
+        sleep(min(CI_POLL_SECONDS, 10))
+    digest = verify_publication(api, build, revision)
+    build_id = str(build["id"]), str(build["run_attempt"])
+    security_id = str(scan["id"]), str(scan["run_attempt"])
+    # Reading the reports spans several API calls. Fail closed on any rerun or
+    # cancellation before handing off the tuple to the next job.
+    require(fast_run(api, revision, "build-and-verify.yml", quality, build_id)
+            and fast_run(api, revision, "security.yml", security, security_id),
+            "Private-dev evidence changed during discovery.")
+    return {"source_revision": revision, "image_digest": digest,
+            "source_run_id": build_id[0], "source_run_attempt": build_id[1],
+            "security_run_id": security_id[0], "security_run_attempt": security_id[1]}
+
+
 def verify_environment(api):
     environment = api.request("/environments/dev")
     rules = environment.get("protection_rules", [])
@@ -183,68 +395,9 @@ def verify_environment(api):
     )
 
 
-def is_deployment_contract(path):
-    return not path.endswith(".md") and (
-        path.startswith(("deploy/private-dev/", "docker/keycloak/", "docker/postgres/", "tools/catalogue-localization/"))
-        or path in (
-            "scripts/private_dev_promotion.py", "scripts/validate-private-dev-runtime.sh",
-            "scripts/private-dev-metrics-check.py", "scripts/private-dev-logs-check.py",
-            "scripts/provision-grafana-reader.sh",
-        )
-    )
-
-
-def deployment_contract(repository, revision, installed=False):
-    tree = subprocess.check_output(
-        ["git", "ls-tree", "-r", "-z", revision], cwd=repository,
-    )
-    entries = []
-    for entry in tree.split(b"\0"):
-        if not entry:
-            continue
-        metadata, path = entry.split(b"\t", 1)
-        if is_deployment_contract(path.decode("utf-8")):
-            require(metadata.split()[1] == b"blob" and metadata.split()[0] in (b"100644", b"100755"),
-                    "Deployment contracts must be regular Git files.")
-            entries.append(entry)
-    require(entries, "No deployment contract was found.")
-    if installed:
-        paths = [entry.split(b"\t", 1)[1].decode("utf-8") for entry in entries]
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain", "--untracked-files=all"], cwd=repository,
-        )
-        require(not status, "The installed deployment checkout must be clean.")
-        # Verify actual bytes as well: index assume-unchanged/skip-worktree flags
-        # must never hide drift in the privileged installed deployment code.
-        for path in paths:
-            file = Path(repository) / path
-            require(file.is_file() and not file.is_symlink(), "Installed contract file is missing or unsafe.")
-            blob = subprocess.check_output(["git", "hash-object", "--", path], cwd=repository).strip()
-            mode, _, expected = next(entry.split(b"\t", 1)[0].split() for entry in entries if entry.endswith(b"\t" + path.encode()))
-            require(blob == expected, "Installed deployment contract bytes differ from Git.")
-            require(bool(file.stat().st_mode & 0o111) == (mode == b"100755"),
-                    "Installed deployment contract executable permissions differ from Git.")
-    return contract_hash(entries)
-
-
 def contract_hash(entries):
+    # Shared Git-entry fingerprint used by the public-production operational tooling.
     return hashlib.sha256(b"\0".join(sorted(entries, key=lambda entry: entry.split(b"\t", 1)[1]))).hexdigest()
-
-
-def remote_deployment_contract(api, revision):
-    tree = api.request(f"/git/trees/{revision}?recursive=1")
-    require(not tree.get("truncated", True) and len(tree["tree"]) <= 10000,
-            "Source tree exceeds the supported evidence bound; promotion refused.")
-    entries = []
-    for item in tree["tree"]:
-        if item["type"] == "tree":
-            continue
-        if is_deployment_contract(item["path"]):
-            require(item["type"] == "blob" and item["mode"] in ("100644", "100755"),
-                    "Remote deployment contracts must be regular Git files.")
-            entries.append(f"{item['mode']} blob {item['sha']}\t{item['path']}".encode())
-    require(entries, "The source revision has no deployment contract.")
-    return contract_hash(entries)
 
 
 def receipt_summary(receipt, revision, digest, run_id, attempt):
@@ -276,19 +429,21 @@ def receipt_summary(receipt, revision, digest, run_id, attempt):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--installed-contract", action="store_true", help="Print the clean installed HEAD fingerprint; never acknowledges a runtime rollout.")
     parser.add_argument("--receipt", type=Path, help="Validate and summarize a sanitized SSH receipt without network access.")
     parser.add_argument("--discover", action="store_true", help="Derive CI run, current attempt and digest for the exact dispatch revision.")
     parser.add_argument("--revision")
     parser.add_argument("--digest")
     parser.add_argument("--run-id")
     parser.add_argument("--attempt")
+    parser.add_argument("--private-dev", action="store_true", help="Use private-dev admission where the deployed baseline supports it.")
+    parser.add_argument("--deployment-base", default="", help="Recheck the exact deployed baseline selected by discovery.")
+    parser.add_argument("--security-run-id", default="")
+    parser.add_argument("--security-run-attempt", default="")
     args = parser.parse_args()
-    require(not args.discover or (args.revision and not any((args.digest, args.run_id, args.attempt, args.receipt, args.installed_contract))),
+    require(not args.discover or (args.revision and not any((args.digest, args.run_id, args.attempt, args.receipt,
+                                                        args.deployment_base, args.security_run_id,
+                                                        args.security_run_attempt))),
             "Discovery accepts only the dispatch revision; manual artifact/run overrides are forbidden.")
-    if args.installed_contract:
-        print(deployment_contract(Path(__file__).resolve().parents[1], "HEAD", installed=True))
-        return
     if not args.discover:
         require(all((args.revision, args.digest, args.run_id, args.attempt)), "Revision, digest, source run and attempt are required.")
         validate_inputs(args.revision, args.digest, args.run_id, args.attempt)
@@ -304,17 +459,33 @@ def main():
         return
     api = GitHub(os.environ.get("GH_TOKEN"))
     verify_environment(api)
-    result = discover_promotion(api, args.revision)
+    base = ""
+    requirements = None
+    if args.private_dev:
+        base = (last_deployed_base(api, args.revision) or "") if args.discover else args.deployment_base
+        if base:
+            require(re.fullmatch(r"[0-9a-f]{40}", base), "Invalid private-dev deployment baseline.")
+            requirements = fast_requirements(base, args.revision)
+            require(args.discover or requirements is not None, "Private-dev classification changed during promotion.")
+    if requirements is not None:
+        result = fast_promotion(api, args.revision, requirements, wait=args.discover,
+                                expected_build=None if args.discover else (args.run_id, args.attempt),
+                                expected_security=None if args.discover else
+                                (args.security_run_id, args.security_run_attempt))
+        result["deployment_base"] = base
+    else:
+        if args.discover:
+            wait_for_main_ci(api, args.revision)
+        result = discover_promotion(api, args.revision)
     if not args.discover:
         require((result["image_digest"], result["source_run_id"], result["source_run_attempt"])
                 == (args.digest, args.run_id, args.attempt),
                 "The derived publication/run/attempt changed; promotion refused without reselection.")
-    contract = deployment_contract(Path(__file__).resolve().parents[1], args.revision)
-    result["contract"] = contract
     print(json.dumps(result))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            for name in ("contract", "source_revision", "image_digest", "source_run_id", "source_run_attempt"):
+            for name in ("source_revision", "image_digest", "source_run_id", "source_run_attempt",
+                         "deployment_base", "security_run_id", "security_run_attempt"):
                 if name in result:
                     output.write(f"{name}={result[name]}\n")
 
@@ -322,7 +493,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (Refused, OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
+    except (Refused, OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile) as error:
         # Do not print remote error bodies, URLs, headers or credentials.
         print(str(error) if isinstance(error, Refused) else "Promotion evidence could not be verified.", file=sys.stderr)
         sys.exit(1)

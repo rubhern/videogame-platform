@@ -24,6 +24,7 @@ function serve(game = gameDetailsFixture()) {
       if (url.includes("/api/v1/session")) {
         return Response.json({ authenticated: false });
       }
+      if (url.includes("/api/v1/web-analytics")) return Response.json({});
       if (url.includes("/auth/rating-intent")) {
         return new Response(null, { status: 404 });
       }
@@ -689,6 +690,7 @@ describe("public game details", () => {
         if (url.includes("/api/v1/session")) {
           return Response.json({ authenticated: false });
         }
+        if (url.includes("/api/v1/web-analytics")) return Response.json({});
         if (url.includes("/auth/rating-intent")) {
           return new Response(null, { status: 404 });
         }

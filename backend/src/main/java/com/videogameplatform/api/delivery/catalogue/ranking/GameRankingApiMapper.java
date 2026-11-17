@@ -2,6 +2,7 @@ package com.videogameplatform.api.delivery.catalogue.ranking;
 
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
 import com.videogameplatform.api.delivery.catalogue.ExternalPlayerScoreMapper;
+import com.videogameplatform.api.delivery.catalogue.ReleaseSummaryMapper;
 import com.videogameplatform.api.generated.model.CommunityRankingScore;
 import com.videogameplatform.api.generated.model.CompactReleaseSummary;
 import com.videogameplatform.api.generated.model.GameRankingItem;
@@ -11,6 +12,7 @@ import com.videogameplatform.api.generated.model.PageMetadata;
 import com.videogameplatform.api.generated.model.Platform;
 import com.videogameplatform.api.generated.model.RankingScore;
 import com.videogameplatform.api.generated.model.RankingSource;
+import com.videogameplatform.api.generated.model.Region;
 import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase;
 import java.util.LinkedHashSet;
@@ -48,17 +50,29 @@ final class GameRankingApiMapper {
     }
 
     private GameRankingItem toItem(GameRanking.Item item) {
-        return new GameRankingItem(
-                item.position(),
-                item.gameId(),
-                item.slug(),
-                item.canonicalTitle(),
-                coverMapper.toResponse(item.primaryCover()),
-                item.genres().stream()
-                        .map(term -> new Genre(term.code(), term.name()))
-                        .collect(Collectors.toCollection(LinkedHashSet::new)),
-                toReleaseSummary(item.releaseSummary()),
-                toScore(item.score()));
+        GameRankingItem response =
+                new GameRankingItem(
+                        item.position(),
+                        item.gameId(),
+                        item.slug(),
+                        item.canonicalTitle(),
+                        coverMapper.toResponse(item.primaryCover()),
+                        item.genres().stream()
+                                .map(term -> new Genre(term.code(), term.name()))
+                                .collect(Collectors.toCollection(LinkedHashSet::new)),
+                        toReleaseSummary(item.releaseSummary()),
+                        toScore(item.score()));
+        item.platformRelease()
+                .map(
+                        release ->
+                                ReleaseSummaryMapper.toResponse(
+                                        new Platform(
+                                                release.platform().id(), release.platform().name()),
+                                        new Region(release.region().id(), release.region().name()),
+                                        release.releaseDate(),
+                                        release.status()))
+                .ifPresent(response::setPlatformRelease);
+        return response;
     }
 
     private static RankingScore toScore(GameRanking.Score score) {

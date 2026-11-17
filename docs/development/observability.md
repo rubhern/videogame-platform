@@ -39,7 +39,7 @@ with a dedicated short statement timeout; health details remain hidden.
   records successful page yield for the closed
   `releaseDate`/`hype`/`rating`/`externalPlayerScore` vocabulary (#285, replacing the retired `view` label).
 - `catalogue.release.calendar.days{month}` records, per successful calendar read (#250), how
-  many days of the served month hold a release; `month` is `current` or `later`, already in the
+  many days of the served month hold a release; `month` is `past`, `current` or `later`, already in the
   Prometheus label allowlist. No month value, day, game or filter is a tag.
 - `catalogue.featured.selection{status,freshness,granularity,period,lead_image}` counts
   successful featured reads (#151, #329): `status` is `ranked`, `popularity_unavailable` or
@@ -108,8 +108,9 @@ with a dedicated short statement timeout; health details remain hidden.
   refuses every record of it.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
-  Operations are the closed `window`, `works`, `release_dates`, `logos`
-  vocabulary. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
+  Operations are the closed `window`, `works`, `release_dates`, `logos`, `attention`
+  vocabulary (#458 added `attention`). A Want to Play or Visits value outside a provider share is
+  ignored and counted as `featured_evidence_invalid`. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
   usable dimensions is ignored and counted as `image_reference_invalid`. Incoherent game
   detail metadata is counted as `details_invalid` and an incoherent player score/count
   pair as `player_score_invalid`; neither fails the Game.
@@ -122,7 +123,11 @@ with a dedicated short statement timeout; health details remain hidden.
 - Never use user, game, release, request, correlation, URL, search, provider, or raw
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an
-  explicit endpoint is configured.
+  explicit endpoint is configured; production exports a sampled share of traces
+  ([production trace exploration](#production-trace-exploration)).
+- HTTP observations keep only the route template, method, status and outcome; the full
+  URL never becomes a span attribute. JDBC spans record parameterized statement text and
+  never bound values, so visitor input always reaches SQL as a bound parameter.
 - Exported resources carry bounded `deployment.environment.name` and `service.version`
   attributes from `TELEMETRY_DEPLOYMENT_ENVIRONMENT` and `TELEMETRY_SERVICE_VERSION`;
   they never derive either value from visitor input.
@@ -226,7 +231,11 @@ not affect readiness. The datasource is replaceable with the rest of telemetry.
   platforms never adds votes.
 - Unique visitors, sessions, registered users, conversion, retention, most visited
   Games and navigation cannot be derived from this instrumentation. No view-event
-  ledger or identity analytics is added. The newly integrated localization pipeline
+  ledger or identity analytics is added to it. Post-MVP (#507), behavioural product
+  analytics is a separate, consent-gated GA4 measurement in the browser
+  ([ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md)); its
+  undercounted, consent-dependent figures never stand in for operational evidence, and
+  this telemetry never feeds it. The newly integrated localization pipeline
   has bounded execution metrics documented under [Catalogue localization](#catalogue-localization).
 
 Missing data is not zero or proof of health. The application exports cumulative OTLP
@@ -333,7 +342,9 @@ when a manually requested command fails to complete.
 ### Notification boundary
 
 Alerts remain visible in authenticated, private Grafana **Alerting → Alert rules**.
-Native Telegram delivery is **off by default**. One rendered policy tree groups
+Native Telegram delivery is **off by default**. Only production can turn it on, with one owner
+switch for operational alerts and registration notices; private-dev pins both flags off
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). One rendered policy tree groups
 operational alerts by environment/service/category/severity, waits to collect related
 instances, deduplicates identical alerts and repeats persistent incidents. Native
 `DatasourceError`/`DatasourceNoData` have an explicit operational fallback route.
@@ -348,7 +359,7 @@ the latter never claims a successful run. Large
 groups render a bounded preview and direct the owner to the full group in Grafana,
 keeping the plain-text message below Telegram's size limit for this fixed rule set.
 
-The [operator procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery)
+The [production procedure](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery)
 owns protected files, activation, rotation and rollback. SMTP remains disabled;
 Mailpit remains the password-recovery test sink. Native Telegram uses outgoing HTTPS
 only, adding no service, inbound webhook or public monitoring endpoint. Grafana
@@ -356,7 +367,7 @@ stores the token encrypted in its existing database; the chat ID is a normal con
 setting and therefore remains readable to authorized Grafana administrators. The
 rendered file contains both values on bounded tmpfs (directory 0700, file 0600).
 No token/chat value enters Compose environment/metadata, rule labels or annotations.
-When delivery is disabled, the private-dev start wrapper routes proxy-aware outbound
+When delivery is disabled, the shared start wrapper routes proxy-aware outbound
 HTTPS to a closed loopback port and fixes the internal bypass list. This is a native
 sender kill switch, not a new proxy service: the pinned sender honors HTTPS_PROXY.
 It prevents an old persisted receiver sending during Grafana's file-policy reload
@@ -371,7 +382,7 @@ as non-retryable within an attempt; later notification cycles may try again. Fai
 attempts remain visible in Grafana/logs. A timeout can mean a delivered message whose
 acknowledgement was lost; neither deduplication nor persistence guarantees exactly-once
 external delivery. Host/Grafana failure still needs independent owner inspection.
-No real Telegram delivery or live-host alert rollout has been proven by this change.
+Real production delivery is proven only by the owner's contact-point test after activation.
 
 ## Product growth observations
 
@@ -529,6 +540,72 @@ lookback can hide older records before physical deletion completes. Preserve the
 Loki nor Alloy sanitizes arbitrary secret-bearing source text. Do not enable DEBUG
 or broaden collection to investigate an empty result without a reviewed need.
 
+## Production log exploration
+
+[ADR-0040](../decisions/0040-aggregate-production-application-logs-in-loki.md) sends the
+production application's own log events over OTLP through the Collector into Loki. Open
+production Grafana, then **Explore** with the **Platform logs** datasource. The
+[production procedure](../../deploy/public-production/README.md#application-logs) owns access,
+disk checks and recovery; the [platform design](../architecture/deployment/mvp-platform-and-delivery.md)
+owns topology, retention and loss policy.
+
+Only the application's events are collected, from the moment Logback starts. Keycloak,
+PostgreSQL, the edge, migration actors and pre-logger JVM output stay in Docker's local
+log on the host. Each record keeps the console message as its body. Loki indexes the
+`service_name` and `deployment_environment_name` resource labels and keeps the level,
+logger and correlation identifier as structured metadata, filterable without becoming
+index labels:
+
+```logql
+{service_name="videogame-platform-backend"}
+{service_name="videogame-platform-backend"} | detected_level=~"error|warn"
+{service_name="videogame-platform-backend"} | correlationId="<X-Correlation-ID of the response>"
+{service_name="videogame-platform-backend"} | scope_name=~"com.videogameplatform.feedback.*"
+{service_name="videogame-platform-backend"} |= "Feedback SMTP"
+```
+
+`scope_name` is the logger. A Problem response's `X-Correlation-ID` header finds the
+events of that request. For a failed visitor-feedback send, a `Feedback SMTP acceptance
+could not be confirmed` warning means the relay refused or was unreachable; no warning
+with a `FEEDBACK_UNAVAILABLE` response means delivery is disabled. The warning carries
+`reason` (`authentication`, `tls`, `timeout`, `connection`, `sender-rejected`,
+`recipient-rejected`, `message-rejected`, `preparation` or `other`), the numeric SMTP
+reply as `smtpCode` when the relay sent one, and the innermost exception type as `cause`.
+It never carries addresses, server text or message content.
+
+Empty results can mean no event, a wrong time range, expired data, or a record lost while
+the Collector or Loki was away or refusing load. Retention is six days and deletion is
+asynchronous, completing within the seven-day routine-log limit. This is best-effort diagnostics, not audit evidence. The
+[application log privacy rules](#application-logs) still govern every log statement: Loki
+does not sanitize what the application writes.
+
+## Production trace exploration
+
+[ADR-0046](../decisions/0046-keep-sampled-production-traces-in-tempo.md) keeps one request in
+ten as a trace in Tempo, through the same Collector. Open production Grafana, then **Explore**
+with the **Platform traces** datasource. The
+[production procedure](../../deploy/public-production/README.md#application-traces) owns access,
+disk checks and recovery.
+
+A trace shows the server span of the request (route template, method, status), the Spring
+Security filter and authorization spans, and one span per SQL statement with its
+parameterized text, so the slow part of a request is visible. Ways in:
+
+- From a log line in **Platform logs**: lines written inside a sampled request carry
+  `trace_id` metadata and an **Open trace** link.
+- From a span: **Logs for this span** opens that request's log lines.
+- Search by route and duration, for example:
+
+```traceql
+{ resource.service.name = "videogame-platform-backend" && span:kind = server && duration > 500ms }
+```
+
+Nine requests in ten have no stored trace even though their logs show a trace ID, so a slow
+route may need several occurrences before one is sampled. Spans can also be lost while the
+Collector or Tempo is away or refusing load. Retention is 72 hours. Traces are diagnostics,
+not audit evidence, and the [privacy rules](#correlation-logs-metrics-and-traces) above
+decide what a span may carry.
+
 ## Application logs
 
 One event model serves both renderings. Each event carries bounded key-values, and its
@@ -560,6 +637,12 @@ BFF session revocation: one `INFO` per management command with
 OIDC subject, session IDs and tokens never appear. No meter is added: revocation is a
 rare owner command whose evidence is its answer and this event.
 
+Product settings (#450): one `INFO` per accepted save with `settings.revision` and
+`settings.keys`, the sorted registry keys it changed, a closed vocabulary. The operator's
+`UserId` and the values stay in the database audit (ADR-0042), never in a log or a metric. A
+refused save is only its HTTP completion with its Problem code. No meter is added: saves are rare
+operator commands whose evidence is the audit and this event.
+
 Catalogue synchronization (`CatalogueSynchronizationLog`):
 
 | Event                       | Level                                            | Bounded context                                                                                |
@@ -568,7 +651,7 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 | Progress checkpoint         | `INFO`                                           | run, phase, page, game position, elapsed, Game/release/provider counters                       |
 | Game reconciled or deferred | `DEBUG`                                          | run, page, position, result                                                                    |
 | Game failed                 | First 20 of a run: `INFO` for a known data-quality reason, otherwise `WARN`; then `DEBUG` | run, page, position, stage, reason, failed count, identity (below)                             |
-| Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` stage, provider failure code  |
+| Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` or `provider_attention` stage (or `persistence` when the attention write failed), failure code |
 | Run failure                 | `WARN`                                           | run, phase, page, stage, reason, exception class when unexpected                               |
 | Finished                    | `INFO` for a `clean`, `data_quality` or `stopped` assessment; otherwise `WARN` partial, `ERROR` failed | outcome, stable code, assessment, window, pages, elapsed, all counters including `data_quality_failed`, failures tallied by `stage/reason` |
 | Skipped                     | `INFO`                                           | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window                        |
@@ -580,10 +663,10 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 While events keep arriving, a checkpoint is written at least every 60 seconds and at
 provider-page completion, but never less than 10 seconds after the previous one.
 Spacing uses a monotonic source, not the product clock. Stages are `provider_page`,
-`provider_game`, `provider_logos`, `validation`,
-`reconciliation`, `persistence` and `run`. A `provider_logos`
+`provider_game`, `provider_logos`, `provider_attention`, `validation`,
+`reconciliation`, `persistence` and `run`. A `provider_logos` or `provider_attention`
 failure never fails a Game: the page's Games still reconcile and keep their last valid
-logo. Reasons come
+logo or attention signals. Reasons come
 from `ProviderFailureCode`, `ProviderMappingFailure`, `SynchronizationWriteException.Reason`
 and the service constants (`WORK_NOT_RETURNED`, `TITLE_MISSING`,
 `RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RELEASE_TUPLE_CONFLICT`,
@@ -651,6 +734,47 @@ separate timeout from unavailable/invalid runtime responses; durable pending sta
 last-valid links support diagnosis and retries through the [operations runbook](operations-runbook.md#catalogue-localization).
 Helper failure never participates in liveness/readiness.
 
+`catalogue.observability_localization_coverage` is the durable coverage read contract:
+aggregate counts by `kind`, `status`, `origin` and `last_valid_retained`, with no Game,
+label, fingerprint or text identity and no stored state of its own. Each target has
+exactly one status, evaluated in this order:
+
+| Status | Meaning, from stored source and translation evidence |
+|---|---|
+| `not_applicable` | Outside enrichment ownership: not a sourced English IGDB summary, or a taxonomy term without a provider source label |
+| `current` | The published link matches the current source. `origin` separates `machine` from `curated` |
+| `busy` | A live lease on this exact source: inference may be running now |
+| `reusable` | Translated already, usually for another target, but not linked here. The next pass needs no inference |
+| `retryable` | Attempted without a publishable result: a released failure, expired lease or cached result that exceeds the taxonomy label bound |
+| `stale` | Only an earlier source has a published translation, and the current source has no attempt |
+| `missing` | No published translation and no attempt |
+
+`last_valid_retained` marks a non-current target that still serves its earlier
+translation, whichever pending status applies. Eligible means every status except
+`not_applicable`. Attempts match using the same whitespace normalization as
+the durable fingerprint constraint, including when the attempt stored a differently
+spaced form of the same source. The view projects summary fingerprints before
+joining the persisted evidence, keeping source text out of the join state. The
+operator coverage request reuses a one-minute aggregate cache per application
+instance. Frequent progress polls read only the current execution checkpoint.
+
+The Catalogue Synchronization dashboard's localization section combines that stored
+coverage with process counters and, in production, the host sampler's localizer and
+Grafana series. Missing process or sampler telemetry renders as no data, never as zero
+failures. Private-dev has no host sampler, so its resource panels stay empty. A view
+added by a migration still needs the
+[reader command](../../deploy/private-dev/README.md#metrics-dashboards) to grant it.
+
+Existing production rules already cover a localizer or Grafana restart or OOM
+(`prod-oom-restarts`), a stopped container (`prod-container-missing`), memory and CPU
+pressure and a stale sampler, once the sampler is installed. Automatic restart does not
+hide an incident: `prod-oom-restarts` fires on the increased restart count. Memory
+pressure rules divide total cgroup usage, including reclaimable cache, so a healthy Grafana or
+freshly loaded localizer can sit near them; judge those with the anonymous-memory series.
+Sustained localizer unavailability, translation failure rates and the daily synchronization
+ratio stay with [#451](https://github.com/rubhern/videogame-platform/issues/451), which
+adds any new rule. This section adds none.
+
 ## Public production observability proposal
 
 **Implemented local candidate (#275 increment 7), not deployed or accepted on a VPS.**
@@ -662,8 +786,16 @@ an independent production Grafana database; they never point to private-dev serv
 Only the Growth dashboard's literal realm selector is substituted at startup.
 Runtime / Resources, Application / HTTP, Product / Business, Catalogue Synchronization
 and Growth remain complete; Production / Capacity, security and recovery adds the
-operational signals. No Loki, Alloy or retained trace store is added. Their extra
-memory, disk and log-ingestion privileges have no demonstrated production need here.
+operational signals. Application logs reach a production Loki through the same Collector
+([production log exploration](#production-log-exploration)); no Alloy or retained trace
+store is added.
+
+Production Grafana disables every bundled backend datasource plugin except PostgreSQL,
+Prometheus and Loki, because each one is a separate process with about seven threads that
+counts against the container's PID ceiling. The
+[stabilization evidence](operations-runbook.md#private-production-localization-and-grafana-stabilization)
+records the failure this prevents. A new datasource type must be removed from that list,
+and the ceiling reviewed with it.
 
 Telemetry has no product startup, readiness or request dependency. Management stays
 on application loopback. None of the monitoring services publishes a host port;
@@ -671,7 +803,9 @@ Grafana administration needs the existing private host/tunnel boundary. Only Gra
 joins the separate notification egress bridge. Its analytics network reaches the
 application database with the existing restricted reader and approved observability
 views, two connections and short query limits; no identity database privileges or
-new analytics queries across base tables are granted.
+new analytics queries across base tables are granted. The reader runs without JIT or
+parallel workers because PostgreSQL has a single CPU here: with them, two dashboard panels
+querying the localization coverage view at once exceeded the statement limit.
 
 Standard node_exporter collects host CPU/steal, memory, swap, pressure, root filesystem
 and disk I/O; blackbox_exporter probes Keycloak readiness and both HTTPS certificates
@@ -679,7 +813,8 @@ through the private edge. Those TLS probes verify SNI and trust but do not prove
 DNS, IPv6 ingress or ACME renewal. Caddy's private listener exports only bounded native
 HTTP families; its per-client limiter metrics and refusal logger remain disabled.
 
-A bounded host-only textfile sampler bridges cgroup v2 resource ceilings/usage,
+A bounded host-only textfile sampler bridges cgroup v2 resource ceilings/usage, including
+anonymous and peak memory and the task count against each PID ceiling,
 Docker lifecycle fields, sanitized edge response origins, backup evidence and optional
 capacity evidence. Its fixed service inventory never exports container IDs, PIDs,
 addresses, paths or account information. It has no listener or long-running buffer.
@@ -725,7 +860,7 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 
 | Additional signal family | Interpretation and #276 acceptance/calibration |
 |---|---|
-| Traffic trend and measured capacity proximity | Compare current rate with its longer baseline plus CPU pressure and a volume guard. Qualify the representative traffic mix, sustainable rate, workload changes, warning/critical fractions and pending periods. No rate capacity is supplied by default |
+| Traffic trend and measured capacity proximity | Compare current rate with its longer baseline plus CPU pressure and a volume guard. Qualify the representative traffic mix, sustainable rate, workload changes, warning/critical fractions and pending periods. No rate capacity is supplied, and none is planned ([#550](https://github.com/rubhern/videogame-platform/issues/550)): the uncalibrated rule is paused, and the proximity rules stay inactive |
 | HTTP error share, edge 429/503 and upstream HTTP/transport failures | Validate count/share guards under quiet traffic, bursts and maintenance; correlate with latency and resource headroom. Edge counts use final sanitized origin records |
 | Container CPU, throttling, memory, OOM/restarts and missing state | Validate actual cgroup v2 fields, quota headroom, chargeable page cache, recreation/reset and deliberate stop/restart behaviour. A restart signal warrants inspection; it does not prove OOM |
 | Host available memory, swap and memory/I/O pressure | Test pressure before failure, pause background jobs first, and verify the approved available-memory reserve under job/deployment overlap |
@@ -733,7 +868,10 @@ telemetry. Their existing heuristics remain provisional on the selected host.
 | Disk free reserve and predicted depletion | Validate the filesystem mapping, growth lookback/prediction horizon, reserves, WAL/image/backup overlap and job stop response. Root filesystem collection assumes the proposed single data filesystem; another mount needs explicit collection before acceptance |
 | Identity failures, lockout, mail sending/failure and health | Calibrate aggregate count windows against legitimate/shared-source traffic and actual relay allowance. These signals are indicators, not proof of distinct attackers or inbox delivery |
 | Telemetry target, host sampler and edge-window availability | Exercise missing/down/removed targets, frozen exports, malformed textfiles, dropped records and delayed timers. Scrape success alone does not prove fresh application exports |
-| Failed, missing or stale verified off-host backups | Verify the schedule, recovery-point age, independent destination and restored-pair evidence. Local dumps, ciphertext-only checks and local rehearsals never qualify |
+| Backup attempt missing or failed | The host's cycle status is absent or its last attempt failed. Off-host integrity is not a host signal: the [independent observer](../../deploy/public-production/README.md#independent-supervision) verifies the cloud pairs and notifies the owner itself (#550) |
+| Stale off-host upload, warning at 14 hours and critical at 24 | Fed by the [scheduled cycle](../../deploy/public-production/README.md#scheduled-backup-cycle-276). The host reports its own upload, so this is a second route: only the independent observer proves integrity. Validate slots, deferral by a running synchronization and the admission window |
+| Backup cycle needs the owner | A reopening failed or a fence belongs to someone else. The cycle stops acting at `owner-required`; validate delivery in the failure drills |
+| Unverified-account cleanup needs the owner (warning) | The [daily cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup) failed, or no run has succeeded for 36 hours. Absent until the cleanup and [host telemetry](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery) are installed. A killed run can leave the identity fence closed. Validate the window against the timer and a forced failure |
 | TLS expiry and failed probes | Verify both hostname chains, warning/critical lead times, local probe failure, actual ACME renewal failure and recovery with the real domains before exposure |
 | Series budget and monitoring resources | Review active/head series, refresh/query concurrency, rule evaluations, retention/compaction and disk growth at the qualified workload; stop ingestion before threatening durable product state |
 
@@ -746,8 +884,9 @@ explicit healthy zero, so a healthy empty condition cannot become a Grafana NoDa
 incident; optional/lazy activity counters
 can be absent during quiet traffic. Warning/critical resource bands are mutually
 exclusive. Native notification grouping, bounded message rendering and repeat intervals
-are reused; all delivery is off until explicitly enabled with production-only secrets.
-Information-only product notifications stay off.
+are reused. Delivery is off until the owner
+[turns it on](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery) with
+production-only secrets. The same switch sends the registration notices.
 
 The [platform resource envelope](../architecture/deployment/mvp-platform-and-delivery.md#resource-and-work-envelope-proposal-not-capacity-evidence)
 remains unchanged. The overlay and host unit share its monitoring allocation. Go
@@ -846,3 +985,12 @@ shutdown-interrupted admission remains pending, and policy-admission infrastruct
 log the stable `SYNCHRONIZATION_DEFERRED_ADMISSION_FAILED` code without payload or exception
 message. The [solution architecture](../architecture/mvp-solution-architecture.md#historical-acquisition-orchestration)
 owns bounded durable deferral and restart semantics.
+
+
+## Prepared account deletion signal (#272)
+
+The private executor acknowledgement counts `account.deletion.attempts` with only the fixed `outcome`
+values `verified` and `retry`. No account/reference/session/receipt is a
+metric label or log field. The counter supports failure detection; the independent
+ledger and verified status remain the completion authority. Qualification and recovery
+belong to the [runbook](operations-runbook.md#self-service-account-deletion).

@@ -1,7 +1,7 @@
 {
   "name": "@videogame-platform/frontend",
   "private": true,
-  "version": "0.48.1",
+  "version": "1.8.4",
   "type": "module",
   "description": "Frontend walking skeleton for VideoGame Platform",
   "engines": {
@@ -17,12 +17,12 @@
     "test": "npm run check:legal && vitest run",
     "test:e2e": "playwright test",
     "test:e2e:list": "playwright test --list",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "node scripts/typecheck.mjs",
     "verify": "npm run generate-api && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e:list",
     "check:legal": "node ../scripts/prepare-legal-content.mjs --check"
   },
   "dependencies": {
-    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-query": "5.107.1",
     "openapi-fetch": "0.17.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -35,21 +35,22 @@
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.5",
+    "@testing-library/user-event": "14.6.8",
     "@types/node": "24.13.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "@typescript/native": "npm:typescript@7.0.2",
     "@vitejs/plugin-react": "6.1.0",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-react-refresh": "0.5.5",
-    "globals": "17.11.0",
-    "jsdom": "30.1.2",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "jsdom": "30.1.3",
     "openapi-typescript": "7.13.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "typescript-eslint": "8.67.0",
     "vite": "8.1.6",
-    "vitest": "4.1.12"
+    "vitest": "5.0.5"
   }
 }

@@ -56,7 +56,15 @@ def discovered_dependencies(root):
                 if path.is_relative_to(root):
                     pending.extend(path.rglob('*') if path.is_dir() else [path])
     section = ''
+    private_bootstrap = False
     for line in (production/'README.md').read_text().splitlines():
+        if line.startswith('## '):
+            private_bootstrap = line == '## Private first installation and validation'
+        # #276 is a separate operational rollout: its import reachability is
+        # checked by test-private-production-installation.py and its code is bound
+        # by operational_fingerprint, never by the signed #275 runtime inventory.
+        if private_bootstrap:
+            continue
         if line.startswith('##'):
             section = line.lower()
         if any(word in section for word in ('validation','exercise','limiter memory','not yet validated')):
@@ -440,6 +448,19 @@ class Inputs(unittest.TestCase):
         self.assertNotIn('deploy/private-dev/compose.yaml', required)
         self.assertFalse({p for p in required if not deploy.runtime_path(p)})
 
+    def test_later_runtime_sources_count_except_in_the_signed_candidate_fingerprint(self):
+        later = 'deploy/private-dev/grafana/provisioning/alerting/product-activity.json'
+        self.assertIn(later, deploy.LATER_RUNTIME_FILES)
+        self.assertTrue(deploy.runtime_path(later))
+        self.assertFalse(deploy.candidate_path(later))
+        entries = {'truncated': False, 'tree': [
+            {'path': 'deploy/public-production/compose.yaml', 'type': 'blob', 'mode': '100644', 'sha': '1' * 40},
+            {'path': later, 'type': 'blob', 'mode': '100644', 'sha': '2' * 40}]}
+        without = {'truncated': False, 'tree': entries['tree'][:1]}
+        self.assertEqual(deploy.inventory(entries, deploy.candidate_path), deploy.inventory(without, deploy.runtime_path))
+        self.assertNotEqual(deploy.inventory(entries, deploy.runtime_path), deploy.inventory(without, deploy.runtime_path))
+        self.assertNotEqual(deploy.local_configuration(), deploy.local_configuration(candidate=True))
+
     def test_new_untracked_executable_references_fail_completeness_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -504,7 +525,7 @@ class Inputs(unittest.TestCase):
             root = Path(directory)
             for directory_name in deploy.RUNTIME_DIRECTORIES:
                 shutil.copytree(deploy.ROOT / directory_name, root / directory_name, dirs_exist_ok=True)
-            for name in deploy.RUNTIME_FILES:
+            for name in deploy.RUNTIME_FILES | deploy.LATER_RUNTIME_FILES:
                 destination = root / name; destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(deploy.ROOT / name, destination)
             with patch.object(deploy, 'ROOT', root):

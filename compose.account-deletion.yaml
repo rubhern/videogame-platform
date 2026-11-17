@@ -1,0 +1,10 @@
+# Explicit local synthetic-data rehearsal only. Production uses its separately qualified overlay.
+services:
+  application:
+    # The owner-only capability stays mode 0600; use the local non-root owner's UID.
+    user: "${LOCAL_ACCOUNT_DELETION_UID:?Use the local launcher}:${LOCAL_ACCOUNT_DELETION_GID:?Use the local launcher}"
+    environment:
+      ACCOUNT_DELETION_EXECUTOR_ENABLED: "true"
+      ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE: /run/local-account-deletion/executor.key
+    volumes:
+      - ./.local-secrets/account-deletion/executor.key:/run/local-account-deletion/executor.key:ro

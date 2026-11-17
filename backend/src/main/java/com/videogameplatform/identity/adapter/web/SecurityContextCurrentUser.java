@@ -14,22 +14,35 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public final class SecurityContextCurrentUser implements CurrentUser {
 
     private final SessionRevocation sessions;
+    private final java.util.function.Predicate<String> blocked;
 
     public SecurityContextCurrentUser(SessionRevocation sessions) {
+        this(sessions, ignored -> false);
+    }
+
+    public SecurityContextCurrentUser(
+            SessionRevocation sessions, java.util.function.Predicate<String> blocked) {
         this.sessions = sessions;
+        this.blocked = blocked;
     }
 
     @Override
     public Optional<String> currentUserId() {
         return ProductIdentity.resolve(SecurityContextHolder.getContext().getAuthentication())
-                .map(UserId::value);
+                .map(UserId::value)
+                .filter(id -> !blocked.test(id));
     }
 
     @Override
     public <T> T changeAsCurrentUser(Function<String, T> change) {
         String userId = currentUserId().orElseThrow(CurrentUserUnavailableException::new);
         String sessionId = currentSessionId().orElseThrow(CurrentUserUnavailableException::new);
-        return sessions.whileActive(sessionId, () -> change.apply(userId));
+        return sessions.whileActive(
+                sessionId,
+                () -> {
+                    if (blocked.test(userId)) throw new CurrentUserUnavailableException();
+                    return change.apply(userId);
+                });
     }
 
     private static Optional<String> currentSessionId() {
