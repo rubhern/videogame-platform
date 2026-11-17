@@ -18,6 +18,7 @@ import urllib.error
 import zipfile
 
 import private_dev_promotion as policy
+import public_production_integration as release
 
 ROOT = Path(__file__).resolve().parents[1]
 loader = importlib.machinery.SourceFileLoader("promotion_host", str(ROOT / "deploy/private-dev/bin/promote-private-dev"))
@@ -51,9 +52,6 @@ def api_fixture():
             ],
         },
         f"/compare/{REVISION}...main": {"status": "ahead", "merge_base_commit": {"sha": REVISION}},
-        f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=1": {
-            "workflow_runs": [{"id": 456}],
-        },
         f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100": {
             "total_count": 1, "workflow_runs": [run_record("security.yml", 456)],
         },
@@ -190,7 +188,7 @@ class EvidenceTests(unittest.TestCase):
                 if key == "comparison":
                     values[f"/compare/{REVISION}...main"]["merge_base_commit"]["sha"] = "d" * 40
                 elif key == "security-absent":
-                    values[f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=1"]["workflow_runs"] = []
+                    values[f"/actions/workflows/security.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"]["workflow_runs"] = []
                 else:
                     values["/actions/runs/456"]["conclusion"] = "failure"
                 with self.assertRaises(policy.Refused):
@@ -398,11 +396,126 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(storage.call_args.args, ("https://storage.example/signed",))
 
 
+class FastEvidenceTests(unittest.TestCase):
+    QUALITY_BASELINE = ("Detect affected CI areas", "AMD64 application image", "Publish immutable application image")
+    SECURITY_BASELINE = ("Detect affected security areas", "Secret scan")
+
+    def fixture(self, quality=QUALITY_BASELINE, security=SECURITY_BASELINE):
+        values, api = api_fixture()
+        for run_id, names in ((123, (*quality, "Required quality gate")), (456, (*security, "Required security gate"))):
+            values[f"/actions/runs/{run_id}"].update(status="in_progress", conclusion=None)
+            values[f"/actions/runs/{run_id}/jobs?filter=latest&per_page=100"] = {
+                "total_count": len(names),
+                "jobs": [{"name": name, "status": "completed", "conclusion": "success"} for name in names],
+            }
+        return values, api
+
+    def test_release_failures_do_not_block_private_dev_and_cannot_qualify_production(self):
+        values, api = self.fixture()
+        for result in ("failure", "skipped", "cancelled"):
+            with self.subTest(result=result):
+                values["/actions/runs/123"].update(status="completed", conclusion="failure")
+                values["/actions/runs/456"].update(status="completed", conclusion="failure")
+                for run_id, name in ((123, "Required quality gate"), (456, "Required security gate")):
+                    jobs = values[f"/actions/runs/{run_id}/jobs?filter=latest&per_page=100"]["jobs"]
+                    next(j for j in jobs if j["name"] == name)["conclusion"] = result
+                promotion = policy.fast_promotion(api, REVISION, (self.QUALITY_BASELINE, self.SECURITY_BASELINE))
+                self.assertEqual(promotion["image_digest"], DIGEST)
+                with self.assertRaises(policy.Refused):
+                    release.resolve(api, REVISION)
+
+    def test_risky_changes_require_their_actual_jobs_and_reject_skipped_checks(self):
+        examples = {
+            "docs/architecture/api/openapi.yaml": "Documentation and API contracts",
+            "backend/src/main/resources/db/migration/V1__example.sql": "Fresh PostgreSQL 18 migration",
+            "backend/src/main/java/com/videogameplatform/identity/adapter/web/Example.java":
+                "Real Keycloak OIDC BFF compatibility (core)",
+            "pom.xml": "Java backend, architecture and PostgreSQL integration",
+            "Dockerfile": "AMD64 application image",
+            "deploy/private-dev/grafana/example.yaml": "Private-dev native Telegram routing against isolated mock",
+        }
+        for path, required in examples.items():
+            classify = subprocess.run([str(ROOT / "scripts/detect-ci-changes.sh"), "--paths-from-stdin"],
+                                      input=path, capture_output=True, check=True, text=True)
+            with patch.object(policy.subprocess, "run", return_value=classify):
+                quality, security = policy.fast_requirements("b" * 40, REVISION)
+            self.assertIn(required, quality)
+            for result in ("failure", "cancelled", "skipped"):
+                with self.subTest(path=path, result=result):
+                    values, api = self.fixture(quality, security)
+                    jobs = values["/actions/runs/123/jobs?filter=latest&per_page=100"]["jobs"]
+                    next(j for j in jobs if j["name"] == required)["conclusion"] = result
+                    with self.assertRaisesRegex(policy.Refused, re.escape(required)):
+                        policy.fast_promotion(api, REVISION, (quality, security))
+
+    def test_unknown_and_workflow_paths_require_full_ci(self):
+        for path in ("unclassified/data.txt", ".github/actions/scan-source-secrets/action.yml"):
+            classified = subprocess.run([str(ROOT / "scripts/detect-ci-changes.sh"), "--paths-from-stdin"],
+                                         input=path, capture_output=True, check=True, text=True)
+            with self.subTest(path=path), patch.object(policy.subprocess, "run", return_value=classified):
+                self.assertIsNone(policy.fast_requirements("b" * 40, REVISION))
+
+    def test_stale_rerun_cancelled_run_expired_artifact_and_duplicate_run_are_refused(self):
+        path = f"/actions/workflows/build-and-verify.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+        for mutation in (lambda values: values["/actions/runs/123"].update(run_attempt=3),
+                         lambda values: values["/actions/runs/456"].update(run_attempt=3),
+                         lambda values: values["/actions/runs/123"].update(conclusion="cancelled"),
+                         lambda values: values["/actions/runs/123/artifacts?per_page=100"]["artifacts"][0].update(expired=True),
+                         lambda values: values[path].update(total_count=2)):
+            with self.subTest(mutation=mutation):
+                values, api = self.fixture()
+                mutation(values)
+                with self.assertRaises(policy.Refused):
+                    policy.fast_promotion(api, REVISION, (self.QUALITY_BASELINE, self.SECURITY_BASELINE),
+                                          expected_build=("123", "2"), expected_security=("456", "2"))
+
+    def test_release_only_rerun_reuses_the_application_digest_if_image_build_did_not_change(self):
+        values, api = self.fixture()
+        run = values["/actions/runs/123"]
+        run["run_started_at"] = "2026-10-05T11:00:00Z"
+        jobs = values["/actions/runs/123/jobs?filter=latest&per_page=100"]["jobs"]
+        next(job for job in jobs if job["name"] == "AMD64 application image")["completed_at"] = "2026-10-05T10:28:00Z"
+        next(job for job in jobs if job["name"] == "Publish immutable application image")["started_at"] = "2026-10-05T10:29:00Z"
+        self.assertEqual(policy.verify_publication(api, run, REVISION), DIGEST)
+        next(job for job in jobs if job["name"] == "AMD64 application image")["completed_at"] = "2026-10-05T11:02:00Z"
+        with self.assertRaises(policy.Refused):
+            policy.verify_publication(api, run, REVISION)
+
+    def test_previous_dispatch_requires_a_proven_ancestor_before_fast_admission(self):
+        _, api = api_fixture()
+        previous = {**run_record("deploy-private-dev.yml"), "event": "workflow_dispatch", "head_sha": "b" * 40,
+                    "actor": {"login": "rubhern"}, "triggering_actor": {"login": "rubhern"}}
+        job = {"name": "Owner-approved private-dev application promotion", "conclusion": "success"}
+        api.request = Mock(side_effect=lambda path: {"total_count": 1, "jobs": [job]} if "/jobs?" in path else
+                           {"workflow_runs": [previous]})
+        with patch.object(policy, "git_result", side_effect=[
+                Mock(returncode=0), Mock(returncode=0, stdout=policy.FAST_BASE)]):
+            self.assertEqual(policy.last_deployed_base(api, REVISION), previous["head_sha"])
+        with patch.object(policy, "git_result", return_value=Mock(returncode=1)):
+            with self.assertRaisesRegex(policy.Refused, "predates or diverges"):
+                policy.last_deployed_base(api, REVISION)
+
+    def test_baseline_refuses_out_of_order_promotion_and_running_image_drift(self):
+        baseline = "b" * 40
+        self.assertEqual(host.parse_command(f"{COMMAND} {baseline}"), (REVISION, DIGEST, "123", "2", baseline))
+        with patch.object(host, "git", return_value=REVISION), patch.object(host.subprocess, "run") as docker:
+            with self.assertRaisesRegex(policy.Refused, "checkout changed"):
+                host.verify_deployed_base(baseline)
+            docker.assert_not_called()
+        with patch.object(host, "git", return_value=baseline), patch.object(host.subprocess, "run") as docker:
+            docker.side_effect = [Mock(stdout="container\n"), Mock(stdout=REVISION)]
+            with self.assertRaisesRegex(policy.Refused, "application changed"):
+                host.verify_deployed_base(baseline)
+            self.assertEqual(docker.call_count, 2)
+
+
 class WorkflowTests(unittest.TestCase):
-    def test_dispatch_has_no_inputs_and_both_jobs_require_main_and_owner(self):
+    def test_dispatch_has_only_full_ci_fallback_and_both_jobs_require_main_and_owner(self):
         workflow = (ROOT / ".github/workflows/deploy-private-dev.yml").read_text()
         trigger = workflow.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
-        self.assertEqual(trigger.strip(), "workflow_dispatch:")
+        self.assertEqual(re.findall(r"^      (\w+):$", trigger, re.M), ["full_ci"])
+        self.assertIn("type: boolean", trigger)
+        self.assertIn("default: false", trigger)
         for job in ("verify", "promote"):
             section = workflow.split(f"\n  {job}:\n", 1)[1]
             section = re.split(r"\n  [a-z]+:\n", section, maxsplit=1)[0]
@@ -418,7 +531,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('--discover --revision "$SOURCE_REVISION"', verify)
         self.assertNotIn("secrets.", verify)
         self.assertNotIn("environment:", verify)
-        self.assertNotIn("inputs.", workflow)
+        self.assertEqual(re.findall(r"inputs\.(\w+)", workflow), ["full_ci"])
         self.assertIn("needs: verify", promote)
         self.assertIn("environment:\n      name: dev", promote)
         for key in ("source_revision", "image_digest", "source_run_id", "source_run_attempt"):
@@ -429,6 +542,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('StrictHostKeyChecking=yes', promote)
         self.assertIn('"vgp-deploy@$DEPLOY_HOST"', promote)
         self.assertIn('"promote $SOURCE_REVISION $IMAGE_DIGEST $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT"', promote)
+        self.assertIn('command+=" $DEPLOYMENT_BASE"', promote)
+        self.assertLess(promote.index('--deployment-base'), promote.index('secrets.PRIVATE_DEV_SSH_KEY'))
         self.assertNotIn("contract", workflow.lower())
 
 

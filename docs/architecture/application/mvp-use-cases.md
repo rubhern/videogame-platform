@@ -491,10 +491,18 @@ and platform support follow, and any failure changes nothing. The write stores t
 its platform rows and their Ratings-owned labels in one transaction under the per-game lock,
 and the response carries the rating's mode, direct value, exposed contribution and
 platforms with the recomputed aggregate. Platform choices are never inferred from preferred
-platforms (#295), devices or releases, and a pick recovered after authentication
-(`UC-004`) is a direct value that is never applied over platform scores. Authentication cancellation
-or invalid/expired/replayed context creates no rating. Any failed rating command
-preserves personal and aggregate state.
+platforms (#295), devices or releases.
+
+Post-MVP (#518, implemented and awaiting owner review), a visitor may draft played platforms
+and their scores before authenticating. Confirming stores the bounded selection in the existing
+short-lived server-side rating context and starts the `UC-004` sign-in flow. After sign-in, the
+game page consumes the selection once for the authenticated principal and game. When an eligible
+game has no personal rating, the page tries a conditional create with the recovered platforms.
+When a personal rating exists, the page opens a draft with its saved platforms and the recovered
+selection for explicit review before any conditional update. A recovered general pick remains
+subject to the existing rule that it cannot replace platform scores. Authentication cancellation,
+invalid, expired or replayed context, and rejected commands leave personal and aggregate ratings
+intact.
 
 Post-MVP (#279, `Mis puntuaciones`, implemented; awaiting owner review): `UC-008` also returns
 each paged Game's current external player score. After the user-scoped search, sort, count

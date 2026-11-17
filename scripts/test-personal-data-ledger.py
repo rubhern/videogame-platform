@@ -54,7 +54,7 @@ if command == "identify":
     raise SystemExit(0)
 if command == "export":
     print(json.dumps({"format": "gameometro-personal-data-export", "account": account,
-                      "identitySessions": [], "ratings": state["ratings"].get(derived, [])}))
+                      "identitySessions": [], "linkedSignIn": [], "ratings": state["ratings"].get(derived, [])}))
     raise SystemExit(0)
 if values["--user-id"] != derived:
     fail("The recorded UserId does not match this runtime's issuer")

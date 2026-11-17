@@ -585,6 +585,41 @@ new sessions only; to end access at once, also revoke the account's sessions wit
 `--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
 against an existing local realm; a freshly imported local realm already declares the role.
 
+## Google and Microsoft sign-in
+
+Post-MVP (#548; enabled on `vgpdev` on 2026-11-17 with both providers).
+[ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The promoted Keycloak image already carries the brokered-terms authenticator
+and the theme. The providers exist only after this command adds them to the existing realm.
+
+1. **Register the apps.** Register separate *development* OAuth clients at Google and Microsoft
+   (personal accounts only), never the production ones. Each takes one redirect URI on this host's
+   private Keycloak origin, `PRIVATE_DEV_KEYCLOAK_ORIGIN`:
+   `<origin>/realms/videogame-platform/broker/google/endpoint` and
+   `<origin>/realms/videogame-platform/broker/microsoft/endpoint`.
+2. **Write the credentials.** Put the client IDs and secrets in `PRIVATE_DEV_SECRETS_DIR` as
+   `social-google-client-id`, `social-google-client-secret`, `social-microsoft-client-id` and
+   `social-microsoft-client-secret`, with the same owner and mode as the other protected inputs.
+   A provider with neither file is disabled. One file alone refuses.
+3. **Apply and check**, as root:
+
+   ```bash
+   social=(python3 deploy/private-dev/bin/configure-social-sign-in \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env --realm videogame-platform)
+   "${social[@]}" --check || true
+   "${social[@]}"
+   "${social[@]}" --check
+   ```
+
+The command changes only the terms required action, the `gameometro first broker login` flow and
+the two providers. It never touches accounts, clients or the identity policy, so it needs no
+snapshot.
+- **Rollback:** `--disable` turns both providers off and keeps every linked identity. Never delete a
+  provider in the Admin Console: that drops its links.
+- **Rotation:** replace the secret file and run the command again.
+- **Locally:** `bash scripts/local-dependencies.sh configure-social-sign-in` runs the same command
+  ([local setup](../../docs/development/local-setup.md#google-and-microsoft-sign-in)).
+
 ## Historical synchronization pilot
 
 Post-MVP (#246 spike; tooling prepared, not yet run on `vgpdev`).
@@ -915,92 +950,27 @@ For rollback, merge the prior Grafana definition with evaluation disabled and pr
 it; Grafana keeps its volume. Confirm dashboards/product readiness. Rules may remain
 stored while evaluation is disabled. Never delete telemetry or application volumes.
 
-### Telegram setup and delivery
+### Telegram delivery (retired)
 
-This is an **owner-executed later procedure**, requiring separate authorization for
-real sends. Native Grafana needs only outgoing HTTPS to `api.telegram.org`: no SMTP,
-inbound webhook, public Grafana, Funnel, router forwarding, new account integration
-or notification service is deployed here. Messages contain fixed operational/activity text and private links,
-without user/request information.
+**Private-dev delivers no alert or notice** since
+[#550](https://github.com/rubhern/videogame-platform/issues/550). Its Compose pins
+`GRAFANA_TELEGRAM_ENABLED` and `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED` to `false`, whatever the
+protected runtime env says, and the runtime validator refuses any other value. Rules still
+evaluate and show in **Alerting**. Production Grafana alone notifies the owner, through the
+[production procedure](../public-production/README.md#host-telemetry-and-alert-delivery). The
+shared renderer, template and native mock smoke stay here because production mounts them.
 
-1. In Telegram, open the official verified **@BotFather**, use `/newbot`, and keep the
-   issued token private. Open the new bot's private chat and send `/start`. Do not use
-   third-party chat-ID/token websites or paste credentials into chat, issue comments,
-   shell command arguments/history or Compose environment.
-2. On the authorized host, use a protected root editor (without swap/backup files) to
-   place the token into the existing protected file
-   `/etc/videogame-platform/dev/secrets/grafana-telegram-bot-token`. Retain the
-   root/runtime-group ownership and 0644 file mode established by `prepare-secrets`;
-   the protected 0750 parent is the host access boundary and only Grafana is granted
-   these mounts. Do not move secrets under the checkout.
-3. Capture the private chat ID using the official `getUpdates` API. The following
-   optional root-only snippet reads the token from its file, keeps response identities
-   in memory and writes the single private `/start` chat ID without printing it. It
-   fails closed for zero/multiple candidate chats; resolve the intended chat privately.
-   Do not use `curl -v`, shell tracing, or a token-bearing URL in argv/browser history.
+On the host, after the promotion that carries this change:
 
-   ```bash
-   sudo python3 - <<'PY_TELEGRAM'
-   import json
-   from pathlib import Path
-   import urllib.request
-   base = Path('/etc/videogame-platform/dev/secrets')
-   try:
-       token = (base / 'grafana-telegram-bot-token').read_text().strip()
-       with urllib.request.urlopen('https://api.telegram.org/bot' + token + '/getUpdates', timeout=20) as response:
-           updates = json.load(response)
-       candidates = {item['message']['chat']['id'] for item in updates.get('result', [])
-                     if item.get('message', {}).get('text') == '/start'
-                     and item['message']['chat'].get('type') == 'private'}
-       if not updates.get('ok') or len(candidates) != 1:
-           raise ValueError()
-       (base / 'grafana-telegram-chat-id').write_text(str(candidates.pop()) + '\n')
-   except Exception:
-       raise SystemExit('Chat capture failed; values withheld. Check the private bot/chat configuration.') from None
-   print('Chat ID saved; no values printed.')
-   PY_TELEGRAM
-   ```
+1. Empty `/etc/videogame-platform/dev/secrets/grafana-telegram-bot-token` and
+   `grafana-telegram-chat-id` with a root editor, keeping the files, their owner and their mode:
+   Grafana still mounts them. If production reuses the bot, revoke this token in **@BotFather**
+   first.
+2. Delete the two `GRAFANA_*_ENABLED` lines from the protected runtime env. They are ignored now,
+   so this only removes a misleading value.
 
-4. Keep `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=false` initially. Explicitly set
-   `GRAFANA_TELEGRAM_ENABLED=true` in the protected runtime env, preserving all other
-   values. Set `PRIVATE_DEV_GRAFANA_ORIGIN` to the existing approved private access
-   origin (default loopback tunnel); this sets message links, not listeners or ingress.
-   Do not publish Grafana to make a phone link work. Recreate only Grafana under the
-   lock, verify file contact-point/policy ownership and unmuted operational routes,
-   then use Grafana's contact-point test **only with explicit real-send approval**.
-   A test message proves connectivity, not a live operational firing/resolved cycle.
-5. Product delivery needs the additional explicit flag
-   `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=true` and the growth source below. It
-   requires the master Telegram flag; enabling it alone refuses startup. It adds a
-   separate informational contact point with the same protected values and resolved
-   notifications disabled, so a closing registration window sends nothing. Registration
-   notices are best-effort window activity, not one notice per account. No lifetime
-   milestone messages exist. Verify the product route separately before enabling it.
-
-Missing/malformed credentials fail startup with a fixed redacted error when enabled;
-disabled startup reads neither value. Rendering uses non-exported shell variables and
-builtin `printf`, then removes them. The single resulting policy/contact-point file
-lives in Grafana's existing tmpfs with 0700/0600 permissions. The bot token is encrypted
-in Grafana's existing persistent database; the chat ID is an ordinary administrator-
-readable contact setting. Protect the database/volume backups and administrators too.
-Never dump rendered provisioning or contact-point exports into diagnostics/artifacts.
-Keep the fixed info-level notifier logs; native debug logging can expose URL tokens.
-English plain-text templates avoid Telegram markup failures and sensitive error bodies.
-
-To disable, set both flags false and recreate only Grafana; routes become muted/empty.
-To stop only registration notices, set the product flag false and recreate only
-Grafana; operational delivery continues and the product route becomes muted/empty.
-A closed-loopback HTTPS proxy setting in the private-dev wrapper blocks native sends
-immediately, including the interval before Grafana reconciles the previous persisted
-policy. No proxy service is installed; existing internal HTTP datasources stay direct.
-Previously stored contact points can remain encrypted in the database but are no
-longer referenced once provisioning reconciles. For compromise or full revocation, revoke/regenerate
-the token via BotFather (`/revoke` or its bot-management flow) first, replace the
-protected file privately, and recreate Grafana only after choosing whether to enable
-again. Rotation reprovisions the same contact UIDs; disabling is not token revocation.
-Retain backup access controls and do not delete the Grafana volume as a cleanup shortcut.
-A successful send may have an ambiguous acknowledgement: do not promise duplicate-free
-manual retries or exactly-once delivery.
+Grafana's database can keep the former contact point encrypted but unreferenced. Revocation,
+not the empty file, ends the token's validity.
 
 ### Separable product-growth rollout
 
@@ -1037,9 +1007,8 @@ Check private OIDC discovery, normal login and password recovery after recreatio
 Synthetic host registrations need separate owner approval.
 
 Changed registration-rule annotations or message templates reach Grafana through the
-same promotion. Do not enable either Telegram flag without protected credentials and
-explicit real-send authorization. The native TLS mock proves routing, not real
-Telegram delivery.
+same promotion. Private-dev sends no registration notice
+([retired delivery](#telegram-delivery-retired)).
 
 To disable it, set the flag to `false` and promote again. Removing the overlay also
 removes its scrape, so the dashboard may return to **No data**; historical samples can
@@ -1378,24 +1347,22 @@ Release it with `flock --unlock 9; exec 9>&-` before dispatching.
 
 ### Promote and verify
 
-After the complete trusted-main build/security gates and publication succeed, open
-**Actions → Promote application to private dev → Run workflow**, select **main** and
-press **Run workflow**. There are no artifact/run input fields and no second approval.
-The owner dispatch authorizes deploying the exact main SHA captured by GitHub for
-that invocation. Checkout and artifact selection remain pinned to that SHA even if
-main advances while the run is queued. You can dispatch right after the merge: the
-first job waits up to 90 minutes for that SHA's Build and verify and Security runs, and
-refuses only if one of them fails or the wait runs out.
+After merging, open **Actions → Promote application to private dev → Run
+workflow**, select **main**, and press **Run workflow**. The owner dispatch
+authorizes the exact main SHA captured by GitHub. It can be launched while CI is
+still running. The first job waits up to 90 minutes for that SHA's
+[private-dev admission evidence](../../docs/development/continuous-integration.md#environment-admission).
 
-The workflow derives the unique main `push` Build and verify run, its current attempt
-and the immutable OCI digest from its retained `application-image-publication-<SHA>`
-record. It does not choose a latest image or fall back to a different SHA, older attempt
-or older successful run. Absent, expired, mismatched or ambiguous evidence refuses
-promotion; multiple build runs for that SHA are conservatively refused. It checks
-quality/security gates and main ancestry, and revalidates the same derived tuple
-before connectivity. The host checks that the commit is on `origin/main` and binds the
-digest to its GHCR tag and OCI labels. The application image is never built during
-promotion; only changed local runtime images are rebuilt from cache.
+Select **Require complete main CI** to use the previous full-gated policy, for
+example after a manual host change or during troubleshooting. The first promotion
+from an older deployment-tool revision uses full CI automatically. If the reported
+baseline differs from the checkout or running application, inspect the host before
+dispatching with full CI.
+
+The selected SHA and immutable digest are revalidated before connectivity. The
+host checks that the commit is on `origin/main` and binds the digest to its GHCR
+tag and OCI labels. The application image is built in CI. Promotion only rebuilds
+changed local runtime images from cache.
 
 Transient GitHub evidence-read failures use bounded retries; exhausted retries still
 refuse promotion before activation. Invalid or rejected evidence is never accepted

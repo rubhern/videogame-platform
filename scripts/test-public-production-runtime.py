@@ -79,7 +79,7 @@ SECRETS = {
                  "keycloak_smtp_username", "keycloak_smtp_password"},
     "catalogue-localizer": set(),
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret",
-                    "feedback_smtp_username", "feedback_smtp_password"},
+                    "feedback_smtp_username", "feedback_smtp_password", "account_deletion_executor_capability"},
     "migration": {"application_migration_db_password"},
 }
 SECRET_FILES = {
@@ -95,6 +95,7 @@ SECRET_FILES = {
     "igdb_client_secret": "igdb-client-secret",
     "feedback_smtp_username": "feedback-smtp-username",
     "feedback_smtp_password": "feedback-smtp-password",
+    "account_deletion_executor_capability": "account-deletion-executor-capability",
 }
 # Ceilings from the platform design's qualification envelope, in MiB.
 MEMORY = {"caddy": 128, "postgres": 768, "keycloak": 768, "catalogue-localizer": 1792, "application": 1536,
@@ -698,7 +699,7 @@ BURSTS = [
     ("feedback per-source", [("source-a", "feedback:3:ok", "feedback:1:limited", "write:1:ok"),
                              ("source-b", "feedback:3:ok")]),
     ("identity per-source", [("source-a", "identity-page:60:ok", "identity-resource:1:limited")]),
-    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
+    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited", "link-login:1:limited")]),
     ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
                                  "registration-slashes:1:limited", "login:1:ok")]),
     ("recovery per-source", [("source-a", "recovery:6:ok", "recovery:1:limited", "registration:1:ok")]),
