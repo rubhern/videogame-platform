@@ -91,8 +91,9 @@ exactly the email-only linking this decision forbids.
     They are not Compose secrets or runtime inputs, so no in-place upgrade is needed to add, rotate
     or remove them.
   - The production realm import stays provider-free: a provider is configuration the owner enables.
-- **The edge** routes only `/realms/gameometro/broker/google/*` and
-  `/realms/gameometro/broker/microsoft/*`. The password step of linking shares the sign-in rate limit.
+- **The edge** routes only `/realms/gameometro/broker/google/*`,
+  `/realms/gameometro/broker/microsoft/*` and the exact `/realms/gameometro/broker/after-first-broker-login`
+  return that completes a first provider sign-in. The password step of linking shares the sign-in rate limit.
 - **The operator's personal-data export** includes each linked provider and the identifiers it gave
   the account.
 

@@ -62,7 +62,8 @@ class ReviewedShape(unittest.TestCase):
         caddyfile = (ROOT / 'deploy/public-production/caddy/Caddyfile').read_text()
         identity = next(line for line in caddyfile.splitlines() if line.strip().startswith('@identity path'))
         brokers = sorted(part for part in identity.split() if '/broker/' in part)
-        self.assertEqual(brokers, ['/realms/gameometro/broker/google/*', '/realms/gameometro/broker/microsoft/*'])
+        self.assertEqual(brokers, ['/realms/gameometro/broker/after-first-broker-login',
+                                   '/realms/gameometro/broker/google/*', '/realms/gameometro/broker/microsoft/*'])
         self.assertIn('path /realms/gameometro/login-actions/authenticate /realms/gameometro/login-actions/first-broker-login',
                       caddyfile)
 

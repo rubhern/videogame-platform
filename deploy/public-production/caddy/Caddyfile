@@ -302,9 +302,10 @@ auth.gameometro.com {
 	}
 	header -Server
 	# Allowlist of the product realm's browser and BFF paths, plus the Google and Microsoft
-	# broker start and callback paths (ADR-0045). The admin console and API, the master realm,
-	# the account console, health, metrics and every other broker alias are never routed.
-	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/* /realms/gameometro/broker/google/* /realms/gameometro/broker/microsoft/*
+	# broker start and callback paths and the exact return that completes a first provider
+	# sign-in (ADR-0045). The admin console and API, the master realm, the account console,
+	# health, metrics and every other broker alias or endpoint are never routed.
+	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/* /realms/gameometro/broker/google/* /realms/gameometro/broker/microsoft/* /realms/gameometro/broker/after-first-broker-login
 	route {
 		import edge_admission
 		# Identity maintenance (bin/identity-maintenance) closes the whole identity host,
