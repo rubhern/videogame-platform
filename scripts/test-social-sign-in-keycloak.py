@@ -55,6 +55,20 @@ ISSUER = f"{ORIGIN}/realms/{REALM}"
 INTERNAL = "http://localhost:8080"  # Keycloak calling itself from inside its container
 TRUSTED, UNTRUSTED = "stand-in-trusted", "stand-in-untrusted"
 FLOW = "gameometro first broker login"
+# Every product-realm path a browser reaches, as the production edge would see it (#548): the stand-in
+# aliases take the place of the real ones, so a Keycloak step the edge does not route fails here.
+EDGE_ALIASES = {TRUSTED: "google", UNTRUSTED: "microsoft"}
+VISITED: set[str] = set()
+
+
+def visit(url: str) -> None:
+    parsed = urllib.parse.urlsplit(url)
+    if f"{parsed.scheme}://{parsed.netloc}" != ORIGIN or parsed.path.startswith(f"/realms/{PROVIDER_REALM}/"):
+        return
+    path = parsed.path
+    for stand_in, alias in EDGE_ALIASES.items():
+        path = path.replace(f"/realms/{REALM}/broker/{stand_in}/", f"/realms/{REALM}/broker/{alias}/")
+    VISITED.add(path)
 
 
 class Response(NamedTuple):
@@ -103,6 +117,7 @@ class Browser:
             def redirect_request(self, request, fp, code, msg, headers, new_url):  # noqa: N802
                 if new_url.startswith(APPLICATION):
                     return None
+                visit(new_url)
                 return super().redirect_request(request, fp, code, msg, headers, new_url)
 
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
@@ -111,6 +126,7 @@ class Browser:
 
     def open(self, url: str, fields: dict[str, str] | None = None) -> Response:
         data = urllib.parse.urlencode(fields).encode() if fields is not None else None
+        visit(url)
         try:
             with self.opener.open(url, data, timeout=20) as response:
                 return Response(response.status, response.url, "", response.read().decode())
@@ -382,6 +398,17 @@ def provider_cancellation_returns_to_sign_in() -> None:
     print("PASS a cancelled provider returns to the Spanish sign-in with email and password still available")
 
 
+def the_production_edge_routes_every_visited_step() -> None:
+    caddyfile = (ROOT / "deploy/public-production/caddy/Caddyfile").read_text()
+    line = next(line for line in caddyfile.splitlines() if line.strip().startswith("@identity path"))
+    patterns = line.split()[2:]
+    routed = lambda path: any(path.startswith(p[:-1]) if p.endswith("*") else path == p for p in patterns)
+    assert any("/broker/" in path for path in VISITED), sorted(VISITED)
+    refused = sorted(path for path in VISITED if not routed(path))
+    assert not refused, f"The production edge does not route these Keycloak steps: {refused}"
+    print(f"PASS the production edge routes all {len(VISITED)} visited Keycloak paths")
+
+
 def main() -> None:
     prepare()
     buttons_follow_the_configuration()
@@ -392,6 +419,7 @@ def main() -> None:
     provider_only_account_links_through_its_provider()
     untrusted_email_is_verified_once()
     provider_cancellation_returns_to_sign_in()
+    the_production_edge_routes_every_visited_step()
     print("Social sign-in journeys passed.")
 
 
