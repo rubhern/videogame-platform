@@ -2691,7 +2691,8 @@ Before enabling, the owner must:
    providers.
 2. **Deploy a release that includes this change.** Its Keycloak image carries the
    `gameometro-brokered-terms` authenticator, its theme presents the providers, and its edge routes
-   only `/realms/gameometro/broker/google/*` and `/realms/gameometro/broker/microsoft/*`.
+   only `/realms/gameometro/broker/google/*`, `/realms/gameometro/broker/microsoft/*` and the exact
+   `/realms/gameometro/broker/after-first-broker-login` return that completes a first sign-in.
 3. **Register the apps.** These are owner accounts outside this repository:
    - **Google Cloud:** an OAuth client of type *Web application* with the `openid` and `email`
      scopes, and an External, published consent screen naming Gameómetro, `gameometro.com` and the

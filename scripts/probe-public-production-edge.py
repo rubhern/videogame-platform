@@ -49,6 +49,8 @@ IDENTITY_ROUTED = (
     "/realms/gameometro/broker/google/login?client_id=videogame-platform-bff",
     "/realms/gameometro/broker/google/endpoint?state=synthetic",
     "/realms/gameometro/broker/microsoft/endpoint?state=synthetic",
+    # Keycloak's return after the first-broker-login flow; without it no first sign-in completes.
+    "/realms/gameometro/broker/after-first-broker-login?session_code=synthetic&client_id=videogame-platform-bff&tab_id=synthetic",
     "/resources/abc12/login/gameometro/css/login.css",
 )
 IDENTITY_REFUSED = (
@@ -69,6 +71,8 @@ IDENTITY_REFUSED = (
     "/realms/gameometro/broker/google",
     "/realms/gameometro/broker/google/../../broker/github/endpoint",
     "/realms/gameometro/broker/microsoft/endpoint;x",
+    "/realms/gameometro/broker/after-post-broker-login",
+    "/realms/gameometro/broker/after-first-broker-login/x",
     "/health/ready",
     "/metrics",
     "/realms/gameometro/protocol/openid-connect/../../../master/protocol/openid-connect/token",
