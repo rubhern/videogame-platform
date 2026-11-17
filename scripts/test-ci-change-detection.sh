@@ -96,7 +96,7 @@ run_case production-identity \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case social-sign-in \
-  $'deploy/public-production/bin/configure-social-sign-in\nscripts/validate-social-sign-in.sh\nscripts/test-social-sign-in-keycloak.py\nscripts/production_social_sign_in.py\nscripts/test-production-social-sign-in.py' \
+  $'deploy/private-dev/bin/configure-social-sign-in\nscripts/validate-social-sign-in.sh\nscripts/test-social-sign-in-keycloak.py\nscripts/production_social_sign_in.py\nscripts/test-production-social-sign-in.py' \
   'identity,production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 

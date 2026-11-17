@@ -81,7 +81,7 @@ exactly the email-only linking this decision forbids.
 - **Turning a provider off disables it and never deletes it.** Deleting a provider would drop every
   linked identity. A person who only ever used a disabled provider recovers access by resetting the
   password for the account's email.
-- **One reviewed actor** (`deploy/public-production/bin/configure-social-sign-in`) reconciles the
+- **One reviewed actor** (`deploy/private-dev/bin/configure-social-sign-in`) reconciles the
   terms action, the flow and both providers through the Admin API. It is the same for local,
   private-dev and production. It never touches accounts, clients or other realm settings, and it
   receives credentials and the administrator password on stdin only.

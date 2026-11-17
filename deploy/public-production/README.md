@@ -2721,7 +2721,7 @@ python3 -I scripts/production_social_sign_in.py --disable --owner-reference <ref
 
 Every mode refuses an unfinished upgrade, a closed recovery gate or an identity-maintenance fence.
 It runs the active installation's reviewed
-[`configure-social-sign-in`](bin/configure-social-sign-in) in a disposable helper on the private
+[`configure-social-sign-in`](../private-dev/bin/configure-social-sign-in) in a disposable helper on the private
 identity network. The administrator password and the provider credentials cross its stdin, and
 nothing prints them. The actor manages only the `TERMS_AND_CONDITIONS` required action, the
 `gameometro first broker login` flow and the two providers. It refuses a flow of another shape

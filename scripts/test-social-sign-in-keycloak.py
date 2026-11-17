@@ -30,7 +30,7 @@ from typing import NamedTuple
 
 sys.dont_write_bytecode = True
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-ACTOR = ROOT / "deploy/public-production/bin/configure-social-sign-in"
+ACTOR = ROOT / "deploy/private-dev/bin/configure-social-sign-in"
 
 
 def required_environment(name: str) -> str:

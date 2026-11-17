@@ -162,7 +162,7 @@ for path in "${changed_paths[@]}"; do
       enable identity production_runtime
       matched=true
       ;;
-    deploy/public-production/bin/configure-social-sign-in | scripts/validate-social-sign-in.sh | scripts/test-social-sign-in-keycloak.py | scripts/production_social_sign_in.py | scripts/test-production-social-sign-in.py)
+    deploy/private-dev/bin/configure-social-sign-in | scripts/validate-social-sign-in.sh | scripts/test-social-sign-in-keycloak.py | scripts/production_social_sign_in.py | scripts/test-production-social-sign-in.py)
       # Social sign-in (ADR-0045): the actor's journeys run on real Keycloak; the host tool is an operation.
       enable identity production_runtime
       matched=true

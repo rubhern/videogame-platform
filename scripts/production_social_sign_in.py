@@ -2,7 +2,7 @@
 """Owner-operated Google and Microsoft sign-in on the installed production realm (#548, ADR-0045).
 
 Runs as root on the production host from the reviewed operational source, like the public-ingress
-tool. The reviewed actor (deploy/public-production/bin/configure-social-sign-in) of the active
+tool. The reviewed actor (deploy/private-dev/bin/configure-social-sign-in) of the active
 installation runs in a disposable helper on the private identity network; the administrator
 password and the provider credentials cross its stdin as one JSON document and nothing prints
 them. Accounts, credentials, clients and every other realm setting stay untouched.
@@ -38,7 +38,7 @@ import private_production_control as control  # noqa: E402
 require = trust.require
 ADMIN = Path('/var/lib/gameometro/production')
 CREDENTIALS = Path('/etc/gameometro/production/social-sign-in')
-ACTOR = 'deploy/public-production/bin/configure-social-sign-in'
+ACTOR = 'deploy/private-dev/bin/configure-social-sign-in'
 PROVIDERS = ('google', 'microsoft')
 MAX_CREDENTIAL = 512
 OWNER_UID = 0

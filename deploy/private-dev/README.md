@@ -604,7 +604,7 @@ and the theme. The providers exist only after this command adds them to the exis
 3. **Apply and check**, as root:
 
    ```bash
-   social=(python3 deploy/public-production/bin/configure-social-sign-in \
+   social=(python3 deploy/private-dev/bin/configure-social-sign-in \
      --private-dev-env-file /etc/videogame-platform/dev/runtime.env --realm videogame-platform)
    "${social[@]}" --check || true
    "${social[@]}"

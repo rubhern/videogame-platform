@@ -439,7 +439,7 @@ for alias in ("google", "microsoft"):
         sys.exit(f"Provide both {alias} files in {directory}, or neither.")
     providers[alias] = {"clientId": client_id, "clientSecret": secret} if client_id else None
 print(json.dumps({"adminPassword": sys.stdin.read().rstrip("\r\n"), "providers": providers}))
-' "$directory" | python3 -I "$repository_root/deploy/public-production/bin/configure-social-sign-in" \
+' "$directory" | python3 -I "$repository_root/deploy/private-dev/bin/configure-social-sign-in" \
     --origin "$(env_value KEYCLOAK_HOSTNAME)" --realm videogame-platform \
     --admin-username "$(env_value KEYCLOAK_ADMIN_USERNAME)" "$@"
 }

@@ -21,7 +21,7 @@ sys.dont_write_bytecode = True
 
 import production_social_sign_in as tool  # noqa: E402
 
-loader = importlib.machinery.SourceFileLoader('social_actor', str(ROOT / 'deploy/public-production/bin/configure-social-sign-in'))
+loader = importlib.machinery.SourceFileLoader('social_actor', str(ROOT / 'deploy/private-dev/bin/configure-social-sign-in'))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 actor = importlib.util.module_from_spec(spec)
 loader.exec_module(actor)
