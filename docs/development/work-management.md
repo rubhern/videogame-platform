@@ -23,8 +23,8 @@ evidence. Reconcile any difference with the live Project explicitly.
 | `Done` | Applicable acceptance and Definition of Done complete |
 
 Return failed review/validation to `In progress`. A reopened issue returns to
-`Backlog` unless work has already resumed. Keep at most two items in progress and
-split any `L` item before `Ready`.
+`Backlog` unless work has already resumed. Keep at most two items in progress. Any
+`Size` may move to `Ready`; splitting a large item is optional.
 
 ## Project fields
 

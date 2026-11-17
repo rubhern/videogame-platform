@@ -49,8 +49,10 @@ The owner chose the VPS and a dedicated archive key pair on 2026-11-14.
 
 ## Decision
 
-- **The cleanup runs on the production VPS from a systemd timer, once a day at 06:15 UTC.** That
-  time is clear of the 02:30 and 14:30 UTC captures and the catalogue synchronizations.
+- **The cleanup runs on the production VPS from a systemd timer, once a day at 03:00 Madrid
+  time.** A round with candidates closes identity, so it runs outside user hours (owner decision,
+  2026-11-16; it ran at 06:15 UTC before). That is 01:00 or 02:00 UTC, clear of the 02:30 and
+  14:30 UTC captures and the catalogue synchronizations.
   `bin/unverified-cleanup run` first completes any incomplete erasure with `retry`, then runs
   `cleanup-unverified --execute` until nothing eligible remains, for at most five bounded rounds. It
   goes through the existing transport, deny/drain fence, legal archive, suppression proof and

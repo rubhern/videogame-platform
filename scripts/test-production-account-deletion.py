@@ -48,7 +48,7 @@ def completed(stdout=b'', code=0):
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_the_erasure_reuses_the_cleanup_custody_transport_and_fence(self):
+    def test_the_erasure_reuses_the_cleanup_custody_and_transport_without_the_fence(self):
         with tempfile.TemporaryDirectory() as name:
             fixture = Fixture(name)
             actor = fixture.runner()
@@ -56,9 +56,13 @@ class ConfigurationTests(unittest.TestCase):
             config = actor.config
             self.assertEqual(config['policy'], 'independent')
             self.assertEqual(config['issuer'], 'https://auth.gameometro.com/realms/gameometro')
-            self.assertEqual(config['maintenance_command'], fence)
-            self.assertEqual(config['host_command'], shlex.split(ledger[ledger.index('--host-command') + 1]))
-            self.assertIn('--identity-cleanup', config['host_command'])
+            # #564: the cleanup transport in its self-service mode; no global identity fence.
+            self.assertNotIn('maintenance_command', config)
+            cleanup_host = shlex.split(ledger[ledger.index('--host-command') + 1])
+            self.assertEqual(config['host_command'],
+                             [('--self-service' if word == '--identity-cleanup' else word) for word in cleanup_host])
+            self.assertNotIn('--identity-cleanup', config['host_command'])
+            self.assertNotIn(fence, json.dumps(config))
             self.assertEqual(config['cloud_copies'], fixture.config['cloudCopies'])
             for own, cleanup in (('ledger', 'ledger'), ('ledger_copy', 'ledgerCopy'), ('archive_root', 'archiveRoot'),
                                  ('archive_copy', 'archiveCopy'), ('proof_root', 'proofRoot'), ('holds', 'holds'),
@@ -152,6 +156,44 @@ class UnitTests(unittest.TestCase):
         self.assertIn('Restart=always\n', text)
         self.assertNotIn('User=', text)
         self.assertTrue(os.access(TOOL, os.X_OK))
+
+
+class BridgeTests(unittest.TestCase):
+    """#564: production self-service needs the cloud copies, not the global identity fence."""
+    SUBJECT, USER, REQUEST = ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
+                              '33333333-3333-4333-8333-333333333333')
+
+    def bridge(self):
+        return load('self_service_bridge_under_test', tool.runner.BRIDGE)
+
+    def config(self, **extra):
+        paths = {key: '/protected/' + key for key in ('ledger', 'ledger_copy', 'proof_root', 'archive_root', 'archive_copy',
+                                                      'gnupg_home', 'holds')}
+        return {'policy': 'independent', 'issuer': tool.core.ISSUER, 'recipient': 'r', 'signer': 's',
+                'host_command': ['transport', '--self-service'], **paths, **extra}
+
+    def envelope(self):
+        return {'version': 1, 'issuer': tool.core.ISSUER, 'subject': self.SUBJECT, 'userId': self.USER,
+                'requestId': self.REQUEST}
+
+    def test_production_refuses_without_cloud_copies(self):
+        bridge = self.bridge()
+        with patch.object(bridge.ledger, 'command_erase') as erase, self.assertRaisesRegex(ValueError, 'cloud copies'):
+            bridge.execute(self.config(), self.envelope())
+        erase.assert_not_called()
+
+    def test_production_erases_without_a_maintenance_command(self):
+        bridge = self.bridge()
+        stop = RuntimeError('erasure reached')
+        with patch.object(bridge.ledger.cloud_module, 'CloudCopies') as cloud, \
+                patch.object(bridge.ledger, 'command_erase', side_effect=stop) as erase, \
+                self.assertRaises(RuntimeError):
+            bridge.execute(self.config(cloud_copies='/protected/cloud.json'), self.envelope())
+        cloud.assert_called_once_with(Path('/protected/cloud.json'))
+        arguments = erase.call_args.args[0]
+        self.assertIsNone(arguments.maintenance_command)
+        self.assertTrue(arguments.self_service)
+        self.assertEqual(erase.call_args.args[1], ['transport', '--self-service'])
 
 
 if __name__ == '__main__':

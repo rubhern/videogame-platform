@@ -31,7 +31,8 @@ class DeliveryTests(unittest.TestCase):
                                      ('production-runtime', 'production_runtime', 'PRODUCTION_RUNTIME')]:
             job = jobs[name]
             self.assertIn(f"if: ${{{{ needs.detect-changes.outputs.{area} == 'true' }}}}", job)
-            self.assertIn('    needs: detect-changes\n', job)
+            dependency = '[detect-changes, package-journeys]' if name == 'browser-smoke' else 'detect-changes'
+            self.assertIn(f'    needs: {dependency}\n', job)
             for forbidden in ('continue-on-error', 'exclude:', 'include:', '--retries'):
                 self.assertNotIn(forbidden, job)
             self.assertIn(f'      - {name}\n', gate)
@@ -48,10 +49,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(browser.count('shard: ['), 1)
         self.assertEqual(re.findall(r'^        if: (.+)$', browser, re.M), ['${{ !cancelled() }}'])
         self.assertIn('BROWSER_SHARD: ${{ matrix.shard }}/2', browser)
-        self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
-                      "|| matrix.shard != 1 }}", browser)
+        self.assertIn('BROWSER_REUSE_PACKAGE: "true"', browser)
         self.assertIn('name: playwright-report-${{ matrix.shard }}', browser)
-        self.assertNotIn('REUSE_PACKAGE', browser)
+        package = jobs['package-journeys']
+        self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' }}", package)
+        self.assertIn('run: bash scripts/package-application.sh', package)
+        self.assertIn('      - package-journeys\n', gate)
+        for job in (package, browser, jobs['identity-compatibility']):
+            self.assertIn('name: packaged-journeys-${{ github.sha }}', job)
         self.assertIn('run: bash scripts/validate-browser.sh', browser)
         script = (ROOT / 'scripts/validate-browser.sh').read_text()
         self.assertIn('browser_test_arguments=()', script)  # Local default remains the whole suite.
@@ -75,7 +80,7 @@ class DeliveryTests(unittest.TestCase):
             'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
-                           'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py', 'test-production-account-deletion.py'],
+                           'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py', 'test-production-account-deletion.py', 'test-production-social-sign-in.py'],
             'observability': ['test-production-observability.py --smoke'],
             'edge': ['test-public-production-runtime.py'],
         }
@@ -132,7 +137,7 @@ python3() {
         # These checks stay unconditional whenever documentation is applicable.
         for command in ('bash scripts/validate-docs.sh',
                         'npm ci --prefix documentation --ignore-scripts',
-                        'npm audit --prefix documentation --audit-level=high',
+                        'node scripts/audit-build-dependencies.mjs --portal',
                         'npm test && npm run build',
                         'bash documentation/scripts/test-container.sh --browser'):
             step = next(step for step in docs.split('      - name: ') if command in step)
@@ -158,31 +163,33 @@ python3() {
         jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
                 for i, match in enumerate(starts)}
         gate = jobs['required-quality-gate']
-        for job, variable in [('container-image', 'CONTAINER_IMAGE'),
-                              ('runtime-telemetry', 'RUNTIME_TELEMETRY'),
-                              ('runtime-alerts', 'RUNTIME_ALERTS'),
-                              ('runtime-product-growth', 'RUNTIME_PRODUCT_GROWTH'),
-                              ('runtime-notifications', 'RUNTIME_NOTIFICATIONS'),
-                              ('runtime-logs', 'RUNTIME_LOGS'),
-                              ('localization-image', 'LOCALIZATION_IMAGE')]:
-            self.assertIn("if: ${{ needs.detect-changes.outputs.container == 'true' }}", jobs[job])
+        for job, variable, category in [
+                ('container-image', 'CONTAINER_IMAGE', 'container'),
+                ('runtime-telemetry', 'RUNTIME_TELEMETRY', 'private_dev_runtime'),
+                ('runtime-alerts', 'RUNTIME_ALERTS', 'private_dev_runtime'),
+                ('runtime-product-growth', 'RUNTIME_PRODUCT_GROWTH', 'private_dev_runtime'),
+                ('runtime-notifications', 'RUNTIME_NOTIFICATIONS', 'private_dev_runtime'),
+                ('runtime-logs', 'RUNTIME_LOGS', 'private_dev_runtime'),
+                ('localization-image', 'LOCALIZATION_IMAGE', 'localization_image')]:
+            self.assertIn(f"if: ${{{{ needs.detect-changes.outputs.{category} == 'true' }}}}", jobs[job])
             self.assertIn('    needs: detect-changes\n', jobs[job])
             self.assertIn(f'      - {job}\n', gate)
             self.assertIn(f'{variable}: ${{{{ needs.{job}.result }}}}', gate)
-            self.assertIn(f'{job} "$CONTAINER_EXPECTED" "${variable}"', gate)
+            self.assertIn(f'{job} "${category.upper()}_EXPECTED" "${variable}"', gate)
             for applicable, result in [('true', 'failure'), ('true', 'cancelled'),
                                        ('true', 'skipped'), ('false', 'success')]:
                 checked = subprocess.run(['bash', str(ROOT / 'scripts/verify-ci-results.sh'), job,
                                           applicable, result], capture_output=True)
                 self.assertNotEqual(checked.returncode, 0, (job, applicable, result))
-        self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
-                      "|| matrix.shard != 1 }}", jobs['browser-smoke'])
+        self.assertIn('      - publication-secrets\n', jobs['publish-container-image'])
+        self.assertNotIn('required-quality-gate', jobs['publish-container-image'])
         self.assertIn('backend "$BACKEND_EXPECTED" "$BACKEND"', gate)
         self.assertIn('./mvnw -Dsource.revision="${GITHUB_SHA}" clean verify', jobs['backend'])
         self.assertNotIn('setup-qemu', workflow)
         self.assertNotIn('linux/arm64', workflow)
         self.assertIn("github.event_name == 'push'", jobs['publish-container-image'])
-        self.assertIn('--preserve-digests', jobs['publish-container-image'])
+        self.assertIn('bash scripts/publish-ci-image.sh target/container-evidence application-image.oci.tar',
+                      jobs['publish-container-image'])
         self.assertIn('"$actual_digest" != "$expected_digest"', jobs['publish-container-image'])
 
     def test_identity_legs_are_isolated_required_and_complete(self):
@@ -191,22 +198,20 @@ python3() {
         jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
                 for i, match in enumerate(starts)}
         job, gate = jobs['identity-compatibility'], jobs['required-quality-gate']
-        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data', 'personal-data-private']
+        legs = ['private-dev', 'core', 'renewal', 'idle', 'production', 'personal-data', 'personal-data-private', 'social-sign-in']
         self.assertIn("if: ${{ needs.detect-changes.outputs.identity == 'true' }}", job)
-        self.assertIn('    needs: detect-changes\n', job)
+        self.assertIn('    needs: [detect-changes, package-journeys]\n', job)
         self.assertIn('      fail-fast: false\n', job)
         self.assertIn(f"        leg: [{', '.join(legs)}]\n", job)
         self.assertEqual(job.count('leg: ['), 1, 'one matrix dimension, no include/exclude legs')
-        for forbidden in ('include:', 'exclude:', 'continue-on-error', 'REUSE_PACKAGE', '--retries', 'max-parallel'):
+        for forbidden in ('include:', 'exclude:', 'continue-on-error', '--retries', 'max-parallel'):
             self.assertNotIn(forbidden, job)
-        # Only the diagnostics upload is conditional; no leg can skip its proof and pass.
-        self.assertEqual(re.findall(r'^        if: (.+)$', job, re.M), ['${{ failure() && !cancelled() }}'])
+        proof = job.split('      - name: Prove the ', 1)[1].split('      - name:', 1)[0]
+        self.assertNotIn('        if:', proof)
         self.assertIn('name: identity-browser-diagnostics-${{ matrix.leg }}', job)
-        # The private-dev leg runs neither npm nor Maven and must not save an empty cache.
-        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'npm' || '' }}", job)
-        self.assertIn("cache: ${{ matrix.leg != 'private-dev' && 'maven' || '' }}", job)
-        self.assertIn("PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend == 'true' "
-                      "|| matrix.leg != 'personal-data' }}", job)
+        self.assertNotIn('cache: maven', job)
+        for environment in ('IDENTITY', 'PRODUCTION_IDENTITY', 'PERSONAL_DATA'):
+            self.assertIn(f'{environment}_REUSE_PACKAGE: "true"', proof)
         self.assertIn('      - identity-compatibility\n', gate)
         self.assertIn('IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}', gate)
         self.assertIn('identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY"', gate)
@@ -223,6 +228,7 @@ python3() {
             'production': 'scripts/validate-production-identity.sh',
             'personal-data': 'scripts/validate-personal-data.sh',
             'personal-data-private': 'scripts/validate-personal-data.sh private-dev',
+            'social-sign-in': 'scripts/validate-social-sign-in.sh',
         }
         self.assertEqual(sorted(expected), sorted(legs))
         for leg, command in expected.items():
@@ -251,8 +257,8 @@ python3() {
         self.assertNotIn('cache: maven', submission)
         self.assertNotIn('cache-dependency-path', submission)
         reactor = 'cache-dependency-path: |\n            pom.xml\n            backend/pom.xml\n'
-        self.assertEqual(build.count(reactor), 5)
-        self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 5)
+        self.assertEqual(build.count(reactor), 4)
+        self.assertEqual(build.count(reactor + '            .mvn/wrapper/maven-wrapper.properties\n'), 4)
 
     def test_codeql_init_and_analyze_keep_one_revision_and_one_update_group(self):
         workflow = (ROOT / '.github/workflows/security.yml').read_text()
@@ -341,14 +347,48 @@ python3() {
         self.assertIn('IMAGE_NAME: ghcr.io/${{ github.repository }}-${{ matrix.image }}', publish)
         self.assertIn('IMAGE_TAG: ${{ github.sha }}', publish)
         self.assertIn('sha256sum --check SHA256SUMS', publish)
-        self.assertIn('--preserve-digests', publish)
-        self.assertIn('oci-archive:/evidence/image.oci.tar', publish)
+        self.assertIn('bash scripts/publish-ci-image.sh target/dependency-image-evidence image.oci.tar', publish)
         self.assertIn('"$actual_digest" != "$expected_digest"', publish)
         self.assertIn('[[ "$revision" == "$GITHUB_SHA" ]]', publish)
         self.assertIn('password: ${{ github.token }}', publish)
         self.assertNotIn('latest', publish)
         self.assertNotIn('docker buildx build', publish)
         self.assertNotIn('secrets.', build + publish)
+
+    def test_commit_tag_is_only_created_or_reused_for_the_exact_digest(self):
+        digest = 'sha256:' + 'a' * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'image-digest.txt').write_text(digest)
+            fake_docker = root / 'docker'
+            fake_docker.write_text('''#!/usr/bin/env bash
+if [[ " $* " == *' inspect '* ]]; then
+  case "$TEST_REGISTRY" in
+    known) printf '%s\n' "$TEST_DIGEST" ;;
+    changed) printf 'sha256:%064d\n' 0 ;;
+    absent) echo 'level=fatal msg="registry: manifest unknown"' >&2; exit 1 ;;
+    failure) echo 'registry connection refused' >&2; exit 1 ;;
+  esac
+else
+  [[ " $* " == *' --preserve-digests '* ]] || exit 1
+  touch "$TEST_COPY_MARKER"
+fi
+''')
+            fake_docker.chmod(0o755)
+            copied = root / 'copied'
+            for registry, status, should_copy in [('known', 0, False), ('absent', 0, True),
+                                                  ('changed', 1, False), ('failure', 1, False)]:
+                with self.subTest(registry=registry):
+                    copied.unlink(missing_ok=True)
+                    result = subprocess.run(
+                        ['bash', ROOT / 'scripts/publish-ci-image.sh', root, 'test.oci.tar'],
+                        env={**os.environ, 'PATH': f"{root}:{os.environ['PATH']}", 'IMAGE_NAME': 'ghcr.io/test/image',
+                             'IMAGE_TAG': 'a' * 40, 'SKOPEO_IMAGE': 'test-skopeo', 'TEST_REGISTRY': registry,
+                             'TEST_DIGEST': digest, 'TEST_COPY_MARKER': str(copied)},
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    self.assertEqual(copied.exists(), should_copy)
 
     def test_dependency_image_content_and_scan_policy_reject_violations(self):
         result = subprocess.run(['python3', '-I', str(ROOT / 'scripts/check-dependency-image-content.py'), '--self-test'],

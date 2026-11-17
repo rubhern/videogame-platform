@@ -69,6 +69,10 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
   implemented, awaiting owner review): the only role the BFF reads is the
   `catalogue-operator` client role from its validated ID token, mapped at sign-in to the
   operator authority that catalogue administration requires.
+  Proposed (#548, [ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md);
+  implemented, awaiting owner review): Keycloak may broker Google and Microsoft sign-in. A
+  brokered person is still a Keycloak user, so the subject, the BFF and `UserId` are unchanged;
+  Keycloak links a provider to an existing account only after that account's password.
 - IGDB data is untrusted input and must be normalized and validated before
   publication. It is the catalogue's acquisition source, never its serving source, and
   provider identities never become product identity.

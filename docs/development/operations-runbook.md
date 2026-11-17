@@ -958,6 +958,24 @@ configuration command are proven in the real identity gate. The workstation
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
 
+## Google and Microsoft sign-in
+
+Owners: the [public-production README](../../deploy/public-production/README.md#google-and-microsoft-sign-in-548)
+for enabling, rotating and disabling on the production host, the
+[private-dev README](../../deploy/private-dev/README.md#google-and-microsoft-sign-in) and
+[local setup](local-setup.md#google-and-microsoft-sign-in).
+**Disposable-gate evidence only, 2026-11-14 (#548):** `validate-social-sign-in.sh` proves the
+reviewed flow on stand-in OIDC providers. Real Google and Microsoft registrations, sign-in on
+`vgpdev` and in production are **not exercised**; record their first run in #548.
+
+| Symptom | Contain and restore |
+|---|---|
+| A provider is down or refuses | The sign-in page reports it in Spanish and email and password keep working. Wait; nothing to change |
+| A provider secret leaked or expired | Revoke or create it at the provider, replace the owner file and apply again |
+| A provider must stop at once | `--disable` (production) or the matching local/private-dev command; linked identities stay |
+| A person lost their Google or Microsoft account | They recover access with password recovery for the account's email; the link stays until an operator removes it through the Admin API on request |
+| A person asks to unlink a provider | Remove that federated identity through the Admin API only if the account keeps a password or another provider |
+
 ## Visitor feedback mail
 
 Use one synthetic message with a unique marker and no personal information. In
@@ -1037,7 +1055,8 @@ personal-data-ledger --ledger <ledger> --host-command "<host command>" \
 
 The JSON holds the Keycloak profile (with any names stored before they stopped being
 collected), the account's current Keycloak sessions with their start, last access and
-IP address, every rating with its game, title, value and times, and the preferred
+IP address, the Google or Microsoft sign-in linked to the account with the identifiers that
+provider gave it (#548), every rating with its game, title, value and times, and the preferred
 platforms (#295) with whether a choice was ever made. It is written once
 as `0600` and never overwritten; nothing is stored on the host. Send it only to the
 account's verified address, then delete the file. An export creates no ledger entry.

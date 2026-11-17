@@ -247,6 +247,40 @@ accepted message. Only this local
 mail sink is configured; production delivery belongs to the
 [public release gates](delivery-lifecycle.md#public-production-gates).
 
+## Google and Microsoft sign-in
+
+Optional ([ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)).
+Without credentials nothing changes: the sign-in shows email and password only.
+
+**Set up.** Exercise the real providers with your own *development* OAuth clients:
+
+- a Google OAuth web client;
+- a Microsoft Entra app for personal accounts with the delegated `User.Read` permission.
+
+Their redirect URIs are `http://localhost:8180/realms/videogame-platform/broker/google/endpoint`
+and `http://localhost:8180/realms/videogame-platform/broker/microsoft/endpoint`. Put each client ID
+and secret, one line each, in the ignored `.local-secrets/social-sign-in/` directory as
+`google-client-id`, `google-client-secret`, `microsoft-client-id` and `microsoft-client-secret`.
+Then reconcile or inspect:
+
+```bash
+bash scripts/local-dependencies.sh configure-social-sign-in
+bash scripts/local-dependencies.sh check-social-sign-in
+```
+
+The command adds the brokered-terms step, the reviewed first-broker-login flow and the providers
+to the existing realm. It leaves accounts and other settings unchanged. A provider without both
+files is disabled, never deleted. Rebuild the shared Keycloak image first if Keycloak reports that
+the `gameometro-brokered-terms` authenticator is missing.
+
+**What to expect.**
+- A new provider account accepts the terms once.
+- A Microsoft email is verified through Mailpit.
+- Linking a provider to an existing email account asks for that account's password.
+
+**Disposable proof.** `bash scripts/validate-social-sign-in.sh` proves the same journeys with
+stand-in providers and no real credentials.
+
 ## Local catalogue translations
 
 First install the pinned model using the
