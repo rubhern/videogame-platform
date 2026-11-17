@@ -261,15 +261,16 @@ remains **Continuous Delivery**: the owner dispatches the promotion workflow on 
 That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
 SHA. The workflow derives its unique trusted-main push build, current attempt and
 immutable digest from retained publication evidence, refusing missing, stale or
-ambiguous relationships without a latest-image or older-run fallback. It waits, within a
-bound, for that SHA's main build and security runs to finish, then verifies main ancestry
-and successful quality/security/publication evidence before the credential-bearing job
-and rechecks the same tuple before connecting. The dev
+ambiguous relationships. It waits, within a bound, for that SHA's
+[private-dev admission evidence](../../development/continuous-integration.md#environment-admission),
+verifies main ancestry, and rechecks the same tuple before connecting. The host
+verifies that both the installed checkout and running application still identify
+the baseline used by selective admission. The dev
 environment retains its secrets and main-only deployment policy, with no reviewer,
 wait timer or custom approval gate and no administrator bypass. Actor and triggering
 actor must both be the owner. A merge never triggers deployment.
-The original host promotion is proven; acceptance of the refined dispatch flow is
-pending. The
+The original host promotion is proven. Promotion with the selective evidence
+policy requires separate real-host acceptance. The
 [runbook](../../development/operations-runbook.md#deploying-an-immutable-digest)
 owns its real-host evidence boundary. The
 [delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.

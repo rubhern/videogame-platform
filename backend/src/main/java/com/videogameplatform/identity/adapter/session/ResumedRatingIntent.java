@@ -10,11 +10,11 @@ import java.util.Objects;
  * game page reads it once to present the pending, non-persisted selection; the store removes it on
  * that first read so a reload or replay cannot resume the same logical selection again.
  */
-public record ResumedRatingIntent(String gameId, String slug, int value, String userId)
+public record ResumedRatingIntent(RatingReturnContext selection, String userId)
         implements Serializable {
 
     public ResumedRatingIntent {
-        Objects.requireNonNull(gameId, "gameId");
+        Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(userId, "userId");
     }
 }

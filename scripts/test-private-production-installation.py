@@ -223,8 +223,12 @@ class Lease(unittest.TestCase):
         self.addCleanup(channel.cleanup)
         server = socket.socket(socket.AF_UNIX)
         server.bind(channel.name + '/socket'); server.listen(1)
-        actor = subprocess.Popen(['python3', '-c', script, '11111111-1111-4111-8111-111111111111', 'c'*64, 'initial', channel.name + '/socket'], stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        # Match the production launcher so inherited masks cannot block cancellation.
+        actor = subprocess.Popen(
+            ['env', '--default-signal=INT,TERM', 'python3', '-c', script,
+             '11111111-1111-4111-8111-111111111111', 'c' * 64, 'initial', channel.name + '/socket'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
         actor.retained_fd = None
         try:
             ready = select.select([server, actor.stdout], [], [], 5)[0]
@@ -288,14 +292,20 @@ class Lease(unittest.TestCase):
     def test_term_closes_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            actor = self.start(root)
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+            try:
+                actor = self.start(root)
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
             self.addCleanup(self.finish, actor)
             self.assertEqual(actor.stdout.readline(), b'locked\n')
             (root / 'READY').touch()
             actor.send_signal(signal.SIGTERM)
-            actor.wait(timeout=5)
-            actor.stdin.close()
-            self.assertTrue((root / 'PENDING.json').exists())
+            # Wait with stdin open to prove that TERM, not EOF, closed the gate.
+            self.assertEqual(actor.wait(timeout=5), 1)
+            self.assertFalse((root / 'READY').exists())
+            pending = json.loads((root / 'PENDING.json').read_text())
+            self.assertEqual(pending['kind'], 'private-first-install-interrupted')
 
     def test_existing_ready_pending_or_identity_fence_is_never_reinitialized(self):
         for name in ('READY', 'PENDING.json', 'IDENTITY-MAINTENANCE.json'):

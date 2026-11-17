@@ -1,12 +1,15 @@
 package com.videogameplatform.identity.adapter.web;
 
 import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.videogameplatform.identity.adapter.session.RatingReturnContext.PlatformScore;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.configuration.AuthenticationProblemEntryPoint;
 import com.videogameplatform.identity.configuration.CsrfProblemAccessDeniedHandler;
@@ -23,6 +26,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -150,6 +154,110 @@ class RatingIntentControllerIntegrationTest {
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/auth/login/keycloak"))
                 .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void anonymousPlatformStartRequiresSameOriginCsrfAndStoresTheWholeSelection() throws Exception {
+        String start = "/auth/rating-intent/start";
+        var form =
+                post(start)
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .formField("gameId", GAME_ID)
+                        .formField("slug", SLUG)
+                        .formField("platform", "platform_ps5:9", "platform_pc:");
+        mockMvc.perform(form).andExpect(status().isForbidden());
+
+        MvcResult proof =
+                mockMvc.perform(get(start).param("csrf", ""))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn();
+        var session = (MockHttpSession) proof.getRequest().getSession(false);
+        form.session(session).header("X-CSRF-Token", proof.getResponse().getContentAsString());
+        mockMvc.perform(form.header("Sec-Fetch-Site", "cross-site"))
+                .andExpect(status().isForbidden());
+        MvcResult started =
+                mockMvc.perform(
+                                post(start)
+                                        .session(session)
+                                        .header(
+                                                "X-CSRF-Token",
+                                                proof.getResponse().getContentAsString())
+                                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                        .formField("gameId", GAME_ID)
+                                        .formField("slug", SLUG)
+                                        .formField("platform", "platform_ps5:9", "platform_pc:"))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.alreadyAuthenticated").value(false))
+                        .andReturn();
+        var store =
+                new RatingReturnContextStore(
+                        started.getRequest(), Clock.systemUTC(), java.time.Duration.ofMinutes(10));
+        var selection = store.takeReturnContext().orElseThrow();
+        assertThat(selection.gameId()).isEqualTo(GAME_ID);
+        assertThat(selection.value()).isNull();
+        assertThat(selection.platforms())
+                .containsExactly(
+                        new PlatformScore("platform_ps5", 9),
+                        new PlatformScore("platform_pc", null));
+    }
+
+    @Test
+    void platformStartResumesDirectlyWhenTheSessionIsAlreadyAuthenticated() throws Exception {
+        String start = "/auth/rating-intent/start";
+        var principal = authenticated("subject-a");
+        MvcResult proof =
+                mockMvc.perform(get(start).param("csrf", "").with(principal))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        var session = (MockHttpSession) proof.getRequest().getSession(false);
+        mockMvc.perform(
+                        post(start)
+                                .session(session)
+                                .with(principal)
+                                .header("X-CSRF-Token", proof.getResponse().getContentAsString())
+                                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                .formField("gameId", GAME_ID)
+                                .formField("slug", SLUG)
+                                .formField("platform", "platform_ps5:9"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.alreadyAuthenticated").value(true));
+        mockMvc.perform(get("/auth/rating-intent").session(session).with(principal))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gameId").value(GAME_ID))
+                .andExpect(jsonPath("$.platforms[0].value").value(9));
+    }
+
+    @Test
+    void platformStartRejectsDuplicateUnscoredOutOfRangeAndOversizeSelections() throws Exception {
+        String start = "/auth/rating-intent/start";
+        MvcResult proof =
+                mockMvc.perform(get(start).param("csrf", ""))
+                        .andExpect(status().isOk())
+                        .andReturn();
+        var session = (MockHttpSession) proof.getRequest().getSession(false);
+        var oversized =
+                java.util.stream.IntStream.rangeClosed(1, 51)
+                        .mapToObj(index -> "platform_" + index + ":9")
+                        .toArray(String[]::new);
+        for (String[] platforms :
+                List.of(
+                        new String[] {"platform_ps5:8", "platform_ps5:"},
+                        new String[] {"platform_ps5:"},
+                        new String[] {"platform_ps5:11"},
+                        oversized)) {
+            mockMvc.perform(
+                            post(start)
+                                    .session(session)
+                                    .header(
+                                            "X-CSRF-Token",
+                                            proof.getResponse().getContentAsString())
+                                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                                    .formField("gameId", GAME_ID)
+                                    .formField("platform", platforms))
+                    .andExpect(status().isBadRequest());
+        }
     }
 
     @Test

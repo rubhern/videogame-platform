@@ -699,7 +699,7 @@ BURSTS = [
     ("feedback per-source", [("source-a", "feedback:3:ok", "feedback:1:limited", "write:1:ok"),
                              ("source-b", "feedback:3:ok")]),
     ("identity per-source", [("source-a", "identity-page:60:ok", "identity-resource:1:limited")]),
-    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited")]),
+    ("login per-source", [("source-a", "login:10:ok", "login:1:limited", "token:1:limited", "link-login:1:limited")]),
     ("registration per-source", [("source-a", "registration:3:ok", "registration-slashes:3:ok", "registration:1:limited",
                                  "registration-slashes:1:limited", "login:1:ok")]),
     ("recovery per-source", [("source-a", "recovery:6:ok", "recovery:1:limited", "registration:1:ok")]),

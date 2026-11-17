@@ -234,7 +234,9 @@ class UnitTests(unittest.TestCase):
                      'ReadWritePaths=/var/lib/gameometro/production /etc/gameometro/production/observability'):
             self.assertIn(line + '\n', service)
         timer = (UNITS / 'gameometro-unverified-cleanup.timer').read_text()
-        self.assertIn('OnCalendar=*-*-* 06:15:00 UTC\n', timer)
+        # 03:00 Madrid is 01:00 or 02:00 UTC: outside user hours and before the 02:30 UTC backup.
+        self.assertIn('OnCalendar=*-*-* 03:00:00 Europe/Madrid\n', timer)
+        self.assertIn('RandomizedDelaySec=10min\n', timer)
         self.assertIn('Persistent=true\n', timer)
         # Clear of the backup slots (02:30 and 14:30 UTC) even with the randomized delay.
         backup = (UNITS / 'gameometro-backup.timer').read_text()
