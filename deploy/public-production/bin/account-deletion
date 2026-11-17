@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Self-service account deletion runner on the production VPS (#543).
+
+`run` keeps the existing `personal-data-self-service-runner` loop alive: it heartbeats the
+application's executor, claims one request at a time and runs the existing
+`personal-data-self-service` erasure with independent evidence. No deletion logic lives here.
+This file only supplies the production pieces:
+
+- the custody and transport of the unattended cleanup (#539, ADR-0044), read from that tool's
+  own protected configuration, so both erasures share one ledger and one archive. The transport
+  runs in its self-service mode: the erasure's `revoke` step disables only the requesting
+  account, and no global identity fence closes sign-in for everyone else (#564);
+- the management transport: the executor answers only on the application container's
+  loopback, so each exchange goes through `docker exec` into that container. The capability
+  travels on stdin, never in a command line;
+- a pause while an upgrade or handover is active: no heartbeat, so admission closes, and no
+  claim, so no revocation or erasure races the release.
+
+`check` validates the configuration, the capability and the evidence stores, and finds the
+running application, without contacting the executor.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import signal
+import subprocess
+import sys
+import tempfile
+import threading
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+RUNNER = ROOT / 'deploy/private-dev/bin/personal-data-self-service-runner'
+CLEANUP = HERE / 'unverified-cleanup'
+FIELDS = {'cleanupConfig', 'credentialFile'}
+APPLICATION_UID = 10001
+MANAGEMENT_PATH = '/actuator/accountdeletionexecutor'
+EXCHANGE_SECONDS = 20
+MAX_RESPONSE = 8192
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+cleanup = load('account_deletion_cleanup', CLEANUP)
+runner = load('account_deletion_runner', RUNNER)
+core = cleanup.core
+require = core.require
+
+
+def capability(path):
+    """The application refuses any other shape (DeletionExecutorCredential); so does this runner."""
+    status = path.lstat()
+    require(not path.is_symlink() and status.st_uid == APPLICATION_UID and not status.st_mode & 0o077
+            and status.st_size <= 128, 'The executor capability must be owned by UID 10001 with mode 0600.')
+    token = path.read_text().strip()
+    require(re.fullmatch('[0-9a-f]{64}', token) is not None, 'The executor capability is malformed; value withheld.')
+    return token
+
+
+def http_body(raw):
+    """Body of one bounded HTTP/1.1 response; only 200 is an answer."""
+    head, separator, body = raw.partition(b'\r\n\r\n')
+    require(separator and len(raw) <= MAX_RESPONSE, 'Unreadable executor response.')
+    lines = head.decode('iso-8859-1').split('\r\n')
+    require(re.fullmatch(r'HTTP/1\.[01] 200 .*', lines[0] + ' ') is not None, 'The executor refused the exchange.')
+    headers = {k.strip().lower(): v.strip() for k, _, v in (line.partition(':') for line in lines[1:])}
+    if headers.get('transfer-encoding', '').lower() == 'chunked':
+        decoded = b''
+        while True:
+            size, _, rest = body.partition(b'\r\n')
+            length = int(size.split(b';')[0], 16)
+            if length == 0:
+                break
+            decoded, body = decoded + rest[:length], rest[length + 2:]
+        body = decoded
+    elif 'content-length' in headers:
+        body = body[:int(headers['content-length'])]
+    return json.loads(body)
+
+
+class ProductionRunner(runner.Runner):
+    def __init__(self, config_path):
+        core.private(config_path)
+        require(config_path.stat().st_size <= 4096, 'Oversized account-deletion configuration.')
+        own = json.loads(config_path.read_text())
+        require(isinstance(own, dict) and set(own) == FIELDS and all(isinstance(own[k], str) for k in FIELDS),
+                'Account-deletion configuration fields differ from the reviewed set.')
+        self.cleanup = cleanup.load_configuration(Path(own['cleanupConfig']))
+        self.token = capability(Path(own['credentialFile']))
+        self.admin = Path(self.cleanup['admin'])
+        work = self.admin / 'account-deletion'
+        work.mkdir(mode=0o700, exist_ok=True)
+        core.private(work, directory=True)
+        self.config_path = work / 'erasure.json'
+        self.config = self.erasure_config()
+        self.stopped = threading.Event()
+
+    def erasure_config(self):
+        """The bridge's configuration from the cleanup's custody and transport; rebuilt per claim."""
+        ledger, _fence = cleanup.commands(self.cleanup)
+        host = shlex.split(ledger[ledger.index('--host-command') + 1])
+        require(host.count('--identity-cleanup') == 1, 'Unexpected cleanup transport.')
+        # The same transport, in its self-service mode: per-account protection, no global fence.
+        host[host.index('--identity-cleanup')] = '--self-service'
+        c = self.cleanup
+        return {'policy': 'independent', 'issuer': core.ISSUER, 'host_command': host,
+                'cloud_copies': c['cloudCopies'],
+                'ledger': c['ledger'], 'ledger_copy': c['ledgerCopy'], 'proof_root': c['proofRoot'],
+                'archive_root': c['archiveRoot'], 'archive_copy': c['archiveCopy'], 'gnupg_home': c['gnupgHome'],
+                'recipient': c['recipient'], 'signer': c['signer'], 'holds': c['holds']}
+
+    def write_erasure_config(self):
+        self.config = self.erasure_config()
+        with tempfile.NamedTemporaryFile('w', dir=self.config_path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                os.chmod(temporary, 0o600)
+                json.dump(self.config, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+                temporary.replace(self.config_path)
+            finally:
+                temporary.unlink(missing_ok=True)
+
+    def preflight(self):
+        self.write_erasure_config()
+        super().preflight()
+
+    def child(self):
+        # The cloud copies need the backup cycle's S3 interpreter.
+        self.write_erasure_config()
+        return [self.cleanup['s3Python'], '-I', str(runner.BRIDGE), '--config', str(self.config_path)]
+
+    def paused(self):
+        root = self.admin / 'upgrades'
+        try:
+            return any(json.loads(path.read_text()).get('status') in ('running', 'failed') for path in root.glob('*/upgrade.json'))
+        except (OSError, ValueError):
+            return True
+
+    def application(self):
+        ids = subprocess.run(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.project=' + self.cleanup['project'],
+                              '--filter', 'label=com.docker.compose.service=application', '--filter', 'status=running'],
+                             capture_output=True, timeout=EXCHANGE_SECONDS, check=True).stdout.decode().split()
+        require(len(ids) == 1, 'Exactly one running application is required.')
+        return ids[0]
+
+    def exchange(self, body):
+        data = json.dumps(body).encode()
+        request = (f'POST {MANAGEMENT_PATH} HTTP/1.1\r\nHost: 127.0.0.1:8081\r\nContent-Type: application/json\r\n'
+                   f'Authorization: Bearer {self.token}\r\nContent-Length: {len(data)}\r\nConnection: close\r\n\r\n').encode() + data
+        # The application image's busybox nc reaches the loopback-only management port.
+        result = subprocess.run(['docker', 'exec', '-i', self.application(), 'timeout', str(EXCHANGE_SECONDS - 5),
+                                 'nc', '127.0.0.1', '8081'], input=request, capture_output=True, timeout=EXCHANGE_SECONDS)
+        require(result.returncode == 0, 'The executor exchange failed.')
+        return http_body(result.stdout)
+
+    def check(self):
+        self.preflight()
+        self.application()
+        return {'configuration': 'ok', 'paused': self.paused()}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('command', choices=['run', 'check'])
+    parser.add_argument('--config', type=Path, required=True)
+    arguments = parser.parse_args()
+    actor = ProductionRunner(arguments.config)
+    if arguments.command == 'check':
+        print(json.dumps(actor.check()))
+        return
+    signal.signal(signal.SIGTERM, lambda *_: actor.stopped.set())
+    actor.run()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        # Never print paths, identifiers, the capability or subprocess diagnostics.
+        print('Account deletion runner refused; no completion claimed.', file=sys.stderr)
+        sys.exit(1)

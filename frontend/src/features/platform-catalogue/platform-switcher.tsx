@@ -5,10 +5,15 @@ import { SelectIcon } from "../../shared/ui/select-icon";
 import { featuredPlatforms, type PlatformContext } from "../platforms/platform-context";
 
 type PlatformSwitcherProps = {
-  current: PlatformContext;
+  current: PlatformContext | null;
   /** The other platforms the directory holds games for; null while it is read or unavailable. */
   others: readonly PlatformContext[] | null;
   pathFor: (context: PlatformContext) => string;
+  filters?: {
+    current: "all" | "preferred" | null;
+    preferredAvailable: boolean;
+    onChange: (filter: "all" | "preferred") => void;
+  };
 };
 
 /**
@@ -16,7 +21,7 @@ type PlatformSwitcherProps = {
  * on offer, as native links to the same destination on that platform, keeping its own state.
  * Escape and a press outside close it; the current platform is announced as current.
  */
-export function PlatformSwitcher({ current, others, pathFor }: PlatformSwitcherProps) {
+export function PlatformSwitcher({ current, others, pathFor, filters }: PlatformSwitcherProps) {
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -43,6 +48,11 @@ export function PlatformSwitcher({ current, others, pathFor }: PlatformSwitcherP
     }
   }
 
+  function closeAndFocus() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
   function group(key: string, title: string, platforms: readonly PlatformContext[]) {
     return (
       <div className="platform-switcher-group">
@@ -51,9 +61,10 @@ export function PlatformSwitcher({ current, others, pathFor }: PlatformSwitcherP
           {platforms.map((platform) => (
             <li key={platform.key}>
               <Link
-                aria-current={platform.key === current.key ? "page" : undefined}
+                aria-current={platform.key === current?.key ? "page" : undefined}
                 className="platform-switcher-option"
-                onClick={() => setOpen(false)}
+                onClick={filters === undefined ? () => setOpen(false) : closeAndFocus}
+                preventScrollReset={filters !== undefined}
                 to={pathFor(platform)}
               >
                 <span aria-hidden="true" className="platform-switcher-mark">
@@ -80,10 +91,36 @@ export function PlatformSwitcher({ current, others, pathFor }: PlatformSwitcherP
       >
         <span aria-hidden="true" className="platform-switcher-icon" />
         <span>
-          Cambiar <span className="platform-switcher-label-rest">plataforma</span>
+          {filters === undefined ? <>Cambiar <span className="platform-switcher-label-rest">plataforma</span></> : (
+            <><span className="platform-switcher-filter-label">Plataforma</span> <strong>{current?.name ?? (filters.current === "preferred" ? "Mis plataformas" : "Todas")}</strong></>
+          )}
         </span>
       </button>
       <div className="platform-switcher-panel" hidden={!open} id={`${id}-panel`}>
+        {filters !== undefined && (
+          <ul aria-label="Filtro de plataformas" className="platform-switcher-list">
+            {([
+              { value: "all", label: "Todas", icon: "platform" },
+              { value: "preferred", label: "Mis plataformas", icon: "gameometro" },
+            ] as const).map(({ value, label, icon }) => (
+              <li key={value}>
+                <button
+                  aria-pressed={filters.current === value}
+                  className="platform-switcher-option platform-switcher-filter"
+                  disabled={value === "preferred" && !filters.preferredAvailable}
+                  onClick={() => {
+                    filters.onChange(value);
+                    closeAndFocus();
+                  }}
+                  type="button"
+                >
+                  <span aria-hidden="true" className="platform-switcher-mark"><SelectIcon name={icon} /></span>
+                  <span>{label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         {group("featured", "Destacadas", featuredPlatforms)}
         {others === null || others.length === 0 ? null : group("others", "Otras plataformas", others)}
       </div>

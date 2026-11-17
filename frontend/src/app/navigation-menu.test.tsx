@@ -92,10 +92,10 @@ describe("compact navigation menu", () => {
   it("closes after following a link, returning focus for the page already shown, but not on a query change", async () => {
     stubSession({ authenticated: false });
     const user = userEvent.setup();
-    const { router, trigger } = renderMenu("/lanzamientos?sort=hype&page=2");
+    const { router, trigger } = renderMenu("/lanzamientos?sort=releaseDate&page=2");
     await user.click(trigger);
     const explore = screen.getByRole("link", { name: "Explorar" });
-    expect(explore).toHaveAttribute("href", "/lanzamientos?sort=hype");
+    expect(explore).toHaveAttribute("href", "/lanzamientos?sort=releaseDate");
     await user.click(explore);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveFocus();

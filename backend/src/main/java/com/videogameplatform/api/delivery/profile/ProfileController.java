@@ -216,10 +216,14 @@ public class ProfileController implements ProfileApi {
     }
 
     private PrivateProfile profile() {
-        var token = principal().getIdToken();
+        var principal = principal();
+        var token = principal.getIdToken();
+        var userInfo = principal.getUserInfo();
+        // Spring validates the UserInfo subject against the ID token during OIDC login.
+        var email = userInfo == null ? null : optional(userInfo.getEmail());
         return new PrivateProfile(erasure.available())
                 .name(optional(token.getFullName()))
-                .email(optional(token.getEmail()));
+                .email(email == null ? optional(token.getEmail()) : email);
     }
 
     private static String optional(String value) {

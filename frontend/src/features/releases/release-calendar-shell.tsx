@@ -9,7 +9,11 @@ import {
 import { useInterestsSwitch } from "../platform-preferences/interests-switch";
 import { ReleaseCalendarDay, type CalendarDayPreview } from "./release-calendar-day";
 import { ReleaseCalendarGrid } from "./release-calendar-grid";
-import { WEEKDAY_HEADERS, type ReleaseCalendarModel } from "./release-calendar-model";
+import {
+  DEFAULT_DAY_PREVIEW_SIZE,
+  WEEKDAY_HEADERS,
+  type ReleaseCalendarModel,
+} from "./release-calendar-model";
 import { ReleaseCalendarMonths } from "./release-calendar-months";
 import {
   calendarSearchPath,
@@ -40,7 +44,7 @@ type ReleaseCalendarShellProps = {
   platformFilter: PlatformFilter;
 };
 
-export const CALENDAR_TITLE = "Calendario de destacados";
+export const CALENDAR_TITLE = "Calendario de lanzamientos";
 
 /** The month's frame while its first read is under way, shaped like the calendar it replaces. */
 function CalendarLoading() {
@@ -90,13 +94,13 @@ export function ReleaseCalendarShell({
   const interestsSwitch = useInterestsSwitch();
   const model = state.status === "ready" ? state.model : null;
   const filtersModel = model ?? previousModel;
-  const monthPath = (month: string) => calendarSearchPath(search, { month, day: null });
+  const monthPath = (month: string) => calendarSearchPath(search, { month, day: null, page: 1 });
   const listPath = releasesSearchPath(defaultReleasesSearch, {
-    ...(model === null ? {} : { from: model.window.from, to: model.window.to }),
+    ...(model === null ? {} : { from: model.window.from < model.evaluatedOn ? model.evaluatedOn : model.window.from, to: model.window.to }),
     platformIds: search.platformIds,
     regionIds: search.regionIds,
   });
-  const clearedPath = calendarSearchPath(search, { platformIds: [], regionIds: [] });
+  const clearedPath = calendarSearchPath(search, { platformIds: [], regionIds: [], page: 1 });
   const selected =
     model === null || selectedDay === null
       ? null
@@ -108,7 +112,7 @@ export function ReleaseCalendarShell({
   }
 
   function selectDay(date: string) {
-    void navigate(calendarSearchPath(search, { month: model?.month ?? search.month, day: date }), {
+    void navigate(calendarSearchPath(search, { month: model?.month ?? search.month, day: date, page: 1 }), {
       preventScrollReset: true,
       replace: true,
     });
@@ -150,7 +154,7 @@ export function ReleaseCalendarShell({
           ) : (
             <ReleasesFilters
               interests={interests}
-              pathFor={(change) => calendarSearchPath(search, { ...change, day: null })}
+              pathFor={(change) => calendarSearchPath(search, { ...change, day: null, page: 1 })}
               platformFilter={platformFilter}
               platforms={filtersModel.platforms}
               regionIds={search.regionIds}
@@ -211,11 +215,11 @@ export function ReleaseCalendarShell({
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>
                   {platformFilter.mode === "on"
-                    ? "Sin destacados para tus plataformas"
-                    : "Sin destacados con día confirmado"}
+                    ? "Sin lanzamientos para tus plataformas"
+                    : "Sin lanzamientos con día confirmado"}
                 </h3>
                 <p>
-                  {`No tenemos destacados con día confirmado en ${model.monthLabel.toLowerCase()} para estos filtros`}
+                  {`No tenemos lanzamientos con día confirmado en ${model.monthLabel.toLowerCase()} para estos filtros`}
                 </p>
                 {platformFilter.mode === "on" ? (
                   <button
@@ -232,13 +236,15 @@ export function ReleaseCalendarShell({
                 ) : null}
               </div>
             ) : selected === null ? (
-              <p className="calendar-day-hint">Elige un día para ver sus destacados.</p>
+              <p className="calendar-day-hint">Elige un día para ver sus lanzamientos.</p>
             ) : (
               <ReleaseCalendarDay
                 date={selected.date}
                 explorerPath={dayExplorerPath(search, selected.date)}
                 gameCount={selected.gameCount}
+                pagePath={(page) => calendarSearchPath(search, { month: model.month, day: selected.date, page })}
                 onRetry={onRetryDay}
+                previewSize={model?.dayPreviewSize ?? DEFAULT_DAY_PREVIEW_SIZE}
                 preview={dayPreview}
               />
             )}

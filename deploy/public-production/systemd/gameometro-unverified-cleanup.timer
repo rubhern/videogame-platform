@@ -1,0 +1,13 @@
+[Unit]
+Description=Delete accounts still unverified 30 days after creation, once a day
+[Timer]
+# 03:00 in Madrid, outside user hours, because a round closes identity while it erases.
+# That is 01:00 or 02:00 UTC: clear of the 02:30 and 14:30 UTC backups, even with the delay
+# below, and of the 03:00/04:00 UTC catalogue synchronizations.
+OnCalendar=*-*-* 03:00:00 Europe/Madrid
+# A slot missed while the host was down runs once after boot.
+Persistent=true
+RandomizedDelaySec=10min
+AccuracySec=1min
+[Install]
+WantedBy=timers.target

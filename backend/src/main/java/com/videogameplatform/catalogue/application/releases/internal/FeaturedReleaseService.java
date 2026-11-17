@@ -14,6 +14,8 @@ import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResu
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.Item;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,7 +36,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
     private final Clock clock;
     private final ReleaseBrowsePolicy browsePolicy;
     private final CatalogueFreshnessPolicy freshnessPolicy;
-    private final FeaturedPeriodPolicy periodPolicy;
+    private final CurrentProductSettings settings;
 
     public FeaturedReleaseService(
             FeaturedReleaseReadPort readPort,
@@ -43,18 +45,21 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
             CatalogueFreshnessPolicy freshnessPolicy,
-            FeaturedPeriodPolicy periodPolicy) {
+            CurrentProductSettings settings) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.images = new FeaturedImageSelection(imageResolver);
         this.clock = clock;
         this.browsePolicy = browsePolicy;
         this.freshnessPolicy = freshnessPolicy;
-        this.periodPolicy = periodPolicy;
+        this.settings = settings;
     }
 
     @Override
     public FeaturedReleasesResult browse(Query query) {
+        // One settings snapshot serves the whole operation: periods, navigation and ranking.
+        ProductSettings current = settings.current();
+        FeaturedPeriodPolicy periodPolicy = FeaturedPeriodPolicy.of(current);
         Instant evaluatedAt = clock.instant();
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
         Granularity granularity = query.granularity();
@@ -74,7 +79,8 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                         evaluatedOn,
                                         FEATURED_LIMIT,
                                         browsePolicy.releaseGroupLimit(),
-                                        normalize(query.platformIds())))
+                                        normalize(query.platformIds()),
+                                        current.attention()))
                         .orElseThrow(CatalogueNotReadyException::new);
         if (!result.platformsSupported()) {
             throw new ReleaseQueryValidationException(
@@ -91,8 +97,8 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                 evaluatedOn,
                 window,
                 new FeaturedReleasesResult.Navigation(
-                        adjacent(granularity, start, -1, evaluatedOn),
-                        adjacent(granularity, start, 1, evaluatedOn)),
+                        adjacent(periodPolicy, granularity, start, -1, evaluatedOn),
+                        adjacent(periodPolicy, granularity, start, 1, evaluatedOn)),
                 selection(result, evaluatedAt),
                 items);
     }
@@ -108,8 +114,12 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                 .toList();
     }
 
-    private Optional<LocalDate> adjacent(
-            Granularity granularity, LocalDate start, int offset, LocalDate evaluatedOn) {
+    private static Optional<LocalDate> adjacent(
+            FeaturedPeriodPolicy periodPolicy,
+            Granularity granularity,
+            LocalDate start,
+            int offset,
+            LocalDate evaluatedOn) {
         return Optional.of(periodPolicy.step(granularity, start, offset))
                 .filter(target -> periodPolicy.presents(granularity, target, evaluatedOn));
     }

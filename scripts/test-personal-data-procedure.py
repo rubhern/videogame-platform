@@ -54,8 +54,9 @@ host_command = shlex.join([
     "--postgres-container", postgres, "--application-container", application,
 ])
 accounts = {
-    "target": {"username": "pd-target", "email": "pd-target@example.test", "password": secrets.token_hex(16)},
-    "other": {"username": "pd-other", "email": "pd-other@example.test", "password": secrets.token_hex(16)},
+    # The realm uses the email as username, as production does.
+    "target": {"username": "pd-target@example.test", "email": "pd-target@example.test", "password": secrets.token_hex(16)},
+    "other": {"username": "pd-other@example.test", "email": "pd-other@example.test", "password": secrets.token_hex(16)},
 }
 
 
@@ -254,6 +255,7 @@ assert [(rating["gameId"], rating["value"]) for rating in document["ratings"]] =
 assert document["ratings"][0]["title"], document["ratings"][0]
 assert document["preferredPlatforms"] == {"configured": True, "platforms": [{"platformId": PS5, "name": "PlayStation 5"}]}
 assert len(document["identitySessions"]) == 2 and all(session["ipAddress"] for session in document["identitySessions"])
+assert document["linkedSignIn"] == [], "a password-only account has no linked provider"
 assert accounts["other"]["email"] not in export_path.read_text()
 # Only allow-listed, non-secret fields leave Keycloak: no token, credential, secret, cookie or
 # session identifier, whatever the Admin API returns for the account and its sessions.
@@ -358,7 +360,7 @@ assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 
 # The freed address registers again as a new subject, which a later replay leaves alone.
-reregistered = admin.create("pd-target-again", accounts["target"]["email"], secrets.token_hex(16))
+reregistered = admin.create(accounts["target"]["email"], accounts["target"]["email"], secrets.token_hex(16))
 assert reregistered != target_id
 ledger_run("replay", "--receipt", str(receipts / "replay-after-reregistration.json"))
 assert admin.account(reregistered)["enabled"] is True

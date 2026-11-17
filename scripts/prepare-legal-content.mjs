@@ -49,8 +49,8 @@ for (const [relative, origin] of [
     ...realm.localizationTexts.es,
     termsTitle: 'Antes de crear tu cuenta',
     termsText: basicHtml + '<p>Consulta la <a href="' + origin + '/privacidad">política de privacidad</a> y las <a href="' + origin + '/condiciones">condiciones de uso</a> antes de registrarte.</p>',
-    acceptTerms: 'Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro.',
-    termsAcceptanceRequired: 'Para crear tu cuenta, confirma que tienes 18 años o más y aceptas las condiciones de uso.',
+    acceptTerms: 'He leído y acepto las condiciones de uso de Gameómetro.',
+    termsAcceptanceRequired: 'Para crear tu cuenta, acepta las condiciones de uso.',
   };
   emit(relative, realm);
 }

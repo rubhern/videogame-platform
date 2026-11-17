@@ -7,6 +7,7 @@ import contextlib
 import io
 import sys
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -42,7 +43,7 @@ def bind(source, target):
 
 
 def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], caddy='ghcr.io/r/caddy@sha256:' + '8' * 64,
-           localizer='ghcr.io/r/loc@sha256:' + '9' * 64):
+           localizer='ghcr.io/r/loc@sha256:' + '9' * 64, scheduling='true'):
     def service(image, **fields):
         return {'image': image, 'restart': acceptance.POLICY, 'mem_limit': '100', 'cpus': 1.0, 'pids_limit': 64,
                 'labels': {control.RUN_LABEL: RUN, control.CONFIG_LABEL: CONFIGURATION},
@@ -56,21 +57,227 @@ def config(bundle, application=OLD['application'], keycloak=OLD['keycloak'], cad
                                    volumes=[bind(candidate / 'deploy/public-production/bin/run-keycloak', '/opt/run-keycloak')])
     services['caddy'] = service(caddy, volumes=[bind(bundle / 'Caddyfile.private', '/etc/caddy/Caddyfile'),
                                                 {'type': 'volume', 'source': 'caddy-data', 'target': '/data'}])
-    services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': 'false', 'TELEMETRY_SERVICE_VERSION': '1',
-                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro'},
+    services['application'] = service(application, environment={'CATALOGUE_SYNC_SCHEDULING_ENABLED': scheduling, 'TELEMETRY_SERVICE_VERSION': '1',
+                                                                'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+                                                                upgrade.DELETION_ENABLED: 'false',
+                                                                upgrade.DELETION_CREDENTIAL: '/run/secrets/' + upgrade.DELETION_SECRET},
+                                      secrets=[{'source': upgrade.DELETION_SECRET, 'target': '/run/secrets/' + upgrade.DELETION_SECRET}],
                                       volumes=[bind(candidate / 'deploy/public-production/bin/run-application', '/opt/run-application')])
     services['migration'] = {**service(application, volumes=[bind(candidate / 'deploy/public-production/bin/run-migrations', '/opt/run-migrations'),
                                                              bind(candidate / 'deploy/private-dev/bin/run-migrations', upgrade.MIGRATION_ENTRYPOINT)]), 'restart': 'no'}
     services['catalogue-localizer'] = service(localizer, mem_limit=acceptance.LOCALIZER_MEMORY)
     services['grafana'] = service('grafana@sha256:' + 'f' * 64, environment={
-        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
+        'GRAFANA_TELEGRAM_ENABLED': 'false', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED': 'false',
+        'GF_PLUGINS_DISABLE_PLUGINS': acceptance.DISABLED_PLUGINS},
         volumes=[bind(candidate / 'deploy/private-dev/grafana/dashboards', '/etc/grafana/canonical-dashboards')])
-    return {'name': prepare.PROJECT, 'services': services, 'secrets': {'keycloak_admin_password': {'file': '/s/admin'}},
+    return {'name': prepare.PROJECT, 'services': services,
+            'secrets': {'keycloak_admin_password': {'file': '/s/admin'},
+                        upgrade.DELETION_SECRET: {'file': '/s/account-deletion-executor-capability'}},
             'networks': {'identity-data': {'name': 'n'}}, 'volumes': {'postgres-data': {'name': 'v'}}}
 
 
 def rendered(bundle=BUNDLE):
     return config(bundle, IMAGES['application'], IMAGES['keycloak'], IMAGES['caddy'], IMAGES['catalogue-localizer'])
+
+
+class ActiveLineage(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.admin = self.base / 'admin'
+        (self.admin / upgrade.UPGRADES).mkdir(parents=True)
+        self.bundles = self.base / 'installations'
+        self.bundle = self.bundles / f'{TARGET[:12]}-private'
+        self.source = self.bundle / 'candidate'
+        actor = self.source / 'deploy/public-production/bin/recovery'
+        actor.parent.mkdir(parents=True)
+        actor.write_text('IDENTITY = "installed-revision"\n')
+        self.actor = actor
+        self.path = self.admin / 'ingress/compose.public.json'
+        self.path.parent.mkdir()
+        self.path.write_text(json.dumps({'services': {'caddy': {'ports': upgrade.ingress.public_ports('62.83.73.32')}}}))
+        self.pointer = {'revision': TARGET, 'configurationFile': str(self.path),
+                        'configurationSha256': install.sha(self.path)}
+        self.pointer_file = self.admin / upgrade.UPGRADES / upgrade.ACTIVE
+        self.write_pointer()
+        self.value = upgrade.Upgrade(NEWER, admin=self.admin, bundles=self.bundles)
+
+    def write_pointer(self):
+        self.pointer_file.write_text(json.dumps(self.pointer))
+
+    def test_public_compose_keeps_recovery_in_the_installed_revision_bundle(self):
+        active = self.value.active_state(None)
+        self.assertEqual(active['file'], self.path)
+        self.assertEqual(active['source'], self.source)
+        self.assertEqual(active['bundle'], self.bundle)
+        self.assertEqual(acceptance.recovery_module(active['source']).IDENTITY, 'installed-revision')
+        self.assertEqual(active['config']['services']['caddy']['ports'], upgrade.ingress.public_ports('62.83.73.32'))
+
+    def test_private_compose_still_uses_the_same_installed_bundle(self):
+        private = self.bundle / upgrade.TARGET_CONFIG
+        private.write_text(self.path.read_text())
+        self.pointer['configurationFile'] = str(private)
+        self.write_pointer()
+        active = self.value.active_state(None)
+        self.assertEqual(active['file'], private)
+        self.assertEqual(active['source'], self.source)
+
+    def test_changed_configuration_and_invalid_revision_refuse(self):
+        with self.subTest('changed configuration'):
+            self.path.write_text('{}')
+            with self.assertRaises(trust.Refused):
+                self.value.active_state(None)
+        self.pointer['configurationSha256'] = install.sha(self.path)
+        for invalid in ('main', '../candidate', TARGET + '/x'):
+            with self.subTest(revision=invalid):
+                self.pointer['revision'] = invalid
+                self.write_pointer()
+                with self.assertRaises(trust.Refused):
+                    self.value.active_state(None)
+
+    def test_missing_installed_actor_never_falls_back_to_the_compose_directory(self):
+        self.actor.unlink()
+        decoy = self.path.parent / 'candidate/deploy/public-production/bin/recovery'
+        decoy.parent.mkdir(parents=True)
+        decoy.write_text('IDENTITY = "unrelated-compose-directory"\n')
+        with self.assertRaises(FileNotFoundError):
+            acceptance.recovery_module(self.value.active_state(None)['source'])
+
+
+class LivePublicExposure(unittest.TestCase):
+    def setUp(self):
+        self.host = object.__new__(upgrade.Host)
+        self.host.run_id, self.host.configuration = 'run', 'configuration'
+        self.host.config = {'services': {'caddy': {'image': 'reviewed-image', 'restart': 'unless-stopped',
+            'mem_limit': '100', 'cpus': 1, 'pids_limit': 64, 'networks': {'edge': {}},
+            'ports': upgrade.ingress.public_ports('62.83.73.32')}},
+            'networks': {'edge': {'name': 'edge-network', 'internal': True}}}
+        self.bindings = {f'{port}/tcp': [{'HostIp': '62.83.73.32', 'HostPort': str(port)}] for port in (80, 443)}
+        self.info = {'State': {'Running': True, 'Health': {'Status': 'healthy'}}, 'Image': 'sha256:reviewed',
+            'Config': {'Image': 'reviewed-image', 'Labels': {control.RUN_LABEL: 'run', control.CONFIG_LABEL: 'configuration'}},
+            'HostConfig': {'PortBindings': copy.deepcopy(self.bindings), 'RestartPolicy': {'Name': 'unless-stopped'},
+                           'Memory': 100, 'NanoCpus': 10**9, 'PidsLimit': 64, 'IpcMode': 'private', 'NetworkMode': 'edge-network'},
+            'NetworkSettings': {'Ports': copy.deepcopy(self.bindings), 'Networks': {'edge-network': {'NetworkID': 'network-id'}}}}
+        self.network = {'Id': 'network-id', 'EnableIPv6': False, 'EnableIPv4': True, 'Driver': 'bridge',
+            'Internal': True, 'Scope': 'local', 'IPAM': {'Driver': 'default', 'Config': [{'Subnet': '10.203.1.0/24', 'Gateway': '10.203.1.1'}]},
+            'Options': {'com.docker.network.bridge.gateway_mode_ipv4': 'nat'}}
+        self.host.compose = lambda *_, **__: b'container'
+        self.calls = []
+
+    def inspect_run(self, args):
+        self.calls.append(args)
+        if args[:3] == ['docker', 'image', 'inspect']:
+            return json.dumps([{'Id': 'sha256:reviewed', 'Config': {}}]).encode()
+        if args[:3] == ['docker', 'network', 'inspect']:
+            return json.dumps([self.network]).encode()
+        self.assertEqual(args[:2], ['docker', 'inspect'])
+        return json.dumps([self.info]).encode()
+
+    def test_live_public_edge_passes_the_complete_inherited_runtime_contract(self):
+        with patch.object(install, 'run', side_effect=self.inspect_run):
+            self.host.running(['caddy'])
+        self.assertTrue(any(c[:3] == ['docker', 'network', 'inspect'] for c in self.calls))
+
+    def test_wrong_missing_extra_ipv6_and_duplicate_bindings_refuse(self):
+        for field in ('HostConfig', 'NetworkSettings'):
+            key = 'PortBindings' if field == 'HostConfig' else 'Ports'
+            for mutation in ('ipv4', 'wildcard', 'ipv6', 'port', 'protocol', 'extra', 'missing', 'duplicate'):
+                with self.subTest(field=field, mutation=mutation):
+                    bindings = copy.deepcopy(self.bindings)
+                    if mutation in ('ipv4', 'wildcard', 'ipv6'):
+                        bindings['443/tcp'][0]['HostIp'] = {'ipv4': '62.83.73.33', 'wildcard': '0.0.0.0', 'ipv6': '::'}[mutation]
+                    elif mutation == 'port': bindings['443/tcp'][0]['HostPort'] = '8443'
+                    elif mutation == 'protocol': bindings['443/udp'] = bindings.pop('443/tcp')
+                    elif mutation == 'extra': bindings['10000/tcp'] = [{'HostIp': '62.83.73.32', 'HostPort': '10000'}]
+                    elif mutation == 'missing': del bindings['80/tcp']
+                    else: bindings['443/tcp'].append(copy.deepcopy(bindings['443/tcp'][0]))
+                    self.info[field][key] = bindings
+                    with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                        self.host.running(['caddy'])
+                    self.info[field][key] = copy.deepcopy(self.bindings)
+
+    def test_public_exposure_does_not_hide_other_live_runtime_drift(self):
+        for field, key, value in [('Config', 'Image', 'other-image'), ('State', 'Running', False),
+                                  ('State', 'Health', {'Status': 'unhealthy'}), ('HostConfig', 'Privileged', True),
+                                  ('HostConfig', 'PublishAllPorts', True), ('HostConfig', 'Memory', 101),
+                                  ('HostConfig', 'RestartPolicy', {'Name': 'always'})]:
+            with self.subTest(field=field, key=key):
+                original = copy.deepcopy(self.info[field])
+                self.info[field][key] = value
+                with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                    self.host.running(['caddy'])
+                self.info[field] = original
+
+    def test_probe_selects_system_roots_only_for_the_reviewed_public_edge(self):
+        self.assertIsNone(self.host.probe_ca_file())
+        self.host.config['services']['application'] = {'environment': {'OIDC_ISSUER_URI': 'https://auth.gameometro.com/realms/gameometro',
+            'OIDC_CONTRACT_CA_FILE': '/unreviewed/ca.crt'}}
+        self.host.config['networks']['telemetry'] = {'name': 'telemetry-network'}
+        self.host.source = Path('/reviewed/candidate')
+        with patch.object(install, 'run', return_value=b'') as run:
+            self.host.probe('synthetic-probe')
+        arguments = run.call_args.args[0]
+        self.assertFalse(any('OIDC_CONTRACT_CA_FILE=' in str(a) for a in arguments))
+        self.assertNotIn('/unreviewed/ca.crt', arguments)
+        self.host.config['services']['caddy']['ports'] = []
+        self.assertEqual(self.host.probe_ca_file(), '/run/private-tls/ca.crt')
+        private = object.__new__(install.Host)
+        self.assertEqual(private.probe_ca_file(), '/run/private-tls/ca.crt')
+
+    def test_authorization_probe_uses_the_selected_trust_roots(self):
+        import ssl
+        from types import SimpleNamespace
+        class Connection:
+            def __init__(self, *args, **kwargs):
+                pass
+            def request(self, method, path):
+                self.path = path
+            def getresponse(self):
+                return SimpleNamespace(status=401 if self.path == '/api/v1/me/ratings' else 200, read=lambda _: b'{}')
+            def close(self):
+                pass
+        for ca in (None, '/run/private-tls/ca.crt'):
+            environment = {'OIDC_CONTRACT_CA_FILE': ca} if ca else {}
+            with self.subTest(ca=ca), patch.dict(os.environ, environment, clear=True), \
+                    patch('http.client.HTTPSConnection', Connection), patch.object(ssl, 'create_default_context') as context:
+                exec(upgrade.AUTHORIZATION_PROBE, {})
+                context.assert_called_once_with(cafile=ca)
+
+    def test_unreviewed_publication_cannot_select_public_tls_mode(self):
+        self.host.config['services']['caddy']['ports'][0]['host_ip'] = '0.0.0.0'
+        with self.assertRaises(trust.Refused):
+            self.host.probe_ca_file()
+
+    def test_first_install_still_rejects_public_bindings(self):
+        private = object.__new__(install.Host)
+        private.__dict__.update(self.host.__dict__)
+        with patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+            private.running(['caddy'])
+
+    def test_non_edge_or_unreviewed_configured_publication_refuses(self):
+        for mutation in ('service', 'admin-port'):
+            with self.subTest(mutation=mutation):
+                services = copy.deepcopy(self.host.config['services'])
+                if mutation == 'service':
+                    services['keycloak'] = services.pop('caddy')
+                    name = 'keycloak'
+                else:
+                    services['caddy']['ports'].append({'mode': 'ingress', 'host_ip': '62.83.73.32', 'target': 10000, 'published': '10000', 'protocol': 'tcp'})
+                    name = 'caddy'
+                with patch.dict(self.host.config, services=services), patch.object(install, 'run', side_effect=self.inspect_run), self.assertRaises(trust.Refused):
+                    self.host.running([name])
+
+    def test_stopped_public_edge_preserves_the_same_bindings_during_a_fence(self):
+        value = upgrade.Upgrade(TARGET)
+        value.host = lambda: self.host
+        value.scope = lambda: ['caddy']
+        self.host.compose = lambda *args, **__: b'' if args[1] == '-q' else b'container'
+        value.run = self.inspect_run
+        self.assertEqual(value.observe_services({'ready': False, 'pending': True}), {'caddy': 'stopped'})
+        self.info['HostConfig']['PortBindings']['443/tcp'][0]['HostIp'] = '::'
+        with self.assertRaises(trust.Refused):
+            value.observe_services({'ready': False, 'pending': True})
 
 
 class Pure(unittest.TestCase):
@@ -112,6 +319,23 @@ class Pure(unittest.TestCase):
         block = re.search(r'SESSION_SETTINGS = \((.*?)\)', command, re.S)[1]
         self.assertEqual(tuple(re.findall(r'"(\w+)"', block)), upgrade.SESSION_SETTINGS)
         self.assertIn('"--sessions-only"', command)
+        self.assertIn('SHARED_SETTINGS = (*SESSION_SETTINGS, "passwordPolicy")', command)
+
+    def test_the_approved_password_policy_is_the_import_value_and_a_reviewed_delta(self):
+        target = self.realm()
+        self.assertEqual(target['passwordPolicy'], upgrade.APPROVED_PASSWORD_POLICY)
+        previous = copy.deepcopy(target)
+        previous['passwordPolicy'] = 'length(12) and maxLength(128) and notEmail and notContainsUsername'
+        self.assertEqual(upgrade.realm_import_delta(previous, target), {'settings': ['passwordPolicy'], 'mappers': []})
+        self.assertEqual(upgrade.desired_session_state(target)['passwordPolicy'], upgrade.APPROVED_PASSWORD_POLICY)
+        self.assertIn("'password_policy'", upgrade.IDENTITY_SQL)
+        self.assertIn("'passwordPolicy',coalesce(password_policy,'')", upgrade.REALM_SQL)
+        for unreviewed in ('length(8) and maxLength(128)', 'length(6)', upgrade.APPROVED_PASSWORD_POLICY + ' and digits(1)'):
+            with self.subTest(unreviewed):
+                changed = copy.deepcopy(target)
+                changed['passwordPolicy'] = unreviewed
+                with self.assertRaises(trust.Refused):
+                    upgrade.realm_import_delta(previous, changed)
 
     def realm(self):
         return json.loads((ROOT / upgrade.REALM_IMPORT).read_text())
@@ -125,6 +349,24 @@ class Pure(unittest.TestCase):
         self.assertEqual(upgrade.realm_import_delta(previous, target),
                          {'settings': ['rememberMe', 'ssoSessionIdleTimeoutRememberMe', 'ssoSessionMaxLifespanRememberMe'],
                           'mappers': [upgrade.REMEMBER_MAPPER]})
+
+    def test_profile_email_requires_the_exact_userinfo_mapper(self):
+        target = self.realm()
+        previous = copy.deepcopy(target)
+        bff = next(c for c in previous['clients'] if c['clientId'] == upgrade.BFF_CLIENT)
+        bff['protocolMappers'].remove(upgrade.PROFILE_EMAIL_MAPPER)
+        self.assertEqual(upgrade.realm_import_delta(previous, target),
+                         {'settings': [], 'mappers': [upgrade.PROFILE_EMAIL_MAPPER['name']]})
+        self.assertTrue(upgrade.desired_session_state(target)['profileEmailMapper'])
+        self.assertFalse(upgrade.desired_session_state(previous)['profileEmailMapper'])
+        for key in ('id.token.claim', 'access.token.claim', 'introspection.token.claim'):
+            with self.subTest(key=key):
+                unexpected = copy.deepcopy(target)
+                mapper = next(m for c in unexpected['clients'] for m in c['protocolMappers']
+                              if m['name'] == upgrade.PROFILE_EMAIL_MAPPER['name'])
+                mapper['config'][key] = 'true'
+                with self.assertRaises(trust.Refused):
+                    upgrade.realm_import_delta(previous, unexpected)
 
     def test_the_real_first_candidate_pair_is_exactly_that_delta(self):
         shown = [subprocess.run(['git', 'show', f'{revision}:{upgrade.REALM_IMPORT}'], cwd=ROOT, capture_output=True)
@@ -182,7 +424,7 @@ class Pure(unittest.TestCase):
                 upgrade.verify_backup_evidence(manifest, OLD, 'h', copy_receipt, restored, now=NOW)
 
 
-class Delta(unittest.TestCase):
+class DeltaFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -210,6 +452,8 @@ class Delta(unittest.TestCase):
     def reconcile(self, target=None):
         return upgrade.reconcile(self.active, target or rendered(self.new_bundle), self.new_bundle)
 
+
+class Delta(DeltaFixture):
     def test_only_changed_services_change_and_the_rest_stay_verbatim(self):
         result, changed = self.reconcile()
         self.assertEqual(sorted(changed), ['application', 'caddy', 'catalogue-localizer', 'grafana', 'keycloak', 'migration'])
@@ -251,7 +495,7 @@ class Delta(unittest.TestCase):
             'observability image': set_service('grafana', 'image', 'grafana@sha256:' + 'b' * 64),
             'telemetry image': set_service('telemetry', 'image', 'otel@sha256:' + 'b' * 64),
             'cpu ceiling': set_service('application', 'cpus', 8.0),
-            'pid ceiling': set_service('grafana', 'pids_limit', 4096),
+            'lower pid ceiling': set_service('grafana', 'pids_limit', 16),
             'lower memory': set_service('keycloak', 'mem_limit', '50'),
             'new capability': set_service('caddy', 'cap_add', ['SYS_ADMIN']),
             'issuer': lambda c: c['services']['application']['environment'].__setitem__('OIDC_ISSUER_URI', 'https://evil.example'),
@@ -296,6 +540,22 @@ class Delta(unittest.TestCase):
         self.assertEqual(upgrade.environment_delta(self.active['services']['application'], result['services']['application']),
                          ['NEW_PRODUCT_LIMIT', 'TELEMETRY_SERVICE_VERSION'])
 
+    def test_recurring_acquisition_is_activated_only_from_off_to_on(self):
+        self.active['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'false'
+        result, changed = self.reconcile()
+        self.assertEqual(result['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'], 'true')
+        upgrade.validate_runtime(result, IMAGES)
+        for value in ('TRUE', '1'):
+            with self.subTest(value):
+                target = rendered(self.new_bundle)
+                target['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        # Once on, switching it off again is a separate reviewed change, not an upgrade delta.
+        self.active['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'true'
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] = 'false'
+        self.assertRaises(trust.Refused, self.reconcile, target)
+
     def test_a_postgres_bound_file_change_refuses(self):
         (self.new_bundle / 'candidate/deploy/public-production/bin/run-postgres').write_text('changed')
         with self.assertRaises(trust.Refused):
@@ -319,10 +579,15 @@ class Delta(unittest.TestCase):
             'always restart': set_service('caddy', 'restart', 'always'),
             'migration other image': set_service('migration', 'image', 'ghcr.io/r/app@sha256:' + '0' * 64),
             'unselected digest': set_service('keycloak', 'image', OLD['keycloak']),
-            'scheduling on': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'true'),
-            'telegram on': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
-            'deletion overlay': environment('application', 'ACCOUNT_DELETION_EXECUTOR_ENABLED', 'true'),
-            'deletion capability': lambda c: c['secrets'].__setitem__('account_deletion_executor_capability', {'file': '/x'}),
+            'scheduling unknown': environment('application', 'CATALOGUE_SYNC_SCHEDULING_ENABLED', 'TRUE'),
+            'schedule override': environment('application', 'CATALOGUE_SYNC_NEAR_TERM_CRON', '0 * * * * *'),
+            'telegram flag unknown': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'TRUE'),
+            'product notices without alerts': environment('grafana', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'true'),
+            'alerts without product notices': environment('grafana', 'GRAFANA_TELEGRAM_ENABLED', 'true'),
+            'deletion flag unknown': environment('application', upgrade.DELETION_ENABLED, 'yes'),
+            'deletion credential elsewhere': environment('application', upgrade.DELETION_CREDENTIAL, '/run/secrets/other'),
+            'deletion private-dev policy': environment('application', 'ACCOUNT_DELETION_COMPLETION_POLICY', 'private-dev'),
+            'deletion capability unmounted': set_service('application', 'secrets', []),
             'localizer ceiling': set_service('catalogue-localizer', 'mem_limit', '100'),
             'plugin policy': environment('grafana', 'GF_PLUGINS_DISABLE_PLUGINS', ''),
             'dashboard unmounted': set_service('grafana', 'volumes', []),
@@ -335,6 +600,356 @@ class Delta(unittest.TestCase):
                 mutate(value)
                 with self.assertRaises(trust.Refused):
                     upgrade.validate_runtime(value, IMAGES)
+
+
+class ReviewedAdditions(DeltaFixture):
+    """Reviewed runtime-input, secret and setting additions an upgrade applies itself."""
+
+    def with_loki(self, target=None):
+        target = target or rendered(self.new_bundle)
+        target['services']['loki'] = {
+            'image': 'grafana/loki@sha256:' + 'c' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
+            'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
+            'mem_limit': '402653184', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {'GOMEMLIMIT': '300MiB'}, 'labels': {},
+            'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/loki.yaml', '/etc/loki/config.yaml'),
+                        {'type': 'volume', 'source': 'loki-data', 'target': '/loki'}]}
+        target['volumes']['loki-data'] = {'name': prepare.PROJECT + '_loki-data'}
+        return target
+
+    def test_the_reviewed_log_store_is_added_with_its_own_volume(self):
+        result, changed = self.reconcile(self.with_loki())
+        self.assertEqual(changed['loki'], ['added'])
+        # The live checks require the installation lineage on every container, the added one too.
+        lineage = {k: self.active['services']['application']['labels'][k] for k in (control.RUN_LABEL, control.CONFIG_LABEL)}
+        self.assertEqual({k: result['services']['loki']['labels'][k] for k in lineage}, lineage)
+        self.assertEqual(result['volumes']['loki-data'], {'name': prepare.PROJECT + '_loki-data'})
+        self.assertEqual(result['volumes']['postgres-data'], self.active['volumes']['postgres-data'])
+        upgrade.validate_runtime(result, IMAGES)
+        # The plan reviews it as a new image, with no active environment to compare against.
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(images['loki'], result['services']['loki']['image'])
+        self.assertNotIn('loki', keys)
+
+    def test_any_other_service_or_volume_change_still_refuses(self):
+        mutations = {
+            'unreviewed service': lambda c: c['services'].__setitem__('other', c['services'].pop('loki')),
+            'removed service': lambda c: c['services'].pop('blackbox'),
+            'published port': lambda c: c['services']['loki'].__setitem__('ports', [{'target': 3100, 'published': '3100'}]),
+            'another network': lambda c: c['services']['loki']['networks'].__setitem__('application-data', None),
+            'writable root': lambda c: c['services']['loki'].__setitem__('read_only', False),
+            'capability': lambda c: c['services']['loki'].__setitem__('cap_add', ['SYS_ADMIN']),
+            'secret': lambda c: c['services']['loki'].__setitem__('secrets', [{'source': 'keycloak_admin_password', 'target': '/s'}]),
+            'host bind': lambda c: c['services']['loki']['volumes'][0].__setitem__('source', '/var/lib/docker'),
+            'writable bind': lambda c: c['services']['loki']['volumes'][0].__setitem__('read_only', False),
+            'database volume': lambda c: c['services']['loki']['volumes'][1].__setitem__('source', 'postgres-data'),
+            'unreviewed volume': lambda c: c['volumes'].__setitem__('other-data', {'name': 'x'}),
+            'existing volume changed': lambda c: c['volumes']['postgres-data'].__setitem__('name', 'other'),
+            'new network': lambda c: c['networks'].__setitem__('logs', {'name': 'logs'}),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name):
+                target = self.with_loki()
+                mutate(target)
+                with self.assertRaises(trust.Refused):
+                    self.reconcile(target)
+
+    def test_grafana_loads_only_its_datasources_and_may_raise_its_ceilings(self):
+        # From the accepted policy, or from the ADR-0040 Loki policy already in production.
+        for before in upgrade.GRAFANA_PLUGIN_POLICIES[:-1]:
+            with self.subTest(before=before):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                grafana = target['services']['grafana']
+                grafana['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = upgrade.GRAFANA_DISABLED_PLUGINS
+                grafana['pids_limit'], grafana['mem_limit'] = 192, '369098752'
+                result, changed = self.reconcile(target)
+                self.assertTrue({'environment', 'pids_limit', 'mem_limit'} <= set(changed['grafana']))
+                upgrade.validate_runtime(result, IMAGES)
+        loki_only = upgrade.GRAFANA_PLUGIN_POLICIES[1]
+        for name, (before, after) in {
+                'unreviewed plugin': (acceptance.DISABLED_PLUGINS, 'elasticsearch'),
+                'another plugin enabled': (loki_only, upgrade.GRAFANA_DISABLED_PLUGINS.replace(',zipkin', '')),
+                'backwards': (upgrade.GRAFANA_DISABLED_PLUGINS, loki_only)}.items():
+            with self.subTest(name):
+                self.active['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = before
+                target = rendered(self.new_bundle)
+                target['services']['grafana']['environment']['GF_PLUGINS_DISABLE_PLUGINS'] = after
+                with self.assertRaises(trust.Refused):
+                    self.reconcile(target)
+
+    def with_tempo(self, target=None):
+        target = target or self.with_loki()
+        target['services']['tempo'] = {
+            'image': 'grafana/tempo@sha256:' + 'd' * 64, 'restart': acceptance.POLICY, 'user': '10001:10001',
+            'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'],
+            'mem_limit': '335544320', 'pids_limit': 128, 'networks': {'telemetry': None}, 'environment': {'GOMEMLIMIT': '240MiB'}, 'labels': {},
+            'volumes': [bind(self.new_bundle / 'candidate/deploy/public-production/observability/tempo.yaml', '/etc/tempo/config.yaml'),
+                        {'type': 'volume', 'source': 'tempo-data', 'target': '/var/tempo'}]}
+        target['volumes']['tempo-data'] = {'name': prepare.PROJECT + '_tempo-data'}
+        return target
+
+    def test_the_reviewed_trace_store_is_added_beside_the_running_log_store(self):
+        # Production already runs Loki (ADR-0040); this target adds only Tempo (ADR-0046).
+        self.active = self.with_loki(self.active)
+        self.active['services']['loki']['volumes'][0]['source'] = str(
+            self.old_bundle / 'candidate/deploy/public-production/observability/loki.yaml')
+        self.active['services']['loki']['labels'] = {k: self.active['services']['application']['labels'][k]
+                                                     for k in (control.RUN_LABEL, control.CONFIG_LABEL)}
+        result, changed = self.reconcile(self.with_tempo())
+        self.assertEqual(changed['tempo'], ['added'])
+        self.assertNotEqual(changed.get('loki'), ['added'])
+        self.assertEqual(result['volumes']['tempo-data'], {'name': prepare.PROJECT + '_tempo-data'})
+        self.assertEqual(result['volumes']['loki-data'], self.active['volumes']['loki-data'])
+        upgrade.validate_runtime(result, IMAGES)
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(images['tempo'], result['services']['tempo']['image'])
+        self.assertNotIn('tempo', keys)
+        self.assertLess(upgrade.OPTIONAL.index('tempo'), upgrade.OPTIONAL.index('grafana'))
+        for name, mutate in {
+                'published port': lambda c: c['services']['tempo'].__setitem__('ports', [{'target': 3200, 'published': '3200'}]),
+                'loki volume': lambda c: c['services']['tempo']['volumes'][1].__setitem__('source', 'loki-data'),
+                'unreviewed volume': lambda c: c['volumes'].__setitem__('traces', {'name': 'x'})}.items():
+            with self.subTest(name):
+                target = self.with_tempo()
+                mutate(target)
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_sampled_trace_export_is_activated_once(self):
+        self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = 'false'
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'].update(
+            TELEMETRY_OTLP_TRACES_ENABLED='true', TELEMETRY_OTLP_TRACES_ENDPOINT='http://telemetry:4318/v1/traces',
+            TELEMETRY_TRACING_SAMPLING_PROBABILITY='0.1')
+        result, changed = self.reconcile(target)
+        self.assertIn('environment', changed['application'])
+        images, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({'TELEMETRY_OTLP_TRACES_ENABLED', 'TELEMETRY_OTLP_TRACES_ENDPOINT',
+                         'TELEMETRY_TRACING_SAMPLING_PROBABILITY'} <= set(keys['application']))
+        # Roll forward only: switching export off again, or any other value, is an unreviewed change.
+        for before, after in (('true', 'false'), ('false', 'yes')):
+            with self.subTest(before=before, after=after):
+                self.active['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = before
+                target['services']['application']['environment']['TELEMETRY_OTLP_TRACES_ENABLED'] = after
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_alert_and_notice_delivery_is_switched_by_the_owner(self):
+        target = rendered(self.new_bundle)
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        result, changed = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertEqual(keys['grafana'], ['GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED', 'GRAFANA_TELEGRAM_ENABLED'])
+        # Switching delivery off again is reviewed too; any other value refuses.
+        self.active['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='true', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='true')
+        target['services']['grafana']['environment'].update(
+            GRAFANA_TELEGRAM_ENABLED='false', GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED='false')
+        self.reconcile(target)
+        for key in ('GRAFANA_TELEGRAM_ENABLED', 'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED'):
+            with self.subTest(key=key):
+                broken = copy.deepcopy(target)
+                broken['services']['grafana']['environment'][key] = 'yes'
+                self.assertRaises(trust.Refused, self.reconcile, broken)
+
+    def test_delivery_needs_well_formed_telegram_files(self):
+        secrets = self.root / 'telegram'
+        secrets.mkdir()
+        self.assertFalse(upgrade.telegram_ready(secrets))
+        token, chat = secrets / 'grafana-telegram-bot-token', secrets / 'grafana-telegram-chat-id'
+        token.write_text('')
+        chat.write_text('')
+        self.assertFalse(upgrade.telegram_ready(secrets), 'Empty placeholders keep delivery off.')
+        token.write_text('123456:' + 'A' * 35 + '\n')
+        chat.write_text('-100123\n')
+        self.assertTrue(upgrade.telegram_ready(secrets))
+        for value in ('123456:short', '123456:' + 'A' * 35 + ' x', 'bot123456:' + 'A' * 35):
+            with self.subTest(token=value):
+                token.write_text(value)
+                self.assertFalse(upgrade.telegram_ready(secrets))
+        token.write_text('123456:' + 'A' * 35)
+        chat.write_text('@channel')
+        self.assertFalse(upgrade.telegram_ready(secrets))
+
+    def with_feedback(self, target=None):
+        target = target or rendered(self.new_bundle)
+        target['secrets'].update({name: {'file': '/s/' + name.replace('_', '-')} for name in upgrade.SECRET_ADDITIONS})
+        target['services']['application']['secrets'] = [
+            {'source': name, 'target': '/run/secrets/' + name} for name in upgrade.SECRET_ADDITIONS]
+        target['services']['application']['environment'].update(
+            {key: '/run/secrets/' + name for name, (_, key) in upgrade.SECRET_ADDITIONS.items()})
+        return target
+
+    def without_deletion(self, value):
+        value['services']['application']['environment'].pop(upgrade.DELETION_ENABLED)
+        value['services']['application']['environment'].pop(upgrade.DELETION_CREDENTIAL)
+        value['services']['application']['secrets'] = []
+        value['secrets'].pop(upgrade.DELETION_SECRET)
+        return value
+
+    def test_the_deletion_executor_is_added_off_beside_a_pre_543_runtime(self):
+        self.active = self.without_deletion(self.active)
+        upgrade.validate_runtime(self.without_deletion(rendered(self.new_bundle)), IMAGES)
+        result, changed = self.reconcile()
+        upgrade.validate_runtime(result, IMAGES)
+        self.assertEqual(upgrade.secret_additions(self.active, result), [upgrade.DELETION_SECRET])
+        self.assertIn('secrets', changed['application'])
+        _, keys = upgrade.review_delta(self.active, result, changed)
+        self.assertTrue({upgrade.DELETION_ENABLED, upgrade.DELETION_CREDENTIAL} <= set(keys['application']))
+
+    def test_self_service_deletion_is_activated_once_and_never_silently_disabled(self):
+        target = rendered(self.new_bundle)
+        target['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        result, _ = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        self.active['services']['application']['environment'][upgrade.DELETION_ENABLED] = 'true'
+        for value in ('false', 'yes'):
+            with self.subTest(value=value):
+                target['services']['application']['environment'][upgrade.DELETION_ENABLED] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        # A release that drops the executor settings would silently disable it.
+        self.assertRaises(trust.Refused, self.reconcile, self.without_deletion(rendered(self.new_bundle)))
+
+    def test_an_enabled_executor_needs_the_application_owned_capability(self):
+        path = self.root / 'capability'
+        self.assertFalse(upgrade.deletion_capability_ready(path))
+        path.write_text('a' * 64 + '\n')
+        path.chmod(0o600)
+        with patch.object(upgrade, 'APPLICATION_UID', os.getuid()):
+            self.assertTrue(upgrade.deletion_capability_ready(path))
+            for mode in (0o640, 0o604):
+                path.chmod(mode)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.chmod(0o600)
+            for value in ('', 'A' * 64, 'a' * 63, 'g' * 64):
+                path.write_text(value)
+                self.assertFalse(upgrade.deletion_capability_ready(path))
+            path.write_text('a' * 64)
+            link = self.root / 'link'
+            link.symlink_to(path)
+            self.assertFalse(upgrade.deletion_capability_ready(link))
+        self.assertFalse(upgrade.deletion_capability_ready(path), 'Another owner than UID 10001 refuses.')
+
+    def test_reviewed_secret_additions_are_accepted_with_their_file_settings(self):
+        result, changed = self.reconcile(self.with_feedback())
+        # The fixture's active runtime already holds the #543 capability.
+        self.assertEqual(upgrade.secret_additions(self.active, result), sorted(set(upgrade.SECRET_ADDITIONS) - {upgrade.DELETION_SECRET}))
+        self.assertIn('secrets', changed['application'])
+
+    def test_any_other_secret_change_still_refuses(self):
+        mutations = {
+            'unreviewed secret': lambda c: c['secrets'].__setitem__('other_secret', {'file': '/s/other-secret'}),
+            'secret outside the inventory': lambda c: c['secrets']['feedback_smtp_username'].__setitem__('file', '/tmp/x'),
+            'existing secret moved': lambda c: c['secrets']['keycloak_admin_password'].__setitem__('file', '/s/other'),
+            'reviewed secret in another service': lambda c: c['services']['keycloak'].__setitem__(
+                'secrets', [{'source': 'feedback_smtp_username', 'target': '/run/secrets/feedback_smtp_username'}]),
+            'reviewed secret at another path': lambda c: c['services']['application']['secrets'][0].__setitem__('target', '/x'),
+            'file setting without its secret': lambda c: c['services']['application']['environment'].__setitem__(
+                'FEEDBACK_SMTP_USERNAME_FILE', '/run/secrets/other'),
+            'file setting on another service': lambda c: c['services']['keycloak']['environment'].__setitem__(
+                'FEEDBACK_SMTP_USERNAME_FILE', '/run/secrets/feedback_smtp_username'),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name):
+                target = self.with_feedback()
+                mutate(target)
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_a_setting_transition_is_exact(self):
+        before, after = upgrade.SETTING_TRANSITIONS[('keycloak', 'KC_LOG_LEVEL')]
+        self.active['services']['keycloak']['environment']['KC_LOG_LEVEL'] = before
+        target = rendered(self.new_bundle)
+        target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = after
+        self.assertIn('environment', self.reconcile(target)[1]['keycloak'])
+        for value in ('debug', after + ',org.keycloak:trace'):
+            with self.subTest(value):
+                target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+        self.active['services']['keycloak']['environment']['KC_LOG_LEVEL'] = 'warn'
+        target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = after
+        self.assertRaises(trust.Refused, self.reconcile, target)
+
+    def test_feedback_switch_follows_owner_inputs_and_needs_an_inbox_when_on(self):
+        self.active = self.with_feedback(self.active)
+        self.active['services']['application']['environment'].update(FEEDBACK_ENABLED='false', FEEDBACK_INBOX='')
+        target = self.with_feedback()
+        target['services']['application']['environment'].update(FEEDBACK_ENABLED='true', FEEDBACK_INBOX='owner@example.invalid')
+        result, _ = self.reconcile(target)
+        upgrade.validate_runtime(result, IMAGES)
+        for value in ({'FEEDBACK_ENABLED': 'true', 'FEEDBACK_INBOX': ''}, {'FEEDBACK_ENABLED': 'yes'}):
+            with self.subTest(value):
+                broken = copy.deepcopy(result)
+                broken['services']['application']['environment'].update(value)
+                self.assertRaises(trust.Refused, upgrade.validate_runtime, broken, IMAGES)
+
+    def test_runtime_inputs_add_only_reviewed_defaults_and_owner_keys(self):
+        previous = {'PRODUCTION_TELEGRAM_ENABLED': 'false', 'PRODUCTION_SECRETS_GID': '900'}
+        example = {**previous, **upgrade.INPUT_DEFAULTS}
+        values, inputs = upgrade.runtime_inputs(previous, example, {})
+        self.assertEqual(values, example)
+        self.assertEqual(inputs, {'defaulted': sorted(upgrade.INPUT_DEFAULTS), 'ownerKeys': [], 'ownerSha256': None})
+        owner = {'PRODUCTION_FEEDBACK_ENABLED': 'true', 'PRODUCTION_FEEDBACK_INBOX': 'owner@example.invalid'}
+        values, inputs = upgrade.runtime_inputs(previous, example, owner)
+        self.assertEqual(values['PRODUCTION_FEEDBACK_INBOX'], 'owner@example.invalid')
+        self.assertNotIn('owner@example.invalid', json.dumps(inputs), 'The plan never carries the mailbox.')
+        refusals = {
+            'unreviewed new input': (previous, {**example, 'PRODUCTION_OTHER': 'x'}, {}),
+            'reviewed input with another default': (previous, {**example, 'PRODUCTION_FEEDBACK_ENABLED': 'true'}, {}),
+            'removed input': ({**previous, 'PRODUCTION_GONE': 'x'}, example, {}),
+            'owner key outside the reviewed set': (previous, example, {'PRODUCTION_SECRETS_GID': '901'}),
+            'feedback on without an inbox': (previous, example, {'PRODUCTION_FEEDBACK_ENABLED': 'true'}),
+        }
+        for name, arguments in refusals.items():
+            with self.subTest(name):
+                self.assertRaises(trust.Refused, upgrade.runtime_inputs, *arguments)
+
+    def test_owner_inputs_come_only_from_the_protected_file(self):
+        actor = upgrade.Upgrade.__new__(upgrade.Upgrade)
+        path = self.root / 'runtime-inputs.env'
+        with patch.object(upgrade, 'OWNER_INPUTS', path), patch.object(upgrade.install, 'secure') as secure:
+            self.assertEqual(actor.owner_inputs(), {})
+            path.write_text('PRODUCTION_FEEDBACK_ENABLED=true\nPRODUCTION_FEEDBACK_INBOX=owner@example.invalid\n')
+            self.assertEqual(actor.owner_inputs()['PRODUCTION_FEEDBACK_ENABLED'], 'true')
+            secure.assert_called_with(path, mode=0o600)
+            path.write_text('PRODUCTION_TELEGRAM_ENABLED=true\n')
+            self.assertEqual(actor.owner_inputs(), {'PRODUCTION_TELEGRAM_ENABLED': 'true'})
+            path.write_text('PRODUCTION_SECRETS_GID=901\n')
+            self.assertRaises(trust.Refused, actor.owner_inputs)
+
+    def test_staging_creates_missing_reviewed_secrets_empty_and_never_overwrites(self):
+        actor = upgrade.Upgrade.__new__(upgrade.Upgrade)
+        secrets_dir = self.root / 'secrets'
+        secrets_dir.mkdir()
+        (secrets_dir / 'feedback-smtp-password').write_text('kept')
+        target = self.with_feedback()
+        target['secrets'].update({name: {'file': str(secrets_dir / name.replace('_', '-'))} for name in upgrade.SECRET_ADDITIONS})
+        target['services']['application']['group_add'] = ['900']
+        target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'false'
+        owners = []
+        with patch.object(upgrade.install, 'secure'), \
+                patch.object(upgrade.os, 'fchown', side_effect=lambda fd, uid, gid: owners.append((uid, gid))):
+            self.assertEqual(actor.missing_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             {'feedback-smtp-username', 'account-deletion-executor-capability'})
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)),
+                             ['account-deletion-executor-capability', 'feedback-smtp-username'])
+            created = secrets_dir / 'feedback-smtp-username'
+            self.assertEqual((created.read_bytes(), created.stat().st_mode & 0o777, owners[-1]), (b'', 0o640, (0, 900)))
+            # #543: the capability placeholder is created empty only while the executor is off.
+            capability = secrets_dir / 'account-deletion-executor-capability'
+            self.assertEqual(capability.read_bytes(), b'')
+            capability.unlink()
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'true'
+            with self.assertRaisesRegex(trust.Refused, 'provisioned before the upgrade'):
+                actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            target['services']['application']['environment']['ACCOUNT_DELETION_EXECUTOR_ENABLED'] = 'false'
+            actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            self.assertEqual((secrets_dir / 'feedback-smtp-password').read_text(), 'kept')
+            self.assertEqual(actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS)), [])
+            created.unlink()
+            target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'true'
+            with self.assertRaisesRegex(trust.Refused, 'provisioned before the upgrade'):
+                actor.create_secret_additions(target, sorted(upgrade.SECRET_ADDITIONS))
+            self.assertFalse(created.exists())
 
 
 class FakeCore:
@@ -498,6 +1113,9 @@ class FakeUpgrade(upgrade.Upgrade):
                     'changedServices': {n: ['image'] for n in ('caddy', 'application', 'catalogue-localizer', 'grafana', 'keycloak', 'migration')},
                     'targetConfigurationSha256': upgrade.install.sha(self.bundle / upgrade.TARGET_CONFIG),
                     'migrationInventory': FILES}
+        if getattr(self.test, 'activation', None):
+            reviewed.update(activation=self.test.activation, handoverRefusals=[] if self.test.activation == 'handover' else ['schema-migrations'],
+                            changedServices={n: ['image'] for n in ('application', 'migration')})
         return {'reviewed': reviewed, 'planSha256': upgrade.digest(reviewed), 'config': rendered(self.bundle), 'local': lambda p: p}
 
     def target_host(self, plan):
@@ -548,7 +1166,7 @@ class FakeUpgrade(upgrade.Upgrade):
             raise trust.Refused('Injected interruption.')
 
 
-class Flow(unittest.TestCase):
+class FlowFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -631,6 +1249,7 @@ class Flow(unittest.TestCase):
     def filtered(self):
         return [e for e in self.log if not e.startswith(('operational', 'staged', 'phase:', 'running:', 'probe:', 'assert-fenced', 'lock', 'unlock'))]
 
+class Flow(FlowFixture):
     def test_order_keeps_every_writer_closed_until_the_identity_migration_is_verified(self):
         result = self.apply()
         self.assertEqual(result['mode'], 'applied')
@@ -641,7 +1260,7 @@ class Flow(unittest.TestCase):
             'reader', 'sql:ALTER ROLE videogame_keycloak LOGIN;', 'up:keycloak', 'notice:apply', 'realm:apply', 'realm:check', 'notice:check',
             'no-start:caddy,application,catalogue-localizer,grafana', 'roles-login:True', 'gate-open', 'fence-exit',
             'up:telemetry', 'up:prometheus', 'up:node-exporter', 'up:blackbox',
-            'up:caddy', 'up:application', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
+            'up:caddy', 'up:application', 'up:loki', 'up:tempo', 'up:catalogue-localizer', 'up:grafana', 'smoke'])
         self.assertEqual(self.log.count('gate-open'), 1, 'The gate opens exactly once, at the reviewed reopening.')
         for probe in ('authorization', 'prometheus', 'grafana'):
             self.assertIn('probe:' + probe, self.log)
@@ -713,6 +1332,39 @@ class Flow(unittest.TestCase):
         local = self.base / 'local.json'
         local.write_text(json.dumps({'kind': 'encrypted-copy', 'backupId': BACKUP, 'outcome': 'success'}))
         self.assert_refused_without_change(offhost=local)
+
+    def proof(self, **changes):
+        """ADR-0043: an earlier same-schema pair, restored while the product served."""
+        proof = self.base / 'restored-pair'
+        proof.mkdir(exist_ok=True)
+        manifest = {**self.manifest(), 'backupId': 'e' * 32, 'fence': 'cluster-snapshot',
+                    'recoveryPoint': (NOW - timedelta(hours=1, minutes=20)).isoformat(), **changes}
+        (proof / 'manifest.json').write_text(json.dumps(manifest))
+        self.restore.write_text(json.dumps({'kind': 'isolated-restore', 'backupId': manifest['backupId'], 'outcome': 'success'}))
+        return proof
+
+    def test_an_earlier_restored_pair_of_the_same_schema_proves_the_final_pair(self):
+        result = self.apply(proof=self.proof())
+        self.assertEqual(result['mode'], 'applied')
+        record = self.journal()
+        self.assertEqual((record['backup']['backupId'], record['backup']['restoredBackupId']), (BACKUP, 'e' * 32))
+        retained = sorted(p.name for p in self.admin.glob(f'{upgrade.UPGRADES}/{TARGET}/*.json'))
+        self.assertIn('restored-manifest.json', retained)
+
+    def test_a_restored_pair_that_is_not_a_recent_same_schema_predecessor_refuses(self):
+        cases = {'schema': {'applicationSchema': FILES[1]['version']}, 'images': {'images': {**OLD, 'application': IMAGES['application']}},
+                 'configuration': {'configurationSha256': 'other'}, 'recipient': {'recipient': 'B' * 40},
+                 'too old': {'recoveryPoint': (NOW - timedelta(hours=4, minutes=1)).isoformat()},
+                 'newer than the final pair': {'recoveryPoint': NOW.isoformat()}, 'same pair': {'backupId': BACKUP},
+                 'unknown fence': {'fence': 'manual-dump'}}
+        for label, changes in cases.items():
+            with self.subTest(label):
+                self.setUp()
+                self.assert_refused_without_change(proof=self.proof(**changes))
+        self.setUp()
+        proof = self.proof()
+        self.restore.write_text(json.dumps({'kind': 'isolated-restore', 'backupId': BACKUP, 'outcome': 'success'}))
+        self.assert_refused_without_change(proof=proof)
 
     def test_a_changed_staged_bundle_refuses(self):
         self.staged_failure = trust.Refused('changed')
@@ -991,6 +1643,7 @@ class Flow(unittest.TestCase):
 
     def test_forward_fix_carries_original_notice_snapshot_after_legal_text_changed(self):
         value = self.prepare_forward_fix()
+        (value.bundle / 'candidate' / upgrade.REALM_IMPORT).write_text(json.dumps(NOTICE_TARGET))
         original = self.predecessor_notice_snapshot()
         saved = original.read_bytes()
         self.identity['realmLocalizations'] = [2, 'aligned-notice']
@@ -1002,6 +1655,7 @@ class Flow(unittest.TestCase):
 
     def test_notice_baseline_survives_repeated_forward_fixes_and_interrupted_copy(self):
         value = self.prepare_forward_fix()
+        (value.bundle / 'candidate' / upgrade.REALM_IMPORT).write_text(json.dumps(NOTICE_TARGET))
         original = self.predecessor_notice_snapshot()
         predecessor = value.active['predecessor']
         value.carry_notice_snapshot(predecessor)
@@ -1102,6 +1756,260 @@ class Flow(unittest.TestCase):
         self.log.clear()
         self.upgrader().resume(self.journal()['planSha256'])
         self.assertTrue(acceptance.upgrade_owns_runtime(self.admin))
+
+
+def edge_config(bundle, caddyfile):
+    value = config(bundle)
+    value['services']['application']['networks'] = {'application-edge': {'ipv4_address': upgrade.BFF_ADDRESS}, 'application-data': None}
+    value['services']['caddy']['volumes'][0]['source'] = str(caddyfile)
+    return value
+
+
+class HandoverEligibility(unittest.TestCase):
+    """ADR-0043: only a release that changes nothing but the application image may skip the fence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.caddyfile = Path(self.tmp.name) / 'Caddyfile.private'
+        self.caddyfile.write_text((ROOT / 'deploy/public-production/caddy/Caddyfile').read_text())
+        self.active = edge_config(OLD_BUNDLE, self.caddyfile)
+        self.target = copy.deepcopy(self.active)
+        for name in ('application', 'migration'):
+            self.target['services'][name]['image'] = IMAGES['application']
+        self.target['services']['application']['environment']['TELEMETRY_SERVICE_VERSION'] = '2'
+        self.changed = {'application': ['environment', 'image'], 'migration': ['image']}
+        self.flyway = {'pending': []}
+
+    def refusals(self, realm_unchanged=True, secrets=()):
+        return upgrade.handover_refusals(self.active, self.target, self.changed, self.flyway, realm_unchanged, list(secrets))
+
+    def test_an_application_only_release_hands_over(self):
+        self.assertEqual(self.refusals(), [])
+
+    def test_every_incompatible_change_needs_the_fence(self):
+        def keycloak():
+            self.changed['keycloak'] = ['image']
+        def setting():
+            self.target['services']['application']['environment']['FEEDBACK_ENABLED'] = 'true'
+        def field():
+            self.changed['application'].append('cpus')
+        def migration():
+            self.flyway = {'pending': [FILES[-1]['script']]}
+        def edge():
+            self.caddyfile.write_text(self.caddyfile.read_text().replace(' application-candidate:8080', ''))
+        def address():
+            self.target['services']['application']['networks']['application-edge'] = {'ipv4_address': '10.203.1.9'}
+        cases = {keycloak: 'another-service-changes', setting: 'settings-change', field: 'configuration-changes',
+                 migration: 'schema-migrations', edge: 'edge-without-candidate', address: 'no-fixed-application-address'}
+        for change, refusal in cases.items():
+            with self.subTest(refusal):
+                self.setUp()
+                change()
+                self.assertIn(refusal, self.refusals())
+        self.setUp()
+        self.assertEqual(self.refusals(realm_unchanged=False), ['identity-changes'])
+        self.assertEqual(self.refusals(secrets=['feedback_smtp_password']), ['secret-additions'])
+
+    def test_the_candidate_differs_only_in_address_schedule_and_label(self):
+        derived = upgrade.candidate_config(self.target)
+        candidate, application = derived['services'][upgrade.CANDIDATE], self.target['services']['application']
+        self.assertEqual(candidate['networks']['application-edge'], {'ipv4_address': upgrade.CANDIDATE_ADDRESS})
+        self.assertEqual(candidate['environment'][install.SCHEDULING], 'false')
+        self.assertEqual(candidate['labels'][upgrade.CANDIDATE_LABEL], 'true')
+        self.assertEqual(candidate['restart'], application['restart'])
+        stripped = copy.deepcopy(candidate)
+        stripped['networks']['application-edge'] = application['networks']['application-edge']
+        stripped['environment'][install.SCHEDULING] = application['environment'][install.SCHEDULING]
+        del stripped['labels'][upgrade.CANDIDATE_LABEL]
+        self.assertEqual(stripped, application)
+        self.assertEqual({k: v for k, v in derived['services'].items() if k != upgrade.CANDIDATE}, self.target['services'])
+        self.assertEqual(application['networks']['application-edge']['ipv4_address'], upgrade.BFF_ADDRESS, 'The target is not mutated.')
+
+    def test_the_edge_and_the_tool_agree_on_the_candidate(self):
+        text = (ROOT / 'deploy/public-production/caddy/Caddyfile').read_text()
+        self.assertIn(upgrade.CANDIDATE_UPSTREAM, text)
+        self.assertEqual(text.count(f'remote_ip {upgrade.BFF_ADDRESS} {upgrade.CANDIDATE_ADDRESS}\n'), 5)
+        self.assertEqual(text.count(f'remote_ip {upgrade.BFF_ADDRESS}'), 5, 'Every BFF exemption names its candidate too.')
+
+
+class LoggingHost:
+    def __init__(self, test, role):
+        self.test, self.role, self.degraded = test, role, ()
+
+    def compose(self, *args, **_):
+        self.test.log.append(f'{self.role}:' + ' '.join(a for a in args if a in ('exec', 'stop', 'application', upgrade.CANDIDATE)))
+        if args[0] == 'stop' and self.role == 'candidate':
+            self.test.candidate = []
+        return b''
+
+    def smoke_services(self):
+        return list(upgrade.PERSISTENT)
+
+    def running(self, names):
+        self.test.log.append(f'{self.role}-running:' + ','.join(names))
+
+    def smoke(self):
+        self.test.log.append('smoke')
+
+    def gate_open(self):
+        self.test.assertTrue(self.test.recovery.ready and not self.test.recovery.pending)
+
+    def probe(self, script):
+        pass
+
+
+class HandoverUpgrade(FakeUpgrade):
+    def host(self, *_, **__):
+        return LoggingHost(self.test, 'previous')
+
+    def target_host(self, plan):
+        return LoggingHost(self.test, 'target')
+
+    def candidate_host(self, reviewed):
+        return LoggingHost(self.test, 'candidate')
+
+    def candidate_running(self):
+        return self.test.candidate
+
+    def observe_services(self, gate):
+        self.test.log.append('observed')
+        return {}
+
+    def available_memory(self):
+        return self.test.memory
+
+    def start(self, host, *names, timeout=600):
+        self.test.log.append(f'up:{host.role}:' + ','.join(names))
+        if (host.role, names[0]) in self.test.start_failures:
+            raise trust.Refused('Service did not become healthy.')
+        if host.role == 'candidate':
+            self.test.candidate = [b'candidate-id']
+
+
+class Handover(FlowFixture):
+    def setUp(self):
+        super().setUp()
+        self.activation = 'handover'
+        HandoverUpgrade.fault = None
+        self.recovery.history = len(FILES)  # A compatible release: the schema already is the target's.
+        self.recovery.ready, self.recovery.pending = True, False
+        (self.admin / 'first-install/recovery/PENDING.json').unlink()
+        self.candidate, self.memory = [], 8 * 1024 ** 3
+        log = self.log
+
+        class Lock:
+            def __enter__(self):
+                log.append('lock')
+
+            def __exit__(self, *_):
+                log.append('unlock')
+        self.recovery.lock = lambda maintenance=False: self.assertFalse(maintenance) or Lock()
+
+    def upgrader(self, target=TARGET, forward_of=None):
+        value = super().upgrader(target, forward_of)
+        value.__class__ = HandoverUpgrade
+        return value
+
+    def runner(self, args, **_):
+        args = [str(a) for a in args]
+        if args[:2] == ['docker', 'stop']:
+            self.log.append('docker-stop')
+            self.candidate = []
+            return b''
+        return super().runner(args)
+
+    def handover(self):
+        return self.upgrader().handover(self.sha(), reference='#485 owner')
+
+    def untouched_fence(self):
+        self.assertTrue(self.recovery.ready and not self.recovery.pending and self.recovery.marker is None)
+        self.assertFalse([e for e in self.log if e.startswith(('closed', 'gate-open', 'fence', 'sql', 'roles'))], self.log)
+
+    def test_candidate_serves_while_the_application_is_replaced_and_nothing_is_fenced(self):
+        result = self.handover()
+        self.assertEqual(result['mode'], 'applied')
+        steps = [e for e in self.log if e.startswith(('up:', 'previous:', 'candidate:', 'target:', 'smoke'))]
+        self.assertEqual(steps, ['up:candidate:application-candidate', 'candidate:exec application-candidate',
+                                 'previous:stop application', 'up:target:application', 'candidate:stop application-candidate', 'smoke'])
+        self.untouched_fence()
+        record = self.journal()
+        self.assertEqual((record['status'], record['activation']), ('complete', 'handover'))
+        self.assertFalse(record['migrationStarted'] or record['identityStarted'])
+        pointer = json.loads((self.admin / upgrade.UPGRADES / upgrade.ACTIVE).read_text())
+        self.assertEqual(pointer['revision'], TARGET)
+
+    def test_any_failure_restores_the_previous_application_and_stops_the_candidate(self):
+        for failure in (('candidate', upgrade.CANDIDATE), ('target', 'application')):
+            with self.subTest(failure):
+                self.setUp()
+                self.start_failures = {failure}
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                record = self.journal()
+                self.assertEqual((record['status'], record['containment'], record['reason']),
+                                 ('rolled-back', 'confirmed', 'Service did not become healthy.'))
+                self.assertEqual(self.log[-1:], ['unlock'])
+                self.assertIn('up:previous:application', self.log)
+                self.assertEqual(self.candidate, [])
+                self.assertFalse((self.admin / upgrade.UPGRADES / upgrade.ACTIVE).exists(), 'ACTIVE never names a rolled-back target.')
+                self.untouched_fence()
+                self.assertEqual(self.upgrader().unfinished(), [], 'A rolled-back handover blocks nothing.')
+
+    def test_interruption_in_every_phase_rolls_back(self):
+        for phase in ('candidate', 'handover', 'replacing', 'retiring', 'smoke', 'finalizing'):
+            with self.subTest(phase):
+                self.setUp()
+                HandoverUpgrade.fault = phase
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                self.assertEqual((self.journal()['status'], self.journal()['failedPhase']), ('rolled-back', phase))
+                self.untouched_fence()
+
+    def test_a_failed_roll_back_stays_visible_and_abandon_completes_it(self):
+        self.start_failures = {('target', 'application'), ('previous', 'application')}
+        with self.assertRaises(trust.Refused):
+            self.handover()
+        record = self.journal()
+        self.assertEqual((record['status'], record['containment']), ('failed', 'inconclusive'))
+        self.assertEqual(self.upgrader().unfinished(), [TARGET])
+        with self.assertRaisesRegex(trust.Refused, 'never resumed'):
+            self.upgrader().resume(self.sha())
+        self.start_failures = set()
+        self.assertEqual(self.upgrader().abandon()['mode'], 'rolled-back')
+        self.assertEqual(self.candidate, [])
+        self.untouched_fence()
+
+    def test_preconditions_refuse_before_anything_starts(self):
+        def closed():
+            self.recovery.ready = False
+        def maintenance():
+            self.recovery.marker = '22222222-2222-4222-8222-222222222222'
+        def work():
+            self.work = {'runningSynchronizations': 1, 'activeTranslationClaims': 0}
+        def memory():
+            self.memory = 1024 ** 2
+        def leftover():
+            self.candidate = [b'running-candidate']
+        def fenced():
+            self.activation = 'fenced'
+        def schema():
+            self.recovery.history = len(FILES) - 1
+        for fault in (closed, maintenance, work, memory, leftover, fenced, schema):
+            with self.subTest(fault.__name__):
+                self.setUp()
+                fault()
+                with self.assertRaises(trust.Refused):
+                    self.handover()
+                self.assertFalse((self.admin / upgrade.UPGRADES / TARGET / upgrade.JOURNAL).exists())
+                self.assertFalse([e for e in self.log if e.startswith(('up:', 'previous:', 'candidate:', 'target:'))])
+
+    def test_a_rolled_back_release_can_be_handed_over_again(self):
+        self.start_failures = {('target', 'application')}
+        with self.assertRaises(trust.Refused):
+            self.handover()
+        self.start_failures = set()
+        self.assertEqual(self.handover()['mode'], 'applied')
 
 
 class Provenance(unittest.TestCase):
@@ -1400,7 +2308,12 @@ import production_registration_notice as notice
 import private_production_upgrade as upgrade
 import private_dev_promotion as trust
 
-NOTICE_TARGET = json.loads((notice.ROOT / notice.IMPORT).read_text())
+ELIGIBILITY_TARGET = json.loads((notice.ROOT / notice.IMPORT).read_text())
+NOTICE_TARGET = copy.deepcopy(ELIGIBILITY_TARGET)
+old_copy = json.loads((notice.ROOT / 'scripts/fixtures/private-dev-identity/legacy-videogame-platform-realm.json').read_text())
+for key in ('termsText', *notice.LABEL_HASHES):
+    NOTICE_TARGET['localizationTexts']['es'][key] = old_copy['localizationTexts']['es'][key].replace(
+        '${APPLICATION_PUBLIC_ORIGIN}', notice.HOST_TEMPLATE)
 NOTICE_LEGACY = copy.deepcopy(NOTICE_TARGET)
 NOTICE_LEGACY['localizationTexts']['es']['termsText'] = '<p>Gameómetro es un servicio gratuito y sin fines comerciales para personas adultas. Para crear tu cuenta solo te pedimos tu email.</p>'
 
@@ -1475,15 +2388,42 @@ class RegistrationNoticeMigration(unittest.TestCase):
             with self.assertRaises(trust.Refused): upgrade.realm_import_delta(NOTICE_LEGACY, changed)
         self.assertEqual(NOTICE_LEGACY['localizationTexts']['es']['termsText'], notice.notice(NOTICE_LEGACY))
 
+    def test_eligibility_upgrade_accepts_only_reviewed_spanish_copy(self):
+        upgrade.realm_import_delta(NOTICE_TARGET, ELIGIBILITY_TARGET)
+        upgrade.realm_import_delta(NOTICE_LEGACY, ELIGIBILITY_TARGET)
+        for key in ('termsText', *notice.LABEL_HASHES):
+            changed = copy.deepcopy(ELIGIBILITY_TARGET)
+            changed['localizationTexts']['es'][key] = 'unreviewed'
+            with self.assertRaises(trust.Refused):
+                upgrade.realm_import_delta(NOTICE_TARGET, changed)
+
+    def test_eligibility_upgrade_resumes_after_first_key_is_written(self):
+        realm = NoticeRealm()
+        realm.texts['es']['termsText'] = notice.notice(NOTICE_TARGET).replace(
+            notice.HOST_TEMPLATE, notice.PUBLIC_ORIGIN)
+        expected = notice.expected_localizations(realm.texts, ELIGIBILITY_TARGET, live=True)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'snapshot.json'
+            realm.fail = True
+            with self.assertRaises(RuntimeError):
+                notice.align(realm, ELIGIBILITY_TARGET, path)
+            snapshot = path.read_bytes()
+            realm.fail = False
+            notice.align(realm, ELIGIBILITY_TARGET, path)
+            notice.align(realm, ELIGIBILITY_TARGET, path, check=True)
+            self.assertEqual(realm.texts, expected)
+            self.assertEqual(realm.writes, 3)
+            self.assertEqual(path.read_bytes(), snapshot)
+
     def test_apply_check_and_repeat_preserve_every_other_locale_and_realm(self):
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path, check=True)
+            notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(path.read_bytes(), saved)
             self.assertEqual(realm.writes, 1)
             self.assertEqual(realm.texts['fr'], {'other': 'preserved'})
@@ -1493,7 +2433,7 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path, check=True)
             self.assertFalse(path.exists())
             self.assertEqual(realm.writes, 0)
 
@@ -1502,10 +2442,10 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm.fail = True
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            with self.assertRaises(RuntimeError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(RuntimeError): notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             realm.fail = False
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(path.read_bytes(), saved)
             self.assertEqual(realm.writes, 1)
 
@@ -1514,10 +2454,10 @@ class RegistrationNoticeMigration(unittest.TestCase):
             realm = NoticeRealm()
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / 'snapshot.json'
-                notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                notice.align(realm, NOTICE_TARGET, path)
                 if drift == 'locale': realm.texts['fr']['other'] = 'unexpected'
                 else: realm.state['registrationAllowed'] = False
-                with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+                with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
                 self.assertEqual(realm.writes, 1)
 
     def test_unknown_live_notice_and_write_side_effects_refuse(self):
@@ -1525,22 +2465,22 @@ class RegistrationNoticeMigration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
             realm.texts['es']['termsText'] = 'custom'
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
             self.assertEqual(realm.writes, 0)
             self.assertFalse(path.exists())
             realm = NoticeRealm()
             realm.drift = True
-            with self.assertRaises(ValueError): notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            with self.assertRaises(ValueError): notice.align(realm, NOTICE_TARGET, path)
 
     def test_session_alignment_is_independently_verified_without_resetting_notice_snapshot(self):
         self.assertEqual(notice.SESSION_SETTINGS, upgrade.SESSION_SETTINGS)
         realm = NoticeRealm()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'snapshot.json'
-            notice.align(realm, notice.notice(NOTICE_TARGET), path)
+            notice.align(realm, NOTICE_TARGET, path)
             saved = path.read_bytes()
             realm.state['rememberMe'] = True
-            notice.align(realm, notice.notice(NOTICE_TARGET), path, check=True)
+            notice.align(realm, NOTICE_TARGET, path, check=True)
             self.assertEqual(path.read_bytes(), saved)
 
     def test_notice_cli_addresses_gameometro_instead_of_private_dev_default(self):
@@ -1565,7 +2505,7 @@ class RegistrationNoticeMigration(unittest.TestCase):
         realm = NoticeRealm()
         realm.texts.update({f'x{i}': {} for i in range(notice.MAX_LOCALES)})
         with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
-            notice.align(realm, notice.notice(NOTICE_TARGET), Path(directory) / 'snapshot.json')
+            notice.align(realm, NOTICE_TARGET, Path(directory) / 'snapshot.json')
         self.assertEqual(realm.writes, 0)
 
 

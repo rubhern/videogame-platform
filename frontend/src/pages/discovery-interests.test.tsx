@@ -222,28 +222,28 @@ describe("Mis plataformas on Destacados", () => {
 describe("Mis plataformas on Explorar lanzamientos", () => {
   it("applies the preferred platforms by default and shows them in Plataforma", async () => {
     const fetchMock = stubBff(withInterests);
-    renderApp("/lanzamientos?from=2026-10-01&to=2026-10-31&sort=hype&regionIds=worldwide");
+    renderApp("/lanzamientos?from=2026-10-01&to=2026-10-31&sort=releaseDate&regionIds=worldwide");
 
     expect(await screen.findByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Mis plataformas");
     const read = reads(fetchMock, "/api/v1/releases").at(-1);
     expect(read?.searchParams.getAll("platformIds")).toEqual(["switch-2", "ps5"]);
     // Dates, order and region stay exactly as the URL names them.
     expect(read?.searchParams.get("from")).toBe("2026-10-01");
-    expect(read?.searchParams.get("sort")).toBe("hype");
+    expect(read?.searchParams.get("sort")).toBe("releaseDate");
     expect(read?.searchParams.getAll("regionIds")).toEqual(["worldwide"]);
   });
 
   it("turns the preferences off for a manual platform choice that starts from what is shown", async () => {
     const user = userEvent.setup();
     const fetchMock = stubBff(withInterests);
-    const { router, interests } = renderApp("/lanzamientos?sort=hype");
+    const { router, interests } = renderApp("/lanzamientos?sort=releaseDate");
 
     await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
     await user.click(within(screen.getByRole("listbox", { name: "Plataforma" })).getByRole("option", { name: /Windows PC/ }));
 
     await waitFor(() =>
       expect(router.state.location.search).toBe(
-        "?sort=hype&platformIds=switch-2&platformIds=ps5&platformIds=pc",
+        "?sort=releaseDate&platformIds=switch-2&platformIds=ps5&platformIds=pc",
       ),
     );
     expect(interests.enabled()).toBe(false);
@@ -251,7 +251,7 @@ describe("Mis plataformas on Explorar lanzamientos", () => {
 
     // Applying the preferences again replaces the manual choice; nothing intersects.
     await user.click(screen.getByRole("checkbox", { name: "Filtrar por mis plataformas" }));
-    await waitFor(() => expect(router.state.location.search).toBe("?sort=hype"));
+    await waitFor(() => expect(router.state.location.search).toBe("?sort=releaseDate"));
     await waitFor(() =>
       expect(reads(fetchMock, "/api/v1/releases").at(-1)?.searchParams.getAll("platformIds")).toEqual([
         "switch-2",

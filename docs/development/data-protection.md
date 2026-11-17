@@ -31,22 +31,25 @@ Continuous account processing is not occasional; do not rely on the small-organi
 exception to dispense with this register. Keep actual contracts and identifiers in
 restricted owner storage, not the repository/portal.
 
-Subjects: adult account holders, anonymous visitors and people contacting the operator.
+Subjects: account holders, including eligible minors, anonymous visitors and people contacting the operator.
 No intentional collection of special categories or children's data. An unexpected
 underage account or sensitive support attachment triggers case-specific restriction,
 minimization and review, rather than routine ID collection.
 
 | Activity / subjects | Data and purpose | Proposed legal basis / recipients | Erasure or retention criterion |
 |---|---|---|---|
-| Account and identity / account holders | Email/username, verification status, internal subject, creation time, password hash; establish/verify/recover identity | Service contract, GDPR 6(1)(b); operator, selected VPS and transactional mail processors | Owner-approved future policy: never-verified accounts expire at 30 days from creation; verified accounts/ratings until erasure regardless of inactivity. Locally prepared, not scheduled or host-qualified; see design A and implementation evidence |
+| Account and identity / account holders | Email/username, verification status, internal subject, creation time, password hash; when the person chooses Google or Microsoft sign-in (#548), the linked provider and the account identifier and username it sends, and the recorded time of accepting the terms; names a provider sends are not kept; establish/verify/recover identity | Service contract, GDPR 6(1)(b); operator, selected VPS and transactional mail processors | Owner-approved future policy: never-verified accounts expire at 30 days from creation; verified accounts/ratings until erasure regardless of inactivity. Locally prepared, not scheduled or host-qualified; see design A and implementation evidence |
 | Session and access security / account holders | Keycloak persisted session ID, start/last-access, IP and device notes; last failed IP in brute-force state; BFF in-memory session, protocol claims, tokens/CSRF and pending intent | Necessary authentication under contract; abuse/security under 6(1)(f), subject to balancing; operator and VPS | Idle/absolute session policy per executable realm/BFF; restore copies also hold live identity sessions; failure-state lifecycle must be verified on real runtime |
 | Personal ratings / account holders | Derived UserId, GameId, 1–10 value or, post-MVP (#359), the platforms the user says they played on with optional 1–10 scores there, times and concurrency version; retrieval/edit/delete and public mean/count/distribution and per-platform means/counts | Contract; operator/VPS, public receives aggregates only | Until individual rating/account erasure; played platforms go with their rating, and exports include them; deletion reflected by current DB reads and cache revalidation. Small groups, including a platform scored by few users, are not asserted anonymous |
 | Preferred platforms / account holders | Derived UserId, chosen platform IDs, whether and when a choice was last saved (#295); narrow release discovery at the user's request | Contract; operator/VPS; never sent to Keycloak, telemetry, logs or public reads, only to the user's own browser | Until the user clears or replaces them, or account erasure, which deletes them with the ratings; included in exports |
 | Transactional delivery / account holders, including pending accounts | Email, verification/recovery message and action link, delivery/bounce/routing metadata | Contract for requested mail; security under legitimate interest; Mailjet Free selected, receiving mailbox providers | Free statistics/campaigns: 90 days; contacts/templates: account lifetime according to the [current help page](https://documentation.mailjet.com/hc/en-us/articles/360042755094-How-long-are-my-statistics-kept). SMTP content/recipient/bounce/routing retention still requires verification; link expiry is not message erasure. No marketing/tracking purpose authorized; verify actual messages do not add tracking |
+| Feedback form / anonymous visitors | Chosen category, free-text message and optional reply address. Review reports and suggestions and reply if appropriate | Proposed ordinary correspondence basis (legitimate interest), owner inbox and configured mail processors, subject to #331 review | No application copy. Apply existing support minimization once reviewed and resolved. Confirm relay and mailbox retention and deletion before activation. Keep only the existing case-specific evidence needed for rights or legal obligations |
 | Support and rights / correspondents | Address, necessary correspondence, request reference, identity-check outcome, response proof | Ordinary service support: contract or legitimate interest for non-account queries; rights: legal obligation 6(1)(c) | Export files deleted after verified delivery; support closed then minimized; suppression proof, blocked source data and deletion ledger remain separate; blocked-data initial term 3 years with 12-month review and case-specific legal holds; no indefinite mailbox retention |
+| Product settings audit / catalogue operators (#450) | Principal-derived UserId of the operator, setting key, previous and new values, revision and time of each accepted change; accountability for product behaviour changes and their recovery | Legitimate interest in operational accountability; controller and existing hosting/administration boundary only; never shown in the panel, logs or metrics | Kept with the settings history; account erasure does not remove it (owner decision pending, ADR-0042). The current operator is the controller; review before granting the role to another person |
 | Self-service deletion admission / account holders | Principal-derived UserId, subject, opaque request reference, receipt hash, pending/completed status and times; fence access and reconcile the independently recorded erasure | Rights compliance; controller and existing hosting/administration boundary only; no profile, rating values or credentials in the intent | Pending until safely resolved; completed intent reviewed with the deletion ledger while restorable identity state exists, at least 35 days. Receipt authorization expires after 24 hours; owner review/purge remains required |
 | Recovery and deletion replay / account holders | Encrypted paired PostgreSQL dumps, live identity-session IPs at capture, credentials/SMTP secret; minimal deletion ledger with issuer/subject/UserId, times/outcomes | Legitimate interest in recovery; rights-compliance evidence under legal obligation; operator and owner-selected future OVHcloud off-host storage, subject to processor terms and independent access/keys | All backup copies ≤35 days; ledger while any restorable copy exists, at least 35 days after completion; incomplete entries never purged; resolve rather than indefinitely neglect them |
 | Operation and incident response / visitors and accounts | Necessary route/status/timing/error diagnostics and aggregate metrics; exceptional incident evidence | Legitimate interest in security; breach records/notifications under legal obligation; operator, relevant processors, AEPD/affected people when required | Routine logs ≤7 days; bounded aggregate telemetry under observability policy; incident evidence separate and restricted; reasoned legal schedule/holds, not an automatic extension of routine logs |
+| Product analytics / visitors who accept it (#507) | Pseudonymous GA4 cookie identifier, route template (a public game slug or platform key at most), bounded product events, Google-collected browser, device and approximate location; GA4 does not log or store IP addresses according to Google. Learn which pages and features are used, in aggregate, to decide product changes ([ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md)) | Consent, GDPR 6(1)(a) and LSSI 22.2, collected by an opt-in notice where rejecting is as easy as accepting and withdrawable from the footer; Google Ireland as processor under its data processing terms, transfers under the EU–US DPF and SCCs where applicable. Never an email, account or game ID, score, search term or user ID; never advertising or Signals | GA4 event-level data 14 months; the browser keeps the choice 12 months and a pending sign-in label only for the tab. Withdrawal stops collection and removes reachable `_ga*` cookies; already-sent data follows GA retention. No ID configured means no processing |
 | External image delivery / visitors | IP, browser headers/user agent, origin referrer to images.igdb.com / CloudFront to display catalogue artwork | Legitimate interest proposed, **not established**; Twitch/CDN roles and applicable transfer mechanism unresolved | Third-party retention unknown; no false 7-day/35-day promise. Complete necessity/balancing and role/transfer assessment before privacy acceptance |
 
 General safeguards proposed/partly prepared: same-origin BFF, principal-derived
@@ -107,6 +110,8 @@ are concluded by this document.
 | OVHcloud receiving mailbox, if confirmed | Processor for rights/support correspondence, attachments and delivered exports; also provider's own account/security purposes | Owner confirms mailbox product/entity, DPA, region/subprocessors/remote access, mailbox/deleted-item/backup retention and MFA/access. DNS MX observations alone do not identify the contract. Forwarding to personal mail adds another recipient requiring review |
 | Mailjet / Sinch transactional SMTP | Processor for message content/recipient and delivery; potentially independent purposes for routing/account data | Owner keeps Mailjet Free for transactional mail and accepts the professional-use contractual uncertainty without further clarification requests (superseding E1's written-acceptance condition). This is not vendor permission. Actual contracting entity/incorporated DPA, content/event/recipient retention and deletion controls, US support/group subprocessors and applicable safeguards remain to be verified; no automatic fallback purchase |
 | OVHcloud Object Storage and independent recovery material (selected, not contracted) | Processor for encrypted paired backups and their minimal metadata: Standard, 1-AZ Gravelines, direct automated uploads under the [platform decision](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery). Lenovo removed from the mandatory path; independent ledger/archive copies and keys remain required | Verify actual entity, incorporated DPA/service terms, region, subprocessors/remote access/transfers, retention/deletion/account-closure behaviour and MFA. #276 must prove cloud-only recovery and effective isolation. Encryption does not remove processor duties. Separate ledger/archive placement remains a protected operating input, not an automatic extension of rolling backup storage |
+| Google Analytics 4 (Google Ireland Limited), owner property when created | Processor for consenting visitors' measurement data under the [Google Ads data processing terms](https://business.safety.google/adsprocessorterms/); Google LLC subprocessing in the US | Owner accepts the processing terms in the property, sets 14-month retention, disables Google Signals, ad personalization, enhanced measurement and data sharing, and filters internal traffic before configuring the production ID; the [operations runbook](operations-runbook.md#product-analytics-ga4) owns the steps. Verify DPF certification at activation |
+| Google (Google LLC / Google Ireland Limited) and Microsoft (Microsoft Ireland Operations Limited) sign-in, only when enabled (#548, [ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)) | Independent controllers of their own sign-in service, which the person chooses. They learn that the person signs in to Gameómetro and return the provider account identifier and email (Google with a verification flag; Microsoft through Graph `User.Read`, which also returns names that the realm's profile does not keep). Gameómetro sends them no ratings or account data | Owner registers the apps, accepts each provider's developer terms (Google API Services User Data Policy; Microsoft identity platform terms) and completes Google's consent-screen and brand review before enabling. The owner approved the privacy additions on 2026-11-16. Keycloak stores no provider token. The operator export includes linked providers, and erasure removes them with the account |
 | IGDB/Twitch and image CDN/CloudFront | Recipient of browser IP/headers and origin; do not assume a controller's own CDN is Gameómetro's direct processor | Determine legal roles for collection/transmission, any joint-controller allocation, applicable privacy terms, recipient/retention and Chapter V assessment. EU edge location, a no-cookie sample and owner IP-rights risk acceptance prove none of these |
 
 Check GDPR Chapter V for each transfer or remote access outside the EEA. Record an
@@ -155,8 +160,11 @@ promise staffed or immediate support.
    by just setting an email and `emailVerified=true`. No automatic change-email
    command is implemented; rehearse the exact
    admin flow synthetically before using it with public accounts.
-5. Self-service export and automatic erasure are functionally implemented in #272,
-   pending owner review and production operating qualification. The protected runner
+5. Self-service export and automatic erasure are functionally implemented in #272. Production
+   runs the protected runner on the VPS with the #539 custody
+   ([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md), #543),
+   active since 2026-11-15 after its synthetic qualification. Each erasure closes only the
+   requesting account, never sign-in for others (#564). The protected runner
    automatically claims persisted requests and reuses #274 without manual fulfillment;
    local/disposable functional evidence does not establish physical independence. The principal/session is the authorization source; a recent
    OIDC authentication and CSRF protect deliberate deletion. The supported JSON covers
@@ -270,11 +278,14 @@ configurations. The four anonymous React routes (`/privacidad`, `/condiciones`,
 mail, are available in every application build. Only public section bodies are
 rendered; approval metadata, the administrative template and editorial checklist
 remain internal documentation. Existing semantic layout, responsive table scrolling
-and navigation are reused without dependencies or a cookie banner.
+and navigation are reused without dependencies. Post-MVP (#507), the shell adds a
+first-party consent notice and a footer **Configurar cookies** control, shown only when the
+deployment configures a GA4 measurement ID; their text is owned by the legal source like
+every other public notice.
 
 The canonical generator also supplies the basic registration information and privacy/
 terms links in Keycloak realm localization before submission. Local registration uses
-the existing native adult/terms action; the production flow and private-dev alignment
+the existing native terms acceptance action; the production flow and private-dev alignment
 retain it. Privacy is information, never an additional compulsory consent. D19's lack
 of a per-account accepted-text record remains accepted. Links use the configured
 application origin (not incoming Host headers); footer routes remain relative.
@@ -564,7 +575,12 @@ independently stored copies of encrypted chunks and manifest; verify their ident
 hashes, GPG integrity and decryptability in a protected off-VPS context before sealing.
 Sign the manifest (opaque reference, UTC capture time, schema/profile version, chunk counts,
 ciphertext hashes, expiry/review) with an owner-controlled GPG signing key held off
-VPS; key provisioning if needed is a #275 prerequisite. SHA-256 alone detects changes
+VPS; key provisioning if needed is a #275 prerequisite. **Exception (proposed
+[ADR-0044](../decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md),
+owner decision 2026-11-14):** the unattended 30-day cleanup runs on the VPS with a dedicated
+archive key pair and a dedicated signing key, both passphrase-less and used for nothing else, so
+a VPS compromise can read archived emails of deleted accounts. Owner-attended erasure, purge and
+review keep the off-VPS keys above. SHA-256 alone detects changes
 but proves neither authorship nor trusted time; an owner signature and recorded time
 are evidence, not a qualified timestamp service.
 
@@ -651,7 +667,7 @@ model, with semantic headings/tables and no legal-content image, tracking, stora
 credentials, additional libraries or authentication requirement. No product API or
 OpenAPI change is required for these SPA routes. The existing static fallback
 controller explicitly forwards the four legal paths on direct navigation and reload.
-Registration preserves the native adult/terms enforcement,
+Registration preserves the native terms acceptance requirement,
 verification, recovery and return intent; no copied registration form, new required
 action or consent database is introduced.
 
@@ -663,7 +679,7 @@ action or consent database is introduced.
 | Races and faults | Empty probe causes no maintenance; candidates disappearing before/after drain survive; verification before drain survives; in-flight verification is drained; bypass/maintenance failure refuses deletion; duplicate timer/manual jobs excluded; ledger-copy/archive-copy outage, timeout and crashes at every pre-delete/delete boundary; re-registration same email unaffected |
 | Archive security/purge | Automatic pending/requested profiles with no per-account classification, ordinary rating-row exclusion, scoped exceptional holds, genuine anomaly isolation; explicit field allowlist and absence of credentials/sessions/arbitrary attributes; large per-user keyset SQL/plan and byte cap, encrypted-only persistence, permissions/path/symlink refusal, signature/ciphertext tampering, two-copy sealing/retry, annual review/three-year boundary, legal holds and destruction across copies |
 | Restoration | Erasure replay excludes deleted users before opening, no archive recapture or retention reset; newly aged-out pending accounts processed; verified/unrelated users intact; destroyed legal payloads do not resurrect after archive-storage recovery |
-| Product notices | React route/footer keyboard/direct navigation and approved Spanish text only; no internal checklist, missing fields or added cookies; Keycloak basic information/links and existing adult validation, register/verify/recover/return journey remain intact |
+| Product notices | React route/footer keyboard/direct navigation and approved Spanish text only; no internal checklist, missing fields or added cookies; Keycloak basic information/links and mandatory terms acceptance, register/verify/recover/return journey remain intact |
 
 The following section records focused phase-2 evidence and its limits; full
 affected-area CI and actual proxy/VPS/cloud qualification remain separate gates.
@@ -691,7 +707,8 @@ committed erasures with the application stopped and never recaptures legal sourc
 and configured protected holds stores. Admission stops at 100 accounts or 120 seconds;
 a started account is completed or left recoverable before release. This is not a
 hard 120-second interruption SLA. Exceptions/backlog are reported; a shared failure
-stops the run. No timer is installed. The
+stops the run. In production a daily timer runs it, completing pending erasures first
+([installed](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)). The
 [#275 adapter](../../deploy/public-production/README.md#identity-maintenance) serializes
 owner identity changes/restores/deployments through the recovery lease and settles
 management requests before releasing the fence; a local ledger lock cannot prove those

@@ -139,9 +139,9 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
 3. Install the immutable model outside the checkout using the
    [model procedure](../../backend/README.md#catalogue-translation-runtime-and-models)
    and set its directory in protected runtime.env. Start only the runtime dependencies;
-   do not enable the application or deployment profiles here. Existing hosts use the
-   [targeted localization migration](#one-time-migration-to-the-standard-runtime)
-   instead of repeating this full initial startup.
+   do not enable the application or deployment profiles here. Existing hosts get
+   runtime changes through [promotion](#runtime-changes-during-promotion) instead of
+   repeating this full initial startup.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
@@ -222,9 +222,11 @@ change adds one service and recreates only Keycloak, which is briefly unavailabl
 sign-in; the application, its BFF sessions, PostgreSQL and every other service keep
 their containers. The realm, its accounts and their credentials are not re-imported.
 
-1. Install the reviewed merged revision and hold the deployment lock exactly as in
-   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
-   then validate and record the runtime inventory:
+Since [ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md),
+a normal promotion creates Mailpit and recreates Keycloak itself; only step 3 remains
+an owner action. The steps below are the manual equivalent.
+
+1. Open an [owner maintenance session](#owner-maintenance-session), then validate and record the runtime inventory:
 
    ```bash
    bash scripts/validate-private-dev-runtime.sh \
@@ -260,9 +262,7 @@ their containers. The realm, its accounts and their credentials are not re-impor
    ```
 
    Compare both inventories: only Keycloak may have a new container ID and Mailpit is
-   the only new service. Then perform the
-   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract) and
-   release the lock as in the localization migration's step 4.
+   the only new service. Then release the lock.
 
 ### Owner access and acceptance
 
@@ -332,8 +332,8 @@ disposable copy of the realm. #374's Remember Me addition requires the matching
 shared provider image and BFF; its rollout is [reviewed separately below](#remember-me-rehearsal).
 
 The identity command applies, through the Admin API, the production settings for
-email sign-in, the email-only user profile, the mandatory 18+ registration
-declaration, email verification, the password policy, temporary brute-force lockout,
+email sign-in, the email-only user profile, mandatory acceptance of the terms of use,
+email verification, the password policy, temporary brute-force lockout,
 session and link lifetimes, the Spanish messages, no self-deletion or email change, and
 no stored or logged user events. For #374 it also snapshots and aligns only the BFF's
 **native remember me** mapper, refusing apply if the provider is absent from the image.
@@ -413,8 +413,7 @@ sudoedit /etc/videogame-platform/dev/runtime.env
 In runtime.env add the four `PRIVATE_DEV_SMTP_RELAY_*` entries exactly as in
 [`runtime.env.example`](runtime.env.example). No container reads these files: the mail
 command passes them once to Keycloak over the private HTTPS origin, and Keycloak keeps
-the password in its database, and therefore in the encrypted backups, as production
-does. Neither command prints a credential. To rotate the credential, replace both files
+the password in its database, as production does. Neither command prints a credential. To rotate the credential, replace both files
 the same way and repeat rollout step 5, which always rewrites the relay settings.
 
 ### Reviewed rollout
@@ -423,11 +422,7 @@ Run only after owner review, merge and separate approval to operate on `vgpdev`.
 Keycloak stays up and no container is recreated; the change takes effect on the next
 request.
 
-1. Take and verify an [encrypted backup](#encrypted-backup-with-integrity-and-retention):
-   it is the last-resort recovery of the Keycloak database. Then install the reviewed
-   merged revision and hold the deployment lock exactly as in
-   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
-   and create the snapshot directory:
+1. Open an [owner maintenance session](#owner-maintenance-session) and create the snapshot directory:
 
    ```bash
    install -d -m 0700 -o root -g root /var/lib/videogame-platform/dev/identity-snapshots
@@ -480,11 +475,8 @@ request.
    ```
 
 6. Run the [manual acceptance](#manual-acceptance-with-controlled-addresses), then
-   release the lock and leave the root session as in step 4 of the localization
-   migration. The installed contract changes with this revision, so acknowledge it
-   with the [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
-   before releasing the lock. The next application promotion runs the deployment
-   smoke with the email identifier.
+   release the lock and leave the root session. The next application promotion runs
+   the deployment smoke with the email identifier.
 
 ### Manual acceptance with controlled addresses
 
@@ -495,13 +487,14 @@ accounts without new mailboxes. Automated tests never use the relay. Record the
 outcome in #274 without addresses, message IDs or headers that identify a person.
 
 1. **Registration.** In a private browser window open the private application, choose
-   to sign in and then to register. Only the email and the 18+ declaration are asked
-   for; submitting without the declaration is refused and creates nothing.
+   to sign in and then to register. Registration requires an email and acceptance of the terms.
+   Submitting without acceptance creates no account.
 2. **Verification.** The verification email arrives from
    `no-reply@mail.gameometro.com` with `Reply-To: hola@gameometro.com`; check that it
    carries no provider branding and that the mailbox's original-message view reports
    SPF, DKIM and DMARC `pass`. Open the link within five minutes, choose a password
-   (one under 12 characters is refused) and confirm that the application signs you in.
+   (one under 8 characters, or a common one such as `password123`, is refused) and confirm
+   that the application signs you in.
 3. **Sign-in and logout.** Sign out, which also ends the Keycloak session, and sign in
    again with the email. An existing account still signs in with its email and old
    password, and one wrong password shows the same message as an unknown account.
@@ -550,9 +543,6 @@ stay attached.
   a conflict: keep the email identifier instead. Accounts registered while the policy
   applied, and any whose stored username became its email, keep signing in with the
   email as their username.
-- **Last resort.** Restore the Keycloak database from the backup taken in step 1,
-  following [Backup, restore, rollback and host-loss recovery](#backup-restore-rollback-and-host-loss-recovery).
-  This loses every identity change made after it, including new accounts.
 
 Diagnosis: `KC-SERVICES0026` or `Failed to send email` in Keycloak's log with the
 relay selected means the relay refused or was unreachable. Check the secret files'
@@ -595,6 +585,41 @@ new sessions only; to end access at once, also revoke the account's sessions wit
 `--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
 against an existing local realm; a freshly imported local realm already declares the role.
 
+## Google and Microsoft sign-in
+
+Post-MVP (#548; enabled on `vgpdev` on 2026-11-17 with both providers).
+[ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The promoted Keycloak image already carries the brokered-terms authenticator
+and the theme. The providers exist only after this command adds them to the existing realm.
+
+1. **Register the apps.** Register separate *development* OAuth clients at Google and Microsoft
+   (personal accounts only), never the production ones. Each takes one redirect URI on this host's
+   private Keycloak origin, `PRIVATE_DEV_KEYCLOAK_ORIGIN`:
+   `<origin>/realms/videogame-platform/broker/google/endpoint` and
+   `<origin>/realms/videogame-platform/broker/microsoft/endpoint`.
+2. **Write the credentials.** Put the client IDs and secrets in `PRIVATE_DEV_SECRETS_DIR` as
+   `social-google-client-id`, `social-google-client-secret`, `social-microsoft-client-id` and
+   `social-microsoft-client-secret`, with the same owner and mode as the other protected inputs.
+   A provider with neither file is disabled. One file alone refuses.
+3. **Apply and check**, as root:
+
+   ```bash
+   social=(python3 deploy/private-dev/bin/configure-social-sign-in \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env --realm videogame-platform)
+   "${social[@]}" --check || true
+   "${social[@]}"
+   "${social[@]}" --check
+   ```
+
+The command changes only the terms required action, the `gameometro first broker login` flow and
+the two providers. It never touches accounts, clients or the identity policy, so it needs no
+snapshot.
+- **Rollback:** `--disable` turns both providers off and keeps every linked identity. Never delete a
+  provider in the Admin Console: that drops its links.
+- **Rotation:** replace the secret file and run the command again.
+- **Locally:** `bash scripts/local-dependencies.sh configure-social-sign-in` runs the same command
+  ([local setup](../../docs/development/local-setup.md#google-and-microsoft-sign-in)).
+
 ## Historical synchronization pilot
 
 Post-MVP (#246 spike; tooling prepared, not yet run on `vgpdev`).
@@ -623,9 +648,7 @@ Boundaries:
   Samples, events and errors are bounded. Monitoring ends at `--max-hours` (default 36); the
   run itself has no harness limit.
 
-Once, after review, merge, the [checkout update](#restricted-host-installation) and its
-[contract acknowledgement](#acknowledge-the-applied-runtime-contract) (the tooling changes
-the deployment contract, not the application image), create the evidence root:
+Once, after the harness reaches the host with a promotion, create the evidence root:
 
 ```bash
 sudo install -d -m 0750 /var/lib/videogame-platform/dev/historical-sync-evidence
@@ -714,8 +737,7 @@ both paths. Only the application copy enters the read-only application container
 Keycloak admin credentials and Docker access remain in the supervised host process.
 No archive, GPG keyring or ledger is configured.
 
-Follow the existing reviewed runtime-contract acknowledgement and promotion procedure;
-the new private-dev Compose overlay/profile are part of that contract. Promotion reads
+Then dispatch a normal [promotion](#promote-and-verify). Promotion reads
 the persistent flag, includes `compose.account-deletion.yaml`, and publishes the
 capability-authenticated management interface only on `127.0.0.1:8081`. Tailscale Serve
 continues to expose only the existing product/identity routes. Then enable supervision:
@@ -746,8 +768,8 @@ recovery from lost PostgreSQL state or replay after restoring old private-dev sn
 
 Retained manual #274 tooling; the automatic private-dev policy above does not require it. The
 [operations runbook](../../docs/development/operations-runbook.md#personal-data-requests-and-account-revocation)
-owns the owner procedure: verifying the requester, export, erasure, retry, restriction
-and the restore replay. `bin/personal-data` and `bin/personal-data-ledger` own the
+owns the owner procedure: verifying the requester, export, erasure, retry and
+restriction; the restore replay applies only to production, because private dev keeps no backup. `bin/personal-data` and `bin/personal-data-ledger` own the
 mechanics, and `scripts/validate-personal-data.sh` proves them. The manual procedure itself
 adds no route; optional automatic activation is described above.
 
@@ -756,8 +778,7 @@ The ledger driver runs on the owner's workstation; each step reaches the host ov
 checkout, which reads the protected admin secret and reaches PostgreSQL and the
 application through `docker exec`. The ledger has two copies, both private: the working
 copy on the workstation and one on storage independent of it, such as the owner's
-external drive that already holds the off-host backup copies and the backup key
-material. `erase` and `retry` refuse to start unless both are present:
+external drive. `erase` and `retry` refuse to start unless both are present:
 
 ```bash
 ledger=~/vgp-admin/private-dev/deletion-ledger.jsonl                 # 0700 directory, never on vgpdev
@@ -772,9 +793,8 @@ refuses to run anywhere but `vgpdev`.
 
 ### Manual validation with synthetic accounts
 
-Run only after review, merge, installation of the reviewed checkout with its
-[contract acknowledgement](#acknowledge-the-applied-runtime-contract) and separate
-approval; act **only on accounts created for this check**. Real accounts, the
+Run only after review, merge, a promotion of that revision and separate approval; act
+**only on accounts created for this check**. Real accounts, the
 deployment-smoke account and the owner's own account are never targets, and nothing
 below deploys or changes configuration.
 
@@ -786,51 +806,18 @@ below deploys or changes configuration.
    address again before every command below.
 3. Sign account A in on two browsers and account B on a third; rate one game with each
    and check *Mis puntuaciones*.
-4. Take and verify an [encrypted backup](#encrypted-backup-with-integrity-and-retention):
-   it now holds both accounts and ratings.
-5. Export A with `"${pd[@]}" export --request PD-CHECK-1 --keycloak-user-id <A>
+4. Export A with `"${pd[@]}" export --request PD-CHECK-1 --keycloak-user-id <A>
    --output ~/vgp-admin/private-dev/export-PD-CHECK-1.json`. Confirm it holds only A's
    address, sessions (times and IP only) and rating, then delete the file.
-6. Erase A with `"${pd[@]}" erase --request PD-CHECK-2 --keycloak-user-id <A>`. Both of
+5. Erase A with `"${pd[@]}" erase --request PD-CHECK-2 --keycloak-user-id <A>`. Both of
    A's browsers become anonymous on their next request, B's stays signed in, A can no
    longer sign in, and `status` shows the entry complete in both copies (`cmp` them).
    Repeat the same `erase`: it changes nothing. Run it once without `--ledger-copy`: it
    is refused before anything changes.
-7. Restore the step 4 backup into the isolated project **without** a ledger, as in
-   [isolated restore](#isolated-restore), and confirm that A came back:
-
-   ```bash
-   rehearsal=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml --file deploy/private-dev/compose.restore-rehearsal.yaml \
-     --project-name vgp-restore-rehearsal)
-   "${rehearsal[@]}" exec -T postgres gosu postgres psql -d videogame_keycloak -tAc \
-     "SELECT count(*) FROM user_entity WHERE id = '<A>'"   # 1
-   ```
-
-8. Start only that project's Keycloak and replay from the workstation; A is gone again
-   (the same query answers `0`), B and its rating remain:
-
-   ```bash
-   "${rehearsal[@]}" up --detach --no-deps --wait --wait-timeout 300 keycloak
-   rehearsal_host="$host --project vgp-restore-rehearsal --keycloak-origin http://127.0.0.1:8190"
-   deploy/private-dev/bin/personal-data-ledger --ledger "$ledger" --ledger-copy "$ledger_copy" \
-     --host-command "$rehearsal_host" replay --receipt ~/vgp-admin/private-dev/replay-rehearsal-$(date +%F).json
-   ```
-
-9. Repeat step 7 **with** a [ledger copy on the host](#ledger-copy-for-a-restore)
-   (`--deletion-ledger`): the restore replays by itself, its evidence contains the
-   receipt, and A is absent. Tear the rehearsal down with
-   `"${rehearsal[@]}" down --volumes` and remove the host copy.
-10. Check that host-loss recovery refuses the live host: run the
-    [host-loss command](#host-loss-recovery) with the step 4 backup. It must answer that
-    the host holds containers or volumes of the project, and
-    `/var/lib/videogame-platform/dev/deployment-evidence/DELETION-REPLAY-PENDING` must
-    not exist afterwards.
-11. Erase B the same way, and record the outcome in #274 without addresses or IDs.
+6. Erase B the same way, and record the outcome in #274 without addresses or IDs.
 
 Rollback: nothing to undo in the live runtime. The commands change no configuration, an
-erased synthetic account is meant to stay erased, and the rehearsal project is removed in
-step 9. Keep the private-dev ledger for 35 days like any other.
+erased synthetic account is meant to stay erased. Keep the private-dev ledger for 35 days like any other.
 
 ## Metrics dashboards
 
@@ -943,24 +930,11 @@ only their random test projects/volumes. No real-host or delivery guarantee foll
 ### Reviewed alert rollout and rollback
 
 **No Lenovo configuration or real Telegram message was changed/sent by this work.**
-After owner diff review, publication and separate host authorization, install the
-reviewed checkout under the existing deployment lock using the
-[installed-revision procedure](#one-time-migration-to-the-standard-runtime).
-Run static validation, record service identities/headroom, and rerun `bin/prepare-secrets`
-with the existing protected directory/group to add the two **empty optional** Telegram
-files without replacing any credential. Empty files are valid with delivery disabled.
-Recreate **only Grafana**, retaining its named volume:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml up --detach --no-deps --force-recreate grafana
-```
-
-For the operational package alone, application/database/Collector/identity/localizer
-restarts are unnecessary. The separable growth package below needs its own application
-promotion and targeted Prometheus/Keycloak recreation. Record that distinction when
-acknowledging the [applied runtime contract](#acknowledge-the-applied-runtime-contract);
-do not acknowledge unapplied service changes or run project-wide `up`/`down`.
+Before the first promotion that carries the Telegram contact points, rerun
+`bin/prepare-secrets` with the existing protected directory/group to add the two
+**empty optional** Telegram files without replacing any credential. Empty files are
+valid with delivery disabled. The promotion then recreates Grafana with its named
+volume retained; other services keep running unless their own definition changed.
 
 Through the existing SSH tunnel, verify five operational rules plus the separate
 informational registration rule in **Alerting → Alert rules**, evaluation health,
@@ -972,97 +946,31 @@ and service identities. Record real-host evaluation/resource/persistence evidenc
 trigger an alert. Startup reconciles stable UIDs; removing a file alone does not
 remove persisted rules. A future removal must provision `deleteRules` by UID.
 
-For rollback, restore the prior reviewed Grafana definition with evaluation disabled,
-recreate only Grafana and retain its volume. Confirm dashboards/product readiness.
-Rules may remain stored while evaluation is disabled. Never delete telemetry or
-application volumes, and never acknowledge a failed rollout.
+For rollback, merge the prior Grafana definition with evaluation disabled and promote
+it; Grafana keeps its volume. Confirm dashboards/product readiness. Rules may remain
+stored while evaluation is disabled. Never delete telemetry or application volumes.
 
-### Telegram setup and delivery
+### Telegram delivery (retired)
 
-This is an **owner-executed later procedure**, requiring separate authorization for
-real sends. Native Grafana needs only outgoing HTTPS to `api.telegram.org`: no SMTP,
-inbound webhook, public Grafana, Funnel, router forwarding, new account integration
-or notification service is deployed here. Messages contain fixed operational/activity text and private links,
-without user/request information.
+**Private-dev delivers no alert or notice** since
+[#550](https://github.com/rubhern/videogame-platform/issues/550). Its Compose pins
+`GRAFANA_TELEGRAM_ENABLED` and `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED` to `false`, whatever the
+protected runtime env says, and the runtime validator refuses any other value. Rules still
+evaluate and show in **Alerting**. Production Grafana alone notifies the owner, through the
+[production procedure](../public-production/README.md#host-telemetry-and-alert-delivery). The
+shared renderer, template and native mock smoke stay here because production mounts them.
 
-1. In Telegram, open the official verified **@BotFather**, use `/newbot`, and keep the
-   issued token private. Open the new bot's private chat and send `/start`. Do not use
-   third-party chat-ID/token websites or paste credentials into chat, issue comments,
-   shell command arguments/history or Compose environment.
-2. On the authorized host, use a protected root editor (without swap/backup files) to
-   place the token into the existing protected file
-   `/etc/videogame-platform/dev/secrets/grafana-telegram-bot-token`. Retain the
-   root/runtime-group ownership and 0644 file mode established by `prepare-secrets`;
-   the protected 0750 parent is the host access boundary and only Grafana is granted
-   these mounts. Do not move secrets under the checkout.
-3. Capture the private chat ID using the official `getUpdates` API. The following
-   optional root-only snippet reads the token from its file, keeps response identities
-   in memory and writes the single private `/start` chat ID without printing it. It
-   fails closed for zero/multiple candidate chats; resolve the intended chat privately.
-   Do not use `curl -v`, shell tracing, or a token-bearing URL in argv/browser history.
+On the host, after the promotion that carries this change:
 
-   ```bash
-   sudo python3 - <<'PY_TELEGRAM'
-   import json
-   from pathlib import Path
-   import urllib.request
-   base = Path('/etc/videogame-platform/dev/secrets')
-   try:
-       token = (base / 'grafana-telegram-bot-token').read_text().strip()
-       with urllib.request.urlopen('https://api.telegram.org/bot' + token + '/getUpdates', timeout=20) as response:
-           updates = json.load(response)
-       candidates = {item['message']['chat']['id'] for item in updates.get('result', [])
-                     if item.get('message', {}).get('text') == '/start'
-                     and item['message']['chat'].get('type') == 'private'}
-       if not updates.get('ok') or len(candidates) != 1:
-           raise ValueError()
-       (base / 'grafana-telegram-chat-id').write_text(str(candidates.pop()) + '\n')
-   except Exception:
-       raise SystemExit('Chat capture failed; values withheld. Check the private bot/chat configuration.') from None
-   print('Chat ID saved; no values printed.')
-   PY_TELEGRAM
-   ```
+1. Empty `/etc/videogame-platform/dev/secrets/grafana-telegram-bot-token` and
+   `grafana-telegram-chat-id` with a root editor, keeping the files, their owner and their mode:
+   Grafana still mounts them. If production reuses the bot, revoke this token in **@BotFather**
+   first.
+2. Delete the two `GRAFANA_*_ENABLED` lines from the protected runtime env. They are ignored now,
+   so this only removes a misleading value.
 
-4. Keep `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=false` initially. Explicitly set
-   `GRAFANA_TELEGRAM_ENABLED=true` in the protected runtime env, preserving all other
-   values. Set `PRIVATE_DEV_GRAFANA_ORIGIN` to the existing approved private access
-   origin (default loopback tunnel); this sets message links, not listeners or ingress.
-   Do not publish Grafana to make a phone link work. Recreate only Grafana under the
-   lock, verify file contact-point/policy ownership and unmuted operational routes,
-   then use Grafana's contact-point test **only with explicit real-send approval**.
-   A test message proves connectivity, not a live operational firing/resolved cycle.
-5. Product delivery needs the additional explicit flag
-   `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=true` and the growth source below. It
-   requires the master Telegram flag; enabling it alone refuses startup. It adds a
-   separate informational contact point with the same protected values and resolved
-   notifications disabled, so a closing registration window sends nothing. Registration
-   notices are best-effort window activity, not one notice per account. No lifetime
-   milestone messages exist. Verify the product route separately before enabling it.
-
-Missing/malformed credentials fail startup with a fixed redacted error when enabled;
-disabled startup reads neither value. Rendering uses non-exported shell variables and
-builtin `printf`, then removes them. The single resulting policy/contact-point file
-lives in Grafana's existing tmpfs with 0700/0600 permissions. The bot token is encrypted
-in Grafana's existing persistent database; the chat ID is an ordinary administrator-
-readable contact setting. Protect the database/volume backups and administrators too.
-Never dump rendered provisioning or contact-point exports into diagnostics/artifacts.
-Keep the fixed info-level notifier logs; native debug logging can expose URL tokens.
-English plain-text templates avoid Telegram markup failures and sensitive error bodies.
-
-To disable, set both flags false and recreate only Grafana; routes become muted/empty.
-To stop only registration notices, set the product flag false and recreate only
-Grafana; operational delivery continues and the product route becomes muted/empty.
-A closed-loopback HTTPS proxy setting in the private-dev wrapper blocks native sends
-immediately, including the interval before Grafana reconciles the previous persisted
-policy. No proxy service is installed; existing internal HTTP datasources stay direct.
-Previously stored contact points can remain encrypted in the database but are no
-longer referenced once provisioning reconciles. For compromise or full revocation, revoke/regenerate
-the token via BotFather (`/revoke` or its bot-management flow) first, replace the
-protected file privately, and recreate Grafana only after choosing whether to enable
-again. Rotation reprovisions the same contact UIDs; disabling is not token revocation.
-Retain backup access controls and do not delete the Grafana volume as a cleanup shortcut.
-A successful send may have an ambiguous acknowledgement: do not promise duplicate-free
-manual retries or exactly-once delivery.
+Grafana's database can keep the former contact point encrypted but unreferenced. Revocation,
+not the empty file, ends the token's validity.
 
 ### Separable product-growth rollout
 
@@ -1081,72 +989,30 @@ previously optimized image. Rebuilding is mandatory for the correction; the form
 a second variant and its additional build/rollback combinations. Base operation
 retains its identity policy and keeps management isolated from Prometheus until opt-in.
 
-Before host changes, run the focused optimized-image and notification-mock checks
-above, review the complete diff, and obtain approval for the exact targeted rollout.
-Use the reviewed published revision and the existing clean-checkout/installed-revision
-procedure, holding the deployment lock. Use `umask 0022` for checkout/build inputs so
-container users can read mounted configuration; protected secret directories retain
-their existing restrictive ownership/modes. Record service IDs, free memory/disk,
-the old immutable Keycloak image ID and previous source/runtime acknowledgement.
-Do not print runtime secrets or publish rendered Compose configuration.
-
-Build the reviewed Keycloak image while the existing container remains running:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml build keycloak
-```
-
-Review the overlay-rendered configuration privately and recreate **only Keycloak
-and Prometheus** with the base plus optional file:
-
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  --file deploy/private-dev/compose.yaml \
-  --file deploy/private-dev/compose.product-growth.yaml \
-  up --detach --no-deps --no-build --force-recreate \
-  --wait --wait-timeout 180 keycloak prometheus
-```
-
-Retain all volumes. Keycloak's brief restart needs a maintenance window. This attaches
-its existing internal management metrics to the telemetry network and selects only
-successful register/verification observations. No management port is published. The
-base Prometheus config also retains the new Ratings counter family; restarting it
-activates that allowlist without changing retention. Keep ordinary application
-promotion on **base Compose**: its trusted entrypoint rejects application containers
-created with arbitrary overlays. The targeted overlay above creates no application
-container, and normal promotion leaves persistent services in place. Future targeted
-Keycloak/Prometheus maintenance must include this overlay to retain collection; base
-recreation intentionally rolls it back. Do not acknowledge only Git while affected
-runtime changes remain unapplied.
+Enable it by adding `PRIVATE_DEV_PRODUCT_GROWTH_ENABLED=true` to the protected
+`runtime.env`, then dispatch a normal [promotion](#promote-and-verify). Every promotion
+applies `compose.product-growth.yaml` while the flag is set. It rebuilds the private
+Keycloak image from cache and recreates Keycloak and Prometheus only when their resolved
+definition changes. Keycloak's brief restart interrupts sign-in. Retain all volumes.
+The overlay attaches Keycloak's internal management metrics to the telemetry network
+and selects only successful register/verification observations. No management port is
+published.
 
 Verify `keycloak-product` is up and exposes only the expected realm/event/empty-error
 series, with no personal tags. A configured healthy source without an event is zero;
 an absent source is unsupported/no data. Do not create real accounts solely to force
 an event without separate approval. Check Ratings activity after normal committed
 commands and the existing SQL active total; no thresholds or Hikari settings change.
-Check private OIDC discovery, normal login and password recovery after recreation;
-record the observed identity interruption and idle/normal resource use. Synthetic
-host registrations need separate owner approval. Apply the protected runtime
-acknowledgement only after the selected configuration, image and checks actually pass.
-The existing Ratings capability needs no application promotion for this correction.
+Check private OIDC discovery, normal login and password recovery after recreation.
+Synthetic host registrations need separate owner approval.
 
-To load changed registration-rule annotations/message templates, obtain approval
-for a separate targeted Grafana recreation as well. Preserve its named volume,
-current HTTPS origin and any installed HTTPS ingress overlay. Do not enable either
-Telegram flag without protected credentials and explicit real-send authorization.
-The native TLS mock proves routing, not real Telegram delivery.
+Changed registration-rule annotations or message templates reach Grafana through the
+same promotion. Private-dev sends no registration notice
+([retired delivery](#telegram-delivery-retired)).
 
-For rollback, restore the previous reviewed checkout and immutable Keycloak image
-using a protected Compose image override, then recreate only Keycloak/Prometheus
-with **base Compose**, `--no-build` and the captured old image. Preserve every
-PostgreSQL and telemetry volume. Verify discovery/login/recovery and the original
-application readiness before restoring the prior runtime acknowledgement; a failed
-rollout must never be acknowledged. Removing the growth overlay also removes its
-scrape, so the dashboard may return to **No data**. Historical samples can remain.
-If Grafana was separately recreated, restore its prior reviewed provisioning and
-HTTPS overlay with its volume retained. Keep normal application rollback/promotion
-separate; never use project-wide `down`, volume removal or realm reinitialization.
+To disable it, set the flag to `false` and promote again. Removing the overlay also
+removes its scrape, so the dashboard may return to **No data**; historical samples can
+remain. Never use project-wide `down`, volume removal or realm reinitialization.
 
 ## Log aggregation and exploration
 
@@ -1259,9 +1125,11 @@ Record the action and the absence of an automatic recovery claim in #159.
 
 ## Owner-triggered deployment
 
-The direct host command remains the proven deployment/recovery entry point.
-The [owner-approved Actions promotion](#owner-approved-actions-promotion) invokes
-it through restricted SSH after verifying CI evidence; neither path deploys on merge.
+The direct host command remains the proven deployment/recovery entry point. It deploys
+the Compose and tooling of the checkout it runs from. The
+[owner-approved Actions promotion](#owner-approved-actions-promotion) first moves
+`/opt/videogame-platform` to the dispatched commit and then invokes it through
+restricted SSH; neither path deploys on merge.
 
 Choose a trusted `main` source revision and review its successful required checks,
 image publication summary, scan/SBOM evidence and immutable digest. Both selected
@@ -1278,8 +1146,11 @@ deploy/private-dev/bin/deploy-private-dev \
 Under one non-blocking host lock the command:
 
 1. validates that the target is `vgpdev`, the protected runtime configuration
-   renders, smoke credentials exist, dependencies are healthy, and evidence storage
-   is writable;
+   renders, smoke credentials exist and evidence storage is writable; then builds the
+   locally built images from cache and runs Compose `up` for every persistent service.
+   Compose recreates only those whose definition or image changed. It requires
+   PostgreSQL, Keycloak, the Collector and the localizer to be running and healthy.
+   Overlays come from the `PRIVATE_DEV_*_ENABLED` flags in `runtime.env`;
 2. resolves the supplied revision's GHCR tag for verification only, requires its
    published digest to equal the supplied digest, pulls by digest, and verifies the
    image's source, revision and version OCI labels;
@@ -1305,6 +1176,14 @@ trace/correlation propagation in structured logs; and trace receipt by the colle
 It deliberately does not rate a game, traverse every screen, or run provider
 synchronization, and it is not product acceptance.
 
+The smoke is the only service in the host network namespace. It reaches the same
+Tailscale Serve origin an operator uses, and Tailscale may bind those listeners to
+`tailscale0` alone, which refuses connections from a Docker bridge. It stays
+unprivileged, publishes nothing, mounts no host path, and holds only the smoke
+credentials; `validate-private-dev-runtime.sh` enforces this. Docker DNS is absent
+there, so `deploy-private-dev` passes the candidate's `edge` address for the
+management checks, and refuses to run the smoke without one.
+
 ## Owner-approved Actions promotion
 
 The original promotion path has successful real-host evidence on #160. The refined
@@ -1312,9 +1191,11 @@ single-dispatch flow still requires owner review, the environment Settings chang
 and acceptance on its published main revision. New host changes retain their separate
 owner approval; workflow dispatch authorizes only application promotion. The
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery)
-owns the application/runtime boundary and
+owns the application/runtime boundary.
 [ADR-0023](../../docs/decisions/0023-automate-owner-approved-private-dev-application-promotion.md)
-records the accepted trust decision. The workflow and scripts own job mechanics.
+records the accepted trust decision, and
+[ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md)
+lets promotion install its own revision. The workflow and scripts own job mechanics.
 
 ### Protected GitHub and tailnet setup
 
@@ -1371,7 +1252,9 @@ Through the existing owner administration connection, install a **standalone,
 root-owned clean Git checkout** of the reviewed main revision at
 `/opt/videogame-platform`. Keep its Git metadata root-owned too, without group/world
 write access; do not copy a worktree's `.git` pointer, build outputs or private files.
-The runner never updates this checkout. Git and Python 3 are host prerequisites.
+Each promotion moves this checkout to the dispatched main commit; the runner never
+uploads files to it. Git and Python 3 are host prerequisites, and root must be able to
+fetch `origin`.
 
 Create a dedicated `vgp-deploy` system account with `/bin/sh` only for sshd's
 forced-command invocation, no password authentication, no Docker/runtime group
@@ -1416,67 +1299,81 @@ Configure a reviewed tmpfiles entry and create it before first promotion:
 f /run/lock/videogame-platform-dev-deployment.lock 0660 root vgp-runtime - -
 ```
 
-### Acknowledge the applied runtime contract
+### Runtime changes during promotion
 
-After reviewing/applying the actual runtime and dependency configuration using its
-existing explicit procedures, acknowledge its clean installed Git contract:
+Under [ADR-0039](../../docs/decisions/0039-let-private-dev-promotion-install-its-own-revision.md),
+a merged change to private-dev Compose, Keycloak, PostgreSQL, observability or the localizer
+needs no separate host step. The next promotion moves the checkout to its commit and
+reconciles the services as described in
+[owner-triggered deployment](#owner-triggered-deployment). Local hand edits in
+`/opt/videogame-platform` are discarded and reported in the protected deployment log.
+There is no deployment-contract fingerprint or acknowledgement file, and an existing
+`/etc/videogame-platform/dev/deployment-contract.sha256` is unused.
+
+Promotion still fails, at preflight or reconciliation, until the owner does what it cannot:
+
+- add a new protected secret file or a `runtime.env` value that runtime validation
+  requires;
+- install new localizer model weights and select them in `runtime.env`;
+- apply state that container recreation does not change: realm settings of an existing
+  Keycloak realm (`configure-keycloak-identity`, `configure-keycloak-mail`), database
+  roles, or the Grafana reader password (`scripts/provision-grafana-reader.sh`).
+
+Read the failed phase in the Actions summary, do the step, and dispatch again.
+
+A host installed before ADR-0039 still runs the contract-gated entry point, which refuses
+the first revision that contains this change. Once, in an
+[owner maintenance session](#owner-maintenance-session), move the checkout to that merged
+revision with `git fetch origin main` and `git checkout --detach <sha>`. Add each overlay
+flag that matches what the host already runs, then dispatch. From then on, promotion
+updates the checkout itself.
+
+#### Owner maintenance session
+
+For those steps, or to run a manual procedure in this README, hold the same deployment
+lock that promotion uses. Use `umask 0022` so Grafana and Prometheus can read the files
+they bind-mount:
 
 ```bash
-sudo python3 /opt/videogame-platform/scripts/private_dev_promotion.py --installed-contract \
-  | sudo tee /etc/videogame-platform/dev/deployment-contract.sha256 >/dev/null
-sudo chown root:vgp-runtime /etc/videogame-platform/dev/deployment-contract.sha256
-sudo chmod 0640 /etc/videogame-platform/dev/deployment-contract.sha256
+sudo -i
+set -Eeuo pipefail
+umask 0022
+exec 9>/run/lock/videogame-platform-dev-deployment.lock
+flock --nonblock 9
+cd /opt/videogame-platform
 ```
 
-This acknowledgement is an owner statement that the runtime was reviewed/applied;
-writing the hash does not deploy a dependency. Stop rather than acknowledge a rollout
-that has not happened. A tooling-only change may need just an approved checkout
-update; review the diff to distinguish that from real service changes. Preserve
-private runtime/secrets under `/etc`, evidence under `/var/lib`, and bind-mounted
-runtime configuration at its reviewed location. File replacement/restart alone may
-not update imported Keycloak state, database roles or Grafana's persisted credentials.
+Release it with `flock --unlock 9; exec 9>&-` before dispatching.
 
 ### Promote and verify
 
-After the complete trusted-main build/security gates and publication succeed, open
-**Actions → Promote application to private dev → Run workflow**, select **main** and
-press **Run workflow**. There are no artifact/run input fields and no second approval.
-The owner dispatch authorizes deploying the exact main SHA captured by GitHub for
-that invocation. Checkout and artifact selection remain pinned to that SHA even if
-main advances while the run is queued; dispatching before evidence is ready fails.
+After merging, open **Actions → Promote application to private dev → Run
+workflow**, select **main**, and press **Run workflow**. The owner dispatch
+authorizes the exact main SHA captured by GitHub. It can be launched while CI is
+still running. The first job waits up to 90 minutes for that SHA's
+[private-dev admission evidence](../../docs/development/continuous-integration.md#environment-admission).
 
-The workflow derives the unique main `push` Build and verify run, its current attempt
-and the immutable OCI digest from its retained `application-image-publication-<SHA>`
-record. It does not choose a latest image or fall back to a different SHA, older attempt
-or older successful run. Absent, expired, mismatched or ambiguous evidence refuses
-promotion; multiple build runs for that SHA are conservatively refused. It checks
-quality/security gates, main ancestry and the deployment contract, revalidates the
-same derived tuple before connectivity, and the host independently rechecks source
-trust and digest/OCI binding. No build occurs during promotion.
+Select **Require complete main CI** to use the previous full-gated policy, for
+example after a manual host change or during troubleshooting. The first promotion
+from an older deployment-tool revision uses full CI automatically. If the reported
+baseline differs from the checkout or running application, inspect the host before
+dispatching with full CI.
+
+The selected SHA and immutable digest are revalidated before connectivity. The
+host checks that the commit is on `origin/main` and binds the digest to its GHCR
+tag and OCI labels. The application image is built in CI. Promotion only rebuilds
+changed local runtime images from cache.
 
 Transient GitHub evidence-read failures use bounded retries; exhausted retries still
 refuse promotion before activation. Invalid or rejected evidence is never accepted
-through a retry. The helper owns retry limits and delays. Changes to that helper
-also require updating and acknowledging the installed deployment contract through
-the procedure below.
+through a retry. The helper owns retry limits and delays.
 
 Pending Actions runs are serialized but the queue is not FIFO; the existing host
 lock also refuses concurrent manual deployment.
 
-This refinement changes the installed deployment tooling contract: update the reviewed
-root-owned host checkout and acknowledge it through the existing procedure before
-the first refined promotion. Review the diff first; this does not authorize a runtime
-dependency upgrade. Leaving the old contract installed deliberately refuses promotion.
-
-The host rechecks public main CI/source evidence and binds the candidate's runtime
-fingerprint to the installed and acknowledged contract. The required localizer must
-already be running, healthy and match the resolved service configuration and local
-image. A different contract or unrelated application Compose overlay stops before
-migration/activation; the account-deletion overlay is accepted only while its
-[persistent flag](#automatic-self-service-deletion) is set. The fixed `videogame-platform-dev` project has one base runtime,
-including localization. An application still labelled with the retired localization
-overlay can transition through normal promotion because the endpoint now lives in
-the base definition; the required localizer is still checked and left intact.
+The fixed `videogame-platform-dev` project has one base runtime, including
+localization. The account-deletion and product-growth overlays are applied only while
+their [persistent flags](#automatic-self-service-deletion) are set.
 
 Read the Actions summary and retained `private-dev-promotion-*` receipt. Original
 deployment JSON and detailed log remain under the protected evidence root in a
@@ -1484,173 +1381,42 @@ per-invocation directory; use owner administration/sudo to inspect them. Failed 
 missing receipts or workflow timeout are failures, never proof that deployment stopped
 or succeeded. Inspect the host before another promotion, and follow the existing
 [recovery assessment](#rollback-versus-forward-fix); no automatic rollback is added.
-GitHub public API rate limits, unavailable/expired CI artifacts or private-network
-failure refuse promotion; there is no retry that converts uncertain deployment into
-success.
+Exhausted GitHub retries, unavailable/expired CI artifacts or private-network failure
+refuse promotion; there is no retry that converts uncertain deployment into success.
 
 Open the application, enable DevTools Console info messages, disable browser network
 cache and reload. Confirm the
 [frontend build identity](../../frontend/README.md#deployed-build-identity)
-matches the expected version and SHA prefix. Check runtime container identities are
-unchanged, including catalogue-localizer. Record real-host restriction, success/failure and recovery acceptance in
-the current delivery issue (#257 for the localization lifecycle) as required by the
+matches the expected version and SHA prefix. Runtime containers keep their identities
+unless the revision changed their definition. Record real-host restriction,
+success/failure and recovery acceptance in the current delivery issue as required by the
 [runbook](../../docs/development/operations-runbook.md#deploying-an-immutable-digest).
 
-## Backup, restore, rollback and host-loss recovery
+## Rollback and host-loss recovery
 
-These are the owner-triggered recovery controls. Repository validation
-(`scripts/test-private-dev-backup-recovery.sh`) proves only the encryption,
-integrity, retention and decision logic; every step that reads the live database or
-a real host is environment evidence recorded in the runbook.
-
-### State model
-
-The irreplaceable durable state is the two PostgreSQL databases: `videogame_platform`
-(application state and product-owned curation) and `videogame_keycloak` (identity
-configuration and runtime accounts such as the deployment-smoke user). Both are
-captured as logical `pg_dump` custom-format artifacts. Catalogue/provider data is
-reconstructable by IGDB synchronization. Roles and passwords are **not** backed up:
-`docker/postgres/init` bootstraps them from the protected secret files when a clean
-data volume initializes, which is why a backup never stores a credential.
-
-### One-time backup key setup
-
-Generate the backup keypair on a trusted machine that is not the host, keep the
-private key and passphrase offline, and import only the public key on `vgpdev`, so
-host compromise cannot expose backup contents. `<recipient>` is the key's email or
-fingerprint.
-
-```bash
-# On the offline owner machine (once): create the keypair and export the public key.
-gpg --full-generate-key
-gpg --armor --export <recipient> > vgp-backup-public.asc
-
-# On vgpdev (once): import only the public key into a dedicated keyring.
-install -d -m 0700 /etc/videogame-platform/dev/backup-gnupg
-gpg --homedir /etc/videogame-platform/dev/backup-gnupg --import vgp-backup-public.asc
-```
-
-### Encrypted backup with integrity and retention
-
-Runs on `vgpdev` while the dependency stack is healthy. It dumps both databases,
-encrypts each to the public key, writes a manifest and `SHA256SUMS`, self-verifies,
-and prunes older backups to the retention count. Copying the destination off the host
-(for example over Tailscale with `rsync`) is the owner action that makes the backup
-"outside the host".
-
-```bash
-deploy/private-dev/bin/backup-private-dev \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --gnupg-home /etc/videogame-platform/dev/backup-gnupg \
-  --recipient <recipient> \
-  --destination /mnt/vgp-backups \
-  --initiator rubhern \
-  --keep 7
-```
-
-Integrity and retention are re-checkable anywhere, without Docker or the private key:
-
-```bash
-deploy/private-dev/bin/verify-private-dev-backup --backup /mnt/vgp-backups/<backup-id>
-deploy/private-dev/bin/verify-private-dev-backup --backups-root /mnt/vgp-backups --expect-at-least 7
-```
-
-### Isolated restore
-
-Restores a verified backup into a **distinct** Compose project, never the live one.
-It rebuilds a clean database volume (destroying only that isolated project's
-volumes), bootstraps roles from the protected secret files, streams each decrypted
-dump into `pg_restore`, and verifies the restored schema, catalogue tables and
-Keycloak realm/account counts. It requires the private key in `--gnupg-home` and
-explicit destructive confirmation.
-
-The backup can predate account erasures, so pass a copy of the owner's deletion ledger
-(see [the ledger copy on the host](#ledger-copy-for-a-restore)): the command then starts
-only the restored Keycloak, which the rehearsal override publishes on loopback port 8190,
-replays every erasure against it and records the receipt in the evidence. Without
-`--deletion-ledger` it stops after the database checks; the application or a smoke must
-not start in that project before a verified replay.
-
-```bash
-deploy/private-dev/bin/restore-private-dev \
-  --backup /mnt/vgp-backups/<backup-id> \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --gnupg-home /etc/videogame-platform/dev/restore-gnupg \
-  --isolated-project vgp-restore-rehearsal \
-  --confirm-destroy-isolated-target \
-  --deletion-ledger ~/vgp-ledger-replay/deletion-ledger.jsonl \
-  --evidence-directory /var/lib/videogame-platform/dev/deployment-evidence
-```
-
-Tear the rehearsal down afterwards with
-`docker compose ... --project-name vgp-restore-rehearsal down --volumes`.
-
-#### Ledger copy for a restore
-
-The ledger lives on the owner's workstation; a restore needs a current copy on the host
-for the duration of the command only. From the workstation, after `personal-data-ledger
-… status` has brought both owner copies up to date:
-
-```bash
-ssh videogame-platform-lenovo 'install -d -m 0700 ~/vgp-ledger-replay'
-scp -p ~/vgp-admin/private-dev/deletion-ledger.jsonl videogame-platform-lenovo:vgp-ledger-replay/
-```
-
-The file must stay `0600` in the `0700` directory, or the restore refuses it. Remove the
-directory once the restore has finished (`rm -r ~/vgp-ledger-replay`); the copy holds
-only identifiers and times, but the owner's copies are the record.
+Private dev keeps no backup and has no backup, restore or restore-rehearsal process: they
+exist only in public production
+([ADR-0037](../../docs/decisions/0037-align-local-and-private-dev-with-production.md)).
+Its PostgreSQL volumes, including identity and ratings, carry no recovery guarantee.
 
 ### Rollback versus forward fix
 
-Before recovering a bad deployment, decide whether an older image is still
-schema-compatible. The assessment compares the applied Flyway version with the
-candidate's packaged migration version and enforces that an applied migration is
-never reverted.
-
-```bash
-deploy/private-dev/bin/assess-recovery-strategy \
-  --env-file /etc/videogame-platform/dev/runtime.env \
-  --target-migration-version <candidate-image-flyway-version> \
-  --target-image ghcr.io/rubhern/videogame-platform@sha256:<digest>
-```
-
-`ROLLBACK` redeploys the older digest with the normal deployment command (its
-migration step finds nothing to apply). `FORWARD_FIX` means building and deploying a
-corrected revision. `REFUSE` means the inputs are inconsistent; do nothing until they
-are explained.
+An applied migration is never reverted. Before recovering a bad deployment, compare the
+applied Flyway version with the older image's packaged migration version: when the older
+image is still schema-compatible, redeploy its digest with the normal deployment command
+(its migration step finds nothing to apply); otherwise build and deploy a corrected
+revision.
 
 ### Host-loss recovery
 
-Recovery does not depend on the original hardware; any compatible Linux host is
-sufficient:
+Any compatible Linux host is sufficient:
 
 1. Rebuild the host foundation and run the one-time preparation above.
-2. Optionally validate the backup first with an isolated rehearsal as above.
-3. Put a current [ledger copy](#ledger-copy-for-a-restore) on the host and restore into
-   the live project. Host-loss recovery is the only mode that may use the live project
-   name: it refuses a host that holds any container or volume of that project, removes
-   nothing, and first writes `DELETION-REPLAY-PENDING` in the deployment evidence
-   directory, which makes `deploy-private-dev` and every promotion refuse. It restores
-   both databases, starts only Keycloak, replays every erasure and removes the block only
-   after the replay is verified:
-
-   ```bash
-   sudo deploy/private-dev/bin/restore-private-dev --host-loss-recovery \
-     --backup /mnt/vgp-backups/<backup-id> \
-     --env-file /etc/videogame-platform/dev/runtime.env \
-     --gnupg-home /etc/videogame-platform/dev/restore-gnupg \
-     --deletion-ledger ~/vgp-ledger-replay/deletion-ledger.jsonl
-   ```
-
-   If the replay fails, deployments stay blocked: fix the cause (Keycloak health, the
-   ledger copy) and repeat only the replay with
-   `restore-private-dev --resume-deletion-replay --env-file … --deletion-ledger …`. If
-   the command stops before the replay, during the restore itself, remove that project's
-   containers and volumes deliberately and start step 3 again.
-4. Deploy the last-good image digest with `deploy-private-dev` and confirm the smoke
-   and readiness checks pass.
-5. Record the recovery decision, backup id, image digest, migration version and
-   outcomes from the generated evidence records.
+2. Deploy the last-good image digest with `deploy-private-dev` and confirm the smoke and
+   readiness checks pass.
+3. Re-provision the deployment-smoke account and reapply the identity policy and mail
+   configuration, then let the weekly synchronization, or an operator-triggered one,
+   rebuild the catalogue. Earlier accounts and ratings are not recovered.
 
 ## Catalogue localization helper
 
@@ -1667,127 +1433,24 @@ weights outside the checkout. `CATALOGUE_TRANSLATION_MODEL_DIR` in protected
 `runtime.env` selects that immutable directory; never replace the protected file
 with the example or erase its current application image/version entries.
 
-### One-time migration to the standard runtime
+### Runtime or model changes
 
-Run only after owner review, publication/merge, current-main CI and separate approval
-to operate on `vgpdev`. This procedure handles the owner-reported current state:
-the model remains at
-`/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial`, already selected
-in runtime.env, while the helper was temporarily removed during #160 preparation.
-Do not reinstall, move, modify or delete those weights. The old application can keep
-serving PostgreSQL content during this rollout.
+A change to the helper's image, Dockerfile, requirements or Compose definition reaches the
+host with the next promotion, which rebuilds the image from cache and recreates the helper
+only if it changed. A stopped, missing or unhealthy helper after reconciliation fails the
+promotion before migration, and the previous application keeps running.
 
-1. Open an owner administration session. Replace the revision placeholder with the
-   reviewed merged main SHA containing this change. Use the same host deployment
-   lock through installation, targeted rollout and acknowledgement:
-
-   ```bash
-   sudo -i
-   set -Eeuo pipefail
-   umask 0022
-   exec 9>/run/lock/videogame-platform-dev-deployment.lock
-   flock --nonblock 9
-   cd /opt/videogame-platform
-   test -z "$(git status --porcelain --untracked-files=all)"
-   approved_revision='REPLACE_WITH_REVIEWED_MERGED_MAIN_SHA'
-   [[ "$approved_revision" =~ ^[0-9a-f]{40}$ ]]
-   git fetch origin main
-   git merge-base --is-ancestor "$approved_revision" origin/main
-   git checkout --detach "$approved_revision"
-   test -z "$(git status --porcelain --untracked-files=all)"
-   ```
-
-   Keep the installed checkout root-owned and unwritable by unprivileged users, as
-   required by [restricted host installation](#restricted-host-installation).
-   `umask 0022` keeps checked-out files world-readable: Grafana and Prometheus mount
-   them directly and fail on `0640` files. Protected secret directories keep their own
-   restrictive modes.
-   A failed command means stop and investigate before acknowledging or dispatching.
-   If unrelated runtime changes are included in the revision, review/apply their
-   own rollout first; this procedure authorizes only localization.
-
-2. Preserve the existing model selection and check its manifest/revision. If its
-   selection is missing, use an owner editor to restore this one line in runtime.env
-   while preserving all other entries:
-
-   ```bash
-   grep --fixed-strings --line-regexp --quiet \
-     'CATALOGUE_TRANSLATION_MODEL_DIR=/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial' \
-     /etc/videogame-platform/dev/runtime.env
-   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/manifest.json
-   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/revision.txt
-   bash scripts/validate-private-dev-runtime.sh \
-     --env-file /etc/videogame-platform/dev/runtime.env
-   compose=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file /opt/videogame-platform/deploy/private-dev/compose.yaml --profile application)
-   "${compose[@]}" ps --all --format json \
-     >/var/lib/videogame-platform/dev/localizer-runtime-before.json
-   ```
-
-3. Build and recreate **only catalogue-localizer** from the new base definition:
-
-   ```bash
-   "${compose[@]}" build --pull catalogue-localizer
-   "${compose[@]}" up --detach --no-deps --force-recreate \
-     --wait --wait-timeout 180 catalogue-localizer
-   localizer_id=$("${compose[@]}" ps --quiet catalogue-localizer)
-   actual_hash=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$localizer_id")
-   test "$("${compose[@]}" config --hash catalogue-localizer)" = "catalogue-localizer $actual_hash"
-   "${compose[@]}" ps --all --format json \
-     >/var/lib/videogame-platform/dev/localizer-runtime-after.json
-   ```
-
-   Compare the two inventories: application, PostgreSQL, Keycloak and every
-   observability container must retain their IDs. The helper healthcheck loads and
-   validates the mounted model/tokenizers; fix mount readability for UID 10001 or a
-   failed manifest before proceeding. Do not run project-wide `up`, `down`,
-   `--remove-orphans` or `--volumes` for this migration.
-
-4. Only after the actual rollout passes, perform the protected contract
-   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
-   from this clean installed revision. Release the lock and leave the root session:
-
-   ```bash
-   flock --unlock 9
-   exec 9>&-
-   exit
-   ```
-
-   Dispatch **Promote application to private dev** on main through the
-   [normal promotion procedure](#promote-and-verify). This first promotion gives the
-   recreated application its base endpoint; it also replaces a retired overlay
-   label if present. Confirm the endpoint from container configuration and that the
-   helper's ID/image, model mount and health remain unchanged. Record evidence in #257.
-
-If helper rollout fails, keep the existing application and all PostgreSQL data.
-Do not acknowledge or dispatch. Diagnose/recreate only the helper with the reviewed
-image/model. A checkout change alone cannot roll back a container; use the explicit
-runtime rollback below. Keep old model directories and image identities for recovery.
-
-### Subsequent runtime or model rollout
-
-Normal backend/frontend promotion runs preflight, the one-shot migration, application
-recreation and smoke; it leaves the localizer and other persistent services intact.
-A stopped, missing or unhealthy localizer refuses promotion, and a differing service
-hash or local image ID requires its explicit rollout. Use the same installed Compose
-version for rollout and preflight; after a Compose upgrade, review/reapply the helper
-if its resolved hash changes.
-
-For a helper runtime/image/configuration change, review/install its matching checkout,
-hold the same deployment lock, then use step 3's targeted build/recreation. For a model
-change, install into a **new immutable directory** using the
-[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models),
-change only its protected selection and recreate only the helper; no application
-recreation is needed for its stable internal endpoint. For rollback, select the retained
-previous model/image and apply its reviewed helper definition with the same targeted
-command. Verify health/configuration/image and acknowledge the matching Git contract
-only after the required rollout. Model bytes are immutable; never edit a mounted
-directory in place. Successful PostgreSQL translations survive helper/model changes.
+For a model change, install into a **new immutable directory** using the
+[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models)
+and change only its protected selection in `runtime.env`; the next promotion recreates the
+helper. No application change is needed for its stable internal endpoint. For rollback,
+select the retained previous model directory, or promote the previous helper definition.
+Model bytes are immutable; never edit a mounted directory in place. Successful
+PostgreSQL translations survive helper/model changes.
 
 During diagnosis, stopping the helper leaves product reads and valid synchronization
-available; it temporarily blocks new application deployment. Restore it with the
-targeted command before resuming promotion. Once running, its restart policy recovers
-it after a host reboot; an intentionally stopped container must first be started.
+available. The next promotion starts it again. Once running, its restart policy recovers
+it after a host reboot.
 The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
 owns retry/diagnosis and the pending real-host lifecycle acceptance.
 

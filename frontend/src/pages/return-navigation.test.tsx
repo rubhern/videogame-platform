@@ -158,7 +158,7 @@ describe("the game page's way back", () => {
     await user.click(back);
     await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" });
     expect(`${router.state.location.pathname}${router.state.location.search}`).toBe(origin);
-    expect(screen.getByRole("combobox", { name: /Ordenar por/ })).toHaveTextContent("Hype");
+    expect(screen.getByRole("combobox", { name: /Ordenar por/ })).toHaveTextContent("Interés");
     expect(screen.getByRole("status")).toHaveTextContent("Página 2 de 3");
   });
 

@@ -91,6 +91,45 @@ class FakeHost:
         return {'status': 'confirmed'}
 
 
+class SmokeTls(unittest.TestCase):
+    def run_probe(self, public, force_private=False):
+        import ssl
+        checked = []
+        class Connection:
+            def __init__(self, host, context, timeout):
+                self.host, self.context = host, context
+            def request(self, method, path):
+                self.path = path
+            def getresponse(self):
+                trusted = self.context['cafile'] is None if public else self.context['cafile'] == '/run/private-tls/ca.crt'
+                if not trusted:
+                    raise ssl.SSLCertVerificationError('Synthetic certificate does not match trust roots')
+                checked.append((self.host, self.path))
+                hidden = self.path in ('/actuator/health', '/admin/', '/realms/master/.well-known/openid-configuration')
+                return SimpleNamespace(status=404 if hidden else 200, read=lambda _: b'{}')
+            def close(self):
+                pass
+        environment = {} if public and not force_private else {'OIDC_CONTRACT_CA_FILE': '/run/private-tls/ca.crt'}
+        with patch.dict(os.environ, environment, clear=True), \
+                patch('ssl.create_default_context', side_effect=lambda cafile=None: {'cafile': cafile}), \
+                patch('http.client.HTTPSConnection', Connection), patch('runpy.run_path') as issuer:
+            exec(install.PROBE, {})
+            issuer.assert_called_once_with('/work/check-oidc-issuer-contract.py', run_name='__main__')
+        self.assertIn(('auth.gameometro.com', '/admin/'), checked)
+        self.assertIn(('gameometro.com', '/api/v1/releases?page=1&pageSize=1'), checked)
+
+    def test_private_tls_keeps_explicit_ca_and_negative_system_trust_check(self):
+        self.run_probe(False)
+
+    def test_public_tls_requires_system_roots_and_keeps_issuer_and_hidden_admin_checks(self):
+        self.run_probe(True)
+
+    def test_a_public_certificate_is_not_accepted_with_only_private_ca_trust(self):
+        import ssl
+        with self.assertRaises(ssl.SSLCertVerificationError):
+            self.run_probe(True, force_private=True)
+
+
 class Transition(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -113,7 +152,7 @@ class Transition(unittest.TestCase):
         result = install.first_install(host)
         self.assertEqual(host.calls, ['preflight', 'preflight', 'claim', 'pull', 'lease',
             'claimed-freshness', 'initialize', 'up:postgres', 'flyway', 'reader',
-            'up:keycloak,catalogue-localizer,caddy,telemetry,prometheus,grafana,node-exporter,blackbox',
+            'up:keycloak,catalogue-localizer,caddy,telemetry,loki,tempo,prometheus,grafana,node-exporter,blackbox',
             'up:application', 'smoke', 'lease-finalize'])
         self.assertEqual(result['outcome'], 'success')
         self.assertFalse(result['productionReady'])
@@ -125,7 +164,7 @@ class Transition(unittest.TestCase):
 
     def test_failures_never_activate_later_phases_and_preserve_journal(self):
         failures = ['claim', 'pull', 'lease', 'claimed-freshness', 'initialize', 'up:postgres', 'flyway',
-                    'reader', 'up:keycloak,catalogue-localizer,caddy,telemetry,prometheus,grafana,node-exporter,blackbox',
+                    'reader', 'up:keycloak,catalogue-localizer,caddy,telemetry,loki,tempo,prometheus,grafana,node-exporter,blackbox',
                     'up:application', 'smoke', 'lease-finalize']
         for failure in failures:
             with self.subTest(failure=failure), tempfile.TemporaryDirectory(dir=self.root) as tmp, \
@@ -184,8 +223,12 @@ class Lease(unittest.TestCase):
         self.addCleanup(channel.cleanup)
         server = socket.socket(socket.AF_UNIX)
         server.bind(channel.name + '/socket'); server.listen(1)
-        actor = subprocess.Popen(['python3', '-c', script, '11111111-1111-4111-8111-111111111111', 'c'*64, 'initial', channel.name + '/socket'], stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        # Match the production launcher so inherited masks cannot block cancellation.
+        actor = subprocess.Popen(
+            ['env', '--default-signal=INT,TERM', 'python3', '-c', script,
+             '11111111-1111-4111-8111-111111111111', 'c' * 64, 'initial', channel.name + '/socket'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
         actor.retained_fd = None
         try:
             ready = select.select([server, actor.stdout], [], [], 5)[0]
@@ -249,14 +292,20 @@ class Lease(unittest.TestCase):
     def test_term_closes_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            actor = self.start(root)
+            previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+            try:
+                actor = self.start(root)
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
             self.addCleanup(self.finish, actor)
             self.assertEqual(actor.stdout.readline(), b'locked\n')
             (root / 'READY').touch()
             actor.send_signal(signal.SIGTERM)
-            actor.wait(timeout=5)
-            actor.stdin.close()
-            self.assertTrue((root / 'PENDING.json').exists())
+            # Wait with stdin open to prove that TERM, not EOF, closed the gate.
+            self.assertEqual(actor.wait(timeout=5), 1)
+            self.assertFalse((root / 'READY').exists())
+            pending = json.loads((root / 'PENDING.json').read_text())
+            self.assertEqual(pending['kind'], 'private-first-install-interrupted')
 
     def test_existing_ready_pending_or_identity_fence_is_never_reinitialized(self):
         for name in ('READY', 'PENDING.json', 'IDENTITY-MAINTENANCE.json'):
@@ -367,7 +416,11 @@ class Contracts(unittest.TestCase):
             scope.enter_context(patch.object(prepare.integration, 'resolve', return_value=selected))
             scope.enter_context(patch.object(prepare.integration, 'verify_local_docker'))
             scope.enter_context(patch.object(prepare, 'registry_images', side_effect=registry))
-            receipt = prepare.prepare(bundle, install.ROOT / 'deploy/public-production/runtime.env.example', install.TLS)
+            candidate_runtime = Path(tmp) / 'runtime.env'
+            candidate_runtime.write_bytes(subprocess.run(
+                ['git', 'show', f'{prepare.REVISION}:deploy/public-production/runtime.env.example'],
+                capture_output=True, check=True).stdout)
+            receipt = prepare.prepare(bundle, candidate_runtime, install.TLS)
             scope.enter_context(patch.object(install, 'ADMIN', Path(tmp) / 'admin'))
             scope.enter_context(patch.object(install, 'JOURNAL', Path(tmp) / 'admin/first-install'))
             scope.enter_context(patch.object(install, 'secure'))
@@ -553,6 +606,36 @@ class Contracts(unittest.TestCase):
                     else:
                         checked_store.assert_not_called()
                     self.assertTrue(commands and all(c[0] == 'openssl' for c in commands))
+
+    def test_enabled_deletion_capability_belongs_to_the_application_uid_alone(self):
+        # The application refuses any group/other bit, so the root:group 0640 rule cannot apply.
+        path = Path('/etc/gameometro/production/secrets/account-deletion-executor-capability')
+        directory = SimpleNamespace(st_uid=0, st_mode=0o40750)
+        for uid, mode, accepted in ((10001, 0o100600, True), (0, 0o100600, False), (10001, 0o100640, False),
+                                    (10001, 0o100400, False), (0, 0o100640, False)):
+            with self.subTest(uid=uid, mode=oct(mode)):
+                info = SimpleNamespace(st_uid=uid, st_mode=mode, st_size=64)
+                with patch.object(Path, 'resolve', lambda p: p), \
+                        patch.object(Path, 'lstat', lambda p: info if p == path else directory), \
+                        patch.object(install.os, 'listxattr', return_value=[]):
+                    if accepted:
+                        self.assertIs(install.application_owned(path), info)
+                    else:
+                        with self.assertRaises(trust.Refused): install.application_owned(path)
+        self.assertTrue(install.optional_secret(path.name, {'ACCOUNT_DELETION_EXECUTOR_ENABLED': 'false'}))
+        self.assertFalse(install.optional_secret(path.name, {'ACCOUNT_DELETION_EXECUTOR_ENABLED': 'true'}))
+
+    def test_provider_credentials_are_required_while_recurring_acquisition_is_on(self):
+        on, off = {install.SCHEDULING: 'true'}, {install.SCHEDULING: 'false'}
+        self.assertFalse(install.optional_secret('igdb-client-id', on))
+        self.assertFalse(install.optional_secret('igdb-client-secret', on))
+        self.assertTrue(install.optional_secret('igdb-client-id', off))
+        self.assertTrue(install.optional_secret('grafana-telegram-bot-token', on))
+        self.assertFalse(install.optional_secret('application-db-password', off))
+        self.assertTrue(install.reviewed_schedule(on))
+        self.assertTrue(install.reviewed_schedule(off))
+        self.assertFalse(install.reviewed_schedule({install.SCHEDULING: 'yes'}))
+        self.assertFalse(install.reviewed_schedule({**on, 'CATALOGUE_SYNC_UPCOMING_CRON': '0 0 * * * *'}))
 
     def test_route_collision_refuses_with_read_only_commands(self):
         host = install.Host('a', 'b', 'c')

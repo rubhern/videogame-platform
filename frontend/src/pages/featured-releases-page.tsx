@@ -1,3 +1,4 @@
+import { resolvePlatformContext } from "../features/platforms/platform-context";
 import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 
@@ -12,7 +13,7 @@ import {
 } from "../features/releases/featured-search";
 import { useFeaturedReleasesQuery } from "../features/releases/use-featured-releases-query";
 import { resolvePlatformFilter } from "../features/platform-preferences/interests";
-import { useInterests } from "../features/platform-preferences/use-platform-preferences";
+import { useInterests, usePlatformList } from "../features/platform-preferences/use-platform-preferences";
 import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
 
 export function FeaturedReleasesPage() {
@@ -23,19 +24,22 @@ export function FeaturedReleasesPage() {
     document.title = `Destacados ${search.granularity === "week" ? "de la semana" : "del mes"} · Gameómetro`;
     return () => { document.title = previousTitle; };
   }, [search.granularity]);
-  // Destacados has no manual platform choice: preferences are on or off in Mi cuenta (#295). The
-  // restriction reaches the API, which ranks the restricted candidates; nothing filters the six.
   const interests = useInterests();
   const { enabled } = useInterestsSwitch();
-  const platformFilter = resolvePlatformFilter([], enabled, interests);
+  const directory = usePlatformList(search.platform !== undefined);
+  const platform = search.platform === undefined ? null : resolvePlatformContext(search.platform, directory.data ?? []);
+  const platformFilter = resolvePlatformFilter(platform?.platformIds ?? [], enabled, interests);
   const query = useFeaturedReleasesQuery(
     search,
     platformFilter.platformIds,
-    interests.status !== "pending",
+    interests.status !== "pending" && (search.platform === undefined || platform !== null || !directory.isPending),
   );
 
   // A URL the contract does not accept, malformed or contradictory, takes the canonical form of
   // what it reads as, so the address always names the period shown.
+  if (search.platform !== undefined && platform === null && directory.isSuccess) {
+    return <Navigate replace to={featuredSearchPath({ granularity: search.granularity, period: search.period })} />;
+  }
   if (!isCanonicalFeaturedSearch(searchParams)) {
     return <Navigate replace to={featuredSearchPath(search)} />;
   }
@@ -43,7 +47,7 @@ export function FeaturedReleasesPage() {
   // the current period of the same granularity rather than presenting a new error state.
   if (search.period !== null && query.isError && query.error.code === "FILTER_INVALID") {
     return (
-      <Navigate replace to={featuredSearchPath({ granularity: search.granularity, period: null })} />
+      <Navigate replace to={featuredSearchPath({ ...search, period: null })} />
     );
   }
 
@@ -74,6 +78,7 @@ export function FeaturedReleasesPage() {
       onRetry={() => {
         void query.refetch();
       }}
+      platform={platform ?? undefined}
       search={search}
       state={state}
     />

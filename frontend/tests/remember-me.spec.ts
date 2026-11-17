@@ -24,10 +24,10 @@ async function admin(request: APIRequestContext) {
 }
 
 async function player(request: APIRequestContext) {
-  const username = `remember-${crypto.randomUUID()}`;
+  const username = `remember-${crypto.randomUUID()}@example.test`; // email as username, as in production
   const password = `Remember-${crypto.randomUUID()}!`;
   const created = await request.post(`${adminRealm}/users`, { headers: await admin(request), data: {
-    username, email: `${username}@example.test`, emailVerified: true, enabled: true,
+    username, email: username, emailVerified: true, enabled: true,
     firstName: "Synthetic", lastName: "Remember", credentials: [{ type: "password", value: password, temporary: false }],
   } });
   expect(created.status()).toBe(201);

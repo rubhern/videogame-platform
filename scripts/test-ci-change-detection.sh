@@ -45,6 +45,16 @@ run_case() {
 run_case "catalogue localization" "tools/catalogue-localization/helper.py" "backend,container,codeql_java" "frontend,identity,browser"
 run_case "localization dependencies" "tools/catalogue-localization/runtime-requirements.txt" "backend,container,dependencies,codeql_java" "frontend,identity,browser"
 
+run_case application-image-validator \
+  'scripts/validate-container-image.sh' \
+  'container,build,frontend,backend' \
+  'private_dev_runtime,localization_image,production_runtime'
+
+run_case private-notifications \
+  'deploy/private-dev/grafana/check-notifications.py' \
+  'private_dev_runtime,container,production_runtime' \
+  'localization_image'
+
 run_case docs-only \
   'docs/product/product-brief.md' \
   'documentation' \
@@ -95,6 +105,16 @@ run_case production-identity \
   'identity,production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case social-sign-in \
+  $'deploy/private-dev/bin/configure-social-sign-in\nscripts/validate-social-sign-in.sh\nscripts/test-social-sign-in-keycloak.py\nscripts/production_social_sign_in.py\nscripts/test-production-social-sign-in.py' \
+  'identity,production_runtime' \
+  'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case brokered-terms-authenticator \
+  'docker/keycloak/brokered-terms/src/com/videogameplatform/keycloak/BrokeredTermsAuthenticatorFactory.java' \
+  'identity,browser,backend,dependency_images' \
+  'documentation,openapi,frontend,migrations,provider_fixtures,production_runtime'
+
 run_case private-production-admin \
   $'scripts/production_registration_notice.py\nscripts/private_production_admin.py\nscripts/test-private-production-admin.py\nscripts/test-private-production-admin-docker.py\ndeploy/public-production/bin/configure-keycloak-admin' \
   'production_runtime' \
@@ -116,7 +136,7 @@ run_case public-production-deployment-tests \
   'documentation,backend,frontend,identity,container,ci'
 
 run_case shared-recovery-primitives \
-  $'deploy/private-dev/lib/backup-common.sh\ndeploy/private-dev/bin/personal-data\ndeploy/private-dev/bin/personal-data-ledger' \
+  $'deploy/private-dev/bin/personal-data\ndeploy/private-dev/bin/personal-data-ledger' \
   'production_runtime,container,identity,documentation' \
   'frontend,ci'
 
@@ -147,6 +167,11 @@ run_case keycloak-recipe \
 
 run_case keycloak-theme \
   'docker/keycloak/themes/gameometro/login/theme.properties' \
+  'dependency_images,identity,browser' \
+  'container,production_runtime,ci'
+
+run_case keycloak-password-denylist \
+  $'docker/keycloak/password-blacklists/gameometro-common-passwords.txt\nscripts/build-password-denylist.py' \
   'dependency_images,identity,browser' \
   'container,production_runtime,ci'
 
@@ -271,7 +296,7 @@ run_case local-localization \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case private-dev-runtime \
-  $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-backup-recovery.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py\nscripts/test-private-dev-identity-commands.py\nscripts/test-historical-sync-pilot.py\nscripts/fixtures/historical-sync-pilot/fake_docker.py\ndeploy/private-dev/bin/historical-sync-pilot\ndeploy/private-dev/bin/configure-keycloak-identity' \
+  $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py\nscripts/test-private-dev-identity-commands.py\nscripts/test-historical-sync-pilot.py\nscripts/fixtures/historical-sync-pilot/fake_docker.py\ndeploy/private-dev/bin/historical-sync-pilot\ndeploy/private-dev/bin/configure-keycloak-identity' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
@@ -425,7 +450,7 @@ run_case production-cleanup-transport "deploy/public-production/bin/recovery-per
 run_case production-cleanup-exercise "scripts/rehearse-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
 run_case production-cleanup-tests "scripts/test-production-cleanup.py" "production_runtime" "frontend,backend,identity,browser"
 
-for private_source in scripts/production_deployment_evidence.py scripts/test-production-deploy-docker.py scripts/production_deploy.py scripts/production_recovery_executor.py scripts/test-production-deploy.py scripts/prepare_private_production.py scripts/install_private_production.py scripts/private_production_acceptance.py scripts/test-private-production-acceptance.py scripts/private_production_upgrade.py scripts/rehearse-private-production-upgrade.py scripts/test-private-production-upgrade.py scripts/test-private-production-preparation.py scripts/test-private-production-installation.py scripts/private_production_control.py scripts/validate_private_production_truststore.py scripts/test-private-production-control.py scripts/test-private-production-control-docker.py; do
+for private_source in scripts/production_deployment_evidence.py scripts/test-production-deploy-docker.py scripts/production_deploy.py scripts/production_recovery_executor.py scripts/test-production-deploy.py scripts/prepare_private_production.py scripts/install_private_production.py scripts/private_production_acceptance.py scripts/test-private-production-acceptance.py scripts/private_production_upgrade.py scripts/rehearse-private-production-upgrade.py scripts/test-private-production-upgrade.py scripts/test-private-production-upgrade-compatibility.py scripts/test-private-production-preparation.py scripts/test-private-production-installation.py scripts/private_production_control.py scripts/validate_private_production_truststore.py scripts/test-private-production-control.py scripts/test-private-production-control-docker.py; do
   run_case "private-production-${private_source##*/}" "$private_source" \
     'production_runtime' 'backend,frontend,identity,container,build'
 done
@@ -436,5 +461,6 @@ if ((failures > 0)); then
 fi
 
 python3 "$repository_root/scripts/test-ci-delivery.py"
+python3 "$repository_root/scripts/test-private-dev-promotion.py"
 
 printf 'CI change-detection tests passed.\n'

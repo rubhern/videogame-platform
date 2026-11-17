@@ -16,6 +16,7 @@ public final class CatalogueSynchronizationMetrics {
     public static final String OPERATION_WORKS = "works";
     public static final String OPERATION_RELEASE_DATES = "release_dates";
     public static final String OPERATION_LOGOS = "logos";
+    public static final String OPERATION_ATTENTION = "attention";
 
     /** Finished runs by whether they need an operator; the attention value is what alerts. */
     public static final String ASSESSMENT = "catalogue.synchronization.run.assessment";
@@ -40,7 +41,8 @@ public final class CatalogueSynchronizationMetrics {
                         OPERATION_WINDOW,
                         OPERATION_WORKS,
                         OPERATION_RELEASE_DATES,
-                        OPERATION_LOGOS)) {
+                        OPERATION_LOGOS,
+                        OPERATION_ATTENTION)) {
             registry.timer(
                     "catalogue.synchronization.provider.request.duration", "operation", operation);
             registry.counter("catalogue.synchronization.provider.retry", "operation", operation);

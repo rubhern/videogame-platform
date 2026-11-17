@@ -43,7 +43,7 @@ describe("legal publication boundary", () => {
     for (const link of within(legal).getAllByRole("link")) expect(routes).toContain(link.getAttribute("href"));
     const product = screen.getByRole("navigation", { name: "Gameómetro" });
     expect(within(product).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
-      ["Sobre Gameómetro", "/sobre-gameometro"], ["Contacto", "mailto:hola@gameometro.com"],
+      ["Sobre Gameómetro", "/sobre-gameometro"], ["Contacto y sugerencias", "/contacto"],
     ]);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
@@ -56,8 +56,13 @@ describe("legal publication boundary", () => {
   });
   it("includes the opt-in username hint in the labelled cookie inventory", () => {
     wrap(<LegalPage document="cookies" />);
-    expect(screen.getByRole("table")).toHaveAccessibleName("Cookies de autenticación, seguridad e idioma");
-    expect(screen.getAllByRole("row")).toHaveLength(10);
+    const necessary = screen.getByRole("table", { name: "Cookies de autenticación, seguridad e idioma" });
+    expect(within(necessary).getAllByRole("row")).toHaveLength(10);
+    // Optional analytics cookies (#507) form their own, distinctly named inventory.
+    const analytics = screen.getByRole("table", { name: "Cookies de analítica (opcionales)" });
+    expect(within(analytics).getByRole("cell", { name: "_ga" })).toBeVisible();
+    expect(within(analytics).getByRole("cell", { name: "_ga_<ID>" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Inventario: Cookies de analítica (opcionales)" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "gameometro_deletion" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "KEYCLOAK_SESSION" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "KEYCLOAK_REMEMBER_ME" })).toBeVisible();

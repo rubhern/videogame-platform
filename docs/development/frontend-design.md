@@ -179,14 +179,13 @@ known only to a month, quarter or year take no needle; the bar never invents a d
 decorative: the readout beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
-where they carry meaning, and each keeps its own composition: the [home](#home) a front page led by
-the week's featured release, Destacados the period's stage, the release explorer a cover wall under its day bar, search a catalogue index, the game page
-its own cover's stage, `Mis puntuaciones` a thermal ledger, TOPómetro a podium over a
-ledger, Plataformas a showcase of platform stages, a platform's
-Explorar catálogo the release explorer's cover wall under that platform's own mark and its
-Próximos destacados a horizon over a numbered run of art. Only Destacados draws the temporal G and
-opens on a featured release's hero, and the home leads with that same hero (owner decision,
-2026-10-28); no other screen repeats either. Glass panels, aurora washes, the lit serif accent, tracked mono
+where they carry meaning, and each keeps its own composition: the [home](#home) a release timeline
+above a compact panorama, Destacados the period's stage with the temporal G, the release explorer
+a cover wall under its day bar, search a catalogue index, the game page its own cover's stage,
+Mis puntuaciones a thermal ledger, TOPómetro a podium over a ledger, Plataformas a showcase of
+platform stages, a platform's Explorar catálogo the release explorer's cover wall under that
+platform's own mark and its Próximos destacados a horizon over a numbered run of art.
+Glass panels, aurora washes, the lit serif accent, tracked mono
 kickers and spark badges are retired: no React or hosted identity screen uses them, and new
 work never brings them back.
 
@@ -375,7 +374,7 @@ return every header surface to system colours.
   contrast on their actual surface. Prefer `muted` on controls and overlays; reserve `subtle`
   for quiet text on `canvas` or `surface` where its contrast remains at least 4.5:1.
 - Identifiers a person may have to repeat — currently the support correlation reference — stay
-  monospaced in IBM Plex Mono, the only use of a mono face, and keep their exact casing. Never
+  monospaced in IBM Plex Mono and keep their exact casing. Never
   case-transform them for style.
 
 ## Transactional email presentation
@@ -449,11 +448,26 @@ from Chromium and automated accessibility evidence.
   and then the story, with nothing decorative beside the form. The brand appears once, as the
   canonical lockup; no G watermark is drawn, since a G without a value is a pattern to avoid.
   Use the canonical local Mona Sans, Gameómetro branding and Spanish-first copy in the informal
-  voice. Inherit Keycloak's templates and account-flow logic: the theme adds only the story
-  through the footer hook, copy, local brand and font assets and styles. Do not reproduce the
-  catalogue header or introduce a React login screen. Keep registration prominent and
-  validation and recovery readable. Art for the stage remains an optional later iteration,
-  never a dependency of this composition.
+  voice. The lockup links to the application home. On registration, present the approved
+  notice in an initially collapsed native disclosure, with both legal links visible beside
+  the control. The links open in another tab. Keep the acknowledgement
+  visible and operable independently of the disclosure, with the conditions of use
+  emphasised in its label. The theme enhances the inherited
+  Keycloak markup; the complete notice remains readable when the theme script is unavailable.
+  When Google or Microsoft sign-in is enabled (#548), sign-in, registration and the
+  re-authentication that links a provider show them after the primary action, under a hairline
+  and the quiet label **O continúa con**. Each is a full-width secondary control: night, hairline,
+  6px corners, at least 44px tall. It reads **Continuar con Google** or **Continuar con
+  Microsoft**, and the visible name is its accessible name. The provider's mark keeps its own
+  unmodified colours as decorative artwork beside the name. It is never tinted, and forced colours
+  keep it. Linking an existing account makes adding the provider the primary action and choosing
+  another email secondary. The terms step for a new provider account presents the approved notice
+  as the registration form does, under the registration title, collapsed under its heading with
+  the legal links visible, and with **Acepto las condiciones** primary and **No acepto** secondary.
+  Keycloak owns the templates and account-flow logic. Do not reproduce the catalogue header
+  or introduce a React login screen. Keep registration prominent and validation and recovery
+  readable. Art for the stage remains an optional later iteration, never a dependency of
+  this composition.
 
 - The user-facing product is **Gameómetro**, always accented in visible copy, the document
   title and branding (the [product decision](../product/assumptions-and-decisions.md) owns the
@@ -502,9 +516,9 @@ the executable values; these constraints hold wherever they are used:
   gradients from banding. It follows the document and never sits above readable content.
   Do not implement it as a viewport-sized fixed translucent layer: deep scrolling and the
   mobile browser toolbar must not invalidate the header or page content.
-- The home, featured, search, personal ratings and game details open on a stage lit by art they
+- Featured, search, personal ratings and game details open on a stage lit by art they
   already show, anchored to the top of the document so it runs behind the header: the
-  [home](#home) and Destacados by their featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
+  Destacados by its featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
   three of the covers the page presents; TOPómetro by its podium's covers; Próximos destacados by its
   most anticipated game's art and the next covers; a game's page by its own cover. The release explorer
   keeps the plain night canvas under its opening and cover wall. Each image's hue, not
@@ -589,7 +603,7 @@ the executable values; these constraints hold wherever they are used:
   screen keeps exactly one live status.
 - Render platform and region choices from `availableFilters` in labelled select-only
   comboboxes, in one row of night controls after **Ordenar por** (**Fecha de lanzamiento**,
-  **Hype**, **Puntuación Gameómetro**, **Jugadores IGDB**); the two score orders carry their
+  **Interés**, **Puntuación Gameómetro**, **Jugadores IGDB**); the two score orders carry their
   sources' own marks — the Gameómetro G and IGDB's white attribution mark, proportional and
   never tinted — instead of a generic icon. On phones the order spans its row and both facets
   share the next one. The entire control opens its
@@ -607,7 +621,7 @@ the executable values; these constraints hold wherever they are used:
   Never hard-code the available choices from the mockup.
 - Below 620px the range, order, facets and approximate dates fold under one **Filtros y orden**
   night control, closed by default and announced as expanded or collapsed, whose line states
-  what they hold (`Hype · 2 filtros · Fechas aproximadas`), so the first covers stay near the
+  what they hold (`Interés · 2 filtros · Fechas aproximadas`), so the first covers stay near the
   top; the day bar stays open above it. Wider screens never draw the toggle and always show
   the controls.
 - The range is two native, labelled date fields in the night controls' voice; both bounds are
@@ -672,7 +686,13 @@ route and pagination focus uses
 `preventScroll`, while the skip link still takes the reader to main content. Do not reset
 scroll after artwork, fonts or background refreshes, or add timed scroll retries.
 Hydration reuses the existing loading surfaces without mounting page data or command
-effects. Navigation announcements remain separate from the result's live status.
+effects. Once the app is open, any internal navigation still pending after 600 ms
+shows a full-screen modal on night with the brand's G, an orbit of ice light, a sweeping
+needle and **Cargando página…** as its visible and accessible name. The modal blocks
+interaction and scrolling until navigation settles, then releases focus for the
+destination or the original page if it stays open. Reduced motion keeps the indicator
+static, and forced colours keep the dial, needle and text visible in system colours.
+Navigation announcements remain separate from the result's live status.
 The shared header, page titles and controls must paint on their first return into the
 viewport, regardless of scroll direction or browser-toolbar resizing.
 
@@ -701,63 +721,76 @@ with the identity a little below their titles, and beneath the identity on narro
 closing lines stand on a deeper night floor instead of behind a divider, with a faint ice glint
 along its top edge: `© <current year> Gameómetro` beside **Datos de videojuegos: IGDB**, whose
 underlined link opens IGDB, and then the signature *Ideado, desarrollado y mantenido por Rubén
-Hernández* as the last line. Those are the footer's only fire and its only ornament. The legal
-documents and **Contacto** follow the
-[legal publication gate](data-protection.md#publication-and-product-integration), so production
-shows the identity and the closing lines alone until then. **Sobre Gameómetro** links to
-`/sobre-gameometro` ahead of its page by owner decision; until that page exists the route reads as
-not found.
+Hernández* as the last line. Those are the footer's only fire and its only ornament. The **Gameómetro** column links to **Sobre Gameómetro** and **Contacto y
+sugerencias**. The **Legal** column links to the
+[approved legal pages](data-protection.md#publication-and-product-integration).
+
+## About and contact
+
+Post-MVP (#383, implemented for review), **Sobre Gameómetro** uses a single reading
+column, a small brand mark, numbered editorial sections and one closing action to
+contact the owner. The owner's Spanish story lives in
+[the About content module](../../frontend/src/features/about/about-content.ts).
+The owner-approved orange emphasis marks the community nickname and the closing
+game quote. The quote uses IBM Plex Mono and follows the contact action at the end
+of the article.
+**Contacto y sugerencias** uses the same reading column with labelled native form
+controls and a single status announcement. The game sheet's missing-release notice
+offers the same form with the data-correction category selected. See
+[UC-022](../architecture/application/mvp-use-cases.md#visitor-feedback-uc-022-post-mvp-383).
+
+Post-MVP (#507), when the deployment measures analytics, the **Legal** column closes with
+**Configurar cookies**: a button in the links' own voice that reopens the consent notice.
+
+## Analytics consent notice
+
+Post-MVP ([#507](https://github.com/rubhern/videogame-platform/issues/507); owner-approved
+2026-11-11), a deployment that measures analytics opens every page with one notice until the
+visitor chooses. It sits in the page flow above the header, never over content, as an opaque
+`raised` plate with a hairline floor and the ice top edge of an overlay that carries controls.
+Its title, **¿Nos ayudas a mejorar Gameómetro?**, is not a heading. One short paragraph in
+`muted` says what is measured and what is not, and links **Más información** to `/cookies`.
+**Rechazar** and **Aceptar** follow in that order as identical night controls of equal size:
+neither is the filled primary action, and nothing is preselected. They sit beside the copy from
+720px and share one row below it. A choice removes the notice and moves focus to the main
+content. Reopened from the footer, the notice states the current choice (**Ahora mismo:
+aceptadas/rechazadas.**), scrolls into view and takes focus on its title. It never blocks
+reading or navigation, never animates and returns to system colours in forced colours.
 
 ## Home
 
-Post-MVP (#382, implemented; awaiting owner review), `/` is Gameómetro's home: a front page that
-opens the features Gameómetro already has from one place. The owner's mockup is a reference, not a
-specification. The home adds no contract: each preview reads the same bounded public API as its
-destination, with the same request and the same preferred platforms, so it shares that
-destination's cache entry and shows the same games, order and period. A former landing link keeps
-its destination: `view=` opens the explorer, and a featured period (`week`, `month`, `granularity`)
-opens Destacados; no former featured link becomes a ranking. The home is a doorway: besides the
-featured hero it never repeats a full calendar, the podium or a destination's own controls.
+Post-MVP, the interactive home is implemented on the redesign branch for owner review.
+It revisits the 2026-10-28 decision to share Destacados's hero. Former landing links
+still resolve to their original features.
 
-**Opening.** A compact heading opens the stage, secondary to the release beneath it: the `h1`
-**Descubre tu próximo juego** in the page-title voice and one muted line, *Lanzamientos, destacados y
-los juegos mejor valorados.* (owner request, 2026-10-28). The stage is Destacados's current week,
-whatever granularity Destacados opens on, set as [Destacados's hero](#featured-releases) itself: the
-featured release's art, the week's temporal G framing its copy on wide screens and becoming the
-release's seal on phones, the wordmark as the game link, the release facts, the genres and the
-readings. Only the home closes that copy with two ways out inside the hero, above the title's
-stretched target: **Ver ficha**, the primary ice action named with the game, and **Ver destacados**.
-They share one row inside the G and take the full width on phones. Destacados keeps its hero
-without them. **Más destacados de la semana** follows, with **Ver todos los lanzamientos de la
-semana** (the explorer on the represented week) and up to four further featured releases of the week:
-the landscape art (a screenshot keeps the game's logo), the compact date after the fire needle with
-the [release-kind label](#featured-releases) beside it when there is one, the
-title as the card's only keyboard stop and pointer target, and up to three platform marks. They stand
-four in a row from 720px and read one line each, art beside the facts, below it.
+**Opening.** **Descubre tu próximo juego** leads into **Semana | Mes**, the API's adjacent
+periods and a **Plataforma** selector. The home opens on the current week. The timeline shows
+seven days for a week and Monday-to-Sunday groups clipped to the selected month for a month.
+Past and upcoming dates use the calendar's release counts and aggregate expectation from the
+current catalogue. Each weekly group sums its daily counts and Hype and uses seven times the
+daily thresholds. Selecting a day or
+group reads up to five releases ordered by interest from Explorar and updates the panorama
+and cards. The complete period uses the selection from Destacados. Approximate releases
+stay at their stated precision. A date slot has a visible focus ring and pressed state.
+The controls use native links and buttons. On phones, the platform filter and **Abrir Destacados**
+share a row. Month weeks stay in a single rail that scrolls within the home when needed.
+**Expectación** opens the legend beside the period summary.
 
-**Calendario de destacados.** Beside TOPómetro from 1024px and above it on narrower screens, the
-preview takes the calendar's own name, since the [glossary](../product/glossary.md#user-facing-terms)
-keeps `Próximos` out of section names, with **Ver calendario** and the readout of the days it covers.
-It offers up to seven days, from the API's evaluation date on, that hold highlighted games under
-`UC-016`: the calendar's current month and, only while that month runs short, the API's next month.
-A day without highlights is left out rather than shown as an empty slot. Each day is a native toggle
-button in the instrument's voice — the weekday or `hoy`, the date, the month and the count beside the
-calendar's interest dot — named in full with its count; the chosen day is ringed in ice and announced
-as pressed, and the preview opens on the day with the most highlights, the earliest among equals.
-Beneath come the chosen day's heading and count, up to four of its games in the calendar's Hype order
-(cover, title and platform marks), **Ver todos los lanzamientos del día** (the explorer on that day)
-and **Abrir este día en el calendario**. Phones scroll the days and the covers sideways inside the
-preview, never the page.
+**Panorama and destinations.** The lead game's panoramic art blends into the night canvas behind the title,
+release facts and available scores. The title link spans the hero, and the IGDB attribution
+keeps its own target. The artwork sits above the facts on phones. Up to four cards follow. The ice **Abrir Destacados** action keeps the week or month
+and an explicit platform. **Ver todos los lanzamientos** keeps the selected date range and
+platform. **Ver calendario** opens the dedicated upcoming calendar. Both links share one row
+on phones. The current period,
+date slot and explicit platform can be restored from the home URL. A temporary platform
+choice leaves the saved preferences intact. The account's preference switch also applies
+to the home.
 
-**TOPómetro.** The lockup heads the preview, with **Ver TOPómetro** and the source switch: two native
-toggle buttons, **Jugadores IGDB** (the default) and **Comunidad Gameómetro**, each with its own
-untinted mark. The choice stays in the preview, never the URL, and the preview's link opens that
-source's ranking. Places 1–3 of the chosen source read as a short ledger: the place numeral (the
-winner's in the lockup's moonlit silver, the others outlined in ice, never a medal colour), the cover,
-the title as the only keyboard stop besides the IGDB attribution, the known years and platform marks,
-and the reading that placed the game with its exact count, under [TOPómetro](#topómetro)'s reading
-rules. The sources never mix and Hype never enters. The preview reads TOPómetro's own first page, so
-the full ranking opens on the same places; an empty source says so and offers the other.
+**TOPómetro.** Under the lockup, **Jugadores IGDB** and **Comunidad Gameómetro** each show
+their own first three places, source mark and link to the full ranking. The podiums sit side
+by side on wider screens. On phones a two-option selector opens one podium at a time, starting
+with **Jugadores IGDB**. **Ver TOPómetro** opens the active source. Each uses its own reading and count under
+[TOPómetro](#topómetro)'s rules and handles its own loading, empty and error states.
 
 **Explora por plataforma.** A compact preview, not a second index (owner request, 2026-10-28): the
 four featured platforms in the owner's order, each by its own logo on a quiet cool stage, its name
@@ -775,23 +808,14 @@ lines on what an account adds, each an implemented feature. The home never reads
 while the session is unknown the plate waits, and an unavailable session read offers the personal
 links without claiming the visitor is signed out.
 
-**States.** Each preview owns its states in the [server-backed states](#server-backed-states)
-language at a preview's size: placeholders shaped like it while it loads; an empty or unranked
-notice that names what is missing and offers the full feature (and **Ver todas las plataformas**
-when preferred platforms empty the week); and a catalogue not ready or a technical failure with its
-retry. One preview's failure never blanks or blocks another, and an unexpected rendering fault stays
-inside its own preview. The route reads the featured week, the calendar's month and TOPómetro's first
-page and the platform directory side by side before it renders, so Back restores the reading
-position; the chosen day's games and the following month follow on their own.
-
-**Motion.** The hero keeps Destacados's own entrance, the further releases rise in turn and each
-preview's content fades in once; covers ease a little closer on hover and chevrons lean into
-their direction. Reduced motion shows the settled page. Forced colours keep the hero's own rules,
-outline the chosen day and source, and return the key and the numerals to system colours.
+**States.** A preview's loading, empty and failed reads are isolated. The opening preloads the
+featured selection, both TOPómetro sources and the platform directory. The timeline reads up
+to two calendar months for its markers. Selecting a date reads one bounded page on demand. Reduced motion shows the settled page. Forced colours preserve the selected
+date and source outlines.
 
 ## Release calendar
 
-Post-MVP (#250, implemented; awaiting owner review), **Calendario de destacados**
+Post-MVP (#250, implemented; awaiting owner review), **Calendario de lanzamientos**
 (`/lanzamientos/calendario`) is the second view of **Lanzamientos**, built by the owner's request
 from a reference mockup. It reads one month at a time on the plain night canvas, from the current
 month on, and is active only from today; [`UC-016`](../architecture/application/mvp-use-cases.md) owns its counting and bounds.
@@ -804,54 +828,22 @@ filters live in the URL (`month`, `day`, `platformIds`, `regionIds`); choosing a
 history entry, a month adds one, and a month the API rejects returns to the current month with
 the filters kept.
 
-The month is a traditional Monday-to-Sunday table whose weekday names head the columns; days of
-neighbouring months stay as faint empty cells, so no weekday holds another month and no date
-repeats. Every day of the month is a native button announced in full with its count
-(`viernes, 13 de noviembre de 2026: 6 lanzamientos`, `sin lanzamientos`, `hoy`); a count is of
-highlighted games; the full explorer can list more games for that day. A day with releases states its count beside a dot and takes its
-total-Hype colour as a quiet atmosphere, its light rising from a lower corner over a faint ridge
-of night, in four fixed bands of the summed Hype of all highlighted games that day: blue from 10,
-yellow from 30, orange from 100 and red from 150 (owner request, 2026-10-21). A game contributes
-once per day across its matching platforms and regions; `UC-016` owns aggregation and eligibility. [`release-calendar-model.ts`](../../frontend/src/features/releases/release-calendar-model.ts)
-is the only mapping. The bands are an owner-requested exception to *fire never colours an
-action* and to the thermal rule: they represent total Hype rather than release count, have no
-legend and are not quality scores. The count stays visible; each coloured day's tooltip and
-accessible description also name its interest level (`Interés bajo`, `Interés moderado`,
-`Interés alto`, `Interés muy alto`) so colour is not the sole indication. Empty days stay plain night with a hairline. Days of the current month before today
-keep only their quiet number, with no count, colour or action, and are announced as gone by;
-today carries `hoy` and a fine ice notch. The chosen day is ringed in
-ice, a shape as well as a light. One tab stop enters the month (the chosen day, else today, else
-the first active day); arrow keys move over the active days by day and week, Home and End to the
-week's ends, and Enter or Space chooses. Without an active day in the URL the first day with
-releases is chosen, else none. Releases known only to a month, quarter or year never sit on a
-day, and the calendar adds no line for them (owner decision); the explorer's **Incluir fechas
-aproximadas** remains where they are listed.
+The grid uses Monday-to-Sunday columns. Days outside the month are blank and dates before
+the evaluation day are inactive. A day button announces its date, release count and expectation
+level. The legend pairs five points with their levels, grey through blue, yellow, orange and
+red. Grey represents releases below the first configured band. A day without releases carries
+no point. The bands describe aggregate attention for the date. The home uses the same legend
+and the higher weekly thresholds described in [Home](#home).
 
-The chosen day follows beneath under the section's short fire rule: its heading
-(`Viernes, 13 de noviembre`), the count with `Mostrando 3` when more exist, **Ver todos los
-lanzamientos del día** (the full explorer on that day in the same order and platform/region
-context, including games outside the calendar's highlights) and up to three compact highlighted
-rows. The explorer has no highlights filter. The preview reads the first games in Hype order,
-with its page size capped by both three and the highlighted count.
-Each row holds the cover in the standard frame, the title as its only keyboard stop with the
-pointer target stretched over the row, the platform marks and region, up to two genres, the
-review notice when the API requires it, the [discovery score](#featured-releases) readings and a
-quiet way in. The calendar shows only the highlights defined by `UC-016`; Hype orders those games and is never shown or named in the interface.
-The reference's wide landscape art and descriptions are not reproduced: the release read carries
-portrait covers and no summary, and the explorer's cards omit summaries too.
+Choosing a day opens its games below the grid, ordered by interest, with a total and native
+pagination. The day and its page travel with the month and filters in the URL. A change of day,
+month or filter starts at page one. **Ver todos los lanzamientos del día** opens the same day
+and filters in Explorar, which opens ordered by **Interés** by default. The calendar uses the
+[server-backed states](#server-backed-states) for the month and day reads.
 
-Below 1024px the weekday names shorten and a day shows its count as a number beside its dot.
-Below 620px the composition adapts rather than shrinks: the switch takes its own line, the
-facets share one row, the month's name sits between its steps in place of the chips and the
-readout, the weekdays become letters (`L M X J V S D`) while the full names stay the headers'
-text, and each day is a compact square at least 44px tall holding its number and density dot,
-its count kept in its name and in the chosen day's heading. The chosen day reads down one column
-with **Ver todos** closing it at full width. Loading keeps the calendar's frame as placeholders
-with one live status; an empty month is the shared empty notice with its filter recovery; a
-catalogue still preparing, an unsupported filter and a technical failure use the
-[server-backed states](#server-backed-states), and a failed day read is its own danger notice
-with a retry. Forced colours drop the densities and keep the counts, the dots and the outlined
-chosen day in system colours.
+On phones the weekdays shorten to initials and each cell displays the day number and its
+compact count. Keyboard navigation uses arrow keys, Home and End, with Enter or Space to select.
+In forced colours the selected outline and the visible count retain their meaning.
 
 ## Featured releases
 
@@ -940,7 +932,7 @@ platform marks, the exact `+N`, the region and the same release-kind label, then
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
 period replaces the hero and the row with an informational or empty notice that names the
-period and offers **Explorar lanzamientos** on the represented period; an unranked notice names the missing Hype data without a value, and a week's empty notice says that no release with a confirmed day
+period and offers **Explorar lanzamientos** on the represented period; an unranked notice names the missing interest data without a value, and a week's empty notice says that no release with a confirmed day
 starts inside it. Nothing fills an empty period with unrelated releases.
 
 From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and
@@ -1222,7 +1214,7 @@ first order. A game page returns with **Volver a Próximos destacados** to the s
 reading position.
 
 **States.** Loading keeps the horizon's readout and line and the ranking's frames as placeholders
-under one status. A horizon whose candidates have no Hype reads **Sin datos de Hype** and says so
+under one status. A horizon whose candidates have no attention reads **Sin datos de interés** and says so
 without a value; a horizon without candidates says Gameómetro knows no dated release of the platform
 in the next six months, never that none exists; both offer **Ver todos los próximos juegos** and
 **Ver todas las plataformas**, and neither draws the horizon's line. A catalogue not ready and a
@@ -1337,7 +1329,7 @@ automatically. An anonymous pick starts authentication with that value; after re
 recovered value is persisted once automatically (no command when it equals the existing rating)
 and any failure surfaces like any other command.
 
-Post-MVP (#359, implemented; awaiting owner review), a signed-in player may rate by platform
+Post-MVP (#359 and #518, implemented; awaiting owner review), a visitor or signed-in player may rate by platform
 without the reading growing: it shows the rating's one contribution, `8,5/10` when it is a
 platform mean (`9/10` stays whole), and names that source for assistive technology. In the
 panel, a direct rating keeps the keypad as the quick general score, which never touches saved
@@ -1362,8 +1354,10 @@ and any general score held in the draft. A sticky footer shows the result as the
 2 plataformas puntuadas`, adding that it replaces the general score when it does) — above
 **Cancelar** and **Guardar**, enabled only for a valid change. Nothing is sent until **Guardar**;
 Escape or **Cancelar** closes without a command and focus returns to the reading. Opening lands
-on the first platform, and the sheet itself takes none of the reading's temperature. A pick
-recovered after sign-in is never applied over platform scores: a notice says so instead.
+on the first platform, and the sheet itself takes none of the reading's temperature. For a
+visitor, **Guardar** starts the [rating sign-in flow](../architecture/application/mvp-use-cases.md#identity-and-ratings).
+A returning player who already has a rating sees the recovered selection in the sheet with
+a review prompt before saving.
 
 The summary has a comfortable reading measure below the title: up to eight lines on desktop
 and six on narrower screens, with a native **Leer más** / **Mostrar menos** button only when the
@@ -1533,10 +1527,10 @@ or skipping; the home is its default destination. A rating return or any other p
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
-never in the URL, history or browser storage, so the home's Destacados and calendar previews,
+never in the URL, history or browser storage, so the home's release preview,
 Destacados, the explorer and the calendar always agree and a shared link resolves with the reader's
-own preferences. Discovery screens carry no
-control or shortcut of their own, and no screen prints the list of applied platforms: only the
+own preferences. The home exposes the same switch through its platform selector. Other discovery screens carry no
+shortcut to the preference editor, and no screen prints the list of applied platforms: only the
 explorer's and the calendar's **Plataforma** summarize them as `Mis plataformas` (and the
 explorer's folded phone controls name it). Choosing platforms by hand in **Plataforma** starts
 from what it shows and turns the switch off; **Quitar filtros** shows every platform; checking the switch
@@ -1624,7 +1618,7 @@ phones while the page never does; their cells keep words whole. Choosing a year 
 a native link, marks it with `aria-current`, and moves focus to the level that changed.
 
 Post-MVP (#246, implementation prepared; owner review and private-dev acceptance pending),
-**Sincronización histórica** is a third URL-selected tab within the same plain administration
+**Sincronización histórica** is a URL-selected tab within the same plain administration
 ledger. Tabs wrap on narrow screens. This tab has its own lifecycle and controls: explicit
 inclusive date fields, a required skip/reprocess choice for covered months, whose note says that a
 month covered before the imported types widened is processed either way, then a confirmation
@@ -1642,6 +1636,44 @@ explicit resume. A separate line names an ordinary run that makes history wait; 
 remains the canonical scanned-period view. Poll every five seconds while active and every
 fifteen seconds otherwise, with no ETA or browser-local progress. Actions stack on phones;
 keyboard focus, forced colours and native controls retain their meaning.
+
+Post-MVP (#458, implemented; awaiting owner review), **Interés editorial** is the last tab of the
+same ledger (`UC-023`). **Prompt para el modelo** opens with **Desde** and **Hasta**, defaulting to
+the next calendar month and limited to 92 days, then the prompt itself in a read-only monospace
+field with the range written in, and **Copiar prompt**, whose result is announced quietly. **Cargar
+lista** takes a file or a pasted answer in the same monospace field, then **Previsualizar** shows
+the entries as a scrollable table: rank, the file's title and date, score, the catalogue game and
+how it was found, its date in the range, and warnings in words. Each row offers **Elegir juego**,
+an inline catalogue search, and **Excluir** or **Deshacer**. An overlapping list is a `warning`
+that disables **Cargar lista**, and a list it would replace is named. After loading, focus moves to
+the outcome. **Listas cargadas** shows hairline cards, latest range first, with range, load time,
+games, prompt version and model. **Ver juegos** expands the scores and rationales, and
+**Eliminar** opens an inline confirmation whose safe **Conservar lista** comes first and takes
+focus.
+
+Post-MVP (#450, implemented; awaiting owner review), **Ajustes** is the last tab (`UC-024`). It
+holds one form: a section per group (**Destacados**, **Próximos destacados**, **Fórmula de
+interés**, **TOPómetros**, **Calendario**, **Sincronización programada**), each with a lead saying
+what its values change, then one labelled text field per setting, two columns from 620px and one
+on phones. Beside a field sits its unit in words and, for a value an operator set, **Restaurar por
+defecto**; beneath, its origin, default and range in words, and its last change. A value outside
+its kind or range is marked invalid and described beside the field, and **Guardar cambios** stays
+disabled until every draft is valid; a quiet status line counts the pending changes, with
+**Descartar** beside the primary action. **Sincronización programada** opens with the coverage
+notice: a `warning` naming each window that reaches beyond the scheduled acquisition, its end date
+and the recommended operator action, or a quiet line saying the windows stay inside; a deployment
+without scheduled acquisition adds its own `warning`. When a save settles, focus moves to one
+status region: success says public pages use the values from their next read; a revision conflict,
+an invalid combination, a lost CSRF proof or a lost role is a `warning` saying nothing changed, and
+any other failure a `danger` notice with its support reference. **Cambios recientes** follows as
+hairline cards, newest first: the setting, the time and the previous and new values.
+
+**Traducciones** uses the same tablist. **Cobertura de traducción** shows a dated
+breakdown for **Resúmenes**, **Géneros** and **Modos de juego** in reading order.
+**Ejecución de traducciones** shows status, the estimated scan progress and counters
+as a separate section. Start, stop and resume require an inline confirmation with
+focus on **Cancelar**. The status remains readable after closing or reloading the page.
+See the [operator procedure](operations-runbook.md#translation-administration-acceptance).
 
 ## Personal statistics
 
@@ -1751,19 +1783,30 @@ visual direction.
 
 ## Private profile
 
-Post-MVP (#272), prepared for owner review: **Mi perfil** opens from the shared
-**Mi cuenta** actions at `/mi-perfil`. Use the plain night canvas, shared page opening
-and one narrow reading column, without artwork or instruments that have no value to show.
-Separate **Tu cuenta**, **Tus datos, contigo** and **Eliminar mi cuenta** with hairlines.
-Account facts show only email in a definition list, with an honest **No disponible**
-when absent; registration collects no name. **Mi perfil** carries a decorative account
-icon in both account menus. Existing personal
-and Keycloak security actions are links; export is one primary button with preparation,
-completion and failure states. Never render cached personal details without a current session.
+Post-MVP (#272, redesigned by #476 on the owner's explicit instruction of 2026-11-13):
+**Mi perfil** opens from the shared **Mi cuenta** actions at `/mi-perfil`. The screen is the
+visitor's own console on night. It shows no art and has no value for an instrument, so its
+opening is lit in ice alone, painted in CSS as the hosted identity screens light theirs, and the
+shared page opening keeps one short fire rule under the title as the screen's only warm accent.
+Three zones follow in one reading order — **Tu cuenta**, **Tus datos, contigo** and
+**Eliminar mi cuenta** — each an opaque night panel with a hairline and an ice top edge. From
+900px one ice channel descends their numbered markers and cools into the last zone's danger
+tone; from 1024px each zone reads across the width, the credential plate beside its destinations
+and a description beside the action it explains, and narrower screens stack them. The earlier
+narrow reading column and its hairline separators are retired.
 
-Deletion is a restrained danger outline, with consequences and backup/legal limitations in
-words. Keep its trigger visible when automation is unavailable, disabled and associated
-with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
+Account facts show only email, in a definition list on the credential plate beside a decorative
+account medallion, with an honest **No disponible** when absent; registration collects no name.
+**Mi perfil** carries a decorative account icon in both account menus. Existing personal
+and Keycloak security actions are the plate's destinations, each one link with a decorative
+arrow; export is one primary button with preparation, completion and failure states. Never
+render cached personal details without a current session; loading keeps one live status over
+placeholders shaped like the zones they replace.
+
+Deletion is a restrained danger outline, with its consequences in words. It states no backup or
+legal-retention limitation (owner decision, 2026-11-13): [the published legal texts](../legal/public-texts-es.md)
+own retention, and this screen does not restate it. Keep its trigger visible when automation is
+unavailable, disabled and associated with the explanatory status text. Its inline labelled confirmation focuses **Conservar mi cuenta** first, requires
 literal **ELIMINAR**, offers recent authentication, and keeps the destructive action disabled
 until deliberate confirmation. Escape and cancellation restore trigger focus without a request.
 A failed command focuses its alert and cautions against repeating an uncertain request.

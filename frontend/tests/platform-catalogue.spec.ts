@@ -95,6 +95,54 @@ test("Plataformas leads to a platform's catalogue and a direct load or refresh r
     .toHaveAttribute("aria-current", "true");
 });
 
+test("a slow catalogue navigation blocks the page until the request fails and offers retry", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await stubCatalogue(page);
+  const allowFailure = Promise.withResolvers<undefined>();
+  const endpoint = "**/api/v1/platform-games?*";
+  await page.route(endpoint, async route => {
+    await allowFailure.promise;
+    await route.fulfill({ status: 500, json: {} });
+  });
+  await page.goto("/plataformas");
+
+  const link = page.getByRole("list", { name: "Plataformas destacadas" })
+    .getByRole("link", { name: "Explorar catálogo", exact: true }).first();
+  const trigger = await link.elementHandle();
+  const triggerBox = await link.boundingBox();
+  const overlay = page.getByRole("dialog", { name: "Cargando página…" });
+  const request = page.waitForRequest(endpoint);
+  // Freeze the clock before starting the navigation so the threshold is exact.
+  await page.clock.install();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+
+  try {
+    await link.dispatchEvent("click");
+    await request;
+    await expect(overlay).toBeHidden();
+    await page.clock.runFor(599);
+    await expect(overlay).toBeHidden();
+    await page.clock.runFor(1);
+    await expect(overlay).toBeVisible();
+    await expect(overlay).toBeFocused();
+
+    await trigger?.evaluate(element => element.focus());
+    await page.keyboard.press("Tab");
+    expect(await trigger?.evaluate(element => element === document.activeElement)).toBe(false);
+    if (!triggerBox) throw new Error("Expected the catalogue link to have a visible box");
+    await page.mouse.click(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height / 2);
+    await expect(overlay).toBeVisible();
+    await expect(page).toHaveURL(/\/plataformas$/);
+  } finally {
+    allowFailure.resolve(undefined);
+    await page.clock.resume();
+  }
+
+  await expect(overlay).toBeHidden();
+  await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
+  await expect(page.getByRole("main")).toBeFocused();
+});
+
 for (const [width, columns] of [[320, 2], [360, 2], [390, 2], [834, 4], [1320, 6]] as const) {
   test(`reflows the opening, controls and cover grid without overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });
@@ -172,8 +220,42 @@ test("works by keyboard: state, search, filters and pages live in the URL", asyn
   await expect(page).not.toHaveURL(/page=2/);
 });
 
-test("switches platform keeping the selection and Escape closes the list", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("the open platform selector receives pointer input above the catalogue controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await stubCatalogue(page);
+  await page.goto("/plataformas/windows-pc/catalogo");
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar catálogo de Windows PC" })).toBeVisible();
+
+  const trigger = page.getByRole("button", { name: "Cambiar plataforma" });
+  await trigger.click();
+  const panel = page.locator(".platform-switcher-panel");
+  await expect(panel).toBeVisible();
+
+  for (const control of [
+    page.getByRole("combobox", { name: /Ordenar por/ }),
+    page.getByRole("button", { name: "Filtros", exact: true }),
+  ]) {
+    const panelBox = await panel.boundingBox();
+    const controlBox = await control.boundingBox();
+    if (!panelBox || !controlBox) throw new Error("Expected visible selector and catalogue controls");
+    const left = Math.max(panelBox.x, controlBox.x);
+    const right = Math.min(panelBox.x + panelBox.width, controlBox.x + controlBox.width);
+    const top = Math.max(panelBox.y, controlBox.y);
+    const bottom = Math.min(panelBox.y + panelBox.height, controlBox.y + controlBox.height);
+    expect(right).toBeGreaterThan(left);
+    expect(bottom).toBeGreaterThan(top);
+    expect(await panel.evaluate((element, { x, y }) => element.contains(document.elementFromPoint(x, y)), {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2,
+    })).toBe(true);
+  }
+
+  await panel.getByRole("link", { name: "PlayStation 4" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar catálogo de PlayStation 4" })).toBeVisible();
+});
+
+test("switches platform by keyboard keeping the selection and Escape closes the list", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 420 });
   await stubCatalogue(page);
   await page.goto("/plataformas/nintendo-switch-2/catalogo?releaseState=released&q=mario");
   const trigger = page.getByRole("button", { name: "Cambiar plataforma" });
@@ -185,8 +267,17 @@ test("switches platform keeping the selection and Escape closes the list", async
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await expect(trigger).toBeFocused();
 
-  await trigger.click();
-  await page.getByRole("link", { name: "PlayStation 4" }).click();
+  await trigger.press("Enter");
+  const panel = page.locator(".platform-switcher-panel");
+  for (const option of await panel.getByRole("link").all()) {
+    await page.keyboard.press("Tab");
+    await expect(option).toBeFocused();
+  }
+  const playstation = panel.getByRole("link", { name: "PlayStation 4" });
+  await expect(playstation).toBeFocused();
+  await expect(playstation).toBeInViewport();
+  expect(await panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/plataformas\/ps4-id\/catalogo\?q=mario&releaseState=released$/);
 });
 

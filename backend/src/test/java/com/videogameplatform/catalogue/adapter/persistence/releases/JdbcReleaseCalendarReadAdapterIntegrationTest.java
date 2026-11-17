@@ -113,6 +113,36 @@ class JdbcReleaseCalendarReadAdapterIntegrationTest {
     }
 
     @Test
+    void countsPastExactDatesWhenTheRequestedWindowIncludesThem() {
+        var fullMonth =
+                new ReleaseCalendarReadPort.Criteria(
+                        FROM.withDayOfMonth(1), TO, TODAY, List.of(PS5), List.of());
+        assertThat(adapter.countPublishedReleases(fullMonth).orElseThrow().days())
+                .contains(new DayCount(LocalDate.of(2028, 2, 5), 1, 10))
+                .noneMatch(day -> day.date().equals(TODAY));
+    }
+
+    @Test
+    void anEarlyAccessCountsWithoutContributingInterest() {
+        // Game 2's early access counts, while only game 1 contributes to the day's interest
+        // (ATT-007).
+        jdbcTemplate.update(
+                "UPDATE catalogue.release_snapshot SET release_stage = 'early_access' WHERE release_id = ?::uuid",
+                releaseId("03"));
+        try {
+            var result =
+                    adapter.countPublishedReleases(criteria(List.of(), List.of())).orElseThrow();
+            assertThat(result.days())
+                    .contains(new DayCount(LocalDate.of(2028, 2, 15), 2, 10))
+                    .doesNotContain(new DayCount(LocalDate.of(2028, 2, 15), 2, 20));
+        } finally {
+            jdbcTemplate.update(
+                    "UPDATE catalogue.release_snapshot SET release_stage = 'unknown' WHERE release_id = ?::uuid",
+                    releaseId("03"));
+        }
+    }
+
+    @Test
     void appliesBothFiltersToTheSameRelease() {
         var playStation =
                 adapter.countPublishedReleases(criteria(List.of(PS5), List.of())).orElseThrow();
@@ -142,7 +172,7 @@ class JdbcReleaseCalendarReadAdapterIntegrationTest {
     }
 
     @Test
-    void eachDayCountDoesNotExceedTheFullExplorerTotal() {
+    void eachDayCountEqualsTheFullExplorerTotal() {
         for (List<String> platforms : List.of(List.<String>of(), List.of(PS5), List.of(PC))) {
             var calendar =
                     adapter.countPublishedReleases(criteria(platforms, List.of())).orElseThrow();
@@ -166,15 +196,13 @@ class JdbcReleaseCalendarReadAdapterIntegrationTest {
                                                 false,
                                                 25))
                                 .orElseThrow();
-                assertThat(page.totalItems())
-                        .as("all games on %s", date)
-                        .isGreaterThanOrEqualTo(expected);
+                assertThat(page.totalItems()).as("all games on %s", date).isEqualTo(expected);
             }
         }
     }
 
     @Test
-    void excludesLowMissingAndAbsentHypeFromCountsFacetsAndDayPages() {
+    void countsGamesWithLowMissingAndAbsentHypeWithoutAddingTheirInterest() {
         jdbcTemplate.update(
                 "UPDATE catalogue.game_featured_evidence SET hypes = 9 WHERE game_id = ?::uuid",
                 gameId("1"));
@@ -188,12 +216,9 @@ class JdbcReleaseCalendarReadAdapterIntegrationTest {
             var result =
                     adapter.countPublishedReleases(criteria(List.of(), List.of())).orElseThrow();
             assertThat(result.days())
-                    .containsExactly(
-                            new DayCount(LocalDate.of(2028, 2, 14), 1, 10),
-                            new DayCount(LocalDate.of(2028, 2, 20), 1, 10));
-            assertThat(result.platforms()).extracting(Taxonomy::id).containsExactly(PC);
-            assertThat(result.regions()).extracting(Taxonomy::id).containsExactly(WORLDWIDE);
-            eachDayCountDoesNotExceedTheFullExplorerTotal();
+                    .contains(
+                            new DayCount(LocalDate.of(2028, 2, 15), 2, 0),
+                            new DayCount(LocalDate.of(2028, 2, 29), 1, 0));
             var all =
                     explorer.findPublishedReleases(
                                     new ReleaseBrowseReadPort.Criteria(

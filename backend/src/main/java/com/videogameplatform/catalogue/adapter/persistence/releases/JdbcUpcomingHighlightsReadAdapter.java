@@ -30,7 +30,7 @@ import org.springframework.transaction.support.TransactionOperations;
  * <p>PostgreSQL does all the work in one statement: qualifying_release holds the scope's qualifying
  * releases inside the horizon through the shared period index, candidate keeps the distinct games
  * without a scope release that has already occurred and not known to be editions, ranked_game ranks
- * them by Hypes through a primary-key probe and keeps the bounded top, and presented_release keeps
+ * the distinct products among them by attention (ATT-006) and keeps the bounded top, and presented_release keeps
  * one release per ranked game. Work grows with the releases of the horizon, never with the
  * catalogue's history, and request memory stays O(limit).
  */
@@ -47,7 +47,8 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
             """;
 
     /**
-     * A qualifying release is a Full Release on a scope platform, neither cancelled, delayed nor
+     * A qualifying release is a launch (a full release, or one whose stage is unknown; ATT-007) on a
+     * scope platform, neither cancelled, delayed nor
      * pending review, whose known date can only fall after the evaluation date and inside the
      * horizon: an exact day after today, or a month or quarter that has not ended, ending by the
      * horizon's last day. A year or unknown date is never placed inside the horizon. The overlap
@@ -69,7 +70,7 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
                   AND rs.platform_id = ANY(CAST(:platformIds AS uuid[]))
                   AND rs.release_status NOT IN ('cancelled', 'delayed')
                   AND rs.review_status <> 'required'
-                  AND rs.release_stage = 'full_release'
+                  AND rs.release_stage IN %3$s
                   AND rs.date_precision IN ('day', 'month', 'quarter')
                   AND rs.period_start IS NOT NULL
                   AND daterange(rs.period_start, rs.period_end, '[]')
@@ -100,12 +101,21 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
                         FROM catalogue.game_featured_evidence edition
                         WHERE edition.game_id = qr.game_id AND NOT edition.eligible_product)
             ),
-            ranked_game AS MATERIALIZED (
-                SELECT c.game_id, signal.hypes, signal.observed_at
+            eligible_candidate AS MATERIALIZED (
+                SELECT c.game_id, true AS full_launch
                 FROM candidate c
-                JOIN catalogue.game_featured_evidence signal
-                  ON signal.game_id = c.game_id AND signal.eligible_product AND signal.hypes > 0
-                ORDER BY signal.hypes DESC, c.game_id
+                WHERE EXISTS (
+                        SELECT 1
+                        FROM catalogue.game_featured_evidence eligible
+                        WHERE eligible.game_id = c.game_id AND eligible.eligible_product)
+            ),
+            %2$s,
+            ranked_game AS MATERIALIZED (
+                SELECT signal.game_id, signal.attention,
+                       signal.signal_observed_at AS observed_at
+                FROM game_signal signal
+                WHERE signal.attention IS NOT NULL
+                ORDER BY signal.attention DESC, signal.game_id
                 LIMIT :limit
             ),
             presented_release AS MATERIALIZED (
@@ -113,13 +123,13 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
                 FROM qualifying_release qr
                 JOIN ranked_game rg ON rg.game_id = qr.game_id
                 JOIN catalogue.region release_region ON release_region.region_id = qr.region_id
-                ORDER BY qr.game_id, %s
+                ORDER BY qr.game_id, %1$s
             ),
             summary AS (
                 SELECT EXISTS (SELECT 1 FROM candidate) AS has_candidates
             ),
             page AS (
-                SELECT rg.game_id, rg.hypes, rg.observed_at,
+                SELECT rg.game_id, rg.attention, rg.observed_at,
                        snapshot.slug, snapshot.canonical_title,
                        snapshot.cover_reference, snapshot.cover_source, snapshot.cover_usage_mode,
                        snapshot.cover_alternative_text, snapshot.cover_source_url,
@@ -154,11 +164,13 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
                    page.region_id::text AS presented_region_id
             FROM summary
             LEFT JOIN page ON true
-            ORDER BY page.hypes DESC, page.game_id
+            ORDER BY page.attention DESC, page.game_id
             """
                     .formatted(
                             ReleasePresentationOrder.of(
-                                    "qr", "release_region", "qr.period_end ASC"));
+                                    "qr", "release_region", "qr.period_end ASC"),
+                            ReleaseAttentionSql.signals("eligible_candidate"),
+                            ReleaseAttentionSql.LAUNCH_STAGES);
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -231,18 +243,20 @@ public final class JdbcUpcomingHighlightsReadAdapter implements UpcomingHighligh
 
     static Map<String, Object> parameters(
             String publicationId, Criteria criteria, List<Taxonomy> platforms) {
-        return Map.of(
-                "publicationId",
-                publicationId,
-                // A PostgreSQL array literal of identifiers the taxonomy holds, so they are uuids.
+        Map<String, Object> parameters = new java.util.LinkedHashMap<>();
+        parameters.put("publicationId", publicationId);
+        // A PostgreSQL array literal of identifiers the taxonomy holds, so they are uuids.
+        parameters.put(
                 "platformIds",
-                platforms.stream().map(Taxonomy::id).collect(Collectors.joining(",", "{", "}")),
-                "evaluatedOn",
-                criteria.evaluatedOn(),
-                "horizonEnd",
-                criteria.horizonEnd(),
-                "limit",
-                criteria.limit());
+                platforms.stream().map(Taxonomy::id).collect(Collectors.joining(",", "{", "}")));
+        parameters.put("evaluatedOn", criteria.evaluatedOn());
+        parameters.put("horizonEnd", criteria.horizonEnd());
+        // Attention covers the horizon; a game first released before today is a re-release.
+        parameters.putAll(
+                ReleaseAttentionSql.parameters(
+                        criteria.evaluatedOn(), criteria.horizonEnd(), criteria.attention()));
+        parameters.put("limit", criteria.limit());
+        return parameters;
     }
 
     /** One row per ranked game; with no ranked game, one row carries the summary alone. */

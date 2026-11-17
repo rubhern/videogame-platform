@@ -1,3 +1,5 @@
+import { featuredSearchPath } from "./featured-search";
+import type { PlatformContext } from "../platforms/platform-context";
 import { Link } from "react-router-dom";
 
 import type { InterestMode } from "../platform-preferences/interests";
@@ -33,6 +35,7 @@ type FeaturedReleasesShellProps = {
   onRetry: () => void;
   /** Whether the visitor's preferred platforms apply to this view (#295). */
   interestsMode?: InterestMode;
+  platform?: PlatformContext | undefined;
 };
 
 /** The period's featured release and up to five more; the row never fills artificial slots. */
@@ -114,9 +117,11 @@ function FeaturedLoading() {
 function UnrankedNotice({
   model,
   interestsOn,
+  platform,
 }: {
   model: FeaturedReleasesViewModel;
   interestsOn: boolean;
+  platform?: PlatformContext | undefined;
 }) {
   const interestsSwitch = useInterestsSwitch();
   const unranked = model.selection.status === "popularity-unavailable";
@@ -124,7 +129,7 @@ function UnrankedNotice({
   const period = week ? "esta semana" : "este mes";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"}`}>
-      <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Sin lanzamientos"}</p>
+      <p className="notice-kicker">{unranked ? "Sin datos de interés" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
           ? `Aún no hay Destacados de ${model.periodPhrase}`
@@ -134,7 +139,7 @@ function UnrankedNotice({
       </h2>
       <p>
         {unranked
-          ? `De momento, Gameómetro no tiene Hype para lanzamientos de ${period}${interestsOn ? " en tus plataformas" : ""}`
+          ? `De momento, Gameómetro no tiene datos de interés para lanzamientos de ${period}${interestsOn ? " en tus plataformas" : ""}`
           : interestsOn
             ? `Gameómetro no tiene lanzamientos para tus plataformas en ${period}. Prueba con todas las plataformas.`
             : week
@@ -153,7 +158,7 @@ function UnrankedNotice({
         ) : null}
         <Link
           className={`button${interestsOn ? "" : " button-primary"}`}
-          to={releasesRangePath(model.window.from, model.window.to)}
+          to={releasesRangePath(model.window.from, model.window.to, platform?.platformIds)}
         >
           Explorar lanzamientos
         </Link>
@@ -167,6 +172,7 @@ export function FeaturedReleasesShell({
   state,
   onRetry,
   interestsMode = "inactive",
+  platform,
 }: FeaturedReleasesShellProps) {
   const model = state.status === "ready" ? state.model : null;
   const showsModel = state.status === "ready" && !state.isPlaceholderData;
@@ -177,6 +183,7 @@ export function FeaturedReleasesShell({
         <div className="featured-heading">
           <HeroTitle id="featured-title" title={titles[search.granularity]} />
           <FeaturedPeriodSelector model={showsModel ? model : null} search={search} />
+          {platform === undefined ? null : <Link className="view-action" to={featuredSearchPath({ granularity: search.granularity, period: search.period })}>{platform.name} · Quitar filtro</Link>}
         </div>
 
         <p className="sr-only" role="status">
@@ -217,7 +224,7 @@ export function FeaturedReleasesShell({
         ) : null}
 
         {showsModel && model !== null && model.lead === null ? (
-          <UnrankedNotice interestsOn={interestsMode === "on"} model={model} />
+          <UnrankedNotice interestsOn={interestsMode === "on"} model={model} platform={platform} />
         ) : null}
 
         {showsModel && model !== null && model.lead !== null ? (
@@ -238,14 +245,15 @@ export function FeaturedReleasesShell({
                   {/* The explorer opens on exactly the represented week or month (#285). */}
                   <Link
                     className="featured-all-link view-action"
-                    to={releasesRangePath(model.window.from, model.window.to)}
+                    to={releasesRangePath(model.window.from, model.window.to, platform?.platformIds)}
                   >
                     Ver todos los lanzamientos <span aria-hidden="true">→</span>
                   </Link>
                 </div>
-                <ul className="featured-row">
-                  {model.others.map((item) => (
-                    <li className="min-w-0" key={item.gameId}>
+                <ul className="featured-row" data-analytics-list="featured">
+                  {model.others.map((item, index) => (
+                    // The lead is position 1; the others follow it in ranking order.
+                    <li className="min-w-0" data-analytics-position={index + 2} key={item.gameId}>
                       <FeaturedCard item={item} timeline={model.timeline} />
                     </li>
                   ))}

@@ -65,8 +65,8 @@ bash ../scripts/validate-docs.sh
 
 ## Private serving
 
-Deployment sources live under `documentation/deploy/`, outside the application
-promotion fingerprint; portal updates do not require application runtime acknowledgement.
+Deployment sources live under `documentation/deploy/`; application promotion neither
+reads nor restarts the portal.
 The private-dev operator guide remains the single owner of host commands.
 
 The production output is `dist/`; any static server can serve it. The non-root
@@ -89,7 +89,7 @@ build-only tooling, absent from the static runtime. Preserve upstream licences w
 redistributing tooling. Optional dependencies differ by build platform; the supported
 container target remains AMD64.
 
-Run `npm audit --audit-level=high` and the repository-pinned image vulnerability
+Run `node ../scripts/audit-build-dependencies.mjs --portal` from this directory and the repository-pinned image vulnerability
 scanner when dependencies/images change. Build/search/browser checks cover the
 security overrides. The runtime copies only `dist`, has no npm/Java/Chromium or source
 tree, and does not embed secrets. Its CSP allows Starlight's inline initialization
@@ -101,3 +101,6 @@ This portal starts as its own initial pre-1.0 `0.1.0` artefact. It does not chan
 backend, frontend or OpenAPI versions. Follow the
 [delivery lifecycle](../docs/development/delivery-lifecycle.md#semantic-versioning)
 for subsequent changes and publication approval.
+
+The temporary picomatch risk acceptance is owned by the
+[CI policy](../docs/development/continuous-integration.md#temporary-build-dependency-exception).

@@ -153,6 +153,8 @@ public interface SynchronizationProgress {
         PROVIDER_GAME,
         /** Reading the logos of a page's Games; it never fails a Game. */
         PROVIDER_LOGOS,
+        /** Reading the attention signals of a page's Games; it never fails a Game. */
+        PROVIDER_ATTENTION,
         /** The normalized provider record is not publishable. */
         VALIDATION,
         /** Reconciling the record against the published Game. */

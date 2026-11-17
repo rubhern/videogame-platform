@@ -102,7 +102,22 @@ class ReleaseCalendarApiIntegrationTest {
     }
 
     @Test
-    void calendarCountsAreASubsetOfTheFullExplorer() throws Exception {
+    void timelineAcceptsHistoricalMonthsAndKeepsDefaultMonthAndValidation() throws Exception {
+        var previous = get("/api/v1/release-calendar?month=2026-07&includePast=true");
+        OPENAPI.assertJsonResponse(previous, 200, "ReleaseCalendar");
+        assertThat(json(previous).path("month").stringValue()).isEqualTo("2026-07");
+        assertThat(
+                        json(get("/api/v1/release-calendar?includePast=true"))
+                                .path("month")
+                                .stringValue())
+                .isEqualTo("2026-08");
+        assertPointer(get("/api/v1/release-calendar?includePast=yes"), "/query/includePast");
+        assertPointer(
+                get("/api/v1/release-calendar?month=2020-01&includePast=true"), "/query/month");
+    }
+
+    @Test
+    void calendarCountsEqualTheFullExplorerFromToday() throws Exception {
         for (String query : new String[] {"", "&platformIds=" + PS5}) {
             for (String month : new String[] {"2026-08", "2026-09", "2026-10"}) {
                 JsonNode calendar = json(get("/api/v1/release-calendar?month=" + month + query));
@@ -116,6 +131,10 @@ class ReleaseCalendarApiIntegrationTest {
                 LocalDate first =
                         LocalDate.parse(calendar.path("window").path("from").stringValue());
                 LocalDate last = LocalDate.parse(calendar.path("window").path("to").stringValue());
+                LocalDate evaluatedOn = LocalDate.parse(calendar.path("evaluatedOn").stringValue());
+                if (first.isBefore(evaluatedOn)) {
+                    first = evaluatedOn;
+                }
                 for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
                     JsonNode page =
                             json(
@@ -124,7 +143,7 @@ class ReleaseCalendarApiIntegrationTest {
                                                     .formatted(day, day, query)));
                     assertThat(page.path("page").path("totalItems").longValue())
                             .as("games on %s%s", day, query)
-                            .isGreaterThanOrEqualTo(counts.getOrDefault(day.toString(), 0L));
+                            .isEqualTo(counts.getOrDefault(day.toString(), 0L));
                 }
             }
         }
@@ -158,7 +177,7 @@ class ReleaseCalendarApiIntegrationTest {
     }
 
     @Test
-    void calendarThresholdNeverRestrictsTheFullExplorer() throws Exception {
+    void calendarThresholdChangesInterestButKeepsTheCount() throws Exception {
         try (var connection = PostgreSqlTestDatabase.adminConnection(DATABASE_NAME);
                 var statement = connection.createStatement()) {
             statement.executeUpdate(
@@ -177,8 +196,10 @@ class ReleaseCalendarApiIntegrationTest {
                         .isEqualTo("Marvel's Wolverine");
                 statement.executeUpdate(
                         "UPDATE catalogue.game_featured_evidence SET hypes = 9 WHERE game_id = '30000000-0000-4000-8000-00000000000c'");
-                assertThat(json(get("/api/v1/release-calendar?month=2026-09")).path("days"))
-                        .isEmpty();
+                var belowThreshold =
+                        json(get("/api/v1/release-calendar?month=2026-09")).path("days");
+                assertThat(belowThreshold.get(0).path("gameCount").longValue()).isEqualTo(1);
+                assertThat(belowThreshold.get(0).path("totalHype").longValue()).isZero();
                 assertThat(
                                 json(get("/api/v1/releases?from=2026-09-25&to=2026-09-25"))
                                         .path("page")
@@ -218,6 +239,14 @@ class ReleaseCalendarApiIntegrationTest {
         json(get("/api/v1/release-calendar"));
         json(get("/api/v1/release-calendar?month=2026-12&platformIds=" + PS5));
 
+        json(get("/api/v1/release-calendar?month=2026-07&includePast=true"));
+
+        assertThat(
+                        meterRegistry
+                                .find(ReleaseCalendarApiMetrics.DAYS)
+                                .tags("month", "past")
+                                .summary())
+                .isNotNull();
         assertThat(
                         meterRegistry
                                 .find(ReleaseCalendarApiMetrics.DAYS)

@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { isCancelledError, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { preferenceCountBucket, trackEvent } from "../analytics/events";
 import type { SessionState } from "../session/session-api";
 import { sessionQueryOptions, useSession } from "../session/use-session";
 import type { Interests } from "./interests";
@@ -48,8 +49,8 @@ export function useMyPlatformPreferences() {
   });
 }
 
-export function usePlatformList() {
-  return useQuery(platformListQueryOptions());
+export function usePlatformList(enabled = true) {
+  return useQuery({ ...platformListQueryOptions(), enabled });
 }
 
 function toInterests(
@@ -84,11 +85,17 @@ export function useInterests(): Interests {
 
 /** The same resolution for a route loader, so the first discovery read is already personal. */
 export async function loadInterests(queryClient: QueryClient): Promise<Interests> {
-  const session = await queryClient.ensureQueryData(sessionQueryOptions()).catch(() => undefined);
+  const sessionOptions = sessionQueryOptions();
+  const session = await queryClient.ensureQueryData(sessionOptions).catch((error: unknown) =>
+    isCancelledError(error) ? queryClient.ensureQueryData(sessionOptions).catch(() => undefined) : undefined,
+  );
   if (session?.authenticated !== true) return toInterests(session, false, undefined, false);
-  const preferences = await queryClient
-    .ensureQueryData(platformPreferencesQueryOptions())
-    .catch(() => undefined);
+  const preferenceOptions = platformPreferencesQueryOptions();
+  // A loading surface can briefly subscribe and unsubscribe during a development remount.
+  // If it aborts the shared read, let the still-active loader obtain the actual preferences.
+  const preferences = await queryClient.ensureQueryData(preferenceOptions).catch((error: unknown) =>
+    isCancelledError(error) ? queryClient.ensureQueryData(preferenceOptions).catch(() => undefined) : undefined,
+  );
   return toInterests(session, false, preferences, false);
 }
 
@@ -102,6 +109,7 @@ export function useSavePlatformPreferences() {
   >({
     mutationFn: ({ platformIds, csrfToken }) => putMyPlatformPreferences(platformIds, csrfToken),
     onSuccess: (saved) => {
+      trackEvent("my_platforms_saved", { count: preferenceCountBucket(saved.platforms.length) });
       queryClient.setQueryData(PLATFORM_PREFERENCES_QUERY_KEY, saved);
     },
   });

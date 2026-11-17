@@ -121,6 +121,17 @@ class Preparation(unittest.TestCase):
                 adapter.prepare(Path(tmp), Path('/missing/env'), self.tls)
             runner.assert_not_called()
 
+    def test_only_disabled_feedback_may_have_an_empty_inbox(self):
+        values = adapter.parse_runtime_env(
+            (adapter.ROOT / 'deploy/public-production/runtime.env.example').read_text())
+        self.assertEqual(values['PRODUCTION_FEEDBACK_ENABLED'], 'false')
+        self.assertEqual(values['PRODUCTION_FEEDBACK_INBOX'], '')
+        for runtime in ('PRODUCTION_FEEDBACK_INBOX=',
+                        'PRODUCTION_FEEDBACK_ENABLED=true\nPRODUCTION_FEEDBACK_INBOX=',
+                        'OTHER_SETTING='):
+            with self.subTest(runtime=runtime), self.assertRaises(trust.Refused):
+                adapter.parse_runtime_env(runtime)
+
     def test_real_candidate_export_and_combined_render_without_registry_or_daemon_mutation(self):
         campaign = json.loads((adapter.ROOT / 'docs/research/public-production-candidate-evidence/final-9ffc05a-campaign.json').read_text())
         actual_command = adapter.command
@@ -136,9 +147,14 @@ class Preparation(unittest.TestCase):
                 patch.object(adapter, 'registry_images', return_value={}), \
                 patch.object(adapter, 'command', side_effect=local_only):
             output = Path(tmp) / 'new-bundle'
+            # The preparation contract belongs to the immutable candidate, not the checkout.
+            candidate_runtime = Path(tmp) / 'runtime.env'
+            candidate_runtime.write_bytes(subprocess.run(
+                ['git', 'show', f'{adapter.REVISION}:deploy/public-production/runtime.env.example'],
+                capture_output=True, check=True).stdout)
             previous_umask = os.umask(0o077)
             try:
-                receipt = adapter.prepare(output, adapter.ROOT / 'deploy/public-production/runtime.env.example',
+                receipt = adapter.prepare(output, candidate_runtime,
                                           Path('/etc/gameometro/production/private-tls'))
             finally:
                 os.umask(previous_umask)

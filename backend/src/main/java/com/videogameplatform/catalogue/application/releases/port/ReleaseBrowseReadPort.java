@@ -33,9 +33,36 @@ public interface ReleaseBrowseReadPort {
             List<String> regionIds,
             Pagination pagination,
             boolean includeApproximateDates,
-            int releaseGroupLimit) {
+            int releaseGroupLimit,
+            com.videogameplatform.catalogue.domain.AttentionWeights attention) {
+
+        /** The approved attention weights. */
+        public Criteria(
+                Window window,
+                LocalDate evaluatedOn,
+                BrowseReleasesUseCase.Sort sort,
+                List<String> platformIds,
+                List<String> regionIds,
+                Pagination pagination,
+                boolean includeApproximateDates,
+                int releaseGroupLimit) {
+            this(
+                    window,
+                    evaluatedOn,
+                    sort,
+                    platformIds,
+                    regionIds,
+                    pagination,
+                    includeApproximateDates,
+                    releaseGroupLimit,
+                    com.videogameplatform.catalogue.domain.AttentionWeights.DEFAULT);
+        }
 
         public Criteria {
+            attention =
+                    attention == null
+                            ? com.videogameplatform.catalogue.domain.AttentionWeights.DEFAULT
+                            : attention;
             if (window == null || evaluatedOn == null || sort == null) {
                 throw new IllegalArgumentException("Range, evaluation date and sort are required");
             }

@@ -56,8 +56,8 @@ class RatingResumeAuthenticationHandlerTest {
         assertThat(store.takeReturnContext()).isEmpty();
         Optional<ResumedRatingIntent> resumed = store.takeResumedIntent();
         assertThat(resumed).isPresent();
-        assertThat(resumed.get().gameId()).isEqualTo(GAME_ID);
-        assertThat(resumed.get().value()).isEqualTo(8);
+        assertThat(resumed.get().selection().gameId()).isEqualTo(GAME_ID);
+        assertThat(resumed.get().selection().value()).isEqualTo(8);
         assertThat(resumed.get().userId())
                 .isEqualTo(UserId.fromIssuerAndSubject(ISSUER, SUBJECT).value());
     }

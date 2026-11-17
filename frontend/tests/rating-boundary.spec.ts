@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
+import { registerWithVerifiedEmail } from "./fixtures/registration";
 
 const gamePath =
   "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
@@ -48,7 +49,7 @@ test("anonymous browsing offers account entry and preserves the rating boundary"
 });
 
 test.describe("real Keycloak rating journey", () => {
-  // Both journeys rate the same game; serial order keeps the community assertions deterministic.
+  // The journeys rate the same game; serial order keeps the community assertions deterministic.
   test.describe.configure({ mode: "serial" });
   test.skip(
     !username || !password,
@@ -66,7 +67,7 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page).toHaveURL(
       /\/realms\/videogame-platform\/protocol\/openid-connect\/auth/,
     );
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
@@ -120,10 +121,57 @@ test.describe("real Keycloak rating journey", () => {
   });
 
 
+  test("an anonymous phone user rates by platform through Keycloak and saves once", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const writes: Record<string, unknown>[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().includes("/api/v1/me/ratings/")) {
+        writes.push(request.postDataJSON());
+      }
+    });
+
+    await page.goto(gamePath);
+    await reading(page).press("Enter");
+    await page.getByRole("button", { name: "Puntuar por plataforma" }).press("Enter");
+    const sheet = page.getByRole("dialog", { name: "Puntuar por plataforma" });
+    const ps5 = sheet.getByRole("checkbox", { name: "PlayStation 5" });
+    await expect(ps5).toBeFocused();
+    await expect.poll(async () => (await sheet.boundingBox())?.width).toBe(390);
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Tab");
+    await expect(sheet.getByRole("button", { name: "Puntuar PlayStation 5" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await sheet.getByRole("button", { name: "9", exact: true }).press("Enter");
+    expect(writes).toHaveLength(0);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+
+    await sheet.getByRole("button", { name: "Guardar", exact: true }).press("Enter");
+    await expect(page).toHaveURL(/\/realms\/videogame-platform\/protocol\/openid-connect\/auth/);
+    expect(writes).toHaveLength(0);
+    await page.locator("#username").fill(username ?? "");
+    await page.locator("#password").fill(password ?? "");
+    await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
+
+    await expect(page).toHaveURL(new RegExp(`${gamePath}$`));
+    await expect(reading(page)).toHaveAccessibleName(/9\/10, nota de 1 plataforma/);
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
+    expect(writes).toEqual([{
+      platforms: [{ platformId: "10000000-0000-4000-8000-000000000001", value: 9 }],
+    }]);
+    await page.goto(`${gamePath}?rating-intent=resumed`);
+    await expect(page.getByText(/La selección para puntuar caducó/)).toBeVisible();
+    await expect(reading(page)).toHaveAccessibleName(/9\/10, nota de 1 plataforma/);
+    expect(writes).toHaveLength(1);
+
+    await reading(page).click();
+    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await expect(reading(page)).toHaveAccessibleName(/sin puntuación/);
+  });
+
   test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
     await page.goto(gamePath);
     await pick(page, 8);
-    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
+    await page.locator("#username").fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
@@ -179,6 +227,7 @@ test.describe("real Keycloak rating journey", () => {
 
   test("a new visitor self-registers through Keycloak and resumes the same game and value", async ({
     page,
+    request,
   }) => {
     await page.goto(gamePath);
     await pick(page, 7);
@@ -189,15 +238,7 @@ test.describe("real Keycloak rating journey", () => {
     );
     await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
 
-    const unique = `player-${Date.now()}`;
-    await page.locator("#firstName").fill("New");
-    await page.locator("#lastName").fill("Visitor");
-    await page.locator("#email").fill(`${unique}@localhost.invalid`);
-    await page.locator("#username").fill(unique);
-    await page.locator("#password").fill("Str0ng-Passw0rd!");
-    await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
-    await page.locator("#termsAccepted").check();
-    await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+    await registerWithVerifiedEmail(page, request, `player-${Date.now()}@example.test`, "Str0ng-Passw0rd!");
 
     // First-time registration completes authentication and persists the chosen value.
     await expect(page).toHaveURL(new RegExp(gamePath));

@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+"""Reconcile Google and Microsoft sign-in on an existing realm through the Admin API (#548, ADR-0045).
+
+One reviewed shape for local, private-dev and production. It manages only:
+
+- the TERMS_AND_CONDITIONS required action (enabled, never a default action);
+- the "gameometro first broker login" flow: review missing profile data, create the account
+  only when its email is unused, otherwise confirm and link only after the existing account's
+  password (never by matching email), then ask a new account to accept the terms;
+- the google and microsoft identity providers, with the minimum scopes and that flow.
+
+A provider without credentials is disabled, never deleted, so linked accounts keep their links.
+Accounts, credentials, clients and every other realm setting stay untouched. Credentials and the
+administrator password cross stdin as one JSON document and are never printed.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pathlib
+import sys
+import urllib.parse
+
+sys.dont_write_bytecode = True
+ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+FLOW = "gameometro first broker login"
+ACCOUNT_FLOW = "gameometro first broker login account"
+EXISTING_FLOW = "gameometro first broker login existing account"
+REVIEW_CONFIG = "gameometro review missing profile"
+TERMS_ACTION = "TERMS_AND_CONDITIONS"
+# (level, provider or sub-flow alias, requirement, configuration); sub-flows are basic flows.
+FLOW_SHAPE = (
+    (0, "idp-review-profile", "REQUIRED", {"update.profile.on.first.login": "missing"}),
+    (0, ACCOUNT_FLOW, "REQUIRED", None),
+    (1, "idp-create-user-if-unique", "ALTERNATIVE", None),
+    (1, EXISTING_FLOW, "ALTERNATIVE", None),
+    (2, "idp-confirm-link", "REQUIRED", None),
+    (2, "idp-username-password-form", "REQUIRED", None),
+    (0, "gameometro-brokered-terms", "REQUIRED", None),
+)
+SUB_FLOWS = {ACCOUNT_FLOW: "Create a new account, or link an existing one", EXISTING_FLOW: "Link only after the existing password"}
+# Owner decision 2026-11-14: Google's verified email is trusted; Microsoft's is verified once by
+# email. Trust never links by itself: this flow has no email-based linking step.
+PROVIDERS = {
+    "google": {
+        "displayName": "Google",
+        "trustEmail": True,
+        "config": {"defaultScope": "openid email", "guiOrder": "1", "offlineAccess": "false", "userIp": "false"},
+    },
+    "microsoft": {
+        "displayName": "Microsoft",
+        "trustEmail": False,
+        # Personal Microsoft accounts only (Outlook, Hotmail, Xbox); Graph needs User.Read.
+        "config": {"tenantId": "consumers", "defaultScope": "User.Read", "guiOrder": "2"},
+    },
+}
+COMMON_PROVIDER = {
+    "storeToken": False,
+    "addReadTokenRoleOnCreate": False,
+    "authenticateByDefault": False,
+    "linkOnly": False,
+    "hideOnLogin": False,
+    "firstBrokerLoginFlowAlias": FLOW,
+}
+COMMON_CONFIG = {"syncMode": "IMPORT", "clientAuthMethod": "client_secret_post", "prompt": "select_account"}
+CREDENTIAL_KEYS = ("clientId", "clientSecret")
+REALMS = ("gameometro", "videogame-platform")
+
+
+class Refused(ValueError):
+    """A safe, credential-free reason."""
+
+
+def require(value: object, reason: str) -> None:
+    if not value:
+        raise Refused(reason)
+
+
+def load_identity_module():
+    loader = importlib.machinery.SourceFileLoader(
+        "social_identity", str(ROOT / "deploy/private-dev/bin/configure-keycloak-identity"))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def desired_provider(alias: str, credentials: dict[str, str] | None) -> dict[str, object]:
+    reviewed = PROVIDERS[alias]
+    config = {**COMMON_CONFIG, **reviewed["config"]}
+    if credentials:
+        config.update({key: credentials[key] for key in CREDENTIAL_KEYS})
+    return {"alias": alias, "providerId": alias, "displayName": reviewed["displayName"], "enabled": bool(credentials),
+            "trustEmail": reviewed["trustEmail"], **COMMON_PROVIDER, "config": config}
+
+
+def validate_credentials(providers: object) -> dict[str, dict[str, str] | None]:
+    require(isinstance(providers, dict) and set(providers) <= set(PROVIDERS), "Unknown identity provider in the input.")
+    result: dict[str, dict[str, str] | None] = {}
+    for alias in PROVIDERS:
+        value = providers.get(alias)
+        if value is None:
+            result[alias] = None
+            continue
+        require(isinstance(value, dict) and set(value) == set(CREDENTIAL_KEYS)
+                and all(isinstance(value[k], str) and value[k].strip() == value[k] and 0 < len(value[k]) <= 512
+                        and value[k].isprintable() for k in CREDENTIAL_KEYS),
+                f"Credentials for {alias} must be a non-empty clientId and clientSecret.")
+        result[alias] = dict(value)
+    return result
+
+
+class SocialSignIn:
+    """`realm` offers get(path) and send(method, path, body) relative to /admin/realms/<realm>."""
+
+    def __init__(self, realm) -> None:
+        self.realm = realm
+
+    # --- reads ---
+    def terms_action(self) -> dict[str, object] | None:
+        actions = self.realm.get("/authentication/required-actions")
+        require(isinstance(actions, list), "Invalid required actions.")
+        return next((a for a in actions if a.get("alias") == TERMS_ACTION), None)
+
+    def flow_exists(self) -> bool:
+        flows = self.realm.get("/authentication/flows")
+        require(isinstance(flows, list), "Invalid authentication flows.")
+        return any(flow.get("alias") == FLOW for flow in flows)
+
+    def executions(self) -> list[dict[str, object]]:
+        executions = self.realm.get(f"/authentication/flows/{urllib.parse.quote(FLOW, safe='')}/executions")
+        require(isinstance(executions, list), "Invalid first broker login executions.")
+        return executions
+
+    def flow_shape(self) -> list[tuple] | None:
+        if not self.flow_exists():
+            return None
+        shape = []
+        for execution in self.executions():
+            name = execution.get("displayName") if execution.get("authenticationFlow") else execution.get("providerId")
+            config = None
+            if execution.get("authenticationConfig"):
+                stored = self.realm.get(f"/authentication/config/{execution['authenticationConfig']}")
+                config = stored.get("config") if isinstance(stored, dict) else {"invalid": True}
+            shape.append((execution.get("level"), name, execution.get("requirement"), config))
+        return shape
+
+    def providers(self) -> dict[str, dict[str, object]]:
+        instances = self.realm.get("/identity-provider/instances")
+        require(isinstance(instances, list), "Invalid identity provider inventory.")
+        return {instance["alias"]: instance for instance in instances if isinstance(instance, dict)}
+
+    # --- comparison ---
+    @staticmethod
+    def provider_drift(current: dict[str, object] | None, desired: dict[str, object]) -> list[str]:
+        if current is None:
+            return ["absent"] if desired["enabled"] else []
+        if not desired["enabled"]:
+            return ["enabled"] if current.get("enabled") else []
+        differing = [key for key, value in desired.items() if key != "config" and current.get(key) != value]
+        config = current.get("config") or {}
+        # Keycloak masks a stored secret; only the client ID and the reviewed settings are comparable.
+        differing += [f"config.{key}" for key, value in desired["config"].items()
+                      if key != "clientSecret" and config.get(key) != value]
+        return differing
+
+    def drift(self, credentials: dict[str, dict[str, str] | None]) -> list[str]:
+        differing = []
+        action = self.terms_action()
+        if not action or action.get("enabled") is not True or action.get("defaultAction") is not False:
+            differing.append("requiredAction:" + TERMS_ACTION)
+        if self.flow_shape() != [tuple(step) for step in FLOW_SHAPE]:
+            differing.append("flow")
+        current = self.providers()
+        for alias in PROVIDERS:
+            differing += [f"{alias}:{key}" for key in self.provider_drift(current.get(alias), desired_provider(alias, credentials[alias]))]
+        return differing
+
+    # --- writes ---
+    def ensure_terms_action(self) -> None:
+        action = self.terms_action()
+        if action is None:
+            self.realm.send("POST", "/authentication/register-required-action", {"providerId": TERMS_ACTION, "name": "Terms and Conditions"})
+            action = self.terms_action()
+            require(action, "Keycloak did not register the terms required action.")
+        if action.get("enabled") is not True or action.get("defaultAction") is not False:
+            self.realm.send("PUT", f"/authentication/required-actions/{TERMS_ACTION}", {**action, "enabled": True, "defaultAction": False})
+
+    def ensure_flow(self) -> None:
+        shape = self.flow_shape()
+        if shape == [tuple(step) for step in FLOW_SHAPE]:
+            return
+        require(shape is None, f"Flow '{FLOW}' exists with another shape; review it before applying.")
+        self.realm.send("POST", "/authentication/flows", {
+            "alias": FLOW, "description": "Gameometro social sign-in: no email-based linking", "providerId": "basic-flow",
+            "topLevel": True, "builtIn": False})
+        parents = {0: FLOW}
+        for level, name, _, _ in FLOW_SHAPE:
+            parent = urllib.parse.quote(parents[level], safe="")
+            if name in SUB_FLOWS:
+                self.realm.send("POST", f"/authentication/flows/{parent}/executions/flow",
+                                {"alias": name, "description": SUB_FLOWS[name], "type": "basic-flow", "provider": "registration-page-form"})
+                parents[level + 1] = name
+            else:
+                self.realm.send("POST", f"/authentication/flows/{parent}/executions/execution", {"provider": name})
+        executions = self.executions()
+        require(len(executions) == len(FLOW_SHAPE), f"Keycloak did not build flow '{FLOW}' as reviewed.")
+        quoted = urllib.parse.quote(FLOW, safe="")
+        for execution, (_, _, requirement, config) in zip(executions, FLOW_SHAPE):
+            if execution.get("requirement") != requirement:
+                self.realm.send("PUT", f"/authentication/flows/{quoted}/executions", {**execution, "requirement": requirement})
+            if config:
+                self.realm.send("POST", f"/authentication/executions/{execution['id']}/config", {"alias": REVIEW_CONFIG, "config": config})
+        require(self.flow_shape() == [tuple(step) for step in FLOW_SHAPE], f"Keycloak did not build flow '{FLOW}' as reviewed.")
+
+    def ensure_provider(self, alias: str, credentials: dict[str, str] | None) -> bool:
+        current = self.providers().get(alias)
+        desired = desired_provider(alias, credentials)
+        if current is None:
+            if not credentials:
+                return False
+            self.realm.send("POST", "/identity-provider/instances", desired)
+            return True
+        if not credentials:
+            if not current.get("enabled"):
+                return False
+            # Disabling keeps the provider and every linked identity; deleting would drop the links.
+            self.realm.send("PUT", f"/identity-provider/instances/{alias}", {**current, "enabled": False})
+            return True
+        # Always written: the stored secret cannot be compared, so a rotation is just a re-run.
+        self.realm.send("PUT", f"/identity-provider/instances/{alias}",
+                        {**current, **desired, "internalId": current.get("internalId"), "config": {**(current.get("config") or {}), **desired["config"]}})
+        return True
+
+    def apply(self, credentials: dict[str, dict[str, str] | None]) -> dict[str, object]:
+        before = self.drift(credentials)
+        # The flow and the terms action exist before any provider can reference them.
+        self.ensure_terms_action()
+        self.ensure_flow()
+        written = [alias for alias in PROVIDERS if self.ensure_provider(alias, credentials[alias])]
+        remaining = self.drift(credentials)
+        require(not remaining, "Keycloak did not retain the reviewed social sign-in: " + ", ".join(remaining))
+        return self.summary(credentials, changed=before, written=written)
+
+    def check(self, credentials: dict[str, dict[str, str] | None]) -> dict[str, object]:
+        differing = self.drift(credentials)
+        require(not differing, "Social sign-in differs: " + ", ".join(differing))
+        return self.summary(credentials, changed=[], written=[])
+
+    @staticmethod
+    def summary(credentials, changed, written) -> dict[str, object]:
+        return {"providers": {alias: "enabled" if credentials[alias] else "disabled" for alias in PROVIDERS},
+                "changed": changed, "written": written}
+
+
+def read_input(path: pathlib.Path) -> dict[str, object]:
+    raw = path.read_bytes()
+    require(len(raw) <= 16384, "The input exceeds its bound.")
+    value = json.loads(raw)
+    require(isinstance(value, dict) and set(value) <= {"adminPassword", "providers"}, "Invalid input document.")
+    return value
+
+
+def private_dev_credentials(identity, env_file: pathlib.Path) -> dict[str, object]:
+    """Private-dev keeps provider credentials as optional files beside its other protected inputs."""
+    provisioning = identity.provisioning
+    values = provisioning.parse_runtime_environment(env_file.resolve(strict=True))
+    directory = pathlib.Path(provisioning.required(values, "PRIVATE_DEV_SECRETS_DIR"))
+    providers: dict[str, object] = {}
+    for alias in PROVIDERS:
+        names = [f"social-{alias}-client-id", f"social-{alias}-client-secret"]
+        present = [(directory / name).is_file() for name in names]
+        require(all(present) or not any(present), f"Provide both {names[0]} and {names[1]}, or neither.")
+        providers[alias] = ({"clientId": provisioning.read_secret(directory, names[0]),
+                             "clientSecret": provisioning.read_secret(directory, names[1])} if all(present) else None)
+    return providers
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--origin", help="Keycloak origin: http://keycloak:8080 in production, the loopback port locally")
+    target.add_argument("--private-dev-env-file", type=pathlib.Path)
+    parser.add_argument("--realm", choices=REALMS, required=True)
+    parser.add_argument("--admin-username", help="Master-realm administrator, with --origin")
+    parser.add_argument("--input-file", type=pathlib.Path, default=pathlib.Path("/dev/stdin"),
+                        help='JSON: {"adminPassword": ..., "providers": {"google": {"clientId", "clientSecret"} | null, ...}}')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="Verify the reviewed state without changes")
+    mode.add_argument("--disable", action="store_true", help="Disable both providers, keeping their linked identities")
+    arguments = parser.parse_args()
+    identity = load_identity_module()
+    provisioning = identity.provisioning
+
+    if arguments.origin:
+        parsed = urllib.parse.urlsplit(arguments.origin)
+        require(arguments.origin == "http://keycloak:8080"
+                or (parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1") and parsed.port
+                    and not parsed.path.strip("/") and not parsed.query),
+                "--origin must be http://keycloak:8080 or a loopback Keycloak port.")
+        require(arguments.admin_username, "--origin requires --admin-username.")
+        document = read_input(arguments.input_file)
+        password = document.get("adminPassword")
+        require(isinstance(password, str) and password and "\n" not in password, "The input lacks the administrator password.")
+        origin, username = arguments.origin, arguments.admin_username
+        providers = document.get("providers", {})
+    else:
+        require(not arguments.admin_username, "--private-dev-env-file reads the administrator from protected files.")
+        origin, username, password = identity.mail.private_dev_connection(arguments.private_dev_env_file)
+        providers = private_dev_credentials(identity, arguments.private_dev_env_file)
+    credentials = {alias: None for alias in PROVIDERS} if arguments.disable else validate_credentials(providers)
+
+    admin = provisioning.KeycloakAdmin(origin)
+    admin.authenticate(username, password)
+    social = SocialSignIn(identity.Realm(admin, arguments.realm))
+    result = social.check(credentials) if arguments.check else social.apply(credentials)
+    print(json.dumps({"realm": arguments.realm, **result}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    os.umask(0o077)
+    try:
+        raise SystemExit(main())
+    except Refused as error:
+        print(f"Social sign-in refused: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    except Exception:
+        print("Social sign-in alignment failed; raw diagnostics withheld.", file=sys.stderr)
+        raise SystemExit(1)

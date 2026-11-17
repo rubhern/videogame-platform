@@ -26,6 +26,7 @@ class ModularityTest {
                         .collect(Collectors.toUnmodifiableSet());
 
         assertThat(moduleNames)
-                .containsExactlyInAnyOrder("catalogue", "ratings", "identity", "api", "platform");
+                .containsExactlyInAnyOrder(
+                        "catalogue", "ratings", "identity", "api", "platform", "feedback");
     }
 }
