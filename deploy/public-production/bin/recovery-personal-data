@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Private production transport for existing privacy commands and fenced cleanup.
+"""Private production transport for existing privacy commands, fenced cleanup and self-service erasure.
 
 Uses a disposable HTTP client on the identity-data network, without publishing a port.
 No legal archive is created here. Administrative credentials travel only over stdin.
+
+Live modes: `--identity-cleanup` mutates only under the global deny/drain fence, because a
+cleanup candidate could verify while it is erased. `--self-service` (#564) erases one known
+account whose request is already committed: the `revoke` step disables that account and ends
+its sessions first, so other accounts keep signing in.
 """
 import argparse
 import base64
@@ -68,6 +73,7 @@ class DockerOpener:
 
 
 def runtime(config, project, state, username, password_file, *, core=None, identity_cleanup=False):
+    """identity_cleanup selects the live runtime checks, shared by cleanup and self-service."""
     core = core or recovery.Runtime(config, project, state)
     recovery.require(password_file.is_file() and not password_file.is_symlink()
                      and password_file.stat().st_uid == os.getuid()
@@ -108,7 +114,7 @@ def dispatch(a, core, target):
         recovery.require(a.identity_cleanup and a.cutoff_ms is not None, 'Candidate reads require cleanup mode and cutoff.')
         return pd.cleanup_candidates(target, a.cutoff_ms, a.max)
     if a.command == 'recovery-logout-all':
-        recovery.require(not a.identity_cleanup, 'Global session revocation is restore-only.')
+        recovery.require(not a.identity_cleanup and not a.self_service, 'Global session revocation is restore-only.')
         return logout_all(target, core)
     subject = pd.canonical_uuid(a.keycloak_user_id or '', '--keycloak-user-id')
     user = pd.require_identity(target, subject, a.user_id)
@@ -117,7 +123,8 @@ def dispatch(a, core, target):
     if a.command == 'archive-ratings':
         return pd.archive_rating_page(target, subject, a.game_ids or '', a.after_game_id)
     recovery.require(a.user_id is not None, 'Erasure requires the ledger UserId.')
-    return pd.STEPS[a.command](target, subject, user, a.application_must_be_stopped or not a.identity_cleanup)
+    live = a.identity_cleanup or a.self_service
+    return pd.STEPS[a.command](target, subject, user, a.application_must_be_stopped or not live)
 
 
 def logout_all(target, core):
@@ -156,7 +163,10 @@ def main():
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--admin-username', required=True)
     parser.add_argument('--admin-password-file', type=Path, required=True)
-    parser.add_argument('--identity-cleanup', action='store_true', help='Live cleanup; mutations require the existing deny/drain fence')
+    live = parser.add_mutually_exclusive_group()
+    live.add_argument('--identity-cleanup', action='store_true', help='Live cleanup; mutations require the existing deny/drain fence')
+    live.add_argument('--self-service', action='store_true',
+                      help='Live self-service erasure of one account; its revoke step disables only that account (#564)')
     parser.add_argument('command', choices=['identify', 'cleanup-candidates', 'archive-snapshot', 'archive-ratings', 'recovery-logout-all', *pd.STEPS])
     parser.add_argument('--cutoff-ms', type=int)
     parser.add_argument('--max', type=int, default=100)
@@ -168,10 +178,12 @@ def main():
     a = parser.parse_args()
     core = recovery.Runtime(a.config, a.project, a.state)
     # Restore replay already holds the recovery lease in its parent process. Only the
-    # independent live-cleanup calls acquire a new lease here.
-    with core.lock(maintenance=True) if a.identity_cleanup else contextlib.nullcontext():
+    # independent live calls acquire a new lease here; maintenance=True admits them while a
+    # cleanup holds its fence, and the shared ledger lock serializes the two erasures.
+    live = a.identity_cleanup or a.self_service
+    with core.lock(maintenance=True) if live else contextlib.nullcontext():
         target = runtime(a.config, a.project, a.state, a.admin_username, a.admin_password_file,
-                         core=core, identity_cleanup=a.identity_cleanup)
+                         core=core, identity_cleanup=live)
         result = dispatch(a, core, target)
         core.check_lease()
     print(json.dumps(result))

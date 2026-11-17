@@ -164,6 +164,7 @@ issuer_uri = os.environ.get(
     "FAKE_PRIVATE_DEV_OIDC_ISSUER_URI",
     f"{keycloak_origin}/realms/videogame-platform",
 )
+telegram_enabled = os.environ.get("FAKE_GRAFANA_TELEGRAM_ENABLED", "false")
 secret_files = {
     name.replace("-", "_"): {"file": str(secrets_directory / name)}
     for name in (
@@ -234,7 +235,7 @@ services = {
         networks={"telemetry": None}, read_only=True, cap_drop=["ALL"],
         command=["--storage.tsdb.retention.time=7d", "--storage.tsdb.retention.size=512MiB"]),
     "grafana": service("unless-stopped", ("grafana_admin_password", "grafana_database_password", "grafana_telegram_bot_token", "grafana_telegram_chat_id"),
-        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_UNIFIED_ALERTING_ENABLED": "true", "GF_SMTP_ENABLED": "false", "GF_LOG_LEVEL": "info", "GF_LOG_FILTERS": "ngalert.notifier.telegram:info", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
+        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_UNIFIED_ALERTING_ENABLED": "true", "GF_SMTP_ENABLED": "false", "GF_LOG_LEVEL": "info", "GF_LOG_FILTERS": "ngalert.notifier.telegram:info", "GRAFANA_TELEGRAM_ENABLED": telegram_enabled, "GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
         image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
         networks={"logs": None},
         ports=[{"host_ip": "127.0.0.1", "published": 3000, "target": 3000}]),
@@ -491,6 +492,17 @@ if runtime_validation_error="$(PATH="$fake_bin:$PATH" \
 fi
 if ! grep -Fq 'Private-dev topology invariant failed: APPLICATION_PUBLIC_ORIGIN must equal the resolved PRIVATE_DEV_APPLICATION_ORIGIN' <<<"$runtime_validation_error"; then
   printf 'Private-dev runtime validation did not identify the application-origin invariant failure:\n%s\n' "$runtime_validation_error" >&2
+  exit 1
+fi
+
+# #550: private-dev never delivers alerts, even if its protected runtime env asks for it.
+if PATH="$fake_bin:$PATH" \
+    FAKE_GRAFANA_TELEGRAM_ENABLED=true \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+    FAKE_IMAGE="$image" \
+    "$runtime_validator" --env-file "$runtime_env" >/dev/null 2>&1; then
+  printf 'Private-dev runtime validation accepted Grafana alert delivery.\n' >&2
   exit 1
 fi
 

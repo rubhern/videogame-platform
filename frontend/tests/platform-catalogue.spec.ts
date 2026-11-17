@@ -220,8 +220,42 @@ test("works by keyboard: state, search, filters and pages live in the URL", asyn
   await expect(page).not.toHaveURL(/page=2/);
 });
 
-test("switches platform keeping the selection and Escape closes the list", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("the open platform selector receives pointer input above the catalogue controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await stubCatalogue(page);
+  await page.goto("/plataformas/windows-pc/catalogo");
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar catálogo de Windows PC" })).toBeVisible();
+
+  const trigger = page.getByRole("button", { name: "Cambiar plataforma" });
+  await trigger.click();
+  const panel = page.locator(".platform-switcher-panel");
+  await expect(panel).toBeVisible();
+
+  for (const control of [
+    page.getByRole("combobox", { name: /Ordenar por/ }),
+    page.getByRole("button", { name: "Filtros", exact: true }),
+  ]) {
+    const panelBox = await panel.boundingBox();
+    const controlBox = await control.boundingBox();
+    if (!panelBox || !controlBox) throw new Error("Expected visible selector and catalogue controls");
+    const left = Math.max(panelBox.x, controlBox.x);
+    const right = Math.min(panelBox.x + panelBox.width, controlBox.x + controlBox.width);
+    const top = Math.max(panelBox.y, controlBox.y);
+    const bottom = Math.min(panelBox.y + panelBox.height, controlBox.y + controlBox.height);
+    expect(right).toBeGreaterThan(left);
+    expect(bottom).toBeGreaterThan(top);
+    expect(await panel.evaluate((element, { x, y }) => element.contains(document.elementFromPoint(x, y)), {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2,
+    })).toBe(true);
+  }
+
+  await panel.getByRole("link", { name: "PlayStation 4" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar catálogo de PlayStation 4" })).toBeVisible();
+});
+
+test("switches platform by keyboard keeping the selection and Escape closes the list", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 420 });
   await stubCatalogue(page);
   await page.goto("/plataformas/nintendo-switch-2/catalogo?releaseState=released&q=mario");
   const trigger = page.getByRole("button", { name: "Cambiar plataforma" });
@@ -233,8 +267,17 @@ test("switches platform keeping the selection and Escape closes the list", async
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await expect(trigger).toBeFocused();
 
-  await trigger.click();
-  await page.getByRole("link", { name: "PlayStation 4" }).click();
+  await trigger.press("Enter");
+  const panel = page.locator(".platform-switcher-panel");
+  for (const option of await panel.getByRole("link").all()) {
+    await page.keyboard.press("Tab");
+    await expect(option).toBeFocused();
+  }
+  const playstation = panel.getByRole("link", { name: "PlayStation 4" });
+  await expect(playstation).toBeFocused();
+  await expect(playstation).toBeInViewport();
+  expect(await panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/plataformas\/ps4-id\/catalogo\?q=mario&releaseState=released$/);
 });
 

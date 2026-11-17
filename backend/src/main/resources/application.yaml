@@ -180,6 +180,9 @@ management:
       exposure:
         include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation,accountdeletionexecutor
   metrics:
+    # JDBC statement observations exist for trace spans (ADR-0046); they add no metric series.
+    enable:
+      jdbc.query: false
     distribution:
       percentiles-histogram:
         http.server.requests: true
@@ -221,6 +224,16 @@ management:
       type: w3c
     sampling:
       probability: ${TELEMETRY_TRACING_SAMPLING_PROBABILITY:1.0}
+
+# JDBC spans for sampled traces (ADR-0046): one span per statement with its parameterized text, never
+# bound values, result-set operations or connection spans. Statement SQL must keep binding visitor
+# input; TraceExportPrivacyIntegrationTest proves it for search.
+jdbc:
+  includes: query
+  datasource-proxy:
+    include-parameter-values: false
+  resultset-operations:
+    enabled: false
 
 logging:
   include-application-name: false

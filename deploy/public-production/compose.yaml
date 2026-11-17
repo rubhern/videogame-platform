@@ -277,6 +277,10 @@ services:
       FEEDBACK_INBOX: ${PRODUCTION_FEEDBACK_INBOX:-}
       FEEDBACK_SMTP_USERNAME_FILE: /run/secrets/feedback_smtp_username
       FEEDBACK_SMTP_PASSWORD_FILE: /run/secrets/feedback_smtp_password
+      # #543: self-service account deletion. The host runner claims requests through the
+      # loopback-only management port with this capability, never through the edge.
+      ACCOUNT_DELETION_EXECUTOR_ENABLED: ${PRODUCTION_ACCOUNT_DELETION_ENABLED:-false}
+      ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE: /run/secrets/account_deletion_executor_capability
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:
@@ -286,6 +290,7 @@ services:
       - igdb_client_secret
       - feedback_smtp_username
       - feedback_smtp_password
+      - account_deletion_executor_capability
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
@@ -380,6 +385,8 @@ secrets:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-username
   feedback_smtp_password:
     file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/feedback-smtp-password
+  account_deletion_executor_capability:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/account-deletion-executor-capability
 
 volumes:
   recovery-state:
@@ -414,7 +421,7 @@ networks:
     internal: true
     ipam:
       config:
-        # Combined runtime: eight dynamic consumers plus bounded operator probes.
+        # Combined runtime: nine dynamic consumers plus bounded operator probes.
         # Keep allocation away from the edge's fixed metrics address.
         - subnet: 10.203.3.0/27
           gateway: 10.203.3.1

@@ -98,6 +98,8 @@ class BaseImageDownloadTest(unittest.TestCase):
 
     def test_publication_download_precedes_authentication_and_execution(self):
         workflow = (growth.alerts.ROOT / '.github/workflows/build-and-verify.yml').read_text()
+        helper = (growth.alerts.ROOT / 'scripts/publish-ci-image.sh').read_text()
+        self.assertIn('copy --all --preserve-digests', helper)
         for name in ('publish-container-image', 'publish-dependency-images'):
             # Match whole job boundaries rather than nested YAML keys.
             job = workflow.split('\n  ' + name + ':\n', 1)[1]
@@ -107,9 +109,11 @@ class BaseImageDownloadTest(unittest.TestCase):
                 self.assertIn('persist-credentials: false', job)
                 download = job.index('python3 scripts/ci_image_pull.py "$SKOPEO_IMAGE"')
                 self.assertLess(job.index('actions/checkout@'), download)
-                self.assertLess(download, job.index('uses: docker/login-action@'))
-                self.assertLess(download, job.index('docker run --rm'))
-                self.assertIn('--preserve-digests', job)
+                authenticate = job.index('uses: docker/login-action@')
+                publish = job.index('run: bash scripts/publish-ci-image.sh ')
+                self.assertLess(download, authenticate)
+                self.assertLess(authenticate, publish)
+                self.assertLess(publish, job.index('docker run --rm'))
 
 
 if __name__ == '__main__':

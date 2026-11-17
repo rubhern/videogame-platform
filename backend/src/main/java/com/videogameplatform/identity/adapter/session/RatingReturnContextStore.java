@@ -81,7 +81,8 @@ public class RatingReturnContextStore {
 
     /** Atomically removes and returns the recovered selection, enforcing single-use reads. */
     public Optional<ResumedRatingIntent> takeResumedIntent() {
-        return takeAttribute(RESUMED_INTENT_ATTRIBUTE, ResumedRatingIntent.class);
+        return takeAttribute(RESUMED_INTENT_ATTRIBUTE, ResumedRatingIntent.class)
+                .filter(intent -> !isExpired(intent.selection()));
     }
 
     private <T> Optional<T> takeAttribute(String attribute, Class<T> type) {

@@ -40,6 +40,9 @@ Commands:
   configure-identity Reconcile shared session policy and BFF mapper, preserving local accounts.
   check-identity Check shared session policy without changes.
   configure-mail Apply the realm import's recovery mail settings to an existing realm.
+  configure-social-sign-in  Enable Google/Microsoft sign-in from .local-secrets/social-sign-in;
+                 a provider without both files is disabled (ADR-0045).
+  check-social-sign-in  Check that sign-in matches those files, without changes.
   verify         Verify versions, health, role isolation, realm, client, local user and recovery mail.
   verify-images  Verify linux/amd64 in both image manifests.
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
@@ -417,6 +420,30 @@ keycloak_identity_configuration() {
     --admin-password-file /dev/stdin --snapshot-dir "$snapshot_directory" "$@"
 }
 
+# Optional development OAuth clients: google-client-id, google-client-secret, microsoft-client-id and
+# microsoft-client-secret, one line each. The administrator password and the credentials reach the
+# reviewed actor as one JSON document on stdin, never as arguments.
+keycloak_social_sign_in() {
+  require_command python3
+  local directory="$repository_root/.local-secrets/social-sign-in"
+  env_value KEYCLOAK_ADMIN_PASSWORD | python3 -I -c '
+import json, pathlib, sys
+directory = pathlib.Path(sys.argv[1])
+def read(name):
+    path = directory / name
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+providers = {}
+for alias in ("google", "microsoft"):
+    client_id, secret = read(alias + "-client-id"), read(alias + "-client-secret")
+    if bool(client_id) != bool(secret):
+        sys.exit(f"Provide both {alias} files in {directory}, or neither.")
+    providers[alias] = {"clientId": client_id, "clientSecret": secret} if client_id else None
+print(json.dumps({"adminPassword": sys.stdin.read().rstrip("\r\n"), "providers": providers}))
+' "$directory" | python3 -I "$repository_root/deploy/private-dev/bin/configure-social-sign-in" \
+    --origin "$(env_value KEYCLOAK_HOSTNAME)" --realm videogame-platform \
+    --admin-username "$(env_value KEYCLOAK_ADMIN_USERNAME)" "$@"
+}
+
 command_name="${1:-}"
 if (($#)); then shift; fi
 for option in "$@"; do
@@ -551,6 +578,17 @@ case "$command_name" in
       keycloak_identity_configuration --check
     else
       keycloak_identity_configuration
+    fi
+    ;;
+  configure-social-sign-in | check-social-sign-in)
+    ensure_compose_available
+    require_env
+    [[ -n "$(compose ps --status running --quiet keycloak)" ]] \
+      || die "Keycloak is not running; start the dependencies with the up command first"
+    if [[ "$command_name" == check-social-sign-in ]]; then
+      keycloak_social_sign_in --check
+    else
+      keycloak_social_sign_in
     fi
     ;;
   configure-mail)
