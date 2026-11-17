@@ -2693,7 +2693,12 @@ Before enabling, the owner must:
      scopes, and an External, published consent screen naming Gameómetro, `gameometro.com` and the
      privacy and terms URLs.
    - **Microsoft Entra:** an app registration for *personal Microsoft accounts only*, with a web
-     platform, a client secret, and the delegated `User.Read` permission.
+     platform, a client secret, and the delegated `User.Read` permission. Its publisher domain is
+     `gameometro.com`, verified through the packaged
+     [`/.well-known/microsoft-identity-association.json`](../../frontend/public/.well-known/microsoft-identity-association.json),
+     so the consent screen names the domain instead of an unverified publisher. That file names
+     the production registration's application (client) ID; a new registration replaces it in a
+     release before verification.
 
    Both take exactly one redirect URI each:
    `https://auth.gameometro.com/realms/gameometro/broker/google/endpoint` and
