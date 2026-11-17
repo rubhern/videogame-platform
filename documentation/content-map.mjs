@@ -56,6 +56,7 @@ export const groups = [
     ['docs/architecture/deployment/mvp-platform-and-delivery.md', 'Private platform design'],
     ['deploy/private-dev/README.md', 'Private-dev operator guide'],
     ['deploy/public-production/README.md', 'Production runtime · private operations'],
+    ['docs/development/grafana-guide.md', 'Grafana guide · alerts, dashboards, logs, traces'],
     ['docs/development/observability.md', 'Observability'],
     ['docs/development/operations-runbook.md', 'Operations & acceptance evidence'],
     ['docs/development/data-protection.md', 'Data protection & rights procedures'],

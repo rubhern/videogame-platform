@@ -74,7 +74,7 @@ def static():
     assert ipaddress.ip_address(ipam['gateway']) not in pool
     assert ipaddress.ip_address('10.203.3.2') not in pool
 
-    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1376
+    assert sum(runtime.megabytes(services[n]['mem_limit']) for n in names) + 64 == 1472
     for name in names:
         service = services[name]
         assert not service.get('ports') and not service.get('privileged')
@@ -108,6 +108,10 @@ def static():
     used = {t['datasource']['type'] for path in canonical for p in json.loads(path.read_text())['panels'] for t in p.get('targets', [])}
     assert used == {'prometheus', 'grafana-postgresql-datasource'} and not used & disabled
     assert services['grafana']['pids_limit'] == 192
+    # #451: 96 MiB starved the TSDB page cache; the Go heap target keeps its two-thirds share and
+    # matches the upgrader's reviewed GOMEMLIMIT transition.
+    assert runtime.megabytes(services['prometheus']['mem_limit']) == 192
+    assert services['prometheus']['environment']['GOMEMLIMIT'] == '128MiB'
     # ADR-0040: application logs reach Loki only through the collector, on the internal network.
     assert 'loki' not in disabled
     assert set(services['loki']['networks']) == {'telemetry'} and services['loki']['user'] == '10001:10001'
@@ -154,7 +158,12 @@ def static():
         dashboard=json.loads((OBS/'grafana/capacity.json').read_text())
         assert int(rule['annotations']['__panelId__']) in {panel['id'] for panel in dashboard['panels']}
         assert rule['data'][0]['datasourceUid'] in ('private-dev-prometheus', 'private-dev-postgres')
-    print('Production isolation, 1024 MiB envelope, canonical dashboards and datasource contracts passed.', flush=True)
+        # Grafana file provisioning reads keepFiringFor; the snake_case spelling is silently ignored.
+        assert 'keep_firing_for' not in rule
+        # #451: capacity rules that hover near a threshold hold their state instead of re-notifying.
+        if rule['uid'] in ('prod-memory-warning','prod-memory-critical','prod-cpu-throttle'):
+            assert rule['keepFiringFor'] == '10m'
+    print('Production isolation, observability memory envelope, canonical dashboards and datasource contracts passed.', flush=True)
 
 
 class HostSignals(unittest.TestCase):
@@ -283,11 +292,11 @@ def edge_observations(text):
             self.assertEqual(values['cpu_seconds_total'], 1)
             self.assertEqual(values['oom_total'], 1)
             # An older kernel or a missing controller file stays absent, never zero.
-            self.assertFalse({'memory_anon_bytes', 'memory_peak_bytes', 'pids_current', 'pids_limit', 'pids_max_events_total'} & set(values))
-            for name,content in {'memory.stat':'anon 700\nfile 200\n','memory.peak':'950','pids.current':'33','pids.max':'128','pids.events':'max 2\n'}.items():
+            self.assertFalse({'memory_anon_bytes', 'memory_shmem_bytes', 'memory_peak_bytes', 'pids_current', 'pids_limit', 'pids_max_events_total'} & set(values))
+            for name,content in {'memory.stat':'anon 700\nfile 200\nshmem 50\n','memory.peak':'950','pids.current':'33','pids.max':'128','pids.events':'max 2\n'}.items():
                 (d/name).write_text(content)
             values = sampler.cgroup_values(d)
-            self.assertEqual((values['memory_anon_bytes'],values['memory_peak_bytes'],values['pids_current'],values['pids_limit'],values['pids_max_events_total']),(700,950,33,128,2))
+            self.assertEqual((values['memory_anon_bytes'],values['memory_shmem_bytes'],values['memory_peak_bytes'],values['pids_current'],values['pids_limit'],values['pids_max_events_total']),(700,50,950,33,128,2))
             (d/'pids.max').write_text('max')
             self.assertNotIn('pids_limit', sampler.cgroup_values(d))
             sampler.atomic(d/'host.prom','old')
@@ -320,8 +329,41 @@ def promtool():
         cases.append({'name':uid,'interval':'1m','input_series':[{'series':n,'values':v} for n,v in series],
                       'alert_rule_test':[{'eval_time':fire,'alertname':uid,'exp_alerts':[{'exp_labels':expected,'exp_annotations':{}}]},
                                          {'eval_time':clear,'alertname':uid,'exp_alerts':[]}]})
-    case('prod-memory-warning',[('production_container_memory_bytes{service="application"}','900+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
-    case('prod-memory-critical',[('production_container_memory_bytes{service="application"}','950+0x14 500+0x40'),('production_container_memory_limit_bytes{service="application"}','1000+0x55')],labels={'service':'application'})
+    # #451: pressure is anonymous plus shared memory; reclaimable cache alone never fires.
+    limit=('production_container_memory_limit_bytes{service="application"}','1000+0x55')
+    cache=('production_container_memory_bytes{service="application"}','990+0x55')
+    case('prod-memory-warning',[('production_container_memory_anon_bytes{service="application"}','800+0x14 300+0x40'),('production_container_memory_shmem_bytes{service="application"}','100+0x55'),cache,limit],labels={'service':'application'},clear='35m')
+    case('prod-memory-critical',[('production_container_memory_anon_bytes{service="application"}','850+0x14 300+0x40'),('production_container_memory_shmem_bytes{service="application"}','100+0x55'),cache,limit],labels={'service':'application'},clear='35m')
+    # Warning stays firing above the critical threshold, so crossing it never flips the pair.
+    case('prod-memory-warning',[('production_container_memory_anon_bytes{service="application"}','850+0x14 300+0x40'),('production_container_memory_shmem_bytes{service="application"}','100+0x55'),cache,limit],labels={'service':'application'},clear='35m')
+    # A kernel without the memory.stat breakdown falls back to total usage.
+    case('prod-memory-critical',[('production_container_memory_bytes{service="application"}','950+0x14 500+0x40'),limit],labels={'service':'application'},clear='35m')
+    # A brief dip below the threshold keeps the alert firing instead of notifying twice.
+    cases.append({'name':'memory pressure holds through a short dip','interval':'1m',
+                  'input_series':[{'series':'production_container_memory_anon_bytes{service="application"}','values':'900+0x14 300+0x3 900+0x40'},
+                                  {'series':'production_container_memory_shmem_bytes{service="application"}','values':'0+0x60'},
+                                  {'series':limit[0],'values':'1000+0x60'}],
+                  'alert_rule_test':[{'eval_time':'17m','alertname':'prod-memory-warning','exp_alerts':[{'exp_labels':{**next(r for r in production if r['uid']=='prod-memory-warning')['labels'],'service':'application','alertname':'prod-memory-warning'},'exp_annotations':{}}]}]})
+    cases.append({'name':'reclaimable cache alone never fires','interval':'1m',
+                  'input_series':[{'series':'production_container_memory_anon_bytes{service="application"}','values':'100+0x30'},
+                                  {'series':'production_container_memory_shmem_bytes{service="application"}','values':'50+0x30'},
+                                  {'series':cache[0],'values':'990+0x30'},{'series':limit[0],'values':'1000+0x30'}],
+                  'alert_rule_test':[{'eval_time':'20m','alertname':uid,'exp_alerts':[]} for uid in ('prod-memory-warning','prod-memory-critical')]})
+    # #451: throttling fires only while the container also uses most of its quota.
+    quota=('production_container_cpu_limit_cores{service="blackbox"}','0.1+0x70')
+    cases.append({'name':'throttling under real CPU use','interval':'1m',
+                  'input_series':[{'series':'production_container_cpu_seconds_total{service="blackbox"}','values':'0+4.8x29 139.2+0x40'},
+                                  {'series':'production_container_cpu_throttled_periods_total{service="blackbox"}','values':'0+300x29 8700+0x40'},
+                                  {'series':'production_container_cpu_periods_total{service="blackbox"}','values':'0+600x29 17400+0x40'},
+                                  {'series':quota[0],'values':quota[1]}],
+                  'alert_rule_test':[{'eval_time':'25m','alertname':'prod-cpu-throttle','exp_alerts':[{'exp_labels':{**next(r for r in production if r['uid']=='prod-cpu-throttle')['labels'],'service':'blackbox','alertname':'prod-cpu-throttle'},'exp_annotations':{}}]},
+                                     {'eval_time':'55m','alertname':'prod-cpu-throttle','exp_alerts':[]}]})
+    cases.append({'name':'throttled bursts of a nearly idle container never fire','interval':'1m',
+                  'input_series':[{'series':'production_container_cpu_seconds_total{service="blackbox"}','values':'0+0.06x60'},
+                                  {'series':'production_container_cpu_throttled_periods_total{service="blackbox"}','values':'0+30x60'},
+                                  {'series':'production_container_cpu_periods_total{service="blackbox"}','values':'0+60x60'},
+                                  {'series':quota[0],'values':quota[1]}],
+                  'alert_rule_test':[{'eval_time':'30m','alertname':'prod-cpu-throttle','exp_alerts':[]}]})
     # #550: off-host copies are verified by the independent observer; a missing attestation never fires.
     case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','1+0x55'),('production_backup_last_attempt_failed','1+0x14 0+0x40')])
     case('prod-backup-unverified',[('production_offhost_verified','0+0x55'),('production_backup_attempt_observed','0+0x14 1+0x40'),('production_backup_last_attempt_failed','0+0x55')])
@@ -363,7 +405,7 @@ def promtool():
                                       'eval_time':'10m','exp_samples':[{'labels':'{}','value':0}]} for uid in ('prod-telemetry-missing','prod-sample-stale')]})
     with tempfile.TemporaryDirectory(prefix='vgp-prod-promql-') as directory:
         d=Path(directory);d.chmod(0o755)
-        (d/'rules.json').write_text(json.dumps({'groups':[{'name':'production','interval':'60s','rules':[{'alert':r['uid'],'expr':'('+r['data'][0]['model']['expr']+') > 0','for':r['for'],'labels':r['labels']} for r in production]}]}))
+        (d/'rules.json').write_text(json.dumps({'groups':[{'name':'production','interval':'60s','rules':[{'alert':r['uid'],'expr':'('+r['data'][0]['model']['expr']+') > 0','for':r['for'],'keep_firing_for':r.get('keepFiringFor','0s'),'labels':r['labels']} for r in production]}]}))
         (d/'tests.json').write_text(json.dumps({'rule_files':['rules.json'],'evaluation_interval':'60s','tests':cases}))
         print(run(['docker','run','--rm','--network','none','--read-only','--tmpfs','/tmp:rw,size=32m','--volume',f'{d}:/tests:ro','--workdir','/tests','--entrypoint','/bin/promtool',image,'test','rules','tests.json']),flush=True)
         # Parse every shared dashboard PromQL expression after replacing Grafana variables.

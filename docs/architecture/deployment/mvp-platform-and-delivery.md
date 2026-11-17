@@ -677,13 +677,13 @@ measured peak and the production OOM recorded in the
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
 | Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
-| Collector / Prometheus / Grafana / Loki / Tempo total, with the host sampler | 1.34 |
+| Collector / Prometheus / Grafana / Loki / Tempo total, with the host sampler | 1.44 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **6.22** |
+| Steady service ceilings total | **6.31** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
 | Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.19** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.10** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -693,7 +693,7 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-The monitoring allocation includes 1312 MiB of steady services, of which Loki holds
+The monitoring allocation includes 1408 MiB of steady services, of which Loki holds
 384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)) and Tempo
 320 MiB ([ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md)), and a separate
 64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor

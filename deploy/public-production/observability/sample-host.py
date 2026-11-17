@@ -61,10 +61,12 @@ def cgroup_values(directory):
               'cpu_limit_cores': int(quota) / int(period),
               'memory_bytes': int((directory / 'memory.current').read_text()),
               'memory_limit_bytes': int(limit), 'oom_total': int(memory['oom_kill'])}
-    # memory_bytes includes reclaimable file cache; anonymous memory is what the trend needs.
+    # memory_bytes includes reclaimable file cache. Anonymous plus shared memory (PostgreSQL
+    # shared buffers, tmpfs) is what the kernel cannot reclaim, so pressure alerts judge that.
     # pids.max counts every thread of every process, so it explains an EAGAIN that a single
     # Go runtime's own thread count cannot. An unavailable reading stays absent, never zero.
     optional = {'memory_anon_bytes': lambda: fields('memory.stat')['anon'],
+                'memory_shmem_bytes': lambda: fields('memory.stat')['shmem'],
                 'memory_peak_bytes': lambda: (directory / 'memory.peak').read_text(),
                 'pids_current': lambda: (directory / 'pids.current').read_text(),
                 'pids_limit': lambda: (directory / 'pids.max').read_text(),
