@@ -2,6 +2,11 @@ name: Promote application to private dev
 
 on:
   workflow_dispatch:
+    inputs:
+      full_ci:
+        description: Require complete main CI (fallback after a host change or for troubleshooting)
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -14,7 +19,7 @@ jobs:
     name: Derive and verify exact dispatch artifact
     if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
     runs-on: ubuntu-24.04
-    # Discovery waits up to 90 minutes for the dispatch SHA's own main CI to finish.
+    # Discovery waits up to 90 minutes for the dispatch SHA's required evidence.
     timeout-minutes: 100
     permissions:
       contents: read
@@ -24,6 +29,9 @@ jobs:
       image_digest: ${{ steps.verify.outputs.image_digest }}
       source_run_id: ${{ steps.verify.outputs.source_run_id }}
       source_run_attempt: ${{ steps.verify.outputs.source_run_attempt }}
+      deployment_base: ${{ steps.verify.outputs.deployment_base }}
+      security_run_id: ${{ steps.verify.outputs.security_run_id }}
+      security_run_attempt: ${{ steps.verify.outputs.security_run_attempt }}
     steps:
       - name: Check out trusted orchestration and source history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,13 +39,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.sha }}
-      - name: Wait for main CI, verify environment policy and derive exact dispatch publication
+      - name: Wait for private-dev evidence and derive exact dispatch publication
         id: verify
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_REVISION: ${{ github.sha }}
+          FULL_CI: ${{ inputs.full_ci }}
         run: |
-          python3 scripts/private_dev_promotion.py --discover --revision "$SOURCE_REVISION"
+          policy=()
+          if [[ "$FULL_CI" != "true" ]]; then policy=(--private-dev); fi
+          python3 scripts/private_dev_promotion.py --discover --revision "$SOURCE_REVISION" "${policy[@]}"
 
   promote:
     name: Owner-approved private-dev application promotion
@@ -65,10 +76,18 @@ jobs:
           IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
           SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
+          DEPLOYMENT_BASE: ${{ needs.verify.outputs.deployment_base }}
+          SECURITY_RUN_ID: ${{ needs.verify.outputs.security_run_id }}
+          SECURITY_RUN_ATTEMPT: ${{ needs.verify.outputs.security_run_attempt }}
         run: |
+          policy=()
+          if [[ -n "$DEPLOYMENT_BASE" ]]; then
+            policy=(--private-dev --deployment-base "$DEPLOYMENT_BASE"
+                    --security-run-id "$SECURITY_RUN_ID" --security-run-attempt "$SECURITY_RUN_ATTEMPT")
+          fi
           python3 scripts/private_dev_promotion.py \
             --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
-            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
+            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT" "${policy[@]}"
       - name: Prepare protected SSH identity
         env:
           DEPLOY_HOST: ${{ secrets.PRIVATE_DEV_SSH_HOST }}
@@ -102,14 +121,20 @@ jobs:
           IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
           SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
+          DEPLOYMENT_BASE: ${{ needs.verify.outputs.deployment_base }}
         run: |
+          command="promote $SOURCE_REVISION $IMAGE_DIGEST $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT"
+          if [[ -n "$DEPLOYMENT_BASE" ]]; then
+            [[ "$DEPLOYMENT_BASE" =~ ^[0-9a-f]{40}$ ]]
+            command+=" $DEPLOYMENT_BASE"
+          fi
           ssh -F /dev/null -T \
             -i "$RUNNER_TEMP/private-dev-ssh/key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o "UserKnownHostsFile=$RUNNER_TEMP/private-dev-ssh/known_hosts" \
             -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "vgp-deploy@$DEPLOY_HOST" \
-            "promote $SOURCE_REVISION $IMAGE_DIGEST $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT" \
+            "$command" \
             > promotion-receipt.json
       - name: Summarize and verify the host outcome
         if: ${{ always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}

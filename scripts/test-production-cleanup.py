@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import sys
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 loader = importlib.machinery.SourceFileLoader('production_cleanup_test', str(ROOT / 'deploy/public-production/bin/recovery-personal-data'))
@@ -19,8 +19,8 @@ SUBJECT = '11111111-1111-4111-8111-111111111111'
 
 
 class Cleanup(unittest.TestCase):
-    def arguments(self, command='revoke', **kwargs):
-        return argparse.Namespace(identity_cleanup=True, command=command, keycloak_user_id=SUBJECT,
+    def arguments(self, command='revoke', self_service=False, **kwargs):
+        return argparse.Namespace(identity_cleanup=not self_service, self_service=self_service, command=command, keycloak_user_id=SUBJECT,
             user_id=adapter.pd.derive_user_id(adapter.recovery.ISSUER, SUBJECT), cutoff_ms=1, max=100,
             game_ids=None, after_game_id=SUBJECT, application_must_be_stopped=False, **kwargs)
 
@@ -69,8 +69,41 @@ class Cleanup(unittest.TestCase):
             self.assertTrue(adapter.pd.STEPS['revoke'].call_args.args[-1])
 
     def test_live_mode_refuses_global_logout(self):
+        for self_service in (False, True):
+            with self.assertRaises(adapter.recovery.Refused):
+                adapter.dispatch(self.arguments('recovery-logout-all', self_service), Mock(), Mock())
+
+    def test_self_service_mutates_one_account_without_the_global_fence(self):
+        # #564: the revoke step disables the requesting account; nobody else loses sign-in.
+        core, target = Mock(), Mock(issuer=adapter.recovery.ISSUER)
+        core.gate.return_value = b'none'
+        user = self.arguments().user_id
+        for step in ('revoke', 'delete-ratings', 'delete-identity', 'verify'):
+            with self.subTest(step=step), patch.object(adapter, 'load') as load, \
+                    patch.dict(adapter.pd.STEPS, {step: Mock(return_value={'step': step})}):
+                self.assertEqual(adapter.dispatch(self.arguments(step, True), core, target), {'step': step})
+                load.assert_not_called()
+                adapter.pd.STEPS[step].assert_called_once_with(target, SUBJECT, user, False)
+        core.gate.assert_not_called()
+
+    def test_self_service_cannot_read_cleanup_candidates(self):
         with self.assertRaises(adapter.recovery.Refused):
-            adapter.dispatch(self.arguments('recovery-logout-all'), Mock(), Mock())
+            adapter.dispatch(self.arguments('cleanup-candidates', True), Mock(), Mock(issuer=adapter.recovery.ISSUER))
+
+    def test_self_service_cli_takes_the_live_lease_and_checks(self):
+        core = MagicMock()
+        arguments = ['recovery-personal-data', '--config', '/protected/compose.json', '--project', 'gameometro-production',
+                     '--state', '/protected/journal', '--admin-username', 'synthetic', '--admin-password-file',
+                     '/protected/password', '--self-service', 'identify', '--keycloak-user-id', SUBJECT]
+        with patch.object(sys, 'argv', arguments), patch.object(adapter.recovery, 'Runtime', return_value=core), \
+                patch.object(adapter, 'runtime') as runtime, patch.object(adapter, 'dispatch', return_value={}), \
+                patch('builtins.print'):
+            adapter.main()
+        core.lock.assert_called_once_with(maintenance=True)
+        self.assertTrue(runtime.call_args.kwargs['identity_cleanup'])
+        with patch.object(sys, 'argv', arguments[:-3] + ['--identity-cleanup'] + arguments[-3:]), \
+                patch('sys.stderr'), self.assertRaises(SystemExit):
+            adapter.main()
 
     def test_live_runtime_refuses_closed_gate_before_authentication(self):
         core = Mock(); core.gate.return_value = b'closed'

@@ -250,6 +250,9 @@ is file delivery on one host, not an encrypted vault.
 | `account-deletion-executor-capability` | Self-service deletion executor capability, shared with the host runner | `application` | File only; may be empty while self-service deletion is off. When on, 64 lowercase hex characters, owned by UID 10001 with mode `0600` ([#543](#self-service-account-deletion)) |
 | `igdb-client-id`, `igdb-client-secret` | Provider credentials for bounded synchronization | `application` | File only; required and non-empty while recurring synchronization is on (#484), as the installer and upgrader check |
 
+Google and Microsoft sign-in credentials are not in this directory: they are owner inputs of
+their own tool, described in [Google and Microsoft sign-in](#google-and-microsoft-sign-in-548).
+
 Storage requirements, verified on the host before first start:
 
 - The directory belongs to `root`, group `PRODUCTION_SECRETS_GID`, mode `0750`; each
@@ -1019,16 +1022,18 @@ refuses to start while the other is active, so they never overlap.
 | Purpose | Unverified-account cleanup and its retry | Paired backup, restore, deletion replay and reopening |
 | Owner | `bin/identity-maintenance` (`IDENTITY-MAINTENANCE.json`) | `bin/recovery` (no `READY`, or `PENDING.json`) |
 | Public edge | Identity host 503, BFF issuer calls included; product host unchanged | Both hosts 503 until the gate reopens; the edge keeps running |
-| Writers | Keycloak keeps running and serving private Admin calls; drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
+| Owner administration (#464) | Grafana and the Keycloak console answer 503 | Grafana and the Keycloak console answer 503 |
+| Writers | Keycloak keeps running and serving Admin calls on its private network (the cleanup transport); drain proved by its in-flight count | Application, migration and Keycloak stopped; database roles `NOLOGIN`, sessions terminated |
 | Startup | Unchanged | Application and migration wrappers refuse without `READY` |
 | Release | `exit` by the same run after a second drain | `thaw` or `reopen` with their evidence; services started separately |
 
 Neither mode has an alternate public route. Only the edge publishes ports; it routes no
 Keycloak administration, management or Actuator path, and refuses non-canonical identity
 paths that Keycloak would otherwise route to a limited endpoint. The application calls
-Keycloak only through the edge, as an OIDC client, never its Admin API. The remaining
-writer is the owner's private administration, which both modes deliberately keep and
-which no mechanism here can stop a root or superuser from bypassing.
+Keycloak only through the edge, as an OIDC client, never its Admin API. The owner's #464
+ingress is closed in both modes, by the same gate files. The remaining writers are Admin calls
+on the private network, which the identity-only fence deliberately keeps for the cleanup and
+which no mechanism here can stop a root or superuser from making.
 
 ### Identity maintenance
 
@@ -1103,7 +1108,10 @@ owns why it runs on the VPS, which keys and identities it holds, and the accepte
 checks. `run` completes any incomplete erasure with `retry`, then runs `cleanup-unverified
 --execute` with the transport and fence above, and records its status. `check` does the same
 validation, lists the ledger and probes for candidates, without entering maintenance. The
-[service and timer](systemd/) run it daily at 06:15 UTC.
+[service and timer](systemd/) run it daily at 03:00 Madrid time, outside user hours, because a
+round with candidates closes identity for one to two minutes. Deployments never change an
+installed timer: after a timer change, reinstall the timer file from the installed release
+and run `systemctl daemon-reload`.
 
 Prepare custody as root, under `/var/lib/gameometro/production/privacy` (owner-only directories,
 `0600` files). Use nothing from the owner's personal keyring and none of the backup identities.
@@ -2236,9 +2244,13 @@ owns policy. The [workflow](../../.github/workflows/deploy-production.yml),
 [evidence verifier](../../scripts/production_deployment_evidence.py) and
 [ephemeral recovery adapter](../../scripts/production_recovery_executor.py) own mechanics.
 
-The exact dispatch SHA stays selected if `main` advances during approval. Existing CI, Security
-and all image-publication verifiers derive versions/digests/fingerprints; the host independently
-rechecks them and both approvals. It exports only authenticated operational trees and migrations
+Before deploying a group of private-dev changes, run **Qualify Production
+candidate** on `main` with the full SHA and application digest from the accepted
+private-dev promotion. Keep the successful summary with the release evidence. Supply the verified SHA and digest when dispatching
+**Deploy Production**. The workflow refuses if `main` advanced before dispatch
+or the digest has changed. The exact dispatch SHA stays selected if `main` advances during
+approval. The [production admission policy](../../docs/development/continuous-integration.md#environment-admission)
+owns the required evidence. The host independently rechecks it and both approvals. It exports only authenticated operational trees and migrations
 from that Git commit. No workflow input supplies a shell command, root path, image or fingerprint.
 
 The protected jobs wait up to ten minutes for both owner approvals before using production
@@ -2665,6 +2677,81 @@ from outside the VPS: certificates, redirection, catalogue, refusals, closed adm
 management and database ports on IPv4 and IPv6, and the per-source search limit with and without
 forged forwarding headers. SSH exposure is reported for the owner's firewall decision, not judged.
 
+### Google and Microsoft sign-in (#548)
+
+**Implemented for review; not executed on the host.** [ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The provider buttons appear only after the owner enables a provider. Until then,
+the realm, the edge and the sign-in pages behave as before.
+
+Before enabling, the owner must:
+
+1. **Approve the privacy text.** Approve the
+   [privacy text](../../docs/legal/public-texts-es.md) and
+   [data-protection record](../../docs/development/data-protection.md) changes that name both
+   providers.
+2. **Deploy a release that includes this change.** Its Keycloak image carries the
+   `gameometro-brokered-terms` authenticator, its theme presents the providers, and its edge routes
+   only `/realms/gameometro/broker/google/*`, `/realms/gameometro/broker/microsoft/*` and the exact
+   `/realms/gameometro/broker/after-first-broker-login` return that completes a first sign-in.
+3. **Register the apps.** These are owner accounts outside this repository:
+   - **Google Cloud:** an OAuth client of type *Web application* with the `openid` and `email`
+     scopes, and an External, published consent screen naming Gameómetro, `gameometro.com` and the
+     privacy and terms URLs.
+   - **Microsoft Entra:** an app registration for *personal Microsoft accounts only*, with a web
+     platform, a client secret, and the delegated `User.Read` permission. Its publisher domain is
+     `gameometro.com`, verified through the packaged
+     [`/.well-known/microsoft-identity-association.json`](../../frontend/public/.well-known/microsoft-identity-association.json),
+     so the consent screen names the domain instead of an unverified publisher. That file names
+     the production registration's application (client) ID; a new registration replaces it in a
+     release before verification.
+
+   Both take exactly one redirect URI each:
+   `https://auth.gameometro.com/realms/gameometro/broker/google/endpoint` and
+   `https://auth.gameometro.com/realms/gameometro/broker/microsoft/endpoint`.
+4. **Write the credentials.** Put the client ID and secret of each enabled provider into
+   `/etc/gameometro/production/social-sign-in/`:
+   - files `google-client-id`, `google-client-secret`, `microsoft-client-id`, `microsoft-client-secret`;
+   - one line each;
+   - files `root`, `0600`, in a `root` `0700` directory;
+   - kept in the off-host reconstruction material.
+
+   One file of a pair alone refuses. A provider with neither file stays disabled.
+
+These files are owner inputs of [`production_social_sign_in.py`](../../scripts/production_social_sign_in.py),
+not Compose secrets or runtime inputs, so adding, rotating or removing them needs no in-place
+upgrade. Keycloak stores the secret inside the identity database, like the relay credentials.
+Run as root from the reviewed operational source:
+
+```text
+python3 -I scripts/production_social_sign_in.py --plan
+python3 -I scripts/production_social_sign_in.py --apply --owner-reference <reference>
+python3 -I scripts/production_social_sign_in.py --check
+python3 -I scripts/production_social_sign_in.py --disable --owner-reference <reference>
+```
+
+Every mode refuses an unfinished upgrade, a closed recovery gate or an identity-maintenance fence.
+It runs the active installation's reviewed
+[`configure-social-sign-in`](../private-dev/bin/configure-social-sign-in) in a disposable helper on the private
+identity network. The administrator password and the provider credentials cross its stdin, and
+nothing prints them. The actor manages only the `TERMS_AND_CONDITIONS` required action, the
+`gameometro first broker login` flow and the two providers. It refuses a flow of another shape
+rather than changing it. `--apply` and `--disable` record the owner reference and the provider
+states, never a credential, in `/var/lib/gameometro/production/social-sign-in/SOCIAL-SIGN-IN.json`.
+
+**Rotation.** Create the new secret at the provider, replace the file, run `--apply` (Keycloak keeps
+the new secret), check a real sign-in, then revoke the old secret at the provider.
+
+**Rollback and incidents.** `--disable` turns both providers off and keeps every linked identity.
+Deleting a provider in Keycloak would drop those links, so never delete one. To stop one provider,
+remove both of its files and run `--apply`. A person who only used a disabled provider recovers
+access through password recovery for the account's email. On a suspected provider-credential leak,
+revoke the secret at the provider first, then rotate as above.
+
+After `--apply`, sign up and sign in with a real Google and a real Microsoft account. Link one of
+them to an existing email account (it must ask for that account's password). Then check that
+`--check` passes. The [disposable journeys](../../scripts/validate-social-sign-in.sh) prove the
+flow on stand-in providers only, never the real provider registrations.
+
 ### Before any real user data
 
 A passing private install is **not** a recoverable or publicly accepted service.
@@ -2801,14 +2888,23 @@ owns the protocol and its guarantees. [`bin/account-deletion`](bin/account-delet
 production runner, and its [unit](systemd/gameometro-account-deletion.service) supervises it.
 
 **How it runs.** The runner reuses the [unattended cleanup](#scheduled-unverified-account-cleanup)'s
-protected configuration: the same ledger, cloud copies, archive, proof store, keys, identity
-transport and deny/drain fence. Both erasures therefore share one ledger; whichever holds its
-lock first runs, and the other retries later. The executor answers only on the application
+protected configuration: the same ledger, cloud copies, archive, proof store, keys and identity
+transport. Both erasures therefore share one ledger; whichever holds its lock first runs, and
+the other retries later. The executor answers only on the application
 container's loopback, so each exchange runs `docker exec` into the one running application and
 sends the capability on stdin. Nothing is published, and no other container or host can reach
 the endpoint. While an upgrade or handover journal is active, the runner sends no heartbeat and
-claims nothing, so admission closes until the release finishes. Each erasure holds the identity
-fence for its own steps, as one cleanup round does.
+claims nothing, so admission closes until the release finishes.
+
+**Only the requesting account is closed** ([#564](https://github.com/rubhern/videogame-platform/issues/564)).
+The runner calls the transport with `--self-service` instead of the cleanup's `--identity-cleanup`,
+so no [identity maintenance](#identity-maintenance) fence is entered. The erasure's first step
+disables that account, signs out its Keycloak sessions, checks that none remains and ends its BFF
+sessions; every later step refuses while the account is enabled. Sign-in, registration and the
+private administration stay open for everyone else. A resumed erasure repeats the same first
+step. A new registration with the same email can only succeed after the deletion and is a new,
+unrelated account. The cleanup keeps the global fence, because one of its candidates could
+verify while it is being erased.
 
 **Activate it, after the cleanup is installed.** Commands run from the installed release `C`.
 

@@ -454,6 +454,16 @@ from Chromium and automated accessibility evidence.
   visible and operable independently of the disclosure, with the conditions of use
   emphasised in its label. The theme enhances the inherited
   Keycloak markup; the complete notice remains readable when the theme script is unavailable.
+  When Google or Microsoft sign-in is enabled (#548), sign-in, registration and the
+  re-authentication that links a provider show them after the primary action, under a hairline
+  and the quiet label **O continúa con**. Each is a full-width secondary control: night, hairline,
+  6px corners, at least 44px tall. It reads **Continuar con Google** or **Continuar con
+  Microsoft**, and the visible name is its accessible name. The provider's mark keeps its own
+  unmodified colours as decorative artwork beside the name. It is never tinted, and forced colours
+  keep it. Linking an existing account makes adding the provider the primary action and choosing
+  another email secondary. The terms step for a new provider account presents the approved notice
+  as the registration form does, under the registration title, collapsed under its heading with
+  the legal links visible, and with **Acepto las condiciones** primary and **No acepto** secondary.
   Keycloak owns the templates and account-flow logic. Do not reproduce the catalogue header
   or introduce a React login screen. Keep registration prominent and validation and recovery
   readable. Art for the stage remains an optional later iteration, never a dependency of
@@ -1319,7 +1329,7 @@ automatically. An anonymous pick starts authentication with that value; after re
 recovered value is persisted once automatically (no command when it equals the existing rating)
 and any failure surfaces like any other command.
 
-Post-MVP (#359, implemented; awaiting owner review), a signed-in player may rate by platform
+Post-MVP (#359 and #518, implemented; awaiting owner review), a visitor or signed-in player may rate by platform
 without the reading growing: it shows the rating's one contribution, `8,5/10` when it is a
 platform mean (`9/10` stays whole), and names that source for assistive technology. In the
 panel, a direct rating keeps the keypad as the quick general score, which never touches saved
@@ -1344,8 +1354,10 @@ and any general score held in the draft. A sticky footer shows the result as the
 2 plataformas puntuadas`, adding that it replaces the general score when it does) — above
 **Cancelar** and **Guardar**, enabled only for a valid change. Nothing is sent until **Guardar**;
 Escape or **Cancelar** closes without a command and focus returns to the reading. Opening lands
-on the first platform, and the sheet itself takes none of the reading's temperature. A pick
-recovered after sign-in is never applied over platform scores: a notice says so instead.
+on the first platform, and the sheet itself takes none of the reading's temperature. For a
+visitor, **Guardar** starts the [rating sign-in flow](../architecture/application/mvp-use-cases.md#identity-and-ratings).
+A returning player who already has a rating sees the recovered selection in the sheet with
+a review prompt before saving.
 
 The summary has a comfortable reading measure below the title: up to eight lines on desktop
 and six on narrower screens, with a native **Leer más** / **Mostrar menos** button only when the

@@ -15,6 +15,35 @@ or is skipped unexpectedly, and also when an inapplicable job runs unexpectedly.
 Unknown paths and changes to shared CI/classification logic select broad validation.
 Secret scanning remains applicable to every pull request.
 
+Maven's [resolver configuration](../../.mvn/maven.config) bounds recovery from
+temporary artifact-server throttling. Its HTTP transport retries the failed
+download request while the same build invocation continues. Compilation, tests
+and Sonar qualification retain their normal failure semantics.
+
+### Environment admission
+
+Trusted `main` publishes the verified application image after the source secret
+scan and the application build, runtime and image checks. The complete integration
+and security suites continue in parallel. Private-dev can proceed once its own
+checks have passed for that SHA and digest. The selection includes the source
+checks, the published image, and affected deployment risks such as OpenAPI, real
+PostgreSQL migrations, identity and private-dev runtime. It covers the entire
+change from the last proven private-dev deployment. A failed, cancelled or
+unexpectedly skipped required check refuses promotion. CI and unclassified
+changes, an unavailable baseline, or the owner's full-CI fallback require the
+complete gates. The [private-dev operator guide](../../deploy/private-dev/README.md#promote-and-verify)
+explains how to use the fallback.
+
+Production qualification requires the complete successful trusted-main quality
+and security runs and current publication evidence for the application and all
+production dependency images of the selected SHA. A release-only failure may
+leave private-dev eligible. The production verifier always requires its own
+evidence and verifies it again before the protected host and recovery steps. See
+the [candidate procedure](../../deploy/public-production/README.md#owner-approved-actions-deployment-467)
+and the [delivery lifecycle](delivery-lifecycle.md#production-upgrade-compatibility).
+
+## Validation commands
+
 | Area | Main local entry point |
 |---|---|
 | Documentation | `bash scripts/validate-docs.sh` |
@@ -27,6 +56,7 @@ Secret scanning remains applicable to every pull request.
 | Packaged browser | `bash scripts/validate-browser.sh` |
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | Public-production realm policy (disposable Keycloak and Mailpit) | `bash scripts/validate-production-identity.sh`; `--inspect` serves the same stack on loopback for a manual browser check |
+| Google and Microsoft sign-in (ADR-0045): reviewed first-broker-login flow, terms for new provider accounts, password-only linking, unverified Microsoft email, cancellation, disabling (disposable Keycloak with OIDC stand-ins and Mailpit), and the actor's and host tool's offline contracts | `bash scripts/validate-social-sign-in.sh`; offline only: `python3 -I scripts/test-production-social-sign-in.py` (also in the selective production-runtime gate) |
 | Private-dev identity alignment, rollback and Mailpit/relay transports (disposable Keycloak, Mailpit and an authenticated STARTTLS relay stand-in) | `bash scripts/validate-private-dev-identity.sh` |
 | Personal-data export, erasure, deletion ledger and restore replay (fake runtime, then disposable Keycloak, PostgreSQL and the packaged BFF) | `bash scripts/validate-personal-data.sh`; focused native-read/streaming seam: `python3 -I scripts/test-personal-data-read-model.py`; GPG/privacy lifecycle including legacy ledger faults: `python3 -I scripts/test-personal-data-privacy.py` |
 | Production backup/recovery refusals and real public-key encryption | `python3 scripts/test-production-recovery.py` and `python3 scripts/test-production-recovery-lock.py` (part of the selective production-runtime gate); the trusted-publication host-loss rehearsal stays local |
@@ -100,8 +130,12 @@ conditions; time to merge-ready is measured from the earliest paired workflow cr
 to completion of both required gates, excluding publication. Scheduling wait includes
 workflow orchestration and is not a precise per-job runner queue metric. Failed,
 cancelled and rerun attempts are excluded from the successful-run distribution and
-must be investigated separately. Keep run links, timing evidence, cache limitations,
-risks and rollback in the issue/PR, rather than copying a changing baseline here.
+must be investigated separately. For delivery timing, launch the private-dev
+workflow immediately after merge and record push, application publication,
+private-dev verification, deployment receipt, and full release evidence times.
+Track time waiting for dispatch separately and sum the job durations for runner
+usage. Keep run links, timing evidence, cache limitations, risks and rollback in
+the issue or PR.
 
 Independent container/runtime checks may run in parallel; every applicable result
 remains required. Production runtime operations, observability and edge exercises run
@@ -109,7 +143,9 @@ concurrently on one runner with separate disposable topologies; every branch res
 is checked. The packaged browser suite is sharded over independent disposable
 application/database stacks; the complete suite still runs locally by default. Every
 matrix leg remains required, including cancellation and unexpected-skip handling.
-The identity gate runs its independent topologies as parallel legs
+The browser and applicable identity legs download the same JAR from their
+workflow run. The producer runs Maven tests when the backend gate is inapplicable.
+Each leg still builds its own disposable test topology. The identity gate runs its independent topologies as parallel legs
 of one required check, each with its own disposable Keycloak, PostgreSQL and BFF, because
 the timed journeys mutate realm and client state. Packaged browser/identity journeys may
 omit duplicate Maven tests only when the separate backend gate is required for that
@@ -130,3 +166,24 @@ configuration; CI runs both policies against separate disposable topologies. Its
 port is published only on loopback in that disposable topology. No real private-dev or
 production configuration is changed. Temporary paired evidence tests the protocol, never
 physical storage independence; production qualification remains in the operations runbook.
+
+### Temporary build dependency exception
+
+Owner-approved on 2026-11-17 for seven days, ending 2026-11-24 at 18:07:32 UTC.
+The portal and frontend tooling audits temporarily accept only [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+and findings inherited exclusively from it. The advisory affects picomatch through
+4.0.7 and had no published fix when assessed. The owner, Ruben Hernandez, accepts
+the remaining build-time denial-of-service risk during this window.
+
+Compensating controls are repository-controlled build inputs, time-bounded CI,
+loopback-only development serving, and a static runtime that copies only built
+files. The deployed portal serves static files. The application frontend contains compiled browser assets.
+A separate production-dependency audit must pass without the exception before
+the frontend build-tooling audit runs. The owner extended the same acceptance
+to frontend tooling on 2026-11-17 with the original deadline retained. Every other high
+or critical finding continues to block the audit. Missing audit evidence and
+expiry also block it. The audit helper owns the executable scope and deadline.
+
+Remove this exception and restore direct npm audit when a patched version becomes
+available and the lockfile has been updated. If the advisory disappears from the
+audit, the helper reports that removal is due. Any renewal needs a new owner decision.

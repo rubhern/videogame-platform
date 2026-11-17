@@ -33,8 +33,9 @@ sanitized evidence. Secrets remain in GitHub environment/private-host mechanisms
 
 Pin source to the exact main SHA captured by the dispatch. Derive its unique trusted
 main push build, current run attempt and immutable OCI digest from the retained
-publication record, with successful quality/security gates and demonstrated main
-ancestry. Refuse missing, expired, stale, ambiguous or inconsistent evidence; never
+publication record, with successful [private-dev admission evidence](../development/continuous-integration.md#environment-admission)
+and demonstrated main ancestry. The first promotion from an older host revision
+requires the complete quality and security gates. Refuse missing, expired, stale, ambiguous or inconsistent evidence; never
 select a latest image or fall back to another revision/run/attempt. Recheck the same
 derived tuple before private connectivity and source trust on the host. Block differing
 runtime/deployment contracts until their separate reviewed operational rollout and

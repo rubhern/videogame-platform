@@ -585,6 +585,41 @@ new sessions only; to end access at once, also revoke the account's sessions wit
 `--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
 against an existing local realm; a freshly imported local realm already declares the role.
 
+## Google and Microsoft sign-in
+
+Post-MVP (#548; enabled on `vgpdev` on 2026-11-17 with both providers).
+[ADR-0045](../../docs/decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)
+owns the decision. The promoted Keycloak image already carries the brokered-terms authenticator
+and the theme. The providers exist only after this command adds them to the existing realm.
+
+1. **Register the apps.** Register separate *development* OAuth clients at Google and Microsoft
+   (personal accounts only), never the production ones. Each takes one redirect URI on this host's
+   private Keycloak origin, `PRIVATE_DEV_KEYCLOAK_ORIGIN`:
+   `<origin>/realms/videogame-platform/broker/google/endpoint` and
+   `<origin>/realms/videogame-platform/broker/microsoft/endpoint`.
+2. **Write the credentials.** Put the client IDs and secrets in `PRIVATE_DEV_SECRETS_DIR` as
+   `social-google-client-id`, `social-google-client-secret`, `social-microsoft-client-id` and
+   `social-microsoft-client-secret`, with the same owner and mode as the other protected inputs.
+   A provider with neither file is disabled. One file alone refuses.
+3. **Apply and check**, as root:
+
+   ```bash
+   social=(python3 deploy/private-dev/bin/configure-social-sign-in \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env --realm videogame-platform)
+   "${social[@]}" --check || true
+   "${social[@]}"
+   "${social[@]}" --check
+   ```
+
+The command changes only the terms required action, the `gameometro first broker login` flow and
+the two providers. It never touches accounts, clients or the identity policy, so it needs no
+snapshot.
+- **Rollback:** `--disable` turns both providers off and keeps every linked identity. Never delete a
+  provider in the Admin Console: that drops its links.
+- **Rotation:** replace the secret file and run the command again.
+- **Locally:** `bash scripts/local-dependencies.sh configure-social-sign-in` runs the same command
+  ([local setup](../../docs/development/local-setup.md#google-and-microsoft-sign-in)).
+
 ## Historical synchronization pilot
 
 Post-MVP (#246 spike; tooling prepared, not yet run on `vgpdev`).
@@ -1312,24 +1347,22 @@ Release it with `flock --unlock 9; exec 9>&-` before dispatching.
 
 ### Promote and verify
 
-After the complete trusted-main build/security gates and publication succeed, open
-**Actions → Promote application to private dev → Run workflow**, select **main** and
-press **Run workflow**. There are no artifact/run input fields and no second approval.
-The owner dispatch authorizes deploying the exact main SHA captured by GitHub for
-that invocation. Checkout and artifact selection remain pinned to that SHA even if
-main advances while the run is queued. You can dispatch right after the merge: the
-first job waits up to 90 minutes for that SHA's Build and verify and Security runs, and
-refuses only if one of them fails or the wait runs out.
+After merging, open **Actions → Promote application to private dev → Run
+workflow**, select **main**, and press **Run workflow**. The owner dispatch
+authorizes the exact main SHA captured by GitHub. It can be launched while CI is
+still running. The first job waits up to 90 minutes for that SHA's
+[private-dev admission evidence](../../docs/development/continuous-integration.md#environment-admission).
 
-The workflow derives the unique main `push` Build and verify run, its current attempt
-and the immutable OCI digest from its retained `application-image-publication-<SHA>`
-record. It does not choose a latest image or fall back to a different SHA, older attempt
-or older successful run. Absent, expired, mismatched or ambiguous evidence refuses
-promotion; multiple build runs for that SHA are conservatively refused. It checks
-quality/security gates and main ancestry, and revalidates the same derived tuple
-before connectivity. The host checks that the commit is on `origin/main` and binds the
-digest to its GHCR tag and OCI labels. The application image is never built during
-promotion; only changed local runtime images are rebuilt from cache.
+Select **Require complete main CI** to use the previous full-gated policy, for
+example after a manual host change or during troubleshooting. The first promotion
+from an older deployment-tool revision uses full CI automatically. If the reported
+baseline differs from the checkout or running application, inspect the host before
+dispatching with full CI.
+
+The selected SHA and immutable digest are revalidated before connectivity. The
+host checks that the commit is on `origin/main` and binds the digest to its GHCR
+tag and OCI labels. The application image is built in CI. Promotion only rebuilds
+changed local runtime images from cache.
 
 Transient GitHub evidence-read failures use bounded retries; exhausted retries still
 refuse promotion before activation. Invalid or rejected evidence is never accepted
