@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyAudit, waiver } from './audit.mjs';
+import { verifyAudit, waiver } from '../../scripts/audit-build-dependencies.mjs';
 
 const now = new Date('2026-11-18T00:00:00Z');
 function report() {
@@ -39,4 +39,15 @@ test('unknown dependencies, cycles, critical findings and changed advisory scope
     mutate(data);
     assert.throws(() => verifyAudit(data, now));
   }
+});
+
+test('moderate dependencies preserve the high audit threshold without waiving new high advisories', () => {
+  const data = report();
+  data.vulnerabilities.minimatch = { severity: 'moderate',
+    via: [{ name: 'minimatch', url: 'https://example.invalid/moderate', severity: 'moderate' }] };
+  data.vulnerabilities.astro.via.push('minimatch');
+  assert.equal(verifyAudit(data, now), 2);
+  data.vulnerabilities.astro.via.push({ name: 'astro',
+    url: 'https://example.invalid/high', severity: 'high' });
+  assert.throws(() => verifyAudit(data, now), /Unaccepted/);
 });

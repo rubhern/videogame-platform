@@ -11,7 +11,7 @@ export const waiver = {
 export function verifyAudit(report, now = new Date()) {
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())
       || now < new Date(waiver.approvedAt) || now >= new Date(waiver.expiresAt)) {
-    throw new Error('Portal audit exception is outside its approved seven-day window.');
+    throw new Error('Build dependency audit exception is outside its approved seven-day window.');
   }
   if (report?.auditReportVersion !== 2 || report.error
       || !report.vulnerabilities || !report.metadata?.vulnerabilities) {
@@ -24,7 +24,9 @@ export function verifyAudit(report, now = new Date()) {
       throw new Error('Incomplete npm audit vulnerability evidence.');
     }
   }
-  const accepted = new Set();
+  const accepted = new Set(Object.entries(vulnerabilities)
+    .filter(([, finding]) => ['info', 'low', 'moderate'].includes(finding.severity))
+    .map(([name]) => name));
   // Resolve inherited findings only after every underlying finding was accepted.
   // Unknown references, cycles and new advisories therefore remain blocked.
   for (let pass = 0; pass < Object.keys(vulnerabilities).length; pass++) {
@@ -42,19 +44,30 @@ export function verifyAudit(report, now = new Date()) {
     .filter(([name, finding]) => !['info', 'low', 'moderate'].includes(finding.severity)
       && !accepted.has(name))
     .map(([name]) => name);
-  if (blocked.length) throw new Error('Unaccepted portal security findings: ' + blocked.join(', '));
+  if (blocked.length) throw new Error('Unaccepted build dependency security findings: ' + blocked.join(', '));
   if (report.metadata.vulnerabilities.critical > 0) {
-    throw new Error('Critical portal security findings cannot be waived.');
+    throw new Error('Critical build dependency security findings cannot be waived.');
   }
-  return accepted.size;
+  return Object.entries(vulnerabilities)
+    .filter(([name, finding]) => finding.severity === 'high' && accepted.has(name)).length;
 }
 
-export function auditPortal() {
-  const portal = fileURLToPath(new URL('..', import.meta.url));
+export function auditBuild(scope) {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  if (!['portal', 'frontend'].includes(scope)) throw new Error('Select --portal or --frontend.');
+  const portal = scope === 'portal' ? path.join(root, 'documentation') : root;
+  if (scope === 'frontend') {
+    // The exception covers build tooling only. Production dependencies retain the direct audit.
+    const production = spawnSync('npm', ['audit', '--omit=dev', '--audit-level=high'],
+      { cwd: root, stdio: 'inherit', timeout: 120_000 });
+    if (production.error || production.status !== 0) {
+      throw new Error('Production dependency audit failed.');
+    }
+  }
   const result = spawnSync('npm', ['audit', '--json', '--audit-level=high'],
     { cwd: portal, encoding: 'utf8', timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
   if (result.error || ![0, 1].includes(result.status)) {
-    throw new Error('Portal npm audit failed to return usable evidence.');
+    throw new Error('Build dependency npm audit failed to return usable evidence.');
   }
   const accepted = verifyAudit(JSON.parse(result.stdout));
   if (accepted) {
@@ -70,12 +83,12 @@ export function auditPortal() {
       throw new Error('A newer picomatch release requires review. Update the lockfile and remove the exception.');
     }
   }
-  console.log('Portal audit passed. Temporarily accepted inherited findings: ' + accepted
+  console.log('Build dependency audit passed. Temporarily accepted inherited findings: ' + accepted
     + '. Exception expires ' + waiver.expiresAt + '.');
-  if (!accepted) console.log('Remove the obsolete portal audit exception and restore direct npm audit.');
+  if (!accepted) console.log('Remove the obsolete build dependency audit exception and restore direct npm audit.');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { auditPortal(); }
+  try { auditBuild(process.argv[2]?.replace(/^--/, '')); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
