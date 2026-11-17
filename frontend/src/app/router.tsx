@@ -1,6 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
+import { AboutPage } from "../pages/about-page";
+import { ContactPage } from "../pages/contact-page";
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { FeaturedReleasesPage } from "../pages/featured-releases-page";
 import { GameDetailsPage } from "../pages/game-details-page";
@@ -28,6 +30,7 @@ import { routeReadiness } from "./route-readiness";
 import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
 import { MemoryScrollRestoration } from "./memory-scroll-restoration";
+import { navigationLoadingDemoRoutes } from "./navigation-loading-demo";
 
 export const appRoutes: RouteObject[] = [
   {
@@ -52,7 +55,10 @@ export const appRoutes: RouteObject[] = [
       { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
+      { path: "sobre-gameometro", element: <AboutPage /> },
+      { path: "contacto", element: <ContactPage /> },
       ...legalRoutes(),
+      ...(import.meta.env.DEV ? navigationLoadingDemoRoutes : []),
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -69,7 +75,13 @@ export function createAppRouter(queryClient: QueryClient, interests: InterestsSw
           ...child,
           // Initial restoration needs the ready page's height, not its fallback.
           element: <>{child.element}<MemoryScrollRestoration /></>,
-          loader,
+          loader: child.loader ?? loader,
+          ...(child.index ? {
+            shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+              currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search
+                ? false
+                : defaultShouldRevalidate,
+          } satisfies Pick<RouteObject, "shouldRevalidate"> : {}),
           ...(child.path?.startsWith("games/") ? {
             // The public game read has no query parameters. Consuming an auth
             // marker must not refetch over a rating command's returned aggregate.

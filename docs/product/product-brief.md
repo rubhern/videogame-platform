@@ -249,8 +249,9 @@ owns the accepted technical design and environment boundaries; the
 separates permission to contract from permission to expose. Best effort does not
 waive personal-data protection, account recovery, provider rights or security.
 
-**Owner-approved public account baseline (#274), prepared; public operation pending:** accounts are for adults
-(18+) by explicit declaration, without collecting a birth date or identity document;
+**Owner-approved public account policy (#274, revised in #472):** the minimum age is
+14, as stated in the [conditions of use](../legal/public-texts-es.md#condiciones-de-uso).
+Registration requires acceptance of the terms and collects no date of birth or identity document;
 email is the sign-in identifier and names are not required. Sign-in is to offer an
 optional, unchecked "Seguir conectado" (approved target, not implemented; #374); the
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)

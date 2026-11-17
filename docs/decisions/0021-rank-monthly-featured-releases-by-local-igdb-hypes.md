@@ -124,6 +124,26 @@ signal; IGDB's other popularity measures were compared and left out.
   for a week. On the private-dev catalogue, November 2026 took about 15 ms. These are point-in-time
   plans, not latency gates.
 
+## Amendment 2026-11-12
+
+[ADR-0041](0041-rank-release-attention-by-igdb-signals-and-an-editorial-list.md), proposed for
+[#458](https://github.com/rubhern/videogame-platform/issues/458), replaces the ranking signal. Release
+attention combines Hypes, Want to Play and Visits with an operator-loaded editorial anticipation list.
+The selection rule of the 2026-11-06 amendment, the evidence kept here, the media policy and the
+navigation bounds are unchanged, except that only launches (full or unknown stage) now feature: the
+2026-11-06 consequence that an early access launch can be *Lanzamiento del mes* no longer holds. The
+calendar's Hypes threshold and sums (`UC-016`) stay, counted over launches only.
+
+## Amendment 2026-11-12 (#450)
+
+[ADR-0042](0042-manage-approved-product-settings-in-postgresql.md), proposed for [#450](https://github.com/rubhern/videogame-platform/issues/450), makes the
+navigation bounds operator product settings: weeks back and forward, months back and months
+forward, with the previous values as defaults except months forward, which defaults to five. The
+owner decided that months forward are no longer clipped to the forward acquisition horizon of the
+2026-10-17 amendment: the setting decides, and the administration panel warns when it reaches
+beyond the horizon. The calendar's minimum Hypes, interest bands and day preview size are settings
+too. The ranking rule, evidence and media policy are unchanged.
+
 ## Alternatives considered
 
 - **Call IGDB from the featured request:** rejected by ADR-0004; provider latency and
@@ -178,4 +198,4 @@ when recurring automatic synchronization is approved, when a month's candidates 
 to tens of thousands (the signal is probed once per candidate), when IGDB documents or
 changes the image-type labels the media policy reads (title key art, covers, logos and
 icons are observed, undocumented labels), or when IGDB changes Hypes' meaning
-or terms. Any multi-signal score needs its own decision.
+or terms. Any multi-signal score needs its own decision; ADR-0041 is that decision.

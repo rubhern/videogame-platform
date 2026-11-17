@@ -39,6 +39,29 @@ ROOT = Path(__file__).resolve().parents[1]
 ADMIN = Path('/var/lib/gameometro/production')
 JOURNAL = ADMIN / 'first-install'
 TLS = Path('/etc/gameometro/production/private-tls')
+SCHEDULING = 'CATALOGUE_SYNC_SCHEDULING_ENABLED'
+SCHEDULE_OVERRIDES = ('CATALOGUE_SYNC_NEAR_TERM_CRON', 'CATALOGUE_SYNC_UPCOMING_CRON')
+
+
+def reviewed_schedule(environment):
+    """#484: recurring acquisition is off (the pinned first install) or on with the default schedule only."""
+    return environment.get(SCHEDULING) == 'false' or (
+        environment.get(SCHEDULING) == 'true' and not set(environment) & set(SCHEDULE_OVERRIDES))
+
+
+DELETION_CAPABILITY = 'account-deletion-executor-capability'
+APPLICATION_UID = 10001
+
+
+def optional_secret(name, environment):
+    """Credentials are required when their integration is enabled."""
+    if name.startswith('feedback-smtp-'):
+        return environment.get('FEEDBACK_ENABLED') != 'true'
+    if name == DELETION_CAPABILITY:
+        return environment.get('ACCOUNT_DELETION_EXECUTOR_ENABLED') != 'true'
+    return name.startswith('grafana-telegram-') or (name.startswith('igdb-') and environment.get(SCHEDULING) != 'true')
+
+
 HELPER = 'python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258'
 OPERATIONAL_FILES = ('scripts/private_production_control.py', 'scripts/validate_private_production_truststore.py', 'scripts/install_private_production.py', 'scripts/prepare_private_production.py',
                      'scripts/private_dev_promotion.py', 'scripts/public_production_deployment.py',
@@ -68,6 +91,19 @@ def secure(path, *, mode=None, directory=False, gid=None):
             and info.st_uid == 0 and not info.st_mode & 0o022, 'Unsafe protected owner/type/permissions.')
     require(mode is None or stat.S_IMODE(info.st_mode) == mode, 'Unexpected protected mode.')
     require(gid is None or info.st_gid == gid, 'Unexpected secret group.')
+    for parent in path.parents:
+        ancestor = parent.lstat()
+        require(ancestor.st_uid == 0 and not ancestor.st_mode & 0o022, 'Writable/untrusted protected-path ancestor.')
+    require('system.posix_acl_access' not in os.listxattr(path), 'Unexpected protected-file ACL.')
+    return info
+
+
+def application_owned(path):
+    """A secret only the application UID reads (0600), in a root-owned protected directory."""
+    require(path.is_absolute() and path.resolve() == path, 'Symlinked or relative protected path.')
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == APPLICATION_UID and stat.S_IMODE(info.st_mode) == 0o600,
+            'The enabled account-deletion capability must be owned by UID 10001 with mode 0600.')
     for parent in path.parents:
         ancestor = parent.lstat()
         require(ancestor.st_uid == 0 and not ancestor.st_mode & 0o022, 'Writable/untrusted protected-path ancestor.')
@@ -343,6 +379,9 @@ runpy.run_path('/work/check-oidc-issuer-contract.py',run_name='__main__')
 '''
 
 class Host:
+    # Secret files an upgrade plan will create empty at staging (private_production_upgrade.py).
+    pending_secrets = frozenset()
+
     def __init__(self, configuration, adapter, operational_revision, truststore_evidence=None, evidence_dir=None):
         self.configuration, self.adapter, self.operational_revision = configuration, adapter, operational_revision
         self.bundle = prepare.TARGET
@@ -442,7 +481,7 @@ class Host:
         previous = deployment.ROOT
         try:
             deployment.ROOT = self.source
-            self.schema = deployment.verify_configuration(api, prepare.REVISION, prepare.FINGERPRINT)
+            self.schema = deployment.verify_configuration(api, prepare.REVISION, prepare.FINGERPRINT, candidate=True)
         finally:
             deployment.ROOT = previous
         receipt = json.loads((self.bundle / 'preparation.json').read_text())
@@ -467,8 +506,9 @@ class Host:
         require({n: services[n]['image'] for n in selected['images']} == selected['images'], 'Candidate digests changed.')
         require(services['application']['environment']['TELEMETRY_SERVICE_VERSION'] == prepare.VERSION,
                 'Unexpected candidate version.')
-        require(services['application']['environment']['CATALOGUE_SYNC_SCHEDULING_ENABLED'] == 'false'
-                and services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED'] == 'false', 'Background work/notifications must stay off.')
+        require(reviewed_schedule(services['application']['environment']),
+                'Recurring acquisition must be off or on the reviewed default schedule.')
+        require(services['grafana']['environment']['GRAFANA_TELEGRAM_ENABLED'] == 'false', 'Notifications must stay off.')
         self.check = 'candidate-mount-permissions'
         verify_candidate_mounts(self.config, self.source)
         images = {n: s['image'] for n, s in services.items()}
@@ -525,11 +565,21 @@ class Host:
         for name, secret in self.config['secrets'].items():
             path = Path(secret['file'])
             require(path.parent == secret_root, 'Secret path outside protected inventory.')
-            st = secure(path, mode=0o640, gid=gid)
-            require(st.st_size <= 4096 and (st.st_size > 0 or path.name.startswith(('igdb-', 'grafana-telegram-'))),
-                    'Empty or oversized required secret.')
+            optional = optional_secret(path.name, services['application'].get('environment', {}))
+            if path.name in self.pending_secrets:
+                # An upgrade plan: staging creates this reviewed optional secret empty.
+                require(optional and not path.exists(), 'A planned secret addition must be optional and absent.')
+                continue
+            if path.name == DELETION_CAPABILITY and not optional:
+                # The application refuses a capability with any group or other bit, so the enabled
+                # file belongs to its UID alone; disabled, it stays the empty root-owned placeholder.
+                require(self.images['application']['user'].split(':')[0] == str(APPLICATION_UID),
+                        'Unexpected application image user.')
+                st = application_owned(path)
+            else:
+                st = secure(path, mode=0o640, gid=gid)
+            require(st.st_size <= 4096 and (st.st_size > 0 or optional), 'Empty or oversized required secret.')
             value = path.read_bytes().decode('utf-8').rstrip('\n')
-            optional = path.name.startswith(('igdb-', 'grafana-telegram-'))
             require((value or optional) and value == value.strip() and not any(c in value for c in '\r\n\x00'),
                     'Invalid required secret encoding/content.')
             for service_name, service in services.items():
@@ -965,7 +1015,7 @@ def first_install(host):
                     receipt.update(migrationVersion=migration["version"], flywayHistoryFingerprint=migration["historyFingerprint"])
                     checkpoint("grafana-reader"); host.reader()
                     checkpoint("dependencies")
-                    host.up("keycloak", "catalogue-localizer", "caddy", "telemetry", "prometheus", "grafana", "node-exporter", "blackbox")
+                    host.up("keycloak", "catalogue-localizer", "caddy", "telemetry", "loki", "tempo", "prometheus", "grafana", "node-exporter", "blackbox")
                     checkpoint("application"); host.up("application")
                     checkpoint("private-smoke"); host.smoke()
                     receipt.update(outcome="prepared", phase="lease-finalize")

@@ -1,10 +1,10 @@
 # Gameómetro: textos legales aprobados
 
-- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision.
+- **Status:** All public-facing legal wording approved by owner on 2026-10-29 (registration notice, privacy policy, terms of use, legal notice, and cookies). The feedback-specific additions for #383 await owner review. Integration and links authorized for local, private-dev and production configurations. A public production go-live remains a separate release decision. The consent-gated analytics amendments to the privacy policy and cookies sections ([#507](https://github.com/rubhern/videogame-platform/issues/507)) were drafted with agent assistance on 2026-11-09 and approved by the owner on 2026-11-11; they take effect when production serves the configured measurement ID. The owner approved revised registration eligibility and acceptance in #472; the revised wording takes effect on deployment. The Google and Microsoft sign-in additions to the privacy policy ([#548](https://github.com/rubhern/videogame-platform/issues/548)) were drafted with agent assistance on 2026-11-14 and approved by the owner on 2026-11-16; they take effect when production enables either provider.
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
-- **Scope:** Approved wording for a public, free, non-commercial, adult-only service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
+- **Scope:** Approved wording for a public, free, non-commercial service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
-These Spanish texts are the canonical owner-approved source for public legal pages.
+These Spanish texts are the canonical source for public legal pages. The feedback additions require approval before public activation.
 Publish only the corresponding public sections through product routes; do not expose
 this combined source document or the editorial checklist at the end. The
 [publication checklist and integration plan](../development/data-protection.md#publication-and-product-integration)
@@ -27,7 +27,6 @@ Para prestar el servicio utilizamos proveedores externos de alojamiento y correo
 Las imágenes pueden cargarse desde un servicio externo. Algunos tratamientos pueden
 implicar transferencias internacionales, detalladas en la política de privacidad.
 
-Crear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso.
 La información de privacidad se facilita para que conozcas el tratamiento; no te
 pedimos que consientas tratamientos opcionales para utilizar tu cuenta.
 
@@ -52,9 +51,19 @@ Para crear y utilizar tu cuenta tratamos tu email, su estado de verificación,
 identificadores internos, fechas de la cuenta y la credencial protegida mediante un
 resumen criptográfico de la contraseña. No pedimos nombre, apellidos, fecha de
 nacimiento ni documento de identidad al registrarte. Debes verificar el email antes
-de usar la cuenta. El servicio está dirigido a mayores de 18 años, según tu
-declaración. Sin el email y los datos de autenticación no podemos ofrecerte una
-cuenta; puedes seguir consultando el catálogo.
+de usar la cuenta. Los requisitos de edad se indican en las condiciones de uso.
+Sin el email y los datos de autenticación no podemos ofrecerte una cuenta; puedes
+seguir consultando el catálogo.
+
+Si eliges «Continuar con Google» o «Continuar con Microsoft», ese proveedor comprueba tu
+identidad y nos comunica el identificador de tu cuenta en él y tu email; Google indica
+además si ese email está verificado. Guardamos ese identificador vinculado a tu cuenta de
+Gameómetro. No recibimos la contraseña de ese proveedor ni guardamos sus credenciales de
+acceso, y no conservamos tu nombre ni otros datos de tu perfil aunque el proveedor los
+envíe. Si el email de Microsoft no está verificado, te pediremos verificarlo. Si ya tenías
+una cuenta con ese email, solo la vinculamos cuando confirmas que es tuya con su
+contraseña. Al crear la cuenta de este modo aceptas las mismas condiciones de uso. Siempre
+puedes entrar con tu email creando una contraseña desde «¿Has olvidado tu contraseña?».
 
 Guardamos tus puntuaciones, el juego al que corresponden y las fechas de creación y
 modificación. Tu lista personal no se publica. Cada puntuación contribuye a la media,
@@ -84,6 +93,28 @@ Las solicitudes de ejercicio de derechos y la gestión de brechas de datos
 personales se atienden para cumplir obligaciones legales (artículo 6.1.c RGPD).
 No envíes contraseñas, códigos de recuperación ni documentación personal innecesaria.
 
+Si usas el formulario de contacto, Rubén recibe el motivo y el mensaje para
+revisar tu comentario. Puedes dejar una dirección de correo si quieres que pueda
+responderte. Puedes enviarlo sin una cuenta. El formulario no vincula tu mensaje
+a una cuenta ni adjunta información de diagnóstico. Para consultas generales y
+sugerencias nos basamos en nuestro interés legítimo en atender lo que nos
+comunicas y mejorar el servicio.
+
+Solo si lo aceptas, medimos el uso de Gameómetro con Google Analytics 4 para saber,
+de forma agregada, qué páginas y funciones se utilizan y decidir qué mejorar. Se
+envían la página visitada en forma genérica (por ejemplo, la ficha de un juego con su
+nombre público, sin búsquedas, parámetros ni identificadores), acciones de uso como
+abrir el panel de puntuación, cambiar de periodo en Destacados o guardar tus
+plataformas, sin el valor de tus puntuaciones, y los datos técnicos que recoge Google:
+un identificador seudónimo guardado en la cookie, navegador, dispositivo y ubicación
+aproximada. Según Google, Google Analytics 4 no registra ni almacena la dirección IP.
+No enviamos tu email, tu identificador de cuenta ni tus puntuaciones, ni combinamos
+estos datos con tu cuenta. La base jurídica es tu consentimiento (artículo 6.1.a RGPD
+y artículo 22.2 de la LSSI). Puedes retirarlo en cualquier momento desde «Configurar
+cookies», al pie de cada página, sin que afecte a la licitud del tratamiento anterior;
+rechazar la analítica no limita ninguna función. No usamos la analítica para
+publicidad, perfiles comerciales ni decisiones automatizadas.
+
 ### Destinatarios y transferencias internacionales
 
 La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL,
@@ -91,9 +122,11 @@ alojados bajo el control del titular. Los proyectos que desarrollan ese software
 reciben tus datos simplemente por usar sus programas. Utilizamos netcup para el
 alojamiento, OVHcloud para el dominio, el correo de contacto y el almacenamiento de
 copias de seguridad cifradas en OVHcloud Object Storage, y Mailjet (grupo Sinch) para
-los mensajes transaccionales de verificación y recuperación. Estos mensajes incluyen
-tu dirección de email, el contenido necesario y datos de entrega; no son boletines
-ni publicidad.
+los mensajes transaccionales de verificación y recuperación. Esos mensajes
+incluyen tu dirección de correo, el contenido necesario y datos de entrega.
+Cuando se habilite el formulario de contacto, el servicio de correo tramitará
+también tus mensajes al buzón del titular. Solo incluirán tu dirección si la
+escribes en el formulario. Ninguno de estos mensajes se usa para publicidad.
 
 Las copias de seguridad cifradas se almacenan separadas del servidor de producción.
 La información legal restringida y los registros necesarios para acreditar borrados
@@ -124,6 +157,22 @@ tratamientos en Estados Unidos en su
 [política de privacidad](https://legal.twitch.com/en/legal/privacy-notice/).
 Puedes solicitar información sobre esta conexión y ejercer, cuando proceda, tu
 derecho de oposición en el contacto anterior.
+
+Si aceptas la analítica, Google Ireland Limited trata los datos de medición como
+encargado del tratamiento conforme a sus
+[condiciones de tratamiento de datos](https://business.safety.google/adsprocessorterms/).
+Google puede tratar datos en Estados Unidos y en otros países; esas transferencias se
+amparan en el Marco de Privacidad de Datos UE-EE. UU., en el que Google LLC está
+certificada, y en cláusulas contractuales tipo cuando proceda. Tienes más información en
+[cómo utiliza Google los datos de los sitios que usan sus servicios](https://policies.google.com/technologies/partner-sites).
+Si rechazas la analítica o no eliges, tu navegador no se conecta con Google Analytics.
+
+Si usas «Continuar con Google» o «Continuar con Microsoft», Google y Microsoft tratan
+como responsables independientes los datos de tu acceso a su servicio, incluido que
+inicias sesión en Gameómetro, según sus propias políticas de privacidad
+([Google](https://policies.google.com/privacy), [Microsoft](https://privacy.microsoft.com/es-es/privacystatement)).
+Gameómetro no les envía tus puntuaciones ni otros datos de tu cuenta. Si no usas estas
+opciones, tu navegador no se conecta con ellos para iniciar sesión.
 
 No se venden tus datos ni se comunican a otros destinatarios salvo las necesidades
 indicadas o una obligación legal. No solicitamos tu consentimiento para publicidad
@@ -160,6 +209,17 @@ Free, y mantiene contactos y plantillas durante la vida de la cuenta. No creamos
 listas de contactos para publicidad. Ese plazo no equivale al de todos los datos de
 entrega SMTP o del CDN; puedes pedir los plazos o criterios aplicables en el contacto
 indicado.
+
+La aplicación no guarda una copia de tu mensaje. En el buzón,
+conservamos el contenido y el correo opcional mientras sean necesarios para
+revisar el aviso y resolver la consulta. Después, eliminamos lo que ya no haga
+falta, salvo los datos que debamos conservar para cumplir una obligación legal
+o atender una reclamación.
+
+Los datos de analítica asociados a la cookie se conservan en Google Analytics un
+máximo de 14 meses; después solo pueden quedar informes agregados que no identifican
+a nadie. Tu elección sobre la analítica se guarda 12 meses en tu navegador y después
+te volvemos a preguntar.
 
 El registro mínimo para impedir que una copia restaure datos borrados se conserva
 mientras existan copias capaces de recuperarlos, al menos 35 días tras completar el
@@ -223,8 +283,8 @@ Rubén Hernández López, para descubrir videojuegos y conservar puntuaciones pe
 No incluye anuncios, afiliación, patrocinios, donaciones, ventas ni promoción profesional.
 El contacto es [hola@gameometro.com](mailto:hola@gameometro.com).
 
-Para registrarte debes tener 18 años o más, declarar esa circunstancia, aceptar
-estas condiciones y verificar tu email. No aportes datos de otra persona. Protege tu
+Para crear una cuenta debes tener al menos 14 años, aceptar estas condiciones
+y verificar tu email. No aportes datos de otra persona. Protege tu
 contraseña y avísanos si sospechas un acceso indebido. La recuperación de contraseña
 se realiza mediante los mensajes del proveedor de identidad; nunca te pediremos tu
 contraseña por email.
@@ -282,10 +342,13 @@ sobre cookies del servicio. Para errores o reclamaciones utiliza el contacto ind
 
 **Texto aprobado por el titular; entrará en vigor para el servicio público cuando se publique.**
 
-Utilizamos cookies para el acceso que solicitas, su seguridad y el idioma de los
-formularios. No utilizamos cookies de publicidad ni analítica. No añadimos un banner
-de consentimiento para estas cookies necesarias. Si se incorporan usos opcionales,
-se revisarán antes de activarlos.
+Utilizamos cookies necesarias para el acceso que solicitas, su seguridad y el idioma
+de los formularios; no requieren tu consentimiento. Solo si lo aceptas, utilizamos
+además cookies de analítica de Google Analytics para medir de forma agregada qué
+páginas y funciones se usan. No utilizamos cookies de publicidad. Al visitar
+Gameómetro te preguntamos si aceptas la analítica: rechazar es tan fácil como
+aceptar y, mientras no elijas, no se activa. Puedes cambiar tu elección en cualquier
+momento desde «Configurar cookies», al pie de cada página.
 
 | Cookie | Host | Finalidad | Duración |
 |---|---|---|---|
@@ -311,15 +374,38 @@ BFF ya ha caducado, «Cerrar sesión» solicita confirmación en el proveedor.
 La cookie de recordatorio de identificador puede durar más que el acceso recordado;
 esa duración no amplía la autenticación.
 
+### Cookies de analítica (opcionales)
+
+Solo existen si aceptas la analítica. Las crea el script de Google Analytics en
+`gameometro.com` y no se comparten con `auth.gameometro.com`.
+
+| Cookie | Host | Finalidad | Duración |
+|---|---|---|---|
+| `_ga` | `gameometro.com` | Google Analytics: identificador seudónimo de este navegador para contar visitas y usos de forma agregada | 13 meses |
+| `_ga_<ID>` | `gameometro.com` | Google Analytics: estado de la sesión de medición | 13 meses |
+
+Si retiras el consentimiento desde «Configurar cookies», dejamos de enviar datos a
+Google en ese momento y borramos las cookies `_ga` que el navegador nos permite
+eliminar. Los datos ya enviados se conservan en Google Analytics según el plazo
+indicado en la política de privacidad.
+
+### Atributos y almacenamiento del navegador
+
 Todas utilizan `Secure` y sin atributo `Domain`. Las cookies de Keycloak
 se limitan a `/realms/gameometro/`; la de sesión del BFF, a `/`, y el recibo de
 borrado, a `/api/v1/account-deletion`.
 `KC_AUTH_SESSION_HASH` y `KEYCLOAK_SESSION` son legibles por scripts del proveedor de
-identidad; las restantes usan `HttpOnly`. La cookie de sesión del BFF usa `SameSite=Lax`; el recibo de borrado,
+identidad, y las de analítica, por el script de Google Analytics; las restantes usan `HttpOnly`. La cookie de sesión del BFF y las de analítica usan `SameSite=Lax`; el recibo de borrado,
 `SameSite=Strict`, y las de Keycloak, `SameSite=None`. Son del mismo sitio, aunque sus hosts sean distintos.
 
-La aplicación no necesita crear cookies para consultar el catálogo sin identificarte.
-No utiliza `localStorage`, `sessionStorage` ni IndexedDB para los recorridos de cuenta. Los tokens
+La aplicación no necesita crear cookies para consultar el catálogo sin identificarte;
+las de analítica solo aparecen si las aceptas. Tu elección sobre la analítica se guarda
+en el almacenamiento local de este navegador (`localStorage`, clave
+`gameometro_analytics_consent`), sin datos personales, durante 12 meses. Si has aceptado
+la analítica y empiezas a iniciar sesión o a crear una cuenta, la pestaña guarda en
+`sessionStorage` solo qué recorrido iniciaste, para contarlo una vez al volver; se borra
+al leerlo o al cerrar la pestaña. Fuera de eso, la aplicación no utiliza `localStorage`,
+`sessionStorage` ni IndexedDB para los recorridos de cuenta. Los tokens
 OAuth se mantienen en el servidor; el cierre de sesión puede incluir un ID token en
 la redirección al proveedor de identidad, sin almacenarlo de forma persistente en el
 navegador. Las conexiones con el CDN de imágenes se explican en la política de
@@ -359,6 +445,11 @@ for the actual accounts or the IGDB partnership agreement has been executed.
   partnership process, but explicitly does not provide privacy-law assurances or
   replace third-party intellectual-property rights. A draft partnership agreement
   and owner acceptance to proceed do not evidence a signed agreement.
+- **Google and Microsoft sign-in (#548, approved by the owner on 2026-11-16):** the privacy additions
+  describe the data each provider sends (provider account identifier and email; Google's
+  verification flag), that names are not kept, password-only linking, and both providers
+  as independent controllers of their own sign-in service. They take effect when
+  `production_social_sign_in.py --apply` enables either provider.
 - **Supplier references:** Mailjet/Sinch DPA and OVHcloud European data-protection
   and contracts pages are linked above. The OVHcloud US agreement (OVH US LLC) is
   not presented as the agreement for the European account. Actual account/order

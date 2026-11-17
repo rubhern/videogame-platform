@@ -18,8 +18,12 @@ import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResu
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.Selection;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.UpcomingHighlightsResult;
+import com.videogameplatform.catalogue.application.releases.UpcomingHorizon;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
 import com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
@@ -86,7 +90,41 @@ class UpcomingHighlightsServiceTest {
     })
     void theHorizonEndsTheDayBeforeTheSameDaySixCalendarMonthsLater(
             LocalDate evaluatedOn, LocalDate horizonEnd) {
-        assertThat(UpcomingHighlightsService.horizonEnd(evaluatedOn)).isEqualTo(horizonEnd);
+        assertThat(UpcomingHorizon.end(evaluatedOn, 6)).isEqualTo(horizonEnd);
+    }
+
+    @ParameterizedTest(name = "{0} + {1} months -> {2}")
+    @CsvSource({
+        "2026-10-27, 8, 2027-06-26",
+        "2026-06-30, 8, 2027-02-28",
+        "2027-06-30, 8, 2028-02-29",
+        "2026-11-12, 1, 2026-12-11",
+        "2026-01-31, 1, 2026-02-28",
+        "2026-11-12, 24, 2028-11-11"
+    })
+    void anOperatorHorizonKeepsTheMonthEndAndLeapYearRule(
+            LocalDate evaluatedOn, int months, LocalDate horizonEnd) {
+        assertThat(UpcomingHorizon.end(evaluatedOn, months)).isEqualTo(horizonEnd);
+    }
+
+    @Test
+    void anOperatorChangeFromSixToEightMonthsAppliesFromTheNextRequest() {
+        var settings = TestProductSettings.defaults();
+        var service =
+                service(
+                        port(new UpcomingHighlightsReadPort.Result(List.of(PS5), false, List.of())),
+                        settings);
+        service.browse(new Query(List.of("platform-ps5")));
+        assertThat(captured.get().horizonEnd()).isEqualTo(LocalDate.parse("2027-04-26"));
+
+        settings.set(ProductSetting.UPCOMING_HIGHLIGHTS_HORIZON_MONTHS, 8)
+                .set(ProductSetting.ATTENTION_VISITS_WEIGHT, 0);
+        var result = service.browse(new Query(List.of("platform-ps5")));
+
+        assertThat(captured.get().horizonEnd()).isEqualTo(LocalDate.parse("2027-06-26"));
+        assertThat(result.window().to()).isEqualTo(LocalDate.parse("2027-06-26"));
+        assertThat(captured.get().limit()).isEqualTo(10);
+        assertThat(captured.get().attention().visits()).isZero();
     }
 
     @Test
@@ -228,6 +266,11 @@ class UpcomingHighlightsServiceTest {
 
     /** Resolvers that name the reference in the URL, so each test sees which image was chosen. */
     private static UpcomingHighlightsService service(UpcomingHighlightsReadPort port) {
+        return service(port, TestProductSettings.defaults());
+    }
+
+    private static UpcomingHighlightsService service(
+            UpcomingHighlightsReadPort port, CurrentProductSettings settings) {
         return new UpcomingHighlightsService(
                 port,
                 new CatalogueCoverPolicy(
@@ -242,7 +285,8 @@ class UpcomingHighlightsServiceTest {
                                 "IGDB",
                                 URI.create(sourceUrl)),
                 Clock.fixed(MADRID_27_OCTOBER, MADRID),
-                new CatalogueFreshnessPolicy(Duration.ofDays(7)));
+                new CatalogueFreshnessPolicy(Duration.ofDays(7)),
+                settings);
     }
 
     private static MediaReference media(ImageKind kind, String reference, int width, int height) {

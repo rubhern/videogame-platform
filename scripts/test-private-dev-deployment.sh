@@ -108,13 +108,7 @@ if [[ "$1 ${2:-}" == "image inspect" ]]; then
     *revision*) printf '%s\n' "$SOURCE_REVISION" ;;
     *version*) printf '0.15.0-SNAPSHOT\n' ;;
     *source*) printf 'https://github.com/rubhern/videogame-platform\n' ;;
-    *Id*)
-      if [[ "${*: -1}" == videogame-platform/catalogue-localizer:* ]]; then
-        printf 'sha256:localizer-image-id\n'
-      else
-        printf 'sha256:candidate-image-id\n'
-      fi
-      ;;
+    *Id*) printf 'sha256:candidate-image-id\n' ;;
     *) printf 'unexpected image inspection format: %s\n' "$format" >&2; exit 90 ;;
   esac
   exit 0
@@ -135,10 +129,6 @@ if [[ "$1" == inspect ]]; then
           localizer-no-healthcheck) printf '\n' ;;
           *) printf 'healthy\n' ;;
         esac ;;
-      *config-hash*)
-        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-config-drift ]] && printf '%064d\n' 1 || printf '%064d\n' 2 ;;
-      *Image*)
-        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-image-drift ]] && printf 'sha256:localizer-image-id\n' || printf 'sha256:old-localizer-image-id\n' ;;
       *) exit 91 ;;
     esac
     exit 0
@@ -147,6 +137,9 @@ if [[ "$1" == inspect ]]; then
     *State.Status*) printf 'running\n' ;;
     *State.Health*) printf 'healthy\n' ;;
     *Image*) printf 'sha256:candidate-image-id\n' ;;
+    *NetworkSettings.Networks*)
+      [[ "${FAKE_DEPLOY_MODE:-}" == smoke-address-missing ]] || printf 'videogame-platform-dev_edge 172.18.0.3\n'
+      printf 'videogame-platform-dev_data 172.19.0.2\n' ;;
     *) printf 'unexpected container inspection format: %s\n' "$format" >&2; exit 91 ;;
   esac
   exit 0
@@ -171,6 +164,7 @@ issuer_uri = os.environ.get(
     "FAKE_PRIVATE_DEV_OIDC_ISSUER_URI",
     f"{keycloak_origin}/realms/videogame-platform",
 )
+telegram_enabled = os.environ.get("FAKE_GRAFANA_TELEGRAM_ENABLED", "false")
 secret_files = {
     name.replace("-", "_"): {"file": str(secrets_directory / name)}
     for name in (
@@ -218,7 +212,9 @@ services = {
         "unless-stopped",
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
-        environment={"KC_HOSTNAME": keycloak_origin},
+        environment={"KC_HOSTNAME": keycloak_origin, "KC_HTTP_ACCESS_LOG_ENABLED": "false",
+                     **dict(line.split("=", 1) for line in (repository / "deploy/public-production/keycloak/abuse.env")
+                            .read_text(encoding="utf-8").splitlines() if line and not line.startswith("#"))},
         networks={"edge": None, "data": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
         volumes=[{
@@ -239,7 +235,7 @@ services = {
         networks={"telemetry": None}, read_only=True, cap_drop=["ALL"],
         command=["--storage.tsdb.retention.time=7d", "--storage.tsdb.retention.size=512MiB"]),
     "grafana": service("unless-stopped", ("grafana_admin_password", "grafana_database_password", "grafana_telegram_bot_token", "grafana_telegram_chat_id"),
-        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_UNIFIED_ALERTING_ENABLED": "true", "GF_SMTP_ENABLED": "false", "GF_LOG_LEVEL": "info", "GF_LOG_FILTERS": "ngalert.notifier.telegram:info", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
+        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_UNIFIED_ALERTING_ENABLED": "true", "GF_SMTP_ENABLED": "false", "GF_LOG_LEVEL": "info", "GF_LOG_FILTERS": "ngalert.notifier.telegram:info", "GRAFANA_TELEGRAM_ENABLED": telegram_enabled, "GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
         image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
         networks={"logs": None},
         ports=[{"host_ip": "127.0.0.1", "published": 3000, "target": 3000}]),
@@ -257,12 +253,15 @@ services = {
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
         {
             "APPLICATION_FLYWAY_ENABLED": "false",
+            "SPRING_PROFILES_ACTIVE": "oidc,structured",
+            "CATALOGUE_SYNC_SCHEDULING_ENABLED": "true",
+            "CATALOGUE_SYNC_NEAR_TERM_CRON": "-",
             "CATALOGUE_TRANSLATION_ENDPOINT": "http://catalogue-localizer:8092/translate",
             "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
             "APPLICATION_SESSION_COOKIE_SECURE": "true",
             "APPLICATION_PUBLIC_ORIGIN": application_public_origin,
             "APPLICATION_OIDC_REDIRECT_URI": f"{application_origin}/login/oauth2/code/keycloak",
-            "APPLICATION_HSTS_ENABLED": "true",
+            "PLATFORM_HTTPSECURITY_HSTS_ENABLED": "true",
             "SERVER_FORWARD_HEADERS_STRATEGY": "NATIVE",
             "OIDC_ISSUER_URI": issuer_uri,
             "OIDC_AUTHORIZATION_URI": f"{keycloak_origin}/realms/videogame-platform/protocol/openid-connect/auth",
@@ -279,7 +278,9 @@ services = {
             "tag": "application", "mode": "non-blocking", "max-buffer-size": "1m",
             "cache-disabled": "false", "cache-max-size": "10m", "cache-max-file": "3",
         }},
+        profiles=["application"],
         depends_on={"postgres": {}, "keycloak": {}},
+        networks={"edge": None, "data": None, "telemetry": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
         read_only=True,
         cap_drop=["ALL"],
@@ -302,6 +303,7 @@ services = {
             "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
             "APPLICATION_MIGRATION_DB_USERNAME": "videogame_app_migrator",
         },
+        profiles=["deployment"],
         image=image,
         networks={"data": None},
         read_only=True,
@@ -316,8 +318,11 @@ services = {
             "PRIVATE_DEV_APPLICATION_ORIGIN": application_origin,
             "PRIVATE_DEV_KEYCLOAK_ORIGIN": keycloak_origin,
         },
+        profiles=["deployment"],
         build={"context": str(repository / "deploy/private-dev/smoke")},
         shm_size=256 * 1024 * 1024,
+        network_mode="host",
+        extra_hosts=["application=192.0.2.1"],
         read_only=True,
         cap_drop=["ALL"],
     ),
@@ -341,8 +346,11 @@ PY
     printf '%s-id\n' "$service"
     exit 0
   fi
-  if [[ "$arguments" == *" config --hash catalogue-localizer "* ]]; then
-    printf 'catalogue-localizer %064d\n' 1
+  if [[ "$arguments" == *" build catalogue-localizer keycloak "* ]]; then
+    exit 0
+  fi
+  if [[ "$arguments" == *" up --detach --no-build --wait --wait-timeout 300 alloy catalogue-localizer grafana keycloak loki mailpit postgres prometheus telemetry "* ]]; then
+    [[ "${FAKE_DEPLOY_MODE:-success}" != reconciliation-failure ]] || exit 45
     exit 0
   fi
   if [[ "$arguments" == *" build --pull deployment-smoke "* ]]; then
@@ -370,6 +378,7 @@ PY
   fi
   if [[ "$arguments" == *" run --rm --no-deps deployment-smoke "* ]]; then
     [[ "${FAKE_DEPLOY_MODE:-success}" != smoke-failure ]] || exit 44
+    [[ "${SMOKE_APPLICATION_ADDRESS:-}" == 172.18.0.3 ]] || exit 45
     printf 'Private-dev deployment smoke passed.\n'
     exit 0
   fi
@@ -486,6 +495,17 @@ if ! grep -Fq 'Private-dev topology invariant failed: APPLICATION_PUBLIC_ORIGIN 
   exit 1
 fi
 
+# #550: private-dev never delivers alerts, even if its protected runtime env asks for it.
+if PATH="$fake_bin:$PATH" \
+    FAKE_GRAFANA_TELEGRAM_ENABLED=true \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+    FAKE_IMAGE="$image" \
+    "$runtime_validator" --env-file "$runtime_env" >/dev/null 2>&1; then
+  printf 'Private-dev runtime validation accepted Grafana alert delivery.\n' >&2
+  exit 1
+fi
+
 : >"$command_log"
 digest_evidence="$temporary_directory/digest-evidence"
 mkdir -p "$digest_evidence"
@@ -528,18 +548,18 @@ if grep -q '^pull ' "$command_log"; then
   exit 1
 fi
 
-for mode in localizer-missing localizer-stopped localizer-unhealthy localizer-no-healthcheck localizer-config-drift localizer-image-drift; do
+for mode in reconciliation-failure localizer-missing localizer-stopped localizer-unhealthy localizer-no-healthcheck; do
   : >"$command_log"
   localizer_evidence="$temporary_directory/$mode-evidence"
   if run_deployment "$mode" "$localizer_evidence" >"$temporary_directory/$mode.log" 2>&1; then
     printf 'Deployment accepted invalid acquisition runtime: %s\n' "$mode" >&2
     exit 1
   fi
-  assert_evidence "$localizer_evidence" failure target-and-runtime-preflight
+  assert_evidence "$localizer_evidence" failure runtime-reconciliation
   assert_lock_released
-  grep -qi 'catalogue-localizer' "$temporary_directory/$mode.log"
-  if grep -Eq 'buildx|^pull | build | run | up ' "$command_log"; then
-    printf 'Invalid localizer preflight performed deployment work: %s\n' "$mode" >&2
+  [[ "$mode" == reconciliation-failure ]] || grep -qi 'catalogue-localizer' "$temporary_directory/$mode.log"
+  if grep -Eq 'buildx|^pull | run |application$' "$command_log"; then
+    printf 'A failed runtime reconciliation continued to application deployment work: %s\n' "$mode" >&2
     exit 1
   fi
 done
@@ -583,6 +603,19 @@ assert_evidence "$smoke_evidence" failure deployment-smoke
 assert_lock_released
 
 : >"$command_log"
+address_evidence="$temporary_directory/smoke-address-evidence"
+if run_deployment smoke-address-missing "$address_evidence" >/dev/null 2>&1; then
+  printf 'A candidate without an edge address was reported as success.\n' >&2
+  exit 1
+fi
+assert_evidence "$address_evidence" failure deployment-smoke
+assert_lock_released
+if grep -q 'run --rm --no-deps deployment-smoke' "$command_log"; then
+  printf 'Smoke ran without the candidate edge address.\n' >&2
+  exit 1
+fi
+
+: >"$command_log"
 success_evidence="$temporary_directory/success-evidence"
 run_deployment success "$success_evidence" >/dev/null
 assert_evidence "$success_evidence" success complete
@@ -620,20 +653,23 @@ import sys
 
 commands = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
 positions = {
-    "localizer": next(i for i, value in enumerate(commands) if "config --hash catalogue-localizer" in value),
+    "reconcile": next(i for i, value in enumerate(commands) if "up --detach --no-build" in value),
     "verify": next(i for i, value in enumerate(commands) if "buildx imagetools inspect" in value),
     "migration": next(i for i, value in enumerate(commands) if "run --rm --no-deps migration" in value),
     "activation": next(i for i, value in enumerate(commands) if "wait-timeout 180 application" in value),
     "smoke": next(i for i, value in enumerate(commands) if "run --rm --no-deps deployment-smoke" in value),
 }
-assert positions["localizer"] < positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
-# The only long-lived service touched is application. All dependency inspections
-# above are read-only; no helper/runtime pull, build, start or recreation is allowed.
+assert positions["reconcile"] < positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
+# Persistent services are reconciled once from the installed revision; Compose leaves
+# unchanged ones running. Only the application is force-recreated.
 mutations = [value for value in commands if value.startswith("compose ") and
              any(operation in value for operation in (" up ", " build ", " run "))]
-assert len(mutations) == 4, mutations
-assert all(value.endswith(("deployment-smoke", "migration", "application")) for value in mutations), mutations
-assert all(" --no-deps " in value for value in mutations if " up " in value or " run " in value), mutations
+assert len(mutations) == 6, mutations
+reconcile = [value for value in mutations if " --no-build " in value]
+assert len(reconcile) == 1 and " --force-recreate " not in reconcile[0], reconcile
+assert not reconcile[0].endswith(("application", "migration", "deployment-smoke")), reconcile
+assert [value for value in mutations if " --force-recreate " in value][0].endswith(" application"), mutations
+assert all(" --no-deps " in value for value in mutations if (" up " in value or " run " in value) and value not in reconcile), mutations
 assert [value for value in commands if value.startswith("pull ")] == ["pull " + sys.argv[2]]
 PY
 
@@ -673,25 +709,5 @@ FAKE_TELEMETRY_STATE="$temporary_directory/telemetry-state" \
   printf 'Host telemetry smoke invoked Node.js.\n' >&2
   exit 1
 }
-
-# A host-loss restore waiting for its deletion-ledger replay blocks every deployment before
-# any container work, and the block lifts with the marker.
-: >"$command_log"
-blocked_evidence="$temporary_directory/blocked-evidence"
-mkdir -p "$blocked_evidence"
-printf 'backup=synthetic\n' >"$blocked_evidence/DELETION-REPLAY-PENDING"
-if blocked_output="$(run_deployment success "$blocked_evidence" 2>&1)"; then
-  printf 'A deployment proceeded while a deletion-ledger replay was pending.\n' >&2
-  exit 1
-fi
-grep -Fq 'waiting for its deletion-ledger replay' <<<"$blocked_output" || {
-  printf 'The pending-replay refusal did not explain itself:\n%s\n' "$blocked_output" >&2
-  exit 1
-}
-[[ ! -s "$command_log" ]] || {
-  printf 'A blocked deployment still ran Docker commands:\n%s\n' "$(cat "$command_log")" >&2
-  exit 1
-}
-assert_lock_released
 
 printf 'Private-dev deployment orchestration validation passed.\n'

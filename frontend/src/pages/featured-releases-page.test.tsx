@@ -754,8 +754,8 @@ describe("featured releases page", () => {
     stubFeatured(featuredWeek({ selection: { status: "popularity_unavailable" }, items: [] }));
     renderApp("/lanzamientos/destacados");
 
-    expect(await screen.findByText("De momento, Gameómetro no tiene Hype para lanzamientos de esta semana")).toBeVisible();
-    expect(screen.getByText("Sin datos de Hype")).toBeVisible();
+    expect(await screen.findByText("De momento, Gameómetro no tiene datos de interés para lanzamientos de esta semana")).toBeVisible();
+    expect(screen.getByText("Sin datos de interés")).toBeVisible();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
@@ -795,9 +795,9 @@ describe("featured releases page", () => {
       "Aún no hay Destacados de octubre de 2026",
     );
     // The missing signal is named as Hype, never with a value and never as a quality judgement.
-    expect(screen.getByText("Sin datos de Hype")).toBeVisible();
+    expect(screen.getByText("Sin datos de interés")).toBeVisible();
     expect(
-      screen.getByText("De momento, Gameómetro no tiene Hype para lanzamientos de este mes"),
+      screen.getByText("De momento, Gameómetro no tiene datos de interés para lanzamientos de este mes"),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Explorar lanzamientos" })).toHaveAttribute(
       "href",

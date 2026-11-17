@@ -29,7 +29,7 @@ describe("game page return context", () => {
     const context = readReturnContext(gameLinkState(at(path)));
 
     expect(context?.label).toBe(label);
-    // A former landing link with a featured period opens Destacados on it; the home has no state.
+    // A former landing link with a featured period opens Destacados on it.
     expect(context?.path).toBe(path.replace(/^\/(?=\?)/, "/lanzamientos/destacados"));
     expect(context?.state).toEqual({ restoreEntry: "entry-1" });
   });
@@ -43,9 +43,18 @@ describe("game page return context", () => {
     });
   });
 
-  it("returns to the home itself, which keeps no state of its own", () => {
+  it("drops unrelated query parameters when returning to the home", () => {
     expect(readReturnContext(gameLinkState(at("/?utm=x")))).toEqual({
       origin: "home", path: "/", label: "Volver al inicio", state: { restoreEntry: "entry-1" },
+    });
+  });
+
+  it("restores a home selection without carrying unrelated query parameters", () => {
+    const selection = "/?inicio=2026-W44&fecha=2026-10-29&plataforma=playstation-5";
+    expect(readReturnContext(gameLinkState(at(selection + "&utm=x")))).toMatchObject({
+      origin: "home",
+      path: selection,
+      label: "Volver al inicio",
     });
   });
 

@@ -176,3 +176,50 @@ test("an operator abandons a stalled run by keyboard after a confirmation that r
   expect(commands).toEqual([{ path: "/api/v1/admin/catalogue/synchronization-runs/run-now/abandon", csrf: "browser-csrf" }]);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
+
+test("translation administration reflows and confirms commands by keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await install(page);
+  const posts: { csrf: string | undefined; body: unknown }[] = [];
+  const startedAt = "2026-11-11T07:00:00Z";
+  let execution: { state: string; executionId?: string } = { state: "not_started" };
+  await page.route("**/api/v1/admin/catalogue/translations/coverage", (route) => route.fulfill({
+    json: {
+      observedAt: startedAt,
+      rows: [
+        { kind: "summary", status: "current", origin: "machine", lastValidRetained: false, items: 2000 },
+        { kind: "summary", status: "missing", lastValidRetained: false, items: 155000 },
+        { kind: "genre", status: "current", origin: "curated", lastValidRetained: false, items: 24 },
+        { kind: "game_mode", status: "retryable", lastValidRetained: true, items: 1 },
+      ],
+    },
+  }));
+  await page.route("**/api/v1/admin/catalogue/translations/execution", (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      posts.push({ csrf: request.headers()["x-csrf-token"], body: request.postDataJSON() });
+      execution = { state: "running", executionId: "bd28692f-d2ae-4a18-9f54-c0001fa158f0" };
+      return route.fulfill({ status: 202, json: execution });
+    }
+    return route.fulfill({ json: execution });
+  });
+  await page.goto("/administracion/catalogo?tab=traducciones");
+  await expect(page.getByRole("heading", { name: "Cobertura de traducción" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Modos de juego" })).toContainText("Traducción anterior conservada");
+  const start = page.getByRole("button", { name: "Ejecutar traducciones pendientes" });
+  await start.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Cancelar" })).toBeFocused();
+  expect(posts).toHaveLength(0);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+
+  await page.keyboard.press("Escape");
+  await expect(start).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Confirmar" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("En curso", { exact: true })).toBeVisible();
+  expect(posts).toEqual([{ csrf: "browser-csrf", body: { action: "start" } }]);
+});

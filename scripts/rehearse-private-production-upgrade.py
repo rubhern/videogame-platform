@@ -97,10 +97,12 @@ def synthetic_secrets(directory):
     for name in ('postgres-admin-password', 'application-db-password', 'application-migration-db-password',
                  'keycloak-db-password', 'keycloak-admin-password', 'keycloak-bff-client-secret',
                  'keycloak-smtp-username', 'keycloak-smtp-password', 'igdb-client-id', 'igdb-client-secret',
+                 'feedback-smtp-username', 'feedback-smtp-password',
                  'grafana-admin-password', 'grafana-database-password', 'grafana-telegram-bot-token',
                  'grafana-telegram-chat-id'):
         path = directory / name
-        path.write_text('' if name.startswith(('igdb-', 'grafana-telegram-')) else secrets.token_hex(24))
+        # Recurring acquisition is on from #484, so provider credentials are required; internal networks keep them unused.
+        path.write_text('' if name.startswith('grafana-telegram-') else secrets.token_hex(24))
         path.chmod(0o640)
 
 

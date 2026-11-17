@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Exact-main admission and restricted private-production deployment actor (#467)."""
+"""Exact-main admission and restricted private-production deployment actor (#467).
+
+ADR-0043: the pair the recovery runner restores is captured online, so the product serves while
+it is published and restored. A compatible application-only release then hands over without a
+fence; any other release takes its final fenced pair only after that restore succeeded.
+"""
 import argparse
 import fcntl
 import json
@@ -11,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 
 import private_dev_promotion as trust
 import public_production_integration as integration
@@ -23,13 +29,34 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = Path('/etc/gameometro/production/deploy.json')
 WORKFLOW = '.github/workflows/deploy-production.yml'
 BACKUP_UNITS = Path('/etc/systemd/system')
+CLEANUP_UNIT = 'gameometro-unverified-cleanup.service'
+CLEANUP_CONFIG = Path('/etc/gameometro/production/unverified-cleanup.json')
+# #543: the self-service deletion runner, likewise held to its one reviewed command line.
+DELETION_UNIT = 'gameometro-account-deletion.service'
+DELETION_CONFIG = Path('/etc/gameometro/production/account-deletion.json')
+# #550: the host telemetry sampler, held to its one reviewed command line once the owner installs it.
+TELEMETRY_UNIT = 'gameometro-telemetry.service'
+TELEMETRY_EVIDENCE = Path('/etc/gameometro/production/observability')
+TELEMETRY_ARGUMENTS = ('--output /var/lib/gameometro/production/metrics/host.prom'
+                       f' --offhost-evidence {TELEMETRY_EVIDENCE}/offhost.json --backup-receipt {TELEMETRY_EVIDENCE}/backup.json'
+                       f' --capacity-evidence {TELEMETRY_EVIDENCE}/capacity.json --cleanup-receipt {TELEMETRY_EVIDENCE}/unverified-cleanup.json')
 OPERATIONS = Path('/srv/gameometro/operations')
 EXPORT = ('deploy/', 'docker/', 'scripts/', 'tools/', 'backend/src/main/resources/db/migration/')
 require = trust.require
 PREFLIGHT_CHECKS = ('access', 'recovery-ready', 'installed-runtime', 'backup-cycle', 'backup-lock',
                     'backup-runtime', 'host-s3-admission', 'backup-services', 'upgrade-plan',
                     'plan-prerequisites', 'recovery-capacity')
-FAILURE_CATEGORIES = ('missing-file', 'permission-denied', 'timeout', 'interrupted', 'check-refused', 'unexpected')
+CAPTURE_CHECKS = ('capture-lease', 'capture-preflight', 'capture-pair', 'capture-lease-release', 'capture-verify',
+                  'final-capture-lease', 'final-capture-preflight', 'final-capture-pair', 'final-capture-verify')
+ACTIVATIONS = ('fenced', 'handover')
+CAPTURE_REFUSALS = {
+    'Another recovery/backup actor is active.': 'recovery-lock-busy',
+    'Another runtime actor holds the recovery lease, or the engine lease is unavailable.': 'runtime-lease-unavailable',
+    'A synchronization is running; the capture is deferred.': 'active-synchronization',
+    'The capture exceeded its fence budget.': 'capture-budget-exceeded',
+}
+FAILURE_CATEGORIES = ('missing-file', 'permission-denied', 'timeout', 'interrupted', 'check-refused', 'unexpected',
+                      *CAPTURE_REFUSALS.values())
 
 
 def failure_category(error):
@@ -64,25 +91,43 @@ def environment(api, name='production'):
             'production must permit only the main branch.')
 
 
-def dispatch(api, revision, run_id, attempt):
+def dispatch(api, revision, run_id, attempt, *, allow_waiting=False):
     trust.validate_source_run(revision, run_id, attempt)
     require(str(attempt) == '1', 'Do not rerun a deployment; inspect and dispatch a fresh attempt.')
     value = api.request(f'/actions/runs/{run_id}')
+    states = ('in_progress', 'waiting') if allow_waiting else ('in_progress',)
     require(value.get('head_sha') == revision and value.get('head_branch') == 'main'
             and value.get('path') == WORKFLOW and value.get('event') == 'workflow_dispatch'
             and value.get('head_repository', {}).get('full_name') == trust.REPOSITORY
             and value.get('actor', {}).get('login') == 'rubhern'
             and value.get('triggering_actor', {}).get('login') == 'rubhern'
-            and value.get('status') == 'in_progress' and value.get('run_attempt') == 1,
+            and value.get('status') in states and value.get('run_attempt') == 1,
             'Only the active owner dispatch of the exact main revision is authorized.')
     return value
 
 
+def owner_approved(reviews, name):
+    return any(r.get('state') == 'approved' and r.get('user', {}).get('login') == 'rubhern'
+               and any(e.get('name') == name for e in r.get('environments', [])) for r in reviews)
+
+
 def approved(api, run_id, name='production'):
-    reviews = api.request(f'/actions/runs/{run_id}/approvals')
-    require(any(r.get('state') == 'approved' and r.get('user', {}).get('login') == 'rubhern'
-                and any(e.get('name') == name for e in r.get('environments', [])) for r in reviews),
+    require(owner_approved(api.request(f'/actions/runs/{run_id}/approvals'), name),
             'This run has no production approval by the owner.')
+
+
+def wait_for_approvals(api, revision, run_id, attempt, *, clock=time.monotonic, sleep=time.sleep):
+    """Allow GitHub to release the two protected jobs in either order."""
+    deadline = clock() + 600
+    while True:
+        run = dispatch(api, revision, run_id, attempt, allow_waiting=True)
+        if run['status'] == 'in_progress':
+            reviews = api.request(f'/actions/runs/{run_id}/approvals')
+            if all(owner_approved(reviews, name) for name in ('production', 'production-recovery')):
+                return
+        remaining = deadline - clock()
+        require(remaining > 0, 'Both owner approvals are required within ten minutes.')
+        sleep(min(5, remaining))
 
 
 def admission(api, revision, run_id, attempt, host=False):
@@ -199,16 +244,32 @@ def load_cycle(path):
 
 
 def backup_units(config_path, target_source, apply=False):
-    """Retarget only the two existing backup service ExecStarts; never touch timers."""
+    """Retarget only the existing backup, cleanup and telemetry service ExecStarts; never touch timers.
+
+    The cleanup (#539), deletion (#543) and telemetry (#550) services are optional until the owner
+    installs them;
+    once present each is held to its reviewed pattern, so a release never leaves it running a
+    superseded bundle.
+    """
     units = []
-    for name, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+    tool = lambda name: 'deploy/public-production/bin/' + name
+    services = [('gameometro-backup.service', tool('backup-cycle'), 'run --config ' + str(config_path)),
+                ('gameometro-backup-reconcile.service', tool('backup-cycle'), 'reconcile --config ' + str(config_path))]
+    if (BACKUP_UNITS / CLEANUP_UNIT).exists():
+        services.append((CLEANUP_UNIT, tool('unverified-cleanup'), 'run --config ' + str(CLEANUP_CONFIG)))
+    if (BACKUP_UNITS / DELETION_UNIT).exists():
+        services.append((DELETION_UNIT, tool('account-deletion'), 'run --config ' + str(DELETION_CONFIG)))
+    if (BACKUP_UNITS / TELEMETRY_UNIT).exists():
+        services.append((TELEMETRY_UNIT, 'deploy/public-production/observability/sample-host.py', TELEMETRY_ARGUMENTS))
+    for name, script, arguments in services:
         path = BACKUP_UNITS / name
         install.secure(path, mode=0o644)
         fragment = invoke(['/usr/bin/systemctl', 'show', name, '--property=FragmentPath', '--value']).decode().strip()
         drops = invoke(['/usr/bin/systemctl', 'show', name, '--property=DropInPaths', '--value']).strip()
         require(fragment == str(path), 'Backup service has an unexpected source.')
         override = path.parent / (name + '.d') / 'keyring.conf'
-        require(drops.decode().split() in ([], [str(override)]), 'Backup service has an unreviewed override.')
+        accepted = ([], [str(override)]) if script.endswith('/backup-cycle') else ([],)
+        require(drops.decode().split() in accepted, 'Backup service has an unreviewed override.')
         if drops:
             install.secure(override, mode=0o644)
             require(override.stat().st_size <= 4096, 'Oversized backup override.')
@@ -219,18 +280,23 @@ def backup_units(config_path, target_source, apply=False):
         text = path.read_text()
         lines = re.findall(r'^ExecStart=(.+)$', text, re.M)
         require(len(lines) == 1, 'Unexpected backup service command inventory.')
-        allowed = (r'/usr/bin/python3 (?:/srv/gameometro/installations/[0-9a-f]{12}-private/candidate|/opt/gameometro/runtime)'
-                   + r'/deploy/public-production/bin/backup-cycle ' + command + r' --config ' + re.escape(str(config_path)))
+        allowed = (r'/usr/bin/python3 (?:/srv/gameometro/installations/[0-9a-f]{12}-private/candidate|/opt/gameometro/runtime)/'
+                   + re.escape(script + ' ' + arguments))
         require(re.fullmatch(allowed, lines[0]), 'Installed backup service command differs from the reviewed pattern.')
-        replacement = '/usr/bin/python3 ' + str(target_source / 'deploy/public-production/bin/backup-cycle') + ' ' + command + ' --config ' + str(config_path)
+        replacement = '/usr/bin/python3 ' + str(target_source / script) + ' ' + arguments
         units.append((path, text, text.replace('ExecStart=' + lines[0], 'ExecStart=' + replacement)))
     if apply:
-        # Validate BOTH units before changing either. A partial update is recoverable and never thaws.
+        # Validate every unit before changing any. A partial update is recoverable and never thaws.
         for path, before, after in units:
             require(path.read_text() == before, 'Backup service drifted before reconciliation.')
             if before != after:
                 admin.write_unit(path, after)
         invoke(['/usr/bin/systemctl', 'daemon-reload'])
+        # Timers start the others afresh; the long-running deletion runner must restart onto the new
+        # release. Without waiting: it first finishes its current erasure, and it is restarted only if
+        # it already runs.
+        if any(path.name == DELETION_UNIT and before != after for path, before, after in units):
+            invoke(['/usr/bin/systemctl', 'try-restart', '--no-block', DELETION_UNIT])
     return units
 
 
@@ -242,13 +308,13 @@ class Rollout:
         self.record = {'revision': revision, 'runId': run_id, 'attempt': attempt, 'outcome': 'failure', 'phase': 'preflight'}
 
     def save(self, phase):
-        if phase not in ('preflight', 'planned'):
+        if phase not in ('preflight', 'planned', 'capturing', 'final-capturing'):
             self.record.pop('check', None)
         self.record['phase'] = phase
         upgrade.control.durable(self.directory / 'deployment.json', self.record)
 
     def check(self, name):
-        require(name in PREFLIGHT_CHECKS, 'Unknown preflight check.')
+        require(name in (*PREFLIGHT_CHECKS, *CAPTURE_CHECKS), 'Unknown deployment check.')
         self.record['check'] = name
         self.save(self.record['phase'])
 
@@ -288,6 +354,7 @@ class Rollout:
                     and plan['prerequisites']['keycloakAdministratorAuthenticates'] is True,
                     'A private, idle, authenticated runtime is required.')
             self.record.update(planSha256=plan['planSha256'], version=plan['target']['version'],
+                               activation=plan.get('activation', 'fenced'),
                                images=plan['target']['images'], adapterFingerprint=fingerprint,
                                migrations=plan['flyway'], sourceRunId=str(plan['target']['sourceRunId']),
                                sourceRunAttempt=str(plan['target']['sourceRunAttempt']), securityRunId=str(plan['target']['securityRunId']))
@@ -320,13 +387,29 @@ class Rollout:
                     and fresh['prerequisites']['keycloakAdministratorAuthenticates'] is True,
                     'The runtime or plan changed before capture.')
             require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before capture.')
+            # Online unless the clone does not fit; then the old fenced pair, whose fence stays closed
+            # through the restore, and the fenced activation (a handover needs the open runtime).
+            online = cycle.capture_mode(runtime) == 'online'
+            self.record['restoredCapture'] = 'online' if online else 'fenced'
+            if not online:
+                self.record['activation'] = 'fenced'
             self.save('capturing')
             pair = self.directory / 'pair'
-            with runtime.lock():
-                cycle.preflight(runtime)
-                with cycle.budget():
-                    runtime.backup(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
-            self.record['backupId'] = cycle.core.verify(pair)['backupId']
+            try:
+                self.check('capture-lease')
+                with runtime.lock():
+                    self.check('capture-preflight')
+                    cycle.preflight(runtime)
+                    self.check('capture-pair')
+                    with cycle.budget():
+                        capture = runtime.snapshot if online else runtime.backup
+                        capture(pair, Path(cycle.config['keyring']), cycle.config['recipient'])
+                    self.check('capture-lease-release')
+                self.check('capture-verify')
+                self.record['backupId'] = cycle.core.verify(pair)['backupId']
+            except cycle.core.Refused as error:
+                self.record['category'] = CAPTURE_REFUSALS.get(str(error), 'check-refused')
+                raise
             self.save('publishing')
             offhost = cycle.invoke('publish', cycle.config['uploaderConfig'], '--backup', pair,
                                    '--observer-receipt', admission_receipt)
@@ -343,6 +426,34 @@ class Rollout:
             self.record['nonce'] = proof['nonce']
             self.save('awaiting-restore')
             return request
+
+    def final_capture(self, cycle):
+        """The fenced pre-upgrade pair, only now: the writers stay closed from here to the reopening."""
+        runtime = cycle.runtime_factory()
+        final = self.directory / 'final-pair'
+        self.save('final-capturing')
+        try:
+            self.check('final-capture-lease')
+            with runtime.lock():
+                self.check('final-capture-preflight')
+                cycle.preflight(runtime)
+                self.check('final-capture-pair')
+                with cycle.budget():
+                    runtime.backup(final, Path(cycle.config['keyring']), cycle.config['recipient'])
+            self.check('final-capture-verify')
+            self.record['finalBackupId'] = cycle.core.verify(final)['backupId']
+        except cycle.core.Refused as error:
+            self.record['category'] = CAPTURE_REFUSALS.get(str(error), 'check-refused')
+            raise
+        self.save('final-publishing')
+        offhost = cycle.invoke('publish', cycle.config['uploaderConfig'], '--backup', final,
+                               '--observer-receipt', cycle.admission())
+        publication = json.loads(Path(offhost).read_text())
+        require(publication.get('outcome') == 'success' and publication.get('kind') == 's3-publish'
+                and publication.get('backupId') == self.record['finalBackupId'], 'S3 publication did not prove the final pair.')
+        path = self.directory / 'final-publish.json'
+        upgrade.control.durable(path, publication)
+        return final, path
 
     def finish(self):
         install.secure(self.directory / 'deployment.json', mode=0o600)
@@ -366,10 +477,26 @@ class Rollout:
             upgrade.control.durable(restore_path, restored)
             pair, offhost = self.directory / 'pair', self.directory / 'publish.json'
             require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before apply.')
-            self.save('applying')
-            actor.apply(stored['planSha256'], backup=pair, offhost=offhost, restore=restore_path, reference=self.reference)
+            activation = stored.get('activation', 'fenced')
+            require(activation in ACTIVATIONS, 'Unknown activation.')
+            if activation == 'handover':
+                self.save('applying')
+                actor.handover(stored['planSha256'], reference=self.reference)
+            elif stored.get('restoredCapture', 'fenced') == 'fenced':
+                # The restored pair is itself the fenced pre-upgrade point.
+                self.save('applying')
+                actor.apply(stored['planSha256'], backup=pair, offhost=offhost, restore=restore_path, reference=self.reference)
+            else:
+                final, final_offhost = self.final_capture(cycle)
+                require(not upgrade.control.CANCEL.is_set(), 'Deployment interrupted before apply.')
+                self.save('applying')
+                actor.apply(stored['planSha256'], backup=final, offhost=final_offhost, restore=restore_path,
+                            reference=self.reference, proof=pair)
             self.save('verifying')
-            verification = actor.verify()
+            # The apply actor loaded the pre-upgrade ACTIVE state; verify exactly as `--verify` does, from a
+            # fresh load of the activation the apply just recorded, or it compares live state with the old images.
+            verifier = upgrade.Upgrade(self.revision, operational=self.revision, adapter=stored['adapterFingerprint']).load()
+            verification = verifier.verify()
             require(verification.get('mode') == 'verified' and verification.get('targetRevision') == self.revision,
                     'The upgrade is not verified at the selected revision.')
             self.record['services'] = verification['services']
@@ -397,7 +524,8 @@ class Rollout:
             return self.record
 
 
-PHASES = ('preflight', 'planned', 'capturing', 'publishing', 'awaiting-restore', 'applying', 'verifying', 'backup-services', 'admin', 'complete')
+PHASES = ('preflight', 'planned', 'capturing', 'publishing', 'awaiting-restore', 'final-capturing', 'final-publishing',
+          'applying', 'verifying', 'backup-services', 'admin', 'complete')
 
 
 def summarize(path, revision, run_id, attempt, plan_only):
@@ -414,7 +542,7 @@ def summarize(path, revision, run_id, attempt, plan_only):
         require(value.get('phase') in PHASES, 'Unknown deployment phase.')
         result['phase'] = value['phase']
         if value.get('outcome') in ('failure', 'refused-or-failed'):
-            for key, vocabulary in (('check', PREFLIGHT_CHECKS), ('category', FAILURE_CATEGORIES)):
+            for key, vocabulary in (('check', (*PREFLIGHT_CHECKS, *CAPTURE_CHECKS)), ('category', FAILURE_CATEGORIES)):
                 if value.get(key) in vocabulary:
                     result[key] = value[key]
         for key in ('planSha256', 'adapterFingerprint'):
@@ -448,8 +576,10 @@ def summarize(path, revision, run_id, attempt, plan_only):
                     and re.fullmatch('[0-9a-f]{32}', value.get('backupId', '')), 'Deployment not fully verified.')
             require(isinstance(value.get('services'), list) and set(value['services']) <= set(upgrade.PERSISTENT)
                     and {'application', 'keycloak', 'caddy', 'grafana'} <= set(value['services']), 'Required services not verified.')
+            require(value.get('activation', 'fenced') in ACTIVATIONS, 'Unknown activation.')
             result.update(outcome='verified', mode='verified', backupId=value['backupId'], admin='verified',
-                          backup='published-and-restored', backupServices='reconciled', services=value['services'])
+                          backup='published-and-restored', backupServices='reconciled', services=value['services'],
+                          activation=value.get('activation', 'fenced'))
         # Compare the host's identities with independently admitted runner evidence.
         expected = json.loads(Path('release.json').read_text())
         require(expected['source_revision'] == revision and expected['images'] == images
@@ -464,7 +594,7 @@ def summarize(path, revision, run_id, attempt, plan_only):
                + 'Revision: `' + revision + '`; phase: `' + result['phase'] + '`.\n\n'
                + 'See the sanitized receipt for immutable identities. On failure inspect the protected deployment/upgrade journals; do not rerun, thaw or roll back migrations.\n')
     if 'check' in result:
-        summary += 'Preflight check: `' + result['check'] + '`; category: `' + result.get('category', 'unexpected') + '`.\n'
+        summary += 'Deployment check: `' + result['check'] + '`; category: `' + result.get('category', 'unexpected') + '`.\n'
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
             stream.write(summary)
@@ -523,6 +653,7 @@ def runner(mode, revision, run_id, attempt):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--discover', action='store_true')
+    parser.add_argument('--await-approvals', action='store_true')
     parser.add_argument('--receipt', type=Path)
     parser.add_argument('--connect', action='store_true')
     parser.add_argument('--runner', choices=('plan', 'prepare', 'apply'))
@@ -539,6 +670,10 @@ def main():
             return connect(*args.arguments)
         if args.receipt:
             return summarize(args.receipt, *args.arguments)
+        if args.await_approvals:
+            print('Waiting up to ten minutes for both production approvals.', flush=True)
+            wait_for_approvals(trust.GitHub(os.environ['GH_TOKEN']), *args.arguments)
+            return 0
         if args.discover:
             revision, run_id, attempt = args.arguments
             result = admission(trust.GitHub(os.environ.get('GH_TOKEN')), revision, run_id, attempt)
@@ -572,7 +707,7 @@ def main():
         if rollout:
             failure.update(rollout.record)
             failure['outcome'] = 'failure'
-            failure['category'] = failure_category(error)
+            failure.setdefault('category', failure_category(error))
         print(json.dumps(failure))
         return 1
 

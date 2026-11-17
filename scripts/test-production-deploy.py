@@ -62,6 +62,37 @@ class AdmissionTests(unittest.TestCase):
                 deploy.admission(api, SHA, '123', '1', host=True)
             self.assertEqual(resolve.call_count, 1)
 
+    def test_runner_waits_for_both_approvals_in_either_order(self):
+        for first in ('production', 'production-recovery'):
+            with self.subTest(first=first):
+                api = Api()
+                api.run['status'] = 'waiting'
+                both = api.reviews
+                api.reviews = [{**both[0], 'environments': [{'name': first}]}]
+                with self.assertRaises(deploy.trust.Refused):
+                    deploy.dispatch(api, SHA, '123', '1')
+                delays = []
+
+                def advance(seconds):
+                    delays.append(seconds)
+                    api.run['status'] = 'in_progress'
+                    if len(delays) == 2:
+                        api.reviews = both
+
+                deploy.wait_for_approvals(api, SHA, '123', '1', clock=lambda: sum(delays), sleep=advance)
+                self.assertEqual(delays, [5, 5])
+
+    def test_approval_wait_is_bounded_and_rejects_completed_runs(self):
+        api = Api()
+        api.run['status'] = 'waiting'
+        delays = []
+        with self.assertRaisesRegex(deploy.trust.Refused, 'within ten minutes'):
+            deploy.wait_for_approvals(api, SHA, '123', '1', clock=lambda: sum(delays), sleep=delays.append)
+        self.assertEqual(sum(delays), 600)
+        api.run['status'] = 'completed'
+        with self.assertRaises(deploy.trust.Refused):
+            deploy.wait_for_approvals(api, SHA, '123', '1', sleep=self.fail)
+
     def test_untrusted_dispatches_refuse(self):
         for key, value in {'head_sha': 'b'*40, 'head_branch': 'dev', 'path': 'other.yml', 'event': 'push',
                            'actor': {'login': 'other'}, 'triggering_actor': {'login': 'other'},
@@ -203,6 +234,9 @@ class GpgTests(unittest.TestCase):
 
 
 class RolloutTests(unittest.TestCase):
+    class BackupRefused(Exception):
+        pass
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -210,7 +244,7 @@ class RolloutTests(unittest.TestCase):
         self.events = []
         self.failure = None
         self.actor = MagicMock()
-        self.actor.load.return_value = self.actor
+        self.actor.load.side_effect = lambda: self.event('load') or self.actor
         self.actor.bundle = self.root/'target-bundle'
         self.actor.plan.return_value = {'publishedPorts': [], 'prerequisites': {'noActiveWork': True, 'keycloakAdministratorAuthenticates': True},
                                        'planSha256': 'd'*64, 'target': {'version': '0.60.0', 'images': IMAGES, 'sourceRunId': '10', 'sourceRunAttempt': '1', 'securityRunId': '20'},
@@ -218,6 +252,7 @@ class RolloutTests(unittest.TestCase):
         self.actor.verify.return_value = {'mode': 'verified', 'targetRevision': SHA,
                                           'services': list(deploy.upgrade.PERSISTENT), 'optionalDegraded': []}
         self.cycle = MagicMock()
+        self.cycle.core.Refused = self.BackupRefused
         self.cycle.config = {'admin': str(self.root), 'project': 'gameometro-production', 'state': str(self.root/'first-install/recovery'),
                              'keyring': '/public/keyring', 'recipient': 'A'*40, 'uploaderConfig': '/uploader'}
         self.cycle.journal = {'status': 'idle'}
@@ -284,9 +319,29 @@ class RolloutTests(unittest.TestCase):
         self.assertLess(self.events.index('apply'), self.events.index('verify'))
         self.assertLess(self.events.index('cycle-lock'), self.events.index('backup'))
         self.assertGreater(len(self.events) - 1, self.events.index('verify'))
+        loads = [i for i, e in enumerate(self.events) if e == 'load']
+        self.assertTrue(self.events.index('apply') < loads[-1] < self.events.index('verify'))
         self.runtime.thaw.assert_not_called()
         self.cycle.capture.assert_not_called()
         self.actor.apply.assert_called_once()
+
+    def test_verification_uses_a_fresh_load_of_the_recorded_activation(self):
+        # The apply actor holds the pre-upgrade ACTIVE state; verifying with it compared live
+        # containers with the previous images (Deploy Production run 42595629782).
+        applied, verifier = MagicMock(), MagicMock()
+        applied.load.return_value, applied.bundle = applied, self.root/'target-bundle'
+        applied.verify.side_effect = AssertionError('verified with the stale apply actor')
+        verifier.load.side_effect = lambda: self.event('load') or verifier
+        verifier.verify.return_value = {'mode': 'verified', 'targetRevision': SHA,
+                                        'services': list(deploy.upgrade.PERSISTENT), 'optionalDegraded': []}
+        self.rollout().run('prepare')
+        actors = iter([applied, verifier])
+        with patch.object(deploy.upgrade, 'Upgrade', side_effect=lambda *a, **k: next(actors)):
+            self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        applied.apply.assert_called_once()
+        applied.verify.assert_not_called()
+        verifier.verify.assert_called_once()
+        verifier.apply.assert_not_called()
 
     def test_read_only_plan_never_stages_or_fences(self):
         self.assertEqual(self.rollout().run('plan')['outcome'], 'planned')
@@ -350,6 +405,28 @@ class RolloutTests(unittest.TestCase):
         self.runtime.backup.assert_not_called()
         self.actor.apply.assert_not_called()
 
+    def test_capture_refusals_distinguish_lease_and_recheck_without_fencing(self):
+        import shutil
+        cases = [
+            (self.runtime, 'lock', 'Another recovery/backup actor is active.', 'capture-lease', 'recovery-lock-busy'),
+            (self.cycle, 'preflight', 'A synchronization is running; the capture is deferred.',
+             'capture-preflight', 'active-synchronization'),
+            (self.cycle, 'preflight', 'SECRET raw child failure', 'capture-preflight', 'check-refused'),
+        ]
+        for owner, operation, message, stage, category in cases:
+            with self.subTest(stage=stage, category=category):
+                shutil.rmtree(self.root/'deployments', ignore_errors=True)
+                rollout = self.rollout()
+                failure = self.BackupRefused(message)
+                effect = [None, failure] if operation == 'preflight' else failure
+                with patch.object(owner, operation, side_effect=effect), self.assertRaises(self.BackupRefused):
+                    rollout.run('prepare')
+                self.assertEqual(rollout.record['check'], stage)
+                self.assertEqual(rollout.record['category'], category)
+                self.assertNotIn('SECRET', json.dumps(rollout.record))
+                self.runtime.backup.assert_not_called()
+                self.runtime.thaw.assert_not_called()
+
     def test_same_dispatch_cannot_be_replayed(self):
         self.rollout().run('plan')
         with self.assertRaises(deploy.trust.Refused): self.rollout().run('prepare')
@@ -385,6 +462,56 @@ class RolloutTests(unittest.TestCase):
             self.runtime.backup.assert_not_called()
         finally:
             deploy.upgrade.control.CANCEL.clear()
+
+    # --- ADR-0043: the restored pair is online; the fence is the final pair's alone, or none ---
+    def online(self, activation='fenced', mode='online'):
+        self.cycle.capture_mode.return_value = mode
+        self.runtime.snapshot.side_effect = lambda *_: self.event('snapshot')
+        self.actor.plan.return_value = {**self.actor.plan.return_value, 'activation': activation}
+        self.actor.handover.side_effect = lambda *_, **__: self.event('handover')
+
+    def test_restore_runs_on_an_online_pair_and_only_the_final_pair_is_fenced(self):
+        self.online()
+        self.rollout().run('prepare')
+        self.assertIn('snapshot', self.events)
+        self.runtime.backup.assert_not_called()
+        self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        order = [e for e in self.events if e in ('snapshot', 'publish', 'result', 'backup', 'apply', 'verify')]
+        self.assertEqual(order, ['snapshot', 'publish', 'result', 'backup', 'publish', 'apply', 'verify'])
+        kwargs = self.actor.apply.call_args.kwargs
+        self.assertEqual((kwargs['backup'].name, kwargs['proof'].name, kwargs['offhost'].name), ('final-pair', 'pair', 'final-publish.json'))
+        journal = json.loads((self.root/'deployments/123-1/deployment.json').read_text())
+        self.assertEqual((journal['restoredCapture'], journal['activation'], journal['finalBackupId']), ('online', 'fenced', BACKUP))
+        self.runtime.thaw.assert_not_called()
+
+    def test_a_compatible_release_hands_over_without_any_fence(self):
+        self.online('handover')
+        self.rollout().run('prepare')
+        self.assertEqual(self.rollout().finish()['outcome'], 'verified')
+        self.actor.handover.assert_called_once_with('d'*64, reference='Actions:123:attempt:1')
+        self.actor.apply.assert_not_called()
+        self.runtime.backup.assert_not_called()
+        self.assertLess(self.events.index('result'), self.events.index('handover'))
+
+    def test_without_memory_for_the_copy_the_restored_pair_is_the_fenced_one(self):
+        self.online('handover', mode='fenced-fallback')
+        self.rollout().run('prepare')
+        self.runtime.snapshot.assert_not_called()
+        self.rollout().finish()
+        self.assertEqual(self.events.count('backup'), 1)
+        self.assertNotIn('proof', self.actor.apply.call_args.kwargs)
+        self.actor.handover.assert_not_called()
+
+    def test_a_failed_final_capture_never_applies(self):
+        self.online()
+        self.rollout().run('prepare')
+        self.failure = 'backup'
+        with self.assertRaises(deploy.trust.Refused):
+            self.rollout().finish()
+        journal = json.loads((self.root/'deployments/123-1/deployment.json').read_text())
+        self.assertEqual((journal['phase'], journal['check']), ('final-capturing', 'final-capture-pair'))
+        self.actor.apply.assert_not_called()
+        self.runtime.thaw.assert_not_called()
 
     def test_interrupt_does_not_adopt_or_reopen_fence(self):
         self.runtime.backup.side_effect = KeyboardInterrupt
@@ -423,6 +550,112 @@ class BackupUnitTests(unittest.TestCase):
                 path = root/'gameometro-backup-reconcile.service'
                 path.write_text(path.read_text() + 'ExecStart=/bin/sh -c evil\n')
                 with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+
+    def test_installed_cleanup_unit_is_retargeted_with_the_backup_units(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            cleanup = root/deploy.CLEANUP_UNIT
+            source = ('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/unverified-cleanup run'
+                      ' --config /etc/gameometro/production/unverified-cleanup.json\nReadWritePaths=/var/lib/gameometro/production\n')
+            cleanup.write_text(source)
+            timer = root/'gameometro-unverified-cleanup.timer'
+            timer.write_text('NEVER CHANGE')
+            drops = {}
+            def systemctl(args, **_):
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(cleanup.read_text(), source.replace('/opt/gameometro/runtime', str(target)))
+                self.assertEqual(timer.read_text(), 'NEVER CHANGE')
+                # The backup keyring override is not an accepted cleanup override.
+                drops[deploy.CLEANUP_UNIT] = str(root/(deploy.CLEANUP_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                drops.clear()
+                # Another tool or configuration under the cleanup unit refuses before any unit changes.
+                cleanup.write_text(source.replace('unverified-cleanup run', 'backup-cycle run'))
+                backup = (root/'gameometro-backup.service').read_text()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
+
+    def test_installed_deletion_runner_is_retargeted_and_restarted_onto_the_release(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            template = (deploy.ROOT/'deploy/public-production/systemd'/deploy.DELETION_UNIT).read_text()
+            runner = root/deploy.DELETION_UNIT
+            runner.write_text(template)
+            calls, drops = [], {}
+            def systemctl(args, **_):
+                calls.append([str(a) for a in args])
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            restart = ['/usr/bin/systemctl', 'try-restart', '--no-block', deploy.DELETION_UNIT]
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(runner.read_text(), template.replace('/opt/gameometro/runtime', str(target)))
+                self.assertIn(restart, calls)
+                # An unchanged unit is not restarted.
+                calls.clear()
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertNotIn(restart, calls)
+                for changed in (runner.read_text().replace('account-deletion.json', 'other.json'),
+                                runner.read_text().replace('account-deletion run', 'unverified-cleanup run')):
+                    runner.write_text(changed)
+                    with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                runner.write_text(template)
+                drops[deploy.DELETION_UNIT] = str(root/(deploy.DELETION_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+
+    def test_installed_telemetry_unit_is_retargeted_and_held_to_its_template(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            target = Path('/srv/gameometro/installations/' + 'b'*12 + '-private/candidate')
+            configuration = Path('/etc/gameometro/production/backup-cycle.json')
+            for unit, command in (('gameometro-backup.service', 'run'), ('gameometro-backup-reconcile.service', 'reconcile')):
+                (root/unit).write_text('[Service]\nExecStart=/usr/bin/python3 /opt/gameometro/runtime/deploy/public-production/bin/backup-cycle '
+                                       + command + ' --config ' + str(configuration) + '\n')
+            # The owner installs the shipped template unchanged; the release repoints it.
+            template = (deploy.ROOT/'deploy/public-production/observability/systemd'/deploy.TELEMETRY_UNIT).read_text()
+            telemetry = root/deploy.TELEMETRY_UNIT
+            telemetry.write_text(template)
+            timer = root/'gameometro-telemetry.timer'
+            timer.write_text('NEVER CHANGE')
+            drops = {}
+            def systemctl(args, **_):
+                if 'FragmentPath' in ' '.join(map(str, args)): return str(root/args[2]).encode()
+                if 'DropInPaths' in ' '.join(map(str, args)): return drops.get(args[2], b'')
+                return b''
+            with patch.object(deploy, 'BACKUP_UNITS', root), patch.object(deploy.install, 'secure'), patch.object(deploy, 'invoke', side_effect=systemctl):
+                deploy.backup_units(configuration, target, apply=True)
+                self.assertEqual(telemetry.read_text(), template.replace('/opt/gameometro/runtime', str(target)))
+                self.assertEqual(timer.read_text(), 'NEVER CHANGE')
+                # A second release repoints the already repointed unit.
+                deploy.backup_units(configuration, Path(str(target).replace('b'*12, 'c'*12)), apply=True)
+                self.assertIn('c'*12 + '-private/candidate/deploy/public-production/observability/sample-host.py', telemetry.read_text())
+                repointed = telemetry.read_text()
+                # Any drop-in, or a changed evidence path or argument, refuses before any unit changes.
+                drops[deploy.TELEMETRY_UNIT] = str(root/(deploy.TELEMETRY_UNIT + '.d')/'keyring.conf').encode()
+                with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                drops.clear()
+                backup = (root/'gameometro-backup.service').read_text()
+                for changed in (repointed.replace('offhost.json', 'other.json'),
+                                repointed.replace(' --cleanup-receipt', ' --project other --cleanup-receipt'),
+                                repointed.replace('sample-host.py', 'verify-offhost.py')):
+                    telemetry.write_text(changed)
+                    with self.assertRaises(deploy.trust.Refused): deploy.backup_units(configuration, target, apply=True)
+                    self.assertEqual((root/'gameometro-backup.service').read_text(), backup)
 
     def test_accepted_keyring_override_is_preserved_and_other_directives_refuse(self):
         with tempfile.TemporaryDirectory() as name:
@@ -517,13 +750,14 @@ class ReceiptTests(unittest.TestCase):
             finally:
                 os.chdir(previous)
 
-    def test_failed_preflight_summary_retains_only_allowlisted_context(self):
+    def test_failed_deployment_summary_retains_only_allowlisted_context(self):
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as name:
             os.chdir(name)
             try:
                 base = {'revision': SHA, 'runId': '123', 'attempt': '1', 'outcome': 'failure', 'phase': 'preflight'}
                 for check, category, expected in [('upgrade-plan', 'check-refused', True),
+                                                   ('capture-lease', 'recovery-lock-busy', True),
                                                    ('SECRET child output', 'SECRET error', False),
                                                    ({'SECRET': 'value'}, ['SECRET'], False)]:
                     Path('raw').write_text(json.dumps({**base, 'check': check, 'category': category, 'reason': 'SECRET'}))
@@ -532,7 +766,11 @@ class ReceiptTests(unittest.TestCase):
                         self.assertEqual(deploy.summarize(Path('raw'), SHA, '123', '1', 'true'), 1)
                     receipt = Path('deployment-receipt.json').read_text()
                     self.assertNotIn('SECRET', receipt + output.getvalue())
-                    self.assertEqual('check' in json.loads(receipt), expected)
+                    details = json.loads(receipt)
+                    self.assertEqual('check' in details, expected)
+                    self.assertEqual('category' in details, expected)
+                    if expected:
+                        self.assertIn(category, output.getvalue())
                 Path('raw').write_text(json.dumps({**base, 'runId': '456', 'check': 'upgrade-plan'}))
                 with patch('builtins.print'):
                     deploy.summarize(Path('raw'), SHA, '123', '1', 'true')

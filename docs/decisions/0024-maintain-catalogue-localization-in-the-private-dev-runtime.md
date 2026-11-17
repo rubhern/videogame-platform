@@ -5,6 +5,7 @@
 - **Owner:** Ruben Hernandez
 - **Decision authority:** Explicit owner instruction and [#257](https://github.com/rubhern/videogame-platform/issues/257)
 - **Partially supersedes:** Private-dev optional activation in [ADR-0022](0022-localize-catalogue-content-during-acquisition.md) and the localization-overlay promotion restriction in [ADR-0023](0023-automate-owner-approved-private-dev-application-promotion.md)
+- **Partially superseded by:** [ADR-0039](0039-let-private-dev-promotion-install-its-own-revision.md) — promotion now rebuilds and recreates a changed localizer itself; no separate rollout or contract acknowledgement precedes it.
 
 ## Context
 

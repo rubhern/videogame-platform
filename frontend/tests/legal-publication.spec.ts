@@ -23,8 +23,8 @@ for (const width of [1320, 320]) {
       for (const [destination] of documents) {
         await expect(footer.locator(`a[href="/${destination}"]`)).toHaveCount(1);
       }
-      await expect(footer.getByRole("link", { name: "Contacto", exact: true }))
-        .toHaveAttribute("href", "mailto:hola@gameometro.com");
+      await expect(footer.getByRole("link", { name: "Contacto y sugerencias", exact: true }))
+        .toHaveAttribute("href", "/contacto");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       expect((await analyzeAccessibility(page)).violations).toEqual([]);
     }

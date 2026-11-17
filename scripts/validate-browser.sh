@@ -46,7 +46,9 @@ migration_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 keycloak_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 postgres_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 
-bash scripts/package-application.sh
+if [[ "${BROWSER_REUSE_PACKAGE:-false}" != "true" ]]; then
+  bash scripts/package-application.sh
+fi
 application_jar="$(resolve_backend_jar)"
 
 docker network create --internal "$browser_network" >/dev/null

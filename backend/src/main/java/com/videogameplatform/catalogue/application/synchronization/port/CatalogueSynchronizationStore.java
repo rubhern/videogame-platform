@@ -68,6 +68,17 @@ public interface CatalogueSynchronizationStore {
 
     WriteResult saveGame(UUID runId, GameWrite write);
 
+    /**
+     * Replaces the attention evidence of the catalogued Games among {@code attention}'s provider
+     * references in one fenced transaction, observed at {@code observedAt}. A Game without any
+     * signal loses its row, so a missing signal is never stored as zero; a reference the catalogue
+     * does not hold is ignored, and a newer observation already stored is never overwritten.
+     */
+    void saveAttention(
+            UUID runId,
+            java.util.Map<String, CatalogueProviderPort.ProviderAttention> attention,
+            Instant observedAt);
+
     /** Exercise the identical transaction and constraints, rolling everything back. */
     WriteResult previewGame(GameWrite write);
 

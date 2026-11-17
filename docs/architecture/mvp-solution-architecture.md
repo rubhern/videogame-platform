@@ -69,6 +69,10 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
   implemented, awaiting owner review): the only role the BFF reads is the
   `catalogue-operator` client role from its validated ID token, mapped at sign-in to the
   operator authority that catalogue administration requires.
+  Proposed (#548, [ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md);
+  implemented, awaiting owner review): Keycloak may broker Google and Microsoft sign-in. A
+  brokered person is still a Keycloak user, so the subject, the BFF and `UserId` are unchanged;
+  Keycloak links a provider to an existing account only after that account's password.
 - IGDB data is untrusted input and must be normalized and validated before
   publication. It is the catalogue's acquisition source, never its serving source, and
   provider identities never become product identity.
@@ -85,7 +89,13 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 | Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, `Mis puntuaciones`, and personal statistics |
 | Identity | BFF session and external OIDC integration; not product credentials or authorization |
 | API | Same-origin HTTP delivery and mapping; no business policy |
+| Feedback | Anonymous message submission and the outbound receiving-channel port |
 | Platform | Runtime composition, configuration, health, correlation, metrics, and tracing |
+
+Post-MVP (#383, implemented for review), API delivery calls the Feedback application
+contract. The Feedback module owns validation and synchronous acceptance and keeps
+SMTP behind its outbound port. It depends on no other business module. See
+[UC-022](application/mvp-use-cases.md#visitor-feedback-uc-022-post-mvp-383).
 
 Ratings evaluates release eligibility from a narrow Catalogue application context.
 It never reads Catalogue tables or provider types. Catalogue does not depend on

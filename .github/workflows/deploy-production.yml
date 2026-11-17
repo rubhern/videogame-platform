@@ -3,6 +3,14 @@ name: Deploy Production
 on:
   workflow_dispatch:
     inputs:
+      expected_revision:
+        description: Exact qualified main SHA to deploy (fails if main has advanced)
+        type: string
+        required: false
+      expected_image_digest:
+        description: Application sha256 digest from the qualified candidate
+        type: string
+        required: false
       plan_only:
         description: Read-only host plan and recovery preflight (no backup or deployment)
         type: boolean
@@ -34,7 +42,18 @@ jobs:
           REVISION: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
           ATTEMPT: ${{ github.run_attempt }}
-        run: python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT"
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+          EXPECTED_IMAGE_DIGEST: ${{ inputs.expected_image_digest }}
+        run: |
+          if [[ -n "$EXPECTED_REVISION" && "$EXPECTED_REVISION" != "$REVISION" ]]; then
+            echo '::error::The selected candidate is not the dispatch SHA. Qualification and deployment must target the same main revision.'
+            exit 1
+          fi
+          python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT" >release.json
+          if [[ -n "$EXPECTED_IMAGE_DIGEST" ]]; then
+            jq -e --arg expected "$EXPECTED_IMAGE_DIGEST" '.image_digest == $expected' release.json >/dev/null
+          fi
+          cat release.json
 
   recovery:
     name: Isolated production recovery
@@ -55,6 +74,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Wait for both owner approvals
+        run: python3 -B scripts/production_deploy.py --await-approvals "$REVISION" "$RUN_ID" "$ATTEMPT"
       - name: Install the existing pinned S3 client
         run: |
           python3 -m venv "$RUNNER_TEMP/recovery-venv"
@@ -111,8 +132,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Wait for both owner approvals
+        run: python3 -B scripts/production_deploy.py --await-approvals "$REVISION" "$RUN_ID" "$ATTEMPT"
       - name: Revalidate publications after approval
-        run: python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT" > release.json
+        env:
+          EXPECTED_IMAGE_DIGEST: ${{ inputs.expected_image_digest }}
+        run: |
+          python3 -B scripts/production_deploy.py --discover "$REVISION" "$RUN_ID" "$ATTEMPT" >release.json
+          if [[ -n "$EXPECTED_IMAGE_DIGEST" ]]; then
+            jq -e --arg expected "$EXPECTED_IMAGE_DIGEST" '.image_digest == $expected' release.json >/dev/null
+          fi
       - name: Prepare the restricted production SSH identity
         env:
           DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}

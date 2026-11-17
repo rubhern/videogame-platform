@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
@@ -26,7 +26,6 @@ type FeaturedHeroProps = {
    * Ways out that close the copy inside the G, above the title's stretched target (the home's,
    * #382). Destacados has none: its title is the only way into the game.
    */
-  actions?: ReactNode;
 };
 
 /** Phones show this many platform marks and the exact count of the rest, as the cards do. */
@@ -51,7 +50,7 @@ function longestWord(text: string): number {
  * under the fire needle. The G keeps its own proportions; the copy keeps to its reading zone. The title link
  * spans the hero; score attribution and release overflow stay separate.
  */
-export function FeaturedHero({ lead, granularity, timeline, periodPhrase, actions }: FeaturedHeroProps) {
+export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: FeaturedHeroProps) {
   const zoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +101,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase, action
   } as CSSProperties;
 
   return (
-    <article aria-labelledby="featured-lead-title" className="featured-hero-section" style={style}>
+    <article aria-labelledby="featured-lead-title" className="featured-hero-section" data-analytics-list="featured_hero" data-analytics-position="1" style={style}>
       <div className="featured-hero">
         {/* The game's own light washes the stage; its art runs up behind the header on wide
             screens and sits above the copy on narrow ones. */}
@@ -227,7 +226,6 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase, action
                   ))}
                 </ul>
               )}
-              {actions === undefined ? null : <div className="featured-hero-actions">{actions}</div>}
             </div>
           </div>
         </div>

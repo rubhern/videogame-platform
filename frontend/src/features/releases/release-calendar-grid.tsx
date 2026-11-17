@@ -3,11 +3,28 @@ import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { calendarDay } from "./releases-search";
 import {
   WEEKDAY_HEADERS,
-  HYPE_LABELS,
+  EXPECTATION_LABELS,
   countLabel,
   type CalendarDay,
   type ReleaseCalendarModel,
 } from "./release-calendar-model";
+
+export function CalendarExpectationLegend({ weekly = false }: { weekly?: boolean }) {
+  return (
+    <div className="calendar-expectation-legend">
+      <span>{weekly ? "Expectación por semana" : "Expectación por día"}</span>
+      <ol aria-label="Niveles de expectación">
+        {EXPECTATION_LABELS.map((label, level) => (
+          <li data-density={level} key={label} title={label}>
+            <span aria-hidden="true" className="calendar-day-dot" />
+            <span className="sr-only">{label}</span>
+            <span aria-hidden="true">{level + 1}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 type ReleaseCalendarGridProps = {
   model: ReleaseCalendarModel;
@@ -19,7 +36,7 @@ type ReleaseCalendarGridProps = {
 function dayName(day: CalendarDay): string {
   return `${day.label}: ${day.gameCount === 0 ? "sin lanzamientos" : countLabel(day.gameCount)}${
     day.today ? ", hoy" : ""
-  }`;
+  }${day.gameCount > 0 ? ", " + EXPECTATION_LABELS[day.density] : ""}`;
 }
 
 /** Monday 0 to Sunday 6. */
@@ -30,7 +47,7 @@ function weekdayIndex(date: string): number {
 /**
  * The month as a traditional Monday-to-Sunday calendar (#250), active from the API's evaluation
  * date on. Every day from today is a native button that shows its day below the calendar; its
- * count is stated in words, and its colour represents the summed Hype of highlighted games, with a qualitative text description. Days of the current month that
+ * count is stated in words, and its colour represents the expectation band, described in words. Days of the current month that
  * have gone by keep their number, inert and quiet, with no count; days of neighbouring months stay
  * empty, so a weekday column never holds another month. One tab stop enters the month (the chosen
  * day, else today, else the first active day); arrow keys move by day and by week, Home and End to
@@ -71,6 +88,7 @@ export function ReleaseCalendarGrid({ model, selectedDay, onSelectDay }: Release
         Las flechas recorren los días y las semanas; Intro o Espacio muestra los lanzamientos del
         día.
       </p>
+      <CalendarExpectationLegend />
       <table aria-describedby={hintId} className="calendar-grid" onKeyDown={move} ref={table}>
         <caption className="sr-only">{`Lanzamientos de ${model.monthLabel}`}</caption>
         <thead>
@@ -114,7 +132,7 @@ export function ReleaseCalendarGrid({ model, selectedDay, onSelectDay }: Release
                       }}
                       onFocus={() => setFocusDate(day.date)}
                       tabIndex={day.date === tabStop ? 0 : -1}
-                      title={day.gameCount > 0 ? HYPE_LABELS[day.density] : undefined}
+                      title={day.gameCount > 0 ? EXPECTATION_LABELS[day.density] : undefined}
                       type="button"
                     >
                       <span aria-hidden="true" className="calendar-day-head">

@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.videogameplatform</groupId>
     <artifactId>videogame-platform</artifactId>
-    <version>0.62.0-SNAPSHOT</version>
+    <version>1.7.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>videogame-platform-backend</artifactId>
@@ -15,6 +15,15 @@
   <description>Backend walking skeleton for the VideoGame Platform modular monolith</description>
 
   <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+    <dependency>
+      <!-- The feedback adapter classifies SMTP reply exceptions; Boot manages the version. -->
+      <groupId>org.eclipse.angus</groupId>
+      <artifactId>angus-mail</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -30,6 +39,16 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-registry-otlp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+      <version>${opentelemetry-logback-appender.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>net.ttddyy.observation</groupId>
+      <artifactId>datasource-micrometer-spring-boot</artifactId>
+      <version>${datasource-micrometer.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.modulith</groupId>

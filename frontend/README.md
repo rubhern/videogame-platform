@@ -13,7 +13,7 @@ Keycloak), the
 `/mis-puntuaciones`, the post-MVP `UC-015` personal statistics at
 `/mis-puntuaciones/estadisticas`, the `UC-014` preferred platforms (the first-run `/bienvenida`,
 `/mis-plataformas` and the **Mis plataformas** switch in Mi cuenta that applies them to
-Destacados, the release explorer and the calendar), the post-MVP `UC-016` highlights calendar (**Calendario de destacados**) at
+Destacados, the release explorer and the calendar), the post-MVP `UC-016` release calendar (**Calendario de lanzamientos**) at
 `/lanzamientos/calendario`, the post-MVP `UC-018` player-rating ranking **TOPómetro** at
 `/topometro` and, per platform, at `/plataformas/<plataforma>/topometro`, the post-MVP `UC-020`
 platform ranking **Próximos destacados** at `/plataformas/<plataforma>/proximos`, and
@@ -50,20 +50,40 @@ Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
 
+The Vite development proxy targets the local BFF. Set GAMEOMETRO_DEV_BACKEND when the
+local BFF runs on another port.
+
+To preview the [navigation loading indicator](../docs/development/frontend-design.md#navigation-and-scroll-position),
+open [the local demo](http://localhost:5173/__dev/navegacion) in Vite and select
+**Abrir una página que tarda 5 segundos**. The demo works without a backend.
+
 ## Public legal pages
 
 `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies` are anonymous routes in
-local, private-dev and production builds, linked from the shared footer alongside
-contact mail. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
+local, private-dev and production builds, linked from the shared footer. The [approved Spanish source](../docs/legal/public-texts-es.md) owns
 all public wording. After an approved source change, run
 `node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
 the generated safe React data and registration localization in both realm imports.
 Only public sections enter the application; editorial metadata and the administrative
-template stay in documentation. No cookie banner or privacy-consent control is added.
+template stay in documentation. The only consent control is the optional analytics notice
+below.
 Text approval and build availability do not authorize a public production deployment;
 the [release gates](../docs/development/delivery-lifecycle.md#public-production-gates)
 remain separate. Existing realms require explicit operator reconciliation because
 startup import does not update them; see [product integration](../docs/development/data-protection.md#publication-and-product-integration).
+
+## Product analytics
+
+`src/features/analytics/` owns consent-gated GA4 (#507,
+[ADR-0038](../docs/decisions/0038-measure-product-use-with-consent-gated-ga4.md)). The shell
+reads the public `/web-analytics` configuration; without a measurement ID nothing is shown or
+loaded. With one, the notice asks once and the footer's **Configurar cookies** reopens it. Only
+acceptance loads Google's tag, and only route templates from `route-names.ts` and the typed,
+bounded dictionary in `events.ts` are sent. Features report through `trackEvent`, which does
+nothing without consent; URL-state changes (Destacados's period, the calendar, the explorer's
+filters) are read centrally by `url-signals.ts`, and ranked lists mark their links with
+`data-analytics-list` and `data-analytics-position`. Never add a query string, search term,
+score, game or account identifier, email or free text to an event.
 
 ## Structure and ownership
 
@@ -114,12 +134,9 @@ invalidation. Component state owns transient interaction state; URL parameters o
 navigable/shareable state when safe (the featured week or month, release view and filters,
 search query and page). The canonical featured destination is `/lanzamientos/destacados`; `week`, `month` and
 `granularity` keep the existing weekly/monthly URL state. `/` is the home (#382), whose
-previews live in `src/features/home/` and keep no URL state of their own (TOPómetro's source
-and the calendar's chosen day stay in the preview). A former landing link keeps its destination:
-`week`, `month` or `granularity` replace their history entry with Destacados on that query, and
-`view=recent|upcoming` links retain their explorer migration; saved game-return state carrying
-them resolves the same way, so no former featured link becomes a player-score ranking. A game
-opened from the home returns with **Volver al inicio**. The **Lanzamientos** disclosure
+previews live in the home feature. The [home design](../docs/development/frontend-design.md#home)
+describes its navigation and context. A game opened from the home returns to that selection
+with **Volver al inicio**. The **Lanzamientos** disclosure
 links to **Destacados**, **Explorar** (`/lanzamientos`) and **Calendario**
 (`/lanzamientos/calendario`); **TOPómetro** (`/topometro`) is a separate entry whose URL holds
 only its source (`source=gameometro`), while its loaded pages stay in the document's query

@@ -2,7 +2,7 @@ import { isPlatformCataloguePath } from "../../features/platform-catalogue/platf
 import { readPlatformRankingKey } from "../../features/rankings/ranking-search";
 import { FEATURED_PATH } from "../../features/releases/featured-search";
 import { readPlatformUpcomingKey } from "../../features/upcoming-highlights/upcoming-highlights-path";
-import { HOME_PATH, legacyHomeRedirect } from "../../features/home/home-path";
+import { HOME_PATH, homeSearchPath, legacyHomeRedirect, readHomeSearch } from "../../features/home/home-path";
 import type { Location } from "react-router-dom";
 
 /**
@@ -116,7 +116,7 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
     return null;
   }
   if (url.origin !== BASE) return null;
-  // A former landing link names the explorer or a featured period; the home itself has no state.
+  // A former landing link names the explorer or a featured period.
   const legacy = url.pathname === HOME_PATH ? legacyHomeRedirect(url.searchParams) : null;
   if (legacy !== null) {
     return { origin: legacy.startsWith(FEATURED_PATH) ? "featured" : "releases", path: legacy };
@@ -131,7 +131,11 @@ function originOf(path: string): { origin: ReturnOrigin; path: string } | null {
         ? "platform-upcoming"
         : ORIGINS[url.pathname];
   if (origin === undefined) return null;
-  return { origin, path: origin === "home" ? HOME_PATH : `${url.pathname}${url.search}` };
+  if (origin === "home") {
+    const { featured, selected, platformKey } = readHomeSearch(url.searchParams);
+    return { origin, path: homeSearchPath(featured, selected, platformKey) };
+  }
+  return { origin, path: `${url.pathname}${url.search}` };
 }
 
 /** The state a link into a game page carries from `location`, or none from any other screen. */

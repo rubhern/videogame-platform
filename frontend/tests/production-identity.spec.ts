@@ -78,21 +78,62 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   const landing = await page.request.get("/");
   expect(landing.headers()["strict-transport-security"]).toContain("max-age=");
 
+  expect((await page.request.get("/api/v1/me/profile")).status()).toBe(401);
   const email = syntheticEmail("register");
   const password = syntheticPassword();
   await page.goto("/auth/start?intent=register");
   await expect(page).toHaveURL(new RegExp(`^${escape(issuer)}/`));
   await record(first, page, "Keycloak registration form");
   const notice = page.locator("#kc-registration-terms-text");
-  await expect(notice).toContainText("Responsable: Rubén Hernández López");
-  await expect(notice).toContainText("proveedores externos de alojamiento y correo");
-  await expect(notice.getByRole("link", { name: "política de privacidad", exact: true }))
-    .toHaveAttribute("href", `${applicationOrigin}/privacidad`);
-  await expect(notice.getByRole("link", { name: "condiciones de uso", exact: true }))
-    .toHaveAttribute("href", `${applicationOrigin}/condiciones`);
+  const disclosure = page.locator("details").filter({ hasText: "Antes de crear tu cuenta" });
+  const summary = disclosure.locator("summary");
+  const brand = page.locator("#kc-header").getByRole("link", { name: "Gameómetro" });
+  const emailField = page.locator("#email");
+  const acknowledgement = page.locator('input[name="termsAccepted"]');
+  await expect(brand).toHaveAttribute("href", `${applicationOrigin}/`);
   await expect(page.locator('#kc-register-form input[type="checkbox"]')).toHaveCount(1);
-  await expect(notice).not.toContainText(/Texto aprobado|Internal editorial|Borrador/);
-  await page.locator("#email").fill(email);
+  await expect(acknowledgement).toBeVisible();
+  await expect(acknowledgement).not.toBeChecked();
+  await expect(acknowledgement).toHaveAccessibleName("He leído y acepto las condiciones de uso de Gameómetro.");
+  await expect(page.locator('label[for="termsAccepted"] strong')).toHaveText("las condiciones de uso de Gameómetro.");
+  await page.locator("#kc-register-form [type=submit]").click();
+  await expect(emailField).toHaveAccessibleDescription("Indica tu email.");
+  await expect(acknowledgement).toHaveAccessibleDescription(
+    "Para crear tu cuenta, acepta las condiciones de uso.",
+  );
+  await expect(notice).toBeHidden();
+
+  await emailField.fill(email);
+  const registrationUrl = page.url();
+
+  for (const viewport of [{ width: 1320, height: 900 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(viewport);
+    await expect(notice).toBeHidden();
+    await emailField.press("Tab");
+    await expect(summary).toBeFocused();
+    await summary.press("Enter");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("Responsable: Rubén Hernández López");
+    await expect(notice).toContainText("proveedores externos de alojamiento y correo");
+    await expect(notice).not.toContainText(/Texto aprobado|Internal editorial|Borrador/);
+    await summary.press("Space");
+    await expect(notice).toBeHidden();
+    expect(await page.locator("body").evaluate((body) => body.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  }
+
+  for (const [label, route] of [["política de privacidad", "/privacidad"], ["condiciones de uso", "/condiciones"]]) {
+    const link = page.getByRole("link", { name: label, exact: true });
+    await expect(link).toHaveAttribute("href", `${applicationOrigin}${route}`);
+    const [legalPage] = await Promise.all([page.waitForEvent("popup"), link.click()]);
+    await expect(legalPage).toHaveURL(`${applicationOrigin}${route}`);
+    if (route === "/condiciones") {
+      await expect(legalPage.getByText(/Para crear una cuenta debes tener al menos 14 años/)).toBeVisible();
+    }
+    await legalPage.close();
+    await expect(page).toHaveURL(registrationUrl);
+    await expect(emailField).toHaveValue(email);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('input[name="termsAccepted"]').check();
   await page.locator("#kc-register-form [type=submit]").click();
   await expect(page.locator("body")).toContainText("Verifica tu email");
@@ -116,6 +157,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(cookie?.value.split(".")).not.toHaveLength(3);
   expect(await browserState(page)).toEqual({ origin: applicationOrigin, documentCookie: [], localStorage: 0, sessionStorage: 0, indexedDb: 0 });
 
+  await expectPrivateProfile(page, email);
   const csrfToken = signedIn.csrfToken ?? "";
   const rating = await page.evaluate(
     async ({ game, token }) => {
@@ -163,6 +205,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(other).toHaveURL(`${applicationOrigin}/`);
   expect(await other.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(404);
   expect(await page.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(200);
+  await expectPrivateProfile(other, otherEmail);
   const otherSession = await sessionState(other);
   expect(await other.evaluate(async ({ game, token }) => (await fetch(`/api/v1/me/ratings/${game}?userId=forged-owner`, {
     method: "PUT", credentials: "same-origin",
@@ -176,7 +219,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   })).status, { game: ratedGame, token: otherSession.csrfToken ?? "", version: otherRating.headers()["etag"] ?? "" })).toBe(200);
   await second.close();
 
-  await page.getByRole("button", { name: "Mi cuenta" }).click();
+  await page.getByRole("button", { name: "Mi cuenta", exact: true }).click();
   // The page already shows the anonymous header at `/` before its document leaves for the
   // identity provider's logout, so wait for the document that the round trip brings back.
   const returned = page.waitForResponse((response) => response.request().isNavigationRequest()
@@ -194,6 +237,8 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(identityAfterLogout).not.toContain("KEYCLOAK_SESSION");
   await page.goto("/auth/start");
   await expect(page.locator("#kc-form-login")).toBeVisible();
+  const staleProfile = await request.get(`${applicationOrigin}/api/v1/me/profile`, { headers: { Cookie: `${sessionCookie}=${cookie?.value}` } });
+  expect(staleProfile.status()).toBe(401);
   const oldSession = await request.get(`${applicationOrigin}/api/v1/session`, { headers: { Cookie: `${sessionCookie}=${cookie?.value}` } });
   expect(await oldSession.json()).toMatchObject({ authenticated: false });
   await page.locator("#username").fill(email);
@@ -364,6 +409,15 @@ function jwtClaimNames(value: string): string[] | undefined {
   } catch {
     return undefined;
   }
+}
+
+async function expectPrivateProfile(page: Page, email: string) {
+  const profile = await page.request.get("/api/v1/me/profile");
+  expect(profile.status()).toBe(200);
+  expect(profile.headers()["cache-control"]).toBe("no-store");
+  expect(await profile.json()).toMatchObject({ email });
+  await page.goto("/mi-perfil");
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
 }
 
 async function sessionState(page: Page) {

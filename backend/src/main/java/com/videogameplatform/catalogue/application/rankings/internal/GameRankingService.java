@@ -7,6 +7,9 @@ import com.videogameplatform.catalogue.application.rankings.GameRanking;
 import com.videogameplatform.catalogue.application.rankings.RankGamesUseCase;
 import com.videogameplatform.catalogue.application.rankings.port.GameRankingReadPort;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -27,12 +30,26 @@ public final class GameRankingService implements RankGamesUseCase {
     private final GameRankingReadPort readPort;
     private final CatalogueCoverPolicy coverPolicy;
     private final Clock clock;
+    private final CurrentProductSettings settings;
 
     public GameRankingService(
-            GameRankingReadPort readPort, CatalogueCoverPolicy coverPolicy, Clock clock) {
+            GameRankingReadPort readPort,
+            CatalogueCoverPolicy coverPolicy,
+            Clock clock,
+            CurrentProductSettings settings) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.clock = clock;
+        this.settings = settings;
+    }
+
+    /** The operator's minimum number of ratings for a source (#450). */
+    private static int minimumRatings(ProductSettings settings, Source source) {
+        return settings.integer(
+                switch (source) {
+                    case IGDB_PLAYERS -> ProductSetting.RANKINGS_IGDB_MINIMUM_RATINGS;
+                    case GAMEOMETRO_COMMUNITY -> ProductSetting.RANKINGS_COMMUNITY_MINIMUM_RATINGS;
+                });
     }
 
     @Override
@@ -47,7 +64,8 @@ public final class GameRankingService implements RankGamesUseCase {
                                         evaluatedOn,
                                         new GameRankingReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        SUMMARY_PLATFORM_LIMIT))
+                                        SUMMARY_PLATFORM_LIMIT,
+                                        minimumRatings(settings.current(), query.source())))
                         .orElseThrow(CatalogueNotReadyException::new);
         if (!result.platformsSupported()) {
             throw new ReleaseQueryValidationException(

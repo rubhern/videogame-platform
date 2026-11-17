@@ -1,0 +1,63 @@
+# Production sampled application traces (ADR-0046). Single tenant: the internal telemetry network,
+# shared only with the collector and Grafana, is the trust boundary. Traces are disposable
+# diagnostics, never backed up and never an audit trail.
+stream_over_http_enabled: true
+server:
+  http_listen_port: 3200
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 9096
+  log_level: warn
+  http_server_read_timeout: 15s
+  http_server_write_timeout: 15s
+memberlist:
+  # One process: no gossip peers, and nothing listens beyond loopback.
+  bind_addr:
+    - 127.0.0.1
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+ingester:
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+  trace_idle_period: 10s
+  max_block_duration: 5m
+  max_block_bytes: 33554432
+compactor:
+  compaction:
+    # Three days of sampled traces, well inside the seven-day routine-log limit of
+    # docs/development/data-protection.md.
+    block_retention: 72h
+    compacted_block_retention: 30m
+querier:
+  max_concurrent_queries: 2
+query_frontend:
+  search:
+    max_duration: 72h
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+    pool:
+      max_workers: 4
+      queue_depth: 200
+overrides:
+  defaults:
+    ingestion:
+      # Bounded intake: the collector drops, never blocks, what Tempo refuses.
+      rate_limit_bytes: 1048576
+      burst_size_bytes: 4194304
+      max_traces_per_user: 2000
+    global:
+      max_bytes_per_trace: 1048576
+usage_report:
+  reporting_enabled: false

@@ -6,6 +6,7 @@
 - **Scope:** Private, non-commercial, zero-recurring-cost post-MVP delivery
 - **Related:** [ADR-0008](0008-use-github-actions-and-ghcr-for-initial-delivery.md), [ADR-0019](0019-host-private-dev-on-an-owner-managed-linux-host.md), [#160](https://github.com/rubhern/videogame-platform/issues/160)
 - **Localization lifecycle:** The initial localization-overlay restriction is superseded by [ADR-0024](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md).
+- **Runtime contract:** The installed runtime/deployment-contract gate, owner acknowledgement, host evidence recheck and overlay refusal are superseded by [ADR-0039](0039-let-private-dev-promotion-install-its-own-revision.md); promotion now installs the dispatched revision.
 
 ## Context
 
@@ -32,8 +33,9 @@ sanitized evidence. Secrets remain in GitHub environment/private-host mechanisms
 
 Pin source to the exact main SHA captured by the dispatch. Derive its unique trusted
 main push build, current run attempt and immutable OCI digest from the retained
-publication record, with successful quality/security gates and demonstrated main
-ancestry. Refuse missing, expired, stale, ambiguous or inconsistent evidence; never
+publication record, with successful [private-dev admission evidence](../development/continuous-integration.md#environment-admission)
+and demonstrated main ancestry. The first promotion from an older host revision
+requires the complete quality and security gates. Refuse missing, expired, stale, ambiguous or inconsistent evidence; never
 select a latest image or fall back to another revision/run/attempt. Recheck the same
 derived tuple before private connectivity and source trust on the host. Block differing
 runtime/deployment contracts until their separate reviewed operational rollout and

@@ -21,6 +21,8 @@ type FeaturedPeriodSelectorProps = {
    * response states which neighbouring periods the API offers and whether today lies inside.
    */
   model: FeaturedReleasesViewModel | null;
+  pathFor?: (search: FeaturedSearch) => string;
+  label?: string;
 };
 
 const granularities: { value: FeaturedGranularity; label: string }[] = [
@@ -34,16 +36,18 @@ const words = {
 } as const;
 
 function PeriodStep({
-  granularity,
+  search,
   direction,
   step,
+  pathFor,
 }: {
-  granularity: FeaturedGranularity;
+  search: FeaturedSearch;
+  pathFor: (search: FeaturedSearch) => string;
   direction: "previous" | "next";
   /** The adjacent period, null at a navigation bound, undefined while the bounds are unknown. */
   step: FeaturedPeriodStep | null | undefined;
 }) {
-  const word = words[granularity][direction];
+  const word = words[search.granularity][direction];
   if (step === null || step === undefined) {
     // A bound, or a period still loading: the step stays in place as a disabled link, dimmed,
     // named, announced as unavailable and never focused.
@@ -63,7 +67,7 @@ function PeriodStep({
       preventScrollReset
       aria-label={`${word}: ${step.phrase}`}
       className="featured-period-step"
-      to={featuredSearchPath({ granularity, period: step.period })}
+      to={pathFor({ ...search, period: step.period })}
     >
       <ChevronIcon direction={direction} />
     </Link>
@@ -76,7 +80,7 @@ function PeriodStep({
  * period while another one is shown. Every choice is a navigation, so the period lives in the URL
  * and the browser history; the API alone states the bounds, so the steps wait for its response.
  */
-export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelectorProps) {
+export function FeaturedPeriodSelector({ search, model, pathFor = featuredSearchPath, label: navigationLabel = "Periodo de Destacados" }: FeaturedPeriodSelectorProps) {
   const { granularity } = search;
   const label =
     model?.periodLabel ??
@@ -91,7 +95,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
 
   return (
     <div className="featured-period">
-      <nav aria-label="Periodo de Destacados" className="featured-granularity">
+      <nav aria-label={navigationLabel} className="featured-granularity">
         <ul>
           {granularities.map((option) => (
             <li key={option.value}>
@@ -99,7 +103,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
                 preventScrollReset
                 aria-current={option.value === granularity ? "true" : undefined}
                 className="featured-granularity-option"
-                to={featuredSearchPath({ granularity: option.value, period: null })}
+                to={pathFor({ ...search, granularity: option.value, period: null })}
               >
                 {option.label}
               </Link>
@@ -114,7 +118,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
           aria-label={granularity === "week" ? "Semana de la selección" : "Mes de la selección"}
           className="featured-period-stepper"
         >
-          <PeriodStep direction="previous" granularity={granularity} step={model?.previous} />
+          <PeriodStep direction="previous" search={search} pathFor={pathFor} step={model?.previous} />
           <p className="featured-period-label">
             <CalendarIcon />
             <time dateTime={period}>
@@ -128,14 +132,14 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
               )}
             </time>
           </p>
-          <PeriodStep direction="next" granularity={granularity} step={model?.next} />
+          <PeriodStep direction="next" search={search} pathFor={pathFor} step={model?.next} />
         </nav>
       )}
       {showsCurrentLink ? (
         <Link
           preventScrollReset
           className="featured-period-current"
-          to={featuredSearchPath({ granularity, period: null })}
+          to={pathFor({ ...search, period: null })}
         >
           {words[granularity].current}
         </Link>

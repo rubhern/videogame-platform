@@ -16,10 +16,22 @@ public record ReleaseCalendarResult(
         Navigation navigation,
         BrowseReleasesResult.ActiveFilters activeFilters,
         BrowseReleasesResult.AvailableFilters availableFilters,
-        List<Day> days) {
+        List<Day> days,
+        Presentation presentation) {
 
     public ReleaseCalendarResult {
         days = List.copyOf(days);
+    }
+
+    /**
+     * How the month is presented, from the operator's product settings (#450): the four ascending
+     * daily total-Hype thresholds from low to very high interest, and how many games a chosen day
+     * previews.
+     */
+    public record Presentation(List<Long> interestThresholds, int dayPreviewSize) {
+        public Presentation {
+            interestThresholds = List.copyOf(interestThresholds);
+        }
     }
 
     /** The requestable months and the neighbours of this one; a neighbour is empty at a bound. */

@@ -23,8 +23,13 @@ owns post-MVP public-release direction and its pending decisions.
 |--------------|--------------------------------------------------------------------------------|-------------------------------------------------|
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
-| `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
+| `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry           | Non-sensitive learning data, no backup; owner tailnet only |
 | `production` | Public since 2026-11-08 on the design below; owner-accepted 2026-11-08 ([#276 record](../../research/public-production-release-acceptance.md)) | Independent durable data and public product access only |
+
+Local and `dev` run production's product-facing configuration except infrastructure, the
+daily synchronization, backups and lifecycle/verification;
+[ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md) owns the
+exceptions.
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -34,8 +39,9 @@ only HTTPS edge and admits only the owner. Owner-approved application promotion
 additionally permits an ephemeral tagged Actions identity to reach only the host's
 OpenSSH port through the tailnet, with a forced promotion command; it receives no
 product, identity or management access. This boundary is accepted under
-[ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md);
-host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
+[ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md),
+and [ADR-0039](../../decisions/0039-let-private-dev-promotion-install-its-own-revision.md)
+lets promotion install its own revision; host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
 product authorization. No public application, identity, database, telemetry or SSH
 ingress is allowed on private-dev; router port forwarding, Tailscale Funnel and public DNS remain
 prohibited. Machine addressing and tailnet identifiers stay outside the repository.
@@ -73,15 +79,14 @@ supersedes the initial private-dev optionality in ADR-0022; the
 [private-dev README](../../../deploy/private-dev/README.md#catalogue-localization-helper)
 owns migration, activation and rollback commands. Workstation activation stays opt-in.
 
-Mailpit captures Keycloak's password-recovery email (#273) so local and private-dev
-recovery is exercised without an external provider, credential or purchase. It
-shares a dedicated network only with Keycloak; that network is non-internal solely so
-its web UI can bind to host IPv4 loopback for the owner's SSH tunnel, without a
-Tailscale Serve route. SMTP and POP3 publish nothing, nothing is relayed or forwarded,
-and messages, which carry live reset links, stay in a temporary in-memory store
-bounded by count and age and lost on restart. Mailpit is never an application
-dependency. It is a non-production sink and the default transport of every
-environment; local development and CI never use another.
+Mailpit captures Keycloak recovery mail and the packaged application's visitor
+feedback in local and private-dev (#273, #383). Private-dev restricts its mail
+network to those two senders and the sink. The web UI binds to IPv4 loopback for
+the owner's tunnel. Messages stay in a temporary store bounded by count and age.
+Mailpit is a synthetic verification channel; the feedback path can report delivery
+unavailable while the rest of the application stays healthy. Production feedback
+activation is separate from account mail and remains gated by the
+[operator procedure](../../../deploy/public-production/README.md#feedback-receiving-channel).
 
 Post-MVP (#274), private-dev may instead send its account mail through the approved
 transactional provider's authenticated STARTTLS relay, selected explicitly on the
@@ -142,12 +147,14 @@ the shared realm import.
 
 Post-MVP (#274), the persistent private-dev realm also applies the reviewed
 [production identity policy](#production-realm-contract): email sign-in with an
-email-only profile, the 18+ registration declaration, email verification, the
+email-only profile, mandatory acceptance of the terms of use, email verification, the
 password, lockout, session and event policies. A reviewed Admin API step takes the
 values from the production import, snapshots what it changes and can restore it; it
 keeps the realm name, issuer, client and every account ID, so ratings stay attached.
-Local development and CI keep the shared import's policy, and a freshly imported
-private-dev realm needs the same step. The
+Since product `1.0.0`
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)) the shared
+import itself carries that policy, so new local, CI and private-dev realms start aligned, and
+local startup applies the same step to an existing local realm. The
 [private-dev procedure](../../../deploy/private-dev/README.md#identity-policy-and-real-account-mail)
 owns its account effects, rollout and rollback.
 
@@ -200,12 +207,32 @@ host/daemon, disk cache and deployment actors need additional headroom.
 Review headroom under representative load rather than treating ceilings as
 capacity evidence. Logs are excluded from the irreplaceable PostgreSQL backup set.
 
-Telemetry, metrics/log storage and Grafana are never application startup/readiness
-or request dependencies. Trace storage and remote export remain deferred. Private-dev
+Production application logs follow [ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)
+instead: the application's OTLP log export → the existing Collector → one Loki on the internal
+telemetry network → production Grafana. Nothing publishes a port, uses Docker access or
+reads host logs. Bounded application and Collector queues drop records when Loki is away
+or refusing load. Loki keeps six days, inside the seven-day routine-log limit, in its own named volume, which is disposable,
+outside every backup and restore, and an optional service for upgrades. Its
+[configuration](../../../deploy/public-production/observability/loki.yaml) owns ingestion,
+stream, line and query bounds. The sustained rate permits roughly 1.7 GiB of uncompressed
+input per day; plan **8 GiB of host disk for Loki** as a stop/review threshold, not a quota.
+
+Production traces follow [ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md):
+one request in ten is exported over OTLP → the same Collector → one Tempo on the internal
+telemetry network → production Grafana, linked to and from the Loki logs. Tempo keeps 72 hours
+in its own disposable named volume, outside every backup and restore, and is an optional
+service for upgrades. Its [configuration](../../../deploy/public-production/observability/tempo.yaml)
+owns ingestion, trace-size and query bounds; plan **4 GiB of host disk for Tempo** as a
+stop/review threshold.
+
+Telemetry, metrics/log/trace storage and Grafana are never application startup/readiness
+or request dependencies. Private-dev trace storage (#230) and remote export remain deferred. Private-dev
 [Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
-the existing stack. Native Telegram is prepared but disabled by default; its protected
-activation and the separable optional Keycloak growth scrape are owned by the
-[private-dev procedure](../../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+the existing stack and deliver nothing: only production Grafana sends alerts to the
+owner's Telegram, through the
+[production procedure](../../../deploy/public-production/README.md#host-telemetry-and-alert-delivery)
+(#550). The separable optional Keycloak growth scrape is owned by the
+[private-dev procedure](../../../deploy/private-dev/README.md#separable-product-growth-rollout).
 The single optimized private Keycloak image compiles native event-metrics support;
 other consumers of the shared recipe retain its disabled build default.
 Base configuration bounds collection to registration/verification and realm tags.
@@ -234,14 +261,16 @@ remains **Continuous Delivery**: the owner dispatches the promotion workflow on 
 That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
 SHA. The workflow derives its unique trusted-main push build, current attempt and
 immutable digest from retained publication evidence, refusing missing, stale or
-ambiguous relationships without a latest-image or older-run fallback. It verifies
-main ancestry and successful quality/security/publication evidence before the
-credential-bearing job and rechecks the same tuple before connecting. The dev
+ambiguous relationships. It waits, within a bound, for that SHA's
+[private-dev admission evidence](../../development/continuous-integration.md#environment-admission),
+verifies main ancestry, and rechecks the same tuple before connecting. The host
+verifies that both the installed checkout and running application still identify
+the baseline used by selective admission. The dev
 environment retains its secrets and main-only deployment policy, with no reviewer,
 wait timer or custom approval gate and no administrator bypass. Actor and triggering
 actor must both be the owner. A merge never triggers deployment.
-The original host promotion is proven; acceptance of the refined dispatch flow is
-pending. The
+The original host promotion is proven. Promotion with the selective evidence
+policy requires separate real-host acceptance. The
 [runbook](../../development/operations-runbook.md#deploying-an-immutable-digest)
 owns its real-host evidence boundary. The
 [delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.
@@ -251,36 +280,30 @@ digest, run the selected image once as the migration actor, replace only the
 application container with that digest, wait for candidate readiness, run the
 deployment smoke against the candidate and the private HTTPS boundary, and record an
 external JSON evidence file that holds no credentials or personal data.
-Automation invokes this same command from a root-owned owner-installed checkout,
-without uploading or executing candidate source on the host. Its restricted account
-has no Docker group, interactive shell, forwarding or general sudo capability.
-Host verification binds the candidate's Git deployment-contract fingerprint to the
-clean installed checkout and a protected owner acknowledgement of the applied runtime.
-The source/main CI metadata is rechecked through public GitHub read-only access;
-the existing digest/tag/OCI checks bind the image to that successful source run.
-Only a sanitized receipt crosses SSH; deployment logs stay protected on the host.
-GitHub/API/network failures refuse promotion. Retained publication evidence may
-expire; successful old runs without that evidence cannot be promoted through Actions.
+Automation first moves the root-owned host checkout to the dispatched commit, after
+checking that the commit is reachable from `origin/main`, and then invokes that commit's
+deployment command. Deployment files therefore travel with the release, as they do in
+public production. The restricted account has no Docker group, interactive shell,
+forwarding or general sudo capability. The host makes no GitHub API calls; the existing
+digest/tag/OCI checks bind the image to the source revision. Only a sanitized receipt
+crosses SSH; deployment logs stay protected on the host. Retained publication evidence
+may expire; successful old runs without that evidence cannot be promoted through Actions.
 
-Application promotion recreates **only the application** after the one-shot
-migration. PostgreSQL, Keycloak, Mailpit, Grafana, Prometheus, Loki, Alloy, the Collector and
-catalogue-localizer keep their explicit owner-reviewed rollout procedures.
-The deployment preflight checks localizer health, the resolved Compose service hash
-(including the protected immutable model directory) and local image identity without
-recreating it. A helper outage blocks a new promotion while existing product reads
-remain available.
-Any change to deployment/runtime files or dependency bootstrap/configuration blocks
-promotion until the owner has applied the appropriate separate rollout and installed
-and acknowledged the matching checkout. Installing Git files alone never proves a
-runtime upgrade. The retired localization-overlay application label is accepted for
-transition to equivalent base settings; other active application overlays are refused.
-Protected runtime environment/secret edits also retain their separate rollout and
-rotation procedures. The normal manual deployment remains available for recovery.
+Before migrating, the deployment reconciles the persistent services with the installed
+revision's Compose definition. It builds the locally built images from cache, and Compose
+recreates only the services whose configuration or image changed. Unchanged PostgreSQL,
+Keycloak, Mailpit, Grafana, Prometheus, Loki, Alloy, Collector and localizer containers keep
+running. Overlays come only from persistent owner flags in the protected `runtime.env`. A
+service that does not become healthy, including a localizer whose model is missing, fails
+the promotion before migration. After the one-shot migration, only the application is
+force-recreated. Protected secrets, runtime values and state that recreation does not
+change, such as an existing Keycloak realm or database roles, keep their documented
+procedures. The normal manual deployment remains available for recovery.
 
 Migration failure leaves the previous application running. A readiness or smoke
 failure records a failed deployment even if another or older process still answers.
-The mechanism implements no automatic rollback; backup, restore, rollback assessment
-and host-loss recovery are separate owner-triggered controls. Deployment success is
+The mechanism implements no automatic rollback; a failed private-dev deployment is
+recovered by redeploying a schema-compatible image or a forward fix. Deployment success is
 not product acceptance or a named release.
 
 ## PostgreSQL, migrations, and recovery
@@ -293,16 +316,14 @@ Destructive changes use expand/contract and explicit recovery. An applied migrat
 is never reverted: application rollback is allowed only while the older image is
 schema-compatible, otherwise the recovery is a forward fix.
 
-Irreplaceable state is the application and Keycloak databases (ratings, identity
-mapping, product-owned curation). They are backed up together as per-database logical
-dumps encrypted to the owner's public key, so the host holds no decryption material,
-with a manifest, integrity sums and bounded retention; copying a backup off the host
-is an owner step. Roles, passwords and secret files are not backed up: a restore
-recreates roles from the protected files, which the owner must preserve separately.
-Restore is rehearsed in an isolated Compose project, never against the live one.
-Host-loss recovery composes the host foundation rebuild, restore and the normal
-deployment. Catalogue provider data may be resynced, but personal, identity and
-editorial state is never assumed disposable.
+Backups and every related process exist only in public production
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)); the
+[public production target](#public-production-target) owns their policy. There,
+irreplaceable state is the application and Keycloak databases (ratings, identity mapping,
+product-owned curation), and catalogue provider data may be resynced, but personal,
+identity and editorial state is never assumed disposable. Private `dev` keeps no backup:
+losing its host loses its identity and rating data, and recovery is the host foundation
+rebuild, the normal deployment and a catalogue resynchronization.
 
 ## Health, observability, privacy, and failure
 
@@ -314,9 +335,10 @@ personal data or credentials.
 
 Catalogue synchronization has opt-in recurring inbound policies and an exceptional
 internal management-port command, all calling `UC-009`; it is never a public request.
-Scheduling and provider failures are excluded from readiness. Private-dev scheduling
-is disabled by default until an owner-authorized exercise; executable Compose/runtime
-configuration owns environment passthrough. The
+Scheduling and provider failures are excluded from readiness. Production runs the daily
+near-term and the weekly upcoming policy; local and private `dev` run only the weekly policy
+([ADR-0037](../../decisions/0037-align-local-and-private-dev-with-production.md)), and
+executable Compose/runtime configuration owns the settings. The
 [runbook](../../development/operations-runbook.md#catalogue-synchronization) owns
 policy operation and the remaining evidence. PostgreSQL enforces one active run and
 fences an abandoned worker before a successor can write; run history is retained in bounded quantity,
@@ -331,8 +353,9 @@ owns the date interval, paging and partial-failure decisions.
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
 | Readiness/smoke failure       | Record deployment failure; recover by the assessed rollback or forward fix, never by reverting an applied migration |
-| Backup failure                | Report recoverability failure; do not claim release success                                                  |
-| Host loss                     | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the smoke   |
+| Backup failure (production)   | Report recoverability failure; do not claim release success                                                  |
+| Host loss (production)        | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the smoke   |
+| Host loss (private dev)       | Rebuild the foundation, redeploy, resynchronize the catalogue; identity and rating data is not recovered     |
 
 Standard OCI images, PostgreSQL logical backups, OpenTelemetry and private ingress
 preserve portability. Hosting reconsideration triggers belong to ADR-0019.
@@ -376,7 +399,7 @@ receipts keep the remaining validation boundary explicit.
 | Keycloak | Independent production realm/client/database. Dedicated HTTPS identity origin with canonical issuer; only necessary product-realm OIDC/login/resource routes public. Block admin console/API, master realm, health and metrics at the edge; admin hostname alone is not an access control |
 | PostgreSQL | Same supported PG family; separate application/identity databases and roles; runtime role without DDL, one-shot migration actor. No host/public database port |
 | Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
-| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
+| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through [private administration](#private-production-administration) only. Application logs travel over OTLP through the same Collector into one internal Loki ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)); other services keep bounded Docker history. No Alloy, published log port or Docker access |
 | Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
 | Recovery | Automated encrypted paired database backups uploaded directly to private OVHcloud Object Storage Standard, 1-AZ Gravelines, with Compliance retention, restricted credentials and independent verification; protected keys/configuration reconstruction and separate legal/ledger stores. Operational; real-host acceptance is recorded under #276; Lenovo is optional and expendable |
 
@@ -394,7 +417,7 @@ Account revocation and its management interface follow
 [below](#account-revocation-and-the-management-interface).
 
 The prepared configuration has two non-internal edge networks, one per upstream, that
-exist only for the published ports and the egress the application (provider) and
+exist only for the published ports and the egress the application (catalogue provider and configured feedback relay) and
 Keycloak (mail relay) need, plus two internal data networks; the application and
 Keycloak share no network, and only the proxy publishes ports. The proxy has a fixed
 address on each edge network and each upstream trusts forwarded headers from that
@@ -507,7 +530,8 @@ and running in private-dev; no revocation procedure has been operated on a host:
 durable access fence and an authenticated private management claim/acknowledgement operation.
 A protected administrative runner automatically invokes the existing #274 erasure steps.
 The owner-approved private-dev policy uses PostgreSQL recovery without external ledger/archive
-requirements; production activation retains independent evidence and #276 qualification.
+requirements; production retains independent evidence and runs the runner on the VPS with the
+#539 custody ([ADR-0047](../../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)).
 No SSH connection originates in the web application and no management port becomes browser-reachable.
 The [ADR amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 owns the changed revocation decision; the
@@ -561,6 +585,25 @@ local harness:
   log off and no event listener added outside the realm.
 - Startup import applies only when the realm is absent. A later policy change needs a
   reviewed apply step against the live realm, never a re-import over accounts.
+
+**Password policy (#473, owner-approved 2026-11-11; prepared in source, not deployed):**
+8 to 128 characters, never the email or containing it, no composition rules, and common
+or breached passwords refused through Keycloak's native `passwordBlacklist` policy. Both
+realm imports carry the same value. The denylist is the NCSC top-100k breached passwords,
+from SecLists (MIT) at a pinned commit, reduced to the lowercase entries the length
+policy would accept. [`build-password-denylist.py`](../../../scripts/build-password-denylist.py)
+owns its source, digest and regeneration. The shared Keycloak image ships it in
+Keycloak's default denylist folder, because every runtime is read-only. The image must
+therefore be deployed with or before the policy that names it. Keycloak 26.7.5 refuses
+to start at all while a realm names a missing list (verified with the stock image).
+Before returning to an image without the list, restore the realm's snapshotted policy
+through the running Keycloak, or restore the paired identity database. Private-dev and local
+realms receive the policy through the snapshotted identity alignment. Production
+receives it only through the private upgrade's reviewed realm delta: the session actor
+applies exactly the approved value with its snapshot and restore, and the upgrade then
+verifies it. Lowering the minimum leaves existing passwords valid; the policy applies at
+the next password choice. Both password screens state the minimum, and the theme words
+the denylist refusal.
 
 **Remember Me prepared in source (#374), not deployed:** the same native opt-in
 flow, mapper and BFF policy serve local, private-dev and prepared production.
@@ -634,13 +677,13 @@ measured peak and the production OOM recorded in the
 | PostgreSQL including charged page cache | 0.75 |
 | Keycloak including JVM native memory | 0.75 |
 | Catalogue localizer, [revised by #452](../../development/operations-runbook.md#private-production-localization-and-grafana-stabilization) | 1.75 |
-| Collector / Prometheus / Grafana total | 0.625 |
+| Collector / Prometheus / Grafana / Loki / Tempo total, with the host sampler | 1.34 |
 | HTTPS edge | 0.125 |
-| Steady service ceilings total | **5.50** |
+| Steady service ceilings total | **6.22** |
 | One deployment/backup actor, serialized | 0.50 |
 | Host kernel/Docker/OS allowance | 1.00 |
 | Historical #275 remainder at 8 decimal GB (~7.45 GiB), computed with the former 0.75 GiB localizer | **~1.45** |
-| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.90** |
+| Planning remainder at advertised 16 decimal GB (~14.90 GiB), with these allocations | **~7.19** |
 
 The provider's actual reported RAM decides usable headroom. Require at least
 20% available host memory under the qualification workload, no OOM/sustained swap
@@ -650,7 +693,9 @@ selected plan and repeat the focused proof before approval; never call container
 ceilings measured resident usage. Shared vCores are not reserved physical cores.
 Serialize deployment/backup/heavy sync, bound translation concurrency and keep
 product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
-The monitoring allocation includes 576 MiB of steady services and a separate
+The monitoring allocation includes 1312 MiB of steady services, of which Loki holds
+384 MiB ([ADR-0040](../../decisions/0040-aggregate-production-application-logs-in-loki.md)) and Tempo
+320 MiB ([ADR-0046](../../decisions/0046-keep-sampled-production-traces-in-tempo.md)), and a separate
 64 MiB sampler reserve. The 512 MiB migration actor shares the short-lived actor
 allowance with backup work; it is not steady application capacity. Recovery lease and
 HTTP helper containers each have a 96 MiB ceiling and must be counted alongside
@@ -755,16 +800,20 @@ approves D3 (expiry wins over the rehearsal pin), D6 (separate-store locks) and 
 thresholds), detailed in the
 [decision table](../../research/public-production-backup-storage.md#owner-decisions-before-bucket-creation). Cloud expiry defaults to planning; explicit execution uses
 configuration/protection preflight, durable intent and verified exact-version absence. The
-[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is installed in private production: it refuses predictable failures before fencing, uploads only after reopening, and
+[scheduled cycle](../../../deploy/public-production/README.md#scheduled-backup-cycle-276) is installed in private production: it refuses predictable failures before capturing, captures online by default ([ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)), falls back to the fenced capture only when the host cannot hold the online copy, uploads only after the capture, and
 reopens only a fence it created. Every other fence stays closed for its owner. Public exposure, deletion-ledger barriers and archive-specific duties retain their separate acceptance requirements; do not rebuild the installed backup infrastructure. Size the
 independent destination and prove the scheduled copy/check cadence; a dump left on the VPS is not a
 backup against host/account loss. Failure/age must reach the owner through a tested private channel.
 If this cannot operate within the budget, do not open accounts.
 
-Two per-database dumps do not create one cross-database transaction. Quiesce rating
-writes and registration/identity mutation while capturing the pair, verify the
-application-principal/Keycloak relationship on isolated restore, and record the
-common recovery point. Restoration must reapply post-backup deletion requests before
+Two per-database dumps do not create one cross-database transaction. A pair therefore
+needs one common point for both databases: either quiesce rating writes and
+registration/identity mutation while capturing it (the fenced capture), or dump both
+from a private offline copy of the whole cluster taken at one WAL position (the online
+capture of [ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)), which holds exactly the state a power loss at
+that position would leave. Only a fenced pair can be the pre-upgrade point an in-place
+upgrade consumes. Verify the application-principal/Keycloak relationship on capture and
+on isolated restore, and record the common recovery point. Restoration must reapply post-backup deletion requests before
 reopening and invalidate old sessions as appropriate. Keep a minimal protected deletion
 ledger outside both databases and the VPS while any backup able to restore the deleted
 data exists; replay it idempotently and verify the result before reopening.
@@ -841,16 +890,20 @@ Private-dev credentials/forced commands authorize only private-dev. No automatic
 extra environment or general root command interface is introduced.
 
 The actor derives validated immutable publications and operational fingerprints for the selected
-SHA, then consumes a fresh paired backup's continuous write fence, existing durable S3 publication
-and a real isolated restore by a separate ephemeral GitHub-hosted job in the protected
-`production-recovery` environment. Both it and `production` require owner approval and `main` only.
+SHA, then requires an existing durable S3 publication and a real isolated restore by a separate
+ephemeral GitHub-hosted job in the protected `production-recovery` environment of a fresh pair taken
+online, while the product serves ([ADR-0043](../../decisions/0043-reduce-planned-downtime-with-online-captures-and-an-application-handover.md)). A compatible application-only release
+then hands over without a fence; every other release consumes the continuous write fence of a
+fenced pair taken after that restore, at most three hours after the restored pair and with equal
+runtime and schema identities. Both it and `production` require owner approval and `main` only.
 The recovery job alone imports the owner-authorized key copy and existing read-only S3 identity;
 the original WSL copy remains independent, and no decryption key reaches the VPS/deployment job.
 Prefer a decrypt-only subkey export; the explicit primary-encryption fallback and custody risk are
 recorded in [ADR-0036](../../decisions/0036-use-protected-actions-for-production-recovery.md).
 Readiness proves key usability, S3 admission and runner capacity before fencing. Immutable same-run
 artifacts bind request, backup, plan and recovery nonce; apply independently requires successful
-recovery-job completion after verified cleanup. The recovery fence persists across job/SSH handoffs.
+recovery-job completion after verified cleanup. A fenced restored pair (the memory fallback) keeps
+its fence across job/SSH handoffs.
 Scheduled backup locks and recovery leases are reused without changing timers; their foreign-fence
 checks prevent scheduled reconciliation from reopening a deployment's backup.
 After verified activation, the same rollout reconciles
@@ -866,7 +919,10 @@ owner inspection chooses resume, forward fix or isolated recovery, without blind
 Retain the previous digest and recovery point. Failed migration prevents activation;
 failed readiness/smoke is recorded as failure. An application rollback requires
 schema compatibility; otherwise use a forward fix or assessed restore. Never revert
-an applied migration. One replica means deployment interruption and no HA promise.
+an applied migration. One replica means no HA promise. A compatible application-only release
+hands over through a temporary candidate behind the edge, so public reads continue; BFF sessions
+stay in each instance's memory (ADR-0027) and end when it stops. Every other release interrupts the
+product behind the edge's maintenance response for its fenced capture, migrations and restart.
 IGDB/CDN/helper/telemetry failures preserve database-only reads; overload returns
 controlled bounded failure and admission restrictions instead of unbounded queues.
 Close public ingress on an unresolved security/data-integrity failure.
@@ -892,7 +948,7 @@ native registration flow and per-account temporary lockout remain unchanged.
 | Product API (opt-in experiment) | [`application.yaml`](../../../backend/src/main/resources/application.yaml) owns the initial eight synchronous requests, including at most two writes. [`ApiAdmissionInterceptor`](../../../backend/src/main/java/com/videogameplatform/api/delivery/ApiAdmissionInterceptor.java) admits work after authentication/CSRF and before body conversion/controllers; rejects immediately and releases admission on completion, including failures | Eight is below the default ten-connection pool, but HTTP admission does not reserve two connections or measure DB occupancy. These values are uncalibrated hypotheses; eight requests may still contend with synchronization. An actor can monopolize capacity; admission is not fairness or sustained-rate control |
 | Public reads | Existing page/search/release-group bounds, PostgreSQL filtering/counting/order/paging, JDBC timeouts and HTTP validators remain the cost boundary | Deep offsets and exact counts still cost database work. No index/query rewrite is justified by this increment; the existing query timeout and admission limit bound concurrent damage, not dataset-independent SQL cost |
 | Personal writes | Existing principal-derived identity, session revocation, CSRF, DB constraints and ETag preconditions remain authoritative | No caller-selected owner or mutable in-memory quota is introduced. Retries after uncertain write outcomes still require a fresh read and explicit user action |
-| Keycloak | [`abuse.env`](../../../deploy/public-production/keycloak/abuse.env) owns the initial eight HTTP workers, sixteen queued requests, five DB connections and selected native event metrics. Private-dev's Compose has the same resource hypothesis | Keycloak returns native 503 beyond its queue; it does not promise the API Problem body or Retry-After. This limits resource accumulation, not signup/reset frequency or SMTP volume |
+| Keycloak | [`abuse.env`](../../../deploy/public-production/keycloak/abuse.env) owns the initial eight HTTP workers, sixteen queued requests, five DB connections, selected native event metrics and the log level, which silences the session-logout warnings that would name an account's email. Local and private-dev Keycloak read the same file | Keycloak returns native 503 beyond its queue; it does not promise the API Problem body or Retry-After. This limits resource accumulation, not signup/reset frequency or SMTP volume |
 | BFF identity navigation | Existing state, nonce, PKCE, callback allowlist, server-side tokens and session bounds | The BFF never sees direct browser submissions to Keycloak. Protecting only `/auth/start` cannot control identity abuse |
 
 When admission is enabled, the product contract declares capacity rejection in [OpenAPI](../api/openapi.yaml):
@@ -944,7 +1000,7 @@ and read/write/idle time.
 
 | Class | Per source | Aggregate |
 |---|---|---|
-| Product host | All requests; BFF identity navigation (`/auth/*`, `/login*`); catalogue reads; search and release exploration; writes | All requests; API; API writes |
+| Product host | All requests; BFF identity navigation (`/auth/*`, `/login*`); catalogue reads; search and release exploration; writes; feedback | All requests; API; API writes; feedback |
 | Identity host | All requests except the BFF's issuer calls; login submissions and non-BFF token requests; registration; recovery; the verification step; emailed action links and required actions | All requests except BFF calls; login; every mail-triggering path; BFF issuer calls |
 
 The thresholds started from the #274 candidates (reads 10/s with burst 40, login
@@ -955,6 +1011,12 @@ because every per-source limiter holds its events until its window passes. They 
 aggregate budgets are not measured against VPS headroom, and no limit protects against
 distributed abuse. Sliding windows count attempts whether or not an address exists;
 no submitted email, owner ID or session cookie is ever a key.
+
+Feedback has a separate rolling per-source quota and aggregate budget in the existing
+edge. Its budget is separate from identity-mail requests. The two consume relay quota
+when both use the same provider account, so the operator must verify their combined
+volume before enabling feedback. Local and private-dev use the bounded capture sink
+without this public edge.
 
 - **Source identity.** Only the TCP peer keys a limit: one IPv4 address, or one IPv6
   /64 so a client cannot rotate addresses inside its prefix. No proxy is trusted, so no

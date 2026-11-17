@@ -11,7 +11,7 @@ for `vgpdev`.
 Evidence standard: a procedure appears here as **proven** only when the owner ran it
 and recorded the outcome in the linked issue or pull request. Anything else is marked
 **not exercised**. Repository validation (for example
-`scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
+`scripts/test-private-dev-deployment.sh`) proves logic, not host behaviour.
 
 The accepted MVP is private, single-host and zero-cost. Nothing here claims public production,
 high availability or automatic recovery. Retained private-dev metrics and aggregated logs are
@@ -267,7 +267,9 @@ inspection; this alert set has no independent watchdog.
 
 ## Telegram delivery
 
-Follow the [single setup/activation procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+Only production Grafana delivers alerts; private-dev delivers none
+([#550](https://github.com/rubhern/videogame-platform/issues/550)). Follow the
+[production activation procedure](../../deploy/public-production/README.md#host-telemetry-and-alert-delivery).
 In Grafana, inspect Alerting's rule instances, notification policies, contact point
 and notification errors. A firing rule does not prove message delivery. For failed
 HTTPS sends, inspect the bounded Grafana info logs for redacted errors, token revocation,
@@ -323,27 +325,63 @@ for host loss and stale backup checks under #276.
 
 Open **Gameómetro · Growth** for observed registrations, verification actions and
 rating commands. Check source/target health and the activation date before treating
-an empty or zero value as no activity. The optional Keycloak overlay needs a separately
-reviewed rollout and a rebuilt private image with event metrics compiled before
-optimized startup. Runtime enablement alone caused the earlier rolled-back startup
-failure; keep the base rollback state until the corrected targeted rollout is approved.
-The [operator procedure](../../deploy/private-dev/README.md#separable-product-growth-rollout)
-owns preparation, old-image recovery and post-rollout acknowledgement. Do not change
-public identity/verification policy for these metrics.
+an empty or zero value as no activity. The optional Keycloak/Prometheus overlay is
+applied by every promotion while `PRIVATE_DEV_PRODUCT_GROWTH_ENABLED=true`; the private
+Keycloak image compiles event metrics before optimized startup. The
+[operator procedure](../../deploy/private-dev/README.md#separable-product-growth-rollout)
+owns enabling, verification and disabling. Do not change public identity/verification
+policy for these metrics.
 No growth activity while idle is normal, and an email-verification event is not a new
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
 
-Registration notices are opt-in window observations. No closing message is sent when
+Registration notices are window observations, sent by production only, with its alerts. No closing message is sent when
 the window ends; several registrations can share one notice, and sparse/restarted
 collection can miss one. The displayed count is an estimate, not an exact account
-total. Live Telegram remains pending owner credentials and
-separate send approval; a passing TLS mock is not delivery evidence. Ratings counters
+total. A passing TLS mock is not delivery evidence; the owner's contact-point test is. Ratings counters
 only observe committed
 commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
 the current active SQL total for inventory, never counter subtraction or a rolling
 window for a lifetime milestone. The [durable follow-up proposal](observability.md#proposed-durable-notification-follow-up)
 owns the remaining business-delivery semantics. No milestone notification is enabled.
+
+## Product analytics (GA4)
+
+Consent-gated Google Analytics 4 (#507,
+[ADR-0038](../decisions/0038-measure-product-use-with-consent-gated-ga4.md)) is off in every
+deployment until production configures a measurement ID. The application owns what it sends;
+the property's own settings are owner operations that must match the decision before the ID is
+configured:
+
+1. Create one GA4 property for Gameómetro (time zone Europe/Madrid, currency EUR) with a
+   single **Web** data stream for `https://gameometro.com`. Its **Measurement ID**
+   (`G-…`) is public, not a secret.
+2. In the data stream, turn **Enhanced measurement** off entirely. The application sends its
+   own page views from route templates; enhanced measurement would add raw URLs, site search
+   terms and outbound links.
+3. **Data retention**: event data 14 months. **Data collection**: Google signals off.
+   **Ads personalization**: off for every region. **Account data sharing settings**: all off.
+4. In the account details, review and accept the **Data Processing Terms** and record the
+   controller's contact. Confirm Google LLC's active
+   [Data Privacy Framework](https://www.dataprivacyframework.gov/) certification.
+5. Define the owner's address as **internal traffic** and set the *Internal Traffic* data
+   filter to **Active**.
+6. Register the event-scoped custom dimensions the application sends: `route`,
+   `previous_route`, `authenticated`, `has_rating`, `action`, `mode`, `platform_count`,
+   `step`, `count`, `state`, `period`, `direction`, `offset`, `list`, `position`,
+   `filter`, `results` and `intent`. The
+   [event dictionary](../../frontend/src/features/analytics/events.ts) owns their values.
+7. Activate with a reviewed change that sets `APPLICATION_GA4_MEASUREMENT_ID` on the
+   production `application` service and in the production runtime contract test, then
+   upgrade. A malformed ID refuses startup. Check the public read
+   (`/api/v1/web-analytics`), accept the notice in a clean browser profile and watch
+   **Realtime**; page locations must show route templates only.
+
+To stop measuring, remove the ID the same way: the notice, the footer control and every Google
+request disappear, and the document policy closes again. Deleting collected data is a property
+operation (data deletion request or property deletion). Review Q1–Q4 of the
+[evaluation](../research/product-analytics.md#validation-and-stop-criteria) 6–8 weeks after
+activation.
 
 ## Log aggregation and search
 
@@ -428,18 +466,25 @@ Owner: [Backend README](../../backend/README.md) for the command semantics,
 for reconciliation,
 [`application.yaml`](../../backend/src/main/resources/application.yaml) for executable
 policy defaults and bounds, `backend/.env.example` for local configuration and
-[`runtime.env.example`](../../deploy/private-dev/runtime.env.example) for private-dev
-opt-in/overrides. These are acquisition policies, not product/business invariants.
+[private-dev Compose](../../deploy/private-dev/compose.yaml) for private-dev settings. These are acquisition policies, not product/business invariants.
 
 Post-MVP (#155, implemented and accepted in private dev): opt-in recurring near-term
 and upcoming policies invoke the same UC-009 application path as the exceptional
-`POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off,
-independently of credentials. Each policy accepts a six-field Spring cron; `-`
+`POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off in
+`application.yaml`, independently of credentials. Public production turns it on with the
+default policies and no cron override (#484). Local and private dev turn it on with only the
+weekly upcoming policy: the near-term cron is `-`
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)). The
+[production upgrade](../../deploy/public-production/README.md#in-place-upgrade-of-the-installed-runtime)
+owns that guard. Each policy accepts a six-field Spring cron; `-`
 disables only that policy. Non-negative past/future day offsets derive an inclusive
 window from one evaluation of the application clock in `Europe/Madrid`; neither the
 host timezone nor the UTC provider date-query boundary changes this evaluation.
-Configuration changes take effect on application recreation. Invalid cron/windows
-are configuration errors detected at startup.
+Cron changes take effect on application recreation. Since #450 the configured windows are only
+the defaults of the four synchronization window settings an operator may override under
+**Ajustes** ([product settings](#product-settings)); a changed window applies from the next
+scheduled run. Invalid cron expressions, and windows outside their setting's range, are
+configuration errors detected at startup.
 
 Initial policy rationale: daily off-peak near-term refresh covers the weeks around today
 that release exploration opens on. Weekly upcoming refresh covers
@@ -451,13 +496,10 @@ are not merged. Repeated pending occurrences of the same policy coalesce into on
 and each successful run refreshes the coverage of its own window.
 
 The widest future window among the policies not disabled with `-` (the upcoming policy's
-180 days by default) is also the configured forward acquisition horizon that bounds
-Destacados's monthly navigation ([UC-010](../architecture/application/mvp-use-cases.md)):
-months stop at the last month lying wholly inside it. It applies whether or not
-`CATALOGUE_SYNC_SCHEDULING_ENABLED` is on, because it states the configured intent, not
-completed coverage. Narrowing or disabling the upcoming policy therefore shortens how far
-forward visitors can browse months, from the next application start; check coverage before
-claiming that a browsable month was actually acquired.
+180 days by default) is the configured forward acquisition horizon. Since #450 it no longer
+bounds Destacados's monthly navigation: the months-forward setting does, and **Ajustes** warns
+when Destacados, the calendar or Próximos destacados reach beyond the horizon. Check coverage
+before claiming that a browsable month was actually acquired.
 
 One dedicated scheduler thread serializes recurring work. If a long run delays the
 other policy, its date window is evaluated at actual invocation. Missed occurrences
@@ -670,10 +712,59 @@ a `page lookup unavailable` line names the provider failure of a logo lookup. In
 featured evidence keeps its last valid state; a valid missing/zero Hypes or missing first
 release excludes a Game from ranking. The forward migration removes Visits data, so
 re-synchronize the desired months after upgrading; it never converts Visits to Hypes.
+Since #458 the same run also reads, once per provider page, each Game's Want to Play and Visits
+and a derived product's parent signals (ADR-0041); a failed lookup is a `page lookup unavailable`
+line with the `provider_attention` stage and keeps the last valid signals. Explicit repair does not
+refresh them. After upgrading to that version, re-synchronize the months Destacados should rank, or
+the new signals stay absent and the ranking rests on Hypes and editorial lists alone.
 `catalogue.featured.selection{freshness="stale"}` or `{status="popularity_unavailable"}`
 on reads means the next run should cover that period, and a high `lead_image="fallback"`
 share means its Games have no usable artwork or screenshot yet. Explicit
 current-release repair refreshes featured evidence with each Game but does not look up logos.
+
+### Editorial anticipation lists
+
+Release attention takes the editorial weight (half by default, see [product settings](#product-settings))
+from the operator's editorial anticipation list for the period (`UC-023`, ADR-0041). Once a month, before the month starts and again when the press changes
+its mind, open **Interés editorial** in `/administracion/catalogo`:
+
+1. Choose the period (a calendar month by default, at most 92 days) and copy the prompt into a
+   language model with web search.
+2. Download the JSON file the model delivers and choose it under **Fichero** (or paste the answer
+   when the model could not create a file), then **Previsualizar**. Nothing is stored yet.
+3. Review the warnings. Use **Elegir juego** for an unmatched or ambiguous entry, for example a
+   bundle that should score its main game, and **Excluir** for an entry that should not count. A
+   date that differs from the catalogue is information only, and the catalogue keeps its date.
+4. **Cargar lista**. Loading the same period again replaces its list; that is how a correction is
+   made. A list overlapping another period is refused until that list is deleted.
+
+The list changes Destacados, Explorar's **Interés** order, the calendar's day preview and
+Próximos destacados on the next read. Deleting it returns its period to the provider signals
+alone. No model or provider is called by the application.
+
+### Product settings
+
+Owner: [ADR-0042](../decisions/0042-manage-approved-product-settings-in-postgresql.md) and
+[`UC-024`](../architecture/application/mvp-use-cases.md#product-settings-uc-024-post-mvp-450);
+`ProductSetting` owns the keys, ranges and defaults. Open **Ajustes** in
+`/administracion/catalogo` with an operator session:
+
+1. Change the values, or **Restaurar por defecto** for a value an operator set, then **Guardar
+   cambios**. Every change in one save applies, or none does. A warning that another change came
+   first means the page has read the current values again: review them and save again.
+2. Read the coverage notice under **Sincronización programada**. When Destacados, the calendar or
+   Próximos destacados reach beyond the scheduled acquisition, either widen the weekly days
+   forward (applied at the next scheduled run) or request a synchronization of that interval in
+   **Ejecuciones**. Showing a period never acquires it.
+3. Public pages use the new values from their next request; there is no restart. Each accepted
+   save logs `Product settings changed` with the revision and the changed keys.
+
+Recovery: **Restaurar por defecto** for one value. If a stored value no longer fits a later
+release, the page labels it as not valid and the default already applies. To return every
+setting to its default without the page, delete the overrides with the migration role:
+`DELETE FROM catalogue.product_setting;`. The audit in `catalogue.product_setting_change` keeps
+the history, and backups carry both tables with the rest of the catalogue schema.
+
 
 The same Game request also acquires the summary, developer and publisher credits, genres and
 game modes that the game page serves (#233). A valid answer replaces them, including clearing
@@ -795,102 +886,38 @@ The deterministic tool tests are `python3 scripts/test-repair-release-stages.py`
 backend tests cover completeness, ownership, same-reference identity, per-Game rollback,
 idempotence, public evidence/eligibility and private management boundaries. The
 [migration policy](database-migrations.md) owns deployment compatibility. Rolling back only
-the application cannot restore deleted provider records; the existing
-[backup and restore procedure](#backup-integrity-and-isolated-restore) owns recovery of data.
+the application cannot restore deleted provider records; in private dev, which keeps no
+backup, a resynchronization reacquires them ([private-dev recovery](#private-dev-recovery)).
 
-## Backup, integrity and isolated restore
+## Private-dev recovery
 
-Owner: [Backup, restore, rollback and host-loss recovery](../../deploy/private-dev/README.md#backup-restore-rollback-and-host-loss-recovery)
-and `deploy/private-dev/bin/{backup,verify,restore}-private-dev`.
+Owner: [Rollback and host-loss recovery](../../deploy/private-dev/README.md#rollback-and-host-loss-recovery).
 
-Proven end to end on 2026-09-19 (#44, PR #166):
+Private dev keeps no backup since 2026-11-09
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)); backups,
+restore and their rehearsals exist only in
+[public production](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate).
+The retired private-dev backup, isolated restore and rollback assessment were proven on
+2026-09-19 (#44, PR #166); that evidence no longer describes a current procedure.
 
-1. `backup-private-dev` on `vgpdev` dumped `videogame_platform` and
-   `videogame_keycloak`, encrypted both to the owner's public key (private key never on
-   the host), wrote the manifest and `SHA256SUMS`, self-verified and applied retention.
-2. `verify-private-dev-backup` passed on the host, and again after the backup was
-   copied off-host. Copying it off the host is a manual owner step; it is what makes the
-   backup "outside the host".
-3. `restore-private-dev` rebuilt a clean volume in a distinct Compose project on an
-   Ubuntu 24.04 WSL2 machine, bootstrapped roles from the protected files, restored
-   both dumps and verified: Flyway schema version, presence of `catalogue.game` and
-   `catalogue.game_release`, the `videogame-platform` realm and its account count.
-4. Keycloak and the deployed application image started healthy against the restored
-   state; readiness returned `UP`; `GET /api/v1/releases` served restored catalogue
-   data; the realm exposed its OIDC discovery document.
-5. The rehearsal project was destroyed with
-   `docker compose ... --project-name <isolated-project> down --volumes`.
+Rollback versus forward fix: an applied migration is never reverted. Redeploy an older
+digest only while it is schema-compatible; otherwise fix forward on `main`. Every real
+`vgpdev` recovery so far was a forward fix (#144–#149, #166, #170); redeploying an older
+digest as a rollback has **not** been exercised.
 
-Verification scope, stated precisely:
-
-- Identity mapping: proven through the restored Keycloak realm and accounts. Product
-  `UserId` values are the `(issuer, subject)` pair ([ADR-0007](../decisions/0007-use-keycloak-as-the-initial-identity-provider.md)), so the Keycloak database is part of the
-  irreplaceable state and is always dumped with the application database.
-- Product-owned curation and application state: proven through the schema version and
-  catalogue tables; the dump is a complete logical copy of `videogame_platform`.
-- Ratings: included in the application dump because it is a complete logical copy of
-  `videogame_platform`, but ratings-specific continuity after a restore has **not**
-  been exercised and is not claimed as proven. #45 accepted the MVP without repeating
-  the rehearsal after ratings existed.
-
-Not backed up, by design: PostgreSQL roles and passwords, `runtime.env` and the
-secret files. A restore recreates roles from the protected files, so those files are
-themselves irreplaceable for a clean restore and must be preserved by the owner
-outside the host. This is a documented limitation, not a proven procedure.
-
-Destructive: `restore-private-dev --confirm-destroy-isolated-target` destroys the
-named isolated project's volumes only; it refuses the live project name. On a fresh
-host with no live stack, naming the live project as the isolated target is the
-recovery path described below.
-
-## Rollback versus forward fix
-
-Owner: [Rollback versus forward fix](../../deploy/private-dev/README.md#rollback-versus-forward-fix)
-and `deploy/private-dev/bin/assess-recovery-strategy`.
-
-Decision rule: an applied migration is never reverted. Run the assessment with the
-candidate image's packaged Flyway version and the live database:
-
-- `ROLLBACK`: the candidate is schema-compatible. Redeploy its digest with the normal
-  deployment command; the migration step finds nothing to apply.
-- `FORWARD_FIX`: the database is ahead and the intervening migrations are not
-  confirmed expand-only. Fix on `main`, publish, deploy the new digest.
-- `REFUSE`: inputs are inconsistent; do nothing until they are explained.
-
-Proven (#44): the assessment returned `ROLLBACK` for a previously successful image at
-the same Flyway version and `FORWARD_FIX` when the schema was ahead. Every real
-`vgpdev` recovery so far was a forward fix (#144–#149, #166, #170); an actual
-redeployment of an older digest as a rollback has **not** been exercised.
-
-## Host-loss recovery
-
-Owner: [Host foundation](../../deploy/private-dev/README.md#host-foundation)
-and [Host-loss recovery](../../deploy/private-dev/README.md#host-loss-recovery).
-
-The flow composes owned steps: rebuild the host foundation, prepare the runtime and
-protected files, restore the latest verified backup with `--host-loss-recovery` and a
-current deletion-ledger copy, which replays every erasure before any deployment can
-start, provision the smoke account, deploy the last-good digest, record the outcome.
-The host-loss mode, its refusals and the deployment block are proven only offline
-(`scripts/test-private-dev-backup-recovery.sh`, `scripts/test-private-dev-deployment.sh`);
-a real host-loss restore with replay has **not** been exercised.
-
-Accepted evidence boundary (owner decision on #44, 2026-09-19): the restore-and-run
-part was proven on a compatible Ubuntu 24.04 environment. Physical-host provisioning,
-boot-time systemd behaviour, OpenSSH/Tailscale setup, Tailscale Serve and the official
-`deploy-private-dev` smoke were deliberately not re-run for recovery and remain
-limitations, not claims. The original host preparation itself is proven once (#124,
-#43).
+Host loss: rebuild the [host foundation](../../deploy/private-dev/README.md#host-foundation),
+deploy the last-good digest, re-provision the smoke account and identity configuration, and
+resynchronize the catalogue. Accounts and ratings are lost. **Not exercised.**
 
 ## Secret rotation
 
 **Not exercised.** No credential, client secret, Keycloak admin password, IGDB
-credential or backup key has been rotated on `vgpdev` since creation. The
+credential has been rotated on `vgpdev` since creation. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
 states the constraint (replacing a file does not rotate an already-created PostgreSQL
 role or imported Keycloak client; the owning service state and the file must change
 as one reviewed operation), but there is no proven sequence. Do not improvise one
-during an incident: open an issue, rehearse on the isolated restore project first,
+during an incident: open an issue, rehearse on a disposable local stack first,
 and add the procedure here after it has run.
 
 ## Incident handling
@@ -907,16 +934,15 @@ issue or chat.
 
 | Symptom | Seen | Contain and restore | Evidence to collect |
 |---|---|---|---|
-| Deployment records `failure` at a smoke phase while the candidate answers | Yes: CSRF logout `403` behind Tailscale Serve (PR #170); OIDC profile and metric-order failures (#146–#149) | Leave the previous or candidate container as is; run the assessment; fix forward on `main` and redeploy. | Evidence JSON (phase, completed checks), smoke output with Problem Details, `docker compose logs application`, correlation id |
-| Deployment stops at the migration phase | Not yet on `vgpdev` | Nothing was activated. Diagnose from the migration actor output; fix forward. Never edit an applied migration. | Migration actor output, current `flyway_schema_history` version from the assessment |
-| Restore verifier fails on a real backup | Yes: verifier checked non-existent `public.*` tables (PR #166) | The live stack was untouched; fix the tool, rerun the isolated restore. | Restore output, backup id, manifest |
-| Releases page shows `CATALOGUE_NOT_READY` | Expected after a clean restore/deploy without a sync | Not an incident; run a synchronization when catalogue data is wanted. | `GET /api/v1/releases` response |
+| Deployment records `failure` at a smoke phase while the candidate answers | Yes: CSRF logout `403` behind Tailscale Serve (PR #170); OIDC profile and metric-order failures (#146–#149) | Leave the previous or candidate container as is; compare migration versions; fix forward on `main` and redeploy. | Evidence JSON (phase, completed checks), smoke output with Problem Details, `docker compose logs application`, correlation id |
+| Deployment stops at the migration phase | Not yet on `vgpdev` | Nothing was activated. Diagnose from the migration actor output; fix forward. Never edit an applied migration. | Migration actor output, current `flyway_schema_history` version |
+| Releases page shows `CATALOGUE_NOT_READY` | Expected after a clean deploy without a sync | Not an incident; run a synchronization when catalogue data is wanted. | `GET /api/v1/releases` response |
 | Synchronization reports failure or partial success | Not yet on `vgpdev` | Local reads keep serving the previous publication. Read the last run, fix credentials or wait out the provider, rerun the same interval (idempotent). | Last-run report, `catalogue.synchronization.*` meters, application log outcome code |
 | Login loops locally after a fresh `.env` | Yes, locally | Documented in [local setup](local-setup.md#disposable-reset). | `local-dependencies.sh verify` output |
-| Host unreachable or storage lost | Not yet | Host-loss recovery above. | Latest verified off-host backup id |
+| Host unreachable or storage lost | Not yet | [Private-dev recovery](#private-dev-recovery): rebuild and redeploy; data is not recovered. | Host and disk state, last-good digest |
 
 Record: for a deployment, the JSON evidence file; for a recovery or acceptance, an
-issue comment in the form used on #44 and #45 (what was proven, the backup id,
+issue comment in the form used on #44 and #45 (what was proven, the
 digest, migration version and outcome, and the explicit evidence limitation). Open a
 follow-up issue when a cause remains unresolved or corrective work is still needed.
 
@@ -931,6 +957,44 @@ configuration command are proven in the real identity gate. The workstation
 ([local setup](local-setup.md#password-recovery-and-mailpit)), and the rollout, live
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
+
+## Google and Microsoft sign-in
+
+Owners: the [public-production README](../../deploy/public-production/README.md#google-and-microsoft-sign-in-548)
+for enabling, rotating and disabling on the production host, the
+[private-dev README](../../deploy/private-dev/README.md#google-and-microsoft-sign-in) and
+[local setup](local-setup.md#google-and-microsoft-sign-in).
+**Disposable-gate evidence only, 2026-11-14 (#548):** `validate-social-sign-in.sh` proves the
+reviewed flow on stand-in OIDC providers. Real Google and Microsoft registrations, sign-in on
+`vgpdev` and in production are **not exercised**; record their first run in #548.
+
+| Symptom | Contain and restore |
+|---|---|
+| A provider is down or refuses | The sign-in page reports it in Spanish and email and password keep working. Wait; nothing to change |
+| A provider secret leaked or expired | Revoke or create it at the provider, replace the owner file and apply again |
+| A provider must stop at once | `--disable` (production) or the matching local/private-dev command; linked identities stay |
+| A person lost their Google or Microsoft account | They recover access with password recovery for the account's email; the link stays until an operator removes it through the Admin API on request |
+| A person asks to unlink a provider | Remove that federated identity through the Admin API only if the account keeps a password or another provider |
+
+## Visitor feedback mail
+
+Use one synthetic message with a unique marker and no personal information. In
+local packaged and private-dev environments, inspect the existing owner-only
+Mailpit UI. For an authorized
+[production activation](../../deploy/public-production/README.md#feedback-receiving-channel),
+verify the marked message in the configured inbox, check sender and content, and
+remove the test copy. Exercise refusal or interruption in a disposable environment
+and verify the form retains the draft without reporting success.
+
+For a failed or ambiguous send, use the route, correlation ID and stable error
+code in the application request telemetry. In production, the
+[log exploration](observability.md#production-log-exploration) queries tell a disabled
+channel from a relay refusal. Check the configured channel, relay
+quota and SMTP connectivity without logging SMTP exchanges, addresses or message
+content. A relay acceptance only confirms handoff. Check the relay's delivery or
+bounce evidence and the mailbox before retrying an ambiguous smoke test. Review
+and minimize real correspondence according to the
+[processing record](data-protection.md).
 
 ## Personal-data requests and account revocation
 
@@ -991,7 +1055,8 @@ personal-data-ledger --ledger <ledger> --host-command "<host command>" \
 
 The JSON holds the Keycloak profile (with any names stored before they stopped being
 collected), the account's current Keycloak sessions with their start, last access and
-IP address, every rating with its game, title, value and times, and the preferred
+IP address, the Google or Microsoft sign-in linked to the account with the identifiers that
+provider gave it (#548), every rating with its game, title, value and times, and the preferred
 platforms (#295) with whether a choice was ever made. It is written once
 as `0600` and never overwritten; nothing is stored on the host. Send it only to the
 account's verified address, then delete the file. An export creates no ledger entry.
@@ -1048,14 +1113,14 @@ recovery point, verifies each one and records a receipt with the ledger's SHA-25
 stops without changes if the target derives a different `UserId`, which means the
 issuer changed. Two paths run it:
 
-- `restore-private-dev --deletion-ledger <current copy>` replays as part of the restore,
-  in a rehearsal or a host-loss recovery, and puts the receipt in the restore evidence.
-  Host-loss recovery requires it, blocks every deployment from before the restore until
-  the replay is verified, and offers `--resume-deletion-replay` when only the replay
-  failed ([private-dev procedure](../../deploy/private-dev/README.md#host-loss-recovery)).
-- From the workstation, against a restored project whose Keycloak already runs:
-  `personal-data-ledger … --host-command "<restored-project host command>" replay
-  --receipt <private-dir>/replay-<project>-<date>.json`.
+- Production recovery replays as part of a restore; the
+  [production recovery commands](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+  own it.
+- From the workstation, against a restored runtime whose Keycloak already runs:
+  `personal-data-ledger … --host-command "<restored runtime host command>" replay
+  --receipt <private-dir>/replay-<runtime>-<date>.json`.
+
+Private dev keeps no backup, so it never needs a replay.
 
 Start the application only after a verified replay. An entry still incomplete in the
 ledger is then finished with `retry` against the live runtime.
@@ -1095,8 +1160,9 @@ never fails an otherwise valid Game. Source and provenance remain local; last-va
 Spanish content is retained and explicitly marked when its source changed. Editorial
 and other-source summaries are outside enrichment ownership.
 
-On a local backend, or an existing private management tunnel (never a product/public
-route), start/restart a bounded backfill:
+Use [Traducciones](#translation-administration-acceptance) for operator-controlled
+execution. For a capped diagnostic pass on a local backend or through an existing
+private management tunnel, use the bounded management command:
 
 ```bash
 python3 scripts/localize-catalogue.py \
@@ -1127,7 +1193,8 @@ For source-preserving diagnosis, inspect a bounded set of pending rows rather th
 printing the full catalogue or raw provider payloads:
 
 ```sql
-SELECT g.game_id, t.claimed_until, t.translated_at
+SELECT g.game_id, catalogue.spanish_source_fingerprint(g.summary_text) AS source_fingerprint,
+       l.fingerprint IS NOT NULL AS last_valid_retained, t.claimed_until, t.translated_at
 FROM catalogue.game_snapshot g
 LEFT JOIN catalogue.game_summary_translation l ON l.game_id=g.game_id
 LEFT JOIN catalogue.content_translation t
@@ -1147,8 +1214,9 @@ persist across model/runtime restarts and upgrades.
 
 Before owner acceptance of the new lifecycle on `vgpdev`:
 
-1. Apply the [targeted one-time migration](../../deploy/private-dev/README.md#one-time-migration-to-the-standard-runtime),
-   preserving the already installed model. Verify the manifest/licence and run a small
+1. Keep the already installed model selected; promotion
+   [reconciles the helper](../../deploy/private-dev/README.md#runtime-or-model-changes).
+   Verify the manifest/licence and run a small
    representative backfill using actual local source. Review short/long translations,
    proper nouns and game terminology; accept or reject the quality limitation.
 2. Measure inference and end-to-end batch throughput with the application, PostgreSQL,
@@ -1161,14 +1229,75 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
    copy, confirm refresh, and stop the helper to verify last-valid/new-source behavior.
 4. With the helper stopped, read translated game details through the private browser
    HTTP boundary and verify source attribution, last-valid status and cache validators.
-5. Restore the helper before promotion. Capture IDs/image/configuration for all
-   persistent services, dispatch a normal application promotion and confirm only
-   application changed. Verify the internal endpoint remains present, then confirm
-   localizer recovery after an owner-approved host reboot. Missing/unhealthy/drifted
-   helper refusal must precede migration/activation; it must not block existing reads.
+5. Capture IDs/image/configuration for all persistent services, dispatch a normal
+   application promotion of a revision that does not change the helper and confirm only
+   the application changed. Verify the internal endpoint remains present, then confirm
+   localizer recovery after an owner-approved host reboot. A helper that is still
+   missing or unhealthy after reconciliation must fail the promotion before
+   migration/activation; it must not block existing reads.
 6. Record the new lifecycle evidence on #257, linking earlier #235/#160 evidence
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.
+
+### Translation administration acceptance
+
+**Prepared for #448.** Owner review, affected-area CI and separately authorized
+target acceptance remain pending. Complete the
+[#452 localization and Grafana checklist](#private-production-localization-and-grafana-stabilization)
+first. Use its reviewed runtime, verified fresh off-host PostgreSQL and Keycloak
+backup, helper/model readiness, bounded soak, resource headroom and restart
+evidence. If the installed target already went through the transition, verify its
+evidence and current state before the run. Keep the management port private.
+
+1. Sign in with the catalogue operator role and open
+   `/administracion/catalogo?tab=traducciones`. Record the timestamp and before
+   coverage for summaries, genres and game modes. Compare the counts with the
+   [Grafana coverage contract](observability.md#catalogue-localization), allowing
+   for acquisition and the coverage cache. Confirm no other synchronization,
+   management backfill or pending helper lease is active. Pick a window without
+   scheduled acquisition and agree a monitoring window and stop criteria.
+2. In a disposable or authorized target, use **Ejecutar traducciones pendientes**
+   and confirm. Record the execution ID and verify progress across a reload.
+   Use **Detener traducciones** after one or more batches. Observe **Detenida**
+   with its saved counts and cursor, then explicitly **Reanudar traducciones**.
+   A stopped or restarted application never starts a translation pass on its
+   own. After an abrupt loss, allow up to six minutes for the checkpoint lease
+   to expire before resuming. A helper request with an ambiguous timeout can
+   also leave a separate five-minute source reservation.
+3. For the authorized full pass, monitor batch outcomes, throughput, localizer
+   CPU, anonymous/peak memory, OOM/restart events, Grafana and product readiness.
+   Use the stop control on unexpected errors, pressure or contention and
+   confirm the latest batch has settled. A fully unsuccessful three-target
+   batch pauses the pass. Other failures remain visible while the scan continues.
+   Review helper logs and the bounded SQL sample above before retrying.
+   **Reanudar traducciones** continues at the saved checkpoint after a failed
+   batch or worker interruption. **Reintentar traducciones** after a finished
+   pass with failures visits the outstanding work in a new pass, skipping
+   already-current results. The CLI can run a small diagnostic replay separately.
+4. Record the after coverage once the one-minute snapshot has expired. For each
+   residual exception, record the internal identity, field, current source
+   fingerprint, whether a last-valid translation is served, the observed reason
+   and the next action. For large residuals, page the summary query above with
+   `AND g.game_id > :last_game_id` before its ordering. For genre and game-mode
+   exceptions inspect their respective tables in UUID order, join the current
+   `source_label` fingerprint to `content_translation` and compare
+   `label_origin` and `translation_fingerprint`. A live claim needs time to
+   settle, a released/expired claim needs a reviewed retry, and an immutable
+   cached translation over the taxonomy bound requires investigation. A new
+   source behind the checkpoint may need another pass. Keep source payloads
+   out of the evidence record.
+5. Verify representative game pages and `GET /api/v1/games/{gameId}` against
+   PostgreSQL. Include a current Spanish machine translation credited to
+   Gameómetro with the IGDB English original, a changed English source with
+   an explicitly stale Spanish translation, a missing translation served as
+   English and an editorial summary. Inspect curated and machine genre and
+   game-mode labels against their stored source and origin. Use a disposable
+   target to exercise a helper outage or change a fixture source, then confirm
+   product reads and last-valid content remain available. Replay unchanged
+   content and verify no inference or publication rewrite for those targets.
+6. Record sanitized before/after counts, samples, retries, timings and resource
+   observations on [#448](https://github.com/rubhern/videogame-platform/issues/448).
+   Keep the issue open for any outstanding execution or acceptance.
 
 ### Private production localization and Grafana stabilization
 
@@ -1438,6 +1567,15 @@ Run every host step as root, attached to the interactive SSH session: no `nohup`
    upgrade --stage --plan-sha256 "$REVIEWED_PLAN_SHA256"
    ```
 
+   If the plan's `activation` is `handover`, no pair, fence or window is needed: run the
+   [application handover](../../deploy/public-production/README.md#application-handover-adr-0043)
+   instead of the following steps, then `upgrade --verify`. On failure it restores the previous
+   application by itself; `upgrade --inspect` tells whether `--abandon` is still needed.
+
+   ```bash
+   upgrade --handover --plan-sha256 "$REVIEWED_PLAN_SHA256" --owner-reference "$OWNER_REFERENCE"
+   ```
+
 4. **Take the pair; writers stay closed from here.** Use the active configuration and the recovery
    actor of the same bundle. The first upgrade uses `compose.accepted.json` and the installed
    candidate. Later ones use `configurationFile` from `upgrades/ACTIVE.json` and its bundle. Do **not** `thaw`.
@@ -1554,6 +1692,11 @@ erasure/cleanup, add the following global options: `--archive-root <owner-archiv
 `--holds <protected-holds-store>`, `--gnupg-home <off-VPS-owner-keyring>`,
 `--recipient <full-encryption-key-fingerprint>` and `--signer <full-signing-key-fingerprint>`.
 Use owner-unlocked GPG keys; pass no passphrase in arguments, environment or logs.
+The [scheduled production cleanup](../../deploy/public-production/README.md#scheduled-unverified-account-cleanup)
+uses its own dedicated keys instead
+([ADR-0044](../decisions/0044-run-the-unverified-account-cleanup-unattended-on-the-production-vps.md)).
+To replay, review, verify or purge its `CLEAN-` archives here, import its exported keys and pass its
+recipient and signer.
 The existing `erase --request <opaque-reference> --keycloak-user-id <UUID>` selects
 the ordinary profile automatically from the account’s explicit verification state in production. No individual ratings
 are retained by that profile. A protected `<subject-UUID>.json` hold file selects a
@@ -1751,9 +1894,10 @@ The supported `identity.deletion-executor.enabled` and `credential-file` propert
 initialized from `ACCOUNT_DELETION_EXECUTOR_ENABLED` and
 `ACCOUNT_DELETION_EXECUTOR_CREDENTIAL_FILE`. Both default to disabled/unconfigured.
 An enabled instance refuses startup unless the dedicated capability file is private and
-holds 32 random bytes encoded as 64 lowercase hexadecimal characters. The prepared `deploy/public-production/compose.account-deletion.yaml` overlay enables
-only this capability and mounts its file; it is absent from every default promotion command.
-This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
+holds 32 random bytes encoded as 64 lowercase hexadecimal characters. Production carries both
+settings off in its base Compose; the
+[production procedure](../../deploy/public-production/README.md#self-service-account-deletion)
+turns them on. This capability is not a Keycloak, BFF or end-user credential. Keep it outside Git and browser responses.
 The endpoint exists only with explicit enablement and a separate management port. It is
 never on the product port, edge allowlist or public OpenAPI, and rejects browser-originated
 commands. Every action also requires the dedicated Bearer capability, even on loopback.
@@ -1763,18 +1907,21 @@ the owner's existing protected administration context. It is the one added proce
 independent evidence/keys must survive loss of the web host. It serves no HTTP interface,
 introduces no broker/database/service and never polls from a browser. Supervision restarts
 this command; production durable state remains PostgreSQL and the existing #274 ledger.
-A source-only systemd unit is prepared for the owner-approved private-dev policy; no timer,
-service unit or real-host process has been installed by this change. The bounded `--once` option
+A source-only systemd unit is prepared for the owner-approved private-dev policy. Production runs
+the same loop through `deploy/public-production/bin/account-deletion` and its own unit
+([ADR-0047](../decisions/0047-run-self-service-account-deletion-on-the-production-vps.md)). The
+bounded `--once` option
 is for qualification/tests; ordinary operation continuously processes new requests.
 
 The private config pins `issuer`, an argument-array `host_command` for the existing runtime
 adapter, `ledger`, `ledger_copy`, `proof_root`, `archive_root`, `archive_copy`, `gnupg_home`,
 `recipient`, `signer`, `holds`, plus `credential_file` and the exact `management_url` ending
 in `/actuator/accountdeletionexecutor`. The URL must be HTTPS or loopback HTTP. The HTTP
-client disables environment proxies and redirects and bounds time/response bytes. Production
-must provide the existing protected administration path to the private management interface;
-no automatically provisioned destination is assumed. The runner may use existing owner-side
-administrative transport; no SSH client is added to the web application.
+client disables environment proxies and redirects and bounds time/response bytes. In
+production the management port answers only on the application container's loopback: the
+production runner builds this configuration from the unattended cleanup's, and reaches the
+port through `docker exec` with the capability on stdin. No SSH client is added to the web
+application.
 
 Startup preflights both ledger/archive paths, signing/decryption keys and suppression/hold
 stores before announcing readiness. A heartbeat every twenty seconds remains fresh for sixty
@@ -1789,9 +1936,9 @@ file. Keep management inaccessible to browsers/other networks throughout qualifi
 The implementation reuses the existing administrative runtime and a single polling process.
 It requires no additional paid service by design, but actual availability, equipment and
 operating costs still need qualification; existing owner equipment is not an uptime promise.
-Production #276 must qualify the supervised execution context, protected management channel,
-secret ownership/rotation, independently durable storage failure domains, archive/key access,
-interruption recovery and restore replay before activation. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
+Production activation ([#543](https://github.com/rubhern/videogame-platform/issues/543)) reuses
+the qualified #539 custody and qualifies the runner with a synthetic account: end-to-end
+deletion, interruption recovery and restore replay on a disposable copy. Private `vgpdev` can use its explicitly configured same-host `private-dev` executor;
 its installation and live acceptance remain pending. No production requirement is
 silently waived to enable a development demo.
 
