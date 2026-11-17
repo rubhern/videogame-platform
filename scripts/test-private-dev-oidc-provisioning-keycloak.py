@@ -42,9 +42,18 @@ assert profile.get("unmanagedAttributePolicy") is None
 assert profile.get("attributes", []).count(module.MARKER_PROFILE_ATTRIBUTE) == 1
 admin.ensure_smoke_marker_profile()
 
-assert admin.find_users(smoke_username) == []
-module.provision_smoke_user(admin, smoke_username, smoke_password)
-created = admin.find_users(smoke_username)
+# The shared realm imports the production identity policy: email sign-in, email as username.
+assert admin.email_as_username() is True
+assert smoke_username == module.SYNTHETIC_EMAIL
+
+
+def smoke_users() -> list[dict[str, object]]:
+    return admin.find_users_by_email(module.SYNTHETIC_EMAIL)
+
+
+assert smoke_users() == []
+module.provision_smoke_user(admin, smoke_username, smoke_password, email_as_username=True)
+created = smoke_users()
 assert len(created) == 1
 created_user = created[0]
 created_id = created_user.get("id")
@@ -55,8 +64,8 @@ assert {field: created_user.get(field) for field in module.SYNTHETIC_PROFILE} ==
 assert not admin.direct_role_mappings(created_id).get("clientMappings")
 assert admin.groups(created_id) == []
 
-module.provision_smoke_user(admin, smoke_username, smoke_password)
-reprovisioned = admin.find_users(smoke_username)
+module.provision_smoke_user(admin, smoke_username, smoke_password, email_as_username=True)
+reprovisioned = smoke_users()
 assert len(reprovisioned) == 1
 assert reprovisioned[0].get("id") == created_id
 assert reprovisioned[0].get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["true"]
@@ -64,23 +73,8 @@ assert {field: reprovisioned[0].get(field) for field in module.SYNTHETIC_PROFILE
 
 print("Real Keycloak deployment smoke-user provisioning validation passed.")
 
-# This browser gate uses the local realm, which still requires names. The private-dev
-# provisioner follows the aligned minimal profile and deliberately supplies neither.
-# Complete only this disposable fixture so VERIFY_PROFILE cannot interrupt the OIDC
-# and password-reset journeys; do not change the runtime provisioner's profile policy.
-local_names = {"firstName": "Deployment", "lastName": "Smoke"}
-attributes = {attribute["name"]: attribute for attribute in profile["attributes"]}
-assert all(attributes[name].get("required") == {"roles": ["user"]} for name in local_names)
-admin._request(
-    "PUT",
-    f"/admin/realms/{module.REALM}/users/{created_id}",
-    body=local_names,
-    expected={204},
-)
-browser_user = admin.find_users(smoke_username)[0]
-assert {field: browser_user.get(field) for field in local_names} == local_names
-assert {field: browser_user.get(field) for field in module.SYNTHETIC_PROFILE} == module.SYNTHETIC_PROFILE
-assert browser_user.get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["true"]
-assert browser_user.get("requiredActions") == []
-
-print("Disposable local-realm smoke fixture satisfies the required name fields.")
+# The aligned profile declares no names, so the minimal synthetic account needs no fixture
+# completion before the OIDC and password-reset journeys.
+attributes = {attribute["name"] for attribute in profile["attributes"]}
+assert not attributes & {"firstName", "lastName"}
+assert smoke_users()[0].get("requiredActions") == []

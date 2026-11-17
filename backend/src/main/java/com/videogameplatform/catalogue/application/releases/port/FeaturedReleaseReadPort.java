@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.application.releases.port;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
+import com.videogameplatform.catalogue.domain.AttentionWeights;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,7 +29,7 @@ public interface FeaturedReleaseReadPort {
      * ranking bound and the release bound. A release qualifies as it does in the release explorer
      * without approximate dates: up to and including {@code evaluatedOn} it must have happened,
      * and after it an exact day is expected. A non-empty {@code platformIds} admits only releases
-     * on one of those platforms, before any game is ranked.
+     * on one of those platforms, before any game is ranked. {@code attention} weighs the ranking.
      */
     record Criteria(
             LocalDate periodStart,
@@ -36,9 +37,11 @@ public interface FeaturedReleaseReadPort {
             LocalDate evaluatedOn,
             int limit,
             int releaseGroupLimit,
-            List<String> platformIds) {
+            List<String> platformIds,
+            AttentionWeights attention) {
         public Criteria {
             platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
+            attention = attention == null ? AttentionWeights.DEFAULT : attention;
             if (periodStart == null || periodEnd == null || periodEnd.isBefore(periodStart)) {
                 throw new IllegalArgumentException("A featured period needs ordered bounds");
             }
@@ -48,6 +51,24 @@ public interface FeaturedReleaseReadPort {
             if (limit < 1 || releaseGroupLimit < 1) {
                 throw new IllegalArgumentException("A featured ranking must be bounded");
             }
+        }
+
+        /** The approved attention weights. */
+        public Criteria(
+                LocalDate periodStart,
+                LocalDate periodEnd,
+                LocalDate evaluatedOn,
+                int limit,
+                int releaseGroupLimit,
+                List<String> platformIds) {
+            this(
+                    periodStart,
+                    periodEnd,
+                    evaluatedOn,
+                    limit,
+                    releaseGroupLimit,
+                    platformIds,
+                    AttentionWeights.DEFAULT);
         }
 
         /** Every platform. */

@@ -40,6 +40,7 @@ function coverage(from: string, to: string) {
 function stub(session: Session, handler?: (url: URL) => Response) {
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
     const url = new URL((input instanceof Request ? input : new Request(input)).url);
+    if (url.pathname === "/api/v1/web-analytics") return Response.json({});
     if (url.pathname === "/api/v1/session") {
       return Response.json(session === "anonymous" ? { authenticated: false }
         : { authenticated: true, csrfToken: "csrf", ...(session === "operator" ? { capabilities: ["catalogue_administration"] } : {}) });
@@ -232,6 +233,7 @@ describe("Catalogue synchronization request", () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const request = input instanceof Request ? input : new Request(input, init);
       const url = new URL(request.url);
+      if (url.pathname === "/api/v1/web-analytics") return Response.json({});
       if (url.pathname === "/api/v1/session") {
         sessionReads++;
         return Response.json({ authenticated: true, csrfToken: "csrf", capabilities: ["catalogue_administration"] });
@@ -369,6 +371,7 @@ describe("Catalogue synchronization stop and abandonment", () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const request = input instanceof Request ? input : new Request(input, init);
       const url = new URL(request.url);
+      if (url.pathname === "/api/v1/web-analytics") return Response.json({});
       if (url.pathname === "/api/v1/session") {
         return Response.json({ authenticated: true, csrfToken: "csrf", capabilities: ["catalogue_administration"] });
       }

@@ -1,5 +1,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 
+import { trackEvent } from "../analytics/events";
+
 export type InterestsSwitch = {
   enabled: () => boolean;
   set: (enabled: boolean) => void;
@@ -15,6 +17,7 @@ export function createInterestsSwitch(): InterestsSwitch {
     set: (next) => {
       if (next === enabled) return;
       enabled = next;
+      trackEvent("interests_filter_toggle", { state: next ? "on" : "off" });
       listeners.forEach((listener) => listener());
     },
     subscribe: (listener) => {

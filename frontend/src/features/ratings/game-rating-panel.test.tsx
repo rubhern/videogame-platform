@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { gameDetailsFixture } from "../../test/game-details-fixture";
+import { setEventSink } from "../analytics/events";
 import { gameDetailsQueryKey } from "../game-details/game-details-api";
 import { GameRatingPanel } from "./game-rating-panel";
 import type { PersonalRating } from "./personal-rating-api";
@@ -60,6 +61,7 @@ type Handlers = {
   put?: (request: Request) => Response | Promise<Response>;
   remove?: (request: Request) => Response | Promise<Response>;
   intent?: () => Response;
+  startIntent?: (request: Request) => Response;
 };
 
 /** A small same-origin server double keyed by method and path. */
@@ -77,6 +79,9 @@ function serve(handlers: Handlers) {
     const path = url.pathname;
     if (path === "/api/v1/session") {
       return handlers.session?.() ?? Response.json({ authenticated: false });
+    }
+    if (path === "/auth/rating-intent/start" && handlers.startIntent) {
+      return handlers.startIntent(request);
     }
     if (path === "/auth/rating-intent") {
       return handlers.intent?.() ?? new Response(null, { status: 404 });
@@ -173,7 +178,7 @@ describe("compact personal rating", () => {
     expect(screen.getByText("10 · Ardiendo")).toBeVisible();
     // No separate confirmation: a pick is the command.
     expect(
-      within(dialog).queryByRole("button", { name: /Guardar|Puntuar|Actualizar/ }),
+      within(dialog).queryByRole("button", { name: /^(Guardar|Puntuar|Actualizar)$/ }),
     ).not.toBeInTheDocument();
 
     // Opening lands on the scale's single tab stop; arrows browse without saving.
@@ -209,6 +214,43 @@ describe("compact personal rating", () => {
     await user.click(document.body);
     expect(scale()).not.toBeInTheDocument();
     expect(server.commands()).toHaveLength(0);
+  });
+
+  it("reports rating intent, abandonment and saves as bounded analytics events (#507)", async () => {
+    const user = userEvent.setup();
+    const events = vi.fn();
+    setEventSink(events);
+    serve({
+      session: authenticated,
+      read: () => Response.json(rating(7, 1)),
+      put: () => Response.json({ personalRating: rating(9, 2), ratingStatistics: statistics(9, 1) }),
+    });
+    renderPanel();
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/));
+
+    await openScale(user);
+    await user.keyboard("{Escape}");
+    await openScale(user);
+    await user.click(note(9));
+
+    await waitFor(() =>
+      expect(events).toHaveBeenLastCalledWith("rating_saved", {
+        action: "update",
+        mode: "direct",
+        platform_count: "0",
+      }),
+    );
+    expect(events.mock.calls.map(([name]) => name)).toEqual([
+      "rating_open",
+      "rating_abandoned",
+      "rating_open",
+      "rating_saved",
+    ]);
+    expect(events).toHaveBeenCalledWith("rating_open", { authenticated: "yes", has_rating: "yes" });
+    expect(events).toHaveBeenCalledWith("rating_abandoned", { step: "scale" });
+    // No score, game or account identifier ever reaches an event.
+    expect(JSON.stringify(events.mock.calls)).not.toMatch(/30000000|"9"|csrf/);
+    setEventSink(null);
   });
 
   it("keeps the reading disabled when the game is not eligible and explains why in place", async () => {
@@ -560,6 +602,103 @@ async function openSheet(user: User) {
 }
 
 describe("rating by platform (#359)", () => {
+  it("lets an anonymous visitor draft platform scores and starts sign-in only on save", async () => {
+    const user = userEvent.setup();
+    const server = serve({
+      startIntent: (request) => request.method === "GET"
+        ? new Response("intent-proof")
+        : Response.json({ alreadyAuthenticated: false }),
+    });
+    renderPanel(basePath, twoPlatformGame());
+
+    const panel = await openScale(user);
+    await user.click(await within(panel).findByRole("button", { name: "Puntuar por plataforma" }));
+    const sheet = screen.getByRole("dialog", { name: "Puntuar por plataforma" });
+    await user.click(within(sheet).getByRole("checkbox", { name: ps5.name }));
+    await user.click(within(sheet).getByRole("button", { name: `Puntuar ${ps5.name}` }));
+    await user.click(within(sheet).getByRole("button", { name: "9" }));
+    await user.click(within(sheet).getByRole("checkbox", { name: switch2.name }));
+    expect(assignLocation).not.toHaveBeenCalled();
+
+    await user.click(within(sheet).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(assignLocation).toHaveBeenCalledWith("/auth/login/keycloak"));
+    const post = server.calls.find((request) => request.method === "POST");
+    expect(post?.headers.get("X-CSRF-Token")).toBe("intent-proof");
+    const body = await post?.formData();
+    expect(body?.get("gameId")).toBe(gameId);
+    expect(body?.getAll("platform")).toEqual([`${ps5.platformId}:9`, `${switch2.platformId}:`]);
+    expect(server.commands()).toHaveLength(0);
+
+    act(() => {
+      window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
+    expect(within(sheet).getByRole("button", { name: "Guardar" })).toBeEnabled();
+  });
+
+  it("creates the recovered platform rating once with a conditional create", async () => {
+    const platforms = [{ platformId: ps5.platformId, value: 9 }, { platformId: switch2.platformId }];
+    const server = serve({
+      session: authenticated,
+      intent: () => Response.json({ gameId, value: null, platforms }),
+      put: () => Response.json({
+        personalRating: platformRating(1, [{ ...ps5, value: 9 }, { ...switch2, value: null }]),
+        ratingStatistics: statistics(9, 1),
+      }, { status: 201 }),
+    });
+    const { router } = renderPanel(`${basePath}?rating-intent=resumed`, twoPlatformGame());
+
+    expect(await screen.findByText("Puntuación guardada: 9/10.")).toBeInTheDocument();
+    const [put] = server.commands();
+    expect(server.commands()).toHaveLength(1);
+    expect(put?.headers.get("If-None-Match")).toBe("*");
+    expect(await put?.json()).toEqual({ platforms });
+    expect(router.state.location.search).toBe("");
+  });
+
+  it("keeps the concurrent winner when the recovered platform create conflicts", async () => {
+    let winner: PersonalRating | null = null;
+    const server = serve({
+      session: authenticated,
+      read: () => winner === null ? problem(404, "RATING_NOT_FOUND") : Response.json(winner),
+      intent: () => Response.json({ gameId, platforms: [{ platformId: ps5.platformId, value: 9 }] }),
+      put: () => {
+        winner = rating(6, 1);
+        return problem(412, "RATING_VERSION_CONFLICT");
+      },
+    });
+    renderPanel(`${basePath}?rating-intent=resumed`, twoPlatformGame());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/cambió desde otra sesión/);
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/6\/10/));
+    expect(server.commands()).toHaveLength(1);
+    expect(server.commands()[0]?.headers.get("If-None-Match")).toBe("*");
+  });
+
+  it("asks to review the recovered draft alongside saved platform scores", async () => {
+    const server = serve({
+      session: authenticated,
+      read: () => Response.json(platformRating(1, [{ ...ps5, value: 9 }])),
+      intent: () => Response.json({ gameId, platforms: [{ platformId: switch2.platformId, value: 7 }] }),
+    });
+    renderPanel(`${basePath}?rating-intent=resumed`, twoPlatformGame());
+    const sheet = await screen.findByRole("dialog", { name: "Puntuar por plataforma" });
+    expect(within(sheet).getByText(/Revisa los cambios antes de guardar/)).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: /Nota en PlayStation 5: 9/ })).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: /Nota en Nintendo Switch 2: 7/ })).toBeVisible();
+    expect(server.commands()).toHaveLength(0);
+  });
+
+  it.each(["expired", "cancelled", "invalid", "resumed"])(
+    "offers recovery without saving when the %s return has no usable selection",
+    async (outcome) => {
+      const server = serve({ session: authenticated, read: () => Response.json(rating(7, 1)) });
+      renderPanel(`${basePath}?rating-intent=${outcome}`, twoPlatformGame());
+      expect(await screen.findByText(/caducó|no se completó|no era válida/i)).toBeVisible();
+      await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+      expect(server.commands()).toHaveLength(0);
+    },
+  );
+
   it("switches between general and platform scoring as platforms are checked", async () => {
     const user = userEvent.setup();
     serve({ session: authenticated, read: () => Response.json(rating(7, 1)) });

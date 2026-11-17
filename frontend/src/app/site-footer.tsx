@@ -1,3 +1,4 @@
+import { CookieSettingsButton } from "../features/analytics/cookie-settings-button";
 import { BrandLogo } from "../shared/brand/brand-logo";
 import { LegalLinks } from "../shared/legal/legal-links";
 
@@ -17,7 +18,7 @@ export function SiteFooter() {
             <span className="site-footer-slogan-accent">Nosotros te ayudamos a elegir.</span>
           </p>
         </div>
-        <LegalLinks />
+        <LegalLinks legalActions={<CookieSettingsButton />} />
       </div>
       <div className="page-container">
         <details className="platform-credits">

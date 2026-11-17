@@ -3,12 +3,11 @@ import { Link } from "react-router-dom";
 
 import { HeroTitle } from "../../shared/ui/hero-title";
 
-/** The home's `h1` and one line on what it holds, compact above the week's release. */
+/** The home's `h1` above the release controls. */
 export function HomeIntro() {
   return (
     <header className="home-intro">
       <HeroTitle id="home-title" title="Descubre tu próximo juego" />
-      <p className="home-lead">Lanzamientos, destacados y los juegos mejor valorados.</p>
     </header>
   );
 }
@@ -52,6 +51,7 @@ export type HomeNoticeTone = "info" | "empty" | "warning" | "danger";
 
 type HomeNoticeProps = {
   tone: HomeNoticeTone;
+  heading?: "h2" | "h3" | "h4";
   kicker: string;
   title: string;
   children?: ReactNode;
@@ -64,11 +64,11 @@ type HomeNoticeProps = {
  * One preview's own state, in the shared notice language at the size of a preview: it replaces
  * only that preview, owns its recovery and its way out, and never blocks the rest of the home.
  */
-export function HomeNotice({ tone, kicker, title, children, correlationId = null, actions }: HomeNoticeProps) {
+export function HomeNotice({ tone, kicker, title, children, correlationId = null, actions, heading: Heading = "h3" }: HomeNoticeProps) {
   return (
     <div className={`notice notice-${tone} home-notice`} role={tone === "danger" ? "alert" : undefined}>
       <p className="notice-kicker">{kicker}</p>
-      <h3>{title}</h3>
+      <Heading>{title}</Heading>
       {children}
       {actions === undefined ? null : <div className="notice-actions">{actions}</div>}
       {correlationId === null ? null : (

@@ -95,11 +95,12 @@ repeated = run()
 assert repeated.returncode == 0 and "nothing changed" in repeated.stdout, repeated.stdout
 
 # Grant and revoke change exactly one named account.
-username = f"operator-{uuid.uuid4()}"
+# The realm uses the email as username, as production does.
+username = f"operator-{uuid.uuid4()}@example.test"
 admin._request(
     "POST",
     f"{module.ADMIN_REALM}/users",
-    body={"username": username, "email": f"{username}@example.test", "emailVerified": True, "enabled": True},
+    body={"username": username, "email": username, "emailVerified": True, "enabled": True},
     expected={201},
 )
 granted = run("--grant", username)

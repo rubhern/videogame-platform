@@ -12,6 +12,9 @@ public interface LocalizeCatalogueUseCase {
 
     Batch backfill(String afterKind, UUID afterId, int limit);
 
+    /** Operator scan: advance past failed targets so one bad source cannot block the catalogue. */
+    Batch scan(String afterKind, UUID afterId, int limit);
+
     record Report(int translated, int reused, int skipped, int failed) {
         public Report plus(Report other) {
             return new Report(

@@ -116,6 +116,12 @@ export function readPlatformParam(search: URLSearchParams): string | null {
   return value === undefined || value === "" ? null : value;
 }
 
+/** Platform keys carried by discovery links. The public directory resolves non-featured keys. */
+export function readDiscoveryPlatformKey(params: URLSearchParams): string | undefined {
+  const key = readPlatformParam(params);
+  return key !== null && /^[a-z0-9-]{1,100}$/iu.test(key) ? key : undefined;
+}
+
 /** The Plataformas index, optionally opened on one platform's context. */
 export function platformsPath(context?: PlatformContext): string {
   return context === undefined

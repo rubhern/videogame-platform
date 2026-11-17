@@ -10,8 +10,10 @@ The private, non-commercial learning MVP was accepted end to end in private `dev
 and tagged `v0.1.0`: release discovery, bounded catalogue search, game details,
 same-origin Keycloak-backed authentication, personal ratings, `Mis puntuaciones`,
 operator-triggered IGDB synchronization, owner-triggered deployment, and proven
-backup/restore. Gameómetro is public at `gameometro.com` since 2026-11-08; private `dev` remains private, and further work is
-post-MVP product evolution or maintenance, tracked in GitHub Issues. The
+backup/restore. Gameómetro is public at `gameometro.com` since 2026-11-08; private `dev` remains private.
+Product version `1.0.0` (tag `v1.0.0`) aligns local and private `dev` with production's
+configuration under [ADR-0037](docs/decisions/0037-align-local-and-private-dev-with-production.md).
+Further work is post-MVP product evolution or maintenance, tracked in GitHub Issues. The
 [Product Brief](docs/product/product-brief.md) owns the positioning, trustworthy
 community quality signals, intended but gated public release, and exploratory
 commercial sustainability.

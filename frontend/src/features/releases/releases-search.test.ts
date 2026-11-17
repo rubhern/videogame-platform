@@ -25,11 +25,11 @@ describe("release explorer navigable state", () => {
     expect(writeReleasesSearch(search).has("featuredOnly")).toBe(false);
   });
 
-  it("defaults to the current week, ordered by date, on the first page with no filters", () => {
+  it("defaults to the current week, ordered by interest, on the first page with no filters", () => {
     expect(read("")).toEqual({
       from: null,
       to: null,
-      sort: "releaseDate",
+      sort: "hype",
       includeApproximateDates: false,
       platformIds: [],
       regionIds: [],
@@ -85,8 +85,8 @@ describe("release explorer navigable state", () => {
     expect(rangeProblem("2026-08-01", "2026-08-01")).toBeNull();
   });
 
-  it("falls back to the date order for an unknown sort", () => {
-    expect(read("sort=popularity").sort).toBe("releaseDate");
+  it("falls back to interest for an unknown sort", () => {
+    expect(read("sort=popularity").sort).toBe("hype");
     expect(read("sort=rating").sort).toBe("rating");
     expect(read("sort=externalPlayerScore").sort).toBe("externalPlayerScore");
   });
@@ -124,8 +124,8 @@ describe("release explorer navigable state", () => {
     expect(legacyReleasesPath(new URLSearchParams(""))).toBeNull();
   });
 
-  it("maps navigable state to the contract query, omitting what the API defaults", () => {
-    expect(toReleasesQuery(read(""))).toEqual({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  it("maps navigable state to the contract query, sending the UI default explicitly", () => {
+    expect(toReleasesQuery(read(""))).toEqual({ sort: "hype", page: 1, pageSize: DEFAULT_PAGE_SIZE });
     expect(
       toReleasesQuery(
         read(

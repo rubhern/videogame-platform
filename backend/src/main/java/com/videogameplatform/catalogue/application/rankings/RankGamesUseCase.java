@@ -23,11 +23,14 @@ public interface RankGamesUseCase {
      */
     enum Source {
         /**
-         * The IGDB players' rating mean and count stored with each game (XSC-001–XSC-004), from
-         * fifty ratings on.
+         * The IGDB players' rating mean and count stored with each game (XSC-001–XSC-004), by
+         * default from fifty ratings on; the operator may tune the minimum (#450).
          */
         IGDB_PLAYERS(50),
-        /** The Gameómetro community mean of one contribution per rating (AGG-004), from the first. */
+        /**
+         * The Gameómetro community mean of one contribution per rating (AGG-004), by default from
+         * the first; the operator may tune the minimum (#450).
+         */
         GAMEOMETRO_COMMUNITY(1);
 
         private final int minimumRatings;
@@ -36,6 +39,7 @@ public interface RankGamesUseCase {
             this.minimumRatings = minimumRatings;
         }
 
+        /** The approved default minimum number of ratings. */
         public int minimumRatings() {
             return minimumRatings;
         }

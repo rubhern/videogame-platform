@@ -11,7 +11,11 @@ import com.videogameplatform.catalogue.application.releases.BrowseUpcomingHighli
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.Selection;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.UpcomingHighlightsResult;
+import com.videogameplatform.catalogue.application.releases.UpcomingHorizon;
 import com.videogameplatform.catalogue.application.releases.port.UpcomingHighlightsReadPort;
+import com.videogameplatform.catalogue.application.settings.CurrentProductSettings;
+import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.settings.ProductSettings;
 import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
 import java.time.Clock;
 import java.time.Instant;
@@ -26,26 +30,26 @@ public final class UpcomingHighlightsService implements BrowseUpcomingHighlights
     /** The most anticipated games a platform shows (owner-approved product limit, #388). */
     static final int UPCOMING_HIGHLIGHTS_LIMIT = 10;
 
-    /** The moving horizon, in calendar months from the evaluation date. */
-    static final int HORIZON_MONTHS = 6;
-
     private final UpcomingHighlightsReadPort readPort;
     private final CatalogueCoverPolicy coverPolicy;
     private final FeaturedImageSelection images;
     private final Clock clock;
     private final CatalogueFreshnessPolicy freshnessPolicy;
+    private final CurrentProductSettings settings;
 
     public UpcomingHighlightsService(
             UpcomingHighlightsReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             ProviderImageReferenceResolver imageResolver,
             Clock clock,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            CatalogueFreshnessPolicy freshnessPolicy,
+            CurrentProductSettings settings) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.images = new FeaturedImageSelection(imageResolver);
         this.clock = clock;
         this.freshnessPolicy = freshnessPolicy;
+        this.settings = settings;
     }
 
     @Override
@@ -54,9 +58,14 @@ public final class UpcomingHighlightsService implements BrowseUpcomingHighlights
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
         }
+        // One settings snapshot serves the whole operation.
+        ProductSettings current = settings.current();
         Instant evaluatedAt = clock.instant();
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
-        LocalDate horizonEnd = horizonEnd(evaluatedOn);
+        LocalDate horizonEnd =
+                UpcomingHorizon.end(
+                        evaluatedOn,
+                        current.integer(ProductSetting.UPCOMING_HIGHLIGHTS_HORIZON_MONTHS));
         List<String> platformIds = query.platformIds().stream().distinct().sorted().toList();
 
         UpcomingHighlightsReadPort.Result result =
@@ -65,7 +74,8 @@ public final class UpcomingHighlightsService implements BrowseUpcomingHighlights
                                         platformIds,
                                         evaluatedOn,
                                         horizonEnd,
-                                        UPCOMING_HIGHLIGHTS_LIMIT))
+                                        UPCOMING_HIGHLIGHTS_LIMIT,
+                                        current.attention()))
                         .orElseThrow(CatalogueNotReadyException::new);
         if (result.platforms().size() != platformIds.size()) {
             throw new ReleaseQueryValidationException(
@@ -83,19 +93,6 @@ public final class UpcomingHighlightsService implements BrowseUpcomingHighlights
                 new BrowseReleasesResult.Window(evaluatedOn, horizonEnd),
                 selection(result, evaluatedAt),
                 items);
-    }
-
-    /**
-     * The horizon's inclusive last day: the day before the same day of the month six calendar
-     * months later, or that month's last day when the day does not exist in it. Every evaluation
-     * date therefore covers at least six calendar months less a day, and a later date never ends
-     * the horizon earlier: 28, 29, 30 and 31 August 2026 end on 27, 28, 28 and 28 February 2027.
-     */
-    static LocalDate horizonEnd(LocalDate evaluatedOn) {
-        LocalDate sameDay = evaluatedOn.plusMonths(HORIZON_MONTHS);
-        return sameDay.getDayOfMonth() == evaluatedOn.getDayOfMonth()
-                ? sameDay.minusDays(1)
-                : sameDay;
     }
 
     /** The oldest signal among the ranked games bounds how current the whole ranking is. */

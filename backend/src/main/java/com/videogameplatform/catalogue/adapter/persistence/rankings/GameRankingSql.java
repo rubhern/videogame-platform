@@ -185,7 +185,7 @@ final class GameRankingSql {
             String publicationId, Criteria criteria, List<String> platformIds) {
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("publicationId", publicationId);
-        parameters.put("minimumRatings", criteria.source().minimumRatings());
+        parameters.put("minimumRatings", criteria.minimumRatings());
         parameters.put("evaluatedOn", criteria.evaluatedOn());
         parameters.put("pageSize", criteria.pagination().pageSize());
         parameters.put("offset", criteria.pagination().offset());

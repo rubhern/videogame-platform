@@ -1,21 +1,21 @@
 import { Link } from "react-router-dom";
 
-import { releasesSearchPath, type ReleasesSearch } from "./releases-search";
-
 type ReleasesPaginationProps = {
-  search: ReleasesSearch;
+  pathFor: (page: number) => string;
   page: { number: number; totalPages: number };
   /** Off when the surrounding bar already states the result total. */
   showPosition?: boolean;
   /** History state each page keeps, such as the day bar's frame. */
   state?: unknown;
+  preventScrollReset?: boolean;
 };
 
 export function ReleasesPagination({
-  search,
+  pathFor,
   page,
   showPosition = true,
   state,
+  preventScrollReset,
 }: ReleasesPaginationProps) {
   const isBeyondLastPage = page.totalPages > 0 && page.number > page.totalPages;
   const hasPrevious = page.number > 1;
@@ -24,9 +24,9 @@ export function ReleasesPagination({
   if (isBeyondLastPage) {
     return (
       <nav aria-label="Paginación de lanzamientos" className="mt-8">
-        <Link state={state}
+        <Link preventScrollReset={preventScrollReset ?? false} state={state}
           className="button"
-          to={releasesSearchPath(search, { page: page.totalPages })}
+          to={pathFor(page.totalPages)}
         >
           Ir a la última página
         </Link>
@@ -44,9 +44,9 @@ export function ReleasesPagination({
       className="pagination"
     >
       {hasPrevious ? (
-        <Link state={state}
+        <Link preventScrollReset={preventScrollReset ?? false} state={state}
           className="button view-action view-action-back"
-          to={releasesSearchPath(search, { page: page.number - 1 })}
+          to={pathFor(page.number - 1)}
         >
           <span aria-hidden="true">←</span> Página anterior
         </Link>
@@ -57,7 +57,7 @@ export function ReleasesPagination({
         </p>
       ) : null}
       {hasNext ? (
-        <Link state={state} className="button view-action" to={releasesSearchPath(search, { page: page.number + 1 })}>
+        <Link preventScrollReset={preventScrollReset ?? false} state={state} className="button view-action" to={pathFor(page.number + 1)}>
           Página siguiente <span aria-hidden="true">→</span>
         </Link>
       ) : null}

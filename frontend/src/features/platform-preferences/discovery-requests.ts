@@ -10,8 +10,3 @@ export function explorerRequestSearch(
   const filter = resolvePlatformFilter(search.platformIds, interestsEnabled, interests);
   return { ...search, platformIds: [...filter.platformIds] };
 }
-
-/** Destacados's explicit platform restriction; it has no manual platform choice. */
-export function featuredRequestPlatforms(interestsEnabled: boolean, interests: Interests): readonly string[] {
-  return resolvePlatformFilter([], interestsEnabled, interests).platformIds;
-}

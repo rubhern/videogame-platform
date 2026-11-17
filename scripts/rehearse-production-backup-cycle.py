@@ -4,6 +4,10 @@
 Real PostgreSQL, Keycloak, edge, application, Grafana, fences, Compose and encryption; only S3
 is replaced, because no provider resource is authorized here. Run it by hand before a change
 to the cycle reaches a host. It proves the mechanism, never the real host's fence duration.
+
+A client reads through the real edge during the online and the fenced cycle (ADR-0043): the
+online one must serve every request, the fenced one must answer with maintenance, never with a
+refused connection. The online pair is restored into a separate server and compared.
 """
 import argparse
 import importlib.machinery
@@ -39,6 +43,87 @@ core = rehearsal.core
 monitoring = rehearsal.monitoring
 
 
+# Reads through the edge every half second until stdin closes; prints outcome counts only.
+AVAILABILITY = r"""
+import http.client, json, select, ssl, sys, time
+context = ssl.create_default_context(cafile='/run/pki/ca.crt')
+counts, index = {}, 0
+while not select.select([sys.stdin], [], [], 0)[0]:
+    # The shell and the BFF session read; neither needs a published catalogue, which this runtime lacks.
+    path = '/api/v1/session' if index % 2 else '/'
+    index += 1
+    try:
+        connection = http.client.HTTPSConnection('gameometro.com', context=context, timeout=20)
+        connection.request('GET', path)
+        response = connection.getresponse()
+        body = response.read()
+        connection.close()
+        maintenance = response.status == 503 and (b'SERVICE_MAINTENANCE' in body or 'mantenimiento' in body.decode('utf-8', 'replace'))
+        kind = 'served' if response.status == 200 else 'maintenance' if maintenance else str(response.status)
+    except Exception:
+        kind = 'unreachable'
+    counts[kind] = counts.get(kind, 0) + 1
+    time.sleep(0.5)
+print(json.dumps(counts), flush=True)
+"""
+
+
+class Availability:
+    """A client on the edge's test network, counting what each request received."""
+
+    def __init__(self, source):
+        self.source, self.result = source, None
+
+    def __enter__(self):
+        self.process = subprocess.Popen(
+            ['docker', 'run', '--rm', '-i', '--label', f'vgp.production-test={self.source.project}',
+             '--network', self.source.project + '-test-client', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+             '--memory', '256m', '--pids-limit', '64', '-v', f'{self.source.directory}/pki:/run/pki:ro',
+             integration.PLAYWRIGHT, 'python3', '-c', AVAILABILITY],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        time.sleep(5)  # Several served reads before the capture starts.
+        return self
+
+    def __exit__(self, *_):
+        output = self.process.communicate(timeout=120)[0]  # Closing stdin ends the client's loop.
+        self.result = json.loads(output.decode().strip().splitlines()[-1]) if output.strip() else {'probe': 'failed'}
+
+
+def snapshot_copies(project):
+    return core.run(['docker', 'ps', '-aq', '--filter', f'label={core.SNAPSHOT_LABEL}={project}']).split()
+
+
+COUNTS = (('videogame_platform', 'SELECT count(*) FROM ratings.rating;'), ('videogame_platform', 'SELECT count(*) FROM catalogue.game;'),
+          ('videogame_keycloak', 'SELECT count(*) FROM user_entity;'))
+
+
+def restored_counts(source, pair, private_key):
+    """Decrypt the pair and restore both dumps into a separate, unnetworked server."""
+    name = source.project + '-restore-check'
+    image = json.loads(source.file.read_text())['services']['postgres']['image']
+    with core.scratch() as directory:
+        for database in core.DATABASES:
+            core.crypto('bc_decrypt_file', pair / (database + '.dump.gpg'), directory / database, private_key)
+        core.run(['docker', 'run', '-d', '--name', name, '--label', f'vgp.production-test={source.project}', '--network', 'none',
+                  '-e', 'POSTGRES_PASSWORD=synthetic', image])
+        try:
+            for _ in range(60):
+                if subprocess.run(['docker', 'exec', name, 'pg_isready', '-q', '-U', 'postgres'], capture_output=True).returncode == 0:
+                    break
+                time.sleep(1)
+            time.sleep(2)  # The image restarts its server once after initialization.
+            for database in core.DATABASES:
+                core.run(['docker', 'exec', name, 'createdb', '-U', 'postgres', database])
+                with (directory / database).open('rb') as stream:
+                    result = subprocess.run(['docker', 'exec', '-i', name, 'pg_restore', '--no-owner', '--no-privileges',
+                                             '--exit-on-error', '-U', 'postgres', '-d', database], stdin=stream, capture_output=True)
+                core.require(result.returncode == 0, 'The online pair did not restore.')
+            return [core.run(['docker', 'exec', name, 'psql', '-U', 'postgres', '-XqAt', '-d', database, '-c', query]).decode().strip()
+                    for database, query in COUNTS]
+        finally:
+            subprocess.run(['docker', 'rm', '-f', '-v', name], capture_output=True)
+
+
 def role_logins(runtime):
     return runtime.sql('postgres', "SELECT string_agg(rolname, ',' ORDER BY rolname) FROM pg_roles WHERE rolcanlogin AND rolname LIKE 'videogame_%';").decode().strip()
 
@@ -57,7 +142,7 @@ class Harness:
         self.config = {'authorized': True, 'admin': str(work / 'admin'), 'project': source.project, 'state': str(state),
                        'keyring': str(keyring), 'recipient': fingerprint, 'work': str(self.directory),
                        'uploaderConfig': str(credentials['uploader']), 'admissionConfig': str(credentials['admission']),
-                       's3Python': sys.executable, 'status': str(work / 'status.json')}
+                       's3Python': sys.executable, 'status': str(work / 'status.json'), 'captureMode': 'online'}
 
     def invoke(self, command, *arguments, **_):
         self.uploads.append(command)
@@ -134,29 +219,71 @@ def main():
             source.up('mailpit', 'keycloak', 'caddy', 'application', 'grafana')
             harness = Harness(source, state, work, fingerprint, keyring)
             harness.serving()
-            print('Scenario: a normal cycle.', flush=True)
+            print('Scenario: an online cycle while a client reads.', flush=True)
+            application = harness.runtime().compose('ps', '-q', 'application').strip()
             started = time.monotonic()
-            run = harness.cycle()
-            core.require(run.run() == 0, 'The normal cycle failed.')
-            receipt['normalCycleSeconds'] = round(time.monotonic() - started, 1)
+            with Availability(source) as client:
+                run = harness.cycle()
+                core.require(run.run() == 0, 'The online cycle failed.')
+            receipt['onlineCycleSeconds'] = round(time.monotonic() - started, 1)
+            receipt['onlineCycleRequests'] = client.result
+            core.require(set(client.result) == {'served'} and client.result['served'] >= 10,
+                         'A client saw an interruption during the online capture.')
+            core.require(harness.runtime().compose('ps', '-q', 'application').strip() == application, 'The online capture restarted the application.')
             harness.serving()
-            core.require(harness.uploads[-1] == 'publish' and core.verify(Path(run.journal['pair'])), 'The normal cycle did not produce an uploadable pair.')
+            pair = Path(run.journal['pair'])
+            core.require(harness.uploads[-1] == 'publish' and core.verify(pair)['fence'] == core.SNAPSHOT,
+                         'The online cycle did not produce an uploadable online pair.')
+            core.require(run.journal['captureMode'] == 'online' and not snapshot_copies(source.project), 'An online copy was left behind.')
+            live = [harness.runtime().sql(database, query).decode().strip() for database, query in COUNTS]
+            core.require(restored_counts(source, pair, private_key) == live, 'The restored online pair differs from the runtime.')
+            receipt['onlineCycle'] = 'passed'
+
+            print('Scenario: a fenced cycle keeps the edge answering.', flush=True)
+            harness.config['captureMode'] = 'fenced'
+            started = time.monotonic()
+            with Availability(source) as client:
+                run = harness.cycle()
+                core.require(run.run() == 0, 'The fenced cycle failed.')
+            receipt['fencedCycleSeconds'] = round(time.monotonic() - started, 1)
+            receipt['fencedCycleRequests'] = client.result
+            core.require('unreachable' not in client.result and client.result.get('maintenance', 0) > 0,
+                         'The fenced capture refused connections instead of answering with maintenance.')
+            harness.serving()
+            core.require(core.verify(Path(run.journal['pair']))['fence'] == core.FENCED, 'The fenced cycle did not produce a fenced pair.')
             core.require('grafana' in run.journal['optionalRunning'] and not run.journal['optionalDegraded'], 'Grafana did not come back.')
             receipt['normalCycle'] = 'passed'
 
-            print('Scenario: the capture fails after the fence.', flush=True)
             def failing_runtime():
                 runtime = harness.runtime()
-                def broken():
+                def broken(*_):
                     raise core.Refused('Injected capture failure.')
                 runtime.identity = broken
                 return runtime
-            uploads = len(harness.uploads)
-            run = harness.cycle(failing_runtime)
-            core.require(run.run() == 1 and run.journal['lastFailure'] == 'capture-failed', 'The failed capture was not reported.')
-            core.require(harness.uploads[uploads:].count('publish') == 0, 'A failed capture was uploaded.')
-            harness.serving()
+            for mode in ('online', 'fenced'):
+                print(f'Scenario: the {mode} capture fails.', flush=True)
+                harness.config['captureMode'] = mode
+                uploads = len(harness.uploads)
+                run = harness.cycle(failing_runtime)
+                core.require(run.run() == 1 and run.journal['lastFailure'] == 'capture-failed', 'The failed capture was not reported.')
+                core.require(harness.uploads[uploads:].count('publish') == 0, 'A failed capture was uploaded.')
+                core.require(not snapshot_copies(source.project), 'A failed online copy was left behind.')
+                harness.serving()
             receipt['failedCaptureReopened'] = 'passed'
+
+            print('Scenario: the host dies during an online capture.', flush=True)
+            harness.config['captureMode'] = 'online'
+            runtime = harness.runtime()
+            with runtime.lock():
+                core.Snapshot(runtime, runtime.snapshot_size()).__enter__()  # Never left: what a crash leaves behind.
+            core.require(snapshot_copies(source.project), 'The interrupted copy was not created.')
+            run = harness.cycle()
+            run.journal.update(status='snapshotting', runId='a' * 32, pair=str(run.pairs / ('20261107T000000Z-' + 'a' * 32)))
+            run.save()
+            core.require(harness.cycle().reconcile() == 0 and not snapshot_copies(source.project), 'Reconciliation left the copy.')
+            core.require(harness.cycle().journal['status'] == 'idle', 'The interrupted online capture was not settled.')
+            harness.serving()
+            receipt['onlineCrashRecovered'] = 'passed'
 
             print('Scenario: the host dies during the capture.', flush=True)
             # The real fence, then no reopening: exactly what a crash leaves behind.

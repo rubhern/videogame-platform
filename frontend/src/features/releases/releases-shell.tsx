@@ -387,7 +387,7 @@ export function ReleasesShell({
             </p>
             <ReleasesPagination
               page={state.model.page}
-              search={search}
+              pathFor={(page) => releasesSearchPath(search, { page })}
               showPosition={false}
               state={frameState}
             />

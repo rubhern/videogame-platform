@@ -45,6 +45,12 @@ IDENTITY_ROUTED = (
     "/realms/gameometro/protocol/openid-connect/logout",
     "/realms/gameometro/login-actions/authenticate",
     "/realms/gameometro/login-actions/action-token?key=synthetic",
+    "/realms/gameometro/login-actions/first-broker-login",
+    "/realms/gameometro/broker/google/login?client_id=videogame-platform-bff",
+    "/realms/gameometro/broker/google/endpoint?state=synthetic",
+    "/realms/gameometro/broker/microsoft/endpoint?state=synthetic",
+    # Keycloak's return after the first-broker-login flow; without it no first sign-in completes.
+    "/realms/gameometro/broker/after-first-broker-login?session_code=synthetic&client_id=videogame-platform-bff&tab_id=synthetic",
     "/resources/abc12/login/gameometro/css/login.css",
 )
 IDENTITY_REFUSED = (
@@ -60,6 +66,13 @@ IDENTITY_REFUSED = (
     "/realms/gameometro/",
     "/realms/gameometro/account",
     "/realms/gameometro/account/",
+    # Only the two reviewed providers (ADR-0045); no other broker alias or broker API is routed.
+    "/realms/gameometro/broker/github/endpoint",
+    "/realms/gameometro/broker/google",
+    "/realms/gameometro/broker/google/../../broker/github/endpoint",
+    "/realms/gameometro/broker/microsoft/endpoint;x",
+    "/realms/gameometro/broker/after-post-broker-login",
+    "/realms/gameometro/broker/after-first-broker-login/x",
     "/health/ready",
     "/metrics",
     "/realms/gameometro/protocol/openid-connect/../../../master/protocol/openid-connect/token",
@@ -316,10 +329,13 @@ KINDS = {
     "session": ("GET", APPLICATION_HOST, "/api/v1/session", None),
     "search": ("GET", APPLICATION_HOST, "/api/v1/games?q=synthetic", None),
     "releases": ("GET", APPLICATION_HOST, "/api/v1/releases", None),
+    "feedback": ("POST", APPLICATION_HOST, "/api/v1/feedback", b'{"category":"other","message":"Synthetic probe"}'),
     "write": ("PUT", APPLICATION_HOST, RATING, b'{"value":8}'),
     "identity-page": ("GET", IDENTITY_HOST, REALM + "/protocol/openid-connect/auth?client_id=videogame-platform-bff", None),
     "identity-resource": ("GET", IDENTITY_HOST, "/resources/abc12/login/gameometro/css/login.css", None),
     "login": ("POST", IDENTITY_HOST, REALM + "/login-actions/authenticate", b"username=synthetic"),
+    # Linking Google or Microsoft re-enters the existing account's password here (ADR-0045).
+    "link-login": ("POST", IDENTITY_HOST, REALM + "/login-actions/first-broker-login", b"password=synthetic"),
     "registration": ("POST", IDENTITY_HOST, REALM + "/login-actions/registration", b"email=synthetic"),
     # Keycloak serves this as the registration endpoint; the limit must count it the same way.
     "registration-slashes": ("POST", IDENTITY_HOST, "/realms/gameometro/login-actions//registration", b"email=synthetic"),
@@ -379,8 +395,12 @@ class Limits(Probe):
         name = f"{label} {kind} {expected}"
         self.expect(f"{name} status", status == status_expected and not echoed, f"-> {status}, upstream reached {echoed}")
         retry = headers.get("retry-after", "")
-        # Within the longest limiter window plus jitter; the contract test scales some to 5 minutes.
-        self.expect(f"{name} Retry-After", retry.isdigit() and (retry == "300" if expected == "maintenance" else 1 <= int(retry) <= 361),
+        # Within the limiter window plus 20% jitter. Other contract scenarios scale up to five minutes.
+        max_retry = 361
+        if kind == "feedback":
+            max_retry = 103_681 if expected == "overloaded" else 721
+        self.expect(f"{name} Retry-After",
+                    retry.isdigit() and (retry == "300" if expected == "maintenance" else 1 <= int(retry) <= max_retry),
                     repr(retry))
         self.retry_after = int(retry) if retry.isdigit() else None
         self.expect(f"{name} is not stored", headers.get("cache-control") == "no-store", str(headers.get("cache-control")))

@@ -7,22 +7,25 @@ import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { ChevronIcon } from "./featured-icons";
+import { ReleasesPagination } from "./releases-pagination";
 import { countLabel, dayHeading } from "./release-calendar-model";
-import { DAY_PREVIEW_SIZE } from "./release-calendar-search";
 import type { ReleaseListItem } from "./releases-view-model";
 
 /** The day's leading games as the explorer's one-day read returns them. */
 export type CalendarDayPreview =
   | { status: "loading" }
-  | { status: "ready"; items: ReleaseListItem[] }
+  | { status: "ready"; items: ReleaseListItem[]; page: { number: number; totalPages: number; totalItems: number } }
   | { status: "error"; correlationId: string | null };
 
 type ReleaseCalendarDayProps = {
   date: string;
   /** The calendar's own count for the day, which the explorer's total for that day equals. */
   gameCount: number;
+  /** How many leading games the day previews, from the served month. */
+  previewSize: number;
   preview: CalendarDayPreview;
   explorerPath: string;
+  pagePath: (page: number) => string;
   onRetry: () => void;
 };
 
@@ -76,26 +79,20 @@ function CalendarReleaseRow({ item }: { item: ReleaseListItem }) {
 
 /**
  * The chosen day under the calendar (#250): its heading under the section's short fire rule, how
- * many games it holds, up to three of them in compact rows and **Ver todos los lanzamientos del
- * día**, which opens the explorer on that day in the same order. The order uses the stored Hype
- * to rank the qualifying highlights; nothing here names or shows it.
+ * many games it holds, their bounded pages in interest order and **Ver todos los lanzamientos del
+ * día**, which opens the explorer on that day in the same order.
  */
 export function ReleaseCalendarDay({
   date,
   gameCount,
+  previewSize,
   preview,
   explorerPath,
+  pagePath,
   onRetry,
 }: ReleaseCalendarDayProps) {
-  const shown = preview.status === "ready" ? preview.items.length : 0;
-  const summary =
-    gameCount === 0
-      ? "Sin lanzamientos"
-      : preview.status === "loading"
-        ? `${countLabel(gameCount)} · Cargando…`
-        : gameCount > shown && shown > 0
-          ? `${countLabel(gameCount)} · Mostrando ${shown}`
-          : countLabel(gameCount);
+  const total = preview.status === "ready" ? preview.page.totalItems : gameCount;
+  const summary = total === 0 ? "Sin lanzamientos" : countLabel(total);
 
   return (
     <section aria-labelledby="calendar-day-title" className="calendar-day-panel">
@@ -116,13 +113,13 @@ export function ReleaseCalendarDay({
 
       {gameCount === 0 ? (
         <p className="calendar-day-empty">
-          Este día no tiene destacados con fecha exacta para estos filtros.
+          Este día no tiene lanzamientos con fecha exacta para estos filtros.
         </p>
       ) : null}
 
       {gameCount > 0 && preview.status === "loading" ? (
         <ul aria-hidden="true" className="calendar-release-list">
-          {Array.from({ length: Math.min(gameCount, DAY_PREVIEW_SIZE) }, (_, index) => (
+          {Array.from({ length: Math.min(gameCount, previewSize) }, (_, index) => (
             <li className="calendar-release calendar-release-pending" key={index}>
               <span className="skeleton calendar-release-pending-cover" />
               <span className="calendar-release-pending-lines">
@@ -156,6 +153,7 @@ export function ReleaseCalendarDay({
           ))}
         </ol>
       ) : null}
+      {preview.status === "ready" && <ReleasesPagination page={preview.page} pathFor={pagePath} preventScrollReset />}
     </section>
   );
 }

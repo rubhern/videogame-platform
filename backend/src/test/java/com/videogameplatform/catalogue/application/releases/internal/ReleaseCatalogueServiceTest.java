@@ -12,6 +12,7 @@ import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.settings.TestProductSettings;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
@@ -284,7 +285,8 @@ class ReleaseCatalogueServiceTest {
                 port,
                 new CatalogueCoverPolicy(providerCoverReferenceResolver()),
                 clock,
-                new ReleaseBrowsePolicy(25));
+                new ReleaseBrowsePolicy(25),
+                TestProductSettings.defaults());
     }
 
     private static ProviderCoverReferenceResolver providerCoverReferenceResolver() {

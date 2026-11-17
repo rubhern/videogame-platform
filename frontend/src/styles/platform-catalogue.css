@@ -136,7 +136,12 @@
 
   /* ---------------------------------------------------------------- Discovery controls */
 
-  /* Its own stacking layer, so the order's list and the platform switcher paint above the cards. */
+  /* Keep the platform switcher above the toolbar when its panel overlaps the controls. */
+  .platform-catalogue-head .platform-navigation {
+    z-index: 11;
+  }
+
+  /* The order's list paints above the catalogue results. */
   .catalogue-controls {
     position: relative;
     z-index: 10;
@@ -778,10 +783,21 @@
     outline-offset: -2px;
   }
 
-  .platform-switcher-option[aria-current="page"] {
+  .platform-switcher-option:is([aria-current="page"], [aria-pressed="true"]) {
     color: var(--color-ice-light);
     background: color-mix(in srgb, var(--color-ice) 10%, transparent);
     box-shadow: inset 2px 0 var(--color-ice);
+  }
+
+  .platform-switcher-filter {
+    width: 100%;
+    text-align: start;
+  }
+
+  .platform-switcher-filter:disabled {
+    opacity: 0.52;
+    cursor: default;
+    background: transparent;
   }
 
   .platform-switcher-mark {
@@ -1068,7 +1084,7 @@
   @media (forced-colors: active) {
     .catalogue-state[aria-current],
     .catalogue-genre[aria-pressed="true"],
-    .platform-switcher-option[aria-current="page"] {
+    .platform-switcher-option:is([aria-current="page"], [aria-pressed="true"]) {
       outline: 2px solid Highlight;
       outline-offset: -2px;
     }

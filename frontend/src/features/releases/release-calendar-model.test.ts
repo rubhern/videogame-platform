@@ -22,6 +22,7 @@ function calendar(overrides: Partial<ReleaseCalendar> = {}): ReleaseCalendar {
     activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: { platforms: [], regions: [] },
     days: [],
+    presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
     ...overrides,
   };
 }
@@ -35,6 +36,19 @@ describe("release calendar model", () => {
     [100, 3], [149, 3], [150, 4], [1102, 4],
   ])("places total Hype %i at colour level %i", (hype, level) => {
     expect(densityLevel(hype)).toBe(level);
+  });
+
+  it("colours by the operator's thresholds and carries the preview size", () => {
+    const model = toReleaseCalendarModel(calendar({
+      days: [
+        { date: "2026-11-01", gameCount: 1, totalHype: 150 },
+        { date: "2026-11-02", gameCount: 1, totalHype: 400 },
+        { date: "2026-11-03", gameCount: 1, totalHype: 25 },
+      ],
+      presentation: { interestThresholds: [25, 50, 200, 400], dayPreviewSize: 5 },
+    }));
+    expect(model.days.slice(0, 3).map((day) => day.density)).toEqual([2, 4, 1]);
+    expect(model.dayPreviewSize).toBe(5);
   });
 
   it("colours by total Hype independently of the release count", () => {

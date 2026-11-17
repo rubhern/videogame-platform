@@ -63,7 +63,7 @@ helper, adding loopback access for a host/IDE backend and container wiring for `
 | PostgreSQL | `127.0.0.1:5432` | Separate application and Keycloak databases/roles |
 | Keycloak | `http://localhost:8180` | Development-mode OIDC provider |
 | Keycloak management | `127.0.0.1:9000` | Local health and metrics |
-| Mailpit web UI and API | `http://127.0.0.1:8025` | Captured recovery email; its SMTP port is reachable only by Keycloak on the Compose network |
+| Mailpit web UI and API | `http://127.0.0.1:8025` | Captured recovery and feedback email; SMTP is reached over the Compose network |
 | Application (`full` only) | `http://localhost:8080` | Frontend + BFF/API + modular monolith |
 | Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
 | Grafana (optional) | `http://127.0.0.1:3000` | Authenticated dashboards; no SSH tunnel needed locally |
@@ -152,11 +152,13 @@ owns its limits and trust model. Start the real packaged application with
 
 The import configures a fresh realm. Keycloak's startup import never updates an
 existing realm. Both `up` and `application` now run the shared Admin API alignment
-command after Keycloak is ready, before starting the packaged BFF. It reconciles
-only the five session settings and the native BFF mapper from the reviewed import;
-accounts, credentials, client secrets, redirects, SMTP and local registration policy
-stay intact. The local ordinary SSO maximum intentionally changes from ten to eight
-hours. No Admin Console edits or data reset are needed.
+command after Keycloak is ready, before starting the packaged BFF. It applies the
+reviewed production identity policy, the same one private dev applies
+([ADR-0037](../decisions/0037-align-local-and-private-dev-with-production.md)): email
+sign-in with an email-only profile and verification, mandatory acceptance of the terms of use, the
+password, lockout, session and event policies, and the native BFF mapper. Accounts keep
+their IDs, credentials and ratings, and existing usernames still sign in; client secrets,
+redirects and SMTP stay intact. No Admin Console edits or data reset are needed.
 
 For an already running matching BFF/Keycloak image, reconcile or inspect explicitly:
 
@@ -165,15 +167,15 @@ bash scripts/local-dependencies.sh configure-identity
 bash scripts/local-dependencies.sh check-identity
 ```
 
-Each changed apply saves a mode-0600 session-policy snapshot outside the checkout,
+Each changed apply saves a mode-0600 identity-policy snapshot outside the checkout,
 under `${XDG_STATE_HOME:-$HOME/.local/state}/videogame-platform/keycloak-identity`.
 Repeated applies with no drift do nothing. The command refuses to extend SSO if
 the native mapper provider is absent: rebuild the shared Keycloak image first.
-Restore a session snapshot with `configure-keycloak-identity --sessions-only --restore
-<snapshot>`, using its explicit `--origin`, `--admin-username` and protected
-`--admin-password-file` inputs. The full private-dev identity policy is a separate
-operator action; local startup never changes local sign-in identifiers or email
-verification. Avoid direct `docker compose up` for setup: it bypasses this alignment.
+Restore a snapshot with `configure-keycloak-identity --restore <snapshot>`, using its
+explicit `--origin`, `--admin-username` and protected `--admin-password-file` inputs.
+Self-registration asks only for the email and acceptance of the terms; the password is chosen after
+following the verification link that Mailpit captures. Avoid direct `docker compose up` for
+setup: it bypasses this alignment.
 
 1. In a clean normal browser profile, disable **restore previous session**, select
    **Iniciar sesión**, verify **Seguir conectado** starts unchecked, select it and
@@ -230,10 +232,10 @@ bash scripts/local-dependencies.sh verify
 
 Open `http://127.0.0.1:8025` to read captured messages. To exercise the journey, open
 the application's sign-in, choose **¿Has olvidado tu contraseña?**, enter the
-username (the realm signs in by username, so an email address finds no account),
-open the link from Mailpit in the same browser and choose a new password; Keycloak
-then completes the original sign-in and returns to the product. The response never
-reveals whether the username exists. The link expires after Keycloak's default five
+email (the realm signs in by email, and existing usernames keep working), open the link
+from Mailpit in the same browser and choose a new password; Keycloak then completes the
+original sign-in and returns to the product. The response never reveals whether the
+account exists. The link expires after Keycloak's default five
 minutes and works once.
 
 Mailpit keeps at most 100 messages for 24 hours in a temporary in-memory store, so
@@ -244,6 +246,40 @@ delivery with `bash scripts/local-dependencies.sh logs`: Keycloak logs a failed 
 accepted message. Only this local
 mail sink is configured; production delivery belongs to the
 [public release gates](delivery-lifecycle.md#public-production-gates).
+
+## Google and Microsoft sign-in
+
+Optional ([ADR-0045](../decisions/0045-offer-google-and-microsoft-sign-in-through-keycloak-brokering.md)).
+Without credentials nothing changes: the sign-in shows email and password only.
+
+**Set up.** Exercise the real providers with your own *development* OAuth clients:
+
+- a Google OAuth web client;
+- a Microsoft Entra app for personal accounts with the delegated `User.Read` permission.
+
+Their redirect URIs are `http://localhost:8180/realms/videogame-platform/broker/google/endpoint`
+and `http://localhost:8180/realms/videogame-platform/broker/microsoft/endpoint`. Put each client ID
+and secret, one line each, in the ignored `.local-secrets/social-sign-in/` directory as
+`google-client-id`, `google-client-secret`, `microsoft-client-id` and `microsoft-client-secret`.
+Then reconcile or inspect:
+
+```bash
+bash scripts/local-dependencies.sh configure-social-sign-in
+bash scripts/local-dependencies.sh check-social-sign-in
+```
+
+The command adds the brokered-terms step, the reviewed first-broker-login flow and the providers
+to the existing realm. It leaves accounts and other settings unchanged. A provider without both
+files is disabled, never deleted. Rebuild the shared Keycloak image first if Keycloak reports that
+the `gameometro-brokered-terms` authenticator is missing.
+
+**What to expect.**
+- A new provider account accepts the terms once.
+- A Microsoft email is verified through Mailpit.
+- Linking a provider to an existing email account asks for that account's password.
+
+**Disposable proof.** `bash scripts/validate-social-sign-in.sh` proves the same journeys with
+stand-in providers and no real credentials.
 
 ## Local catalogue translations
 

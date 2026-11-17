@@ -184,7 +184,8 @@ class ObservabilityReadViewsIntegrationTest {
         statement.execute(
                 "UPDATE catalogue.game_snapshot g SET summary_kind='sourced',summary_language='en',"
                         + "summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='game',"
-                        + "summary_text='Source '||r.rank FROM ranked_games r WHERE r.game_id=g.game_id AND r.rank<=7");
+                        + "summary_text=CASE WHEN r.rank=1 THEN E' Source\\t 1\\n' ELSE 'Source '||r.rank END"
+                        + " FROM ranked_games r WHERE r.game_id=g.game_id AND r.rank<=7");
         // Rank 8 onwards keeps its seeded editorial summary, which is not a target.
         statement.execute(
                 "INSERT INTO catalogue.content_translation"
@@ -195,9 +196,9 @@ class ObservabilityReadViewsIntegrationTest {
                         + "('Former source 2','Fuente anterior','fixture',now(),NULL,NULL),"
                         // 3: reusable, translated for another Game. 4: released. 5: leased. 6:
                         // expired.
-                        + "('Source 3','Fuente 3','fixture',now(),NULL,NULL),"
+                        + "(' Source  3 ','Fuente 3','fixture',now(),NULL,NULL),"
                         + "('Source 4',NULL,NULL,NULL,NULL,NULL),"
-                        + "('Source 5',NULL,NULL,NULL,gen_random_uuid(),now()+interval '5 minutes'),"
+                        + "('Source  5',NULL,NULL,NULL,gen_random_uuid(),now()+interval '5 minutes'),"
                         + "('Source 6',NULL,NULL,NULL,gen_random_uuid(),now()-interval '1 minute')"
                         + ") v(source,translated,revision,at,claim,until)");
         statement.execute(

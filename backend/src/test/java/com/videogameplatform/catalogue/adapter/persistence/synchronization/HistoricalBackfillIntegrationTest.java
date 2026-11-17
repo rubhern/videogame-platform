@@ -484,7 +484,9 @@ class HistoricalBackfillIntegrationTest {
                         new com.videogameplatform.catalogue.adapter.scheduling
                                 .CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180),
                         store,
-                        store)
+                        store,
+                        com.videogameplatform.catalogue.application.settings.TestProductSettings
+                                .defaults())
                 .configureTasks(registrar);
         Runnable drain = registrar.getFixedDelayTaskList().getFirst().getRunnable();
         when(synchronization.synchronize(any()))
@@ -625,7 +627,9 @@ class HistoricalBackfillIntegrationTest {
                         new com.videogameplatform.catalogue.adapter.scheduling
                                 .CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180),
                         restarted,
-                        restarted)
+                        restarted,
+                        com.videogameplatform.catalogue.application.settings.TestProductSettings
+                                .defaults())
                 .configureTasks(registrar);
         registrar.getFixedDelayTaskList().getFirst().getRunnable().run();
         assertThat(restarted.next()).isEmpty();

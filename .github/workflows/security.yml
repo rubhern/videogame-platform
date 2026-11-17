@@ -9,7 +9,7 @@ on:
       - main
 
 concurrency:
-  group: security-${{ github.event.pull_request.number || github.ref }}
+  group: security-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
@@ -62,13 +62,9 @@ jobs:
           persist-credentials: false
 
       - name: Scan committed history for secrets
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_ENABLE_COMMENTS: "false"
-          GITLEAKS_ENABLE_SUMMARY: "true"
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
-          GITLEAKS_VERSION: "8.30.1"
+        uses: ./.github/actions/scan-source-secrets
+        with:
+          token: ${{ github.token }}
 
   dependencies:
     name: Dependency review
@@ -119,7 +115,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Reject known high-severity npm vulnerabilities
-        run: npm audit --audit-level=high
+        run: node scripts/audit-build-dependencies.mjs --frontend
 
   codeql-java:
     name: CodeQL (java-kotlin)

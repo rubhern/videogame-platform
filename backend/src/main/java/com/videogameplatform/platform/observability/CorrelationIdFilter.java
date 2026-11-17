@@ -52,6 +52,8 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
 
     private static final Set<String> METRIC_CODES =
             Set.of(
+                    "FEEDBACK_INVALID",
+                    "FEEDBACK_UNAVAILABLE",
                     "REQUEST_MALFORMED",
                     "REQUEST_PROPERTY_UNKNOWN",
                     "REQUEST_PARAMETER_UNKNOWN",

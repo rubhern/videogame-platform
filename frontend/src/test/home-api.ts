@@ -85,6 +85,7 @@ export const homeCalendar: ReleaseCalendar = {
     { date: "2026-10-29", gameCount: 5, totalHype: 284 },
     { date: "2026-10-30", gameCount: 1, totalHype: 13 },
   ],
+  presentation: { interestThresholds: [10, 30, 100, 150], dayPreviewSize: 3 },
 };
 
 export const homeNextCalendar: ReleaseCalendar = {
