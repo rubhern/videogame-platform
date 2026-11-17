@@ -15,6 +15,11 @@ or is skipped unexpectedly, and also when an inapplicable job runs unexpectedly.
 Unknown paths and changes to shared CI/classification logic select broad validation.
 Secret scanning remains applicable to every pull request.
 
+Maven's [resolver configuration](../../.mvn/maven.config) bounds recovery from
+temporary artifact-server throttling. Its HTTP transport retries the failed
+download request while the same build invocation continues. Compilation, tests
+and Sonar qualification retain their normal failure semantics.
+
 ### Environment admission
 
 Trusted `main` publishes the verified application image after the source secret
