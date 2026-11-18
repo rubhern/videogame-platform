@@ -639,16 +639,6 @@
     font-size: 0.875rem;
   }
 
-  .my-rating-editor-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  .my-rating-editor-actions .button {
-    flex: 1 1 0;
-  }
-
   /* Deletion is separated from the scale and asks once more before it acts. */
   .my-rating-editor-danger {
     display: grid;

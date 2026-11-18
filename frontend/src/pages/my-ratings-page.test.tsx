@@ -276,23 +276,18 @@ describe("Mis puntuaciones", () => {
     expect(score).toHaveAttribute("aria-expanded", "true");
     const editor = within(card).getByRole("dialog", { name: "Tu puntuación de Élite Dangerous" });
     expect(within(editor).getByRole("button", { name: "7" })).toHaveFocus();
-    expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeDisabled();
-    // Arrows only browse; Enter picks a pending value and sends nothing.
+    // Picking the saved value again closes the panel without a command.
+    await userEvent.click(within(editor).getByRole("button", { name: "7" }));
+    expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
+    expect(score).toHaveFocus();
+    await userEvent.click(score);
+    const reopened = within(card).getByRole("dialog", { name: "Tu puntuación de Élite Dangerous" });
+    // Arrows only browse and send nothing; Enter picks, and a pick saves at once (#574).
     await userEvent.keyboard("{ArrowRight}{ArrowRight}");
-    expect(within(editor).getByRole("button", { name: "9" })).toHaveFocus();
-    expect(within(editor).getByRole("button", { name: "7" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.keyboard("{Enter}");
-    expect(within(editor).getByRole("button", { name: "9" })).toHaveAttribute("aria-pressed", "true");
-    // The pending reading takes its own temperature while the persisted one stays named.
-    expect(editor).toHaveAttribute("data-thermal", "burn");
-    expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("9/10Ardiendo");
-    expect(within(editor).getByText("Puntuación actual").parentElement).toHaveTextContent("7/10Caliente");
-    await userEvent.click(within(editor).getByRole("button", { name: "4" }));
-    expect(editor).toHaveAttribute("data-thermal", "cold");
-    expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("4/10Frío");
-    await userEvent.click(within(editor).getByRole("button", { name: "9" }));
+    expect(within(reopened).getByRole("button", { name: "9" })).toHaveFocus();
+    expect(within(reopened).getByRole("button", { name: "7" })).toHaveAttribute("aria-pressed", "true");
     expect(commands(fetchMock, "PUT")).toHaveLength(0);
-    await userEvent.click(within(editor).getByRole("button", { name: "Guardar puntuación" }));
+    await userEvent.keyboard("{Enter}");
     expect(await within(card).findByRole("button", { name: /^Tu puntuación Ardiendo 9\/10/ })).toBeVisible();
     expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toHaveFocus();
@@ -301,24 +296,22 @@ describe("Mis puntuaciones", () => {
     // The list re-reads itself after the command; there is no refresh action.
     expect(listReads(fetchMock)).toHaveLength(2);
   });
-  it("closes on Escape, Cancel or an outside press without sending a command", async () => {
+  it("closes on Escape or an outside press without sending a command", async () => {
     const fetchMock = stub(() => Response.json(page()));
     renderApp("/mis-puntuaciones");
     const card = await screen.findByRole("article", { name: "Élite Dangerous" });
     const score = within(card).getByRole("button", { name: /^Tu puntuación/ });
     score.focus();
     await userEvent.keyboard("{Enter}");
-    await userEvent.click(within(card).getByRole("button", { name: "3" }));
+    // Browsing the scale never picks: arrows only move focus.
+    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
     await userEvent.keyboard("{Escape}");
     expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
     expect(score).toHaveFocus();
-    // Reopening starts again from the persisted value.
+    // Reopening starts again from the persisted value; there is no separate save action.
     await userEvent.keyboard("{Enter}");
     expect(within(card).getByRole("button", { name: "7" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(within(card).getByRole("button", { name: "Cancelar" }));
-    expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
-    expect(score).toHaveFocus();
-    await userEvent.click(score);
+    expect(within(card).queryByRole("button", { name: /^(Guardar puntuación|Cancelar)$/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("heading", { name: "Mis puntuaciones" }));
     expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([request]) => (request as Request).method !== "GET")).toBe(false);
@@ -359,13 +352,12 @@ describe("Mis puntuaciones", () => {
     renderApp("/mis-puntuaciones");
     const { card, editor } = await openEditor();
     await userEvent.click(within(editor).getByRole("button", { name: "5" }));
-    await userEvent.click(within(editor).getByRole("button", { name: "Guardar puntuación" }));
     expect(await within(editor).findByRole("alert")).toHaveTextContent("cambió en otra sesión");
     // The winning value arrives through the automatic read; the editor keeps the pending pick.
     expect(await within(card).findByRole("button", { name: /^Tu puntuación Ardiendo 9\/10/ })).toBeVisible();
     expect(within(editor).getByText("Puntuación actual").parentElement).toHaveTextContent("9/10Ardiendo");
     expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("5/10Templado");
-    await waitFor(() => expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeEnabled());
+    await waitFor(() => expect(within(editor).getByRole("button", { name: "5" })).toBeEnabled());
     expect(commands(fetchMock, "PUT")).toHaveLength(1);
   });
   it("keeps ambiguous commands blocked until a successful read, including failed automatic reads", async () => {
@@ -384,8 +376,7 @@ describe("Mis puntuaciones", () => {
     // The outcome is unknown, so the list is read again on its own; here that read fails too.
     await screen.findByText("No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.");
     expect(within(editor).getByRole("button", { name: "Eliminar puntuación" })).toBeDisabled();
-    await userEvent.click(within(editor).getByRole("button", { name: "8" }));
-    expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeDisabled();
+    expect(within(editor).getByRole("button", { name: "8" })).toBeDisabled();
     recovered = true;
     // Pressing the retry outside the editor closes it; once the read succeeds, commands return.
     await userEvent.click(screen.getByRole("button", { name: "Reintentar carga" }));

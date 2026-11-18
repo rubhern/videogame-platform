@@ -16,6 +16,8 @@ import com.videogameplatform.ratings.application.GetPersonalRatingUseCase;
 import com.videogameplatform.ratings.application.PersonalRatingCommand;
 import com.videogameplatform.ratings.application.PutPersonalRatingUseCase;
 import java.net.URI;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -115,7 +117,12 @@ public class PersonalRatingController implements RatingsApi {
 
     @Override
     public ResponseEntity<PersonalRatingPage> listMyRatings(
-            String q, String sort, String direction, Integer page, Integer pageSize) {
+            String q,
+            Set<String> gameIds,
+            String sort,
+            String direction,
+            Integer page,
+            Integer pageSize) {
         var result =
                 listing.list(
                         userId(),
@@ -125,7 +132,8 @@ public class PersonalRatingController implements RatingsApi {
                                 sort,
                                 direction,
                                 page == null ? 1 : page,
-                                pageSize == null ? 20 : pageSize));
+                                pageSize == null ? 20 : pageSize,
+                                gameIds == null ? List.of() : List.copyOf(gameIds)));
         var body = mapper.toResponse(result);
         // Catalogue's evidence for only the user-scoped page already selected: one batch read.
         var external =

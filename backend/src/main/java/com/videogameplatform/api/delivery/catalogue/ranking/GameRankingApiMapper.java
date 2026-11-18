@@ -41,6 +41,7 @@ final class GameRankingApiMapper {
     GameRankingPage toResponse(GameRanking ranking, RankingSource source) {
         return new GameRankingPage(
                 source,
+                ranking.minimumRatings(),
                 ranking.items().stream().map(this::toItem).toList(),
                 new PageMetadata(
                         ranking.page().number(),

@@ -17,14 +17,25 @@ export type PendingRatingIntent = { gameId: string } & (
 
 const startPath = "/auth/rating-intent/start";
 
-/** Builds the allowlisted server route that starts authentication from the rating boundary. */
+/**
+ * Builds the allowlisted server route that starts authentication from the rating boundary. A
+ * rating started on a list names that list as `returnTo` (#574); the server accepts only its own
+ * allowlist of list paths and otherwise returns to the game page.
+ */
 export function ratingIntentStartUrl(
   gameId: string,
   slug: string,
   value: number,
+  returnTo?: string,
 ): string {
   const params = new URLSearchParams({ gameId, slug, value: String(value) });
+  if (returnTo !== undefined) params.set("returnTo", returnTo);
   return `${startPath}?${params.toString()}`;
+}
+
+/** A local path with the resumed-rating marker added to its query. */
+export function withResumedMarker(path: string): string {
+  return `${path}${path.includes("?") ? "&" : "?"}rating-intent=resumed`;
 }
 
 /** Stores a platform selection in the BFF session before navigating through OIDC. */
@@ -32,11 +43,13 @@ export async function startPlatformRatingIntent(
   gameId: string,
   slug: string,
   platforms: readonly PlatformSelection[],
+  returnTo?: string,
 ): Promise<string> {
   const proof = await fetch(`${startPath}?csrf`);
   if (!proof.ok) throw new Error("Could not prepare rating authentication.");
 
   const body = new URLSearchParams({ gameId, slug });
+  if (returnTo !== undefined) body.set("returnTo", returnTo);
   for (const { platformId, value } of platforms) {
     body.append("platform", `${platformId}:${value ?? ""}`);
   }
@@ -52,9 +65,8 @@ export async function startPlatformRatingIntent(
     throw new Error("Invalid rating authentication response.");
   }
 
-  return result.alreadyAuthenticated
-    ? `/games/${encodeURIComponent(gameId)}/${encodeURIComponent(slug)}?rating-intent=resumed`
-    : "/auth/login/keycloak";
+  if (!result.alreadyAuthenticated) return "/auth/login/keycloak";
+  return withResumedMarker(returnTo ?? `/games/${encodeURIComponent(gameId)}/${encodeURIComponent(slug)}`);
 }
 
 function isScore(value: unknown): value is number {

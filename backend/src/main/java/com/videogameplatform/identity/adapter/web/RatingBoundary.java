@@ -1,5 +1,6 @@
 package com.videogameplatform.identity.adapter.web;
 
+import com.videogameplatform.identity.adapter.session.RatingReturnContext;
 import com.videogameplatform.identity.adapter.session.RatingReturnContext.PlatformScore;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -14,7 +15,8 @@ import java.util.regex.Pattern;
  * <p>Every browser-supplied value is untrusted. The game identifier and slug are constrained to the
  * exact character set the SPA routes accept, so a resolved destination is always a local game page
  * and can never become an open redirect. The rating value is validated against the approved 1-10
- * range before any authentication starts.
+ * range before any authentication starts. A list a rating may return to (#574) is one of a closed
+ * set of local TOPómetro paths, revalidated whenever it becomes a redirect.
  */
 public final class RatingBoundary {
 
@@ -37,6 +39,10 @@ public final class RatingBoundary {
     private static final Pattern GAME_ID = Pattern.compile("[a-z0-9-]{1,100}");
     // Possessive quantifiers keep matching linear and stack-safe for hostile long input.
     private static final Pattern SLUG = Pattern.compile("[a-z0-9]++(?:-[a-z0-9]++)*+");
+    // The TOPómetro, global or on one platform, with at most its source: never any other path.
+    private static final Pattern LIST_PATH =
+            Pattern.compile(
+                    "/(?:plataformas/[a-z0-9-]{1,100}/)?topometro(?:\\?source=(?:igdb|gameometro))?");
     private static final String HOME = "/";
     private static final String INTENT_QUERY = "rating-intent";
 
@@ -102,6 +108,29 @@ public final class RatingBoundary {
     /** The game page path carrying the safe post-authentication outcome marker. */
     public static String gamePathWithOutcome(String gameId, String slug, Outcome outcome) {
         return gamePath(gameId, slug) + "?" + INTENT_QUERY + "=" + outcome.marker();
+    }
+
+    /** The list a rating started from, when it is one of the allowlisted local list paths. */
+    public static Optional<String> validListPath(String path) {
+        return path != null && path.length() <= 160 && LIST_PATH.matcher(path).matches()
+                ? Optional.of(path)
+                : Optional.empty();
+    }
+
+    /**
+     * Where a rating journey ends with its outcome: the allowlisted list it started from, else the
+     * game page.
+     */
+    public static String returnPathWithOutcome(RatingReturnContext context, Outcome outcome) {
+        return validListPath(context.listPath())
+                .map(
+                        path ->
+                                path
+                                        + (path.contains("?") ? "&" : "?")
+                                        + INTENT_QUERY
+                                        + "="
+                                        + outcome.marker())
+                .orElseGet(() -> gamePathWithOutcome(context.gameId(), context.slug(), outcome));
     }
 
     /** The safe fallback destination when no local game page can be resolved. */

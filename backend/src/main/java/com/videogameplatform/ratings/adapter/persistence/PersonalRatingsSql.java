@@ -65,6 +65,10 @@ final class PersonalRatingsSql {
                 ) g ON true
                 WHERE r.user_id = :user
                 """;
+        if (!criteria.gameIds().isEmpty()) {
+            // A list reading its own Games' ratings: probes of the (user, game) primary key.
+            scope += " AND r.game_id = ANY(CAST(:gameIds AS uuid[]))\n";
+        }
         if (!criteria.tokens().isEmpty()) {
             scope +=
                     """
@@ -85,6 +89,8 @@ final class PersonalRatingsSql {
         return Map.of(
                 "user",
                 UUID.fromString(userId),
+                "gameIds",
+                "{" + String.join(",", criteria.gameIds()) + "}",
                 "query",
                 criteria.tokens().stream()
                         .map(token -> token + ":*")

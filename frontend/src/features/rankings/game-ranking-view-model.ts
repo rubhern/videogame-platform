@@ -51,6 +51,8 @@ export type RankingView = {
   /** Ranked games in the source, as the latest page counted them. */
   total: number;
   loaded: number;
+  /** The source's entry rule as the server applied it: the minimum number of ratings (#538). */
+  minimumRatings: number | null;
 };
 
 export const PODIUM_PLACES = 3;
@@ -132,5 +134,6 @@ export function toRankingView(
     rows: games.filter((game) => game.position > PODIUM_PLACES),
     total: pages.at(-1)?.page.totalItems ?? 0,
     loaded: games.length,
+    minimumRatings: pages.at(-1)?.minimumRatings ?? null,
   };
 }

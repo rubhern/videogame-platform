@@ -189,7 +189,9 @@ imply physical CQRS, messaging, or event sourcing.
 The BFF is a confidential OAuth client using Authorization Code, PKCE, and OIDC. It
 keeps tokens server-side and gives the browser an opaque HttpOnly session cookie.
 State changes require CSRF proof; redirects are allowlisted; return context is short
-lived and replay-safe. Public catalogue and personal resources remain separate.
+lived and replay-safe. A rating started on a TOPómetro returns there after sign-in only when
+its path is one of the BFF's closed set of TOPómetro paths, revalidated before the redirect;
+otherwise it returns to the game page (#574). Public catalogue and personal resources remain separate.
 Sessions are registered per derived `UserId`, bounded by the ordinary/remembered
 policy in ADR-0027 (the remembered amendment is prepared, not deployed),
 revocable by a private management operation that personal writes

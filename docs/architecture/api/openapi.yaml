@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.17.0
+  version: 5.18.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -973,6 +973,7 @@ paths:
                   summary: The podium of the IGDB players ranking
                   value:
                     source: igdb_players
+                    minimumRatings: 50
                     items:
                       - position: 1
                         gameId: game_example_one
@@ -1009,6 +1010,7 @@ paths:
                   summary: A one-rating community score keeps its count
                   value:
                     source: gameometro_community
+                    minimumRatings: 1
                     items:
                       - position: 1
                         gameId: game_example_two
@@ -1032,6 +1034,7 @@ paths:
                   summary: Requested with `platformIds=platform_ps5`; the global score, the PS5 release
                   value:
                     source: igdb_players
+                    minimumRatings: 50
                     items:
                       - position: 1
                         gameId: game_example_one
@@ -1070,6 +1073,7 @@ paths:
                   summary: No game holds a score from the source yet
                   value:
                     source: gameometro_community
+                    minimumRatings: 1
                     items: []
                     page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }
         '304': { $ref: '#/components/responses/PublicNotModified' }
@@ -1968,10 +1972,16 @@ paths:
         entityTag is the current strong rating validator for conditional update and delete; it
         is not a collection cache validator. Community and external scores are read afterwards
         for only the selected page's Games.
+
+        Since 5.18.0, `gameIds` restricts the user's ratings to those Games before counting and
+        paging, so a list of games (a TOPómetro page) reads the user's own ratings for exactly
+        the Games it shows in one bounded request. An identifier the user has not rated, or
+        that names no Game, simply matches nothing.
       security:
         - sessionCookie: []
       parameters:
         - $ref: '#/components/parameters/OptionalPersonalRatingsQuery'
+        - $ref: '#/components/parameters/PersonalRatingsGameIdsQuery'
         - $ref: '#/components/parameters/RatingSort'
         - $ref: '#/components/parameters/SortDirection'
         - $ref: '#/components/parameters/Page'
@@ -3441,6 +3451,23 @@ components:
       description: Applied only after authenticated-user scoping.
       schema: { type: string, minLength: 1, maxLength: 100, pattern: '.*\S.*' }
       example: juego
+    PersonalRatingsGameIdsQuery:
+      name: gameIds
+      in: query
+      required: false
+      description: |
+        Repeatable restriction (`gameIds=a&gameIds=b`) to the current user's ratings of these
+        Games, applied after user scoping and before search, count and paging; values combine
+        with OR. Omit it for every rated Game.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        minItems: 1
+        maxItems: 100
+        items: { $ref: '#/components/schemas/GameId' }
+      example: [game_example]
     RatingSort:
       name: sort
       in: query
@@ -4399,9 +4426,17 @@ components:
       unevaluatedProperties: false
     GameRankingPage:
       type: object
-      required: [source, items, page]
+      required: [source, minimumRatings, items, page]
       properties:
         source: { $ref: '#/components/schemas/RankingSource' }
+        minimumRatings:
+          type: integer
+          format: int32
+          minimum: 1
+          description: |
+            Since 5.18.0: the minimum number of ratings from `source` a released game needs to
+            be ranked, as the operator's current setting applied to this read (`UC-024`). It
+            lets a client state the actual entry rule instead of a remembered default.
         items:
           type: array
           maxItems: 100
@@ -6240,7 +6275,7 @@ components:
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     PersonalRatingsValidationFailed:
-      description: Personal-rating search, sort, pagination, or parameters are invalid.
+      description: Personal-rating search, Game restriction, sort, pagination, or parameters are invalid.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }

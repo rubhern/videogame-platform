@@ -63,6 +63,46 @@ class RatingResumeAuthenticationHandlerTest {
     }
 
     @Test
+    void returnsToTheAllowlistedListTheRatingStartedOnWithEveryOutcome() throws Exception {
+        String list = "/plataformas/playstation/topometro?source=igdb";
+        store.saveReturnContext(
+                new RatingReturnContext(GAME_ID, SLUG, 8, List.of(), NOW.minusSeconds(30), list));
+        new RatingResumeAuthenticationSuccessHandler(store)
+                .onAuthenticationSuccess(request, response, authentication());
+        assertThat(response.getRedirectedUrl()).isEqualTo(list + "&rating-intent=resumed");
+        assertThat(store.takeResumedIntent()).isPresent();
+
+        store.saveReturnContext(
+                new RatingReturnContext(GAME_ID, SLUG, 8, List.of(), NOW.minusSeconds(601), list));
+        var expired = new MockHttpServletResponse();
+        new RatingResumeAuthenticationSuccessHandler(store)
+                .onAuthenticationSuccess(request, expired, authentication());
+        assertThat(expired.getRedirectedUrl()).isEqualTo(list + "&rating-intent=expired");
+
+        // A stored path is revalidated before it becomes a redirect.
+        store.saveReturnContext(
+                new RatingReturnContext(
+                        GAME_ID, SLUG, 8, List.of(), NOW.minusSeconds(30), "//attacker.example"));
+        var malformed = new MockHttpServletResponse();
+        new RatingResumeAuthenticationSuccessHandler(store)
+                .onAuthenticationSuccess(request, malformed, authentication());
+        assertThat(malformed.getRedirectedUrl())
+                .isEqualTo("/games/" + GAME_ID + "/" + SLUG + "?rating-intent=resumed");
+
+        store.saveReturnContext(
+                new RatingReturnContext(
+                        GAME_ID, SLUG, 8, List.of(), NOW.minusSeconds(30), "/topometro"));
+        var cancelled = new MockHttpServletResponse();
+        new RatingIntentAuthenticationFailureHandler(store)
+                .onAuthenticationFailure(
+                        request,
+                        cancelled,
+                        new org.springframework.security.authentication.BadCredentialsException(
+                                "cancelled"));
+        assertThat(cancelled.getRedirectedUrl()).isEqualTo("/topometro?rating-intent=cancelled");
+    }
+
+    @Test
     void returnsToTheGameWithoutASelectionWhenTheContextHasExpired() throws Exception {
         store.saveReturnContext(new RatingReturnContext(GAME_ID, SLUG, 8, NOW.minusSeconds(601)));
 

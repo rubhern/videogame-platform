@@ -28,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
  * OpenAPI contract. {@code start} begins authentication for a rating selection: it captures
  * the selected value in a server-side return context and hands the browser to the established
  * Keycloak OIDC flow. It never executes or persists a rating command. The recovered selection is
- * read back once from the game page and presented as pending, non-persisted state.
+ * read back once, from the game page or from the allowlisted list the rating started on, and
+ * presented as pending, non-persisted state.
  */
 @RestController
 public class RatingIntentController {
@@ -56,6 +57,7 @@ public class RatingIntentController {
             @RequestParam("gameId") String gameId,
             @RequestParam(name = "slug", required = false) String slug,
             @RequestParam(name = "value", required = false) String value,
+            @RequestParam(name = "returnTo", required = false) String returnTo,
             Authentication authentication) {
         Optional<UserId> userId = ProductIdentity.resolve(authentication);
         if (!RatingBoundary.isValidGameId(gameId)) {
@@ -73,14 +75,14 @@ public class RatingIntentController {
                         gameId,
                         RatingBoundary.validSlug(slug).orElse(null),
                         selectedValue.get(),
-                        clock.instant());
+                        List.of(),
+                        clock.instant(),
+                        RatingBoundary.validListPath(returnTo).orElse(null));
         stageSelection(selection, userId);
         return redirect(
                 userId.isPresent()
-                        ? RatingBoundary.gamePathWithOutcome(
-                                selection.gameId(),
-                                selection.slug(),
-                                RatingBoundary.Outcome.RESUMED)
+                        ? RatingBoundary.returnPathWithOutcome(
+                                selection, RatingBoundary.Outcome.RESUMED)
                         : LOGIN_ENTRY);
     }
 
@@ -104,6 +106,7 @@ public class RatingIntentController {
     public ResponseEntity<PlatformRatingStart> startPlatforms(
             @RequestParam("gameId") String gameId,
             @RequestParam(name = "slug", required = false) String slug,
+            @RequestParam(name = "returnTo", required = false) String returnTo,
             @RequestParam MultiValueMap<String, String> form,
             Authentication authentication) {
         Optional<UserId> userId = ProductIdentity.resolve(authentication);
@@ -118,7 +121,8 @@ public class RatingIntentController {
                         RatingBoundary.validSlug(slug).orElse(null),
                         null,
                         platforms.get(),
-                        clock.instant()),
+                        clock.instant(),
+                        RatingBoundary.validListPath(returnTo).orElse(null)),
                 userId);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
