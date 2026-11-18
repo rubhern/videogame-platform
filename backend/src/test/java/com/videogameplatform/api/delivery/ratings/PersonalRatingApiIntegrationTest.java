@@ -1180,6 +1180,41 @@ class PersonalRatingApiIntegrationTest {
     }
 
     @Test
+    void listingRestrictsToTheRequestedGamesBeforeCountingAndPaging() throws Exception {
+        create(ALICE, 7);
+        UUID second = addListedGame("Beta", 9);
+        UUID unrated = UUID.randomUUID();
+        mockMvc.perform(
+                        get("/api/v1/me/ratings")
+                                .with(login(ALICE))
+                                .param("gameIds", second.toString(), unrated.toString(), "game_x")
+                                .param("pageSize", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.totalItems").value(1))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].game.gameId").value(second.toString()))
+                .andExpect(jsonPath("$.items[0].personalRating.value").value(9));
+        // Another user's ratings of the same Games stay invisible.
+        mockMvc.perform(
+                        get("/api/v1/me/ratings")
+                                .with(login(BOB))
+                                .param("gameIds", game.toString(), second.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.totalItems").value(0));
+        // An identifier that cannot name a stored Game matches nothing, without a query error.
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("gameIds", "game_x"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.page.totalItems").value(0));
+        String[] tooMany =
+                java.util.stream.IntStream.range(0, 101)
+                        .mapToObj(index -> UUID.randomUUID().toString())
+                        .toArray(String[]::new);
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("gameIds", tooMany))
+                .andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
     void listingRejectsInvalidUnknownAndRepeatedParameters() throws Exception {
         for (String q : List.of("", " ", "...", "a".repeat(101))) {
             mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", q))

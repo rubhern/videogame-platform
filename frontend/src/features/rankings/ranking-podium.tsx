@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { PlatformMarks } from "../../shared/catalogue/platform-marks";
@@ -12,7 +13,14 @@ import { RankingReading } from "./ranking-reading";
  * screens set the winner between its two followers. Places are told apart by height, scale and
  * how strongly their step catches the light, never by a colour that could read as a score.
  */
-export function RankingPodium({ games }: { games: readonly RankedGame[] }) {
+export function RankingPodium({
+  games,
+  stamp,
+}: {
+  games: readonly RankedGame[];
+  /** The player's own mark on each game, under its reading (#574). */
+  stamp?: (game: RankedGame) => ReactNode;
+}) {
   const linkState = useGameLinkState();
   return (
     <ol aria-label="Podio" className="ranking-podium" data-places={games.length}>
@@ -43,6 +51,7 @@ export function RankingPodium({ games }: { games: readonly RankedGame[] }) {
                   )}
                 </div>
                 <RankingReading reading={game.reading} title={game.title} variant="podium" />
+                {stamp?.(game)}
               </div>
               <div aria-hidden="true" className="podium-step">
                 <span className="podium-numeral">{game.position}</span>

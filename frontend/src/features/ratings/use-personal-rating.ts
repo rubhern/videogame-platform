@@ -19,7 +19,7 @@ import {
   type RatingWrite,
 } from "./personal-rating-api";
 
-function personalRatingQueryKey(gameId: string) {
+export function personalRatingQueryKey(gameId: string) {
   return ["me", "ratings", gameId] as const;
 }
 

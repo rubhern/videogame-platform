@@ -47,7 +47,12 @@ function page(
   source: GameRankingPage["source"] = "igdb_players",
   size = 20,
 ): GameRankingPage {
-  return { source, items, page: { number, size, totalItems, totalPages: Math.ceil(totalItems / size) } };
+  return {
+    source,
+    minimumRatings: source === "igdb_players" ? 50 : 1,
+    items,
+    page: { number, size, totalItems, totalPages: Math.ceil(totalItems / size) },
+  };
 }
 
 const firstPage = page(1, Array.from({ length: 20 }, (_, index) => game(index + 1)), 23);

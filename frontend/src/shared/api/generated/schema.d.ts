@@ -635,6 +635,11 @@ export interface paths {
          *     entityTag is the current strong rating validator for conditional update and delete; it
          *     is not a collection cache validator. Community and external scores are read afterwards
          *     for only the selected page's Games.
+         *
+         *     Since 5.18.0, `gameIds` restricts the user's ratings to those Games before counting and
+         *     paging, so a list of games (a TOPómetro page) reads the user's own ratings for exactly
+         *     the Games it shows in one bounded request. An identifier the user has not rated, or
+         *     that names no Game, simply matches nothing.
          */
         get: operations["listMyRatings"];
         put?: never;
@@ -1818,6 +1823,13 @@ export interface components {
          */
         GameRankingPage: {
             source: components["schemas"]["RankingSource"];
+            /**
+             * Format: int32
+             * @description Since 5.18.0: the minimum number of ratings from `source` a released game needs to
+             *     be ranked, as the operator's current setting applied to this read (`UC-024`). It
+             *     lets a client state the actual entry rule instead of a remembered default.
+             */
+            minimumRatings: number;
             items: components["schemas"]["GameRankingItem"][];
             page: components["schemas"]["PageMetadata"];
         };
@@ -3598,6 +3610,15 @@ export interface components {
          * @example juego
          */
         OptionalPersonalRatingsQuery: string;
+        /**
+         * @description Repeatable restriction (`gameIds=a&gameIds=b`) to the current user's ratings of these
+         *     Games, applied after user scoping and before search, count and paging; values combine
+         *     with OR. Omit it for every rated Game.
+         * @example [
+         *       "game_example"
+         *     ]
+         */
+        PersonalRatingsGameIdsQuery: components["schemas"]["GameId"][];
         RatingSort: "updatedAt" | "canonicalTitle" | "ratingValue";
         /** @description Defaults to `desc` for `updatedAt`, otherwise to `asc`. */
         SortDirection: "asc" | "desc";
@@ -4614,6 +4635,15 @@ export interface operations {
                  * @example juego
                  */
                 q?: components["parameters"]["OptionalPersonalRatingsQuery"];
+                /**
+                 * @description Repeatable restriction (`gameIds=a&gameIds=b`) to the current user's ratings of these
+                 *     Games, applied after user scoping and before search, count and paging; values combine
+                 *     with OR. Omit it for every rated Game.
+                 * @example [
+                 *       "game_example"
+                 *     ]
+                 */
+                gameIds?: components["parameters"]["PersonalRatingsGameIdsQuery"];
                 sort?: components["parameters"]["RatingSort"];
                 /** @description Defaults to `desc` for `updatedAt`, otherwise to `asc`. */
                 direction?: components["parameters"]["SortDirection"];

@@ -353,6 +353,7 @@ public class ApiExceptionHandler {
                     case SEARCH -> ProblemCode.SEARCH_QUERY_INVALID;
                     case SORT, DIRECTION -> ProblemCode.SORT_INVALID;
                     case PAGINATION -> ProblemCode.PAGINATION_INVALID;
+                    case GAME_IDS -> ProblemCode.FILTER_INVALID;
                 };
         String pointer =
                 switch (exception.field()) {
@@ -360,6 +361,7 @@ public class ApiExceptionHandler {
                     case SORT -> "/query/sort";
                     case DIRECTION -> "/query/direction";
                     case PAGINATION -> "/query/page";
+                    case GAME_IDS -> "/query/gameIds";
                 };
         return requestInvalid(new ApiRequestException(code, pointer), response);
     }

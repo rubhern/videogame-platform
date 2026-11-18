@@ -261,6 +261,47 @@ class RatingIntentControllerIntegrationTest {
     }
 
     @Test
+    void aRatingFromATopometroReturnsToThatListAndNeverToAnotherPath() throws Exception {
+        for (String list :
+                List.of(
+                        "/topometro",
+                        "/topometro?source=igdb",
+                        "/plataformas/playstation/topometro?source=gameometro")) {
+            mockMvc.perform(
+                            get("/auth/rating-intent/start")
+                                    .with(authenticated("subject-a"))
+                                    .queryParam("gameId", GAME_ID)
+                                    .queryParam("slug", SLUG)
+                                    .queryParam("value", "8")
+                                    .queryParam("returnTo", list))
+                    .andExpect(status().isFound())
+                    .andExpect(
+                            redirectedUrl(
+                                    list
+                                            + (list.contains("?") ? "&" : "?")
+                                            + "rating-intent=resumed"));
+        }
+        for (String hostile :
+                List.of(
+                        "//attacker.example/topometro",
+                        "https://attacker.example/topometro",
+                        "/topometro?source=igdb&next=//attacker.example",
+                        "/search?q=zelda",
+                        "/plataformas/../topometro",
+                        "/topometro#x")) {
+            mockMvc.perform(
+                            get("/auth/rating-intent/start")
+                                    .with(authenticated("subject-a"))
+                                    .queryParam("gameId", GAME_ID)
+                                    .queryParam("slug", SLUG)
+                                    .queryParam("value", "8")
+                                    .queryParam("returnTo", hostile))
+                    .andExpect(status().isFound())
+                    .andExpect(redirectedUrl(GAME_PATH + "?rating-intent=resumed"));
+        }
+    }
+
+    @Test
     void anInvalidValueNeverStartsAuthenticationAndReturnsSafely() throws Exception {
         mockMvc.perform(
                         get("/auth/rating-intent/start")

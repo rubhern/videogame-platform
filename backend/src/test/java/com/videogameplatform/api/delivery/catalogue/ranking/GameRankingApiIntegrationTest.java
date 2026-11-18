@@ -102,6 +102,7 @@ class GameRankingApiIntegrationTest {
         assertThat(first.headers().firstValue("Cache-Control")).contains("public, no-cache");
         JsonNode body = JSON.readTree(first.body());
         assertThat(body.path("source").stringValue()).isEqualTo("igdb_players");
+        assertThat(body.path("minimumRatings").asInt()).isEqualTo(50);
         assertThat(ids(body)).containsExactly(GAME_THREE, GAME_ONE);
         assertThat(body.path("items").get(0).path("position").asLong()).isEqualTo(1);
         // Both show 8.8; the unrounded mean decides, not the larger count.
@@ -137,6 +138,7 @@ class GameRankingApiIntegrationTest {
         CONTRACT.assertJsonResponse(ranked, 200, "GameRankingPage");
         JsonNode body = JSON.readTree(ranked.body());
         assertThat(body.path("source").stringValue()).isEqualTo("gameometro_community");
+        assertThat(body.path("minimumRatings").asInt()).isEqualTo(1);
         assertThat(ids(body)).containsExactly(GAME_THREE, GAME_TWO);
         JsonNode score = body.path("items").get(0).path("score");
         assertThat(score.path("source").stringValue()).isEqualTo("gameometro");

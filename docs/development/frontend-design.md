@@ -353,7 +353,8 @@ return every header surface to system colours.
   [ADR-0001](../decisions/0001-reference-igdb-cover-images.md) requires. Never truncate contract
   data to equalize card heights; a long value wraps inside its tag.
 - A catalogue card keeps one pointer target and one keyboard stop: the title link's target
-  covers the card, the title stays its only keyboard stop besides a score attribution, and its
+  covers the card, the title stays its only keyboard stop besides a score attribution and, on
+  TOPómetro, the player's own [rating stamp](#topómetro), and its
   focus ring outlines the cover. Cards keep equal height across a row and never glow, lift or
   sweep light.
 - Provider covers arrive at one fixed CDN size, so every frame wider than that size upscales
@@ -534,7 +535,8 @@ the executable values; these constraints hold wherever they are used:
 - Motion is purposeful and limited to transform, opacity and clip: Destacados's orchestrated
   entrance and parallax ([below](#featured-releases)); the home's entrance ([below](#home)); a quiet entrance for arriving content;
   the day bar's light running to today and its needles landing; a needle lifting for the
-  release a visitor points at; TOPómetro's podium rising onto its steps; Plataformas's four
+  release a visitor points at; TOPómetro's podium rising onto its steps; a new score landing in its
+  rating stamp and the quick-rate sheet rising from the bottom edge on phones; Plataformas's four
   stages rising in turn; Próximos destacados' arrivals landing on its horizon; a cover easing a little closer on hover; feedback on press and
   selection; a G-meter needle sweeping to its reading and the brand needle's twitch on hover and
   focus. Declare it inside `@media (prefers-reduced-motion: no-preference)` instead of disabling
@@ -969,12 +971,17 @@ not a specification.
 named `TOPómetro` for assistive technology: `TOP` in the mark's ice with an O read beyond its
 top, the ring opening where the fire needle leaves, as it leaves the G, then `ómetro` from the
 Gameómetro wordmark with its needle accent. It is outlined from the bundled Mona Sans at the
-wordmark's width and weight; it is never restated in CSS. No claim, source note, ranked-games
-count or method disclosure accompanies it (owner decision, 2026-10-26). The source selector stands
+wordmark's width and weight; it is never restated in CSS. No claim, ranked-games count or method
+disclosure accompanies it (owner decision, 2026-10-26). The source selector stands
 opposite on wide screens and beneath on phones: one night control parted in two native links,
 **Jugadores IGDB** (the default) and **Comunidad Gameómetro**, each with its own untinted mark,
 the chosen one lit in ice and announced as current. Only the URL's `source=gameometro` names the
-community; any other value reads as the default. The stage is lit by the podium's covers.
+community; any other value reads as the default. Beneath it, one quiet line states which games
+enter (owner decision #538, 2026-11-17, as short as possible): `Juegos ya lanzados con al menos
+50 valoraciones de jugadores en IGDB.` or `… 1 puntuación de la comunidad.`, adding `en
+<plataforma>` on a platform's TOPómetro. The minimum, in bold, is the one the page was read with,
+never a remembered default, and the line is absent until a page arrives, so a source or platform
+change never leaves a stale rule. The stage is lit by the podium's covers.
 
 **Podium.** Places 1–3 are an ordered list in reading order 1, 2, 3; from the phone up the
 winner stands between second and third. Each place stands its cover on a step of night with an
@@ -1015,7 +1022,58 @@ reading position, while a reload or a shared link opens at the podium.
 **States.** Loading keeps the podium's frame and four ledger lines as placeholders under one live
 status. An empty source is the empty notice with a way to the other source; a catalogue not yet
 ready and a technical failure use the [server-backed states](#server-backed-states). The ranking
-is public: it never varies on the session or `Mis plataformas`.
+is public: it never varies on the session or `Mis plataformas`. Only the player's own stamps,
+below, are layered on top of it.
+
+**Rating in place.** Post-MVP (#574, implemented; awaiting owner review), every place, on the
+podium and in the ledger, carries the player's own **stamp**, so the list can be rated without
+opening a game. The stamp is a 44px dial with a caption beneath it. Before a score it is an open
+dashed ice ring with a plus, captioned `Puntuar`. With a score it is a closed ring holding the
+player's score, both in that score's temperature, captioned `Tu puntuación` on two short lines, so a glance down the
+ledger shows what is still to rate. It closes the ledger line at the right edge, under the thumb
+on phones, and sits under the reading on the podium. It is the place's second keyboard stop,
+above the stretched title link, and its accessible name states the game and the score
+(`Puntuar Hades`, `Tu puntuación de Hades: Caliente 8/10. Cambiar`). While the player's ratings
+are read, it rests as a quiet solid ring. The stamp never reads like the source's reading beside
+it: that one ranks the game, this one is the player's.
+
+A stamp opens its **score card**, a native modal dialog holding only the keypad. Wider screens
+place it beside the stamp, on the side with room and centred on it, with a small pointer aimed at
+the stamp; phones raise it from the bottom edge as a short sheet with rounded top corners. Its
+keypad is always two rows of five. The header shows `Puesto N` and the title. A saved score shows
+above the keypad, named and in its temperature, with **Eliminar** (danger ink, named `Eliminar tu
+puntuación de <juego>`) beside it. One press saves the general score and closes the card; the
+stamp then holds the score and takes focus back. Picking the saved value again closes it without
+a command. Two quiet buttons close the card: **Por plataforma** opens the platform sheet of the
+game page for this game, and **Puntuar varios** opens the run sheet at this game. A game rated platform
+by platform keeps the keypad closed and leads with **Editar plataformas**, since a general pick
+never replaces platform scores. **Puntuar varios**, a pill at the end of the entry line (beside it
+on phones, beneath it on wide headers), opens the run
+sheet at the first loaded game still without the player's score.
+
+The **run sheet** is a native modal dialog. On phones it rises from the bottom edge with rounded
+top corners and the keypad in two rows of five; wider screens centre it, with one row of ten.
+Opaque night carries a top edge in ice, or in the player's score's temperature once the game
+shown holds one. The header shows the game's cover, `Puesto N`, its title and the ranked reading
+in one quiet line. The body shows `Tu puntuación` with the score in its temperature (or `Sin
+puntuar`), the keypad and **Puntuar por plataforma** (**Editar plataformas** for a game rated by
+platform), which opens the platform sheet over the run and returns to it. One press saves the
+general score at once and moves on to the next game of the list still without the player's
+score, so a run of votes is one press per game. A visible status confirms it (`Guardada: Hades,
+9/10. Ahora: Celeste.`), and a fire counter in the header (`Primera puntuación`, `3 puntuaciones
+seguidas`) marks the run, fire being the event's colour. The footer offers **Anterior** and
+**Siguiente** at either thumb to browse the list in its order, with **Eliminar** or **Ver ficha**
+between them.
+
+In both, a visitor sees `Al elegir tu puntuación te pediremos iniciar sesión y la guardaremos.`,
+and a pick starts the existing rating sign-in, which returns to the same TOPómetro. There the
+list saves the recovered score once, as the game page would, and says so in a short status under
+the entry line (`Puntuación guardada: Hades, 8/10.`), or says why nothing was saved. The
+platform sheet reads the game's releases on demand, one public game read per opening. Escape,
+the close control or the backdrop close either dialog, and focus returns to the stamp of the game
+last shown. On touch screens a key keeps no hover light after a press, so the next game never
+looks pre-chosen. The run holds the list as it was when it opened. The ranking is read again
+once, when a dialog closes after a change, so places never shift under the player while rating.
 
 **Motion.** The podium enters once: third, second, then the winner rising onto steps that grow
 from the floor, each G-meter sweeping to its reading; newly read lines fade in. Reduced motion
@@ -1464,13 +1522,13 @@ phones, hangs from the reading's left edge while the reading sits under the game
 right edge once the reading has a column of its own. It overlays the rows below
 instead of growing its own, so the cover, title and dates never move. The panel holds the
 game page's keypad and its key (one shared component), a G-meter and reading for the pending
-value in its temperature, and the persisted value named beside it while they differ. Then
-come **Cancelar** and **Guardar puntuación**, and, below a divider, a quiet destructive
-**Eliminar puntuación** that asks once more (**Conservar** / **Sí, eliminar**). Picking a value
-only makes it pending, and arrow keys only move focus inside the keypad, so neither browsing
-nor picking ever sends a command. Opening focuses the pressed value. Escape and Cancel close
-the panel and return focus to the reading; an outside press or moving focus away also closes
-it. Outcomes show inside the panel: one live status while a command runs and one alert for
+value in its temperature, and the persisted value named beside it while they differ. Below a
+divider comes a quiet destructive **Eliminar puntuación** that asks once more (**Conservar** /
+**Sí, eliminar**). Since #574 a pick is the command: it saves the general score at once and
+closes the panel, and picking the saved value closes it without one; there is no separate save
+or cancel action. Arrow keys only move focus inside the keypad, so browsing never sends a
+command. Opening focuses the pressed value. Escape closes the panel and returns focus to the
+reading; an outside press or moving focus away also closes it. Outcomes show inside the panel: one live status while a command runs and one alert for
 rejected, conflicting or ambiguous commands.
 
 Post-MVP (#359, implemented; awaiting owner review), each line reads the rating's one
@@ -1478,7 +1536,7 @@ contribution (`8,5/10` for a platform mean) and, when the rating names platforms
 beneath the reading: up to three platform marks with the exact `+N`, and `Media de N
 plataformas` when the score is their mean; the line never grows into a per-platform breakdown.
 A platform-scored rating opens the same panel with its breakdown and the delete action instead
-of the keypad and **Guardar puntuación**; a general score saved here keeps the platforms a
+of the keypad; a general score saved here keeps the platforms a
 rating names. Every panel ends with a full-width **Puntuar por plataforma** (or **Editar
 plataformas**) that closes it and opens the game page's own platform sheet, unchanged, over the
 ledger; only then is the game's public detail read for its release platforms, with one quiet

@@ -228,6 +228,16 @@ count does. The sparse page grows with the scored games ranked above the platfor
 so a per-publication projection of ranked games per platform is the remedy when a measured
 platform scope exceeds the page budget.
 
+Post-MVP (#574, implemented; awaiting owner review), each `UC-018` page also states the source's
+minimum number of ratings it applied, the operator's current `UC-024` setting, so a client shows
+the actual entry rule (#538) rather than a remembered default. The ranking itself stays public and
+never varies on the session. A signed-in player's own ratings of the page's games are a separate
+`UC-008` read restricted to those games, and a vote cast from the list is the ordinary
+`UC-005`/`UC-006`/`UC-007` command with its usual validation and conditional precondition. A
+vote by platform reads the one game's releases through `UC-003` when the player asks for it,
+never for every listed game. A visitor's vote started on the list resumes there after sign-in
+through the same single-use rating selection the game page uses.
+
 Post-MVP (#389, implemented; awaiting owner review), `UC-019` is **Explorar catálogo**, the
 platform destination of the Plataformas section. A game belongs to a scope while one of its current
 releases on a scope platform is not cancelled; the release that presents it follows `PCAT-002`, so
@@ -503,6 +513,13 @@ selection for explicit review before any conditional update. A recovered general
 subject to the existing rule that it cannot replace platform scores. Authentication cancellation,
 invalid, expired or replayed context, and rejected commands leave personal and aggregate ratings
 intact.
+
+Post-MVP (#574, implemented; awaiting owner review): `UC-008` also accepts a restriction to at
+most 100 named Games, applied in PostgreSQL after user scoping and before search, count and paging.
+It lets a list of games, such as a TOPómetro page, read the player's own ratings of exactly the
+Games it shows in one request. The read probes the `(user, game)` primary key, so its work is
+bounded by the page rather than by the player's collection. An identifier the user has not rated,
+or one that names no Game, matches nothing. The response is the same private page.
 
 Post-MVP (#279, `Mis puntuaciones`, implemented; awaiting owner review): `UC-008` also returns
 each paged Game's current external player score. After the user-scoped search, sort, count

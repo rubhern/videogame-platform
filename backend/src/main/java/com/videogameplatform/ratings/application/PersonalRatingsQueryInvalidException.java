@@ -5,7 +5,8 @@ public final class PersonalRatingsQueryInvalidException extends RuntimeException
         SEARCH,
         SORT,
         DIRECTION,
-        PAGINATION
+        PAGINATION,
+        GAME_IDS
     }
 
     private final Field field;

@@ -13,16 +13,21 @@ import java.util.Optional;
 /**
  * One page of one source's ranking of the current local publication. Every identifier is a
  * product identifier; positions continue across pages, so the first page's first three items are
- * the podium of the same sequence.
+ * the podium of the same sequence. {@code minimumRatings} is the source's entry rule this read
+ * applied: the operator's current minimum number of ratings (#450).
  */
 public record GameRanking(
         String publicationVersion,
         RankGamesUseCase.Source source,
+        int minimumRatings,
         List<Item> items,
         PageMetadata page) {
 
     public GameRanking {
         Objects.requireNonNull(source, "source");
+        if (minimumRatings < 1) {
+            throw new IllegalArgumentException("A ranking minimum is at least one rating");
+        }
         items = List.copyOf(items);
     }
 

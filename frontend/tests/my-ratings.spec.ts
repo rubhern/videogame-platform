@@ -209,7 +209,7 @@ test.describe("Mis puntuaciones", () => {
       for (const box of await Promise.all((await editor.locator(".rating-option").all()).map((option) => option.boundingBox()))) {
         expect(Math.min(box?.width ?? 0, box?.height ?? 0)).toBeGreaterThanOrEqual(44);
       }
-      await editor.getByRole("button", { name: "9", exact: true }).click();
+      // A pick would save at once (#574): the scan covers the open panel and its delete step.
       await editor.getByRole("button", { name: "Eliminar puntuación" }).click();
       expect((await analyzeAccessibility(page)).violations).toEqual([]);
       await page.screenshot({ path: testInfo.outputPath(`my-ratings-editor-${width}.png`), fullPage: true });
@@ -233,10 +233,8 @@ test.describe("Mis puntuaciones", () => {
       expect(opening).toBeLessThanOrEqual(844);
       await score(first).tap();
       const editor = first.getByRole("dialog");
+      // One tap is the command: the panel closes on the saved score (#574).
       await editor.getByRole("button", { name: "4", exact: true }).tap();
-      await expect(editor).toHaveAttribute("data-thermal", "cold");
-      await expect(editor.getByText("Nueva puntuación")).toBeVisible();
-      await editor.getByRole("button", { name: "Guardar puntuación" }).tap();
       await expect(score(first)).toHaveAccessibleName(/^Tu puntuación Frío 4\/10/);
       await expect(editor).toHaveCount(0);
       expect(backend.commands).toEqual([{ method: "PUT", ifMatch: '"version-1"' }]);

@@ -266,6 +266,31 @@
       ]
     },
     {
+      "name": "Read own ratings of the listed games",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/ratings?gameIds={{gameId}}&gameIds=00000000-0000-4000-8000-000000000000&page=1&pageSize=2",
+        "description": "A list (TOPómetro, #574) reads the player's own ratings for exactly the games it shows; an identifier the player has not rated matches nothing."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"A list reads only its own games' ratings, privately\", () => { pm.response.to.have.status(200); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); const body = pm.response.json(); pm.expect(body.items.length).to.be.at.most(2); body.items.forEach(item => pm.expect(item.game.gameId).to.eql(pm.collectionVariables.get(\"gameId\"))); pm.expect(body.page.totalItems).to.eql(body.items.length); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Reject a client-supplied owner",
       "request": {
         "method": "GET",
