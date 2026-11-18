@@ -38,6 +38,7 @@ triggers are labelled explicitly and do not imply delivery commitments.
 | OpenAPI change sequence and generation boundaries | [OpenAPI workflow](development/openapi.md) | Manifests own generator options |
 | Flyway authoring, privilege, seed, and validation policy | [Database migrations](development/database-migrations.md) | SQL owns the schema |
 | Health, correlation, logs, metrics, tracing, and telemetry safety | [Observability](development/observability.md) | `application.yaml` owns runtime settings |
+| Plain-language reading of Grafana: alerts, dashboards, logs and traces | [Grafana guide](development/grafana-guide.md) | Explanations only; provisioning files own every query, threshold and timing, and the validator keeps its alert list complete |
 | CI gate contract and command mapping | [Continuous integration](development/continuous-integration.md) | Workflows and scripts own job mechanics |
 | Approved Spanish registration notice, privacy, terms, legal notice and cookies | [Public legal texts](legal/public-texts-es.md) | Links; public routes expose only the approved sections, never editorial metadata |
 | Processing activities, supplier/transfer register, rights and breach handling | [Data-protection record](development/data-protection.md) | Operator runbook owns commands; research owns point-in-time legal evidence |

@@ -7,7 +7,7 @@
     "private-dev"
   ],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": false,
   "timezone": "Europe/Madrid",
   "refresh": "1m",
@@ -170,9 +170,9 @@
       }
     },
     {
-      "title": "Throughput",
+      "title": "Throughput \u00b7 range",
       "type": "stat",
-      "description": "Requests per second in the rate window, filtered by route and method.",
+      "description": "Mean requests per second over the selected range, filtered by route and method.",
       "datasource": {
         "type": "prometheus",
         "uid": "private-dev-prometheus"
@@ -184,7 +184,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))",
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
           "legendFormat": "Throughput",
           "editorMode": "code",
           "range": false,
@@ -233,9 +233,9 @@
       }
     },
     {
-      "title": "Successful 2xx / 3xx share",
+      "title": "Successful 2xx / 3xx share \u00b7 range",
       "type": "stat",
-      "description": "HTTP success + conditional/cache redirects / all requests in the rate window.",
+      "description": "HTTP success + conditional/cache redirects / all requests over the selected range.",
       "datasource": {
         "type": "prometheus",
         "uid": "private-dev-prometheus"
@@ -247,7 +247,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"2..|3..\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
+          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"2..|3..\"}[$__range]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))) > 0)",
           "legendFormat": "Successful 2xx / 3xx share",
           "editorMode": "code",
           "range": false,
@@ -296,9 +296,9 @@
       }
     },
     {
-      "title": "4xx / 5xx rejection rate",
+      "title": "4xx / 5xx rejection rate \u00b7 range",
       "type": "stat",
-      "description": "Client rejections and server failures are diagnostic categories; the exact GET personal-rating 404 is excluded. No project SLO threshold.",
+      "description": "Client rejections and server failures over the selected range are diagnostic categories; the exact GET personal-rating 404 is excluded. No project SLO threshold.",
       "datasource": {
         "type": "prometheus",
         "uid": "private-dev-prometheus"
@@ -310,7 +310,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..|5..\"}[$__rate_interval]) unless rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
+          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..|5..\"}[$__range]) unless rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__range]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))) > 0)",
           "legendFormat": "4xx / 5xx rejection rate",
           "editorMode": "code",
           "range": false,
@@ -550,7 +550,7 @@
     {
       "title": "API latency \u00b7 p50 / p95 / p99",
       "type": "timeseries",
-      "description": "Percentiles from pooled HTTP histogram buckets, not averages of endpoint percentiles. Micrometer OTLP timers use milliseconds.",
+      "description": "Percentiles from pooled HTTP histogram buckets, not averages of endpoint percentiles. Micrometer OTLP timers use milliseconds; fixed buckets bound each estimate.",
       "datasource": {
         "type": "prometheus",
         "uid": "private-dev-prometheus"
@@ -642,9 +642,9 @@
       }
     },
     {
-      "title": "Slowest routes \u00b7 p95",
+      "title": "Slowest routes \u00b7 p95 \u00b7 range",
       "type": "bargauge",
-      "description": "Top ten route/method combinations by histogram p95 in the rate window. No observations means no percentile.",
+      "description": "Top ten route/method combinations by histogram p95 over the selected range. Fixed buckets bound the estimate (the true value lies inside the bucket that holds it); no observations means no percentile.",
       "datasource": {
         "type": "prometheus",
         "uid": "private-dev-prometheus"
@@ -656,7 +656,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "topk(10, histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))))",
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))))",
           "legendFormat": "{{method}} {{uri}}",
           "editorMode": "code",
           "range": false,

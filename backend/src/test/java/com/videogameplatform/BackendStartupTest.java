@@ -3,6 +3,7 @@ package com.videogameplatform;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.resources.Resource;
 import java.io.IOException;
@@ -10,6 +11,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +51,8 @@ class BackendStartupTest {
     @Autowired private BuildProperties buildProperties;
 
     @Autowired private Resource openTelemetryResource;
+
+    @Autowired private MeterRegistry meterRegistry;
 
     @Value("${management.tracing.sampling.probability}")
     private double tracingSamplingProbability;
@@ -117,6 +122,19 @@ class BackendStartupTest {
         assertThat(httpMetrics.body())
                 .contains("\"tag\":\"uri\"")
                 .doesNotContain("X-Correlation-ID", "traceparent");
+        // #547: a short fixed bucket set, not the ~70-bucket default percentile histogram.
+        var latencyBuckets =
+                Arrays.stream(
+                                meterRegistry
+                                        .get("http.server.requests")
+                                        .tag("uri", "/api/v1/session")
+                                        .timer()
+                                        .takeSnapshot()
+                                        .histogramCounts())
+                        .mapToDouble(bucket -> bucket.bucket(TimeUnit.MILLISECONDS))
+                        .toArray();
+        assertThat(latencyBuckets)
+                .containsExactly(5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000);
 
         var sampledRootTrace = structuredAccessLog(output, samplingCorrelationId);
         assertThat(sampledRootTrace.path("traceId").stringValue()).matches("[0-9a-f]{32}");

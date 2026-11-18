@@ -344,7 +344,7 @@ if args.synthetic:
     assert {s['metric']['method']: float(s['value'][1]) for s in raw_errors} == {'GET':2, 'PUT':2, 'DELETE':2}
     absence = values('vgp-application', 'Expected unrated-game reads · range')
     assert absence and absence[0] > 0, 'Expected absence was hidden'
-    p95 = query(panel_query('vgp-application', 'Slowest routes · p95'), grafana=True)
+    p95 = query(panel_query('vgp-application', 'Slowest routes · p95 · range'), grafana=True)
     rating_latency = {s['metric']['method']: float(s['value'][1]) for s in p95 if s['metric']['uri'] == '/api/v1/me/ratings/{gameId}'}
     assert 90 <= rating_latency['GET'] <= 100 and 900 <= rating_latency['PUT'] <= 1000
     print('Sparse first totals, resource ratios, histogram units/methods and expected-absence classification passed')
