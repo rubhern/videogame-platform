@@ -3300,7 +3300,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Personal-rating search, sort, pagination, or parameters are invalid. */
+        /** @description Personal-rating search, Game restriction, sort, pagination, or parameters are invalid. */
         PersonalRatingsValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
