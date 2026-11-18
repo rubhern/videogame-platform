@@ -185,8 +185,11 @@ management:
       jdbc.query: false
     distribution:
       percentiles-histogram:
-        http.server.requests: true
         catalogue.synchronization.provider.request.duration: true
+      # Fixed HTTP latency buckets (#547): the default percentile histogram published ~70
+      # buckets per route/method/status series. The 1 s bound keeps the latency alert exact.
+      slo:
+        http.server.requests: 5ms,10ms,25ms,50ms,100ms,250ms,500ms,1s,2500ms,5s,10s,30s
   info:
     env:
       enabled: false

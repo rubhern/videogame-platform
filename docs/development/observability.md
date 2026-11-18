@@ -34,8 +34,9 @@ with a dedicated short statement timeout; health details remain hidden.
 - Use the `structured` Spring profile for ECS JSON console logs; [application logs](#application-logs)
   owns the event model.
 - Use route templates and bounded outcome/code vocabularies in metric labels.
-- Use standard `http.server.requests` for request rate, status, and latency; its
-  percentile histogram supports latency analysis without defining an SLO.
+- Use standard `http.server.requests` for request rate, status, and latency. A short
+  fixed set of latency buckets (#547), including the one-second alert bound, supports
+  latency analysis; the buckets are histogram bounds, not a project SLO.
 - `catalogue.releases.result.count{sort}` is the one release-specific meter and
   records successful page yield for the closed
   `releaseDate`/`hype`/`rating`/`externalPlayerScore` vocabulary (#285, replacing the retired `view` label).
