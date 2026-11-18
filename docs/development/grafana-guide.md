@@ -234,6 +234,12 @@ own every panel and query; production reuses the same dashboards as private-dev.
   anything.
 - **Percentiles need traffic.** A p95 over a handful of requests mostly reflects one slow
   request. The latency alert asks for at least 100 requests for that reason.
+- **Latency percentiles are bucket estimates.** Each request is counted in a fixed
+  duration bucket (for example "up to 5 s", "up to 10 s"), and the percentile is placed
+  inside the bucket that holds it. A p95 of 5,440 ms means "between 5 and 10 seconds".
+- **A very long range can be refused.** *query processing would load too many samples*
+  means the question exceeds Prometheus' per-query limit, which protects its memory.
+  Choose a shorter range instead.
 - **Ratios against a limit** (CPU, memory, pool) read as a fraction: 0.85 means 85 % of
   the limit. A small container with a small limit reaches high ratios with very little use.
 - **Inspect the query.** Every panel's menu has *Explore* and *Inspect → Query*; that
@@ -313,7 +319,7 @@ A slow route may need several attempts before one of its requests is sampled.
 |---|---|
 | I got a Telegram message | The alert rule, then its **History** and **View panel** |
 | Is the site OK right now? | *Production / Capacity, security and recovery*, then *Application / HTTP* |
-| Why is this page slow? | *Application / HTTP → Slowest routes*, then a TraceQL search on that route |
+| Why is this page slow? | *Application / HTTP → Slowest routes · p95 · range*, then a TraceQL search on that route |
 | A visitor saw an error | Platform logs with the `correlationId` from the error |
 | Did last night's import work? | *Catalogue Synchronization → Latest recorded run* |
 | Is monitoring itself blind? | *Scrape and probe availability*, and the telemetry alerts |
