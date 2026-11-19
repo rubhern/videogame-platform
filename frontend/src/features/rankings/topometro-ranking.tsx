@@ -114,12 +114,8 @@ export function TopometroRanking({ source, platform }: { source: RankingSource; 
   }
 
   function startRun(startGameId?: string) {
-    // Without a game, the run starts at the first one the player has not rated yet.
-    const firstOpen = games.find((game) => {
-      const own = personalOf(game.gameId);
-      return !(own.status === "known" && own.rating !== null);
-    });
-    const start = startGameId ?? firstOpen?.gameId ?? games[0]?.gameId;
+    // Without a game, the run starts at the top of the list, rated or not.
+    const start = startGameId ?? games[0]?.gameId;
     if (start !== undefined) setRating({ mode: "run", startGameId: start, games });
   }
 
