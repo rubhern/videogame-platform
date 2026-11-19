@@ -427,6 +427,21 @@ Gmail, Outlook and Apple Mail may proxy/block images, recolour dark emails or ig
 cosmetic styles. Native inbox and assistive-technology acceptance remain distinct
 from Chromium and automated accessibility evidence.
 
+## Link previews
+
+- **Status:** Proposed with [ADR-0049](../decisions/0049-insert-link-preview-metadata-into-the-served-entry-point.md) (#581); awaiting owner review.
+
+A shared link shows the page's own title and description. A game page shows its cover, and every
+other page shows the default share image: the canonical
+[logo](../../frontend/src/shared/brand/gameometro-logo.svg), unchanged, centred on night under a
+faint central lift, with one ice-light line of copy beneath it. That line is «Lanzamientos de
+videojuegos y puntuaciones de la comunidad». The image is 1200×630 PNG. The logo stays central, so
+a client that crops it to a square still shows the G. Needles, scales and thermal colours stay out,
+because there is no value to read. [`render-share-image.mjs`](../../scripts/render-share-image.mjs)
+renders [the image](../../frontend/public/assets/share/gameometro.png) with Playwright. Run it
+again when the canonical logo changes. Preview text follows the [product voice](#product-voice).
+The ADR owns the routes, tags and image rules.
+
 ## Product identity and thermal language
 
 - Post-MVP (#162), the first authentication screen is hosted by Keycloak. Post-MVP (#290

@@ -239,6 +239,15 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.sharing.GetSharePreviewUseCase sharePreviewUseCase(
+            com.videogameplatform.catalogue.application.sharing.port.SharePreviewReadPort read,
+            com.videogameplatform.catalogue.application.sharing.port.ProviderShareCoverResolver
+                    covers) {
+        return new com.videogameplatform.catalogue.application.sharing.internal.SharePreviewService(
+                read, covers);
+    }
+
+    @Bean
     GetGameDetailsUseCase getGameDetailsUseCase(
             GameDetailsReadPort readPort, CatalogueCoverPolicy coverPolicy, Clock clock) {
         return new GameDetailsService(readPort, coverPolicy, clock);
