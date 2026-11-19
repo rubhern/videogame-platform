@@ -147,7 +147,10 @@ for (const [width, columns] of [[320, 2], [360, 2], [390, 2], [834, 4], [1320, 6
   test(`reflows the opening, controls and cover grid without overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });
     await stubCatalogue(page);
+    await page.route("**/api/v1/web-analytics", (route) => route.fulfill({ json: {} }));
     await page.goto("/plataformas/nintendo-switch-2/catalogo?genreIds=aventura&fromYear=2026");
+    // Measure the catalogue opening after the visitor has made their consent choice.
+    await page.getByRole("button", { name: "Rechazar todo" }).click();
     await expect(grid(page).getByRole("article")).toHaveCount(24);
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
