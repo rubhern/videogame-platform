@@ -274,15 +274,17 @@ for (const width of [320, 390, 1320]) {
     await expect(sheet.getByRole("button", { name: "1", exact: true })).toBeFocused();
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
-    // One press saves and moves on, past the game already rated.
+    // One press saves and the sheet stays on the game, its new score in place.
     await sheet.getByRole("button", { name: "9", exact: true }).click();
-    const next = page.getByRole("dialog", { name: "Metaphor: ReFantazio 3" });
-    await expect(next).toBeVisible();
-    await expect(next.getByText("Guardada: Hades 1, 9/10. Ahora: Metaphor: ReFantazio 3.")).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "9", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(sheet.getByRole("status")).toHaveText("");
+
+    await sheet.getByRole("button", { name: /^Siguiente/ }).click();
+    await expect(page.getByRole("dialog", { name: "Persona 5 Royal 2" })).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Puntuar Metaphor: ReFantazio 3$/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: /Tu puntuación de Persona 5 Royal 2: .*7\/10/ })).toBeFocused();
     await expect(page.getByRole("button", { name: /Tu puntuación de Hades 1: .*9\/10/ })).toBeVisible();
   });
 }

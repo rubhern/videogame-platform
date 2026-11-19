@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.adapter.provider.igdb;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.port.ProviderImageReferenceResolver;
+import com.videogameplatform.catalogue.application.sharing.port.ProviderShareCoverResolver;
 import java.net.URI;
 import java.util.regex.Pattern;
 
@@ -11,7 +12,9 @@ import java.util.regex.Pattern;
  * screenshots and logos: one class holds the whole allowlist of host, sizes and extensions.
  */
 public final class IgdbCoverReferenceResolver
-        implements ProviderCoverReferenceResolver, ProviderImageReferenceResolver {
+        implements ProviderCoverReferenceResolver,
+                ProviderImageReferenceResolver,
+                ProviderShareCoverResolver {
 
     private static final String PROVIDER = "IGDB";
 
@@ -33,6 +36,21 @@ public final class IgdbCoverReferenceResolver
             URI attributionUrl = approved(provider, reference, sourceUrl);
             return new ResolvedProviderCover(
                     URI.create(COVER_BASE + reference + ".webp"), PROVIDER, attributionUrl);
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new CatalogueDataInvalidException(exception);
+        }
+    }
+
+    /**
+     * The link-preview rendition (ADR-0049): the page's own cover and size as JPEG, because
+     * several preview clients do not decode WebP.
+     */
+    @Override
+    public ResolvedProviderCover resolveShare(String provider, String reference, String sourceUrl) {
+        try {
+            URI attributionUrl = approved(provider, reference, sourceUrl);
+            return new ResolvedProviderCover(
+                    URI.create(COVER_BASE + reference + ".jpg"), PROVIDER, attributionUrl);
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw new CatalogueDataInvalidException(exception);
         }

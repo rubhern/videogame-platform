@@ -183,13 +183,18 @@ for path in "${changed_paths[@]}"; do
       matched=true
       ;;
     backend/src/main/resources/db/dev-seed/*)
-      # The packaged browser journey asserts the demonstration catalogue it browses.
-      enable migrations backend browser
+      # Both observability fixtures load these seeds; the browser also reads them.
+      enable migrations backend browser private_dev_runtime production_runtime
       matched=true
       ;;
     docker/postgres/* | scripts/test-postgres-bootstrap.py)
       # The shared database bootstrap is mounted by the production runtime as well.
       enable migrations backend production_runtime
+      matched=true
+      ;;
+    backend/src/main/resources/db/migration/*)
+      # The private-dev and production observability SQL fixtures replay these migrations.
+      enable migrations backend private_dev_runtime production_runtime
       matched=true
       ;;
     scripts/validate-migrations.sh | backend/src/main/resources/db/*)

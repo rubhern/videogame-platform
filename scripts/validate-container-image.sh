@@ -112,10 +112,27 @@ assert(
   "Microsoft publisher-domain file has no application",
 );
 
-const browserRoute = await request("/games/pragmata");
+// A game page carries its own link-preview metadata without JavaScript (ADR-0049), through the
+// complete security filter chain, and stays a revalidated public document.
+const browserRoute = await request(
+  "/games/30000000-0000-4000-8000-000000000001/death-stranding-2-on-the-beach",
+);
 assert(
   browserRoute.response.ok && browserRoute.body.includes('<div id="root">'),
   "SPA browser route did not return the entry point",
+);
+assert(
+  browserRoute.body.includes('<meta property="og:title" content="Death Stranding 2: On the Beach · Gameómetro" />'),
+  "game page has no server-inserted preview metadata",
+);
+assert(
+  browserRoute.response.headers.get("cache-control") === "no-cache, public",
+  `game page cache policy changed: ${browserRoute.response.headers.get("cache-control")}`,
+);
+const missingGame = await request("/games/30000000-0000-4000-8000-0000000000ff/missing");
+assert(
+  missingGame.response.status === 404 && missingGame.body.includes('<div id="root">'),
+  "an unknown game page is not a 404 SPA document",
 );
 
 // The image runs on the real clock, so a moving window eventually loses every exact seed day. An

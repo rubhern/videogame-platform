@@ -97,9 +97,8 @@ public final class JdbcPlatformGamesReadAdapter implements PlatformGamesReadPort
                         platforms.stream().map(Taxonomy::id).toList(),
                         List.copyOf(genreIdsByCode.values()));
 
-        // The statement reads every release of the scope, so its estimate crosses PostgreSQL's
-        // JIT threshold on a large platform; compiling it measured 15-700 ms on a 100,000-game
-        // platform, far more than it saves. SET LOCAL ends with this read-only transaction.
+        // JIT compilation adds latency to broad counts and facets. SET LOCAL ends with this
+        // read-only transaction.
         jdbcOperations.getJdbcOperations().execute("SET LOCAL jit = off");
         Page read =
                 jdbcOperations.query(

@@ -204,6 +204,13 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         service.synchronize(WINDOW);
         var unknown = store.loadGame("100", 25).orElseThrow().releases().get("10");
         assertThat(unknown.reviewStatus()).isEqualTo(ReviewStatus.REQUIRED);
+        String presentedRelease =
+                """
+                SELECT occurrence FROM catalogue.platform_game_presentation
+                WHERE release_id = ? AND valid_on @> DATE '2026-09-08'
+                """;
+        assertThat(jdbc.queryForObject(presentedRelease, Integer.class, unknown.releaseId()))
+                .isEqualTo(2);
         provider.works.put("100", work("100", fullRelease("10", "6", "2026-09-04")));
         var corrected = service.synchronize(WINDOW);
         assertThat(corrected.counters().updatedReleases()).isEqualTo(1);
@@ -211,6 +218,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         assertThat(release.releaseId()).isEqualTo(unknown.releaseId());
         assertThat(release.reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
         assertThat(release.date()).isEqualTo(new ReleaseDate.Day(LocalDate.parse("2026-09-04")));
+        assertThat(jdbc.queryForObject(presentedRelease, Integer.class, release.releaseId()))
+                .isZero();
         String revision = version();
         assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isZero();
         assertThat(version()).isEqualTo(revision);

@@ -83,6 +83,14 @@ Covers keep every rule above. Selection is deterministic and uses metadata only;
 featured-media rules are FEAT-003 and FEAT-004 in the
 [domain model](../architecture/domain/mvp-domain-model.md).
 
+## Amendment 2026-11-19 (proposed)
+
+[ADR-0049](0049-insert-link-preview-metadata-into-the-served-entry-point.md) proposes one more
+allowlisted extension: a link preview names the page's own `t_cover_big_2x` cover as `jpg`,
+because several preview clients do not decode WebP. The preview client fetches it directly from
+the IGDB CDN, and the preview links to the game page that shows the attribution. Every other rule
+above is unchanged.
+
 ## Reconsider when
 
 Public-release reconsideration is documented by the

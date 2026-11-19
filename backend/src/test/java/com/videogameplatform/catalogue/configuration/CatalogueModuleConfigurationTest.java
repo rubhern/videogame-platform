@@ -319,6 +319,23 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.sharing.port.SharePreviewReadPort
+                sharePreviewReadPort() {
+            return new com.videogameplatform.catalogue.application.sharing.port
+                    .SharePreviewReadPort() {
+                @Override
+                public Optional<Game> findGame(java.util.UUID gameId) {
+                    return Optional.empty();
+                }
+
+                @Override
+                public Optional<String> findPlatformName(java.util.UUID platformId) {
+                    return Optional.empty();
+                }
+            };
+        }
+
+        @Bean
         com.videogameplatform.catalogue.application.preferences.port.SelectablePlatformsReadPort
                 selectablePlatformsReadPort() {
             return limit -> Optional.empty();

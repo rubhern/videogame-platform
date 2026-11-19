@@ -245,19 +245,14 @@ a game that is out is always shown by a release that is out, and its status is t
 of that release, never a stored one. The optional search reuses the `UC-002` normalization and
 text-search vectors as a filter inside the scope and never reorders. Genres and the known years are
 contextual facets: each leaves out its own dimension and keeps a selected genre representable.
-Scores are composed by API delivery for the returned page only, as on discovery pages; the two
-score orders read the Catalogue-owned stored external score and community projection
-([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), never
-Ratings tables. One statement derives the presented releases once and returns the page, the total
-and both facets in one repeatable-read snapshot, so request memory is `O(pageSize)` plus the bounded
-genre taxonomy; the statement runs without PostgreSQL JIT compilation, which measured 15–700 ms of
-compile time for no gain. Evidence (2026-10-27): on a copy of the real local catalogue (21,839
-games, 40,681 releases) a page reads in about 90–105 ms for Windows PC (18,735 games) and 7–23 ms
-for Nintendo Switch 2 and PlayStation 5; the opt-in `PlatformGamesScalabilityIT` measures about
-0.5–0.7 s for one platform holding 100,000 games and 198,000 releases, dominated by deriving every
-game's presented release. That cost grows with the platform's own releases, not the page; a
-per-publication projection of each game's presented release per platform is the remedy when a
-measured platform scope makes the page read exceed its budget.
+Scores are composed by API delivery for the returned page only, as on discovery pages. The
+score orders use Catalogue's score projections
+([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)).
+Post-MVP (#577, implemented; awaiting owner review), PostgreSQL reads the presented releases from
+the [platform catalogue projection](../../decisions/0048-project-presented-releases-for-platform-catalogue.md).
+A family chooses its winner across the member platforms before applying visitor filters. The
+page, exact total and contextual facets share a repeatable-read snapshot. Only the returned
+page loads game and release display data.
 
 Post-MVP (#388, implemented; awaiting owner review), `UC-020` is **Próximos destacados**, the
 third platform destination of the Plataformas section, beside its TOPómetro and Explorar catálogo.

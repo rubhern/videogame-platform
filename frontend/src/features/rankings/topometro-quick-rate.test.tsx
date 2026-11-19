@@ -202,25 +202,28 @@ describe("Rating from the TOPómetro (#574)", () => {
     expect(put?.headers.get("If-Match")).toBe('"v1"');
   });
 
-  it("rates the list in a run from the first game still without a score", async () => {
+  it("rates the list in a run from its first game and stays on the game it scores", async () => {
     const user = userEvent.setup();
     const fetchMock = stub({ authenticated: true, saved: [rating(id(1), 6), rating(id(3), 5)] });
     renderApp("/topometro?source=gameometro");
 
     await screen.findByRole("button", { name: /Tu puntuación de Juego 1/ });
     await user.click(screen.getByRole("button", { name: "Puntuar varios" }));
-    const sheet = await screen.findByRole("dialog", { name: "Juego 2" });
+    // The run starts at the top of the list, rated or not.
+    const sheet = await screen.findByRole("dialog", { name: "Juego 1" });
+    await user.click(within(sheet).getByRole("button", { name: "Siguiente: Juego 2" }));
     await user.click(within(sheet).getByRole("button", { name: "9" }));
 
-    // Juego 3 is already rated, so the run continues on Juego 4.
-    expect(await screen.findByRole("dialog", { name: "Juego 4" })).toBeVisible();
-    expect(screen.getByText("Guardada: Juego 2, 9/10. Ahora: Juego 4.")).toBeVisible();
-    expect(screen.getByText("Primera puntuación")).toBeVisible();
+    // The sheet stays on the scored game, its new score in place and no message.
+    await waitFor(() => expect(within(sheet).getByRole("button", { name: "9" })).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByRole("dialog", { name: "Juego 2" })).toBeVisible();
+    expect(within(sheet).getByRole("status")).toHaveTextContent("");
+    expect(within(sheet).queryByText(/Guardada|Primera puntuación/)).not.toBeInTheDocument();
 
     const before = requests(fetchMock, "/api/v1/game-rankings").length;
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
     // Focus returns to the stamp of the game last shown, and the ranking is read again once.
-    expect(screen.getByRole("button", { name: "Puntuar Juego 4" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /Tu puntuación de Juego 2/ })).toHaveFocus();
     await waitFor(() => expect(requests(fetchMock, "/api/v1/game-rankings").length).toBe(before + 1));
   });
 

@@ -248,13 +248,15 @@ def sql_query(target):
 
 if args.synthetic:
     # Disposable SQL evidence: production migrations plus deterministic catalogue seed.
+    # Preserve transaction-scoped DDL and locks when applying Flyway SQL through psql.
     # No owner database, existing project or application image is touched.
     subprocess.run(compose + ['up', '--detach', '--wait', 'postgres'], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=90)
     files = sorted(list((root / 'backend/src/main/resources/db/migration').glob('*.sql')) +
                    list((root / 'backend/src/main/resources/db/dev-seed').glob('*.sql')), key=lambda p:p.name)
     result = subprocess.run(compose + ['exec', '-T', '--user', 'postgres', 'postgres', 'psql', '--username=postgres',
-                            '--dbname=videogame_platform', '--set=ON_ERROR_STOP=1', '--quiet'],
+                            '--dbname=videogame_platform', '--set=ON_ERROR_STOP=1', '--quiet',
+                            '--single-transaction', '--file=-'],
                             input='SET ROLE videogame_app_migrator;\n' + '\n'.join(p.read_text() for p in files), text=True, capture_output=True, timeout=60)
     assert result.returncode == 0, 'Disposable SQL migrations/seed failed: ' + result.stderr
     db_secret = pathlib.Path(config['secrets']['grafana_database_password']['file']).read_text().strip()
