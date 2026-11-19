@@ -28,6 +28,14 @@ class JdbcSharePreviewReadAdapterIntegrationTest {
     private static final UUID SECOND_GAME = UUID.fromString("30000000-0000-4000-8000-000000000002");
     private static final UUID PLAYSTATION_5 =
             UUID.fromString("10000000-0000-4000-8000-000000000001");
+    // One literal statement: the plan query is never built by concatenation.
+    private static final String GAME_READ_PLAN =
+            """
+            EXPLAIN SELECT g.slug FROM catalogue.game_snapshot g
+            JOIN catalogue.catalogue_publication cp
+              ON cp.publication_id = g.publication_id AND cp.is_current
+            WHERE g.game_id = '30000000-0000-4000-8000-000000000001'
+            """;
     private static JdbcTemplate admin;
     private static JdbcTemplate runtime;
     private static JdbcSharePreviewReadAdapter adapter;
@@ -125,17 +133,7 @@ class JdbcSharePreviewReadAdapterIntegrationTest {
                                 (java.sql.Connection connection) -> {
                                     try (var statement = connection.createStatement()) {
                                         statement.execute("SET enable_seqscan = off");
-                                        try (var rows =
-                                                statement.executeQuery(
-                                                        "EXPLAIN SELECT g.slug FROM"
-                                                                + " catalogue.game_snapshot g JOIN"
-                                                                + " catalogue.catalogue_publication"
-                                                                + " cp ON cp.publication_id ="
-                                                                + " g.publication_id AND"
-                                                                + " cp.is_current WHERE g.game_id ="
-                                                                + " '"
-                                                                + DEATH_STRANDING
-                                                                + "'")) {
+                                        try (var rows = statement.executeQuery(GAME_READ_PLAN)) {
                                             var lines = new java.util.ArrayList<String>();
                                             while (rows.next()) lines.add(rows.getString(1));
                                             statement.execute("RESET enable_seqscan");
