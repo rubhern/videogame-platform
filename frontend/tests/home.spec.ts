@@ -123,6 +123,8 @@ async function stubHome(page: Page, options: { session?: object; failFeatured?: 
     const url = new URL(request.url());
     if (url.pathname.startsWith("/api/")) requests.push(url.pathname + url.search);
   });
+  await page.route("**/api/v1/web-analytics", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/v1/home-rankings/*", (route) => route.fulfill({ json: { items: [] } }));
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: options.session ?? { authenticated: false } }));
   await page.route("**/api/v1/me/platform-preferences", (route) => route.fulfill({ json: { configured: true, platforms: [] } }));
   await page.route("**/api/v1/featured-releases*", (route) =>
@@ -158,7 +160,7 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
     const lead = page.getByRole("article", { name: LEAD });
     await expect(lead.getByRole("heading", { level: 2 })).toHaveAccessibleName(LEAD);
-    for (const region of ["Lanzamientos", "TOPómetro", "Explora por plataforma", "Tu criterio. Tu historia."]) {
+    for (const region of ["Lanzamientos", "TOPómetro", "Explora por plataforma", "Tu criterio. Tu historia.", "Pulso de la semana"]) {
       await expect(page.getByRole("region", { name: region })).toBeAttached();
     }
     await expect(page.getByRole("list", { name: "Podio de Jugadores IGDB" }).getByRole("article")).toHaveCount(3);
@@ -167,6 +169,18 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByRole("link", { name: "Abrir Destacados" })).toBeInViewport();
     await expect(lead.locator(".home-feature-art")).toBeVisible();
     await expect(lead.locator(".home-feature-art img")).toHaveCSS("object-fit", "cover");
+    if (width === 1320) {
+      // Measure the opening after the visitor has made their consent choice.
+      await page.getByRole("button", { name: "Rechazar todo" }).click();
+      // The artwork leads the first view while the calendar and more games remain discoverable.
+      const hero = await lead.boundingBox();
+      expect(hero?.y ?? Infinity).toBeLessThan(285);
+      expect(hero?.height ?? 0).toBeGreaterThanOrEqual(500);
+      await expect(page.getByRole("list", { name: "Días de la semana" }).getByRole("button").last())
+        .toBeInViewport({ ratio: 1 });
+      await expect(page.getByRole("list", { name: "Más destacados" }).locator(".home-more-media").first())
+        .toBeInViewport({ ratio: 0.25 });
+    }
     const podiums = page.locator(".home-podium-source");
     const first = await podiums.nth(0).boundingBox();
     const second = await podiums.nth(1).boundingBox();
@@ -402,7 +416,7 @@ test("one failed preview leaves the rest of the home usable, also in forced colo
   await stubHome(page, { failFeatured: true });
   await page.goto("/");
 
-  const alert = page.getByRole("alert");
+  const alert = page.getByRole("region", { name: "Lanzamientos" }).getByRole("alert");
   await expect(alert).toContainText("Los lanzamientos se han tomado un respiro");
   await expect(alert).toContainText("home-featured");
   await expect(page.getByRole("list", { name: "Podio de Jugadores IGDB" })).toBeVisible();
