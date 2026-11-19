@@ -200,13 +200,6 @@
     text-transform: uppercase;
   }
 
-  /* A run of votes is an event: it alone takes the fire. */
-  .quick-rate-streak {
-    color: var(--color-fire-light);
-    letter-spacing: 0.02em;
-    text-transform: none;
-  }
-
   .quick-rate-identity h2 {
     display: -webkit-box;
     margin: 0;
@@ -868,8 +861,7 @@
     }
 
     .quick-rate-mine-value strong,
-    .quick-rate-mine-label b,
-    .quick-rate-streak {
+    .quick-rate-mine-label b {
       color: CanvasText;
     }
   }

@@ -1049,7 +1049,7 @@ game page for this game, and **Puntuar varios** opens the run sheet at this game
 by platform keeps the keypad closed and leads with **Editar plataformas**, since a general pick
 never replaces platform scores. **Puntuar varios**, a pill at the end of the entry line (beside it
 on phones, beneath it on wide headers), opens the run
-sheet at the first loaded game still without the player's score.
+sheet at the first game of the list, rated or not.
 
 The **run sheet** is a native modal dialog. On phones it rises from the bottom edge with rounded
 top corners and the keypad in two rows of five; wider screens centre it, with one row of ten.
@@ -1058,10 +1058,8 @@ shown holds one. The header shows the game's cover, `Puesto N`, its title and th
 in one quiet line. The body shows `Tu puntuación` with the score in its temperature (or `Sin
 puntuar`), the keypad and **Puntuar por plataforma** (**Editar plataformas** for a game rated by
 platform), which opens the platform sheet over the run and returns to it. One press saves the
-general score at once and moves on to the next game of the list still without the player's
-score, so a run of votes is one press per game. A visible status confirms it (`Guardada: Hades,
-9/10. Ahora: Celeste.`), and a fire counter in the header (`Primera puntuación`, `3 puntuaciones
-seguidas`) marks the run, fire being the event's colour. The footer offers **Anterior** and
+general score at once and the sheet stays on that game, the new score taking its place in
+`Tu puntuación` and on the keypad with no message. The footer offers **Anterior** and
 **Siguiente** at either thumb to browse the list in its order, with **Eliminar** or **Ver ficha**
 between them.
 
