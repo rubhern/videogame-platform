@@ -64,6 +64,14 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.sharing.port.SharePreviewReadPort
+            sharePreviewReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.sharing
+                .JdbcSharePreviewReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     CatalogueReadExecution catalogueReadExecution(
             DataSource dataSource,
             PlatformTransactionManager transactionManager,

@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0049-insert-link-preview-metadata-into-the-served-entry-point.md', 'Link-preview metadata · proposed'],
     ['docs/decisions/0048-project-presented-releases-for-platform-catalogue.md', 'Platform catalogue projection · proposed'],
     ['docs/decisions/0046-keep-sampled-production-traces-in-tempo.md', 'Sampled production traces · proposed'],
     ['docs/decisions/0047-run-self-service-account-deletion-on-the-production-vps.md', 'Self-service deletion on the VPS · proposed'],
