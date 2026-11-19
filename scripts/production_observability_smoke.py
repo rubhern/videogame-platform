@@ -113,7 +113,10 @@ def main():
                 time.sleep(1)
             raise AssertionError(description+' did not pass')
         def query(expr):return api('/api/v1/query?'+urllib.parse.urlencode({'query':expr}),base=prom_origin)['data']['result']
-        def sql(command):return run(compose+['exec','-T','postgres','psql','-v','ON_ERROR_STOP=1','-U','postgres','-d','videogame_platform'],input=command)
+        def sql(command):
+            return run(compose + ['exec', '-T', 'postgres', 'psql', '--set=ON_ERROR_STOP=1',
+                                  '--username=postgres', '--dbname=videogame_platform',
+                                  '--single-transaction', '--file=-'], input=command)
         messages=lambda:[json.loads(x) for x in (d/'messages').read_text().splitlines()]
         try:
             run(compose+['up','-d','mock'])
@@ -128,7 +131,7 @@ def main():
             poll(lambda:api('/api/health')['database']=='ok','Production Grafana started within its configured ceiling')
             poll(lambda:sql('SELECT 1;'),'Isolated database ready')
             sql('CREATE ROLE videogame_app; CREATE ROLE videogame_app_migrator; CREATE ROLE videogame_keycloak;')
-            # Same migration sources, SQL-first; no generated schema or separate fixture schema.
+            # Apply each migration in its own transaction, as Flyway does.
             migrations=sorted([*(ROOT/'backend/src/main/resources/db/migration').glob('*.sql'),*(ROOT/'backend/src/main/resources/db/dev-seed').glob('*.sql')],key=lambda x:x.name)
             for path in migrations:sql(path.read_text())
             sql("\\set reader_password '"+password+"'\n"+(SHARED/'grafana/provision-reader.sql').read_text())
