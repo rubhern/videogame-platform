@@ -180,7 +180,7 @@ decorative: the readout beside the title and each card state the same dates in w
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
 where they carry meaning, and each keeps its own composition: the [home](#home) a release timeline
-above a compact panorama, Destacados the period's stage with the temporal G, the release explorer
+and a panorama, Destacados the period's stage with the temporal G, the release explorer
 a cover wall under its day bar, search a catalogue index, the game page its own cover's stage,
 Mis puntuaciones a thermal ledger, TOPómetro a podium over a ledger, Plataformas a showcase of
 platform stages, a platform's Explorar catálogo the release explorer's cover wall under that
@@ -790,13 +790,19 @@ daily thresholds. Selecting a day or
 group reads up to five releases ordered by interest from Explorar and updates the panorama
 and cards. The complete period uses the selection from Destacados. Approximate releases
 stay at their stated precision. A date slot has a visible focus ring and pressed state.
-The controls use native links and buttons. On phones, the platform filter and **Abrir Destacados**
-share a row. Month weeks stay in a single rail that scrolls within the home when needed.
+The controls use native links and buttons. From desktop width, the shorter heading, controls
+and one-line calendar slots keep the artwork high in the viewport. The period is on the left,
+with the platform filter and **Abrir Destacados** grouped on the right. On phones, the platform
+filter and **Abrir Destacados** share a row. Month weeks stay in a single rail that scrolls
+within the home when needed.
 **Expectación** opens the legend beside the period summary.
 
 **Panorama and destinations.** The lead game's panoramic art blends into the night canvas behind the title,
-release facts and available scores. The title link spans the hero, and the IGDB attribution
-keeps its own target. The artwork sits above the facts on phones. Up to four cards follow. The ice **Abrir Destacados** action keeps the week or month
+release facts and available scores. On desktop, the stage spans the content column and grows
+with the viewport height. Artwork runs across it with a directional shade under the larger
+title, while portrait covers retain their proportions beside the copy. The title link spans
+the hero, and the IGDB attribution keeps its own target. The artwork sits above the facts on
+phones. Up to four cards follow. The ice **Abrir Destacados** action keeps the week or month
 and an explicit platform. **Ver todos los lanzamientos** keeps the selected date range and
 platform. **Ver calendario** opens the dedicated upcoming calendar. Both links share one row
 on phones. The current period,

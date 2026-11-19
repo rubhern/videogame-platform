@@ -26,8 +26,7 @@
     isolation: isolate;
   }
 
-  /* The stage's positioned frame: the art and its light are placed against it, up behind the
-     header and out to the viewport's edges. */
+  /* The stage keeps the opening and the release panorama on the shared page column. */
   .home-stage > .page-container {
     position: relative;
     padding-block: 8px 0;
@@ -297,6 +296,78 @@
 
   .home-discovery-link.button:hover { border-color: var(--line-ice-strong); }
   .home-discovery-link svg { width: 16px; height: 16px; }
+
+  @media (min-width: 1024px) {
+    .home-intro .hero-title {
+      font-size: clamp(1.375rem, 1.9vw, 1.625rem);
+    }
+
+    .home-discovery-controls {
+      justify-content: flex-start;
+      gap: 0.25rem 0.625rem;
+      margin-block: 0.25rem 0.375rem;
+    }
+
+    .home-discovery-controls .featured-period { margin-inline-end: auto; }
+    .home-discovery-controls .featured-period-label { font-size: 1.0625rem; }
+    .home-discovery-controls .platform-switcher-panel { inset-inline: auto 0; }
+
+    .home-discovery-controls .platform-switcher-trigger,
+    .home-featured-entry.button {
+      min-height: 44px;
+      padding-block: 0.375rem;
+    }
+
+    .home-timeline { grid-auto-columns: minmax(max-content, 1fr); }
+
+    .home-timeline-slot {
+      grid-template-columns: auto auto 1fr;
+      grid-template-rows: auto;
+      align-items: center;
+      align-content: center;
+      gap: 0.5rem;
+      min-height: 44px;
+    }
+
+    .home-timeline-interest { justify-self: end; }
+    .home-discovery-readout { min-height: 32px; }
+
+    .home-feature { min-height: clamp(26rem, 61svh, 42rem); }
+    .home-feature-art { inset-inline-start: 0; }
+
+    /* Centre a portrait beside the copy and fade only the join to its surrounding light. */
+    .home-feature:has(.featured-art-contain) { align-items: center; }
+    .home-feature-art:has(.featured-art-contain) { inset-inline-start: 42%; }
+
+    .home-feature-art .featured-art-fill .featured-art-image { object-position: center 24%; }
+
+    .home-feature-art::after {
+      background:
+        linear-gradient(
+          90deg,
+          var(--color-night) 2%,
+          color-mix(in srgb, var(--color-night) 82%, transparent) 32%,
+          color-mix(in srgb, var(--color-night) 54%, transparent) 47%,
+          transparent 70%
+        ),
+        linear-gradient(0deg, color-mix(in srgb, var(--color-night) 62%, transparent), transparent 56%);
+    }
+
+    .home-feature-art:has(.featured-art-contain)::after {
+      background: linear-gradient(90deg, var(--color-night), transparent 28%);
+    }
+
+    .home-feature-copy {
+      max-width: min(52%, 43rem);
+      padding: clamp(1.75rem, 3.6vw, 3.5rem);
+    }
+
+    .home-feature-copy h2 { font-size: clamp(2.625rem, 5.25vw, 5rem); }
+  }
+
+  @media (forced-colors: active) and (min-width: 1024px) {
+    .home-feature .home-feature-art { inset-inline-start: 52%; }
+  }
 
   @media (max-width: 760px) {
     .home-discovery-controls .featured-period { flex: 1 1 100%; }
