@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.persistence.platformgames;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.platformgames.BrowsePlatformGamesUseCase.ReleaseState;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -149,6 +151,58 @@ class JdbcPlatformGamesReadAdapterIntegrationTest {
         assertThat(titles(family)).contains("Theta Variant Only").doesNotHaveDuplicates();
         assertThat(family.totalItems()).isEqualTo(LATEST_FIRST.size() + 1);
         assertThat(titles(read(criteria().build()))).doesNotContain("Theta Variant Only");
+    }
+
+    @Test
+    void choosesTheFamilyWinnerBeforeFilteringAndPaging() {
+        var scope = criteria().platforms(SWITCH, OTHER).search("alpha");
+        var alpha = read(scope.build()).items().getFirst();
+        assertThat(alpha.platform().id()).isEqualTo(OTHER);
+        assertThat(alpha.releaseDate()).isEqualTo(new ReleaseDate.Day(LocalDate.of(2019, 1, 1)));
+        assertThat(read(scope.years(2024, null).build()).items()).isEmpty();
+
+        var family = criteria().platforms(SWITCH, OTHER);
+        var first = read(family.page(1, 7).build());
+        var second = read(family.page(2, 7).build());
+        List<String> paged = new ArrayList<>(titles(first));
+        paged.addAll(titles(second));
+        assertThat(paged).containsExactlyElementsOf(titles(read(family.page(1, 100).build())));
+        assertThat(paged).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void advancesExactAndApproximateReleaseStatesWithTheEvaluationDateAlone() {
+        var beta = criteria().search("beta").state(ReleaseState.RELEASED);
+        assertThat(read(beta.evaluatedOn(LocalDate.of(2026, 8, 31)).build()).totalItems()).isZero();
+        assertThat(read(beta.evaluatedOn(LocalDate.of(2026, 9, 1)).build()).totalItems())
+                .isEqualTo(1);
+
+        var gamma = criteria().search("gamma").state(ReleaseState.RELEASED);
+        assertThat(read(gamma.evaluatedOn(LocalDate.of(2026, 9, 30)).build()).totalItems())
+                .isZero();
+        assertThat(read(gamma.evaluatedOn(LocalDate.of(2026, 10, 1)).build()).totalItems())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void rejectsOverlappingWinnersForOnePublicationPlatformAndGame() {
+        assertThatThrownBy(
+                        () ->
+                                admin.update(
+                                        """
+                                INSERT INTO catalogue.platform_game_presentation
+                                SELECT publication_id, platform_id, game_id, daterange(NULL, NULL),
+                                       release_id, occurrence, precedence, region_code, period_end,
+                                       precision_rank, known_year, normalized_title, genre_ids,
+                                       community_mean, community_rating_count, player_score, player_score_count
+                                FROM catalogue.platform_game_presentation
+                                WHERE publication_id = ?::uuid AND platform_id = ?::uuid
+                                LIMIT 1
+                                """,
+                                        PUBLICATION,
+                                        SWITCH))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("platform_game_presentation_pkey");
     }
 
     @Test
@@ -318,6 +372,7 @@ class JdbcPlatformGamesReadAdapterIntegrationTest {
         private Integer toYear;
         private List<String> genres = List.of();
         private Sort sort = Sort.RELEASE_DATE_DESC;
+        private LocalDate evaluatedOn = TODAY;
         private int page = 1;
         private int size = 100;
 
@@ -353,6 +408,11 @@ class JdbcPlatformGamesReadAdapterIntegrationTest {
             return this;
         }
 
+        CriteriaBuilder evaluatedOn(LocalDate value) {
+            evaluatedOn = value;
+            return this;
+        }
+
         CriteriaBuilder page(int number, int pageSize) {
             page = number;
             size = pageSize;
@@ -368,7 +428,7 @@ class JdbcPlatformGamesReadAdapterIntegrationTest {
                     toYear,
                     genres,
                     sort,
-                    TODAY,
+                    evaluatedOn,
                     new PlatformGamesReadPort.Pagination(page, size, (long) (page - 1) * size));
         }
     }
