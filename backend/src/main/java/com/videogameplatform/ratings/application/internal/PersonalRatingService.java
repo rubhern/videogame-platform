@@ -111,7 +111,7 @@ public class PersonalRatingService
     }
 
     private static void requireEligibility(GameDetailsResult game) {
-        RatingEligibilityPolicy.Reason reason = RatingContextService.eligibility(game);
+        RatingEligibilityPolicy.Reason reason = RatingContextService.eligibilityReason(game);
         if (reason != RatingEligibilityPolicy.Reason.ELIGIBLE_RELEASE_FOUND) {
             throw new RatingNotEligibleException(reason);
         }

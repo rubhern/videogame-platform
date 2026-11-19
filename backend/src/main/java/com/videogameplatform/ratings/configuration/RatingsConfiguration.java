@@ -6,7 +6,9 @@ import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics
 import com.videogameplatform.ratings.adapter.persistence.CommunityScoreBackfill;
 import com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingStore;
 import com.videogameplatform.ratings.adapter.persistence.JdbcRatingStatisticsReadAdapter;
+import com.videogameplatform.ratings.adapter.persistence.JdbcRecentRatingCounts;
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
+import com.videogameplatform.ratings.application.RecentRatingCounts;
 import com.videogameplatform.ratings.application.internal.PersonalRatingService;
 import com.videogameplatform.ratings.application.internal.RatingContextService;
 import com.videogameplatform.ratings.application.port.PersonalRatingStore;
@@ -140,6 +142,11 @@ class RatingsConfiguration {
             Clock clock,
             com.videogameplatform.ratings.application.port.GameListingProjection listing) {
         return new PersonalRatingService(ratings, games, clock, listing);
+    }
+
+    @Bean
+    RecentRatingCounts recentRatingCounts(RatingJdbcExecution execution) {
+        return new JdbcRecentRatingCounts(execution.jdbc());
     }
 
     record RatingJdbcExecution(NamedParameterJdbcTemplate jdbc, TransactionTemplate transaction) {}

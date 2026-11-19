@@ -286,7 +286,9 @@ public class IdentitySecurityConfiguration {
         // Feedback accepts no session authority and only JSON. Its exact POST matcher is also
         // used by SameOriginStateChangeFilter to reject cross-origin browser submissions.
         csrf.csrfTokenRepository(csrfTokens)
-                .ignoringRequestMatchers(SameOriginStateChangeFilter::isFeedbackSubmission);
+                .ignoringRequestMatchers(
+                        SameOriginStateChangeFilter::isFeedbackSubmission,
+                        SameOriginStateChangeFilter::isGameDetailVisit);
     }
 
     @Bean

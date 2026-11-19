@@ -204,7 +204,7 @@ for (const width of [320, 390]) {
         element.style.setProperty("pointer-events", "auto", "important");
       }
     });
-    for (const name of ["Rechazar", "Aceptar"]) {
+    for (const name of ["Rechazar todo", "Aceptar todo"]) {
       const box = await notice.getByRole("button", { name }).boundingBox();
       if (box === null) throw new Error(`${name} has no box`);
       const topmost = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.textContent?.trim() ?? null,

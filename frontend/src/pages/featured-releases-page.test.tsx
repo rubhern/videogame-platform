@@ -262,7 +262,7 @@ describe("featured releases page", () => {
     // The heading is the title and the month alone: no selection caption or selection note.
     expect(screen.queryByText(/Selección del mes|Selección automática/)).toBeNull();
     // Attention ranks the selection; nothing claims quality or an award.
-    expect(document.body).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
+    expect(screen.getByRole("main")).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
   });
 
   it("states the kind of launch on the hero and the cards, and nothing for a full release", async () => {

@@ -52,6 +52,10 @@
           "text": "Solo si lo aceptas, medimos el uso de Gameómetro con Google Analytics 4 para saber, de forma agregada, qué páginas y funciones se utilizan y decidir qué mejorar. Se envían la página visitada en forma genérica (por ejemplo, la ficha de un juego con su nombre público, sin búsquedas, parámetros ni identificadores), acciones de uso como abrir el panel de puntuación, cambiar de periodo en Destacados o guardar tus plataformas, sin el valor de tus puntuaciones, y los datos técnicos que recoge Google: un identificador seudónimo guardado en la cookie, navegador, dispositivo y ubicación aproximada. Según Google, Google Analytics 4 no registra ni almacena la dirección IP. No enviamos tu email, tu identificador de cuenta ni tus puntuaciones, ni combinamos estos datos con tu cuenta. La base jurídica es tu consentimiento (artículo 6.1.a RGPD y artículo 22.2 de la LSSI). Puedes retirarlo en cualquier momento desde «Configurar cookies», al pie de cada página, sin que afecte a la licitud del tratamiento anterior; rechazar la analítica no limita ninguna función. No usamos la analítica para publicidad, perfiles comerciales ni decisiones automatizadas."
         },
         {
+          "kind": "paragraph",
+          "text": "Si aceptas participar en el ranking de visitas, Gameómetro registra el juego, la hora de la visita y un código aleatorio para evitar duplicar el mismo envío. El registro se elimina al vencer el plazo de ocho días. Los registros del ranking no incluyen IP, identificadores de cuenta ni cookies y no se envían a Google. Publicamos solo recuentos por juego en «Más visitados» de la home. La base jurídica es tu consentimiento (artículo 6.1.a RGPD). Puedes retirarlo desde «Configurar cookies» para dejar de participar. Puedes usar todas las funciones si rechazas."
+        },
+        {
           "kind": "heading",
           "text": "Destinatarios y transferencias internacionales"
         },
@@ -184,7 +188,7 @@
       "blocks": [
         {
           "kind": "paragraph",
-          "text": "Utilizamos cookies necesarias para el acceso que solicitas, su seguridad y el idioma de los formularios; no requieren tu consentimiento. Solo si lo aceptas, utilizamos además cookies de analítica de Google Analytics para medir de forma agregada qué páginas y funciones se usan. No utilizamos cookies de publicidad. Al visitar Gameómetro te preguntamos si aceptas la analítica: rechazar es tan fácil como aceptar y, mientras no elijas, no se activa. Puedes cambiar tu elección en cualquier momento desde «Configurar cookies», al pie de cada página."
+          "text": "Utilizamos cookies necesarias para el acceso que solicitas, su seguridad y el idioma de los formularios; no requieren tu consentimiento. Solo si lo aceptas, utilizamos además cookies de analítica de Google Analytics para medir de forma agregada qué páginas y funciones se usan. No utilizamos cookies de publicidad. Al visitar Gameómetro puedes elegir por separado si permites la analítica o si quieres que tus visitas cuenten en el ranking público de juegos. El ranking no añade cookies. Rechazar es tan fácil como aceptar. Puedes cambiar tu elección en cualquier momento desde «Configurar cookies», al pie de cada página."
         },
         {
           "kind": "table",
@@ -300,7 +304,7 @@
         },
         {
           "kind": "paragraph",
-          "text": "La aplicación no necesita crear cookies para consultar el catálogo sin identificarte; las de analítica solo aparecen si las aceptas. Tu elección sobre la analítica se guarda en el almacenamiento local de este navegador (`localStorage`, clave `gameometro_analytics_consent`), sin datos personales, durante 12 meses. Si has aceptado la analítica y empiezas a iniciar sesión o a crear una cuenta, la pestaña guarda en `sessionStorage` solo qué recorrido iniciaste, para contarlo una vez al volver; se borra al leerlo o al cerrar la pestaña. Fuera de eso, la aplicación no utiliza `localStorage`, `sessionStorage` ni IndexedDB para los recorridos de cuenta. Los tokens OAuth se mantienen en el servidor; el cierre de sesión puede incluir un ID token en la redirección al proveedor de identidad, sin almacenarlo de forma persistente en el navegador. Las conexiones con el CDN de imágenes se explican en la política de privacidad; esta información no las convierte en cookies de autenticación."
+          "text": "La aplicación no necesita crear cookies para consultar el catálogo sin identificarte; las de analítica solo aparecen si las aceptas. Tus elecciones se guardan por separado durante 12 meses en el almacenamiento local del navegador (`localStorage`, claves `gameometro_analytics_consent` y `gameometro_visit_ranking_consent`). Si has aceptado la analítica y empiezas a iniciar sesión o a crear una cuenta, la pestaña guarda en `sessionStorage` solo qué recorrido iniciaste, para contarlo una vez al volver; se borra al leerlo o al cerrar la pestaña. Fuera de eso, la aplicación no utiliza `localStorage`, `sessionStorage` ni IndexedDB para los recorridos de cuenta. Los tokens OAuth se mantienen en el servidor; el cierre de sesión puede incluir un ID token en la redirección al proveedor de identidad, sin almacenarlo de forma persistente en el navegador. Las conexiones con el CDN de imágenes se explican en la política de privacidad; esta información no las convierte en cookies de autenticación."
         },
         {
           "kind": "paragraph",

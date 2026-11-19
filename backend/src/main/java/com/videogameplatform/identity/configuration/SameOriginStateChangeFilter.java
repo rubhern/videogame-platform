@@ -48,6 +48,7 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
                 && !isAdministrationApi(request)
                 && !isSessionMutation(request)
                 && !isFeedbackSubmission(request)
+                && !isGameDetailVisit(request)
                 && !isRatingIntentStart(request);
     }
 
@@ -92,6 +93,12 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
                 && (request.getContextPath() + FEEDBACK_PATH).equals(request.getRequestURI());
     }
 
+    static boolean isGameDetailVisit(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && (request.getContextPath() + "/api/v1/game-detail-visits")
+                        .equals(request.getRequestURI());
+    }
+
     private static boolean isRatingIntentStart(HttpServletRequest request) {
         return HttpMethod.POST.matches(request.getMethod())
                 && (request.getContextPath() + "/auth/rating-intent/start")
@@ -101,6 +108,7 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
     private static boolean isStateChange(HttpServletRequest request) {
         return isSessionMutation(request)
                 || isFeedbackSubmission(request)
+                || isGameDetailVisit(request)
                 || isRatingIntentStart(request)
                 || (isPersonalApi(request)
                         && (HttpMethod.POST.matches(request.getMethod())

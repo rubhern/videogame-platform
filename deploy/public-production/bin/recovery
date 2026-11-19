@@ -193,6 +193,11 @@ def snapshot_bytes(cluster):
     return cluster + cluster // 4 + 256 * 1024 ** 2
 
 
+def dump_exclusions(database):
+    # Weekly traffic events expire and do not need to survive a restore (#584).
+    return ('--exclude-table-data=catalogue.game_detail_visit',) if database == DATABASES[0] else ()
+
+
 class Live:
     """The fenced cluster itself; the drained writers stay closed while it is read."""
 
@@ -204,7 +209,7 @@ class Live:
 
     def dump(self, database, output):
         self.runtime.compose('exec', '-T', 'postgres', 'gosu', 'postgres', 'pg_dump', '-Fc', '--no-password',
-                             '--lock-wait-timeout=30s', '-d', database, output=output)
+                             '--lock-wait-timeout=30s', *dump_exclusions(database), '-d', database, output=output)
 
     def recheck(self):
         self.runtime.assert_fenced()
@@ -272,7 +277,7 @@ class Snapshot:
     def dump(self, database, output):
         self.runtime.check_lease()
         run(['docker', 'exec', self.name, 'pg_dump', '-h', '/tmp', '-Fc', '--no-password', '--lock-wait-timeout=30s',
-             '-d', database], output=output)
+             *dump_exclusions(database), '-d', database], output=output)
 
     def recheck(self):
         # A finished recovery, and nothing a later restore could not reproduce from the dumps.

@@ -27,6 +27,7 @@ async function mockDiscovery(page: Page, session: () => object) {
   });
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
   await page.route("**/api/v1/featured-releases?*", route => route.fulfill({ json: featuredWeekReleases({ items: [] }) }));
+  await page.route("**/api/v1/web-analytics", route => route.fulfill({ json: {} }));
   await page.route("**/api/v1/platforms", route => route.fulfill({ json: { items: [] } }));
 }
 
@@ -49,6 +50,7 @@ for (const width of [320, 360, 390]) {
     // A fixture browser follows the BFF logout completion back into the anonymous shell.
     await page.route("**/auth/logout", route => route.fulfill({ status: 302, headers: { location: "/" } }));
     await page.goto("/lanzamientos");
+    await expect(page.getByRole("button", { name: "Rechazar todo" })).toBeVisible();
 
     const menu = page.getByRole("button", { name: "Menú" });
     const search = page.getByRole("button", { name: "Buscar juegos" });
@@ -107,6 +109,7 @@ test("the compact menu works by touch: the scrim dismisses without acting and li
   const page = await context.newPage();
   await mockDiscovery(page, () => ({ authenticated: false }));
   await page.goto("/lanzamientos/destacados");
+  await expect(page.getByRole("button", { name: "Rechazar todo" })).toBeVisible();
   const menu = page.getByRole("button", { name: "Menú" });
   await menu.tap();
   await expect(menu).toHaveAttribute("aria-expanded", "true");
@@ -118,7 +121,7 @@ test("the compact menu works by touch: the scrim dismisses without acting and li
   await expect(entry.getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", /intent=register/);
 
   // A tap on the dimmed page closes the sheet and never reaches what lies beneath it.
-  await page.touchscreen.tap(195, 780);
+  await page.touchscreen.tap(195, 820);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(page).toHaveURL(/\/lanzamientos\/destacados$/);
 

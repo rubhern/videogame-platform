@@ -12,6 +12,25 @@ afterEach(() => {
 const section = (name: RegExp | string) => screen.getByRole("region", { name });
 
 describe("home page (#382)", () => {
+  it("ends the home content with the weekly rankings", async () => {
+    stubHomeApi();
+    renderApp();
+
+    const main = screen.getByRole("main");
+    await within(main).findByRole("region", { name: "Tu criterio. Tu historia." });
+    expect(within(main).getAllByRole("heading", { level: 2 }).at(-1)).toHaveTextContent("Pulso de la semana");
+  });
+
+  it("keeps the visits ranking and other previews usable if votes cannot be loaded", async () => {
+    stubHomeApi({ votes: () => new Response(null, { status: 500 }) });
+    renderApp();
+    const pulse = await screen.findByRole("region", { name: "Pulso de la semana" });
+    const votes = within(pulse).getByRole("region", { name: "Más votados" });
+    const visits = within(pulse).getByRole("region", { name: "Más visitados" });
+    expect(await within(votes).findByRole("alert")).toHaveTextContent("No se pudo cargar el ranking");
+    expect(await within(visits).findByText("Aún no hay visitas medidas en este periodo.")).toBeVisible();
+    expect(await screen.findByRole("article", { name: "Phantom Blade Zero" })).toBeVisible();
+  });
   it("opens on the week's featured release with its way into the game and into Destacados", async () => {
     const user = userEvent.setup();
     stubHomeApi();

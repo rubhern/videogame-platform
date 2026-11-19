@@ -48,8 +48,28 @@
     outline-offset: 4px;
   }
 
-  .consent-banner-current {
-    color: var(--color-ice-light);
+  .consent-preferences summary {
+    cursor: pointer;
+    width: fit-content;
+    min-height: 2.75rem;
+    padding-block: 0.65rem;
+  }
+
+  .consent-preferences label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    cursor: pointer;
+  }
+
+  .consent-preferences input {
+    accent-color: var(--color-accent);
+  }
+
+  .consent-preferences .button {
+    min-height: 2.75rem;
+    margin-block: 0.45rem;
   }
 
   .consent-banner-actions {

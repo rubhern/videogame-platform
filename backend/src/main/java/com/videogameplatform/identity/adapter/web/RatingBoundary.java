@@ -112,6 +112,7 @@ public final class RatingBoundary {
 
     /** The list a rating started from, when it is one of the allowlisted local list paths. */
     public static Optional<String> validListPath(String path) {
+        if (HOME.equals(path)) return Optional.of(HOME);
         return path != null && path.length() <= 160 && LIST_PATH.matcher(path).matches()
                 ? Optional.of(path)
                 : Optional.empty();

@@ -189,8 +189,10 @@ for (const width of [320, 390, 834, 1320]) {
         translation: { kind: "machine_translation", sourceText: "Explore a world.", sourceLanguage: "en", current: true },
       } } : {}),
     })) }));
+    await page.route("**/api/v1/web-analytics", (route) => route.fulfill({ json: {} }));
     // The month composition; the week has its own opening check below.
     await page.goto("/?granularity=month");
+    await page.getByRole("button", { name: "Rechazar todo" }).click();
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();

@@ -1,9 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useSession } from "../session/use-session";
 import { ConsentBanner } from "./consent-banner";
-import { consentStore, useConsent, type ConsentStore } from "./consent";
+import { consentStore, rankingConsentStore, useConsent, type ConsentStore } from "./consent";
 import { positionBucket, setEventSink, trackEvent } from "./events";
 import {
   disableGoogleAnalytics,
@@ -20,7 +21,7 @@ import {
   takePendingSignIn,
 } from "./sign-in-intent";
 import { urlSignals } from "./url-signals";
-import { useAnalyticsMeasurementId } from "./use-analytics-measurement-id";
+import { analyticsConfigurationQueryOptions } from "./analytics-api";
 
 /** An external referrer is reduced to its origin; an internal one to the previous template. */
 function externalReferrer(): string {
@@ -45,13 +46,14 @@ function pageContext(route: ReportedRoute, previous: ReportedRoute | null): Page
 const LISTS = new Set(["featured_hero", "featured"]);
 
 /**
- * Consent-gated product analytics for the whole shell (#507). Without a configured measurement ID
- * it renders nothing and does nothing. With one, it asks once, and only after acceptance loads
- * GA4, reports route templates and installs the product event sink.
+ * Shares the banner with the separately consented visit ranking. GA4 remains disabled without
+ * both a deployment ID and its own consent.
  */
 export function AnalyticsBoundary({ store = consentStore }: { store?: ConsentStore }) {
-  const measurementId = useAnalyticsMeasurementId();
+  const configuration = useQuery(analyticsConfigurationQueryOptions());
+  const measurementId = configuration.data?.measurementId ?? null;
   const consent = useConsent(store);
+  const rankingConsent = useConsent(rankingConsentStore);
   const location = useLocation();
   const session = useSession({ refetchOnMount: false });
   const active = measurementId !== null && consent.state === "granted";
@@ -150,8 +152,19 @@ export function AnalyticsBoundary({ store = consentStore }: { store?: ConsentSto
     return () => document.removeEventListener("click", onClick, true);
   }, [active]);
 
-  if (measurementId === null) return null;
-  return consent.state === "unset" || consent.reviewing ? (
-    <ConsentBanner choice={consent.state} onChoose={consent.choose} reviewing={consent.reviewing} />
+  if (configuration.isPending) return null;
+  const needsAnalyticsChoice = measurementId !== null && consent.state === "unset";
+  return needsAnalyticsChoice || rankingConsent.state === "unset" || consent.reviewing ? (
+    <ConsentBanner
+      analytics={measurementId === null ? null : consent.state}
+      key={`${measurementId !== null}:${consent.reviewing}`}
+      onChoose={(analytics, ranking) => {
+        if (measurementId !== null) consent.choose(analytics);
+        else store.reload();
+        rankingConsent.choose(ranking);
+      }}
+      ranking={rankingConsent.state}
+      reviewing={consent.reviewing}
+    />
   ) : null;
 }

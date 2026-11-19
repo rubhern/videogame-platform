@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.18.0
+  version: 5.19.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -23,6 +23,8 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Home rankings
+    description: Weekly activity from community votes and consented game-detail visits.
   - name: Feedback
     description: Anonymous visitor feedback handed to the configured receiving channel.
   - name: Profile
@@ -83,6 +85,67 @@ tags:
       schedules and safety bounds are never editable here.
 security: []
 paths:
+  /home-rankings/{kind}:
+    get:
+      tags: [Home rankings]
+      operationId: getHomeRanking
+      summary: Read a rolling seven-day home ranking
+      description: |
+        UC-025. At most ten games with positive activity, ordered by descending count
+        and ascending gameId. The server evaluates the rolling 168-hour window.
+        Votes are active community ratings created in the window. Visits are measured,
+        opted-in game-detail arrivals. Results are independent of the requesting session.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [votes, visits] }
+      responses:
+        '200':
+          description: The ranking, which may be empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeRanking' }
+              example: { items: [] }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+  /game-detail-visits:
+    post:
+      tags: [Home rankings]
+      operationId: recordGameDetailVisit
+      summary: Record one opted-in game detail arrival
+      description: |
+        UC-025. Same-origin anonymous JSON command, independent of session authority.
+        The browser sends it only after separate consent and a successfully rendered
+        game page. The server timestamps the visit and deduplicates repeated visit IDs
+        within the retention window. Unpublished games are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GameDetailVisit' }
+            example: { gameId: '67d81bff-352a-4735-9f09-689a0f8acb34', visitId: '7607ce91-477f-4c1c-80cb-d5728d5fb8a7' }
+      responses:
+        '204':
+          description: The visit was recorded, previously recorded or for an unpublished game.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /feedback:
     post:
       tags: [Feedback]
@@ -3593,6 +3656,31 @@ components:
       example: 60
 
   schemas:
+    GameDetailVisit:
+      type: object
+      additionalProperties: false
+      required: [gameId, visitId]
+      properties:
+        gameId: { type: string, format: uuid }
+        visitId: { type: string, format: uuid }
+    HomeRanking:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/HomeRankedGame' }
+    HomeRankedGame:
+      type: object
+      required: [gameId, slug, title, primaryCover, count, ratingEligibility]
+      properties:
+        gameId: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        count: { type: integer, format: int64, minimum: 1 }
+        ratingEligibility: { $ref: '#/components/schemas/RatingEligibility' }
     FeedbackSubmission:
       type: object
       additionalProperties: false

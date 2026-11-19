@@ -157,7 +157,7 @@ export function homeRanking(
 type Handler = (url: URL) => Response | Promise<Response>;
 
 export type HomeApi = Partial<
-  Record<"session" | "preferences" | "featured" | "calendar" | "releases" | "rankings" | "platforms", Handler>
+  Record<"session" | "preferences" | "featured" | "calendar" | "releases" | "rankings" | "platforms" | "votes" | "visits", Handler>
 >;
 
 const defaults: Required<HomeApi> = {
@@ -169,6 +169,8 @@ const defaults: Required<HomeApi> = {
     Response.json(homeDayReleases(url.searchParams.get("from") ?? "", ["Phantom Blade Zero", "Atmosfar", "Tom the Postgirl", "Terrible Lizards"])),
   rankings: (url) =>
     Response.json(homeRanking(url.searchParams.get("source") === "gameometro_community" ? "gameometro_community" : "igdb_players")),
+  votes: () => Response.json({ items: [] }),
+  visits: () => Response.json({ items: [] }),
   platforms: () => Response.json({ items: [PS5, { platformId: "ps4", name: "PlayStation 4" }] }),
 };
 
@@ -179,6 +181,8 @@ const routes: [string, keyof HomeApi][] = [
   ["/api/v1/release-calendar", "calendar"],
   ["/api/v1/releases", "releases"],
   ["/api/v1/game-rankings", "rankings"],
+  ["/api/v1/home-rankings/votes", "votes"],
+  ["/api/v1/home-rankings/visits", "visits"],
   ["/api/v1/platforms", "platforms"],
 ];
 

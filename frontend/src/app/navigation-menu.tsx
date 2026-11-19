@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PlatformShortcuts } from "./platform-shortcuts";
 
@@ -28,6 +28,7 @@ export function NavigationMenu() {
   const open = openedOn === location.pathname;
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const releasesId = useId();
   const accountId = useId();
@@ -48,6 +49,28 @@ export function NavigationMenu() {
     return () => {
       document.removeEventListener("pointerdown", outsidePress);
       document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!open || panel === null) return;
+
+    const fitPanel = () => {
+      // Leave a reachable strip of scrim even when the consent notice shifts the header down.
+      const availableHeight = window.innerHeight - Math.max(0, panel.getBoundingClientRect().top) - 48;
+      panel.style.setProperty("--navigation-menu-available-height", `${Math.max(0, availableHeight)}px`);
+    };
+
+    fitPanel();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitPanel);
+    observer?.observe(document.body);
+    window.addEventListener("resize", fitPanel);
+    window.addEventListener("scroll", fitPanel, { passive: true });
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", fitPanel);
+      window.removeEventListener("scroll", fitPanel);
     };
   }, [open]);
 
@@ -80,7 +103,7 @@ export function NavigationMenu() {
           {/* Dims the page and takes the tap that dismisses the sheet, so nothing beneath acts. */}
           <div className="navigation-menu-scrim" aria-hidden="true"
             onMouseDown={event => event.preventDefault()} onClick={close} />
-          <div className="navigation-menu-panel" id={panelId} onClick={followLink}>
+          <div className="navigation-menu-panel" id={panelId} onClick={followLink} ref={panelRef}>
             <div className="navigation-menu-sheet page-container">
               <nav aria-label="Principal">
                 <ul className="navigation-menu-sections">

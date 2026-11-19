@@ -316,7 +316,8 @@ Focus stays on the button when the sheet opens, and the sheet follows it in the 
 Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
 or showing another page closes it, and a link to the page already shown returns focus to the
 button. A query change on the same page, such as the **Mis plataformas** checkbox on the
-explorer, keeps it open. A sheet taller than the viewport scrolls inside itself.
+explorer, keeps it open. The sheet scrolls within the space below the header, including when the
+consent notice is open. A strip of the dimmed page remains tappable below it.
 
 **Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
 reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);
@@ -824,6 +825,12 @@ cuenta** (primary) and **Iniciar sesión** through the BFF, both returning to th
 lines on what an account adds, each an implemented feature. The home never reads personal data:
 while the session is unknown the plate waits, and an unavailable session read offers the personal
 links without claiming the visitor is signed out.
+
+**Pulso de la semana** (#584, implemented, awaiting owner review) closes the home before the site footer.
+It shows the number of community votes and measured visits for the last seven days in two lists. The first place
+uses a larger cover and an ice position readout. Each eligible row uses the shared quick rating
+control. On narrow screens the lists stack and show three rows each, with an independent button
+to show the remaining rows.
 
 **States.** A preview's loading, empty and failed reads are isolated. The opening preloads the
 featured selection, both TOPómetro sources and the platform directory. The timeline reads up

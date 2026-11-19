@@ -30,6 +30,12 @@ class RatingBoundaryTest {
     }
 
     @Test
+    void acceptsTheHomeAsARatingReturnDestination() {
+        assertThat(RatingBoundary.validListPath("/")).contains("/");
+        assertThat(RatingBoundary.validListPath("/?unsupported=1")).isEmpty();
+    }
+
+    @Test
     void buildsOnlyLocalGamePathsAndNeverAnOpenRedirect() {
         assertThat(RatingBoundary.gamePath(GAME_ID, SLUG))
                 .isEqualTo("/games/" + GAME_ID + "/" + SLUG);

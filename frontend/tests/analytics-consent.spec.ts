@@ -33,13 +33,14 @@ async function stubDeployment(page: Page, measurementId: string | null) {
 
 const banner = (page: Page) => page.getByRole("region", { name: "¿Nos ayudas a mejorar Gameómetro?" });
 
-test("a deployment without a measurement ID asks nothing and contacts no Google host", async ({ page }) => {
+test("a deployment without a measurement ID only offers the visit ranking", async ({ page }) => {
   const requests = googleRequests(page);
   await stubDeployment(page, null);
   await page.goto("/cookies");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(banner(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Configurar cookies" })).toHaveCount(0);
+  await expect(banner(page)).toContainText("ranking público");
+  await expect(banner(page)).not.toContainText("Google Analytics");
+  await expect(page.getByRole("button", { name: "Configurar cookies" })).toHaveCount(1);
   expect(requests).toEqual([]);
   expect((await page.context().cookies()).filter((cookie) => cookie.name.startsWith("_ga"))).toEqual([]);
 });
@@ -53,8 +54,8 @@ for (const width of [1320, 320]) {
 
     const notice = banner(page);
     await expect(notice).toBeVisible();
-    const reject = notice.getByRole("button", { name: "Rechazar" });
-    const accept = notice.getByRole("button", { name: "Aceptar" });
+    const reject = notice.getByRole("button", { name: "Rechazar todo" });
+    const accept = notice.getByRole("button", { name: "Aceptar todo" });
     // Equal prominence: the same size and style for both choices.
     const [rejectBox, acceptBox] = await Promise.all([reject.boundingBox(), accept.boundingBox()]);
     expect(rejectBox?.height).toBe(acceptBox?.height);
@@ -83,7 +84,7 @@ for (const width of [1320, 320]) {
     const settings = page.getByRole("contentinfo").getByRole("button", { name: "Configurar cookies" });
     await settings.focus();
     await page.keyboard.press("Enter");
-    await expect(banner(page)).toContainText("Ahora mismo: rechazadas.");
+    await expect(banner(page).getByRole("checkbox", { name: /Google Analytics/ })).not.toBeChecked();
     await expect(page.getByText("¿Nos ayudas a mejorar Gameómetro?")).toBeFocused();
     expect(requests).toEqual([]);
   });
