@@ -10,6 +10,6 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-./mvnw -pl backend \
+bash scripts/maven-with-parent-retry.sh -pl backend \
   -Dtest=CataloguePersistenceIntegrationTest,DatabaseMigrationApplicationTest \
   test

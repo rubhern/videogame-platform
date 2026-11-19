@@ -21,6 +21,39 @@ spec.loader.exec_module(oci)
 
 
 class DeliveryTests(unittest.TestCase):
+    def test_maven_retries_only_a_missing_central_parent(self):
+        cases = [
+            ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
+             '(https://repo.maven.apache.org/maven2)', True, [[], ['--update-snapshots']], 0),
+            ('[ERROR] Compilation failure', True, [[]], 1),
+            ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
+             '(https://repo.maven.apache.org/maven2)', False, [[], *([['--update-snapshots']] * 3)], 1),
+        ]
+        for message, recover, expected_attempts, expected_status in cases:
+            with self.subTest(message=message, recover=recover), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                wrapper = root / 'mvnw'
+                wrapper.write_text(
+                    '#!/usr/bin/env bash\n'
+                    'printf "%s\\n" "$*" >> attempts\n'
+                    'if [[ "$RECOVER" == yes && "${1:-}" == --update-snapshots ]]; then exit 0; fi\n'
+                    'printf "%s\\n" "$MAVEN_ERROR"\n'
+                    'exit 1\n'
+                )
+                wrapper.chmod(0o755)
+                sleep = root / 'sleep'
+                sleep.write_text('#!/usr/bin/env bash\nexit 0\n')
+                sleep.chmod(0o755)
+                result = subprocess.run(
+                    ['bash', str(ROOT / 'scripts/maven-with-parent-retry.sh')],
+                    cwd=root, capture_output=True, text=True,
+                    env={**os.environ, 'PATH': f'{root}:{os.environ["PATH"]}',
+                         'MAVEN_ERROR': message, 'RECOVER': 'yes' if recover else 'no'},
+                )
+                self.assertEqual(result.returncode, expected_status, result.stderr)
+                self.assertEqual([line.split() for line in (root / 'attempts').read_text().splitlines()],
+                                 expected_attempts)
+
     def test_browser_matrix_and_parallel_runtime_are_complete_and_fail_closed(self):
         workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()
         starts = list(re.finditer(r'^  ([a-z][a-z-]+):\n', workflow, re.M))
@@ -402,7 +435,7 @@ fi
             (root / 'scripts').mkdir()
             (root / 'backend/target').mkdir(parents=True)
             (root / 'backend/target/application.jar').touch()
-            for name in ('package-application.sh', 'backend-artifact.sh'):
+            for name in ('package-application.sh', 'backend-artifact.sh', 'maven-with-parent-retry.sh'):
                 shutil.copy(ROOT / 'scripts' / name, root / 'scripts' / name)
             shutil.copy(ROOT / 'pom.xml', root / 'pom.xml')
             log = root / 'maven-args'

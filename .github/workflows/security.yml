@@ -157,10 +157,10 @@ jobs:
           PROVIDER_APPLICABLE: ${{ needs.detect-changes.outputs.provider_fixtures }}
         run: |
           if [[ "$BACKEND_APPLICABLE" == "true" ]]; then
-            ./mvnw -DskipTests -Dsource.revision="${GITHUB_SHA}" clean package
+            bash scripts/maven-with-parent-retry.sh -DskipTests -Dsource.revision="${GITHUB_SHA}" clean package
           fi
           if [[ "$PROVIDER_APPLICABLE" == "true" ]]; then
-            ./mvnw -f tools/igdb-poc/pom.xml -DskipTests clean package
+            bash scripts/maven-with-parent-retry.sh -f tools/igdb-poc/pom.xml -DskipTests clean package
           fi
 
       - name: Analyze source
