@@ -77,7 +77,15 @@ class FrontendRouteController {
         return serve(pages.publicPage(PublicPage.PLATFORMS), request);
     }
 
-    /** Routes that describe no content of their own, private ones included: generic tags only. */
+    /** The information and legal pages: their own title, description and canonical path. */
+    @GetMapping("/{page:sobre-gameometro|contacto|privacidad|condiciones|aviso-legal|cookies}")
+    ResponseEntity<String> informationPage(@PathVariable String page, HttpServletRequest request) {
+        PublicPage publicPage =
+                PublicPage.ofPath("/" + page).orElseThrow(() -> new IllegalStateException(page));
+        return serve(pages.publicPage(publicPage), request);
+    }
+
+    /** Personal, administration and search routes: generic tags, never indexed (#537). */
     @GetMapping({
         "/search",
         "/mis-puntuaciones",
@@ -86,16 +94,10 @@ class FrontendRouteController {
         "/mi-perfil",
         "/mi-perfil/borrado",
         "/bienvenida",
-        "/administracion/catalogo",
-        "/sobre-gameometro",
-        "/contacto",
-        "/privacidad",
-        "/condiciones",
-        "/aviso-legal",
-        "/cookies"
+        "/administracion/catalogo"
     })
-    ResponseEntity<String> genericPage(HttpServletRequest request) {
-        return serve(PageMetadata.generic(), request);
+    ResponseEntity<String> unlistedPage(HttpServletRequest request) {
+        return serve(PageMetadata.unlisted(), request);
     }
 
     /**

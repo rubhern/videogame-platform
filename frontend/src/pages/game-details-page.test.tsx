@@ -131,6 +131,8 @@ describe("public game details", () => {
         name: "Resident Evil Requiem",
       }),
     ).toBeVisible();
+    // The same title the server wrote, so a crawler running JavaScript keeps it (#537).
+    expect(document.title).toBe("Resident Evil Requiem · Gameómetro");
     const community = screen.getByRole("region", { name: "Puntuación de la comunidad" });
     expect(within(community).getByText("Sin puntuación todavía")).toBeVisible();
     expect(within(community).getByText("Sé el primero en puntuar este juego")).toBeVisible();
@@ -676,6 +678,7 @@ describe("public game details", () => {
     renderApp(path);
     expect(await screen.findByRole("heading", { name: title })).toBeVisible();
     expect(screen.getByText(message)).toBeVisible();
+    if (code === "GAME_NOT_FOUND") expect(document.title).toBe("Juego no encontrado · Gameómetro");
     expect(
       screen.getByRole("link", { name: "Volver a Destacados" }),
     ).toBeVisible();

@@ -19,11 +19,13 @@ import {
 import { toFailureState } from "../features/releases/releases-failure";
 import { useReleaseCalendarQuery } from "../features/releases/use-release-calendar-query";
 import { useReleasesQuery } from "../features/releases/use-releases-query";
+import { useDocumentTitle } from "../shared/browser/use-document-title";
 
 /** A day the explorer never reads, so a disabled preview keeps a stable, valid search. */
 const NO_DAY = "0001-01-01";
 
 export function ReleaseCalendarPage() {
+  useDocumentTitle("Calendario de lanzamientos · Gameómetro");
   const [searchParams] = useSearchParams();
   const search = readCalendarSearch(searchParams);
   // Preferred platforms resolve into the explicit filter the public reads carry, as the explorer's

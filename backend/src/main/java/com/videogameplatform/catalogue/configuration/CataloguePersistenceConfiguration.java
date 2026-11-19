@@ -155,6 +155,14 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.details.port.IndexableGamesReadPort
+            indexableGamesReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.details
+                .JdbcIndexableGamesReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
     GameDetailsReadPort gameDetailsReadPort(CatalogueReadExecution execution) {
         return new com.videogameplatform.catalogue.adapter.persistence.details
                 .JdbcGameDetailsReadAdapter(

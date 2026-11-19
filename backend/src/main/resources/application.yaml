@@ -143,6 +143,10 @@ api:
   web-analytics:
     # Public GA4 measurement ID (#507); blank keeps product analytics off in this deployment.
     google-analytics-measurement-id: ${APPLICATION_GA4_MEASUREMENT_ID:}
+  search-indexing:
+    # The one https origin offered to search engines (#537); blank disallows every path in
+    # robots.txt and serves no sitemap. Only public production sets it.
+    public-origin: ${APPLICATION_SEARCH_INDEXING_ORIGIN:}
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, no-cache}
   games:

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { useDocumentTitle } from "../browser/use-document-title";
 import published from "./public-texts.json";
 
 type DocumentKey = keyof typeof published.documents;
@@ -33,6 +34,7 @@ function tableCaption(preceding: readonly Block[]): string {
 
 export function LegalPage({ document }: { document: DocumentKey }) {
   const content = published.documents[document];
+  useDocumentTitle(`${content.title} · Gameómetro`);
   return (
     <article className="page-container page-section legal-document">
       <h1 className="page-title">{content.title}</h1>

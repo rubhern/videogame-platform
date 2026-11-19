@@ -13,8 +13,10 @@ import { resolvePlatformFilter } from "../features/platform-preferences/interest
 import { useInterests } from "../features/platform-preferences/use-platform-preferences";
 import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { explorerRequestSearch } from "../features/platform-preferences/discovery-requests";
+import { useDocumentTitle } from "../shared/browser/use-document-title";
 
 export function ReleasesPage() {
+  useDocumentTitle("Lanzamientos · Gameómetro");
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const search = readReleasesSearch(searchParams);

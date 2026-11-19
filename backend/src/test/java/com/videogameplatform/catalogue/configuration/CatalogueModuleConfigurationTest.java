@@ -336,6 +336,14 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.details.port.IndexableGamesReadPort
+                indexableGamesReadPort() {
+            return org.mockito.Mockito.mock(
+                    com.videogameplatform.catalogue.application.details.port.IndexableGamesReadPort
+                            .class);
+        }
+
+        @Bean
         com.videogameplatform.catalogue.application.preferences.port.SelectablePlatformsReadPort
                 selectablePlatformsReadPort() {
             return limit -> Optional.empty();

@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 
+import { useDocumentTitle } from "../shared/browser/use-document-title";
+
 export function NotFoundPage() {
+  useDocumentTitle("Página no encontrada · Gameómetro");
   return (
     <div className="page-container page-section">
       <div className="notice notice-info">

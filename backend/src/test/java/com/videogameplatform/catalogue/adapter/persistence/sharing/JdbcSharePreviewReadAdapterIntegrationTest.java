@@ -108,6 +108,24 @@ class JdbcSharePreviewReadAdapterIntegrationTest {
     }
 
     @Test
+    void theStoredNoSummaryNoticeReadsAsNoSummaryAndRealEditorialTextIsKept() {
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET summary_kind='editorial', summary_text="
+                        + "'Todavía no hay un resumen curado para este juego.', summary_language='es',"
+                        + " summary_source_kind=NULL, summary_source_name=NULL,"
+                        + " summary_source_entity_type=NULL WHERE game_id=?",
+                DEATH_STRANDING);
+        assertThat(adapter.findGame(DEATH_STRANDING).orElseThrow().summary()).isNull();
+
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET summary_text='Un viaje por una América rota.'"
+                        + " WHERE game_id=?",
+                DEATH_STRANDING);
+        assertThat(adapter.findGame(DEATH_STRANDING).orElseThrow().summary())
+                .isEqualTo("Un viaje por una América rota.");
+    }
+
+    @Test
     void anUnpublishedGameIsAbsent() {
         assertThat(adapter.findGame(UUID.fromString("30000000-0000-4000-8000-0000000000ff")))
                 .isEmpty();

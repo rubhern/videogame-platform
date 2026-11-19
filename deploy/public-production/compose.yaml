@@ -249,6 +249,8 @@ services:
       # Public GA4 measurement ID (#507, ADR-0038); only production measures. Visitors are
       # asked first, and removing it turns analytics off.
       APPLICATION_GA4_MEASUREMENT_ID: G-J3Y4VJZ7BN
+      # The only origin offered to search engines (#537); every other deployment disallows all.
+      APPLICATION_SEARCH_INDEXING_ORIGIN: https://gameometro.com
       CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
       # Management (health, revocation, synchronization) stays on container loopback.
       MANAGEMENT_SERVER_ADDRESS: 127.0.0.1

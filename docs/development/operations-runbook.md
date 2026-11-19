@@ -383,6 +383,27 @@ operation (data deletion request or property deletion). Review Q1–Q4 of the
 [evaluation](../research/product-analytics.md#validation-and-stop-criteria) 6–8 weeks after
 activation.
 
+## Search-engine indexing
+
+Only production is indexable: its Compose file sets `APPLICATION_SEARCH_INDEXING_ORIGIN`,
+and every other deployment serves `Disallow: /` and no sitemap
+([audit and design](../research/search-engine-discoverability.md)).
+
+**Not yet performed (#537).** After the upgrade that ships it:
+
+1. Check `https://gameometro.com/robots.txt` (`/search`, `/auth/`, `/login` and the personal
+   and administration APIs disallowed, one `Sitemap:` line) and `https://gameometro.com/sitemap.xml` (a sitemap index whose children list
+   only `https://gameometro.com/` URLs). On `vgpdev`, `robots.txt` must be
+   `Disallow: /`.
+2. Verify the `gameometro.com` domain property in Google Search Console with a DNS TXT
+   record. Bing Webmaster Tools can import it; that step is optional.
+3. Submit `https://gameometro.com/sitemap.xml`. After the first crawl, review
+   **Pages** (indexed versus excluded and why) and **Sitemaps** (read status,
+   discovered URLs). Use URL inspection on one game page to compare crawled HTML with
+   the rendered page; that comparison feeds the #537 rendering evaluation.
+4. Record what was observed in #537. Do not claim coverage, ranking or Core Web Vitals
+   results before Search Console reports them.
+
 ## Log aggregation and search
 
 Owner: [Log aggregation and exploration](../../deploy/private-dev/README.md#log-aggregation-and-exploration)

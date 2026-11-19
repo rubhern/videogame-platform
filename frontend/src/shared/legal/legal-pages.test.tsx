@@ -50,6 +50,8 @@ describe("legal publication boundary", () => {
   it("renders the approved identity and rights without editorial metadata", () => {
     wrap(<LegalPage document="privacidad" />);
     expect(screen.getByRole("heading", { name: "Política de privacidad", level: 1 })).toBeVisible();
+    // The same title the server writes for /privacidad (#537).
+    expect(document.title).toBe("Política de privacidad · Gameómetro");
     expect(screen.queryByLabelText("Estado del texto")).not.toBeInTheDocument();
     expect(screen.getByText(/Rubén Hernández López/)).toBeVisible();
     expect(screen.queryByText(/Internal editorial|Texto aprobado por el titular|Status:|Borrador|Plantilla administrativa/)).not.toBeInTheDocument();
