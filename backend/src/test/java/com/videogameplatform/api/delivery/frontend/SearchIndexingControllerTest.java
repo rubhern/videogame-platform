@@ -47,11 +47,12 @@ class SearchIndexingControllerTest {
                         "Disallow: /auth/\n",
                         "Disallow: /api/v1/me/\n",
                         "Disallow: /api/v1/admin/\n")
-                .endsWith("\nSitemap: https://gameometro.com/sitemap.xml\n");
-        // The public catalogue API stays crawlable: a rendering crawler needs it for page content.
-        assertThat(body).doesNotContain("Disallow: /api/\n", "Disallow: /api/v1/\n");
-        // Personal pages stay fetchable so their noindex is read; a block would hide it.
-        assertThat(body).doesNotContain("/mis-puntuaciones", "/mi-perfil", "/administracion");
+                .endsWith("\nSitemap: https://gameometro.com/sitemap.xml\n")
+                // The public catalogue API stays crawlable: a rendering crawler needs it for page
+                // content.
+                .doesNotContain("Disallow: /api/\n", "Disallow: /api/v1/\n")
+                // Personal pages stay fetchable so their noindex is read; a block would hide it.
+                .doesNotContain("/mis-puntuaciones", "/mi-perfil", "/administracion");
     }
 
     @Test
@@ -81,6 +82,11 @@ class SearchIndexingControllerTest {
                         "https://gameometro.com/es",
                         "https://gameometro.com:8443",
                         "https://GAMEOMETRO.com",
+                        "https://gameometro",
+                        "https://-gameometro.com",
+                        "https://gameometro-.com",
+                        "https://gameometro..com",
+                        "https://gameometro.c0m",
                         "gameometro.com")) {
             assertThatIllegalStateException()
                     .isThrownBy(() -> new SearchIndexingController(value, games))

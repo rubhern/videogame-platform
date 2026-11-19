@@ -18,6 +18,27 @@ import org.springframework.transaction.support.TransactionOperations;
  * the name {@code game_id}: ORDER BY would bind to the text alias and sort without the index.
  */
 public final class JdbcIndexableGamesReadAdapter implements IndexableGamesReadPort {
+    private static final String PARTITION_STARTS =
+            """
+                SELECT game_id::text AS start_id
+                FROM (
+                    SELECT game_id, row_number() OVER (ORDER BY game_id) AS position
+                    FROM catalogue.game_snapshot
+                    WHERE publication_id = :publication
+                ) ranked
+                WHERE (position - 1) % :size = 0
+                ORDER BY game_id
+                LIMIT :max
+                """;
+    private static final String PARTITION =
+            """
+                SELECT game_id::text AS id, slug
+                FROM catalogue.game_snapshot
+                WHERE publication_id = :publication AND game_id >= :start
+                ORDER BY game_id
+                LIMIT :limit
+                """;
+
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
 
@@ -33,17 +54,7 @@ public final class JdbcIndexableGamesReadAdapter implements IndexableGamesReadPo
                 transaction,
                 status ->
                         jdbc.query(
-                                """
-                SELECT game_id::text AS start_id
-                FROM (
-                    SELECT game_id, row_number() OVER (ORDER BY game_id) AS position
-                    FROM catalogue.game_snapshot
-                    WHERE publication_id = :publication
-                ) ranked
-                WHERE (position - 1) % :size = 0
-                ORDER BY game_id
-                LIMIT :max
-                """,
+                                PARTITION_STARTS,
                                 Map.of(
                                         "publication", currentPublication(),
                                         "size", partitionSize,
@@ -57,13 +68,7 @@ public final class JdbcIndexableGamesReadAdapter implements IndexableGamesReadPo
                 transaction,
                 status ->
                         jdbc.query(
-                                """
-                SELECT game_id::text AS id, slug
-                FROM catalogue.game_snapshot
-                WHERE publication_id = :publication AND game_id >= :start
-                ORDER BY game_id
-                LIMIT :limit
-                """,
+                                PARTITION,
                                 Map.of(
                                         "publication", currentPublication(),
                                         "start", startGameId,

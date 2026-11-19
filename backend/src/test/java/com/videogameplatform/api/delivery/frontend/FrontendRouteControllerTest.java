@@ -173,9 +173,9 @@ class FrontendRouteControllerTest {
         java.util.Set<String> descriptions = new java.util.HashSet<>();
         for (var entry : titles.entrySet()) {
             String html = page(entry.getKey() + "?q=ignored", 200);
-            descriptions.add(
-                    html.replaceAll(
-                            "(?s).*<meta name=\"description\" content=\"([^\"]*)\".*", "$1"));
+            String marker = "<meta name=\"description\" content=\"";
+            int start = html.indexOf(marker) + marker.length();
+            descriptions.add(html.substring(start, html.indexOf('"', start)));
             assertThat(html)
                     .contains("<title>" + entry.getValue() + "</title>")
                     .doesNotContain("noindex")

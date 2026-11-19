@@ -9,10 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * {@code robots.txt} and the sitemap index for search engines (#537).
@@ -22,7 +21,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * Games are listed in bounded keyset partitions of the current publication, so neither the index
  * nor a partition grows per-request memory with the catalogue.
  */
-@Controller
+@RestController
 class SearchIndexingController {
 
     /** Games per child sitemap: well under the protocol's 50,000 URLs and 50 MB. */
@@ -64,7 +63,6 @@ class SearchIndexingController {
     }
 
     @GetMapping("/robots.txt")
-    @ResponseBody
     ResponseEntity<String> robots() {
         var body = new StringBuilder("User-agent: *\n");
         if (!origin.indexable()) {
@@ -80,7 +78,6 @@ class SearchIndexingController {
     }
 
     @GetMapping("/sitemap.xml")
-    @ResponseBody
     ResponseEntity<String> sitemapIndex() {
         if (!origin.indexable()) {
             return ResponseEntity.notFound().build();
@@ -96,7 +93,6 @@ class SearchIndexingController {
     }
 
     @GetMapping("/sitemaps/pages.xml")
-    @ResponseBody
     ResponseEntity<String> pagesSitemap() {
         if (!origin.indexable()) {
             return ResponseEntity.notFound().build();
@@ -112,7 +108,6 @@ class SearchIndexingController {
      */
     @GetMapping(
             "/sitemaps/games/{start:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}.xml")
-    @ResponseBody
     ResponseEntity<String> gamesSitemap(@PathVariable String start) {
         if (!origin.indexable()) {
             return ResponseEntity.notFound().build();
