@@ -316,7 +316,8 @@ Focus stays on the button when the sheet opens, and the sheet follows it in the 
 Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
 or showing another page closes it, and a link to the page already shown returns focus to the
 button. A query change on the same page, such as the **Mis plataformas** checkbox on the
-explorer, keeps it open. A sheet taller than the viewport scrolls inside itself.
+explorer, keeps it open. The sheet scrolls within the space below the header, including when the
+consent notice is open. A strip of the dimmed page remains tappable below it.
 
 **Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
 reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);

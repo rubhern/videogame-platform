@@ -717,7 +717,7 @@
     z-index: 2;
     top: 100%;
     inset-inline: 0;
-    max-height: calc(100dvh - 60px);
+    max-height: var(--navigation-menu-available-height, calc(100dvh - 60px));
     overflow-y: auto;
     overscroll-behavior: contain;
     border-top: 2px solid var(--color-ice);

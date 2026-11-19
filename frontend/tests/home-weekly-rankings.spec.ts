@@ -66,17 +66,21 @@ for (const width of [320, 390, 834, 1320]) {
   });
 }
 
-test("only the separate ranking choice records visible game arrivals, without credentials", async ({ page }) => {
+test("only the separate ranking choice records visible game arrivals, without credentials", async ({ page, baseURL }) => {
   const visits: import("@playwright/test").Request[] = [];
   await stub(page);
   await page.route("**/api/v1/game-detail-visits", (route) => {
     visits.push(route.request());
     return route.fulfill({ status: 204 });
   });
-  await page.context().addCookies([{ name: "test-session", value: "ignore", url: "http://127.0.0.1" }]);
-  await page.addInitScript(() => localStorage.setItem("gameometro_analytics_consent", JSON.stringify({
-    version: 1, choice: "granted", decidedAt: new Date().toISOString(),
-  })));
+  await page.context().addCookies([{ name: "test-session", value: "ignore", url: baseURL }]);
+  await page.addInitScript(() => {
+    // Match Chromium on an HTTP origin other than loopback, as used by packaged CI.
+    Object.defineProperty(window.crypto, "randomUUID", { value: undefined });
+    localStorage.setItem("gameometro_analytics_consent", JSON.stringify({
+      version: 1, choice: "granted", decidedAt: new Date().toISOString(),
+    }));
+  });
   await page.goto(gamePath);
   await expect(page.getByRole("heading", { name: game.canonicalTitle, level: 1 })).toBeVisible();
   expect(visits).toHaveLength(0);
@@ -84,7 +88,10 @@ test("only the separate ranking choice records visible game arrivals, without cr
   await page.getByRole("checkbox", { name: /Ranking de visitas/ }).check();
   await page.getByRole("button", { name: "Guardar preferencias" }).click();
   await expect.poll(() => visits.length).toBe(1);
-  expect(visits[0]?.postDataJSON()).toEqual({ gameId: game.gameId, visitId: expect.any(String) });
+  expect(visits[0]?.postDataJSON()).toEqual({
+    gameId: game.gameId,
+    visitId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+  });
   expect(await visits[0]?.headerValue("cookie")).toBeNull();
 
   await page.getByRole("button", { name: "Configurar cookies" }).click();
