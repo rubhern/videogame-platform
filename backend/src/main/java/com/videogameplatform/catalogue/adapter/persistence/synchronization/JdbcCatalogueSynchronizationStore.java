@@ -915,7 +915,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
      * The product's explicit "no summary yet" editorial notice, installed as the summary default by
      * V20260906_120000. It is the stored representation of an absent summary, never provider text.
      */
-    static final String NO_SUMMARY_TEXT = "Todavía no hay un resumen curado para este juego.";
+    public static final String NO_SUMMARY_TEXT =
+            "Todavía no hay un resumen curado para este juego.";
 
     private static final String NO_SUMMARY_LANGUAGE = "es";
 

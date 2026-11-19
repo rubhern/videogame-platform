@@ -34,15 +34,18 @@ there is no user-agent detection.
   mechanism.
 - **Route set.**
   - A game page gets its title, the summary the page shows (its local Spanish translation when
-    one exists, otherwise a fixed sentence), its approved cover and its canonical URL.
+    one exists, otherwise a fixed sentence), its approved cover and its canonical URL. The stored
+    «no summary yet» notice counts as no summary (#537).
   - Home, TOPómetro, Lanzamientos, Destacados, Calendario and Plataformas get their own title and
-    description.
+    description. Since #537, so do Sobre Gameómetro, Contacto and the four legal pages.
   - A platform's Explorar catálogo, TOPómetro and Próximos destacados are named after the
     platform. A featured family's URL key maps to its seeded product ID, and any other key is the
     platform's own ID.
   - These pages use the default share image.
   - Every other route, every private route included, gets only the generic site tags. No user
     data, session state or query string ever reaches the head.
+  - Personal, administration and search routes, and every not-found document, add
+    `<meta name="robots" content="noindex">` (#537).
 - **Tags.** `<title>`, `description`, `og:site_name`, `og:locale` `es_ES`, `og:type` `website`,
   `og:title`, `og:description` and `og:image` with `og:image:alt`. The default image also states
   its 1200×630 size. `twitter:card` is `summary_large_image`. A described page adds `og:url` and
@@ -55,8 +58,9 @@ there is no user-agent detection.
 - **Status.** A game identifier the current catalogue does not hold returns 404 with generic tags.
   The SPA still loads and shows its own not-found state, which is the true-404 behaviour #537
   asks for. A failed catalogue read serves generic tags with 200, because a preview is an
-  enhancement of the page, not its content. An unknown platform key keeps the page's own title
-  with 200, since the browser shows that state.
+  enhancement of the page, not its content. Since #537, a platform key that names no platform is
+  also a 404, so it is never advertised as content; a failed platform read keeps the page's
+  unnamed title with 200.
 - **Absolute URLs** are built from the request's public origin, which the edge forwards under
   the existing `SERVER_FORWARD_HEADERS_STRATEGY: NATIVE`. That is the same source as the OIDC
   `{baseUrl}`, so no new runtime input exists.
@@ -71,7 +75,8 @@ there is no user-agent detection.
   [frontend design guidelines](../development/frontend-design.md#link-previews).
 - **Browser title.** The application resets the title to «Gameómetro» at startup, so the server
   title of the landing route never outlives it during in-app navigation; screens keep owning
-  their titles.
+  their titles. Every described page therefore sets the same title the server wrote (#537):
+  otherwise a crawler that runs JavaScript would read «Gameómetro» instead.
 
 ## Cost and caching
 
@@ -118,6 +123,7 @@ there is no user-agent detection.
 
 ## Reconsider when
 
-- #537 needs structured data or content that only a rendered page provides.
+- A search engine is shown to need structured data, or page content, in the HTML before
+  JavaScript. #537 keeps its JSON-LD in the rendered game page, which needs no extra read here.
 - A preview client is shown to require something this document cannot carry.
 - The ADR-0001 image policy changes.

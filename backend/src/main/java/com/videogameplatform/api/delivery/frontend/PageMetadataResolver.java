@@ -12,8 +12,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The single owner of per-route page metadata (ADR-0049): which routes describe themselves, with
- * what text, and their canonical paths. Every other route, including every private one, gets
- * {@link PageMetadata#generic()}: no user data ever reaches a page's head.
+ * what text, and their canonical paths, and which are indexable (#537). Every private route gets
+ * {@link PageMetadata#unlisted()}: no user data ever reaches a page's head.
  */
 final class PageMetadataResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(PageMetadataResolver.class);
@@ -63,7 +63,37 @@ final class PageMetadataResolver {
         PLATFORMS(
                 "/plataformas",
                 "Plataformas · Gameómetro",
-                "El catálogo, el TOPómetro y los próximos destacados de cada plataforma.");
+                "El catálogo, el TOPómetro y los próximos destacados de cada plataforma."),
+        ABOUT(
+                "/sobre-gameometro",
+                "Sobre Gameómetro · Gameómetro",
+                "Quién hace Gameómetro y por qué: un sitio en español para seguir lanzamientos y"
+                        + " puntuar videojuegos."),
+        CONTACT(
+                "/contacto",
+                "Contacto y sugerencias · Gameómetro",
+                "Escribe a Gameómetro para enviar una sugerencia, avisar de un error o comentar"
+                        + " lo que quieras."),
+        PRIVACY(
+                "/privacidad",
+                "Política de privacidad · Gameómetro",
+                "Qué datos personales trata Gameómetro, para qué, durante cuánto tiempo y cómo"
+                        + " ejercer tus derechos."),
+        TERMS(
+                "/condiciones",
+                "Condiciones de uso · Gameómetro",
+                "Las condiciones para usar Gameómetro y tu cuenta, un proyecto personal y"
+                        + " gratuito."),
+        LEGAL_NOTICE(
+                "/aviso-legal",
+                "Aviso legal · Gameómetro",
+                "Titular y datos legales de Gameómetro, un proyecto personal, gratuito y sin"
+                        + " actividad económica."),
+        COOKIES(
+                "/cookies",
+                "Cookies y almacenamiento del navegador · Gameómetro",
+                "Qué cookies y almacenamiento del navegador usa Gameómetro y cómo aceptar o"
+                        + " rechazar la analítica.");
 
         private final String path;
         private final String title;
@@ -77,6 +107,18 @@ final class PageMetadataResolver {
 
         PageMetadata metadata() {
             return PageMetadata.page(title, description, path);
+        }
+
+        /** The route's path, which is also its canonical path. */
+        String path() {
+            return path;
+        }
+
+        static Optional<PublicPage> ofPath(String path) {
+            for (PublicPage page : values()) {
+                if (page.path.equals(path)) return Optional.of(page);
+            }
+            return Optional.empty();
         }
     }
 
@@ -105,12 +147,22 @@ final class PageMetadataResolver {
     }
 
     /**
-     * A platform page, named after the platform when the key resolves. An unresolved key keeps the
-     * page's own title: the browser shows its state, so the status stays 200.
+     * A platform page, named after the platform when the key resolves. A key that names no
+     * platform is not found (#537): the browser shows that state, and a 200 would advertise it as
+     * content. A failed read keeps the page with its unnamed title.
      */
     PageMetadata platform(PlatformPage page, String key) {
         String path = "/plataformas/" + key + "/" + page.segment;
-        Optional<String> name = platformName(key);
+        Optional<String> name;
+        try {
+            name = previews.platformName(FEATURED_PLATFORM_KEYS.getOrDefault(key, key));
+            if (name.isEmpty()) return PageMetadata.notFound();
+        } catch (CatalogueReadException | CatalogueDataInvalidException exception) {
+            LOGGER.warn(
+                    "Platform page metadata unavailable; serving its unnamed title: {}",
+                    exception.getClass().getSimpleName());
+            name = Optional.empty();
+        }
         return switch (page) {
             case CATALOGUE ->
                     PageMetadata.page(
@@ -167,18 +219,8 @@ final class PageMetadataResolver {
                 description,
                 "/games/" + game.gameId() + "/" + game.slug(),
                 image(game.cover(), game.canonicalTitle()),
-                false);
-    }
-
-    private Optional<String> platformName(String key) {
-        try {
-            return previews.platformName(FEATURED_PLATFORM_KEYS.getOrDefault(key, key));
-        } catch (CatalogueReadException | CatalogueDataInvalidException exception) {
-            LOGGER.warn(
-                    "Platform page metadata unavailable; serving its unnamed title: {}",
-                    exception.getClass().getSimpleName());
-            return Optional.empty();
-        }
+                false,
+                true);
     }
 
     /**

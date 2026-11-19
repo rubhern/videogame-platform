@@ -52,6 +52,9 @@ final class FrontendDocument {
         StringBuilder head = new StringBuilder(START);
         line(head, "<title>" + escape(page.title()) + "</title>");
         meta(head, "name", "description", description);
+        if (!page.indexable()) {
+            meta(head, "name", "robots", "noindex");
+        }
         if (page.canonicalPath() != null) {
             line(
                     head,

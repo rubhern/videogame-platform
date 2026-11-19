@@ -113,6 +113,7 @@ class FrontendRouteControllerTest {
             String html = page(path, 404);
             assertThat(html)
                     .contains("<title>Gameómetro</title>")
+                    .contains("<meta name=\"robots\" content=\"noindex\" />")
                     .doesNotContain("rel=\"canonical\"")
                     .doesNotContain("og:url")
                     .contains("/assets/share/gameometro.png")
@@ -127,6 +128,8 @@ class FrontendRouteControllerTest {
 
         assertThat(page("/games/" + GAME_ID + "/x", 200))
                 .contains("<title>Gameómetro</title>")
+                // An outage must never tell crawlers to drop a real page.
+                .doesNotContain("noindex")
                 .doesNotContain("og:url");
     }
 
@@ -148,17 +151,34 @@ class FrontendRouteControllerTest {
     @Test
     void publicPagesDescribeThemselvesWithTheDefaultImage() throws Exception {
         Map<String, String> titles =
-                Map.of(
-                        "/", "Gameómetro",
-                        "/topometro", "TOPómetro · Gameómetro",
-                        "/lanzamientos", "Lanzamientos · Gameómetro",
-                        "/lanzamientos/destacados", "Destacados · Gameómetro",
-                        "/lanzamientos/calendario", "Calendario de lanzamientos · Gameómetro",
-                        "/plataformas", "Plataformas · Gameómetro");
+                Map.ofEntries(
+                        Map.entry("/", "Gameómetro"),
+                        Map.entry("/topometro", "TOPómetro · Gameómetro"),
+                        Map.entry("/lanzamientos", "Lanzamientos · Gameómetro"),
+                        Map.entry("/lanzamientos/destacados", "Destacados · Gameómetro"),
+                        Map.entry(
+                                "/lanzamientos/calendario",
+                                "Calendario de lanzamientos · Gameómetro"),
+                        Map.entry("/plataformas", "Plataformas · Gameómetro"),
+                        Map.entry("/sobre-gameometro", "Sobre Gameómetro · Gameómetro"),
+                        Map.entry("/contacto", "Contacto y sugerencias · Gameómetro"),
+                        Map.entry("/privacidad", "Política de privacidad · Gameómetro"),
+                        Map.entry("/condiciones", "Condiciones de uso · Gameómetro"),
+                        Map.entry("/aviso-legal", "Aviso legal · Gameómetro"),
+                        Map.entry(
+                                "/cookies", "Cookies y almacenamiento del navegador · Gameómetro"));
+        // Every described public page is listed here, so each one is proven to be served.
+        assertThat(titles.keySet())
+                .containsExactlyInAnyOrderElementsOf(SearchIndexingController.PAGE_PATHS);
+        java.util.Set<String> descriptions = new java.util.HashSet<>();
         for (var entry : titles.entrySet()) {
             String html = page(entry.getKey() + "?q=ignored", 200);
+            String marker = "<meta name=\"description\" content=\"";
+            int start = html.indexOf(marker) + marker.length();
+            descriptions.add(html.substring(start, html.indexOf('"', start)));
             assertThat(html)
                     .contains("<title>" + entry.getValue() + "</title>")
+                    .doesNotContain("noindex")
                     // The canonical URL never carries a query string.
                     .contains(
                             "<link rel=\"canonical\" href=\"http://localhost"
@@ -166,6 +186,8 @@ class FrontendRouteControllerTest {
                                     + "\" />")
                     .contains("http://localhost/assets/share/gameometro.png");
         }
+        // Each public page describes itself differently.
+        assertThat(descriptions).hasSize(titles.size());
     }
 
     @Test
@@ -179,13 +201,24 @@ class FrontendRouteControllerTest {
                 .contains("<title>TOPómetro de PlayStation 5 · Gameómetro</title>");
         assertThat(page("/plataformas/playstation-5/proximos", 200))
                 .contains("<title>Próximos destacados de PlayStation 5 · Gameómetro</title>");
-        // An unknown key keeps the page's own title; the browser shows its state.
-        assertThat(page("/plataformas/unknown-platform/proximos", 200))
-                .contains("<title>Próximos destacados · Gameómetro</title>");
+        // A key that names no platform is not found: the browser shows that state.
+        assertThat(page("/plataformas/unknown-platform/proximos", 404))
+                .contains("<title>Gameómetro</title>")
+                .contains("<meta name=\"robots\" content=\"noindex\" />")
+                .doesNotContain("canonical");
     }
 
     @Test
-    void privateAndOtherRoutesGetOnlyGenericTags() throws Exception {
+    void aFailedPlatformReadKeepsThePageWithItsUnnamedTitle() throws Exception {
+        previews.failure = new CatalogueReadException(new RuntimeException("outage"));
+
+        assertThat(page("/plataformas/playstation-5/topometro", 200))
+                .contains("<title>TOPómetro · Gameómetro</title>")
+                .doesNotContain("noindex");
+    }
+
+    @Test
+    void privateAndSearchRoutesGetOnlyGenericTagsAndAreNeverIndexed() throws Exception {
         for (String path :
                 List.of(
                         "/search?q=secret",
@@ -195,17 +228,12 @@ class FrontendRouteControllerTest {
                         "/mi-perfil",
                         "/mi-perfil/borrado",
                         "/bienvenida",
-                        "/administracion/catalogo?year=1997",
-                        "/sobre-gameometro",
-                        "/contacto",
-                        "/privacidad",
-                        "/condiciones",
-                        "/aviso-legal",
-                        "/cookies")) {
+                        "/administracion/catalogo?year=1997")) {
             String html = page(path, 200);
             assertThat(head(html))
-                    .isEqualTo(head(page("/cookies", 200)))
+                    .isEqualTo(head(page("/mi-perfil", 200)))
                     .contains("<title>Gameómetro</title>")
+                    .contains("<meta name=\"robots\" content=\"noindex\" />")
                     .doesNotContain("secret")
                     .doesNotContain("canonical");
         }
@@ -285,6 +313,7 @@ class FrontendRouteControllerTest {
 
         @Override
         public Optional<String> platformName(String platformId) {
+            if (failure != null) throw failure;
             return Optional.ofNullable(platforms.get(platformId));
         }
     }

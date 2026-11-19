@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.adapter.persistence.sharing;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
+import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcCatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.sharing.port.SharePreviewReadPort;
 import java.util.Map;
@@ -15,11 +16,15 @@ import org.springframework.transaction.support.TransactionOperations;
  * translation and platform primary keys. Nothing here grows with the catalogue.
  */
 public final class JdbcSharePreviewReadAdapter implements SharePreviewReadPort {
-    // The summary follows the game page: its local Spanish translation when one exists.
+    // The summary follows the game page: its local Spanish translation when one exists. The stored
+    // "no summary yet" notice is the representation of an absent summary, so it reads as none.
     private static final String GAME_SQL =
             """
             SELECT g.game_id::text AS game_id, g.slug, g.canonical_title,
-                   coalesce(c.translated_text, g.summary_text) AS summary,
+                   CASE WHEN g.summary_kind = 'editorial' AND g.summary_text = :noSummary
+                        THEN NULL
+                        ELSE coalesce(c.translated_text, g.summary_text)
+                   END AS summary,
                    g.cover_reference, g.cover_source, g.cover_usage_mode,
                    g.cover_alternative_text, g.cover_source_url
             FROM catalogue.game_snapshot g
@@ -53,7 +58,12 @@ public final class JdbcSharePreviewReadAdapter implements SharePreviewReadPort {
                             jdbc
                                     .query(
                                             GAME_SQL,
-                                            Map.of("game", gameId),
+                                            Map.of(
+                                                    "game",
+                                                    gameId,
+                                                    "noSummary",
+                                                    JdbcCatalogueSynchronizationStore
+                                                            .NO_SUMMARY_TEXT),
                                             (rs, row) ->
                                                     new Game(
                                                             rs.getString("game_id"),

@@ -56,6 +56,15 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.details.ListIndexableGamesUseCase
+            indexableGamesUseCase(
+                    com.videogameplatform.catalogue.application.details.port.IndexableGamesReadPort
+                            read) {
+        return new com.videogameplatform.catalogue.application.details.internal
+                .IndexableGamesService(read);
+    }
+
+    @Bean
     com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase
             externalPlayerScores(
                     com.videogameplatform.catalogue.application.releases.port

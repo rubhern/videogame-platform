@@ -221,6 +221,23 @@ application models. API Management is deferred until multiple external consumers
 independently routed services, centralized policy/quotas, a developer portal, or a
 bounded experiment justifies it.
 
+### Search-engine indexing
+
+Post-MVP (#537, implemented; awaiting review): API delivery serves
+`robots.txt` and a sitemap index outside the product API, as crawler protocol documents.
+They are not browser contract, so OpenAPI does not describe them. Only a deployment
+configured with a public indexing origin is indexable, and that is public production
+alone. Every other deployment disallows every path and serves no sitemap. Game URLs come
+from Catalogue's `details` contract in bounded keyset partitions of the current
+publication, never from the provider. Robots directives steer crawlers. Personal and
+administration routes stay protected by the session and the operator role, never by
+robots. Per-route titles, descriptions, canonical links, `noindex` and 404s come from the
+entry-point metadata of
+[ADR-0049](../decisions/0049-insert-link-preview-metadata-into-the-served-entry-point.md).
+The game page adds its JSON-LD in the browser. No rendering stack is added. The
+[discoverability audit](../research/search-engine-discoverability.md) records the route
+inventory, the canonical game URL, the scaling evidence and the rendering evaluation.
+
 ## Quality and failure behaviour
 
 - Health distinguishes liveness/readiness; provider/telemetry outages do not break

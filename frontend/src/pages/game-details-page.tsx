@@ -7,6 +7,8 @@ import {
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
+import { GameStructuredData } from "../features/game-details/game-structured-data-script";
+import { useDocumentTitle } from "../shared/browser/use-document-title";
 import { DEFAULT_RETURN, readReturnContext } from "../shared/navigation/return-context";
 
 /**
@@ -40,6 +42,14 @@ export function GameDetailsPage() {
   const missing = error?.code === "GAME_NOT_FOUND";
   const notReady = error?.code === "CATALOGUE_NOT_READY";
   const informational = missing || notReady;
+  // The same title the server wrote for this game's page (ADR-0049).
+  useDocumentTitle(
+    query.data !== undefined
+      ? `${query.data.canonicalTitle} · Gameómetro`
+      : missing
+        ? "Juego no encontrado · Gameómetro"
+        : null,
+  );
 
   return (
     <section className="game-details-section">
@@ -94,7 +104,10 @@ export function GameDetailsPage() {
             </div>
           </>
         ) : (
-          <GameDetailsContent key={gameId} game={query.data} />
+          <>
+            <GameDetailsContent key={gameId} game={query.data} />
+            <GameStructuredData game={query.data} />
+          </>
         )}
         {query.isError ? null : (
           <div className="game-details-back">
