@@ -20,7 +20,7 @@ case "${PACKAGE_SKIP_BACKEND_TESTS:-false}" in
   false) ;;
   *) printf 'PACKAGE_SKIP_BACKEND_TESTS must be true or false.\n' >&2; exit 2 ;;
 esac
-bash scripts/maven-with-parent-retry.sh --batch-mode --no-transfer-progress -Pwith-frontend \
+bash scripts/maven-with-resolution-retry.sh --batch-mode --no-transfer-progress -Pwith-frontend \
   "${maven_test_arguments[@]}" -Dsource.revision="$source_revision" clean package
 
 application_jar="$(resolve_backend_jar)"

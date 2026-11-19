@@ -21,9 +21,9 @@ Maven's [resolver configuration](../../.mvn/maven.config) bounds recovery from
 temporary artifact-server throttling. Its HTTP transport retries the failed
 download request while the same build invocation continues. Compilation, tests
 and Sonar qualification retain their normal failure semantics.
-Packaging, fresh migrations, and Java CodeQL also use a
-[parent resolution retry](../../scripts/maven-with-parent-retry.sh) for the
-intermittent missing-parent response from Maven Central.
+Packaging, fresh migrations, Java CodeQL, and Sonar use a
+[resolution retry](../../scripts/maven-with-resolution-retry.sh) when Maven Central
+reports that a parent POM or build plugin is missing.
 
 ### Environment admission
 

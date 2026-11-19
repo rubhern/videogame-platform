@@ -21,11 +21,18 @@ spec.loader.exec_module(oci)
 
 
 class DeliveryTests(unittest.TestCase):
-    def test_maven_retries_only_a_missing_central_parent(self):
+    def test_maven_retries_only_central_model_and_plugin_resolution(self):
         cases = [
             ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
              '(https://repo.maven.apache.org/maven2)', True, [[], ['--update-snapshots']], 0),
+            ('[ERROR] Plugin example:scanner:5 or one of its dependencies could not be resolved:\n'
+             '[ERROR] Could not find artifact example:scanner:jar:5 in central (https://repo.maven.apache.org/maven2)',
+             True, [[], ['--update-snapshots']], 0),
+            ('[ERROR] Plugin example:scanner:5 or one of its dependencies could not be resolved:\n'
+             '[ERROR] Could not find artifact example:scanner:jar:5 in internal (https://invalid.example/maven2)',
+             True, [[]], 1),
             ('[ERROR] Compilation failure', True, [[]], 1),
+            ('[ERROR] QUALITY GATE STATUS: FAILED', True, [[]], 1),
             ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
              '(https://repo.maven.apache.org/maven2)', False, [[], *([['--update-snapshots']] * 3)], 1),
         ]
@@ -45,7 +52,7 @@ class DeliveryTests(unittest.TestCase):
                 sleep.write_text('#!/usr/bin/env bash\nexit 0\n')
                 sleep.chmod(0o755)
                 result = subprocess.run(
-                    ['bash', str(ROOT / 'scripts/maven-with-parent-retry.sh')],
+                    ['bash', str(ROOT / 'scripts/maven-with-resolution-retry.sh')],
                     cwd=root, capture_output=True, text=True,
                     env={**os.environ, 'PATH': f'{root}:{os.environ["PATH"]}',
                          'MAVEN_ERROR': message, 'RECOVER': 'yes' if recover else 'no'},
@@ -435,7 +442,7 @@ fi
             (root / 'scripts').mkdir()
             (root / 'backend/target').mkdir(parents=True)
             (root / 'backend/target/application.jar').touch()
-            for name in ('package-application.sh', 'backend-artifact.sh', 'maven-with-parent-retry.sh'):
+            for name in ('package-application.sh', 'backend-artifact.sh', 'maven-with-resolution-retry.sh'):
                 shutil.copy(ROOT / 'scripts' / name, root / 'scripts' / name)
             shutil.copy(ROOT / 'pom.xml', root / 'pom.xml')
             log = root / 'maven-args'

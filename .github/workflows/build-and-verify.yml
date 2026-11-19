@@ -823,12 +823,11 @@ jobs:
       - name: Build, import JaCoCo XML and wait for Sonar way
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
         run: |
-          ./mvnw \
+          bash scripts/maven-with-resolution-retry.sh \
             -Dsource.revision="${GITHUB_SHA}" \
             -Dsonar.qualitygate.wait=true \
             -Dsonar.qualitygate.timeout=300 \
-            clean verify \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar
+            clean verify sonar:sonar
 
   required-quality-gate:
     name: Required quality gate
