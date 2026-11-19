@@ -242,12 +242,12 @@ run_case backend-postman \
 
 run_case migration \
   'backend/src/main/resources/db/migration/V99999999_000000__test.sql' \
-  'backend,migrations' \
+  'backend,migrations,private_dev_runtime,production_runtime' \
   'frontend,browser,identity,provider_fixtures,container'
 
 run_case development-seed \
   'backend/src/main/resources/db/dev-seed/V99999999_000000__test.sql' \
-  'backend,migrations,browser' \
+  'backend,migrations,browser,private_dev_runtime,production_runtime' \
   'frontend,identity,provider_fixtures,container'
 
 run_case agent-configuration \

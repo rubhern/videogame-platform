@@ -14,6 +14,8 @@ Each aggregate gate always runs. It fails when an applicable job fails, is cance
 or is skipped unexpectedly, and also when an inapplicable job runs unexpectedly.
 Unknown paths and changes to shared CI/classification logic select broad validation.
 Secret scanning remains applicable to every pull request.
+Changes to Flyway migration or development seed SQL also select both runtime
+gates because their disposable observability databases load those sources.
 
 Maven's [resolver configuration](../../.mvn/maven.config) bounds recovery from
 temporary artifact-server throttling. Its HTTP transport retries the failed
