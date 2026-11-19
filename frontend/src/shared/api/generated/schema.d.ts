@@ -4,6 +4,52 @@
  */
 
 export interface paths {
+    "/home-rankings/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a rolling seven-day home ranking
+         * @description UC-025. At most ten games with positive activity, ordered by descending count
+         *     and ascending gameId. The server evaluates the rolling 168-hour window.
+         *     Votes are active community ratings created in the window. Visits are measured,
+         *     opted-in game-detail arrivals. Results are independent of the requesting session.
+         */
+        get: operations["getHomeRanking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game-detail-visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record one opted-in game detail arrival
+         * @description UC-025. Same-origin anonymous JSON command, independent of session authority.
+         *     The browser sends it only after separate consent and a successfully rendered
+         *     game page. The server timestamps the visit and deduplicates repeated visit IDs
+         *     within the retention window. Unpublished games are ignored.
+         */
+        post: operations["recordGameDetailVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/feedback": {
         parameters: {
             query?: never;
@@ -1196,6 +1242,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        GameDetailVisit: {
+            /** Format: uuid */
+            gameId: string;
+            /** Format: uuid */
+            visitId: string;
+        };
+        HomeRanking: {
+            items: components["schemas"]["HomeRankedGame"][];
+        };
+        HomeRankedGame: {
+            gameId: string;
+            slug: string;
+            title: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** Format: int64 */
+            count: number;
+            ratingEligibility: components["schemas"]["RatingEligibility"];
+        };
         FeedbackSubmission: {
             /** @enum {string} */
             category: "suggestion" | "bug" | "incorrect_game_information" | "other";
@@ -3717,6 +3781,79 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getHomeRanking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "votes" | "visits";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ranking, which may be empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": []
+                     *     }
+                     */
+                    "application/json": components["schemas"]["HomeRanking"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    recordGameDetailVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "gameId": "67d81bff-352a-4735-9f09-689a0f8acb34",
+                 *       "visitId": "7607ce91-477f-4c1c-80cb-d5728d5fb8a7"
+                 *     }
+                 */
+                "application/json": components["schemas"]["GameDetailVisit"];
+            };
+        };
+        responses: {
+            /** @description The visit was recorded, previously recorded or for an unpublished game. */
+            204: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["MalformedRequest"];
+            403: components["responses"]["CsrfValidationFailed"];
+            406: components["responses"]["NotAcceptable"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
     submitFeedback: {
         parameters: {
             query?: never;

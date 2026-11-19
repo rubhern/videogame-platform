@@ -825,6 +825,12 @@ lines on what an account adds, each an implemented feature. The home never reads
 while the session is unknown the plate waits, and an unavailable session read offers the personal
 links without claiming the visitor is signed out.
 
+**Pulso de la semana** (#584, implemented, awaiting owner review) closes the home before the site footer.
+It shows the number of community votes and measured visits for the last seven days in two lists. The first place
+uses a larger cover and an ice position readout. Each eligible row uses the shared quick rating
+control. On narrow screens the lists stack and show three rows each, with an independent button
+to show the remaining rows.
+
 **States.** A preview's loading, empty and failed reads are isolated. The opening preloads the
 featured selection, both TOPómetro sources and the platform directory. The timeline reads up
 to two calendar months for its markers. Selecting a date reads one bounded page on demand. Reduced motion shows the settled page. Forced colours preserve the selected

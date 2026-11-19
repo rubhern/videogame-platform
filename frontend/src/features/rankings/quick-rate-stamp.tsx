@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { MouseEventHandler, Ref } from "react";
 
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { formatPersonalScore } from "../ratings/personal-score";
@@ -19,7 +19,7 @@ export function QuickRateStamp({
 }: {
   title: string;
   state: ListPersonalRating;
-  onOpen: () => void;
+  onOpen: MouseEventHandler<HTMLButtonElement>;
   ref?: Ref<HTMLButtonElement>;
   variant: "podium" | "row";
 }) {

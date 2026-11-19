@@ -7,6 +7,10 @@ import java.time.LocalDate;
 public interface GetRatingContextUseCase {
     Context get(GameDetailsResult game);
 
+    Eligibility eligibility(GameDetailsResult game);
+
+    record Eligibility(boolean eligible, String reason) {}
+
     record Context(
             boolean eligible, String reason, LocalDate evaluatedOn, RatingStatistics statistics) {}
 }

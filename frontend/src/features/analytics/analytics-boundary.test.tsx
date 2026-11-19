@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderApp } from "../../test/render-app";
-import { CONSENT_STORAGE_KEY, consentStore } from "./consent";
+import { CONSENT_STORAGE_KEY, consentStore, rankingConsentStore } from "./consent";
 import { trackEvent } from "./events";
 
 const MEASUREMENT_ID = "G-TEST1234";
@@ -51,10 +51,11 @@ afterEach(() => {
   delete target.gtag;
   Reflect.deleteProperty(target, `ga-disable-${MEASUREMENT_ID}`);
   consentStore.reload();
+  rankingConsentStore.reload();
 });
 
 describe("consent-gated analytics", () => {
-  it("asks nothing and loads nothing when the deployment measures nothing", async () => {
+  it("offers only the visit ranking without a GA4 measurement ID", async () => {
     stubApi(null);
     renderApp("/cookies");
 
@@ -66,8 +67,10 @@ describe("consent-gated analytics", () => {
         ),
       ).toBe(true),
     );
-    expect(screen.queryByRole("region", { name: /ayudas a mejorar/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Configurar cookies" })).not.toBeInTheDocument();
+    const banner = await screen.findByRole("region", { name: /ayudas a mejorar/i });
+    expect(banner).toHaveTextContent("ranking público");
+    expect(banner).not.toHaveTextContent("Google Analytics");
+    expect(screen.getByRole("button", { name: "Configurar cookies" })).toBeInTheDocument();
     expect(googleScript()).toBeNull();
   });
 
@@ -80,8 +83,8 @@ describe("consent-gated analytics", () => {
     expect(googleScript()).toBeNull();
     expect(commands()).toEqual([]);
     // Both choices are plain buttons of the same style; nothing is preselected.
-    const reject = within(banner).getByRole("button", { name: "Rechazar" });
-    const accept = within(banner).getByRole("button", { name: "Aceptar" });
+    const reject = within(banner).getByRole("button", { name: "Rechazar todo" });
+    const accept = within(banner).getByRole("button", { name: "Aceptar todo" });
     expect(reject.className).toBe(accept.className);
 
     await user.click(reject);
@@ -101,7 +104,7 @@ describe("consent-gated analytics", () => {
 
     await user.click(
       within(await screen.findByRole("region", { name: /ayudas a mejorar/i })).getByRole("button", {
-        name: "Aceptar",
+        name: "Aceptar todo",
       }),
     );
 
@@ -132,8 +135,8 @@ describe("consent-gated analytics", () => {
 
     await user.click(screen.getByRole("button", { name: "Configurar cookies" }));
     const review = screen.getByRole("region", { name: /ayudas a mejorar/i });
-    expect(within(review).getByText("Ahora mismo: aceptadas.")).toBeInTheDocument();
-    await user.click(within(review).getByRole("button", { name: "Rechazar" }));
+    expect(within(review).getByRole("checkbox", { name: /Google Analytics/ })).toBeChecked();
+    await user.click(within(review).getByRole("button", { name: "Rechazar todo" }));
 
     expect(analyticsWindow()[`ga-disable-${MEASUREMENT_ID}`]).toBe(true);
     const queued = commands().length;
@@ -149,6 +152,7 @@ describe("consent-gated analytics", () => {
       JSON.stringify({ version: 1, choice: "granted", decidedAt: new Date().toISOString() }),
     );
     consentStore.reload();
+  rankingConsentStore.reload();
     window.sessionStorage.setItem("gameometro_analytics_sign_in", "register");
     vi.stubGlobal(
       "fetch",

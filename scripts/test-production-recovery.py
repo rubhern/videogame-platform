@@ -81,6 +81,21 @@ class Recovery(unittest.TestCase):
              patch.object(self.runtime, 'metadata', return_value=self.meta), patch.object(self.runtime, 'identity'):
             return self.runtime.backup(destination, self.public, self.fpr)
 
+    def test_both_application_dump_sources_exclude_expiring_visits(self):
+        exclusion = '--exclude-table-data=catalogue.game_detail_visit'
+        with patch.object(self.runtime, 'compose') as compose:
+            core.Live(self.runtime).dump(core.DATABASES[0], None)
+            self.assertIn(exclusion, compose.call_args.args)
+            core.Live(self.runtime).dump(core.DATABASES[1], None)
+            self.assertNotIn(exclusion, compose.call_args.args)
+
+        snapshot = core.Snapshot(self.runtime, 0)
+        with patch.object(self.runtime, 'check_lease'), patch.object(core, 'run') as run:
+            snapshot.dump(core.DATABASES[0], None)
+            self.assertIn(exclusion, run.call_args.args[0])
+            snapshot.dump(core.DATABASES[1], None)
+            self.assertNotIn(exclusion, run.call_args.args[0])
+
     def test_encrypt_verify_copy_decrypt_and_cleanup(self):
         result = self.backup()
         pair = self.work / 'pair'

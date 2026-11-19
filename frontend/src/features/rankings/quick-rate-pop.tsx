@@ -68,8 +68,10 @@ export function QuickRatePop({
   onClose,
   onPlatforms,
   onRun,
+  context = "topometro",
 }: {
-  game: RankedGame;
+  game: Pick<RankedGame, "gameId" | "slug" | "position" | "title">;
+  context?: "home" | "topometro";
   anchor: HTMLElement | null;
   state: ListPersonalRating;
   csrfToken: string | null;
@@ -77,7 +79,7 @@ export function QuickRatePop({
   returnTo: string;
   onClose: (changed: boolean) => void;
   onPlatforms: (details: GameDetails) => void;
-  onRun: () => void;
+  onRun?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -118,8 +120,12 @@ export function QuickRatePop({
     dialog.current?.close();
   }
 
+  function trackQuickRating(action: "close" | "sign_in" | "create" | "update" | "delete" | "platforms" | "run") {
+    if (context === "topometro") trackEvent("quick_rating", { list: "topometro", action });
+  }
+
   function close(changed: boolean) {
-    if (!changed) trackEvent("quick_rating", { list: "topometro", action: "close" });
+    if (!changed) trackQuickRating("close");
     leave();
     onClose(changed);
   }
@@ -127,7 +133,7 @@ export function QuickRatePop({
   function pick(picked: number) {
     if (busy || byPlatform) return;
     if (csrfToken === null) {
-      trackEvent("quick_rating", { list: "topometro", action: "sign_in" });
+      trackQuickRating("sign_in");
       trackEvent("rating_sign_in");
       markSignInStart("rating");
       assignLocation(ratingIntentStartUrl(game.gameId, game.slug, picked, returnTo));
@@ -142,7 +148,7 @@ export function QuickRatePop({
       { type: "save", gameId: game.gameId, csrfToken, current: rating, value: picked },
       {
         onSuccess: () => {
-          trackEvent("quick_rating", { list: "topometro", action: rating === null ? "create" : "update" });
+          trackQuickRating(rating === null ? "create" : "update");
           close(true);
         },
         onError: setFailure,
@@ -157,7 +163,7 @@ export function QuickRatePop({
       { type: "delete", gameId: game.gameId, csrfToken, current: rating },
       {
         onSuccess: () => {
-          trackEvent("quick_rating", { list: "topometro", action: "delete" });
+          trackQuickRating("delete");
           close(true);
         },
         onError: setFailure,
@@ -167,7 +173,7 @@ export function QuickRatePop({
 
   async function platforms() {
     if (busy) return;
-    trackEvent("quick_rating", { list: "topometro", action: "platforms" });
+    trackQuickRating("platforms");
     const details = await platformGame.load(game.gameId);
     if (details === null) return;
     leave();
@@ -175,8 +181,8 @@ export function QuickRatePop({
   }
 
   function run() {
-    if (busy) return;
-    trackEvent("quick_rating", { list: "topometro", action: "run" });
+    if (busy || onRun === undefined) return;
+    trackQuickRating("run");
     leave();
     onRun();
   }
@@ -276,10 +282,10 @@ export function QuickRatePop({
             <SelectIcon name="platform" />
             {byPlatform ? "Editar plataformas" : "Por plataforma"}
           </button>
-          <button className="quick-pop-action" disabled={busy} onClick={run} type="button">
+          {onRun === undefined ? null : <button className="quick-pop-action" disabled={busy} onClick={run} type="button">
             Puntuar varios
             <span aria-hidden="true" className="quick-rate-chevron" />
-          </button>
+          </button>}
         </footer>
       </div>
     </dialog>

@@ -6,6 +6,7 @@ import { HomePersonal } from "../features/home/home-personal";
 import { HomePlatforms } from "../features/home/home-platforms";
 import { HomeIntro, PreviewBoundary } from "../features/home/home-section";
 import { HomeTopometroPreview } from "../features/home/home-topometro-preview";
+import { HomeWeeklyRankings } from "../features/home/home-weekly-rankings";
 import { HomeReleaseDiscovery } from "../features/home/home-release-discovery";
 
 export function HomePage() {
@@ -43,6 +44,9 @@ export function HomePage() {
         </PreviewBoundary>
         <PreviewBoundary name="Tu espacio">
           <HomePersonal />
+        </PreviewBoundary>
+        <PreviewBoundary name="Pulso de la semana">
+          <HomeWeeklyRankings />
         </PreviewBoundary>
       </div>
     </div>

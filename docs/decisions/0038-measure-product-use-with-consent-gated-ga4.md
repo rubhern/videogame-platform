@@ -45,6 +45,15 @@ existed.
    without a release; removing the module, the read and the notice text is one reversible
    change.
 
+## Home visit ranking amendment (#584)
+
+The first-party game-detail visit count supports the public weekly home ranking. It has
+a separate optional choice in the existing notice and remains available without a GA4
+measurement ID. The browser enables collection only after that choice and sends a
+credential-free same-origin request after a successful, visible arrival. The data and its
+retention are owned by the [data-protection record](../development/data-protection.md).
+Only per-game aggregates are public.
+
 ## Alternatives considered
 
 - **Umami without cookies.** It needs no banner and keeps data first-party, but answers return

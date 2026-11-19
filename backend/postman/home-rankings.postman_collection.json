@@ -1,0 +1,175 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Home Weekly Rankings",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run writes only on a disposable seeded local database."
+  },
+  "variable": [
+    {
+      "key": "visitGameId",
+      "value": "30000000-0000-4000-8000-000000000001"
+    },
+    {
+      "key": "visitEventId",
+      "value": "d29e294f-cbff-4cc4-9e54-5716d85e8b3d"
+    }
+  ],
+  "item": [
+    {
+      "name": "Most voted",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Bounded positive counts in order\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  const items = pm.response.json().items;",
+              "  pm.expect(items).to.be.an(\"array\").with.lengthOf.at.most(10);",
+              "  pm.expect(new Set(items.map(game => game.gameId)).size).to.equal(items.length);",
+              "  for (const [i, game] of items.entries()) {",
+              "    pm.expect(game.count).to.be.greaterThan(0);",
+              "    pm.expect(game.ratingEligibility.eligible).to.be.a(\"boolean\");",
+              "    if (i > 0) {",
+              "      const previous = items[i - 1];",
+              "      pm.expect(previous.count > game.count || (previous.count === game.count && previous.gameId < game.gameId)).to.be.true;",
+              "    }",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/home-rankings/votes"
+      },
+      "response": []
+    },
+    {
+      "name": "Most visited",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Bounded positive counts in order\", () => {",
+              "  pm.response.to.have.status(200);",
+              "  const items = pm.response.json().items;",
+              "  pm.expect(items).to.be.an(\"array\").with.lengthOf.at.most(10);",
+              "  pm.expect(new Set(items.map(game => game.gameId)).size).to.equal(items.length);",
+              "  for (const [i, game] of items.entries()) {",
+              "    pm.expect(game.count).to.be.greaterThan(0);",
+              "    pm.expect(game.ratingEligibility.eligible).to.be.a(\"boolean\");",
+              "    if (i > 0) {",
+              "      const previous = items[i - 1];",
+              "      pm.expect(previous.count > game.count || (previous.count === game.count && previous.gameId < game.gameId)).to.be.true;",
+              "    }",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/home-rankings/visits"
+      },
+      "response": []
+    },
+    {
+      "name": "Record synthetic visit",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Safe accepted or repeated visit\", () => {",
+              "  pm.response.to.have.status(204);",
+              "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Gameometro-Postman-Local"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/game-detail-visits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"gameId\": \"{{visitGameId}}\", \"visitId\": \"{{visitEventId}}\"}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Repeat synthetic visit",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Safe accepted or repeated visit\", () => {",
+              "  pm.response.to.have.status(204);",
+              "  pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "Gameometro-Postman-Local"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/game-detail-visits",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"gameId\": \"{{visitGameId}}\", \"visitId\": \"{{visitEventId}}\"}"
+        }
+      },
+      "response": []
+    }
+  ]
+}

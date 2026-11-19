@@ -115,6 +115,14 @@ cookies», al pie de cada página, sin que afecte a la licitud del tratamiento a
 rechazar la analítica no limita ninguna función. No usamos la analítica para
 publicidad, perfiles comerciales ni decisiones automatizadas.
 
+Si aceptas participar en el ranking de visitas, Gameómetro registra el juego,
+la hora de la visita y un código aleatorio para evitar duplicar el mismo envío.
+El registro se elimina al vencer el plazo de ocho días. Los registros del ranking no
+incluyen IP, identificadores de cuenta ni cookies y no se envían a Google. Publicamos
+solo recuentos por juego en «Más visitados» de la home. La base jurídica es tu
+consentimiento (artículo 6.1.a RGPD). Puedes retirarlo desde «Configurar cookies»
+para dejar de participar. Puedes usar todas las funciones si rechazas.
+
 ### Destinatarios y transferencias internacionales
 
 La identidad se gestiona con Keycloak y las puntuaciones con PostgreSQL,
@@ -346,8 +354,9 @@ Utilizamos cookies necesarias para el acceso que solicitas, su seguridad y el id
 de los formularios; no requieren tu consentimiento. Solo si lo aceptas, utilizamos
 además cookies de analítica de Google Analytics para medir de forma agregada qué
 páginas y funciones se usan. No utilizamos cookies de publicidad. Al visitar
-Gameómetro te preguntamos si aceptas la analítica: rechazar es tan fácil como
-aceptar y, mientras no elijas, no se activa. Puedes cambiar tu elección en cualquier
+Gameómetro puedes elegir por separado si permites la analítica o si quieres que
+tus visitas cuenten en el ranking público de juegos. El ranking no añade cookies.
+Rechazar es tan fácil como aceptar. Puedes cambiar tu elección en cualquier
 momento desde «Configurar cookies», al pie de cada página.
 
 | Cookie | Host | Finalidad | Duración |
@@ -399,9 +408,9 @@ identidad, y las de analítica, por el script de Google Analytics; las restantes
 `SameSite=Strict`, y las de Keycloak, `SameSite=None`. Son del mismo sitio, aunque sus hosts sean distintos.
 
 La aplicación no necesita crear cookies para consultar el catálogo sin identificarte;
-las de analítica solo aparecen si las aceptas. Tu elección sobre la analítica se guarda
-en el almacenamiento local de este navegador (`localStorage`, clave
-`gameometro_analytics_consent`), sin datos personales, durante 12 meses. Si has aceptado
+las de analítica solo aparecen si las aceptas. Tus elecciones se guardan por separado
+durante 12 meses en el almacenamiento local del navegador (`localStorage`, claves
+`gameometro_analytics_consent` y `gameometro_visit_ranking_consent`). Si has aceptado
 la analítica y empiezas a iniciar sesión o a crear una cuenta, la pestaña guarda en
 `sessionStorage` solo qué recorrido iniciaste, para contarlo una vez al volver; se borra
 al leerlo o al cerrar la pestaña. Fuera de eso, la aplicación no utiliza `localStorage`,

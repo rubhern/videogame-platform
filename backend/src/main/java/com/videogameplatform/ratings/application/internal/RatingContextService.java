@@ -17,15 +17,22 @@ public final class RatingContextService implements GetRatingContextUseCase {
 
     @Override
     public Context get(GameDetailsResult game) {
-        var reason = eligibility(game);
+        var eligibility = eligibility(game);
         return new Context(
-                reason == RatingEligibilityPolicy.Reason.ELIGIBLE_RELEASE_FOUND,
-                reason.name(),
+                eligibility.eligible(),
+                eligibility.reason(),
                 game.evaluatedOn(),
                 statistics.read(game.gameId()));
     }
 
-    static RatingEligibilityPolicy.Reason eligibility(GameDetailsResult game) {
+    @Override
+    public Eligibility eligibility(GameDetailsResult game) {
+        var reason = eligibilityReason(game);
+        return new Eligibility(
+                reason == RatingEligibilityPolicy.Reason.ELIGIBLE_RELEASE_FOUND, reason.name());
+    }
+
+    static RatingEligibilityPolicy.Reason eligibilityReason(GameDetailsResult game) {
         var evidence =
                 game.releases().stream()
                         .map(

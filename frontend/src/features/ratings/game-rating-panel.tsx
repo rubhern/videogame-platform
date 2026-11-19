@@ -24,25 +24,9 @@ import {
 import { countBucket, trackEvent } from "../analytics/events";
 import { markSignInStart } from "../analytics/sign-in-intent";
 import { PlatformRatingDialog } from "./platform-rating-dialog";
+import { ineligibleReasons } from "./rating-eligibility";
 import { RatingKeypad } from "./rating-keypad";
 import { useRatingCommand, usePersonalRating } from "./use-personal-rating";
-
-const ineligibleReasons: Record<
-  GameDetails["ratingEligibility"]["reason"],
-  string
-> = {
-  ELIGIBLE_RELEASE_FOUND: "Todavía no se puede puntuar este juego.",
-  NO_COMMERCIAL_RELEASE:
-    "Puntuación no disponible: Aún no tenemos un lanzamiento",
-  RELEASE_NOT_OCCURRED:
-    "Puntuación no disponible: Aún no ha salido",
-  RELEASE_CANCELLED:
-    "Puntuación no disponible: Juego cancelado",
-  RELEASE_DATE_UNCERTAIN:
-    "Puntuación no disponible: Fecha incierta",
-  RELEASE_REVIEW_REQUIRED:
-    "Puntuación no disponible: El juego necesita revisión",
-};
 
 type Outcome = "expired" | "cancelled" | "invalid";
 

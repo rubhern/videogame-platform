@@ -9,14 +9,15 @@ export type ConsentChoice = "granted" | "denied";
 export type ConsentState = ConsentChoice | "unset";
 
 export const CONSENT_STORAGE_KEY = "gameometro_analytics_consent";
+export const RANKING_CONSENT_STORAGE_KEY = "gameometro_visit_ranking_consent";
 const CONSENT_VERSION = 1;
 const CONSENT_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
 
 type StoredConsent = { version: number; choice: ConsentChoice; decidedAt: string };
 
-function read(now: number): ConsentState {
+function read(storageKey: string, now: number): ConsentState {
   try {
-    const raw = window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (raw === null) return "unset";
     const value: unknown = JSON.parse(raw);
     if (typeof value !== "object" || value === null) return "unset";
@@ -36,14 +37,14 @@ function read(now: number): ConsentState {
   }
 }
 
-function write(choice: ConsentChoice, now: number) {
+function write(storageKey: string, choice: ConsentChoice, now: number) {
   const stored: StoredConsent = {
     version: CONSENT_VERSION,
     choice,
     decidedAt: new Date(now).toISOString(),
   };
   try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(stored));
+    window.localStorage.setItem(storageKey, JSON.stringify(stored));
   } catch {
     // Without storage the choice still holds for this document; it is asked again next visit.
   }
@@ -63,16 +64,25 @@ export type ConsentStore = {
   subscribe: (listener: Listener) => () => void;
 };
 
-export function createConsentStore(clock: () => number = Date.now): ConsentStore {
-  let state: ConsentState = read(clock());
+export function createConsentStore(
+  clock: () => number = Date.now,
+  storageKey = CONSENT_STORAGE_KEY,
+): ConsentStore {
+  let state: ConsentState = read(storageKey, clock());
   let reviewing = false;
   const listeners = new Set<Listener>();
   const notify = () => listeners.forEach((listener) => listener());
+  function onStorage(event: StorageEvent) {
+    if (event.key !== storageKey && event.key !== null) return;
+    state = read(storageKey, clock());
+    notify();
+  }
+
   return {
     state: () => state,
     reviewing: () => reviewing,
     choose: (choice) => {
-      write(choice, clock());
+      write(storageKey, choice, clock());
       state = choice;
       reviewing = false;
       notify();
@@ -83,20 +93,23 @@ export function createConsentStore(clock: () => number = Date.now): ConsentStore
       notify();
     },
     reload: () => {
-      state = read(clock());
+      state = read(storageKey, clock());
       reviewing = false;
       notify();
     },
     subscribe: (listener) => {
+      if (listeners.size === 0) window.addEventListener("storage", onStorage);
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+        if (listeners.size === 0) window.removeEventListener("storage", onStorage);
       };
     },
   };
 }
 
 export const consentStore = createConsentStore();
+export const rankingConsentStore = createConsentStore(Date.now, RANKING_CONSENT_STORAGE_KEY);
 
 export function useConsent(store: ConsentStore = consentStore) {
   const state = useSyncExternalStore(store.subscribe, store.state);

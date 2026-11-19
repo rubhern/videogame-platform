@@ -38,10 +38,14 @@ export function useListRatingResume({
   csrfToken,
   sessionPending,
   titleOf,
+  context = "topometro",
+  onSaved,
 }: {
   csrfToken: string | null;
   sessionPending: boolean;
   titleOf: (gameId: string) => string | null;
+  context?: "home" | "topometro";
+  onSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const command = useQuickRatingCommand();
@@ -90,7 +94,10 @@ export function useListRatingResume({
     const saved = (rating: PersonalRating | null) => {
       void queryClient.invalidateQueries({ queryKey: GAME_RANKING_KEY });
       if (rating === null) return;
-      trackEvent("quick_rating", { list: "topometro", action: current === null ? "create" : "update" });
+      onSaved?.();
+      if (context === "topometro") {
+        trackEvent("quick_rating", { list: "topometro", action: current === null ? "create" : "update" });
+      }
       const score = `${formatPersonalScore(rating.contribution)}/10`;
       setNotice({
         tone: "success",

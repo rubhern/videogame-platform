@@ -6,6 +6,7 @@ import {
   gameDetailsQueryOptions,
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
+import { useGameDetailVisit } from "../features/home/use-game-detail-visit";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
 import { GameStructuredData } from "../features/game-details/game-structured-data-script";
 import { useDocumentTitle } from "../shared/browser/use-document-title";
@@ -38,6 +39,7 @@ export function GameDetailsPage() {
     retry: false,
     staleTime: 0,
   });
+  useGameDetailVisit(query.isSuccess ? query.data.gameId : undefined);
   const error = query.error instanceof GameDetailsApiError ? query.error : null;
   const missing = error?.code === "GAME_NOT_FOUND";
   const notReady = error?.code === "CATALOGUE_NOT_READY";
