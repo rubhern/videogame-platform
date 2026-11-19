@@ -25,6 +25,27 @@ class IgdbCoverReferenceResolverTest {
                 .isEqualTo(URI.create("https://www.igdb.com/games/example"));
     }
 
+    @Test
+    void sharesTheSameCoverAndSizeAsJpegUnderTheSameApproval() {
+        var resolved =
+                resolver.resolveShare("IGDB", "co-safe_1", "https://www.igdb.com/games/example");
+
+        assertThat(resolved.url())
+                .isEqualTo(
+                        URI.create(
+                                "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co-safe_1.jpg"));
+        assertThat(resolved.attributionUrl())
+                .isEqualTo(URI.create("https://www.igdb.com/games/example"));
+        assertThatThrownBy(
+                        () ->
+                                resolver.resolveShare(
+                                        "IGDB", "../cover", "https://www.igdb.com/games/example"))
+                .isInstanceOf(CatalogueDataInvalidException.class);
+        assertThatThrownBy(
+                        () -> resolver.resolveShare("IGDB", "co-safe_1", "https://evil.example/x"))
+                .isInstanceOf(CatalogueDataInvalidException.class);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "LANDSCAPE, t_1080p/ar-safe_1.webp",

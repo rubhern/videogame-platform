@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -46,14 +47,14 @@ class PlatformGamesScalabilityIT {
         String databaseName =
                 PostgreSqlTestDatabase.isolatedDatabaseName("platform_games_scale_" + games);
         PostgreSqlTestDatabase.createDatabase(databaseName);
-        Flyway.configure()
-                .dataSource(
-                        PostgreSqlTestDatabase.adminUrl(databaseName),
-                        PostgreSqlTestDatabase.migratorUsername(),
-                        PostgreSqlTestDatabase.migratorPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        var migration =
+                Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(databaseName),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration");
+        migration.target("20261112.130000").load().migrate();
         seed(
                 new JdbcTemplate(
                         new DriverManagerDataSource(
@@ -61,6 +62,7 @@ class PlatformGamesScalabilityIT {
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword())),
                 games);
+        migration.target(MigrationVersion.LATEST).load().migrate();
         DataSource runtime =
                 new DriverManagerDataSource(
                         PostgreSqlTestDatabase.runtimeUrl(databaseName),

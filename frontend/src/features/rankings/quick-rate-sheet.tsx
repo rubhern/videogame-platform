@@ -20,23 +20,14 @@ import { useQuickRatingCommand, type ListPersonalRating } from "./use-ranking-pe
 
 const decimal = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-type Outcome =
-  | { kind: "saved"; title: string; value: number }
-  | { kind: "removed"; title: string }
-  | { kind: "all-rated" }
-  | { kind: "failed"; error: RatingCommandError };
-
-function isRated(state: ListPersonalRating) {
-  return state.status === "known" && state.rating !== null;
-}
 
 /**
  * Rates a ranking without leaving it (#574): a native modal sheet, at the foot of the screen on
  * phones and centred wider up, that holds one game at a time over the Gameómetro keypad.
  *
- * <p>A pick saves the game's general score at once and moves on to the next game of the list the
- * player has not rated yet, so a run of votes is one press per game; **Anterior** and **Siguiente**
- * browse the list in its order and **Eliminar** removes a score. **Por plataforma** opens the
+ * <p>A pick saves the game's general score at once and the sheet stays on that game, its new score
+ * shown in place; **Anterior** and **Siguiente** browse the list in its order and **Eliminar**
+ * removes a score. **Por plataforma** opens the
  * platform sheet over this one for the game shown; a game rated platform by platform keeps its
  * keypad closed, since a general pick can never replace platform scores. A visitor's pick starts the existing rating sign-in and is saved on the
  * game's page on return. Escape, the close control or the backdrop close the sheet; the caller
@@ -63,8 +54,7 @@ export function QuickRateSheet({
   const linkState = useGameLinkState();
   const command = useQuickRatingCommand();
   const [index, setIndex] = useState(() => Math.max(0, games.findIndex((game) => game.gameId === startGameId)));
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [streak, setStreak] = useState(0);
+  const [failure, setFailure] = useState<RatingCommandError | null>(null);
   const changed = useRef(false);
   const platformGame = usePlatformRatingGame();
   const [editingPlatforms, setEditingPlatforms] = useState<GameDetails | null>(null);
@@ -105,7 +95,7 @@ export function QuickRateSheet({
   }
 
   function show(next: number) {
-    setOutcome(null);
+    setFailure(null);
     platformGame.reset();
     setIndex(next);
   }
@@ -113,28 +103,16 @@ export function QuickRateSheet({
   async function platforms() {
     if (busy) return;
     trackEvent("quick_rating", { list: "topometro", action: "platforms" });
-    setOutcome(null);
+    setFailure(null);
     const details = await platformGame.load(current.gameId);
     if (details !== null) setEditingPlatforms(details);
   }
 
   function platformsClosed(saved: unknown) {
     setEditingPlatforms(null);
-    if (saved !== null) {
-      changed.current = true;
-      setStreak((count) => count + 1);
-    }
+    if (saved !== null) changed.current = true;
     // Back on the sheet, at the control that opened the platforms.
     requestAnimationFrame(() => dialog.current?.querySelector<HTMLButtonElement>(".quick-rate-by-platform")?.focus());
-  }
-
-  /** The next game after this one still without the player's score, if the list holds one. */
-  function nextUnrated(from: number) {
-    for (let position = from + 1; position < games.length; position += 1) {
-      const candidate = games[position];
-      if (candidate !== undefined && !isRated(personalOf(candidate.gameId))) return position;
-    }
-    return null;
   }
 
   function pick(picked: number) {
@@ -147,42 +125,32 @@ export function QuickRateSheet({
       return;
     }
     const known = state.status === "known" ? state.rating : null;
-    if (known !== null && known.value === picked) {
-      // The same score again: nothing to save, keep going.
-      const next = nextUnrated(index);
-      if (next === null) setOutcome({ kind: "all-rated" });
-      else show(next);
-      return;
-    }
-    setOutcome(null);
+    // The same score again: nothing to save.
+    if (known !== null && known.value === picked) return;
+    setFailure(null);
     command.mutate(
       { type: "save", gameId: current.gameId, csrfToken, current: known, value: picked },
       {
         onSuccess: () => {
           changed.current = true;
-          setStreak((count) => count + 1);
           trackEvent("quick_rating", { list: "topometro", action: known === null ? "create" : "update" });
-          const next = nextUnrated(index);
-          setOutcome(next === null ? { kind: "all-rated" } : { kind: "saved", title: current.title, value: picked });
-          if (next !== null) setIndex(next);
         },
-        onError: (error) => setOutcome({ kind: "failed", error }),
+        onError: setFailure,
       },
     );
   }
 
   function remove() {
     if (csrfToken === null || rating === null || busy) return;
-    setOutcome(null);
+    setFailure(null);
     command.mutate(
       { type: "delete", gameId: current.gameId, csrfToken, current: rating },
       {
         onSuccess: () => {
           changed.current = true;
           trackEvent("quick_rating", { list: "topometro", action: "delete" });
-          setOutcome({ kind: "removed", title: current.title });
         },
-        onError: (error) => setOutcome({ kind: "failed", error }),
+        onError: setFailure,
       },
     );
   }
@@ -198,14 +166,8 @@ export function QuickRateSheet({
     : platformGame.loading
       ? "Cargando sus plataformas…"
       : checking
-      ? "Comprobando tu puntuación…"
-      : outcome?.kind === "saved"
-        ? `Guardada: ${outcome.title}, ${outcome.value}/10. Ahora: ${current.title}.`
-        : outcome?.kind === "removed"
-          ? `Puntuación eliminada de ${outcome.title}.`
-          : outcome?.kind === "all-rated"
-            ? "¡Has puntuado todos los juegos cargados!"
-            : "";
+        ? "Comprobando tu puntuación…"
+        : "";
 
   return (
     <dialog
@@ -225,14 +187,7 @@ export function QuickRateSheet({
         <header className="quick-rate-header">
           <img alt="" className="quick-rate-cover" height="72" src={current.cover.url} width="54" />
           <div className="quick-rate-identity">
-            <p className="quick-rate-kicker">
-              <span>Puesto {current.position}</span>
-              {streak > 0 ? (
-                <span className="quick-rate-streak">
-                  {streak === 1 ? "Primera puntuación" : `${streak} puntuaciones seguidas`}
-                </span>
-              ) : null}
-            </p>
+            <p className="quick-rate-kicker">Puesto {current.position}</p>
             <h2 id={titleId}>{current.title}</h2>
             <p className="quick-rate-reading">
               {current.reading.source === "gameometro" ? "Comunidad" : "Jugadores IGDB"}{" "}
@@ -288,11 +243,11 @@ export function QuickRateSheet({
           <p className="quick-rate-status" role="status">
             {announcement}
           </p>
-          {outcome?.kind === "failed" ? (
+          {failure !== null ? (
             <div className="quick-rate-failure" role="alert">
-              <p>{quickRateFailures[outcome.error.kind]}</p>
-              {outcome.error.correlationId ? (
-                <p className="quick-rate-reference">Referencia para soporte: {outcome.error.correlationId}</p>
+              <p>{quickRateFailures[failure.kind]}</p>
+              {failure.correlationId ? (
+                <p className="quick-rate-reference">Referencia para soporte: {failure.correlationId}</p>
               ) : null}
             </div>
           ) : null}

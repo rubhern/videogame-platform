@@ -13,6 +13,7 @@
             "catalogue::details",
             "catalogue::preferences",
             "catalogue::settings",
+            "catalogue::sharing",
             "identity::application",
             "ratings::application",
             "feedback::application"
