@@ -52,11 +52,14 @@ export function PlatformRatingDialog({
   csrfToken,
   onClose,
   recoveredPlatforms,
+  returnTo,
 }: {
   game: Pick<GameDetails, "gameId" | "slug" | "canonicalTitle" | "releases">;
   rating: PersonalRating | null;
   csrfToken: string | null;
   recoveredPlatforms?: readonly PlatformSelection[];
+  /** The list a visitor returns to after signing in, when the sheet was opened from one (#574). */
+  returnTo?: string;
   onClose: (saved: PersonalRating | null) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -166,9 +169,9 @@ export function PlatformRatingDialog({
     if (csrfToken === null) {
       setStartingSignIn(true);
       if (write.value != null) {
-        navigateToSignIn(ratingIntentStartUrl(game.gameId, game.slug, write.value));
+        navigateToSignIn(ratingIntentStartUrl(game.gameId, game.slug, write.value, returnTo));
       } else {
-        void startPlatformRatingIntent(game.gameId, game.slug, write.platforms ?? [])
+        void startPlatformRatingIntent(game.gameId, game.slug, write.platforms ?? [], returnTo)
           .then(navigateToSignIn)
           .catch(() => {
             setStartingSignIn(false);

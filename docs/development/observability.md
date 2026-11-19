@@ -2,7 +2,8 @@
 
 The backend provides safe health, build/source information, correlation, structured
 logs, bounded metrics, W3C trace context, and optional OpenTelemetry-compatible
-export. Runtime settings are authoritative in
+export. For a plain-language tour of what Grafana shows, start with the
+[Grafana guide](grafana-guide.md). Runtime settings are authoritative in
 [`application.yaml`](../../backend/src/main/resources/application.yaml); exact library
 versions remain in Maven manifests.
 
@@ -33,8 +34,9 @@ with a dedicated short statement timeout; health details remain hidden.
 - Use the `structured` Spring profile for ECS JSON console logs; [application logs](#application-logs)
   owns the event model.
 - Use route templates and bounded outcome/code vocabularies in metric labels.
-- Use standard `http.server.requests` for request rate, status, and latency; its
-  percentile histogram supports latency analysis without defining an SLO.
+- Use standard `http.server.requests` for request rate, status, and latency. A short
+  fixed set of latency buckets (#547), including the one-second alert bound, supports
+  latency analysis; the buckets are histogram bounds, not a project SLO.
 - `catalogue.releases.result.count{sort}` is the one release-specific meter and
   records successful page yield for the closed
   `releaseDate`/`hype`/`rating`/`externalPlayerScore` vocabulary (#285, replacing the retired `view` label).
@@ -769,8 +771,10 @@ Existing production rules already cover a localizer or Grafana restart or OOM
 (`prod-oom-restarts`), a stopped container (`prod-container-missing`), memory and CPU
 pressure and a stale sampler, once the sampler is installed. Automatic restart does not
 hide an incident: `prod-oom-restarts` fires on the increased restart count. Memory
-pressure rules divide total cgroup usage, including reclaimable cache, so a healthy Grafana or
-freshly loaded localizer can sit near them; judge those with the anonymous-memory series.
+pressure rules divide anonymous plus shared cgroup memory by the limit, falling back to
+total usage only when the breakdown is unreadable. Reclaimable file cache therefore no
+longer fires them: it had filled small or cache-heavy containers (PostgreSQL, Prometheus,
+blackbox) to their limit and made the warning and critical rules swap on every crossing.
 Sustained localizer unavailability, translation failure rates and the daily synchronization
 ratio stay with [#451](https://github.com/rubhern/videogame-platform/issues/451), which
 adds any new rule. This section adds none.

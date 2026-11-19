@@ -40,11 +40,11 @@ const formatDate = (value: string) => new Intl.DateTimeFormat("es-ES", {
 /**
  * One row of the personal collection. Its score reading is the single entry point for
  * maintenance: pressing it opens an anchored, non-modal panel with the thermal keypad, the
- * current and pending readings, Save/Cancel and a two-step delete. The panel overlays the rows
+ * current and pending readings and a two-step delete. The panel overlays the rows
  * below instead of growing this one, so the cover, title and dates never move.
  *
- * <p>Picking a value only makes it pending; nothing is sent until Save. Escape, Cancel, an
- * outside press or moving focus away closes the panel without a command. A concurrent or
+ * <p>Picking a value saves it at once and closes the panel (#574); picking the saved value closes
+ * it without a command. Escape, an outside press or moving focus away closes it without one. A concurrent or
  * ambiguous outcome blocks further commands until the collection has been read again
  * (`readAt` is the time of the last successful read).
  *
@@ -151,13 +151,18 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
     };
   }, [open, busy]);
 
-  function save() {
-    if (busy || mustRead || !changed || selected === null) return;
+  function pick(value: number) {
+    if (busy || mustRead) return;
+    if (value === personalRating.value) {
+      close(true);
+      return;
+    }
+    setSelected(value);
     setFailure(null);
     setConfirmingDelete(false);
     // Only the general score: the platforms it was played on stay as they are.
-    command.mutate({ type: "save", write: { value: selected }, csrfToken, currentRating: personalRating }, {
-      onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} guardada: ${selected}/10.`); },
+    command.mutate({ type: "save", write: { value }, csrfToken, currentRating: personalRating }, {
+      onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} guardada: ${value}/10.`); },
       onError: fail,
     });
   }
@@ -250,7 +255,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
               <strong data-thermal={thermalBand(entry.value) ?? undefined}>{entry.value}</strong>
             </li>)}
           </ul>
-        </div> : <RatingKeypad ref={keypad} value={selected} onPick={setSelected} disabled={busy}
+        </div> : <RatingKeypad ref={keypad} value={selected} onPick={pick} disabled={busy || mustRead}
           describedBy={failure ? feedbackId : undefined} />}
         <button className="button my-rating-editor-platforms-edit" type="button" disabled={busy || mustRead}
           onClick={editPlatforms}>
@@ -263,11 +268,6 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
           <p>{failures[failure.error.kind]}</p>
           {failure.error.correlationId ? <p className="game-rating-footnote">Referencia: {failure.error.correlationId}</p> : null}
         </div> : null}
-        {byPlatform ? null : <div className="my-rating-editor-actions">
-          <button className="button" type="button" disabled={busy} onClick={() => close(true)}>Cancelar</button>
-          <button className="button button-primary" type="button" disabled={busy || mustRead || !changed}
-            onClick={save}>Guardar puntuación</button>
-        </div>}
         <div className="my-rating-editor-danger">
           <button ref={deleteButton} className="button rating-remove" type="button" disabled={busy || mustRead}
             aria-expanded={confirmingDelete} onClick={() => setConfirmingDelete(value => !value)}>

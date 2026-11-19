@@ -12,9 +12,22 @@ public interface PersonalRatingsReadPort {
         VALUE
     }
 
-    record Criteria(List<String> tokens, Sort sort, boolean descending, int page, int pageSize) {
+    /** {@code gameIds}, when not empty, restricts the user's ratings to those Games. */
+    record Criteria(
+            List<String> tokens,
+            Sort sort,
+            boolean descending,
+            int page,
+            int pageSize,
+            List<String> gameIds) {
         public Criteria {
             tokens = List.copyOf(tokens);
+            gameIds = List.copyOf(gameIds);
+        }
+
+        public Criteria(
+                List<String> tokens, Sort sort, boolean descending, int page, int pageSize) {
+            this(tokens, sort, descending, page, pageSize, List.of());
         }
 
         public long offset() {

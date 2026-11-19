@@ -56,6 +56,7 @@ public final class GameRankingService implements RankGamesUseCase {
     public GameRanking rank(Query query) {
         LocalDate evaluatedOn = LocalDate.ofInstant(clock.instant(), clock.getZone());
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
+        int minimumRatings = minimumRatings(settings.current(), query.source());
         GameRankingReadPort.Result result =
                 readPort.findRankedGames(
                                 new GameRankingReadPort.Criteria(
@@ -65,7 +66,7 @@ public final class GameRankingService implements RankGamesUseCase {
                                         new GameRankingReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
                                         SUMMARY_PLATFORM_LIMIT,
-                                        minimumRatings(settings.current(), query.source())))
+                                        minimumRatings))
                         .orElseThrow(CatalogueNotReadyException::new);
         if (!result.platformsSupported()) {
             throw new ReleaseQueryValidationException(
@@ -93,6 +94,7 @@ public final class GameRankingService implements RankGamesUseCase {
         return new GameRanking(
                 result.publicationVersion(),
                 query.source(),
+                minimumRatings,
                 items,
                 new GameRanking.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));

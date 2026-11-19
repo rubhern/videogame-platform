@@ -90,10 +90,8 @@ public final class RatingIntentAuthenticationFailureHandler
                     .sendRedirect(
                             request,
                             response,
-                            RatingBoundary.gamePathWithOutcome(
-                                    pending.gameId(),
-                                    pending.slug(),
-                                    RatingBoundary.Outcome.CANCELLED));
+                            RatingBoundary.returnPathWithOutcome(
+                                    pending, RatingBoundary.Outcome.CANCELLED));
             return;
         }
         getRedirectStrategy().sendRedirect(request, response, returnTo);

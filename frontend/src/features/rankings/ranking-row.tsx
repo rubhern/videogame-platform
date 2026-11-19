@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
@@ -17,11 +18,14 @@ export function RankingRow({
   game,
   linkState,
   titleRef,
+  stamp,
 }: {
   game: RankedGame;
   linkState: unknown;
   /** The first line of a batch loaded on request receives focus. */
   titleRef?: (element: HTMLAnchorElement | null) => void;
+  /** The player's own mark on the game, closing the line (#574). */
+  stamp?: ReactNode;
 }) {
   const gamePath = `/games/${game.gameId}/${game.slug}`;
   const band = game.reading.source === "gameometro" ? thermalBand(game.reading.value) : null;
@@ -54,6 +58,7 @@ export function RankingRow({
         />
       )}
       <RankingReading reading={game.reading} title={game.title} variant="row" />
+      {stamp}
     </article>
   );
 }

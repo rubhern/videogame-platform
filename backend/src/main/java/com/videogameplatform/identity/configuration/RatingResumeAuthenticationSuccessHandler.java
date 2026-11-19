@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  * <p>It atomically consumes the return context the boundary stored, so callback reload or replay
  * cannot resume the same logical selection twice. A valid, unexpired context becomes a single-use
  * recovered selection bound to the authenticated {@link UserId} and the browser returns to the same
- * game. An expired context returns to the game with a safe expiry outcome and no selection.
+ * game, or to the allowlisted list the rating started on. An expired context returns to the game with a safe expiry outcome and no selection.
  * General entry consumes its validated local target once; no context lands on the home page.
  */
 @Component
@@ -59,8 +59,7 @@ public final class RatingResumeAuthenticationSuccessHandler
             sendTo(
                     request,
                     response,
-                    RatingBoundary.gamePathWithOutcome(
-                            pending.gameId(), pending.slug(), RatingBoundary.Outcome.EXPIRED));
+                    RatingBoundary.returnPathWithOutcome(pending, RatingBoundary.Outcome.EXPIRED));
             return;
         }
 
@@ -75,8 +74,7 @@ public final class RatingResumeAuthenticationSuccessHandler
         sendTo(
                 request,
                 response,
-                RatingBoundary.gamePathWithOutcome(
-                        pending.gameId(), pending.slug(), RatingBoundary.Outcome.RESUMED));
+                RatingBoundary.returnPathWithOutcome(pending, RatingBoundary.Outcome.RESUMED));
     }
 
     private void sendTo(HttpServletRequest request, HttpServletResponse response, String target)

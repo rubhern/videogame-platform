@@ -7,20 +7,20 @@ sequenceDiagram
     participant Keycloak
     participant Ratings as Ratings API
 
-    Visitor->>Browser: Press a rating value on a game page
-    Browser->>BFF: GET /auth/rating-intent/start?gameId&slug&value
-    BFF->>BFF: Validate gameId and value (invalid input never starts authentication)
+    Visitor->>Browser: Press a rating value on a game page or a TOPómetro
+    Browser->>BFF: GET /auth/rating-intent/start?gameId&slug&value[&returnTo]
+    BFF->>BFF: Validate gameId and value (invalid input never starts authentication) and keep returnTo only if it is an allowlisted TOPómetro path
     alt Already authenticated
-        BFF-->>Browser: 302 back to the game with the resumed selection
+        BFF-->>Browser: 302 back to the TOPómetro or the game with the resumed selection
     else Anonymous
-        BFF->>BFF: Store short-lived return context (gameId, slug, value)
+        BFF->>BFF: Store short-lived return context (gameId, slug, value, list path)
         BFF-->>Browser: 302 into the established Keycloak OIDC flow
         Browser->>Keycloak: Authorization Code + PKCE
         Keycloak-->>Browser: Callback with single-use code
         Browser->>BFF: /login/oauth2/code/keycloak
         BFF->>Keycloak: Exchange code server-to-server and validate tokens
         BFF->>BFF: Bind the return context to the resolved UserId
-        BFF-->>Browser: 302 back to the same game context
+        BFF-->>Browser: 302 back to the same TOPómetro or game context
     end
     Browser->>BFF: GET /auth/rating-intent
     BFF-->>Browser: 200 pending value (single use) or 404

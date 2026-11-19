@@ -10,6 +10,9 @@ import com.videogameplatform.ratings.application.port.PersonalRatingsReadPort.So
 import java.util.List;
 
 public final class PersonalRatingsService implements ListPersonalRatingsUseCase {
+    /** As many Games as one page of any listing holds. */
+    static final int MAX_GAME_IDS = 100;
+
     private final PersonalRatingsReadPort read;
 
     public PersonalRatingsService(PersonalRatingsReadPort read) {
@@ -40,9 +43,17 @@ public final class PersonalRatingsService implements ListPersonalRatingsUseCase 
             throw new PersonalRatingsQueryInvalidException(Field.DIRECTION);
         if (query.page() < 1 || query.pageSize() < 1 || query.pageSize() > 100)
             throw new PersonalRatingsQueryInvalidException(Field.PAGINATION);
+        if (query.gameIds().size() > MAX_GAME_IDS
+                || query.gameIds().stream().anyMatch(id -> id == null || id.isBlank()))
+            throw new PersonalRatingsQueryInvalidException(Field.GAME_IDS);
         return read.read(
                 userId,
                 new PersonalRatingsReadPort.Criteria(
-                        tokens, sort, direction.equals("desc"), query.page(), query.pageSize()));
+                        tokens,
+                        sort,
+                        direction.equals("desc"),
+                        query.page(),
+                        query.pageSize(),
+                        query.gameIds().stream().map(String::trim).distinct().toList()));
     }
 }

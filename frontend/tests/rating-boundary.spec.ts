@@ -198,7 +198,6 @@ test.describe("real Keycloak rating journey", () => {
     const editor = page.getByRole("dialog", { name: /^Tu puntuación de / });
     await expect(editor.getByRole("button", { name: "8", exact: true })).toBeFocused();
     await editor.getByRole("button", { name: "9", exact: true }).click();
-    await editor.getByRole("button", { name: "Guardar puntuación" }).click();
     await expect(score).toHaveAccessibleName(/^Tu puntuación Ardiendo 9\/10/);
 
     // Another request in the same real authenticated session wins before this page writes.

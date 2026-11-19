@@ -85,8 +85,11 @@ class GameRankingServiceTest {
 
         settings.set(ProductSetting.RANKINGS_IGDB_MINIMUM_RATINGS, 200)
                 .set(ProductSetting.RANKINGS_COMMUNITY_MINIMUM_RATINGS, 3);
-        service.rank(new Query(Source.IGDB_PLAYERS, 1, 20));
-        service.rank(new Query(Source.GAMEOMETRO_COMMUNITY, 1, 20));
+        var igdb = service.rank(new Query(Source.IGDB_PLAYERS, 1, 20));
+        var community = service.rank(new Query(Source.GAMEOMETRO_COMMUNITY, 1, 20));
+        // The page states the entry rule it applied, so a client never shows a stale default.
+        assertThat(igdb.minimumRatings()).isEqualTo(200);
+        assertThat(community.minimumRatings()).isEqualTo(3);
         assertThat(port.asked.subList(2, 4))
                 .extracting(GameRankingReadPort.Criteria::minimumRatings)
                 .containsExactly(200, 3);

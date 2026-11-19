@@ -869,6 +869,18 @@ class ReviewedAdditions(DeltaFixture):
         target['services']['keycloak']['environment']['KC_LOG_LEVEL'] = after
         self.assertRaises(trust.Refused, self.reconcile, target)
 
+    def test_prometheus_heap_target_only_rises_with_its_ceiling(self):
+        before, after = upgrade.SETTING_TRANSITIONS[('prometheus', 'GOMEMLIMIT')]
+        self.active['services']['prometheus']['environment']['GOMEMLIMIT'] = before
+        target = rendered(self.new_bundle)
+        target['services']['prometheus']['environment']['GOMEMLIMIT'] = after
+        self.assertIn('environment', self.reconcile(target)[1]['prometheus'])
+        for value in ('256MiB', before):
+            with self.subTest(value):
+                self.active['services']['prometheus']['environment']['GOMEMLIMIT'] = after if value == before else before
+                target['services']['prometheus']['environment']['GOMEMLIMIT'] = value
+                self.assertRaises(trust.Refused, self.reconcile, target)
+
     def test_feedback_switch_follows_owner_inputs_and_needs_an_inbox_when_on(self):
         self.active = self.with_feedback(self.active)
         self.active['services']['application']['environment'].update(FEEDBACK_ENABLED='false', FEEDBACK_INBOX='')

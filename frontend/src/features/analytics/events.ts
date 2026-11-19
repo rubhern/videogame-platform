@@ -20,6 +20,11 @@ export type ProductEvents = {
   };
   rating_platforms_open: { has_rating: YesNo };
   rating_abandoned: { step: "scale" | "platforms" };
+  /** Rating from a list without opening the game (#574). */
+  quick_rating: {
+    list: "topometro";
+    action: "open" | "run" | "platforms" | "close" | "create" | "update" | "delete" | "sign_in";
+  };
   my_platforms_saved: { count: PreferenceCountBucket };
   interests_filter_toggle: { state: "on" | "off" };
   featured_period: { period: "week" | "month" };

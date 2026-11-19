@@ -45,7 +45,12 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
         }
     }
 
-    private PersonalRatingsPage query(String userId, Criteria criteria) {
+    private PersonalRatingsPage query(String userId, Criteria requested) {
+        Criteria criteria = withStoredGameIds(requested);
+        if (!requested.gameIds().isEmpty() && criteria.gameIds().isEmpty()) {
+            // No requested identifier can name a stored Game, so none can be rated.
+            return new PersonalRatingsPage(List.of(), requested.page(), requested.pageSize(), 0);
+        }
         var parameters = PersonalRatingsSql.parameters(userId, criteria);
         long total =
                 Objects.requireNonNull(
@@ -124,6 +129,32 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
                             .toList();
         }
         return new PersonalRatingsPage(items, criteria.page(), criteria.pageSize(), total);
+    }
+
+    /** Game identifiers are stored as UUIDs; any other opaque value matches nothing. */
+    private static Criteria withStoredGameIds(Criteria criteria) {
+        var stored =
+                criteria.gameIds().stream()
+                        .filter(JdbcPersonalRatingsReadAdapter::isUuid)
+                        .map(id -> UUID.fromString(id).toString())
+                        .distinct()
+                        .toList();
+        return new Criteria(
+                criteria.tokens(),
+                criteria.sort(),
+                criteria.descending(),
+                criteria.page(),
+                criteria.pageSize(),
+                stored);
+    }
+
+    private static boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return value.length() == 36;
+        } catch (IllegalArgumentException notUuid) {
+            return false;
+        }
     }
 
     private static PageRow row(ResultSet rs, int row) throws SQLException {

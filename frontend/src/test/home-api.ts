@@ -148,6 +148,7 @@ export function homeRanking(
 ): GameRankingPage {
   return {
     source,
+    minimumRatings: source === "igdb_players" ? 50 : 1,
     items: titles.map((title, index) => rankedGame(index + 1, title, source)),
     page: { number: 1, size: 20, totalItems: titles.length, totalPages: titles.length === 0 ? 0 : 1 },
   };

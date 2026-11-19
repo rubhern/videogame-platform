@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PlatformNavigation } from "../platforms/platform-navigation";
 
@@ -6,7 +6,8 @@ import { TopometroLogo } from "../../shared/brand/brand-logo";
 import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 import { StageLight } from "../../shared/ui/stage-light";
 import { type PlatformContext } from "../platforms/platform-context";
-import type { RankingView } from "./game-ranking-view-model";
+import type { RankedGame, RankingView } from "./game-ranking-view-model";
+import { RankingEntryRule } from "./ranking-entry-rule";
 import { RankingPodium } from "./ranking-podium";
 import { RankingRow } from "./ranking-row";
 import { rankingPath, type RankingSource } from "./ranking-search";
@@ -40,6 +41,12 @@ type TopometroShellProps = {
   state: TopometroState;
   onRetry: () => void;
   onLoadMore: () => void;
+  /** The player's own mark on a ranked game, to rate it in place (#574). */
+  renderStamp?: (game: RankedGame, variant: "podium" | "row") => ReactNode;
+  /** Controls that act on the whole list, on its entry line (#574). */
+  tools?: ReactNode;
+  /** A short status about the player's own rating, under the entry line (#574). */
+  notice?: ReactNode;
 };
 
 const count = new Intl.NumberFormat("es-ES", { useGrouping: "always" });
@@ -154,7 +161,7 @@ function RowPlaceholders({ count: rows }: { count: number }) {
  * A platform's TOPómetro shares its contextual navigation with catalogue and upcoming highlights.
  * Its source and further pages stay scoped to the platform.
  */
-export function TopometroShell({ source, platform, state, onRetry, onLoadMore }: TopometroShellProps) {
+export function TopometroShell({ source, platform, state, onRetry, onLoadMore, renderStamp, tools, notice }: TopometroShellProps) {
   const linkState = useGameLinkState();
   const rowLinks = useRef<(HTMLAnchorElement | null)[]>([]);
   // The index of the first line of a batch the visitor asked for, focused once it arrives.
@@ -169,6 +176,18 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
     focusFrom.current = null;
     rowLinks.current[first]?.focus();
   }, [rows.length]);
+
+  const minimumRatings = ready?.view.minimumRatings ?? null;
+  const entryRule =
+    minimumRatings === null ? null : (
+      <>
+        <div className="ranking-entry">
+          <RankingEntryRule minimumRatings={minimumRatings} platformName={platform?.context.name} source={source} />
+          {tools}
+        </div>
+        {notice}
+      </>
+    );
 
   // The stage is lit by the podium's own covers, never by a placeholder.
   const lights =
@@ -191,7 +210,7 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
               <span className="sr-only">TOPómetro</span>
               <TopometroLogo className="topometro-logo" />
             </h1>
-            <RankingSourceSwitch source={source} />
+            <RankingSourceSwitch note={entryRule} source={source} />
           </header>
         ) : (
           <header className="topometro-head topometro-head-platform platform-identity-box" data-logo={platform.context.logo}>
@@ -201,7 +220,7 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
               <span className="sr-only">{`TOPómetro de ${platform.context.name}`}</span>
               <TopometroLogo className="topometro-logo" />
             </h1>
-            <RankingSourceSwitch platformKey={platform.context.key} source={source} />
+            <RankingSourceSwitch note={entryRule} platformKey={platform.context.key} source={source} />
           </header>
         )}
 
@@ -239,7 +258,10 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
         {ready !== null && ready.view.loaded > 0 ? (
           <>
             <h2 className="sr-only">Podio</h2>
-            <RankingPodium games={ready.view.podium} />
+            <RankingPodium
+              games={ready.view.podium}
+              {...(renderStamp ? { stamp: (game: RankedGame) => renderStamp(game, "podium") } : {})}
+            />
 
             {rows.length === 0 ? null : (
               <div className="ranking-ledger">
@@ -250,6 +272,7 @@ export function TopometroShell({ source, platform, state, onRetry, onLoadMore }:
                       <RankingRow
                         game={game}
                         linkState={linkState}
+                        stamp={renderStamp?.(game, "row")}
                         titleRef={(element) => {
                           rowLinks.current[index] = element;
                         }}
