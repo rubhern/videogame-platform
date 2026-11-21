@@ -74,7 +74,7 @@ for (const width of [390, 1320]) {
     await expect(third.getByText("11 de agosto de 2026")).toBeAttached();
 
     // Pointing at a release, or focusing its title, lifts its needle above the others.
-    await third.getByRole("link", { name: "Juego 3" }).focus();
+    await third.getByRole("link", { name: "Juego 3", exact: true }).focus();
     await expect(scale).toHaveClass(/window-scale-pointing/);
     await expect(scale.locator(".window-scale-needle-active")).toHaveCount(1);
     const fire = await scale
@@ -82,6 +82,7 @@ for (const width of [390, 1320]) {
       .evaluate((needle) => getComputedStyle(needle, "::after").borderTopColor);
     expect(fire).toBe("rgb(255, 106, 61)");
     await page.keyboard.press("Tab");
+    await expect(third.getByRole("link", { name: /^La quiero: Juego 3/ })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(scale).not.toHaveClass(/window-scale-pointing/);
 

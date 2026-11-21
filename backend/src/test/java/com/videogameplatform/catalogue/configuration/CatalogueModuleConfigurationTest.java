@@ -27,6 +27,8 @@ import com.videogameplatform.catalogue.application.search.internal.CatalogueSear
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import com.videogameplatform.catalogue.application.settings.ProductSetting;
+import com.videogameplatform.catalogue.application.wishlist.Wishlist;
+import com.videogameplatform.catalogue.application.wishlist.port.WishlistStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -60,6 +62,7 @@ class CatalogueModuleConfigurationTest {
         contextRunner.run(
                 context -> {
                     assertThat(context).hasSingleBean(BrowseReleasesUseCase.class);
+                    assertThat(context).hasSingleBean(Wishlist.class);
                     assertThat(
                                     context.getBean(
                                             com.videogameplatform.catalogue.application
@@ -209,6 +212,11 @@ class CatalogueModuleConfigurationTest {
 
     @Configuration(proxyBeanMethods = false)
     static class TestDependencies {
+
+        @Bean
+        WishlistStore wishlistStore() {
+            return org.mockito.Mockito.mock(WishlistStore.class);
+        }
 
         @Bean
         com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore

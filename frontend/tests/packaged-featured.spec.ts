@@ -58,13 +58,13 @@ test("the packaged featured releases read local PostgreSQL week by week and mont
     wolverine.getByRole("list", { name: "Lanzamiento" }).getByText("25 sep 2026", { exact: true }),
   ).toBeVisible();
 
-  await wolverine.getByRole("link", { name: "Marvel's Wolverine" }).click();
+  await wolverine.getByRole("link", { name: "Marvel's Wolverine", exact: true }).click();
   await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-00000000000c\/[a-z0-9-]+$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-09$/);
 
   // The game page's own way back names Destacados and returns to the month it was opened from.
-  await wolverine.getByRole("link", { name: "Marvel's Wolverine" }).click();
+  await wolverine.getByRole("link", { name: "Marvel's Wolverine", exact: true }).click();
   await page.getByRole("link", { name: "Volver a Destacados" }).click();
   await expect(page).toHaveURL(/\/lanzamientos\/destacados\?month=2026-09$/);
   await expect(page.getByRole("article", { name: "Marvel's Wolverine" })).toBeVisible();

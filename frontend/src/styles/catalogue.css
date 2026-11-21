@@ -775,6 +775,7 @@
 
   /* Two lines at most; the full title stays the link's text. */
   .release-card .card-title {
+    align-self: stretch;
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
