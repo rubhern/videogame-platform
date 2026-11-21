@@ -72,7 +72,7 @@ public class ReleaseCalendarController implements ReleaseCalendarApi {
         return values == null ? List.of() : List.copyOf(values);
     }
 
-    private static ReleaseCalendar toResponse(ReleaseCalendarResult result) {
+    static ReleaseCalendar toResponse(ReleaseCalendarResult result) {
         ReleaseCalendarResult.Navigation source = result.navigation();
         ReleaseCalendarNavigation navigation =
                 new ReleaseCalendarNavigation(source.first().toString(), source.last().toString());

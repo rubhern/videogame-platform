@@ -254,6 +254,71 @@ class Runtime:
             user_id,
         ))
 
+    def has_wishlist(self, user_id: str) -> bool:
+        # Older releases' restored databases have no library to erase.
+        return self.sql("SELECT to_regclass('catalogue.game_library_entry') IS NOT NULL;\n", user_id) == "t"
+
+    def wish_count(self, user_id: str) -> int:
+        if not self.has_wishlist(user_id):
+            return 0
+        return int(self.sql(
+            "SELECT count(*) FROM catalogue.game_library_entry WHERE user_id = :'user_id';\n",
+            user_id,
+        ))
+
+    def wishlist(self, user_id: str) -> list[dict[str, object]]:
+        if not self.has_wishlist(user_id):
+            return []
+        wishes = json.loads(self.sql(
+            """
+            WITH bounded AS (
+                SELECT w.game_id, w.wished_at, (to_jsonb(w)->>'position_key')::numeric AS sort_key,
+                       (to_jsonb(w)->>'priority')::bigint AS legacy_weight
+                FROM catalogue.game_library_entry w
+                WHERE w.user_id = :'user_id' ORDER BY w.game_id LIMIT 10001
+            ), ordered AS (
+                SELECT bounded.*, row_number() OVER (
+                    ORDER BY sort_key NULLS LAST, legacy_weight DESC NULLS LAST, wished_at, game_id
+                ) AS position
+                FROM bounded
+            )
+            SELECT coalesce(jsonb_agg(
+                     jsonb_build_object('gameId', w.game_id, 'title', g.canonical_title,
+                                        'addedAt', w.wished_at, 'position', w.position)
+                     ORDER BY w.game_id), '[]'::jsonb)
+            FROM ordered w
+            LEFT JOIN catalogue.game_snapshot g ON g.game_id = w.game_id
+              AND g.publication_id = (SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current);
+            """,
+            user_id,
+        ))
+        if len(wishes) > 10000:
+            raise ProvisioningError("Wishlist export row budget exceeded")
+        return wishes
+
+    def delete_wishes(self, user_id: str) -> int:
+        if not self.has_wishlist(user_id):
+            return 0
+        statement = """
+            WITH batch AS (
+                SELECT game_id FROM catalogue.game_library_entry
+                WHERE user_id = :'user_id' ORDER BY game_id LIMIT 100
+            ), deleted AS (
+                DELETE FROM catalogue.game_library_entry w USING batch
+                WHERE w.user_id = :'user_id' AND w.game_id = batch.game_id RETURNING 1
+            )
+            SELECT count(*) FROM deleted;
+            """
+        total, deadline = 0, time.monotonic() + 120
+        for _ in range(100):
+            if time.monotonic() >= deadline:
+                raise ProvisioningError("Wishlist erasure batch budget reached; retry the same ledger entry")
+            deleted = int(self.sql(statement, user_id))
+            total += deleted
+            if deleted < 100:
+                return total
+        raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
+
     # BFF sessions ----------------------------------------------------------------------------
 
     def application_running(self) -> bool:
@@ -429,6 +494,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "linkedSignIn": linked,
         "ratings": runtime.ratings(user_id),
         "preferredPlatforms": runtime.preferred_platforms(user_id),
+        "wishlist": runtime.wishlist(user_id),
     }
 
 
@@ -467,15 +533,18 @@ def delete_ratings(runtime: Runtime, keycloak_user_id: str, user_id: str, must_b
     if account is not None and account.get("enabled"):
         raise ProvisioningError("The account is enabled; revoke it before deleting its ratings")
     # The step keeps its recorded name; it removes every product-owned personal row, the
-    # preferred platforms (#295) included, so existing ledger entries replay unchanged.
+    # preferred platforms and the wishlist included, so existing ledger entries replay unchanged.
     return {"step": "delete-ratings", "deletedRatings": runtime.delete_ratings(user_id),
-            "deletedPreferredPlatformChoices": runtime.delete_preferences(user_id)}
+            "deletedPreferredPlatformChoices": runtime.delete_preferences(user_id),
+            "deletedWishes": runtime.delete_wishes(user_id)}
 
 
 def delete_identity(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
     require_application_state(runtime, must_be_stopped)
     if runtime.rating_count(user_id) or runtime.preference_count(user_id):
         raise ProvisioningError("The account still has ratings; delete them before the identity")
+    if runtime.wish_count(user_id):
+        raise ProvisioningError("The account still has saved games; erase them before deleting its identity")
     if runtime.account(keycloak_user_id) is None:
         return {"step": "delete-identity", "identity": "already-absent"}
     runtime.keycloak("DELETE", f"/users/{keycloak_user_id}", missing_ok=True)
@@ -493,6 +562,8 @@ def verify(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stoppe
         failures.append("ratings remain")
     if runtime.preference_count(user_id):
         failures.append("preferred platforms remain")
+    if runtime.wish_count(user_id):
+        failures.append("saved games remain")
     if running and runtime.revoke_bff_sessions(user_id):
         failures.append("BFF sessions remained")
     if failures:

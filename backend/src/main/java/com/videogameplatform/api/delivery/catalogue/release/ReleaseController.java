@@ -65,15 +65,7 @@ public class ReleaseController implements ReleasesApi {
                                 toList(regionIds),
                                 page,
                                 pageSize));
-        ReleasePage body = mapper.toResponse(result);
-        var scoreBatch =
-                scores.read(
-                        body.getItems().stream()
-                                .map(
-                                        com.videogameplatform.api.generated.model.ReleaseItem
-                                                ::getGameId)
-                                .collect(java.util.stream.Collectors.toSet()));
-        body.getItems().forEach(item -> item.setScores(scoreBatch.get(item.getGameId())));
+        ReleasePage body = mapper.toScoredResponse(result, scores);
         String entityTag = conditionalRequests.strongEntityTag(body);
 
         HttpHeaders headers = new HttpHeaders();
@@ -91,7 +83,7 @@ public class ReleaseController implements ReleasesApi {
         return values == null ? List.of() : List.copyOf(values);
     }
 
-    private static BrowseReleasesUseCase.Sort toApplicationSort(ReleaseSort sort) {
+    static BrowseReleasesUseCase.Sort toApplicationSort(ReleaseSort sort) {
         return switch (sort) {
             case releaseDate -> BrowseReleasesUseCase.Sort.RELEASE_DATE;
             case hype -> BrowseReleasesUseCase.Sort.HYPE;

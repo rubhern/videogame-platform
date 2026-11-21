@@ -11,6 +11,8 @@ historical decision.
 
 ## Accepted
 
+- [ADR-0050 — Store private game wishes in the catalogue](0050-store-private-game-wishes-in-the-catalogue.md) — #590, game-level library entry owned by Catalogue.
+
 - [ADR-0040: Aggregate production application logs in Loki](0040-aggregate-production-application-logs-in-loki.md) — production application logs travel over OTLP through the existing Collector into one private Loki, queried in production Grafana; no published port, Docker access or Alloy; six-day disposable history.
 - [ADR-0039: Let private-dev promotion install its own revision](0039-let-private-dev-promotion-install-its-own-revision.md) — private-dev promotion moves the host checkout to the dispatched main commit and reconciles changed services; removes the runtime-contract gate and acknowledgement of ADR-0023.
 - [ADR-0038: Measure product use with consent-gated Google Analytics 4](0038-measure-product-use-with-consent-gated-ga4.md) — #507; GA4 only after an opt-in notice (Consent Mode basic), measurement ID from runtime configuration through `UC-022`, route templates and a closed event dictionary only; accepted 2026-11-11.

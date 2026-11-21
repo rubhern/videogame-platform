@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(44);
+                    .isEqualTo(47);
             assertThat(
                             singleString(
                                     statement,
@@ -204,6 +204,45 @@ class DatabaseMigrationApplicationTest {
     }
 
     @Test
+    void migratingWishlistPositionsPreservesTheExistingOrder() throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("wishlist_order_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        var configuration =
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(database),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration");
+        configuration.target("20261121.120000").load().migrate();
+        try (var connection = PostgreSqlTestDatabase.adminConnection(database);
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                INSERT INTO catalogue.game (game_id, created_at) VALUES
+                    ('00000000-0000-4000-8000-000000000001', now()),
+                    ('00000000-0000-4000-8000-000000000002', now());
+                INSERT INTO catalogue.game_library_entry (user_id, game_id, wished_at, priority)
+                VALUES
+                    ('00000000-0000-4000-8000-000000000100', '00000000-0000-4000-8000-000000000001', now(), NULL),
+                    ('00000000-0000-4000-8000-000000000100', '00000000-0000-4000-8000-000000000002', now(), 7);
+                """);
+        }
+        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(1);
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleString(
+                                    statement,
+                                    """
+                SELECT string_agg(right(game_id::text, 1), ',' ORDER BY position_key)
+                FROM catalogue.game_library_entry
+                """))
+                    .isEqualTo("2,1");
+        }
+    }
+
+    @Test
     void deferredPolicyUpgradePreservesTheAppliedHistoricalMigrationAndCheckpoint()
             throws SQLException {
         String database = PostgreSqlTestDatabase.isolatedDatabaseName("historical_upgrade");
@@ -236,7 +275,7 @@ class DatabaseMigrationApplicationTest {
         }
 
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(12);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(15);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
@@ -282,7 +321,7 @@ class DatabaseMigrationApplicationTest {
                     """);
         }
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(9);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(12);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.adminConnection(database);

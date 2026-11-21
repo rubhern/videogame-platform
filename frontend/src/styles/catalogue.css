@@ -766,7 +766,7 @@
 
   .release-card > .cover-figure { grid-row: 1; }
   .release-card > .card-date { grid-row: 2; margin-top: 12px; }
-  .release-card > .card-title { grid-row: 3; margin-top: 7px; }
+  .release-card > .wishlist-title { grid-row: 3; margin-top: 7px; }
   .release-card > .discovery-scores { grid-row: 4; margin-top: 8px; }
   .release-card > .card-release { grid-row: 5; margin-top: 9px; }
   .release-card > .card-genres { grid-row: 6; margin-top: 5px; }

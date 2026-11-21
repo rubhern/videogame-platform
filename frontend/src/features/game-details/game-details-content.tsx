@@ -1,3 +1,4 @@
+import { WishlistActions, WishlistButton } from "../wishlist/wishlist-controls";
 import { toWordmark } from "../../shared/catalogue/title-wordmark";
 import {
   toExternalPlayerScore,
@@ -157,6 +158,11 @@ function ExternalScore({ score, title }: { score: ExternalPlayerScore; title: st
 export function GameDetailsContent({ game }: { game: GameDetails }) {
   const externalScore = toExternalPlayerScore(game.externalScore);
   const wordmark = toWordmark(game.canonicalTitle);
+  const wish = (
+    <span className="game-detail-title-wish">
+      <WishlistButton gameId={game.gameId} hero title={game.canonicalTitle} />
+    </span>
+  );
   const titleScale =
     wordmark.main.length > LONGEST_NAME
       ? " game-detail-title-longest"
@@ -174,20 +180,22 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
 
       <header className="game-detail-heading">
         <p className="eyebrow">Ficha del juego</p>
-        <h1 className={`game-detail-title${titleScale}`}>
-          <span className="game-wordmark-main">
-            {wordmark.main}
+        <WishlistActions batches={[[game.gameId]]}>
+          <h1 aria-label={game.canonicalTitle} className={`game-detail-title${titleScale}`}>
+            <span className="game-wordmark-main">
+              {wordmark.main}
+              {wordmark.sub === null ? wish : (
+                <span className="game-wordmark-delimiter">{wordmark.delimiter}</span>
+              )}
+            </span>
             {wordmark.sub === null ? null : (
-              <span className="game-wordmark-delimiter">{wordmark.delimiter}</span>
+              <>
+                {" "}
+                <span className={`game-wordmark-sub${subtitleScale}`}>{wordmark.sub}{wish}</span>
+              </>
             )}
-          </span>
-          {wordmark.sub === null ? null : (
-            <>
-              {" "}
-              <span className={`game-wordmark-sub${subtitleScale}`}>{wordmark.sub}</span>
-            </>
-          )}
-        </h1>
+          </h1>
+        </WishlistActions>
         {game.aliases.length > 0 ? (
           <p className="game-detail-aliases">
             También conocido como <span>{game.aliases.join(" · ")}</span>

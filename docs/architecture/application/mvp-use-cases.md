@@ -712,7 +712,8 @@ credential editor or new statistics model is introduced.
 
 Export captures the current profile projection, every retained personal rating with
 its game context, direct and per-platform scores and timestamps, and preferred-platform
-choice including its save time. A consistent local snapshot is read through module-owned
+choice including its save time, and wishlist game IDs, available titles, save times and list positions.
+A consistent local snapshot is read through module-owned
 contracts in bounded cursor batches. A bounded complete JSON document is prepared before
 successful delivery; exceeding the byte/time budget fails explicitly, never truncates.
 Credentials, tokens, raw provider data and other accounts are excluded.
@@ -736,6 +737,28 @@ and recoverable, never automatically re-enables an account. The owner reviews th
 [ADR-0027 amendment](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 before rollout.
 
+
+### Private wishlist (UC-025, post-MVP #590)
+
+The signed-in player saves or removes one local game from a private list. Only the
+BFF principal supplies ownership. Repeated saves keep the original time, and a
+repeated removal succeeds. Every currently published game can be saved, including
+an unreleased game or a game without a date. When an existing wish loses its
+published game context, it remains removable and appears without a game link.
+
+The player can move any saved game before or after another game in the same list.
+The account holds one order across pages. New wishes join the end, and a catalogue
+date change leaves the order intact. Each reorder changes only the moved entry.
+The saved order is part of the personal export.
+
+The list shows the earliest upcoming release per game, or the latest ended release
+if there is no upcoming one. Cancelled and delayed releases are excluded. A known
+period remains upcoming through its last day in Europe/Madrid. The presentation
+keeps day, month, quarter, year or unknown precision. A bounded page returns the total.
+The explorer and calendar can scope their contextual filters and results to the
+same list. The calendar's daily count and matching game page use the same scope.
+PostgreSQL applies the owner scope, counts and orders before returning any page.
+Self-service export and verified deletion follow [UC-021](#private-account-lifecycle-uc-021-post-mvp-272).
 
 ### Editorial anticipation lists (UC-023, post-MVP #458)
 

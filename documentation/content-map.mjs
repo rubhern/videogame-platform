@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0050-store-private-game-wishes-in-the-catalogue.md', 'Private game wishlist · accepted'],
     ['docs/decisions/0049-insert-link-preview-metadata-into-the-served-entry-point.md', 'Link-preview metadata · proposed'],
     ['docs/decisions/0048-project-presented-releases-for-platform-catalogue.md', 'Platform catalogue projection · proposed'],
     ['docs/decisions/0046-keep-sampled-production-traces-in-tempo.md', 'Sampled production traces · proposed'],

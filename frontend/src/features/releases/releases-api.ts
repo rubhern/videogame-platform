@@ -28,9 +28,11 @@ export class ReleasesApiError extends Error {
 export async function getReleases(
   query: ReleasesQuery,
   client: ProductApiClient = productApiClient,
+  wishedOnly = false,
+  signal?: AbortSignal,
 ) {
-  const { data, error, response } = await client.GET("/releases", {
-    params: { query },
+  const { data, error, response } = await client.GET(wishedOnly ? "/me/wishlist/releases" : "/releases", {
+    params: { query }, ...(wishedOnly ? { cache: "no-store" } : {}), ...(signal ? { signal } : {}),
   });
 
   if (data !== undefined) {

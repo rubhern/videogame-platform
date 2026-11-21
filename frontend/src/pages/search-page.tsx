@@ -1,3 +1,4 @@
+import { WishlistActions } from "../features/wishlist/wishlist-controls";
 import { useSearchParams } from "react-router-dom";
 
 import type { GameSearchApiError } from "../features/search/game-search-api";
@@ -49,13 +50,17 @@ export function SearchPage() {
     };
   }
 
+  const gameIds = state.status === "ready" && !state.isPlaceholderData
+    ? state.model.results.map((result) => result.gameId) : [];
   return (
-    <GameSearchShell
-      onRetry={() => {
-        void query.refetch();
-      }}
-      params={params}
-      state={state}
-    />
+    <WishlistActions batches={[gameIds]}>
+      <GameSearchShell
+        onRetry={() => {
+          void query.refetch();
+        }}
+        params={params}
+        state={state}
+      />
+    </WishlistActions>
   );
 }

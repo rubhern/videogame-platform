@@ -261,4 +261,13 @@ class CatalogueModuleConfiguration {
             GameDetailsReadPort readPort, CatalogueCoverPolicy coverPolicy, Clock clock) {
         return new GameDetailsService(readPort, coverPolicy, clock);
     }
+
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.Wishlist wishlist(
+            com.videogameplatform.catalogue.application.wishlist.port.WishlistStore store,
+            CatalogueCoverPolicy coverPolicy,
+            Clock clock) {
+        return new com.videogameplatform.catalogue.application.wishlist.internal.WishlistService(
+                store, coverPolicy, clock);
+    }
 }

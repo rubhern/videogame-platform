@@ -25,6 +25,7 @@ export type ProductEvents = {
     list: "topometro";
     action: "open" | "run" | "platforms" | "close" | "create" | "update" | "delete" | "sign_in";
   };
+  wishlist_changed: { action: "add" | "remove" };
   my_platforms_saved: { count: PreferenceCountBucket };
   interests_filter_toggle: { state: "on" | "off" };
   featured_period: { period: "week" | "month" };

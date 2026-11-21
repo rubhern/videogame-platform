@@ -43,6 +43,7 @@ export type ReleasesSearch = {
   regionIds: string[];
   page: number;
   pageSize: number;
+  wishedOnly?: boolean;
 };
 
 /** Six columns of two rows on wide desktop. */
@@ -127,6 +128,7 @@ export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
   const to = params.get("to");
   const validRange = from !== null && to !== null && rangeProblem(from, to) === null;
   return {
+    ...(params.get("wishedOnly") === "true" ? { wishedOnly: true } : {}),
     from: validRange ? from : null,
     to: validRange ? to : null,
     sort: readSort(params.get("sort")),
@@ -141,6 +143,7 @@ export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
 /** Serializes navigable state, omitting defaults so shared URLs stay readable. */
 export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   const params = new URLSearchParams();
+  if (search.wishedOnly) params.set("wishedOnly", "true");
   if (search.from !== null && search.to !== null) {
     params.set("from", search.from);
     params.set("to", search.to);

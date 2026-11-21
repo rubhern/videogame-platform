@@ -1,13 +1,16 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
+import { WISHLIST_KEY } from "../wishlist/wishlist-api";
 import { getReleases, type ReleasePage, type ReleasesApiError } from "./releases-api";
 import { toReleasesQuery, type ReleasesSearch } from "./releases-search";
 import { toReleasesViewModel, type ReleasesViewModel } from "./releases-view-model";
 
-export function releasesQueryOptions(search: ReleasesSearch) {
+export function releasesQueryOptions(search: ReleasesSearch, scope?: number) {
   return {
-    queryKey: ["releases", search],
-    queryFn: () => getReleases(toReleasesQuery(search)),
+    queryKey: search.wishedOnly ? [...WISHLIST_KEY, "releases", scope, search] : ["releases", search],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      getReleases(toReleasesQuery(search), undefined, search.wishedOnly, signal),
+    ...(search.wishedOnly ? { gcTime: 0, retry: false } : {}),
   };
 }
 
@@ -16,12 +19,14 @@ export function releasesQueryOptions(search: ReleasesSearch) {
  * one loads so filters, the evaluated window and pagination remain operable instead
  * of collapsing into the initial loading state on every interaction.
  */
-export function useReleasesQuery(search: ReleasesSearch, enabled = true) {
+export function useReleasesQuery(search: ReleasesSearch, enabled = true, scope?: number) {
   return useQuery<ReleasePage, ReleasesApiError, ReleasesViewModel>({
-    ...releasesQueryOptions(search),
+    ...releasesQueryOptions(search, scope),
     enabled,
     refetchOnMount: false,
     select: toReleasesViewModel,
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, query) =>
+      (search.wishedOnly ? scope !== undefined && query?.queryKey[3] === scope : query?.queryKey[0] === "releases")
+        ? keepPreviousData(previous) : undefined,
   });
 }

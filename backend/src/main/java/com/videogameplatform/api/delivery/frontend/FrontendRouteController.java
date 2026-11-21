@@ -91,6 +91,7 @@ class FrontendRouteController {
         "/mis-puntuaciones",
         "/mis-puntuaciones/estadisticas",
         "/mis-plataformas",
+        "/mis-deseados",
         "/mi-perfil",
         "/mi-perfil/borrado",
         "/bienvenida",

@@ -1,3 +1,4 @@
+import { WishlistActions, WishlistButton } from "../wishlist/wishlist-controls";
 import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
@@ -40,11 +41,14 @@ function CalendarReleaseRow({ item }: { item: ReleaseListItem }) {
     <article className="calendar-release">
       <CatalogueCover caption={false} cover={item.cover} linkState={linkState} to={gamePath} />
       <div className="calendar-release-copy">
-        <h3 className="calendar-release-title">
-          <Link state={linkState} to={gamePath}>
-            {item.title}
-          </Link>
-        </h3>
+        <div className="wishlist-title">
+          <h3 className="calendar-release-title">
+            <Link state={linkState} to={gamePath}>
+              {item.title}
+            </Link>
+          </h3>
+          <WishlistButton compact gameId={item.gameId} title={item.title} />
+        </div>
         {group === undefined ? null : (
           <div className="calendar-release-meta">
             <PlatformMarks
@@ -145,13 +149,15 @@ export function ReleaseCalendarDay({
       ) : null}
 
       {preview.status === "ready" && preview.items.length > 0 ? (
-        <ol aria-label={`Lanzamientos del ${dayHeading(date).toLowerCase()}`} className="calendar-release-list">
-          {preview.items.map((item) => (
-            <li key={item.gameId}>
-              <CalendarReleaseRow item={item} />
-            </li>
-          ))}
-        </ol>
+        <WishlistActions batches={[preview.items.map((item) => item.gameId)]}>
+          <ol aria-label={`Lanzamientos del ${dayHeading(date).toLowerCase()}`} className="calendar-release-list">
+            {preview.items.map((item) => (
+              <li key={item.gameId}>
+                <CalendarReleaseRow item={item} />
+              </li>
+            ))}
+          </ol>
+        </WishlistActions>
       ) : null}
       {preview.status === "ready" && <ReleasesPagination page={preview.page} pathFor={pagePath} preventScrollReset />}
     </section>

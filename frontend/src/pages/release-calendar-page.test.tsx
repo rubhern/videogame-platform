@@ -193,7 +193,7 @@ describe("release calendar page", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Viernes, 20 de noviembre" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Viernes, 20 de noviembre" })).getByRole("status")).toHaveTextContent("31 lanzamientos");
     const list = await screen.findByRole("list", { name: "Lanzamientos del viernes, 20 de noviembre" });
-    const links = within(list).getAllByRole("link").filter((link) => link.textContent !== "");
+    const links = within(list).getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/games/") && link.textContent !== "");
     expect(links.map((link) => link.textContent)).toEqual(["Voidbreakers", "Tales of Elaris", "Neon Apex"]);
     expect(within(list).getAllByRole("list", { name: /Plataformas de/ })[0]).toHaveTextContent("PlayStation 5");
     expect(screen.getByRole("link", { name: /Ver todos los lanzamientos del día/ })).toHaveAttribute(

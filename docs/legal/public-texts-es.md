@@ -4,7 +4,7 @@
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
 - **Scope:** Approved wording for a public, free, non-commercial service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
-These Spanish texts are the canonical source for public legal pages. The feedback additions require approval before public activation.
+These Spanish texts are the canonical source for public legal pages. The feedback and wishlist additions require wording approval before public activation.
 Publish only the corresponding public sections through product routes; do not expose
 this combined source document or the editorial checklist at the end. The
 [publication checklist and integration plan](../development/data-protection.md#publication-and-product-integration)
@@ -66,12 +66,15 @@ contraseña. Al crear la cuenta de este modo aceptas las mismas condiciones de u
 puedes entrar con tu email creando una contraseña desde «¿Has olvidado tu contraseña?».
 
 Guardamos tus puntuaciones, el juego al que corresponden y las fechas de creación y
-modificación. Tu lista personal no se publica. Cada puntuación contribuye a la media,
+modificación. Si guardas un juego en «Mis deseados», conservamos el juego y la fecha en
+que lo guardaste para mostrarte tu lista y filtrar tus lanzamientos. Guardamos también
+el orden de tu lista. Tu lista de deseados
+y tus puntuaciones individuales son privadas. Cada puntuación contribuye a la media,
 el número de votos y la distribución pública del juego, sin mostrar tu identidad.
 No prometemos anonimato absoluto: las estadísticas de grupos pequeños pueden permitir
 inferencias. No hay perfiles públicos, publicidad ni venta de datos personales.
 
-La gestión de la cuenta, verificación, recuperación y puntuaciones se basa en la
+La gestión de la cuenta, verificación, recuperación, puntuaciones y juegos deseados se basa en la
 prestación del servicio que solicitas al aceptar las condiciones (artículo 6.1.b
 RGPD). Las sesiones incluyen identificadores, fechas de acceso, dirección IP y datos
 del navegador o dispositivo en Keycloak; el BFF mantiene la sesión y sus credenciales
@@ -105,10 +108,12 @@ de forma agregada, qué páginas y funciones se utilizan y decidir qué mejorar.
 envían la página visitada en forma genérica (por ejemplo, la ficha de un juego con su
 nombre público, sin búsquedas, parámetros ni identificadores), acciones de uso como
 abrir el panel de puntuación, cambiar de periodo en Destacados o guardar tus
-plataformas, sin el valor de tus puntuaciones, y los datos técnicos que recoge Google:
+plataformas, o añadir o quitar un juego de tus deseados sin identificar el juego de esa
+acción. Se envían también los datos técnicos que recoge Google:
 un identificador seudónimo guardado en la cookie, navegador, dispositivo y ubicación
 aproximada. Según Google, Google Analytics 4 no registra ni almacena la dirección IP.
-No enviamos tu email, tu identificador de cuenta ni tus puntuaciones, ni combinamos
+No enviamos tu email, tu identificador de cuenta, tus puntuaciones ni tu lista de
+deseados, ni combinamos
 estos datos con tu cuenta. La base jurídica es tu consentimiento (artículo 6.1.a RGPD
 y artículo 22.2 de la LSSI). Puedes retirarlo en cualquier momento desde «Configurar
 cookies», al pie de cada página, sin que afecte a la licitud del tratamiento anterior;
@@ -191,8 +196,9 @@ ni para tratamientos comerciales ajenos al servicio.
 Las cuentas verificadas y tus puntuaciones se conservan hasta que las elimines o
 solicites su supresión, salvo una obligación legal aplicable. La inactividad no provoca
 el borrado de una cuenta verificada. Puedes borrar cada puntuación desde
-el producto. Desde «Mi cuenta → Mi perfil» puedes solicitar la eliminación de la
-cuenta, sus puntuaciones (también las de cada plataforma) y tus plataformas preferidas.
+el producto y quitar juegos de «Mis deseados». Desde «Mi cuenta → Mi perfil» puedes
+solicitar la eliminación de la cuenta, sus puntuaciones (también las de cada
+plataforma), tus plataformas preferidas y tus juegos deseados.
 La solicitud requiere confirmación expresa, autenticación reciente y protección de
 la sesión. Al aceptar la solicitud se cierra tu sesión de Gameómetro y vuelves al inicio;
 el borrado continúa automáticamente. El acceso queda bloqueado mientras se completa; recibir la solicitud no
@@ -257,7 +263,8 @@ una dirección alternativa sin verificar de forma suficiente su titularidad.
 Puedes consultar y modificar tus puntuaciones en «Mis puntuaciones». En «Mi perfil»
 puedes descargar un JSON versionado con los datos de cuenta disponibles para el
 producto, tus puntuaciones y las de cada plataforma, sus juegos y fechas, y tus
-plataformas preferidas. La descarga es privada y no se almacena en cachés; si no puede
+plataformas preferidas y los juegos que guardaste en «Mis deseados» con sus fechas.
+La descarga es privada y no se almacena en cachés; si no puede
 prepararse completa, se informa del error. No incluye contraseñas, tokens ni secretos
 de autenticación. Puedes pedir por email la información adicional de acceso, incluida
 la información de sesiones e IP que conserve el sistema de identidad. El cambio de
@@ -303,6 +310,8 @@ cuenta y juego. También puedes indicar las plataformas en las que lo has jugado
 de forma opcional, asignar una puntuación de 1 a 10 a cada una. Tu puntuación
 personal y los resultados agregados se presentan por separado. Las puntuaciones
 externas de IGDB se identifican como tales y no se mezclan con las de Gameómetro.
+Puedes guardar y quitar juegos de «Mis deseados». Guardarlos no influye en las
+puntuaciones ni en las clasificaciones.
 No intentes acceder a cuentas ajenas, eludir protecciones ni perjudicar la
 disponibilidad del servicio.
 

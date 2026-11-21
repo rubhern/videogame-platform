@@ -26,7 +26,29 @@ public interface BrowseReleasesUseCase {
             java.util.List<String> platformIds,
             java.util.List<String> regionIds,
             int pageNumber,
-            int pageSize) {
+            int pageSize,
+            String wishlistOwner) {
+        public Query(
+                LocalDate from,
+                LocalDate to,
+                Sort sort,
+                boolean includeApproximateDates,
+                java.util.List<String> platformIds,
+                java.util.List<String> regionIds,
+                int pageNumber,
+                int pageSize) {
+            this(
+                    from,
+                    to,
+                    sort,
+                    includeApproximateDates,
+                    platformIds,
+                    regionIds,
+                    pageNumber,
+                    pageSize,
+                    null);
+        }
+
         public Query {
             if (sort == null) {
                 throw new IllegalArgumentException("Release sort is required");

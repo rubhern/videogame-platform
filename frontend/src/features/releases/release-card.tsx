@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import { Link } from "react-router-dom";
 
 import { NeedleIcon } from "../../shared/brand/needle-icon";
@@ -21,7 +22,7 @@ const VISIBLE_PLATFORMS = 3;
 
 /**
  * One release in a window: the cover leads, then the first relevant release's date under the fire
- * needle, the title as the card's only keyboard stop, the score readings, and one release line
+ * needle, the linked title and its wishlist action, the score readings, and one release line
  * with that date's platforms as marks and its region. The full date stays in that line for
  * assistive technology; further releases stay behind the overflow control.
  */
@@ -48,11 +49,14 @@ export function ReleaseCard({ item, onPoint }: ReleaseCardProps) {
           {primaryGroup.shortDate}
         </p>
       )}
-      <h3 className="card-title">
-        <Link state={linkState} to={gamePath}>
-          {item.title}
-        </Link>
-      </h3>
+      <div className="wishlist-title">
+        <h3 className="card-title">
+          <Link state={linkState} to={gamePath}>
+            {item.title}
+          </Link>
+        </h3>
+        <WishlistButton compact gameId={item.gameId} title={item.title} />
+      </div>
       <DiscoveryScores scores={item.scores} title={item.title} />
       {primaryGroup === undefined ? null : (
         <div className="card-release">

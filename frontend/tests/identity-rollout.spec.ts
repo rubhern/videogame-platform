@@ -146,6 +146,22 @@ for (const width of [390, 1320]) {
     ]);
     expect(sub?.y ?? 0).toBeGreaterThanOrEqual((main?.y ?? 0) + (main?.height ?? 0) - 1);
 
+    const heart = title.locator(".game-wordmark-sub").getByRole("link", { name: /^La quiero:/ });
+    await expect(heart).toHaveClass(/wishlist-button-hero/);
+    const inlineWithTitle = await heart.evaluate((link) => {
+      const text = link.parentElement?.previousSibling;
+      if (!(text instanceof Text)) return false;
+      const range = document.createRange();
+      range.setStart(text, text.length - 1);
+      range.setEnd(text, text.length);
+      const lastCharacter = range.getBoundingClientRect();
+      const button = link.getBoundingClientRect();
+      return button.left > lastCharacter.right
+        && button.top < lastCharacter.bottom
+        && button.bottom > lastCharacter.top;
+    });
+    expect(inlineWithTitle).toBe(true);
+
     // The readings are an instrument row, not boxed panels.
     const community = page.getByRole("region", { name: "Puntuación de la comunidad" });
     await expect(community).toHaveCSS("border-top-width", "0px");

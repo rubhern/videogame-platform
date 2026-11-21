@@ -164,7 +164,7 @@ export function MyProfilePage() {
             <section aria-labelledby="profile-export" className="profile-panel profile-data">
               <ZoneIndex value="02" />
               <h2 id="profile-export">Tus datos, contigo</h2>
-              <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, todas tus puntuaciones, las de cada plataforma y tus plataformas preferidas.</p>
+              <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, tus puntuaciones, las de cada plataforma, tus plataformas preferidas y tus juegos deseados.</p>
               <div className="profile-panel-actions">
                 <button className="button button-primary" disabled={download.isPending || remove.isPending} onClick={() => download.mutate()}>{download.isPending ? "Preparando archivo…" : "Exportar mis datos"}</button>
               </div>
@@ -174,7 +174,7 @@ export function MyProfilePage() {
             <section aria-labelledby="profile-delete" className="profile-panel profile-danger">
               <ZoneIndex value="03" />
               <h2 id="profile-delete">Eliminar mi cuenta</h2>
-              <p>Se eliminarán tu identidad, todas tus puntuaciones y tus plataformas preferidas. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
+              <p>Se eliminarán tu identidad, tus puntuaciones, tus plataformas preferidas y tus juegos deseados. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
               {!profile.data.deletionAvailable ? <p className="profile-feedback" id="profile-delete-unavailable" role="status">El borrado automático no está disponible ahora. Inténtalo más tarde. Si necesitas ayuda, contacta con <a className="text-link" href="mailto:hola@gameometro.com">hola@gameometro.com</a>.</p> : null}
               {!confirming ? (
                 <div className="profile-panel-actions">

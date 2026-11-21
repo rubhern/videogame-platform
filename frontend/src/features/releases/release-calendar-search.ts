@@ -26,6 +26,7 @@ export type CalendarSearch = {
   month: string | null;
   day: string | null;
   page?: number;
+  wishedOnly?: boolean;
   platformIds: string[];
   regionIds: string[];
 };
@@ -53,6 +54,7 @@ export function readCalendarSearch(params: URLSearchParams): CalendarSearch {
   const month = named ?? (day === null ? null : day.slice(0, 7));
   return {
     month,
+    ...(params.get("wishedOnly") === "true" ? { wishedOnly: true } : {}),
     ...(Number.isSafeInteger(page) && page > 1 ? { page } : {}),
     day: day !== null && month !== null && day.startsWith(`${month}-`) ? day : null,
     platformIds: readFilters(params.getAll("platformIds")),
@@ -63,6 +65,7 @@ export function readCalendarSearch(params: URLSearchParams): CalendarSearch {
 /** Serializes navigable state, omitting defaults so shared URLs stay readable. */
 export function writeCalendarSearch(search: CalendarSearch): URLSearchParams {
   const params = new URLSearchParams();
+  if (search.wishedOnly) params.set("wishedOnly", "true");
   if (search.month !== null) params.set("month", search.month);
   if (search.day !== null) params.set("day", search.day);
   if (search.day !== null && search.page !== undefined && search.page > 1) params.set("page", String(search.page));
@@ -100,6 +103,7 @@ export function dayPreviewSearch(
 ): ReleasesSearch {
   return {
     ...defaultReleasesSearch,
+    ...(search.wishedOnly ? { wishedOnly: true } : {}),
     from: day,
     to: day,
     sort: "hype",
@@ -113,6 +117,7 @@ export function dayPreviewSearch(
 /** **Ver todos los lanzamientos del día**: the explorer on that day, in the preview's order. */
 export function dayExplorerPath(search: CalendarSearch, day: string): string {
   return releasesSearchPath(defaultReleasesSearch, {
+    ...(search.wishedOnly ? { wishedOnly: true } : {}),
     from: day,
     to: day,
     sort: "hype",
@@ -126,7 +131,7 @@ export function dayExplorerPath(search: CalendarSearch, day: string): string {
  * month has gone by, when the calendar opens on the current month.
  */
 export function calendarFromExplorerPath(
-  search: Pick<ReleasesSearch, "platformIds" | "regionIds">,
+  search: Pick<ReleasesSearch, "platformIds" | "regionIds" | "wishedOnly">,
   rangeFrom: string | null,
   evaluatedOn: string | null,
 ): string {
@@ -135,6 +140,7 @@ export function calendarFromExplorerPath(
       ? null
       : rangeFrom.slice(0, 7);
   return calendarSearchPath(defaultCalendarSearch, {
+    ...(search.wishedOnly ? { wishedOnly: true } : {}),
     month,
     platformIds: search.platformIds,
     regionIds: search.regionIds,

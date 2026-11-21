@@ -1,3 +1,4 @@
+import { WishlistFilter } from "../wishlist/wishlist-controls";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -44,6 +45,7 @@ type ReleasesShellProps = {
   /** The visitor's preferred platforms and the platform filter they resolve to (#295). */
   interests?: Interests;
   platformFilter?: PlatformFilter;
+  canFilterWishlist?: boolean;
 };
 
 function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
@@ -77,6 +79,7 @@ function controlsSummary(
   return [
     releaseSortLabels[search.sort],
     ...(interestsOn ? ["Mis plataformas"] : []),
+    ...(search.wishedOnly ? ["Solo mis deseados"] : []),
     ...(filters === 0 ? [] : [filters === 1 ? "1 filtro" : `${filters} filtros`]),
     ...(approximate ? ["Fechas aproximadas"] : []),
   ].join(" · ");
@@ -106,6 +109,7 @@ export function ReleasesShell({
   state,
   onRetry,
   keptFrame = null,
+  canFilterWishlist = false,
   interests = NO_INTERESTS,
   platformFilter = { mode: "inactive", platformIds: search.platformIds },
 }: ReleasesShellProps) {
@@ -256,6 +260,10 @@ export function ReleasesShell({
               onApply={(from, to) => exploreRange(from, to)}
               search={search}
             />
+            {canFilterWishlist ? (
+              <WishlistFilter checked={Boolean(search.wishedOnly)}
+                onChange={(wishedOnly) => explore({ wishedOnly }, frameState)} />
+            ) : null}
             {approximateOffered ? (
               <ReleasesApproximateDates
                 checked={includesApproximate}

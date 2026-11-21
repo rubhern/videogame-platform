@@ -65,7 +65,8 @@ public final class ReleaseCalendarService implements BrowseReleaseCalendarUseCas
                                         evaluatedOn,
                                         platformIds,
                                         regionIds,
-                                        current.calendarMinimumHypes()))
+                                        current.calendarMinimumHypes(),
+                                        query.wishlistOwner()))
                         .orElseThrow(CatalogueNotReadyException::new);
         ReleaseFilters.validate(platformIds, regionIds, result.platforms(), result.regions());
 

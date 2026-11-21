@@ -107,9 +107,10 @@ export interface paths {
          * @description One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
          *     exportedAt, account (available session-validated name/email), ratings (gameId, title,
          *     direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
-         *     and preferredPlatforms (configured, savedAt when configured, platforms). No credentials,
+         *     preferredPlatforms (configured, savedAt when configured, platforms), and wishlist
+         *     (gameId, title, addedAt, and one-based position). No credentials,
          *     tokens, provider payloads or other users' data. Reads one consistent local snapshot.
-         *     Preparation is bounded to 10000 ratings, 16 MiB and 30 seconds; budget or source failure
+         *     Preparation is bounded to 10000 ratings, 10000 wishes, 16 MiB and 30 seconds; budget or source failure
          *     returns an error before any successful download, never a truncated successful export.
          *     Empty collections are valid. No query parameters are accepted.
          */
@@ -620,6 +621,142 @@ export interface paths {
          *     visitor's consent, which stays in their browser.
          */
         get: operations["getWebAnalyticsConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page through my saved games
+         * @description UC-025. Only games saved by the current BFF principal, in the user's saved order.
+         *     Newly saved games join the end. Release dates are presentation context and keep
+         *     their actual precision. Game ID is the final tie-breaker. The total counts one row per game.
+         */
+        get: operations["listMyWishlist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return the saved subset of a bounded set of game IDs
+         * @description Unknown games and games absent from the current principal's wishlist are omitted.
+         */
+        get: operations["getMyWishlistedGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a local catalogue game
+         * @description Idempotent. An existing wish keeps its original added time. No body is accepted.
+         */
+        put: operations["addMyWish"];
+        post?: never;
+        /**
+         * Remove a saved game
+         * @description Idempotent. An absent wish returns the same success as a removed wish. No body is accepted.
+         */
+        delete: operations["removeMyWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist/games/{gameId}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the order of a saved game
+         * @description Move a saved game immediately before or after another saved game in the same
+         *     account. Repeating the same move preserves that relationship. Using the moving
+         *     game itself as the anchor leaves the list unchanged.
+         */
+        put: operations["moveMyWish"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Explore releases for my saved games
+         * @description The same representation, range, filters and ordering as GET /releases, scoped to the
+         *     current principal's wishlist before calculating facets, counts or pages.
+         */
+        get: operations["listMyWishlistedReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/wishlist/release-calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count releases for my saved games by calendar day
+         * @description The same representation, range, filters and ordering as GET /release-calendar, scoped to the
+         *     current principal's wishlist before calculating facets, counts or pages.
+         */
+        get: operations["getMyWishlistedReleaseCalendar"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1816,6 +1953,28 @@ export interface components {
             alternativeText: string;
             attribution: components["schemas"]["Attribution"];
         };
+        WishlistPage: {
+            items: components["schemas"]["WishlistGame"][];
+            page: components["schemas"]["PageMetadata"];
+        };
+        /** @description A game no longer in the current publication has no slug or title and is undated. */
+        WishlistGame: {
+            gameId: components["schemas"]["GameId"];
+            slug?: string;
+            canonicalTitle?: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @enum {string} */
+            timing: "upcoming" | "released" | "undated";
+            releaseDate: components["schemas"]["ReleaseDate"];
+        };
+        WishlistMove: {
+            anchorGameId: components["schemas"]["GameId"];
+            /** @enum {string} */
+            placement: "before" | "after";
+        };
+        WishlistStatus: {
+            gameIds: components["schemas"]["GameId"][];
+        };
         ReleasePage: {
             /**
              * Format: date
@@ -2816,7 +2975,7 @@ export interface components {
             value?: number;
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "WISHLIST_GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -2843,6 +3002,37 @@ export interface components {
         };
     };
     responses: {
+        /** @description The wish is in the requested state. */
+        WishlistUpdated: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description WISHLIST_GAME_NOT_FOUND. The moving or anchor game is absent from the principal's wishlist. */
+        WishlistGameNotFound: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description An invalid or unknown query parameter. */
+        WishlistValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted. */
         ProfileValidationFailed: {
             headers: {
@@ -4723,6 +4913,317 @@ export interface operations {
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    listMyWishlist: {
+        parameters: {
+            query?: {
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private page and total, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistPage"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["WishlistValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getMyWishlistedGames: {
+        parameters: {
+            query: {
+                gameIds: components["schemas"]["GameId"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved game IDs in ascending order. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistStatus"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["WishlistValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    addMyWish: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["WishlistUpdated"];
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            404: components["responses"]["GameNotFound"];
+            422: components["responses"]["WishlistValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    removeMyWish: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["WishlistUpdated"];
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            422: components["responses"]["WishlistValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    moveMyWish: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishlistMove"];
+            };
+        };
+        responses: {
+            204: components["responses"]["WishlistUpdated"];
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            404: components["responses"]["WishlistGameNotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    listMyWishlistedReleases: {
+        parameters: {
+            query?: {
+                /**
+                 * @description First day of the inclusive release-date range, an ISO calendar date. Send it together
+                 *     with `to`; omit both for the current calendar week, Monday to Sunday in `Europe/Madrid`.
+                 *     Sending only one of them yields 422 `FILTER_INVALID` for the missing one.
+                 * @example 2026-08-01
+                 */
+                from?: components["parameters"]["ReleaseFrom"];
+                /**
+                 * @description Last day of the inclusive range. It must not precede `from`, and the range spans at most
+                 *     92 days; otherwise the request yields 422 `FILTER_INVALID` for `/query/to`. A range may
+                 *     lie in the past, in the future or around the evaluation date, and may be a single day.
+                 * @example 2026-08-31
+                 */
+                to?: components["parameters"]["ReleaseTo"];
+                /** @example hype */
+                sort?: components["parameters"]["ReleaseSort"];
+                /**
+                 * @description Opt-in for the part of the range from the evaluation date on. Omitted or `false`, a
+                 *     release there appears only with an exact day. `true` also admits a month, quarter or year
+                 *     period that has not ended and overlaps that part; each keeps its real precision. Unknown
+                 *     (TBA) dates never join. Days before the evaluation date are unaffected, so the value
+                 *     changes nothing for a range that ends before it.
+                 * @example true
+                 */
+                includeApproximateDates?: components["parameters"]["ReleaseIncludeApproximateDates"];
+                /**
+                 * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+                 *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+                 *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["PlatformIdsQuery"];
+                /**
+                 * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+                 *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+                 *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+                 *     and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "region_europe",
+                 *       "region_worldwide"
+                 *     ]
+                 */
+                regionIds?: components["parameters"]["RegionIdsQuery"];
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private wishlist-filtered discovery. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasePage"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ReleaseValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getMyWishlistedReleaseCalendar: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Calendar month to count as YYYY-MM. Omit it for the current month in Europe/Madrid.
+                 *     The operation description states the bounds for each mode. A malformed month or a
+                 *     month outside the applicable bounds yields 422 FILTER_INVALID for /query/month.
+                 * @example 2026-11
+                 */
+                month?: components["parameters"]["ReleaseCalendarMonth"];
+                /** @description Count the full month and use the featured-period bounds for timeline navigation. */
+                includePast?: components["parameters"]["ReleaseCalendarIncludePast"];
+                /**
+                 * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+                 *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+                 *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["PlatformIdsQuery"];
+                /**
+                 * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+                 *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+                 *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+                 *     and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "region_europe",
+                 *       "region_worldwide"
+                 *     ]
+                 */
+                regionIds?: components["parameters"]["RegionIdsQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private wishlist-filtered discovery. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseCalendar"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["ReleaseCalendarValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
         };
     };
     getMyRatingInsights: {

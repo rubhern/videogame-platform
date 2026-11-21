@@ -23,6 +23,7 @@ backend API changes, update its tracked requests and assertions in the same chan
 | `game-details` | Public details, release evidence listed platform by platform with each presented record first, empty statistics without per-platform readings, the optional separate IGDB player score, conditional requests, missing games, strict query rejection |
 | `feedback` | Anonymous SMTP acceptance and safe validation/cross-origin rejection. Run acceptance only against the disposable Mailpit-backed packaged stack. |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, the optional separate IGDB player score, duplicate/stale-write and CSRF rejection; rating by platform (#359): a played platform kept by a value-only update, platform scores as one vote with per-platform community readings, and the rejected general value over platform scores and unreleased platform; private personal statistics with arithmetic/bounds/empty assertions, recorded-platform readings (#363) and client-owner rejection |
+| `wishlist` | Private saved-game batches and pagination, idempotent add/remove, drag-and-drop ordering, CSRF rejection and wishlist-scoped discovery. |
 | `profile` | Private account details, full versioned JSON export, owner-selector/CSRF refusals and explicitly gated disposable account deletion/status; real-account deletion is never enabled by default |
 | `platform-preferences` | The public selectable platforms with their validator, then, with a signed-in session, the user's own never-stored preferred platforms: read, whole-set replacement with de-duplication, rejection of an unknown platform, a client-supplied owner and a missing CSRF token without any change, and the clearing empty set; it ends with the account configured and no platform |
 | `catalogue-administration` | Operator-only synchronization status with bounded recent runs, durable coverage of a year as consecutive periods, never-stored responses, stable range and query rejections, and the bounded synchronization request with its CSRF and interval rejections; its last synchronization request asks for a one-day run, which is `SYNCHRONIZATION_DISABLED` without provider credentials; run stop and abandonment with their CSRF rejection and stable not-found answers, naming a run history never holds so no real run is touched; editorial attention (#458): the prompt and loaded lists, a sample preview that stores nothing, and the CSRF, invalid-file, invalid-assignment and unknown-list refusals, never loading or deleting a real list; product settings (#450): the closed registry with ranges, origins, acquisition coverage and recent changes, and the CSRF, stale-revision, unknown-key, out-of-range and cross-setting refusals, never changing a real setting; needs an operator session |
@@ -93,6 +94,14 @@ above and run **Platform Preferences** in its defined order: it bootstraps the s
 CSRF token, replaces the account's preferred platforms, proves each rejection changed
 nothing and ends by clearing them. The account then counts as having made its first-run
 choice, so the welcome is no longer offered to it.
+
+## Authenticated wishlist run
+
+Use a disposable local account with an empty wishlist and the demonstration catalogue.
+Follow steps 1–3 of the personal-rating procedure to obtain its BFF cookie. Run
+**Private Wishlist** in order. It saves two seeded games, checks the saved order and filtered
+discovery, then removes both games. The profile collection checks the export includes the
+wishlist.
 
 ## Authenticated catalogue-administration run
 

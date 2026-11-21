@@ -1,0 +1,360 @@
+.wishlist-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-block-size: 2.75rem;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: 0.25rem 0.72rem;
+  border: 1px solid currentColor;
+  border-radius: 0.35rem;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.wishlist-title {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  min-inline-size: 0;
+}
+
+.wishlist-title > :first-child {
+  min-inline-size: 0;
+}
+
+.wishlist-title > .wishlist-action {
+  flex: none;
+}
+
+.wishlist-title:has(.wishlist-action-error) {
+  flex-wrap: wrap;
+}
+
+.wishlist-button-compact {
+  /* Keep the heart above the stretched game link used by catalogue cards and heroes. */
+  position: relative;
+  z-index: 3;
+  flex: none;
+  inline-size: 2rem;
+  min-block-size: 2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.wishlist-button-compact:is(:hover, :focus-visible) {
+  color: var(--color-ice-light);
+}
+
+.wishlist-button-compact:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+.wishlist-button:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+.wishlist-button[aria-disabled="true"] {
+  opacity: 0.65;
+}
+
+.wishlist-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 1rem;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.wishlist-mark::before {
+  content: "♡";
+}
+
+.wishlist-button[data-saved="true"] .wishlist-mark::before {
+  content: "♥";
+}
+
+.wishlist-action {
+  display: grid;
+  justify-items: start;
+  min-inline-size: 0;
+  gap: 0.25rem;
+}
+
+.wishlist-action-error,
+.wishlist-read-error {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-block-size: 2.75rem;
+  cursor: pointer;
+  color: var(--color-ink);
+}
+
+.wishlist-filter input {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  accent-color: var(--color-accent);
+}
+
+.wishlist-section .notice {
+  margin-block-start: 1rem;
+}
+
+.game-detail-title-wish::before {
+  /* Keep the heart with the preceding title text. */
+  content: "\2060";
+}
+
+.game-detail-title-wish .wishlist-action {
+  display: contents;
+}
+
+.game-detail-title-wish .wishlist-button-hero {
+  margin-inline-start: 0.65rem;
+  vertical-align: middle;
+}
+
+.game-detail-title-wish .wishlist-action-error {
+  display: block;
+  margin-block-start: 0.5rem;
+  font-family: var(--font-sans);
+  font-stretch: normal;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.account-option .wishlist-mark {
+  inline-size: 18px;
+  color: var(--color-accent);
+}
+
+.wishlist-hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.65rem;
+}
+
+.wishlist-hero-facts .featured-hero-facts {
+  min-inline-size: 0;
+}
+
+.wishlist-button-hero {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  inline-size: 2.25rem;
+  min-block-size: 2.25rem;
+  padding: 0;
+  border-color: color-mix(in srgb, var(--color-ice) 67%, transparent);
+  background: color-mix(in srgb, var(--color-night) 88%, transparent);
+}
+
+.wishlist-button-hero:is(:hover, :focus-visible) {
+  border-color: var(--color-ice-light);
+  color: var(--color-ice-light);
+}
+
+.wishlist-button-hero[data-saved="true"] {
+  background: var(--color-ice-light);
+  color: var(--color-night);
+}
+
+.wishlist-ledger {
+  display: grid;
+  gap: 0;
+  max-inline-size: 68rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wishlist-ledger-item {
+  display: grid;
+  grid-template-columns: 3rem 3.25rem minmax(0, 1fr) auto;
+  grid-template-areas: "rank cover record actions";
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-block-start: 1px solid var(--color-line);
+}
+
+.wishlist-ledger-item[data-prominent="true"] {
+  grid-template-columns: 3rem 4.25rem minmax(0, 1fr) auto;
+  border-inline-start: 2px solid var(--color-ice);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-ice) 11%, var(--color-night)),
+      color-mix(in srgb, var(--color-ice) 4%, var(--color-night)) 66%, var(--color-night));
+}
+
+.wishlist-ledger-item:last-child {
+  border-block-end: 1px solid var(--color-line);
+}
+
+.wishlist-ledger-item > .cover-figure {
+  grid-area: cover;
+  inline-size: 100%;
+  margin: 0;
+}
+
+.wishlist-position {
+  grid-area: rank;
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.wishlist-ledger-item[data-prominent="true"] .wishlist-position {
+  color: var(--color-ice-light);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-stretch: 112%;
+  line-height: 1;
+}
+
+.wishlist-record {
+  display: grid;
+  grid-area: record;
+  min-inline-size: 0;
+  gap: 0.3rem;
+}
+
+.wishlist-game-title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-ledger-item[data-prominent="true"] .wishlist-game-title {
+  font-size: clamp(1rem, 2vw, 1.45rem);
+}
+
+.wishlist-game-title a:is(:hover, :focus-visible) {
+  color: var(--color-ice-light);
+  text-decoration: underline;
+}
+
+.wishlist-game-date {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-order-actions {
+  display: flex;
+  grid-area: actions;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* The grip reserves a touch target and prevents the page from scrolling while it is held. */
+.wishlist-drag-handle {
+  display: grid;
+  place-items: center;
+  min-block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  padding: 0;
+  border-radius: 0.35rem;
+  color: var(--color-ice);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.wishlist-drag-handle:is(:hover, :focus-visible, [aria-pressed="true"]) {
+  background: var(--color-surface);
+  color: var(--color-ice-light);
+}
+
+.wishlist-drag-handle[aria-pressed="true"] {
+  cursor: grabbing;
+}
+
+.wishlist-drag-handle[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.wishlist-drag-dots {
+  inline-size: 0.75rem;
+  block-size: 1.05rem;
+  background:
+    radial-gradient(circle at center, currentColor 1.2px, transparent 1.6px)
+    0 0 / 50% 33.33%;
+  forced-color-adjust: none;
+}
+
+.wishlist-ledger-item[data-wishlist-grabbed] {
+  outline: 1px dashed var(--color-ice);
+  outline-offset: -2px;
+}
+
+.wishlist-ledger-item[data-wishlist-drop="before"] {
+  box-shadow: inset 0 3px var(--color-ice-light);
+}
+
+.wishlist-ledger-item[data-wishlist-drop="after"] {
+  box-shadow: inset 0 -3px var(--color-ice-light);
+}
+
+.wishlist-more {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
+}
+
+.wishlist-order-hint {
+  margin-block: 0.35rem 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.wishlist-loading-number { grid-area: rank; block-size: 1.5rem; }
+.wishlist-loading-cover { grid-area: cover; aspect-ratio: 3 / 4; }
+.wishlist-loading-title { grid-area: record; inline-size: min(60%, 16rem); block-size: 1rem; }
+
+@media (max-width: 639px) {
+  .wishlist-ledger-item,
+  .wishlist-ledger-item[data-prominent="true"] {
+    grid-template-columns: 1.65rem 3rem minmax(0, 1fr) auto;
+    grid-template-areas: "rank cover record actions";
+    gap: 0.45rem;
+    padding: 0.65rem 0.45rem;
+  }
+
+  .wishlist-order-actions {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .wishlist-ledger-item[data-prominent="true"] {
+    border-inline-start-color: Highlight;
+  }
+
+  .wishlist-ledger-item[data-wishlist-drop="before"] { border-block-start: 3px solid Highlight; }
+  .wishlist-ledger-item[data-wishlist-drop="after"] { border-block-end: 3px solid Highlight; }
+}

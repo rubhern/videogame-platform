@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
@@ -13,7 +14,7 @@ type GameSearchCardProps = {
 
 /**
  * One entry of the catalogue index (#188): the cover beside its record — the known year or range,
- * the title as the only keyboard stop besides the score attribution, an explaining alias, the
+ * the linked title and its wishlist action, an explaining alias, the
  * discovery readings (#279), up to two genres and the compact platform summary. Its height never
  * depends on how many releases the game has; the game page owns the release context and the
  * cover attribution.
@@ -31,9 +32,12 @@ export function GameSearchCard({ result }: GameSearchCardProps) {
           <span className="sr-only">Lanzamiento: </span>
           {result.year}
         </p>
-        <h3 className="card-title">
-          <Link state={linkState} to={gamePath}>{result.title}</Link>
-        </h3>
+        <div className="wishlist-title">
+          <h3 className="card-title">
+            <Link state={linkState} to={gamePath}>{result.title}</Link>
+          </h3>
+          <WishlistButton compact gameId={result.gameId} title={result.title} />
+        </div>
         {result.matchedAlias === null ? null : (
           <p className="search-card-alias">
             Coincidencia: <span>{result.matchedAlias}</span>

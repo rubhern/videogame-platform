@@ -59,7 +59,23 @@ final class ReleaseRangeSql {
 
     private ReleaseRangeSql() {}
 
-    record RangePredicate(String predicate, Map<String, Object> parameters) {}
+    record RangePredicate(String predicate, Map<String, Object> parameters) {
+        RangePredicate forWishlist(String owner) {
+            if (owner == null) return this;
+            var bindings = new LinkedHashMap<>(parameters);
+            bindings.put("wishlistOwner", java.util.UUID.fromString(owner));
+            return new RangePredicate(
+                    "("
+                            + predicate
+                            + """
+                    ) AND EXISTS (
+                        SELECT 1 FROM catalogue.game_library_entry wish
+                        WHERE wish.user_id = :wishlistOwner AND wish.game_id = rs.game_id
+                    )
+                    """,
+                    bindings);
+        }
+    }
 
     static RangePredicate range(
             LocalDate from, LocalDate to, LocalDate evaluatedOn, boolean includeApproximateDates) {

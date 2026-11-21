@@ -9,6 +9,7 @@ erDiagram
     }
     publication["catalogue.catalogue_publication"]
     game["catalogue.game"]
+    library_entry["catalogue.game_library_entry"]
     game_snapshot["catalogue.game_snapshot"]
     game_alias["catalogue.game_alias"]
     game_external_reference["catalogue.game_external_reference"]
@@ -64,6 +65,7 @@ erDiagram
     game ||--o{ game_alias : "searchable as"
     game ||--o{ game_external_reference : "provider identity"
     game ||--o{ game_release : owns
+    game ||--o{ library_entry : "saved by users"
     game ||--o| game_featured_evidence : "current popularity signal, written with the Game"
     game ||--o{ game_featured_media : "at most one hero image, card image and card logo, written with the Game"
     game ||--o{ game_external_score : "current score per source and kind, written with the Game"

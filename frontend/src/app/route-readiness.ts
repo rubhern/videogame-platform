@@ -127,17 +127,16 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
           interestsSwitch.enabled(),
           interests,
         );
-        await queryClient.prefetchQuery(releaseCalendarQueryOptions(toCalendarQuery(search, platformIds)));
+        if (!search.wishedOnly) {
+          await queryClient.prefetchQuery(releaseCalendarQueryOptions(toCalendarQuery(search, platformIds)));
+        }
       } else {
-        await queryClient.prefetchQuery(
-          releasesQueryOptions(
-            explorerRequestSearch(
-              readReleasesSearch(url.searchParams),
-              interestsSwitch.enabled(),
-              interests,
-            ),
-          ),
-        );
+        const search = readReleasesSearch(url.searchParams);
+        if (!search.wishedOnly) {
+          await queryClient.prefetchQuery(
+            releasesQueryOptions(explorerRequestSearch(search, interestsSwitch.enabled(), interests)),
+          );
+        }
       }
     } else if (url.pathname === TOPOMETRO_PATH) {
       // The global ranking never reads preferences or the session (#386). Pages already loaded in

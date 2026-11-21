@@ -19,6 +19,8 @@ import {
 import { toFailureState } from "../features/releases/releases-failure";
 import { useReleaseCalendarQuery } from "../features/releases/use-release-calendar-query";
 import { useReleasesQuery } from "../features/releases/use-releases-query";
+import { wishlistSessionScope } from "../features/wishlist/wishlist-api";
+import { useSession } from "../features/session/use-session";
 import { useDocumentTitle } from "../shared/browser/use-document-title";
 
 /** A day the explorer never reads, so a disabled preview keeps a stable, valid search. */
@@ -33,8 +35,11 @@ export function ReleaseCalendarPage() {
   const interests = useInterests();
   const { enabled } = useInterestsSwitch();
   const platformFilter = resolvePlatformFilter(search.platformIds, enabled, interests);
-  const ready = interests.status !== "pending";
-  const calendar = useReleaseCalendarQuery(toCalendarQuery(search, platformFilter.platformIds), ready);
+  const session = useSession({ refetchOnMount: false });
+  const privateRead = session.data?.authenticated === true && !session.isError;
+  const ready = interests.status !== "pending" && (!search.wishedOnly || privateRead);
+  const scope = search.wishedOnly ? wishlistSessionScope(session.data) : undefined;
+  const calendar = useReleaseCalendarQuery(toCalendarQuery(search, platformFilter.platformIds), ready, scope);
 
   const model = calendar.data !== undefined && !calendar.isPlaceholderData ? calendar.data : null;
   // A day that has gone by, or of another month, is never chosen.
@@ -48,7 +53,14 @@ export function ReleaseCalendarPage() {
       interests,
     ),
     ready && selectedDay !== null && selectedCount > 0,
+    scope,
   );
+
+  if (search.wishedOnly && (session.data?.authenticated === false ||
+      (calendar.isError && calendar.error.status === 401) ||
+      (preview.isError && preview.error.status === 401))) {
+    return <Navigate replace to={calendarSearchPath(search, { wishedOnly: false, page: 1 })} />;
+  }
 
   // A month the API rejects has gone by or lies beyond the forward bound: the calendar returns to
   // the current month, keeping the filters, and never presents the rejected one.
@@ -57,7 +69,9 @@ export function ReleaseCalendarPage() {
   }
 
   let state: ReleaseCalendarShellState;
-  if (calendar.isPending || calendar.isPlaceholderData) {
+  if (search.wishedOnly && session.isError) {
+    state = { status: "error", message: "No se pudo comprobar tu sesión.", correlationId: null };
+  } else if (calendar.isPending || calendar.isPlaceholderData) {
     state = { status: "loading" };
   } else if (calendar.isError) {
     state = toFailureState(calendar.error);
@@ -76,10 +90,12 @@ export function ReleaseCalendarPage() {
 
   return (
     <ReleaseCalendarShell
+      canFilterWishlist={privateRead}
       dayPreview={dayPreview}
       interests={interests}
       onRetry={() => {
-        void calendar.refetch();
+        if (search.wishedOnly && session.isError) void session.refetch();
+        else void calendar.refetch();
       }}
       onRetryDay={() => {
         void preview.refetch();

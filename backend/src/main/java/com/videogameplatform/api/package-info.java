@@ -12,6 +12,7 @@
             "catalogue::platformgames",
             "catalogue::details",
             "catalogue::preferences",
+            "catalogue::wishlist",
             "catalogue::settings",
             "catalogue::sharing",
             "identity::application",

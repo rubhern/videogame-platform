@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -18,7 +19,7 @@ const VISIBLE_PLATFORMS = 3;
  * One of the other featured releases, designed for wide artwork: a screenshot, which never carries
  * a title of its own, gets the game's logo over it; artwork often carries its own and is shown as
  * it is. Under the frame the period's scale marks the first presented release's date. Then the
- * title is the card's only keyboard stop, followed by that release's platforms as marks and its
+ * title links to the game beside its wishlist action, followed by that release's platform marks and
  * region. Every platform stays named for assistive technology, and further releases stay reachable
  * behind the overflow control.
  */
@@ -63,11 +64,14 @@ export function FeaturedCard({
         <MonthStrip label={primaryGroup.shortDate} mark={item.mark} timeline={timeline} />
       )}
       <div className="featured-card-body">
-        <h3 className="featured-card-title">
-          <Link state={linkState} title={item.title} to={gamePath}>
-            {item.title}
-          </Link>
-        </h3>
+        <div className="wishlist-title">
+          <h3 className="featured-card-title">
+            <Link state={linkState} title={item.title} to={gamePath}>
+              {item.title}
+            </Link>
+          </h3>
+          <WishlistButton compact gameId={item.gameId} title={item.title} />
+        </div>
         <DiscoveryScores layout="featured" scores={item.scores} title={item.title} />
         {primaryGroup === undefined ? null : (
           <p className="featured-card-release">
