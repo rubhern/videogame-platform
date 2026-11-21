@@ -13,9 +13,11 @@ export type ReleaseCalendarQuery = NonNullable<
 export async function getReleaseCalendar(
   query: ReleaseCalendarQuery,
   client: ProductApiClient = productApiClient,
+  wishedOnly = false,
+  signal?: AbortSignal,
 ) {
-  const { data, error, response } = await client.GET("/release-calendar", {
-    params: { query },
+  const { data, error, response } = await client.GET(wishedOnly ? "/me/wishlist/release-calendar" : "/release-calendar", {
+    params: { query }, ...(wishedOnly ? { cache: "no-store" } : {}), ...(signal ? { signal } : {}),
   });
 
   if (data !== undefined) {

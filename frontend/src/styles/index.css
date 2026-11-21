@@ -30,6 +30,7 @@
 @import "./community.css";
 @import "./consent.css";
 @import "./profile.css";
+@import "./wishlist.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

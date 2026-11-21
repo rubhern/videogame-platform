@@ -68,7 +68,8 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         // Only the attention order reads the operator's weights.
                                         query.sort() == Sort.HYPE
                                                 ? settings.current().attention()
-                                                : AttentionWeights.DEFAULT))
+                                                : AttentionWeights.DEFAULT,
+                                        query.wishlistOwner()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
         ReleaseFilters.validate(platformIds, regionIds, result.platforms(), result.regions());

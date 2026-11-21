@@ -11,6 +11,7 @@ class AuthenticationReturnTargetTest {
     @ValueSource(
             strings = {
                 "/",
+                "/?inicio=2026-11&fecha=2026-11-21&plataforma=ps5",
                 "/?view=upcoming&weeks=4&platformIds=pc",
                 "/?month=2026-10",
                 "/?view=recent&weeks=1",
@@ -20,6 +21,12 @@ class AuthenticationReturnTargetTest {
                 "/lanzamientos/destacados?month=2026-10",
                 "/lanzamientos/destacados?week=2026-W42",
                 "/lanzamientos/destacados?granularity=month",
+                "/lanzamientos/destacados?plataforma=ps5",
+                "/lanzamientos?wishedOnly=true",
+                "/lanzamientos/calendario?month=2026-11&day=2026-11-13&page=2&wishedOnly=true",
+                "/topometro?source=gameometro",
+                "/plataformas/ps5/topometro?source=gameometro",
+                "/mis-deseados?page=2",
                 "/lanzamientos",
                 "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&platformIds=pc&regionIds=europe&page=2&pageSize=12",
                 "/lanzamientos/calendario?month=2026-11&day=2026-11-13&platformIds=pc&regionIds=europe",
@@ -66,6 +73,8 @@ class AuthenticationReturnTargetTest {
                 "/bienvenida",
                 "/mis-puntuaciones/estadisticas?userId=bob",
                 "/lanzamientos/../auth/start",
+                "/topometro?redirect=https://attacker.example",
+                "/mis-deseados?userId=bob",
                 "/administracion/catalogo/../../auth/start",
                 "javascript:alert(1)"
             })

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 type ReleasesPaginationProps = {
   pathFor: (page: number) => string;
+  label?: string;
   page: { number: number; totalPages: number };
   /** Off when the surrounding bar already states the result total. */
   showPosition?: boolean;
@@ -12,6 +13,7 @@ type ReleasesPaginationProps = {
 
 export function ReleasesPagination({
   pathFor,
+  label = "Paginación de lanzamientos",
   page,
   showPosition = true,
   state,
@@ -23,7 +25,7 @@ export function ReleasesPagination({
 
   if (isBeyondLastPage) {
     return (
-      <nav aria-label="Paginación de lanzamientos" className="mt-8">
+      <nav aria-label={label} className="mt-8">
         <Link preventScrollReset={preventScrollReset ?? false} state={state}
           className="button"
           to={pathFor(page.totalPages)}
@@ -40,7 +42,7 @@ export function ReleasesPagination({
 
   return (
     <nav
-      aria-label="Paginación de lanzamientos"
+      aria-label={label}
       className="pagination"
     >
       {hasPrevious ? (

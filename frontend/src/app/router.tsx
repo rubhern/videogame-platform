@@ -1,3 +1,4 @@
+import { MyWishlistPage } from "../pages/my-wishlist-page";
 import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
@@ -47,6 +48,7 @@ export const appRoutes: RouteObject[] = [
       { path: PLATFORM_TOPOMETRO_ROUTE, element: <PlatformTopometroPage /> },
       { path: PLATFORM_UPCOMING_ROUTE, element: <PlatformUpcomingPage /> },
       { path: "search", element: <SearchPage /> },
+      { path: "mis-deseados", element: <MyWishlistPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
       { path: "mi-perfil", element: <MyProfilePage /> },

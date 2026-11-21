@@ -212,6 +212,17 @@ class CataloguePersistenceConfiguration {
                 execution.jdbcOperations(), execution.readTransaction(), write);
     }
 
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.port.WishlistStore wishlistStore(
+            CatalogueReadExecution execution,
+            PlatformTransactionManager transactionManager,
+            CatalogueJdbcProperties properties) {
+        TransactionTemplate writes = new TransactionTemplate(transactionManager);
+        writes.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.wishlist.JdbcWishlistStore(
+                execution.jdbcOperations(), execution.readTransaction(), writes);
+    }
+
     /** Shared read-only, bounded-timeout execution policy for every catalogue query. */
     record CatalogueReadExecution(
             NamedParameterJdbcTemplate jdbcOperations, TransactionTemplate readTransaction) {}

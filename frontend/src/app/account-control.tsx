@@ -126,6 +126,10 @@ export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountA
         </svg>
         Mi perfil
       </Link>
+      <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
+        <span aria-hidden="true" className="wishlist-mark" />
+        Mis deseados
+      </Link>
       <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
         <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
           <path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />

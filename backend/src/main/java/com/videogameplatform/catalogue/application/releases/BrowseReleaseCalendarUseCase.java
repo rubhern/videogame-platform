@@ -24,7 +24,16 @@ public interface BrowseReleaseCalendarUseCase {
             Optional<YearMonth> month,
             List<String> platformIds,
             List<String> regionIds,
-            boolean includePast) {
+            boolean includePast,
+            String wishlistOwner) {
+        public Query(
+                Optional<YearMonth> month,
+                List<String> platformIds,
+                List<String> regionIds,
+                boolean includePast) {
+            this(month, platformIds, regionIds, includePast, null);
+        }
+
         public Query(Optional<YearMonth> month, List<String> platformIds, List<String> regionIds) {
             this(month, platformIds, regionIds, false);
         }

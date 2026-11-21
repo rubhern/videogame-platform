@@ -5,6 +5,7 @@ import com.videogameplatform.api.generated.model.AccountDeletionConfirmation;
 import com.videogameplatform.api.generated.model.AccountDeletionStatus;
 import com.videogameplatform.api.generated.model.PrivateProfile;
 import com.videogameplatform.catalogue.application.preferences.ExportPlatformPreferences;
+import com.videogameplatform.catalogue.application.wishlist.Wishlist;
 import com.videogameplatform.identity.application.AccountDeletionStore;
 import com.videogameplatform.identity.application.AccountOperationException;
 import com.videogameplatform.identity.application.CurrentUser;
@@ -48,6 +49,7 @@ public class ProfileController implements ProfileApi {
     private final DeletionExecutorAvailability erasure;
     private final ExportPersonalRatings ratings;
     private final ExportPlatformPreferences preferences;
+    private final Wishlist wishlist;
     private final HttpServletRequest request;
     private final ObjectMapper json;
     private final Clock clock;
@@ -59,6 +61,7 @@ public class ProfileController implements ProfileApi {
             DeletionExecutorAvailability erasure,
             ExportPersonalRatings ratings,
             ExportPlatformPreferences preferences,
+            Wishlist wishlist,
             HttpServletRequest request,
             ObjectMapper json,
             Clock clock,
@@ -68,6 +71,7 @@ public class ProfileController implements ProfileApi {
         this.erasure = erasure;
         this.ratings = ratings;
         this.preferences = preferences;
+        this.wishlist = wishlist;
         this.request = request;
         this.json = json;
         this.clock = clock;
@@ -123,6 +127,18 @@ public class ProfileController implements ProfileApi {
                     generator.writeStringProperty("savedAt", choice.savedAt().toString());
                 generator.writePOJOProperty("platforms", choice.preferences().platforms());
                 generator.writeEndObject();
+                generator.writeArrayPropertyStart("wishlist");
+                wishlist.export(
+                        owner,
+                        item -> {
+                            generator.writeStartObject();
+                            generator.writeStringProperty("gameId", item.gameId());
+                            generator.writePOJOProperty("title", item.title());
+                            generator.writeStringProperty("addedAt", item.addedAt().toString());
+                            generator.writeNumberProperty("position", item.position());
+                            generator.writeEndObject();
+                        });
+                generator.writeEndArray();
                 generator.writeEndObject();
             }
             return ResponseEntity.ok()

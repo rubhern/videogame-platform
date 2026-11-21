@@ -11,9 +11,12 @@ public final class AuthenticationReturnTarget {
     private static final int MAX_LENGTH = 2048;
     private static final Pattern GAME_PATH =
             Pattern.compile("/games/[a-z0-9-]{1,100}(?:/[a-z0-9-]{1,200})?");
-    // Destacados' periods, plus the former release-list parameters the SPA still redirects.
+    // Home selection and the former release links the SPA still redirects.
     private static final Set<String> LANDING_QUERY =
             Set.of(
+                    "inicio",
+                    "fecha",
+                    "plataforma",
                     "granularity",
                     "week",
                     "month",
@@ -32,9 +35,10 @@ public final class AuthenticationReturnTarget {
                     "platformIds",
                     "regionIds",
                     "page",
-                    "pageSize");
+                    "pageSize",
+                    "wishedOnly");
     private static final Set<String> CALENDAR_QUERY =
-            Set.of("month", "day", "platformIds", "regionIds");
+            Set.of("month", "day", "platformIds", "regionIds", "page", "wishedOnly");
     private static final Set<String> SEARCH_QUERY = Set.of("q", "page", "pageSize");
     private static final Set<String> GAME_QUERY = Set.of("platformId", "regionId");
     private static final Set<String> ADMINISTRATION_QUERY = Set.of("tab", "year", "month");
@@ -55,11 +59,16 @@ public final class AuthenticationReturnTarget {
             if ("/".equals(path)) {
                 allowed = LANDING_QUERY;
             } else if ("/lanzamientos/destacados".equals(path)) {
-                allowed = Set.of("granularity", "week", "month");
+                allowed = Set.of("granularity", "week", "month", "plataforma");
             } else if ("/lanzamientos".equals(path)) {
                 allowed = RELEASES_QUERY;
             } else if ("/lanzamientos/calendario".equals(path)) {
                 allowed = CALENDAR_QUERY;
+            } else if ("/topometro".equals(path)
+                    || (path != null && path.matches("/plataformas/[a-z0-9-]{1,100}/topometro"))) {
+                allowed = Set.of("source");
+            } else if ("/mis-deseados".equals(path)) {
+                allowed = Set.of("page");
             } else if ("/search".equals(path)) {
                 allowed = SEARCH_QUERY;
             } else if ("/mis-puntuaciones".equals(path)

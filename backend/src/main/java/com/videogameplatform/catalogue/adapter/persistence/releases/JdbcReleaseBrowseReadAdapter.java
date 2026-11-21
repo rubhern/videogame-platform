@@ -139,10 +139,11 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
 
     private static ReleaseRangeSql.RangePredicate rangePredicate(Criteria criteria) {
         return ReleaseRangeSql.range(
-                criteria.window().from(),
-                criteria.window().to(),
-                criteria.evaluatedOn(),
-                criteria.includeApproximateDates());
+                        criteria.window().from(),
+                        criteria.window().to(),
+                        criteria.evaluatedOn(),
+                        criteria.includeApproximateDates())
+                .forWishlist(criteria.wishlistOwner());
     }
 
     private static Query query(

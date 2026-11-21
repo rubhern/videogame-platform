@@ -71,6 +71,36 @@ async function stubRanking(page: Page) {
   return requested;
 }
 
+test("uses the TOPómetro hearts without opening the game", async ({ page }) => {
+  await stubRanking(page);
+  await page.route("**/api/v1/session", (route) => route.fulfill({
+    json: { authenticated: true, csrfToken: "wishlist-proof" },
+  }));
+  await page.route("**/api/v1/me/wishlist/status?*", (route) => route.fulfill({ json: { gameIds: [] } }));
+  await page.route("**/api/v1/me/ratings?*", (route) => route.fulfill({ json: { items: [] } }));
+  const commands: string[] = [];
+  await page.route("**/api/v1/me/wishlist/games/*", async (route) => {
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().headers()["x-csrf-token"]).toBe("wishlist-proof");
+    commands.push(new URL(route.request().url()).pathname.split("/").at(-1) ?? "");
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/topometro");
+  const podium = page.getByRole("button", { name: "La quiero: Hades 1", exact: true });
+  const row = page.getByRole("button", { name: "La quiero: Outer Wilds 4", exact: true });
+  await expect(row).toHaveAttribute("aria-pressed", "false");
+  await expect(row).toHaveCSS("border-top-width", "0px");
+  await row.click();
+  await expect(row).toHaveAttribute("aria-pressed", "true");
+
+  await expect(podium).toHaveAttribute("aria-pressed", "false");
+  await podium.click();
+  await expect(podium).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\/topometro$/);
+  expect(commands).toEqual(["game-4", "game-1"]);
+});
+
 for (const width of [320, 390, 834, 1320]) {
   test(`podium, ledger and header reflow without overflow at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

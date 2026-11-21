@@ -8,15 +8,19 @@ import com.videogameplatform.api.generated.RankingsApi;
 import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.ReleaseCalendarApi;
 import com.videogameplatform.api.generated.ReleasesApi;
+import com.videogameplatform.api.generated.WishlistApi;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.Min;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.method.HandlerMethod;
@@ -35,11 +39,19 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(
-            HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!HttpMethod.GET.matches(request.getMethod())
-                || !(handler instanceof HandlerMethod method)
-                || !isClosedQueryOperation(method)) {
-            return true;
+            HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws IOException {
+        if (!(handler instanceof HandlerMethod method)) return true;
+        boolean wishlist = WishlistApi.class.isAssignableFrom(method.getBeanType());
+        boolean get = HttpMethod.GET.matches(request.getMethod());
+        if (!wishlist && (!get || !isClosedQueryOperation(method))) return true;
+        if (wishlist
+                && !get
+                && !method.getMethod().getName().equals("moveMyWish")
+                && request.getInputStream().read() != -1) {
+            throw new HttpMessageNotReadableException(
+                    "Wishlist commands take no request body",
+                    new ServletServerHttpRequest(request));
         }
         Set<QueryParameter> parameters = queryParameters(method);
         Set<String> allowed =
@@ -133,6 +145,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         if (Set.of("from", "to").contains(parameter.name())) {
             // The release range is a filter; only the coverage read names its own range code.
             return ReleasesApi.class.isAssignableFrom(method.getBeanType())
+                            || WishlistApi.class.isAssignableFrom(method.getBeanType())
                     ? ProblemCode.FILTER_INVALID
                     : ProblemCode.COVERAGE_RANGE_INVALID;
         }

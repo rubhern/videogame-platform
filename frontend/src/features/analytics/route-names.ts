@@ -16,6 +16,7 @@ export type RouteName =
   | "platform_upcoming"
   | "search"
   | "game_detail"
+  | "my_wishlist"
   | "my_ratings"
   | "rating_insights"
   | "profile"
@@ -39,6 +40,7 @@ const FIXED: Readonly<Record<string, RouteName>> = {
   "/topometro": "topometro",
   "/plataformas": "platforms",
   "/search": "search",
+  "/mis-deseados": "my_wishlist",
   "/mis-puntuaciones": "my_ratings",
   "/mis-puntuaciones/estadisticas": "rating_insights",
   "/mi-perfil": "profile",

@@ -1,3 +1,4 @@
+import { WishlistActions, WishlistButton } from "../wishlist/wishlist-controls";
 import { useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 
@@ -116,11 +117,14 @@ function HomeHighlightCard({ item }: { item: HomeGame }) {
             )}
           </p>
         )}
-        <h3 className="home-more-title">
-          <Link state={linkState} title={item.title} to={gamePath}>
-            {item.title}
-          </Link>
-        </h3>
+        <div className="wishlist-title">
+          <h3 className="home-more-title">
+            <Link state={linkState} title={item.title} to={gamePath}>
+              {item.title}
+            </Link>
+          </h3>
+          <WishlistButton compact gameId={item.gameId} title={item.title} />
+        </div>
         {group === undefined ? null : (
           <PlatformMarks label={`Plataformas de ${item.title}`} marks={platformMarks(group)} visible={3} />
         )}
@@ -145,13 +149,16 @@ function HomeLead({ game }: { game: HomeGame }) {
             {game.title}
           </Link>
         </h2>
-        {release && (
-          <div className="home-feature-facts">
-            <PlatformMarks label="Plataformas" marks={platformMarks(release)} visible={3} />
-            <span>{release.region}</span>
-            {game.stage && <span className="featured-release-stage">{game.stage}</span>}
-          </div>
-        )}
+        <div className="home-feature-facts">
+          {release && (
+            <>
+              <PlatformMarks label="Plataformas" marks={platformMarks(release)} visible={3} />
+              <span>{release.region}</span>
+              {game.stage && <span className="featured-release-stage">{game.stage}</span>}
+            </>
+          )}
+          <WishlistButton gameId={game.gameId} hero title={game.title} />
+        </div>
         <DiscoveryScores scores={game.scores} title={game.title} layout="hero" />
       </div>
     </article>
@@ -362,14 +369,14 @@ export function HomeReleaseDiscovery() {
           <p>{!slice && model?.selection.status === "popularity-unavailable" ? "Aún faltan datos de interés para este periodo." : "Elige otra fecha o plataforma."}</p>
         </HomeNotice>
       ) : (
-        <>
+        <WishlistActions batches={[items.map((game) => game.gameId)]}>
           <HomeLead game={withFeaturedArt(lead)} key={lead.gameId} />
           {others.length > 0 && (
             <ul aria-label={slice === undefined ? "Más destacados" : "Más lanzamientos"} className="home-more-list">
               {others.map((game) => <li className="min-w-0" key={game.gameId}><HomeHighlightCard item={withFeaturedArt(game)} /></li>)}
             </ul>
           )}
-        </>
+        </WishlistActions>
       )}
       <div className="home-discovery-links">
         <Link className="button home-discovery-link" to={explore}>Ver todos los lanzamientos <span aria-hidden="true" className="home-chevron" /></Link>

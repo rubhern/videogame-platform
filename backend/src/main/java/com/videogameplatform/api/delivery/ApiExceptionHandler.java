@@ -647,6 +647,21 @@ public class ApiExceptionHandler {
         return searchQueryInvalid(response, "/query/q");
     }
 
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.wishlist.WishlistGameNotFoundException
+                    .class)
+    ResponseEntity<Problem> wishlistGameNotFound(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.NOT_FOUND,
+                ProblemCode.WISHLIST_GAME_NOT_FOUND,
+                "Saved game not found",
+                "One of the games is absent from your wishlist.",
+                ErrorCategory.NOT_FOUND,
+                GAME_ID_PATH_POINTER,
+                "Choose a saved game.");
+    }
+
     @ExceptionHandler(GameNotFoundException.class)
     ResponseEntity<Problem> gameNotFound(HttpServletResponse response) {
         return problem(

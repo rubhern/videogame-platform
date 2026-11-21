@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
@@ -160,58 +161,61 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
               </h2>
               {/* Release and genres form one run of facts: a column on the G, one wrapping line on
                   phones. The wrapper adds no semantics. */}
-              <div className="featured-hero-facts">
-                {primaryGroup === undefined ? null : (
-                  <ul aria-label="Lanzamiento" className="featured-hero-meta">
-                    <li className="featured-hero-date">
-                      <CalendarIcon />
-                      <span aria-hidden="true">{primaryGroup.shortDate}</span>
-                      <span className="sr-only">{primaryGroup.date}</span>
-                    </li>
-                    {lead.stage === null ? null : (
-                      <li className="featured-hero-stage">
-                        <span className="featured-release-stage">{lead.stage}</span>
+              <div className="wishlist-hero-facts">
+                <div className="featured-hero-facts">
+                  {primaryGroup === undefined ? null : (
+                    <ul aria-label="Lanzamiento" className="featured-hero-meta">
+                      <li className="featured-hero-date">
+                        <CalendarIcon />
+                        <span aria-hidden="true">{primaryGroup.shortDate}</span>
+                        <span className="sr-only">{primaryGroup.date}</span>
                       </li>
-                    )}
-                    <li className="featured-hero-platforms">
-                      {/* Recognized platforms show their marks, named for assistive technology and
-                          as a tooltip; an unrecognized one keeps its name beside the generic mark.
-                          Phones keep the first marks and the exact count of the rest; every name
-                          stays announced. */}
-                      <ul aria-label="Plataformas" className="featured-platform-marks">
-                        {primaryGroup.platforms.map((name, index) => {
-                          const icon = platformIcon(primaryGroup.platformIds[index] ?? "", name);
-                          return (
-                            <li key={`${name}-${index}`} title={name}>
-                              <SelectIcon name={icon} />
-                              {icon === "platform" ? (
-                                <span className="featured-platform-name">{name}</span>
-                              ) : (
-                                <span className="sr-only">{name}</span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      {morePlatforms > 0 ? (
-                        <span aria-hidden="true" className="featured-platform-more">
-                          +{morePlatforms}
-                        </span>
-                      ) : null}
-                    </li>
-                    <li className="featured-hero-region">
-                      <SelectIcon name="worldwide" />
-                      <span>{primaryGroup.region}</span>
-                    </li>
-                  </ul>
-                )}
-                {lead.genres.length === 0 ? null : (
-                  <ul aria-label="Géneros" className="featured-genres">
-                    {lead.genres.map((genre) => (
-                      <li key={genre.genreId}>{genre.name}</li>
-                    ))}
-                  </ul>
-                )}
+                      {lead.stage === null ? null : (
+                        <li className="featured-hero-stage">
+                          <span className="featured-release-stage">{lead.stage}</span>
+                        </li>
+                      )}
+                      <li className="featured-hero-platforms">
+                        {/* Recognized platforms show their marks, named for assistive technology and
+                            as a tooltip; an unrecognized one keeps its name beside the generic mark.
+                            Phones keep the first marks and the exact count of the rest; every name
+                            stays announced. */}
+                        <ul aria-label="Plataformas" className="featured-platform-marks">
+                          {primaryGroup.platforms.map((name, index) => {
+                            const icon = platformIcon(primaryGroup.platformIds[index] ?? "", name);
+                            return (
+                              <li key={`${name}-${index}`} title={name}>
+                                <SelectIcon name={icon} />
+                                {icon === "platform" ? (
+                                  <span className="featured-platform-name">{name}</span>
+                                ) : (
+                                  <span className="sr-only">{name}</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {morePlatforms > 0 ? (
+                          <span aria-hidden="true" className="featured-platform-more">
+                            +{morePlatforms}
+                          </span>
+                        ) : null}
+                      </li>
+                      <li className="featured-hero-region">
+                        <SelectIcon name="worldwide" />
+                        <span>{primaryGroup.region}</span>
+                      </li>
+                    </ul>
+                  )}
+                  {lead.genres.length === 0 ? null : (
+                    <ul aria-label="Géneros" className="featured-genres">
+                      {lead.genres.map((genre) => (
+                        <li key={genre.genreId}>{genre.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <WishlistButton gameId={lead.gameId} hero title={lead.title} />
               </div>
               {timeline === null ? null : (
                 <p className="sr-only">{describePeriodScale(timeline, lead.mark, periodPhrase)}</p>

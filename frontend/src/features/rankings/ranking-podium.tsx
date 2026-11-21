@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -31,12 +32,15 @@ export function RankingPodium({
             <article className="catalogue-card podium-card">
               <CatalogueCover caption={false} cover={game.cover} linkState={linkState} to={gamePath} />
               <div className="podium-record">
-                <h3 className="card-title podium-title">
-                  <Link state={linkState} to={gamePath}>
-                    <span className="sr-only">{`Puesto ${game.position}:`}</span>{" "}
-                    {game.title}
-                  </Link>
-                </h3>
+                <div className="wishlist-title">
+                  <h3 className="card-title podium-title">
+                    <Link state={linkState} to={gamePath}>
+                      <span className="sr-only">{`Puesto ${game.position}:`}</span>{" "}
+                      {game.title}
+                    </Link>
+                  </h3>
+                  <WishlistButton compact gameId={game.gameId} title={game.title} />
+                </div>
                 <div className="podium-meta">
                   <p className="podium-year">
                     <span className="sr-only">{game.yearLabel}</span>

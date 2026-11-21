@@ -127,6 +127,7 @@ async function stubHome(page: Page, options: { session?: object; failFeatured?: 
   await page.route("**/api/v1/home-rankings/*", (route) => route.fulfill({ json: { items: [] } }));
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: options.session ?? { authenticated: false } }));
   await page.route("**/api/v1/me/platform-preferences", (route) => route.fulfill({ json: { configured: true, platforms: [] } }));
+  await page.route("**/api/v1/me/wishlist/status?*", (route) => route.fulfill({ json: { gameIds: [] } }));
   await page.route("**/api/v1/featured-releases*", (route) =>
     options.failFeatured
       ? route.fulfill({ status: 500, json: { code: "INTERNAL_ERROR", correlationId: "home-featured" } })
@@ -141,6 +142,59 @@ async function stubHome(page: Page, options: { session?: object; failFeatured?: 
   await page.route("**/api/v1/platforms", (route) => route.fulfill({ json: { items: directory } }));
   return requests;
 }
+
+test("saves the lead and release cards from home and Destacados", async ({ page }) => {
+  await stubHome(page, { session: { authenticated: true, csrfToken: "wishlist-proof" } });
+  const saved = new Set<string>();
+  await page.route("**/api/v1/me/wishlist/status?*", (route) => {
+    const ids = new URL(route.request().url()).searchParams.getAll("gameIds");
+    return route.fulfill({ json: { gameIds: ids.filter((id) => saved.has(id)) } });
+  });
+  await page.route("**/api/v1/me/wishlist/games/*", async (route) => {
+    const method = route.request().method();
+    expect(["PUT", "DELETE"]).toContain(method);
+    const id = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
+    if (method === "PUT") saved.add(id);
+    else saved.delete(id);
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto("/");
+  const releases = page.getByRole("region", { name: "Lanzamientos" });
+  const lead = releases.getByRole("button", { name: `La quiero: ${LEAD}` });
+  await expect(lead).toHaveAttribute("aria-pressed", "false");
+  await expect(lead).toHaveCSS("border-top-width", "1px");
+  await expect(releases.locator(".home-feature-facts").getByRole("button", { name: /La quiero/ })).toBeVisible();
+  await lead.click();
+  await expect(lead).toHaveAttribute("aria-pressed", "true");
+  await releases.locator(".home-feature").screenshot({ path: test.info().outputPath("home-hero-wishlist.png") });
+
+  const next = releases.getByRole("button", { name: "La quiero: Queen's Domain" });
+  await expect(next).toHaveAttribute("aria-pressed", "false");
+  await next.click();
+  await expect(next).toHaveAttribute("aria-pressed", "true");
+
+  await releases.getByRole("button", { name: /29 oct 2026/ }).click();
+  const fromDay = releases.getByRole("button", { name: "La quiero: Phantom Blade Zero" });
+  await expect(fromDay).toHaveAttribute("aria-pressed", "false");
+  await fromDay.click();
+  await expect(fromDay).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\?fecha=2026-10-29$/);
+
+  await releases.getByRole("link", { name: "Abrir Destacados" }).click();
+  const featuredLead = page.getByRole("button", { name: `La quiero: ${LEAD}` });
+  await expect(featuredLead).toHaveAttribute("aria-pressed", "true");
+  expect(await featuredLead.evaluate((heart) => parseFloat(getComputedStyle(heart).borderTopWidth))).toBeGreaterThan(0);
+  await expect(page.locator(".wishlist-hero-facts").getByRole("button", { name: /La quiero/ })).toBeVisible();
+  await featuredLead.click();
+  await expect(featuredLead).toHaveAttribute("aria-pressed", "false");
+  await page.locator(".featured-hero-section").screenshot({ path: test.info().outputPath("featured-hero-wishlist.png") });
+  const featuredCard = page.getByRole("button", { name: "La quiero: Terrible Lizards" });
+  await expect(featuredCard).toHaveAttribute("aria-pressed", "false");
+  await featuredCard.click();
+  await expect(featuredCard).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\/lanzamientos\/destacados/);
+  expect([...saved]).toEqual(["queen", "2026-10-29-0", "lizards"]);
+});
 
 const pageFits = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
@@ -439,6 +493,12 @@ test("a signed-in player gets their own pages and no sign-in invitation", async 
   await expect(personal.getByRole("link", { name: /Mis puntuaciones/ })).toHaveAttribute("href", "/mis-puntuaciones");
   await expect(personal.getByRole("link", { name: /Tus estadísticas/ })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
   await expect(personal.getByRole("link", { name: "Crear cuenta" })).toHaveCount(0);
-  expect(requests.filter((path) => path.startsWith("/api/v1/me/") && !path.startsWith("/api/v1/me/platform-preferences"))).toEqual([]);
+  await expect(page.getByRole("button", { name: `La quiero: ${LEAD}` }))
+    .toHaveAttribute("aria-pressed", "false");
+  const personalReads = requests
+    .map((path) => new URL(path, "https://gameometro.test"))
+    .filter((url) => url.pathname.startsWith("/api/v1/me/") && url.pathname !== "/api/v1/me/platform-preferences");
+  expect(personalReads.map((url) => url.pathname)).toEqual(["/api/v1/me/wishlist/status"]);
+  expect(personalReads[0]?.searchParams.getAll("gameIds")).toEqual(featured.items.map((item) => item.gameId));
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });

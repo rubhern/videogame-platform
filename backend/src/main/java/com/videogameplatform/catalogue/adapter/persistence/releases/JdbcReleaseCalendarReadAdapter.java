@@ -73,8 +73,9 @@ public final class JdbcReleaseCalendarReadAdapter implements ReleaseCalendarRead
                         criteria.from(), criteria.to(), criteria.evaluatedOn(), false);
         ReleaseRangeSql.RangePredicate range =
                 new ReleaseRangeSql.RangePredicate(
-                        "(" + explorerRange.predicate() + ") AND rs.date_precision = 'day'",
-                        explorerRange.parameters());
+                                "(" + explorerRange.predicate() + ") AND rs.date_precision = 'day'",
+                                explorerRange.parameters())
+                        .forWishlist(criteria.wishlistOwner());
         List<Taxonomy> platforms =
                 ReleaseRangeSql.facet(
                         jdbcOperations,

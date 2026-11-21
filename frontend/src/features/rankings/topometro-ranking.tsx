@@ -1,3 +1,4 @@
+import { WishlistActions } from "../wishlist/wishlist-controls";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -136,21 +137,22 @@ export function TopometroRanking({ source, platform }: { source: RankingSource; 
 
   return (
     <>
-      <TopometroShell
-        renderStamp={(game, variant) => (
-          <QuickRateStamp
-            onOpen={() => {
-              trackEvent("quick_rating", { list: "topometro", action: "open" });
-              setRating({ mode: "pop", game, anchor: stamps.current.get(game.gameId) ?? null });
-            }}
-            ref={(element) => {
-              if (element === null) stamps.current.delete(game.gameId);
-              else stamps.current.set(game.gameId, element);
-            }}
-            state={personalOf(game.gameId)}
-            title={game.title}
-            variant={variant}
-          />
+      <WishlistActions batches={(query.data?.pages ?? []).map((page) => page.items.map((item) => item.gameId))}>
+        <TopometroShell
+          renderStamp={(game, variant) => (
+            <QuickRateStamp
+              onOpen={() => {
+                trackEvent("quick_rating", { list: "topometro", action: "open" });
+                setRating({ mode: "pop", game, anchor: stamps.current.get(game.gameId) ?? null });
+              }}
+              ref={(element) => {
+                if (element === null) stamps.current.delete(game.gameId);
+                else stamps.current.set(game.gameId, element);
+              }}
+              state={personalOf(game.gameId)}
+              title={game.title}
+              variant={variant}
+            />
         )}
         onLoadMore={() => {
           // A page already being read is never cancelled and requested again.
@@ -171,6 +173,7 @@ export function TopometroRanking({ source, platform }: { source: RankingSource; 
         }
         tools={runControl}
       />
+      </WishlistActions>
       {rating?.mode === "pop" ? (
         <QuickRatePop
           anchor={rating.anchor}

@@ -155,6 +155,21 @@ descriptive. The
 [application use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
 owns the selected statistics and calculation guarantees; the accepted MVP cut is unchanged.
 
+## Private wishlist
+
+**Post-MVP, owner-approved on 2026-11-20 (#590).** A signed-in player can save
+games they want, then use **Mis deseados** to see what is coming up and narrow
+release discovery to those games. Players can put the games they most want first.
+The first version is private and game-level.
+Playing states, platform-specific wishes, alerts and sharing remain separate decisions.
+See [the game library decision](../decisions/0050-store-private-game-wishes-in-the-catalogue.md)
+and [the wishlist use case](../architecture/application/mvp-use-cases.md#private-wishlist-uc-025-post-mvp-590).
+
+Several people the owner introduced to Gameómetro after the 2026-11-08 public opening
+asked unprompted for a wishlist. This is an early qualitative signal. The hypothesis is
+that keeping wanted games in release order gives the priority player a reason to return.
+The accepted MVP cut is unchanged.
+
 ## Personal discovery preferences
 
 **Approved; implemented, awaiting owner review (#295):** a signed-in player may choose the

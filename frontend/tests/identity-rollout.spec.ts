@@ -74,7 +74,7 @@ for (const width of [390, 1320]) {
     await expect(third.getByText("11 de agosto de 2026")).toBeAttached();
 
     // Pointing at a release, or focusing its title, lifts its needle above the others.
-    await third.getByRole("link", { name: "Juego 3" }).focus();
+    await third.getByRole("link", { name: "Juego 3", exact: true }).focus();
     await expect(scale).toHaveClass(/window-scale-pointing/);
     await expect(scale.locator(".window-scale-needle-active")).toHaveCount(1);
     const fire = await scale
@@ -82,6 +82,7 @@ for (const width of [390, 1320]) {
       .evaluate((needle) => getComputedStyle(needle, "::after").borderTopColor);
     expect(fire).toBe("rgb(255, 106, 61)");
     await page.keyboard.press("Tab");
+    await expect(third.getByRole("link", { name: /^La quiero: Juego 3/ })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(scale).not.toHaveClass(/window-scale-pointing/);
 
@@ -145,6 +146,22 @@ for (const width of [390, 1320]) {
       title.locator(".game-wordmark-sub").boundingBox(),
     ]);
     expect(sub?.y ?? 0).toBeGreaterThanOrEqual((main?.y ?? 0) + (main?.height ?? 0) - 1);
+
+    const heart = title.locator(".game-wordmark-sub").getByRole("link", { name: /^La quiero:/ });
+    await expect(heart).toHaveClass(/wishlist-button-hero/);
+    const inlineWithTitle = await heart.evaluate((link) => {
+      const text = link.parentElement?.previousSibling;
+      if (!(text instanceof Text)) return false;
+      const range = document.createRange();
+      range.setStart(text, text.length - 1);
+      range.setEnd(text, text.length);
+      const lastCharacter = range.getBoundingClientRect();
+      const button = link.getBoundingClientRect();
+      return button.left > lastCharacter.right
+        && button.top < lastCharacter.bottom
+        && button.bottom > lastCharacter.top;
+    });
+    expect(inlineWithTitle).toBe(true);
 
     // The readings are an instrument row, not boxed panels.
     const community = page.getByRole("region", { name: "Puntuación de la comunidad" });

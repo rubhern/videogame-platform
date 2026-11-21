@@ -51,6 +51,19 @@ public final class ReleaseApiMapper {
                         result.page().totalPages()));
     }
 
+    ReleasePage toScoredResponse(
+            BrowseReleasesResult result,
+            com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader scores) {
+        ReleasePage body = toResponse(result);
+        var scoreBatch =
+                scores.read(
+                        body.getItems().stream()
+                                .map(ReleaseItem::getGameId)
+                                .collect(java.util.stream.Collectors.toSet()));
+        body.getItems().forEach(item -> item.setScores(scoreBatch.get(item.getGameId())));
+        return body;
+    }
+
     /** The applied filters; shared by the release explorer and the release calendar. */
     static ActiveFilters toActiveFilters(BrowseReleasesResult.ActiveFilters source) {
         return new ActiveFilters(
@@ -115,7 +128,7 @@ public final class ReleaseApiMapper {
         return release;
     }
 
-    private static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(
+    static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(
             CatalogueReleaseDate source) {
         return switch (source.precision()) {
             case DAY -> new DayReleaseDate("day", LocalDate.parse(source.value()));

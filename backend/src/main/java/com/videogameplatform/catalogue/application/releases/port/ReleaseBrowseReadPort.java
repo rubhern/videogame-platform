@@ -34,7 +34,31 @@ public interface ReleaseBrowseReadPort {
             Pagination pagination,
             boolean includeApproximateDates,
             int releaseGroupLimit,
-            com.videogameplatform.catalogue.domain.AttentionWeights attention) {
+            com.videogameplatform.catalogue.domain.AttentionWeights attention,
+            String wishlistOwner) {
+
+        public Criteria(
+                Window window,
+                LocalDate evaluatedOn,
+                BrowseReleasesUseCase.Sort sort,
+                List<String> platformIds,
+                List<String> regionIds,
+                Pagination pagination,
+                boolean includeApproximateDates,
+                int releaseGroupLimit,
+                com.videogameplatform.catalogue.domain.AttentionWeights attention) {
+            this(
+                    window,
+                    evaluatedOn,
+                    sort,
+                    platformIds,
+                    regionIds,
+                    pagination,
+                    includeApproximateDates,
+                    releaseGroupLimit,
+                    attention,
+                    null);
+        }
 
         /** The approved attention weights. */
         public Criteria(

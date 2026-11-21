@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.19.0
+  version: 5.20.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -27,6 +27,8 @@ tags:
     description: Weekly activity from community votes and consented game-detail visits.
   - name: Feedback
     description: Anonymous visitor feedback handed to the configured receiving channel.
+  - name: Wishlist
+    description: Private saved games and release discovery scoped to the current wishlist.
   - name: Profile
     description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
@@ -248,9 +250,10 @@ paths:
         One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
         exportedAt, account (available session-validated name/email), ratings (gameId, title,
         direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
-        and preferredPlatforms (configured, savedAt when configured, platforms). No credentials,
+        preferredPlatforms (configured, savedAt when configured, platforms), and wishlist
+        (gameId, title, addedAt, and one-based position). No credentials,
         tokens, provider payloads or other users' data. Reads one consistent local snapshot.
-        Preparation is bounded to 10000 ratings, 16 MiB and 30 seconds; budget or source failure
+        Preparation is bounded to 10000 ratings, 10000 wishes, 16 MiB and 30 seconds; budget or source failure
         returns an error before any successful download, never a truncated successful export.
         Empty collections are valid. No query parameters are accepted.
       security: [{ sessionCookie: [] }]
@@ -1970,6 +1973,200 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/wishlist:
+    get:
+      tags: [Wishlist]
+      operationId: listMyWishlist
+      summary: Page through my saved games
+      description: |
+        UC-025. Only games saved by the current BFF principal, in the user's saved order.
+        Newly saved games join the end. Release dates are presentation context and keep
+        their actual precision. Game ID is the final tie-breaker. The total counts one row per game.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Private page and total, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WishlistPage' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/WishlistValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+  /me/wishlist/status:
+    get:
+      tags: [Wishlist]
+      operationId: getMyWishlistedGames
+      summary: Return the saved subset of a bounded set of game IDs
+      description: Unknown games and games absent from the current principal's wishlist are omitted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: gameIds
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { $ref: '#/components/schemas/GameId' }
+      responses:
+        '200':
+          description: Saved game IDs in ascending order.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WishlistStatus' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/WishlistValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/wishlist/games/{gameId}:
+    parameters:
+      - $ref: '#/components/parameters/GameIdPath'
+    put:
+      tags: [Wishlist]
+      operationId: addMyWish
+      summary: Save a local catalogue game
+      description: Idempotent. An existing wish keeps its original added time. No body is accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204': { $ref: '#/components/responses/WishlistUpdated' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '404': { $ref: '#/components/responses/GameNotFound' }
+        '422': { $ref: '#/components/responses/WishlistValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    delete:
+      tags: [Wishlist]
+      operationId: removeMyWish
+      summary: Remove a saved game
+      description: Idempotent. An absent wish returns the same success as a removed wish. No body is accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204': { $ref: '#/components/responses/WishlistUpdated' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '422': { $ref: '#/components/responses/WishlistValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/wishlist/games/{gameId}/position:
+    put:
+      tags: [Wishlist]
+      operationId: moveMyWish
+      summary: Change the order of a saved game
+      description: |
+        Move a saved game immediately before or after another saved game in the same
+        account. Repeating the same move preserves that relationship. Using the moving
+        game itself as the anchor leaves the list unchanged.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WishlistMove' }
+      responses:
+        '204': { $ref: '#/components/responses/WishlistUpdated' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '404': { $ref: '#/components/responses/WishlistGameNotFound' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/wishlist/releases:
+    get:
+      tags: [Wishlist]
+      operationId: listMyWishlistedReleases
+      summary: Explore releases for my saved games
+      description: |
+        The same representation, range, filters and ordering as GET /releases, scoped to the
+        current principal's wishlist before calculating facets, counts or pages.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ReleaseFrom'
+        - $ref: '#/components/parameters/ReleaseTo'
+        - $ref: '#/components/parameters/ReleaseSort'
+        - $ref: '#/components/parameters/ReleaseIncludeApproximateDates'
+        - $ref: '#/components/parameters/PlatformIdsQuery'
+        - $ref: '#/components/parameters/RegionIdsQuery'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Private wishlist-filtered discovery.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReleasePage' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+  /me/wishlist/release-calendar:
+    get:
+      tags: [Wishlist]
+      operationId: getMyWishlistedReleaseCalendar
+      summary: Count releases for my saved games by calendar day
+      description: |
+        The same representation, range, filters and ordering as GET /release-calendar, scoped to the
+        current principal's wishlist before calculating facets, counts or pages.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ReleaseCalendarMonth'
+        - $ref: '#/components/parameters/ReleaseCalendarIncludePast'
+        - $ref: '#/components/parameters/PlatformIdsQuery'
+        - $ref: '#/components/parameters/RegionIdsQuery'
+      responses:
+        '200':
+          description: Private wishlist-filtered discovery.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReleaseCalendar' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/ReleaseCalendarValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
   /me/rating-insights:
     get:
       tags: [Ratings]
@@ -4424,6 +4621,43 @@ components:
         alternativeText: { type: string, minLength: 1 }
         attribution: { $ref: '#/components/schemas/Attribution' }
       unevaluatedProperties: false
+    WishlistPage:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/WishlistGame' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+    WishlistGame:
+      type: object
+      description: A game no longer in the current publication has no slug or title and is undated.
+      required: [gameId, primaryCover, timing, releaseDate]
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1 }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        timing: { type: string, enum: [upcoming, released, undated] }
+        releaseDate: { $ref: '#/components/schemas/ReleaseDate' }
+    WishlistMove:
+      type: object
+      required: [anchorGameId, placement]
+      properties:
+        anchorGameId: { $ref: '#/components/schemas/GameId' }
+        placement:
+          type: string
+          enum: [before, after]
+      additionalProperties: false
+    WishlistStatus:
+      type: object
+      required: [gameIds]
+      properties:
+        gameIds:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/GameId' }
     ReleasePage:
       type: object
       required: [evaluatedOn, window, activeFilters, availableFilters, items, page]
@@ -5816,6 +6050,7 @@ components:
         - INTERNAL_ERROR
         - AUTHENTICATION_REQUIRED
         - GAME_NOT_FOUND
+        - WISHLIST_GAME_NOT_FOUND
         - RATING_NOT_FOUND
         - RATING_VALUE_INVALID
         - RATING_PLATFORMS_INVALID
@@ -5882,6 +6117,31 @@ components:
       description: RFC 9457 Problem Details with stable product extensions.
 
   responses:
+    WishlistUpdated:
+      description: The wish is in the requested state.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+    WishlistGameNotFound:
+      description: WISHLIST_GAME_NOT_FOUND. The moving or anchor game is absent from the principal's wishlist.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    WishlistValidationFailed:
+      description: An invalid or unknown query parameter.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
     ProfileValidationFailed:
       description: REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted.
       headers:

@@ -1,3 +1,4 @@
+import { WishlistButton } from "../wishlist/wishlist-controls";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -36,12 +37,15 @@ export function RankingRow({
       </p>
       <CatalogueCover caption={false} cover={game.cover} linkState={linkState} to={gamePath} />
       <div className="ranking-record">
-        <h3 className="card-title ranking-title">
-          <Link ref={titleRef} state={linkState} to={gamePath}>
-            <span className="sr-only">{`Puesto ${game.position}:`}</span>{" "}
-            {game.title}
-          </Link>
-        </h3>
+        <div className="wishlist-title">
+          <h3 className="card-title ranking-title">
+            <Link ref={titleRef} state={linkState} to={gamePath}>
+              <span className="sr-only">{`Puesto ${game.position}:`}</span>{" "}
+              {game.title}
+            </Link>
+          </h3>
+          <WishlistButton compact gameId={game.gameId} title={game.title} />
+        </div>
         <div className="ranking-facts">
           <p className="ranking-year">
             <span className="sr-only">{game.yearLabel}</span>

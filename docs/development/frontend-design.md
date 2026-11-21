@@ -278,7 +278,7 @@ carries the rule, as `aria-current="true"`, on a platform's destination such as
 [Explorar catálogo](#explorar-catálogo).
 
 **Account.** For an authenticated session the account control provides `Mi cuenta`,
-`Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
+`Mis puntuaciones`, **Tus estadísticas**, **Mis deseados**, **Mis plataformas**
 ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout, and
 **Panel de administrador** only when the session names that capability (#247). Post-MVP (#162),
 anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
@@ -353,10 +353,9 @@ return every header surface to system colours.
   including the provider attribution and source link that
   [ADR-0001](../decisions/0001-reference-igdb-cover-images.md) requires. Never truncate contract
   data to equalize card heights; a long value wraps inside its tag.
-- A catalogue card keeps one pointer target and one keyboard stop: the title link's target
-  covers the card, the title stays its only keyboard stop besides a score attribution and, on
-  TOPómetro, the player's own [rating stamp](#topómetro), and its
-  focus ring outlines the cover. Cards keep equal height across a row and never glow, lift or
+- A catalogue card's title link covers the card and its focus ring outlines the cover.
+  A [wishlist heart](#private-wishlist), score attribution and the TOPómetro
+  [rating stamp](#topómetro) remain independently operable where present. Cards keep equal height across a row and never glow, lift or
   sweep light.
 - Provider covers arrive at one fixed CDN size, so every frame wider than that size upscales
   them. Treat that as a permanent condition of [ADR-0001](../decisions/0001-reference-igdb-cover-images.md),
@@ -596,7 +595,7 @@ the executable values; these constraints hold wherever they are used:
   Post-MVP (#279 phase 4, implemented; awaiting owner review), the readings of the
   [discovery score rules](#featured-releases) stack as two compact rows, Gameómetro above
   **Jugadores IGDB**, so marks and means align. An entry shows only its available sources and
-  omits the block without any; the IGDB attribution is its only link besides the title. An
+  omits the block without any; the IGDB attribution links to the game at its source. An
   entry without scores keeps no reserved space. It never renders release rows or status chips,
   so its height never follows the release count, and entries in one row share one height.
   Platform names stay available to assistive technology and as tooltips. Summary, developer,
@@ -957,7 +956,7 @@ context-selected media under `FEAT-003` in the
 [domain model](../architecture/domain/mvp-domain-model.md); a screenshot may carry the game's
 existing decorative logo, and artwork is shown as it is. Beneath the frame come the compact
 period scale with the release's compact date, the title on one line (its full text stays the link
-and its tooltip) as the only keyboard stop, the readings, one release line with up to three
+and its tooltip), the wishlist heart, the readings, one release line with up to three
 platform marks, the exact `+N`, the region and the same release-kind label, then up to two localized genres and the overflow
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
@@ -1028,8 +1027,8 @@ the attribution link. Phone podium columns stack the mark over the numbers so no
 
 **Ledger.** Places from the fourth on follow the podium without a visible heading (`Clasificación`
 for assistive technology): an ordered list of lines between
-hairlines, each line the place's number in the wide heavy cut, the cover, the title as its only
-keyboard stop besides the IGDB attribution, the known years and up to two genres, the platform
+hairlines, each line the place's number in the wide heavy cut, the cover, the title with its
+wishlist heart, the known years and up to two genres, the platform
 marks and the reading. As in `Mis puntuaciones`, a Gameómetro line's left edge takes its score's
 temperature, so the column reads as a thermometer; an IGDB line keeps a neutral edge. From
 1024px the platforms take a column of their own; phones stack the facts beside the cover.
@@ -1821,6 +1820,31 @@ platform bars' fill-and-outline contrast, give the ring distinct categorical pat
 selection. The permanent numerical legend carries every category without colour. Empty collections show a
 quiet invitation to find a game, with no simulated charts or meaningless instrument. Loading
 and failures use the shared server-backed state language below.
+
+## Private wishlist
+
+**Mis deseados** opens from both account menus at `/mis-deseados`. The shared page
+opening leads to a total and one ordered list of covers, titles and release timing.
+The first three positions have larger numerals and an ice edge. Each row has a grip.
+Dragging with a pointer shows the insertion edge. The same grip accepts touch,
+two separate presses, or Space and arrow keys, with Space to confirm and Escape to
+cancel. A filled heart removes the game. A game
+without usable timing reads **Fecha por confirmar**. The first ten games are
+visible immediately after loading. **Mostrar más** appends ten at a time to the same
+list and focuses the first new grip. All visible games can be reordered together.
+The standard empty notice and reorder feedback remain available.
+
+The home and Destacados lead games place an ice-outlined, night-backed heart alongside
+the release facts. The game page places the same icon-only control at the end of the
+title, after the subtitle when present. In cards and TOPómetro, the unboxed heart sits
+next to the title.
+The heart has its own pointer target and keyboard focus even where the title link
+covers the rest of the card. Its accessible name includes the game title. A native toggle
+announces the saved state and shows a filled heart. Visitors use a sign-in link to
+the same selection. **Solo mis deseados** is a labelled checkbox on the explorer and
+calendar, resets pagination and follows the selected view and day's links.
+The [use case](../architecture/application/mvp-use-cases.md#private-wishlist-uc-025-post-mvp-590)
+owns ordering, ownership and date meaning.
 
 ## Server-backed states
 

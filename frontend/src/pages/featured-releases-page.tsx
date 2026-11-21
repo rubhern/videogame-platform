@@ -1,3 +1,4 @@
+import { WishlistActions } from "../features/wishlist/wishlist-controls";
 import { resolvePlatformContext } from "../features/platforms/platform-context";
 import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -72,15 +73,19 @@ export function FeaturedReleasesPage() {
     };
   }
 
+  const view = state.status === "ready" && !state.isPlaceholderData ? state.model : null;
+  const gameIds = view?.lead ? [view.lead.gameId, ...view.others.map((item) => item.gameId)] : [];
   return (
-    <FeaturedReleasesShell
-      interestsMode={platformFilter.mode}
-      onRetry={() => {
-        void query.refetch();
-      }}
-      platform={platform ?? undefined}
-      search={search}
-      state={state}
-    />
+    <WishlistActions batches={[gameIds]}>
+      <FeaturedReleasesShell
+        interestsMode={platformFilter.mode}
+        onRetry={() => {
+          void query.refetch();
+        }}
+        platform={platform ?? undefined}
+        search={search}
+        state={state}
+      />
+    </WishlistActions>
   );
 }

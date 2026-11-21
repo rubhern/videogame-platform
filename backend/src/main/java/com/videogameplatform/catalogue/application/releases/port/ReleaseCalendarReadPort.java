@@ -28,7 +28,18 @@ public interface ReleaseCalendarReadPort {
             LocalDate evaluatedOn,
             List<String> platformIds,
             List<String> regionIds,
-            long minimumHypes) {
+            long minimumHypes,
+            String wishlistOwner) {
+
+        public Criteria(
+                LocalDate from,
+                LocalDate to,
+                LocalDate evaluatedOn,
+                List<String> platformIds,
+                List<String> regionIds,
+                long minimumHypes) {
+            this(from, to, evaluatedOn, platformIds, regionIds, minimumHypes, null);
+        }
 
         /** The approved minimum of {@value DEFAULT_MINIMUM_HYPES} Hypes. */
         public Criteria(

@@ -240,10 +240,12 @@ test("search results stay keyboard navigable across pages and into a game", asyn
   await expect(page.getByRole("navigation", { name: "Paginación de resultados" })).toContainText("Página 2 de 3");
   await expect(page.getByRole("link", { name: "Página anterior" })).toBeVisible();
 
-  // The title link opens the game; an IGDB score adds only its attribution link after it.
+  // The title link opens the game, followed by the wishlist and IGDB attribution links.
   await page.keyboard.press("Tab");
   const firstTitle = page.getByRole("link", { name: firstPage.items[0]?.canonicalTitle ?? "", exact: true });
   await expect(firstTitle).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(cards(page).first().getByRole("link", { name: /^La quiero:/ })).toBeFocused();
   await page.keyboard.press("Tab");
   const attribution = cards(page).first().getByRole("link", { name: /^Jugadores IGDB:/ });
   await expect(attribution).toBeFocused();

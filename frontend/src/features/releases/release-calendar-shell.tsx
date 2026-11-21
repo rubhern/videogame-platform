@@ -23,6 +23,7 @@ import {
 import { hasEffectiveFilters } from "./release-filter-paths";
 import { ReleaseViewSwitch } from "./release-view-switch";
 import type { ReleasesFailureState } from "./releases-failure";
+import { WishlistFilter } from "../wishlist/wishlist-controls";
 import { ReleasesFilters } from "./releases-filters";
 import { releasesSearchPath, defaultReleasesSearch } from "./releases-search";
 
@@ -42,6 +43,7 @@ type ReleaseCalendarShellProps = {
   onRetryDay: () => void;
   interests: Interests;
   platformFilter: PlatformFilter;
+  canFilterWishlist: boolean;
 };
 
 export const CALENDAR_TITLE = "Calendario de lanzamientos";
@@ -85,6 +87,7 @@ export function ReleaseCalendarShell({
   previousModel,
   selectedDay,
   dayPreview,
+  canFilterWishlist,
   onRetry,
   onRetryDay,
   interests,
@@ -97,6 +100,7 @@ export function ReleaseCalendarShell({
   const monthPath = (month: string) => calendarSearchPath(search, { month, day: null, page: 1 });
   const listPath = releasesSearchPath(defaultReleasesSearch, {
     ...(model === null ? {} : { from: model.window.from < model.evaluatedOn ? model.evaluatedOn : model.window.from, to: model.window.to }),
+    ...(search.wishedOnly ? { wishedOnly: true } : {}),
     platformIds: search.platformIds,
     regionIds: search.regionIds,
   });
@@ -165,6 +169,15 @@ export function ReleaseCalendarShell({
             <ReleaseCalendarMonths model={model ?? previousModel} pathFor={monthPath} />
           ) : null}
         </div>
+
+        {canFilterWishlist ? (
+          <WishlistFilter checked={Boolean(search.wishedOnly)}
+            onChange={(wishedOnly) => {
+              void navigate(calendarSearchPath(search, { wishedOnly, page: 1 }), {
+                preventScrollReset: true,
+              });
+            }} />
+        ) : null}
 
         {state.status === "loading" ? <CalendarLoading /> : null}
 
