@@ -144,6 +144,8 @@ for (const width of [390, 412, 1320]) {
     test("history waits for a freshly loaded personal collection", async ({ page }) => {
       await fixtures(page);
       await page.route("**/api/v1/session", route => route.fulfill({ json: { authenticated: true, csrfToken: "test-csrf" } }));
+      // The rows' state selectors read their states; none of these games has one.
+      await page.route("**/api/v1/me/library/states?*", route => route.fulfill({ json: { entries: [] } }));
       let releaseRead: (() => void) | undefined;
       let reads = 0;
       await page.route("**/api/v1/me/ratings?*", async route => {
