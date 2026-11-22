@@ -16,11 +16,12 @@ import {
   readRequestedRun, type RequestedRun,
 } from "../features/catalogue-administration/synchronization-request-state";
 import { CurrentRunPanel, RecentRuns } from "../features/catalogue-administration/synchronization-runs";
+import { SocialCarousel } from "../features/social-carousel/social-carousel";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
 import { HeroTitle } from "../shared/ui/hero-title";
 
-type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones" | "interes" | "ajustes";
+type PanelTab = "ejecuciones" | "cobertura" | "historica" | "traducciones" | "interes" | "ajustes" | "redes";
 const TABS: { id: PanelTab; label: string }[] = [
   { id: "ejecuciones", label: "Ejecuciones" },
   { id: "cobertura", label: "Cobertura" },
@@ -28,6 +29,7 @@ const TABS: { id: PanelTab; label: string }[] = [
   { id: "traducciones", label: "Traducciones" },
   { id: "interes", label: "Interés editorial" },
   { id: "ajustes", label: "Ajustes" },
+  { id: "redes", label: "Redes sociales" },
 ];
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
@@ -194,6 +196,7 @@ export function CatalogueAdministrationPage() {
                     </> : tab === "traducciones" && csrfToken ? <CatalogueTranslations csrfToken={csrfToken} />
                       : tab === "interes" && csrfToken ? <EditorialAttention csrfToken={csrfToken} now={now} />
                       : tab === "ajustes" && csrfToken ? <ProductSettings csrfToken={csrfToken} />
+                      : tab === "redes" ? <SocialCarousel />
                       : tab === "historica" && csrfToken ? <HistoricalSynchronization csrfToken={csrfToken} ordinary={status.data} /> : <section className="admin-section" aria-labelledby="admin-coverage-title">
                       <h2 id="admin-coverage-title">Cobertura histórica</h2>
                       <dl className="admin-glossary">

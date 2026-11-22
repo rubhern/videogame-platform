@@ -828,6 +828,37 @@ operator's abandonment, before a successor can write. Provider failure never del
 valid publication keeps serving.
 
 
+## Weekly social carousel
+
+Once a week, an operator can post a **Lanzamientos de la semana** carousel to Gameómetro's social
+profiles (#589). The slides come from the same public featured-releases read as Destacados.
+The application calls no provider API. The browser loads the IGDB covers and artwork from
+IGDB's CDN, as the site does. Nothing is posted automatically: X's API is paid, and Instagram
+needs a professional account and Meta's API.
+
+1. Sign in with a catalogue-operator account and open **Redes sociales** in
+   `/administracion/catalogo`. It opens on the current week; **Semana anterior** and **Semana
+   siguiente** move within the weeks Destacados offers.
+2. Review the slides: a cover with every featured game's cover, the week's most important release,
+   one slide per other featured game in Destacados order (up to six games in all) and a closing
+   slide. The buttons become available once every slide has painted. A week without featured
+   games says so and produces nothing to post.
+3. On a phone, use **Compartir imágenes** to send the PNG images to the Instagram app. Elsewhere,
+   use **Descargar todas** or each slide's **Descargar**. Files are named
+   `gameometro-lanzamientos-<week>-NN.png` in carousel order.
+4. Use **Copiar texto** and paste the caption into the post. Edit it there if needed: the page
+   never stores it.
+5. Publish the slides as one carousel in their numbered order. The 4:5 portrait images also fit X
+   and Bluesky.
+
+The slides include IGDB covers and artwork by owner decision, with **Datos e imágenes: IGDB** on
+the closing slide. [ADR-0001](../decisions/0001-reference-igdb-cover-images.md#amendment-2026-11-22)
+records that decision and when to reopen it. If a slide shows the product fallback instead of
+the game's image, IGDB's CDN did not answer the browser's cross-origin request. Reload the
+page, and post that slide only if the fallback is acceptable. The
+[frontend design guidelines](frontend-design.md#catalogue-administration) own the slide
+composition.
+
 ## Current provider-release repair
 
 **Disposable-copy evidence (2026-10-02, #212):** the packaged candidate reconciled complete
