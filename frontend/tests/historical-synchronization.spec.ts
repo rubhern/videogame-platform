@@ -46,6 +46,10 @@ test("historical form and state remain usable with forced colours and keyboard t
   const tab = page.getByRole("tab", { name: "Sincronización histórica" });
   await tab.focus(); await page.keyboard.press("Home"); await expect(page.getByRole("tab", { name: "Ejecuciones" })).toBeFocused();
   await page.keyboard.press("End");
+  const social = page.getByRole("tab", { name: "Redes sociales" });
+  await expect(social).toBeFocused();
+  await expect(social).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowLeft");
   const settings = page.getByRole("tab", { name: "Ajustes" });
   await expect(settings).toBeFocused();
   await expect(settings).toHaveAttribute("aria-selected", "true");
