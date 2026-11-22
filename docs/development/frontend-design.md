@@ -626,7 +626,9 @@ the executable values; these constraints hold wherever they are used:
   share the next one. The entire control opens its
   list, and every option has a decorative icon. Recognized platforms use the owner-provided
   PlayStation, Nintendo Switch, Windows and Xbox marks tinted with the product accent;
-  unknown platforms retain a generic gamepad. Mundial is a globe; Europa, Norteamérica, Japón,
+  unknown platforms and the **Plataforma** selectors use the one generic platform glyph, four
+  tiles, which also marks **Mis plataformas** everywhere (account menu, home and Mi perfil) and
+  never resembles the gamepad of **Mis juegos**. Mundial is a globe; Europa, Norteamérica, Japón,
   Asia, Corea, Nueva Zelanda, Brasil and Australia use owner-provided marks; any other region
   keeps a generic location marker, and the unconfirmed region its own. A seeded platform or
   region is recognized by its stable identifier, and one acquired later by its catalogue label,
@@ -824,10 +826,12 @@ platform without games adds **Aún sin juegos en Gameómetro** from the public d
 failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
 
 **Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
-A signed-in player gets **Mis puntuaciones**, **Tus estadísticas** and **Mis plataformas** as a short
-ledger of links. An anonymous visitor gets one invitation, the keypad's ice-to-fire key, **Crear
-cuenta** (primary) and **Iniciar sesión** through the BFF, both returning to the home, and four short
-lines on what an account adds, each an implemented feature. The home never reads personal data:
+A signed-in player gets every destination of the account menu (**Mis juegos**, **Mis deseados**,
+**Mis puntuaciones**, **Tus estadísticas**, **Mis plataformas** and **Mi perfil**, in that order) as
+tiles: the menu's own glyph in a round ice chip, the name, one line on what it holds and a chevron,
+two columns from 720px and one below. An anonymous visitor gets one invitation, the keypad's
+ice-to-fire key, **Crear cuenta** (primary) and **Iniciar sesión** through the BFF, both returning
+to the home, and six short lines on what an account adds, each an implemented feature. The home never reads personal data:
 while the session is unknown the plate waits, and an unavailable session read offers the personal
 links without claiming the visitor is signed out.
 
@@ -1845,6 +1849,46 @@ the same selection. **Solo mis deseados** is a labelled checkbox on the explorer
 calendar, resets pagination and follows the selected view and day's links.
 The [use case](../architecture/application/mvp-use-cases.md#private-wishlist-uc-025-post-mvp-590)
 owns ordering, ownership and date meaning.
+
+## Personal game states
+
+Post-MVP (#591, implemented; awaiting owner review). On the game page, the state sits
+directly under the cover, at the cover's width and without a label. Without a state it is
+a pill-shaped split button in the primary ice fill: **Jugando** marks the game in one
+press, and the caret beside it opens every state. With a state, it becomes one outlined
+night pill with a pencil and the state's name, and a press opens the same choice. The
+choice is a modal sheet, **Elige el estado de este juego**: one pill per state
+(**Deseado**, **Pendiente**, **Jugando**, **Completado**, **Abandonado**), the current one
+pressed with a check and focused on opening, then a quiet **Quitar estado** with a bin
+while a state exists, and a close control. On phones it rises as a bottom sheet, like the
+rating sheet. A pick closes the sheet and returns focus to the same main button. The
+button's accessible name starts with its visible word and includes the game title.
+Before the game has come out, the one press marks it **Deseado**, there is no caret, and
+the sheet lists only **Deseado** (plus a state the game already holds) above the quiet
+note *Podrás marcar otros estados cuando el juego salga.* In a **Mis puntuaciones**
+row's select, the other states are disabled options and the select is described as
+*Solo Deseado hasta que salga.*
+
+Rows on **Mis juegos** carry the same control as a compact outlined chip: a dot in the
+state's colour (Deseado fire-light, Pendiente muted, Jugando ice, Completado warm,
+Abandonado a hollow ring), the state's name and a caret, opening the same sheet. The
+colour never carries the state alone. Rows on **Mis puntuaciones** keep a compact native
+**Estado** select in the night controls' voice, with **Sin estado** to clear it. On **Mis puntuaciones**, it
+follows the score and its dates, so the score keeps its place and leads the keyboard
+order. Every change announces its outcome in one status, or one alert when it fails.
+Visitors see no state control; the heart keeps the sign-in path. After **Completado** or
+**Abandonado**, the page may offer **¿Qué te ha parecido? Puntúalo**. On the game page,
+the offer moves focus to the player's rating; it never rates the game.
+
+**Mis juegos** opens from both account menus at `/mis-juegos`. Under the shared page
+opening, one row of pill links (**Todos** and each state) carries its count and marks
+the current one with `aria-current`; it may scroll sideways on phones. The state lives
+in the URL (`?estado=jugando`). The total precedes a ledger of covers, titles,
+`Desde el …` and the row's state chip. Twenty games fill a page, with the shared
+previous and next links. A game that leaves the filtered view hands focus to the total.
+An empty library, an empty state filter and an exhausted page are distinct notices. The
+[use case](../architecture/application/mvp-use-cases.md#personal-game-states-uc-026-post-mvp-591)
+owns states, ordering and ownership.
 
 ## Server-backed states
 

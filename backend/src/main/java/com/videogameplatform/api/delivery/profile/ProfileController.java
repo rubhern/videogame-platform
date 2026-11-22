@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -50,6 +51,7 @@ public class ProfileController implements ProfileApi {
     private final ExportPersonalRatings ratings;
     private final ExportPlatformPreferences preferences;
     private final Wishlist wishlist;
+    private final com.videogameplatform.catalogue.application.wishlist.GameLibrary library;
     private final HttpServletRequest request;
     private final ObjectMapper json;
     private final Clock clock;
@@ -62,6 +64,7 @@ public class ProfileController implements ProfileApi {
             ExportPersonalRatings ratings,
             ExportPlatformPreferences preferences,
             Wishlist wishlist,
+            com.videogameplatform.catalogue.application.wishlist.GameLibrary library,
             HttpServletRequest request,
             ObjectMapper json,
             Clock clock,
@@ -72,6 +75,7 @@ public class ProfileController implements ProfileApi {
         this.ratings = ratings;
         this.preferences = preferences;
         this.wishlist = wishlist;
+        this.library = library;
         this.request = request;
         this.json = json;
         this.clock = clock;
@@ -136,6 +140,20 @@ public class ProfileController implements ProfileApi {
                             generator.writePOJOProperty("title", item.title());
                             generator.writeStringProperty("addedAt", item.addedAt().toString());
                             generator.writeNumberProperty("position", item.position());
+                            generator.writeEndObject();
+                        });
+                generator.writeEndArray();
+                generator.writeArrayPropertyStart("library");
+                library.export(
+                        owner,
+                        item -> {
+                            generator.writeStartObject();
+                            generator.writeStringProperty("gameId", item.gameId());
+                            generator.writePOJOProperty("title", item.title());
+                            generator.writeStringProperty(
+                                    "state", item.state().name().toLowerCase(Locale.ROOT));
+                            generator.writeStringProperty(
+                                    "stateChangedAt", item.stateChangedAt().toString());
                             generator.writeEndObject();
                         });
                 generator.writeEndArray();

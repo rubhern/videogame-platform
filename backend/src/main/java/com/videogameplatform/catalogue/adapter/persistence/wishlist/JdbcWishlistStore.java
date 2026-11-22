@@ -25,12 +25,12 @@ public final class JdbcWishlistStore implements WishlistStore {
     private static final String CURRENT_PUBLICATION =
             "(SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current)";
     private static final String OWNER =
-            "FROM catalogue.game_library_entry w WHERE w.user_id = :owner";
+            "FROM catalogue.game_library_entry w WHERE w.user_id = :owner AND w.state = 'wished'";
     private static final String LIST =
             """
             WITH page AS MATERIALIZED (
                 SELECT game_id, position_key FROM catalogue.game_library_entry
-                WHERE user_id = :owner
+                WHERE user_id = :owner AND state = 'wished'
                 ORDER BY position_key, game_id
                 LIMIT :limit OFFSET :offset
             )
@@ -61,27 +61,34 @@ public final class JdbcWishlistStore implements WishlistStore {
             WITH target AS (
                 SELECT game_id FROM catalogue.game_snapshot
                 WHERE publication_id = %s AND game_id = :game
-            ), inserted AS (
-                INSERT INTO catalogue.game_library_entry (user_id, game_id, wished_at, position_key)
-                SELECT :owner, game_id, :now,
+            ), existing AS (
+                SELECT game_id FROM catalogue.game_library_entry
+                WHERE user_id = :owner AND game_id = :game
+            ), saved AS (
+                -- A new wish needs a published game; an entry in another state becomes wished.
+                INSERT INTO catalogue.game_library_entry
+                    (user_id, game_id, state, state_changed_at, wished_at, position_key)
+                SELECT :owner, game_id, 'wished', :now, :now,
                        coalesce((SELECT ceil(position_key) FROM catalogue.game_library_entry
-                           WHERE user_id = :owner ORDER BY position_key DESC LIMIT 1), 0) + 1
-                FROM target
-                ON CONFLICT (user_id, game_id) DO NOTHING
+                           WHERE user_id = :owner AND position_key IS NOT NULL
+                           ORDER BY position_key DESC LIMIT 1), 0) + 1
+                FROM (SELECT game_id FROM target UNION SELECT game_id FROM existing) candidate
+                ON CONFLICT (user_id, game_id) DO UPDATE
+                    SET state = 'wished', state_changed_at = EXCLUDED.state_changed_at,
+                        wished_at = EXCLUDED.wished_at, position_key = EXCLUDED.position_key
+                    WHERE game_library_entry.state <> 'wished'
             )
-            SELECT EXISTS (SELECT 1 FROM target)
-                OR EXISTS (SELECT 1 FROM catalogue.game_library_entry
-                           WHERE user_id = :owner AND game_id = :game)
+            SELECT EXISTS (SELECT 1 FROM target) OR EXISTS (SELECT 1 FROM existing)
             """
                     .formatted(CURRENT_PUBLICATION);
     private static final String OWNER_ROWS =
-            "FROM catalogue.game_library_entry WHERE user_id = :owner";
+            "FROM catalogue.game_library_entry WHERE user_id = :owner AND state = 'wished'";
     private static final String EXPORT =
             """
             WITH bounded_wishes AS (
                 SELECT game_id, wished_at, position_key
                 FROM catalogue.game_library_entry
-                WHERE user_id = :owner
+                WHERE user_id = :owner AND state = 'wished'
                 ORDER BY game_id
                 LIMIT :limit
             )
@@ -178,7 +185,7 @@ public final class JdbcWishlistStore implements WishlistStore {
                 transaction -> {
                     lockOrder(userId);
                     jdbc.update(
-                            "DELETE FROM catalogue.game_library_entry WHERE user_id = :owner AND game_id = :game",
+                            "DELETE FROM catalogue.game_library_entry WHERE user_id = :owner AND game_id = :game AND state = 'wished'",
                             Map.of("owner", userId, "game", gameId));
                 });
     }
@@ -249,7 +256,11 @@ public final class JdbcWishlistStore implements WishlistStore {
     }
 
     private void lockOrder(UUID userId) {
-        // Serialize order changes for one owner across BFF instances.
+        lockLibrary(jdbc, userId);
+    }
+
+    /** Serializes one owner's library changes across BFF instances. */
+    static void lockLibrary(NamedParameterJdbcOperations jdbc, UUID userId) {
         jdbc.query(
                 "SELECT pg_advisory_xact_lock(hashtextextended(CAST(:owner AS text), 590))",
                 Map.of("owner", userId),

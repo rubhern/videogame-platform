@@ -28,6 +28,7 @@ export const groups = [
   ]],
   ['Decisions', [
     ['docs/decisions/README.md', 'Decision register'],
+    ['docs/decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md', 'Personal game states · proposed'],
     ['docs/decisions/0050-store-private-game-wishes-in-the-catalogue.md', 'Private game wishlist · accepted'],
     ['docs/decisions/0049-insert-link-preview-metadata-into-the-served-entry-point.md', 'Link-preview metadata · proposed'],
     ['docs/decisions/0048-project-presented-releases-for-platform-catalogue.md', 'Platform catalogue projection · proposed'],

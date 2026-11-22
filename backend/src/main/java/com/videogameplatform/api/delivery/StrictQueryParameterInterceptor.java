@@ -3,6 +3,7 @@ package com.videogameplatform.api.delivery;
 import com.videogameplatform.api.generated.CatalogueAdministrationApi;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
+import com.videogameplatform.api.generated.LibraryApi;
 import com.videogameplatform.api.generated.PlatformPreferencesApi;
 import com.videogameplatform.api.generated.RankingsApi;
 import com.videogameplatform.api.generated.RatingsApi;
@@ -42,15 +43,17 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             HttpServletRequest request, HttpServletResponse response, Object handler)
             throws IOException {
         if (!(handler instanceof HandlerMethod method)) return true;
-        boolean wishlist = WishlistApi.class.isAssignableFrom(method.getBeanType());
+        boolean wishlist =
+                WishlistApi.class.isAssignableFrom(method.getBeanType())
+                        || LibraryApi.class.isAssignableFrom(method.getBeanType());
         boolean get = HttpMethod.GET.matches(request.getMethod());
         if (!wishlist && (!get || !isClosedQueryOperation(method))) return true;
         if (wishlist
                 && !get
-                && !method.getMethod().getName().equals("moveMyWish")
+                && !Set.of("moveMyWish", "setMyGameState").contains(method.getMethod().getName())
                 && request.getInputStream().read() != -1) {
             throw new HttpMessageNotReadableException(
-                    "Wishlist commands take no request body",
+                    "Library commands without a declared body take none",
                     new ServletServerHttpRequest(request));
         }
         Set<QueryParameter> parameters = queryParameters(method);

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.20.0
+  version: 5.21.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -29,6 +29,8 @@ tags:
     description: Anonymous visitor feedback handed to the configured receiving channel.
   - name: Wishlist
     description: Private saved games and release discovery scoped to the current wishlist.
+  - name: Library
+    description: Private personal state of each game in the current principal's library.
   - name: Profile
     description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
@@ -250,10 +252,11 @@ paths:
         One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
         exportedAt, account (available session-validated name/email), ratings (gameId, title,
         direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
-        preferredPlatforms (configured, savedAt when configured, platforms), and wishlist
-        (gameId, title, addedAt, and one-based position). No credentials,
+        preferredPlatforms (configured, savedAt when configured, platforms), wishlist
+        (gameId, title, addedAt, and one-based position of each Deseado game), and library
+        (gameId, title, state and stateChangedAt of every library entry). No credentials,
         tokens, provider payloads or other users' data. Reads one consistent local snapshot.
-        Preparation is bounded to 10000 ratings, 10000 wishes, 16 MiB and 30 seconds; budget or source failure
+        Preparation is bounded to 10000 ratings, 10000 library entries, 16 MiB and 30 seconds; budget or source failure
         returns an error before any successful download, never a truncated successful export.
         Empty collections are valid. No query parameters are accepted.
       security: [{ sessionCookie: [] }]
@@ -2007,7 +2010,7 @@ paths:
       tags: [Wishlist]
       operationId: getMyWishlistedGames
       summary: Return the saved subset of a bounded set of game IDs
-      description: Unknown games and games absent from the current principal's wishlist are omitted.
+      description: Unknown games and games absent from the current principal's wishlist, including games in another library state, are omitted.
       security: [{ sessionCookie: [] }]
       parameters:
         - name: gameIds
@@ -2043,7 +2046,9 @@ paths:
       tags: [Wishlist]
       operationId: addMyWish
       summary: Save a local catalogue game
-      description: Idempotent. An existing wish keeps its original added time. No body is accepted.
+      description: |
+        Idempotent. An existing wish keeps its original added time. A game in another library
+        state becomes Deseado and joins the end of the list. No body is accepted.
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfToken'
@@ -2061,7 +2066,9 @@ paths:
       tags: [Wishlist]
       operationId: removeMyWish
       summary: Remove a saved game
-      description: Idempotent. An absent wish returns the same success as a removed wish. No body is accepted.
+      description: |
+        Idempotent. An absent wish returns the same success as a removed wish. A game in another
+        library state keeps its entry unchanged. No body is accepted.
       security: [{ sessionCookie: [] }]
       parameters:
         - $ref: '#/components/parameters/CsrfToken'
@@ -2167,6 +2174,124 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+  /me/library:
+    get:
+      tags: [Library]
+      operationId: listMyLibrary
+      summary: Page through my games and count them by state (Mis juegos)
+      description: |
+        UC-026. Only the current BFF principal's library entries, optionally one state, most
+        recently changed first with game ID as the final tie-breaker. Counts cover every state
+        regardless of the filter. A game no longer in the current publication keeps its entry.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: state
+          in: query
+          required: false
+          description: Only entries in this state. Absent returns every state.
+          schema: { $ref: '#/components/schemas/LibraryState' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Private page, per-state counts and total, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryPage' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/LibraryValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+  /me/library/states:
+    get:
+      tags: [Library]
+      operationId: getMyGameStates
+      summary: Return my state for a bounded set of game IDs
+      description: Unknown games and games absent from the current principal's library are omitted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: gameIds
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { $ref: '#/components/schemas/GameId' }
+      responses:
+        '200':
+          description: Library entries in ascending game ID order.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryStates' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/LibraryValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/library/games/{gameId}:
+    parameters:
+      - $ref: '#/components/parameters/GameIdPath'
+    put:
+      tags: [Library]
+      operationId: setMyGameState
+      summary: Set the personal state of a game
+      description: |
+        Idempotent and game-level. Repeating the current state changes nothing, including its
+        change time. Entering Deseado joins the end of the wishlist; leaving it drops the
+        game's wishlist position. Never changes ratings, scores, rankings or attention. Deseado
+        needs a game in the current publication for a new entry, as the wishlist does; every
+        other state needs a game in the current publication with a release that has already
+        occurred by the trusted Europe/Madrid evaluation date, otherwise GAME_NOT_RELEASED.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LibraryStateChange' }
+      responses:
+        '204': { $ref: '#/components/responses/LibraryUpdated' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '404': { $ref: '#/components/responses/GameNotFound' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/LibraryStateRejected' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    delete:
+      tags: [Library]
+      operationId: removeMyGameFromLibrary
+      summary: Remove a game from my library whatever its state
+      description: Idempotent. An absent entry returns the same success as a removed one. No body is accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204': { $ref: '#/components/responses/LibraryUpdated' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '422': { $ref: '#/components/responses/LibraryValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/rating-insights:
     get:
       tags: [Ratings]
@@ -4658,6 +4783,69 @@ components:
           type: array
           maxItems: 100
           items: { $ref: '#/components/schemas/GameId' }
+    LibraryState:
+      type: string
+      description: |
+        One exclusive personal state per game: wished (Deseado), backlog (Pendiente),
+        playing (Jugando), completed (Completado) or abandoned (Abandonado).
+      enum: [wished, backlog, playing, completed, abandoned]
+    LibraryStateChange:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: '#/components/schemas/LibraryState' }
+      additionalProperties: false
+    LibraryGame:
+      type: object
+      description: A game no longer in the current publication has no slug or title.
+      required: [gameId, primaryCover, state, stateChangedAt, released]
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1 }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        state: { $ref: '#/components/schemas/LibraryState' }
+        stateChangedAt: { type: string, format: date-time }
+        released:
+          type: boolean
+          description: |
+            The game is in the current publication with a release that has occurred by the
+            trusted evaluation date, so states other than Deseado can be chosen.
+    LibraryStateCounts:
+      type: object
+      description: Entries per state for the whole library, independent of the state filter.
+      required: [total, wished, backlog, playing, completed, abandoned]
+      properties:
+        total: { type: integer, format: int64, minimum: 0 }
+        wished: { type: integer, format: int64, minimum: 0 }
+        backlog: { type: integer, format: int64, minimum: 0 }
+        playing: { type: integer, format: int64, minimum: 0 }
+        completed: { type: integer, format: int64, minimum: 0 }
+        abandoned: { type: integer, format: int64, minimum: 0 }
+    LibraryPage:
+      type: object
+      required: [items, counts, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/LibraryGame' }
+        counts: { $ref: '#/components/schemas/LibraryStateCounts' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+    LibraryEntryState:
+      type: object
+      required: [gameId, state]
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        state: { $ref: '#/components/schemas/LibraryState' }
+    LibraryStates:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/LibraryEntryState' }
     ReleasePage:
       type: object
       required: [evaluatedOn, window, activeFilters, availableFilters, items, page]
@@ -6051,6 +6239,7 @@ components:
         - AUTHENTICATION_REQUIRED
         - GAME_NOT_FOUND
         - WISHLIST_GAME_NOT_FOUND
+        - GAME_NOT_RELEASED
         - RATING_NOT_FOUND
         - RATING_VALUE_INVALID
         - RATING_PLATFORMS_INVALID
@@ -6117,6 +6306,36 @@ components:
       description: RFC 9457 Problem Details with stable product extensions.
 
   responses:
+    LibraryUpdated:
+      description: The game is in the requested library state.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+    LibraryValidationFailed:
+      description: An invalid state filter, pagination or unknown query parameter.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+    LibraryStateRejected:
+      description: |
+        GAME_NOT_RELEASED, when a state other than Deseado is chosen for a game without a
+        release that has occurred; or REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN.
+        Nothing changes.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            gameNotReleased: { $ref: '#/components/examples/GameNotReleased' }
     WishlistUpdated:
       description: The wish is in the requested state.
       headers:
@@ -7256,6 +7475,16 @@ components:
           - pointer: /platforms/0/platformId
             code: PLATFORM_NOT_SUPPORTED
             message: Must name one of the game's release platforms or a platform already saved on this rating.
+    GameNotReleased:
+      value:
+        type: urn:videogame-platform:problem:game-not-released
+        title: Game not released
+        status: 422
+        detail: Only Deseado can be chosen until the game has a release that has occurred.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: GAME_NOT_RELEASED
+        category: business_rule
+        correlationId: correlation-opaque
     RatingNotEligible:
       value:
         type: urn:videogame-platform:problem:rating-not-eligible

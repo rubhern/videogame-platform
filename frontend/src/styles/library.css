@@ -1,0 +1,519 @@
+/* Mis juegos and the per-game state selector (#591). Night controls in the shared voice; the
+   state colours only an edge, never the text, so every state stays readable on night. */
+.library-state {
+  display: grid;
+  justify-items: start;
+  gap: 0.3rem;
+  min-inline-size: 0;
+}
+
+.library-state-label {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.library-state-select {
+  min-block-size: 2.75rem;
+  min-inline-size: 10.5rem;
+  max-inline-size: 100%;
+  padding: 0.4rem 2rem 0.4rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 3px solid var(--color-line);
+  border-radius: 0.35rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.library-state-select[data-state] {
+  border-inline-start-color: var(--color-ice);
+}
+
+.library-state-select[data-state="completed"] {
+  border-inline-start-color: var(--color-cold);
+}
+
+.library-state-select[data-state="abandoned"] {
+  border-inline-start-color: var(--color-subtle);
+}
+
+.library-state-select:focus-visible {
+  outline: 2px solid var(--color-ice-light);
+  outline-offset: 2px;
+}
+
+.library-state-select[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.library-state-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.library-state-offer {
+  font-size: 0.9375rem;
+}
+
+/* The game page's control under the cover: the cover's width, one press to Jugando, and a
+   caret that opens every state. With a state it becomes one outlined button naming it. */
+.game-detail-state {
+  display: grid;
+  gap: 0.35rem;
+  margin-block-start: 14px;
+}
+
+.library-state-control {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.library-state-split {
+  display: flex;
+  min-block-size: 46px;
+  border: 1px solid var(--color-ice-light);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-ice-light);
+  color: var(--color-night);
+}
+
+.library-state-split[data-state] {
+  border-color: var(--line-ice-strong);
+  background: var(--control);
+  color: var(--color-ink);
+}
+
+.library-state-main,
+.library-state-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  padding: 0 18px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.library-state-main {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.library-state-caret {
+  flex: none;
+  inline-size: 52px;
+  padding: 0;
+  border-inline-start: 1px solid color-mix(in srgb, var(--color-night) 28%, transparent);
+}
+
+.library-state-main:hover,
+.library-state-caret:hover {
+  background: #fff;
+}
+
+.library-state-split[data-state] .library-state-main:hover {
+  background: var(--control-hover);
+  color: var(--color-ice-light);
+}
+
+.library-state-main:focus-visible,
+.library-state-caret:focus-visible {
+  outline: 2px solid var(--color-ice);
+  outline-offset: -4px;
+  border-radius: 999px;
+}
+
+.library-state-main[aria-disabled="true"],
+.library-state-caret[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.library-state-icon {
+  inline-size: 18px;
+  block-size: 18px;
+  flex: none;
+}
+
+.library-state-dialog {
+  width: min(26rem, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(40rem, calc(100dvh - 48px));
+  margin: auto;
+  border: 1px solid var(--color-line);
+  border-top: 2px solid var(--color-ice);
+  border-radius: 8px;
+  padding: 0;
+  color: var(--color-ink);
+  background: var(--overlay);
+  box-shadow: var(--shadow-overlay);
+}
+
+.library-state-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-night) 78%, transparent);
+}
+
+:root:has(.library-state-dialog[open]) {
+  overflow: hidden;
+}
+
+.library-state-sheet {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px 22px;
+}
+
+.library-state-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.library-state-dialog-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.library-state-close {
+  position: relative;
+  inline-size: 44px;
+  block-size: 44px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.library-state-close::before,
+.library-state-close::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  inline-size: 16px;
+  block-size: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.library-state-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.library-state-close:is(:hover, :focus-visible) {
+  border-color: var(--color-line);
+  color: var(--color-ice-light);
+}
+
+.library-state-options {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-state-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  inline-size: 100%;
+  min-block-size: 48px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-ink);
+  background: var(--control);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.library-state-option:hover {
+  border-color: var(--line-ice-strong);
+  color: var(--color-ice-light);
+  background: var(--control-hover);
+}
+
+.library-state-option[aria-pressed="true"] {
+  border-color: var(--color-ice);
+  color: var(--color-ice-light);
+  background: color-mix(in srgb, var(--color-ice) 16%, var(--control));
+}
+
+.library-state-option:focus-visible,
+.library-state-remove:focus-visible,
+.library-state-close:focus-visible {
+  outline: 2px solid var(--color-ice-light);
+  outline-offset: 2px;
+}
+
+.library-state-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.library-state-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 8px;
+  min-block-size: 44px;
+  border: 0;
+  padding: 0 12px;
+  color: var(--color-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.library-state-remove:hover {
+  color: var(--color-danger);
+}
+
+@media (max-width: 619px) {
+  /* Phones: a bottom sheet across the width, as the rating sheet. */
+  .library-state-dialog {
+    width: 100%;
+    margin: auto 0 0;
+    border-inline: 0;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .library-state-split {
+    border: 1px solid ButtonText;
+  }
+}
+
+.game-personal-rating:focus {
+  outline: none;
+}
+
+.game-personal-rating:focus-visible {
+  outline: 2px solid var(--color-ice-light);
+  outline-offset: 4px;
+}
+
+.my-rating-card > .library-state {
+  grid-area: state;
+  margin-block-start: 0.6rem;
+}
+
+.library-section .notice {
+  margin-block-start: 1rem;
+}
+
+/* The filters may scroll sideways on narrow screens; the page never does. */
+.library-filters ul {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0 0 0.25rem;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.library-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-block-size: 2.75rem;
+  padding: 0.25rem 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.library-filter:is(:hover, :focus-visible) {
+  border-color: var(--color-ice);
+  color: var(--color-ice-light);
+}
+
+.library-filter:focus-visible {
+  outline: 2px solid var(--color-ice-light);
+  outline-offset: 2px;
+}
+
+.library-filter[aria-current="page"] {
+  border-color: var(--color-ice-light);
+  background: var(--color-ice-light);
+  color: var(--color-night);
+}
+
+.library-filter-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.library-ledger {
+  display: grid;
+  max-inline-size: 68rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-ledger-item {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  grid-template-areas: "cover record state";
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-block-start: 1px solid var(--color-line);
+}
+
+.library-ledger-item:last-child {
+  border-block-end: 1px solid var(--color-line);
+}
+
+.library-ledger-item > .cover-figure {
+  grid-area: cover;
+  inline-size: 100%;
+  margin: 0;
+}
+
+.library-ledger-item > .library-state {
+  grid-area: state;
+}
+
+.library-record {
+  display: grid;
+  grid-area: record;
+  gap: 0.3rem;
+  min-inline-size: 0;
+}
+
+.library-game-title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.library-game-title a:is(:hover, :focus-visible) {
+  color: var(--color-ice-light);
+  text-decoration: underline;
+}
+
+.library-game-since {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.library-loading-cover {
+  grid-area: cover;
+  aspect-ratio: 3 / 4;
+}
+
+.library-loading-title {
+  grid-area: record;
+  block-size: 1rem;
+  inline-size: 60%;
+}
+
+/* A row's state chip: the same choice as the game page, at a row's size. A dot carries the
+   state's colour beside its name, so colour is never the only signal. */
+.library-ledger-item > .library-state-control {
+  grid-area: state;
+  justify-items: end;
+}
+
+.library-state-control-compact .library-state-split {
+  min-block-size: 40px;
+  min-inline-size: 9.5rem;
+}
+
+.library-state-control-compact .library-state-main {
+  justify-content: flex-start;
+  gap: 10px;
+  padding-inline: 14px 12px;
+  font-size: 0.875rem;
+}
+
+.library-state-control-compact .library-state-error {
+  max-inline-size: 16rem;
+  text-align: end;
+}
+
+.library-state-dot {
+  flex: none;
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: var(--state-colour, var(--color-ice));
+  box-shadow: 0 0 10px -1px var(--state-colour, var(--color-ice));
+}
+
+.library-state-control-compact .library-state-main .library-state-icon:last-child {
+  margin-inline-start: auto;
+  color: var(--color-muted);
+}
+
+.library-state-split[data-state="wished"] { --state-colour: var(--color-fire-light); }
+.library-state-split[data-state="backlog"] { --state-colour: var(--color-muted); }
+.library-state-split[data-state="playing"] { --state-colour: var(--color-ice); }
+.library-state-split[data-state="completed"] { --state-colour: var(--color-warm); }
+.library-state-split[data-state="abandoned"] { --state-colour: var(--color-subtle); }
+
+.library-state-split[data-state="abandoned"] .library-state-dot {
+  border: 1.5px solid var(--color-subtle);
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  .library-state-dot {
+    background: CanvasText;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 559px) {
+  .library-ledger-item > .library-state-control {
+    justify-items: start;
+  }
+
+  .library-ledger-item {
+    grid-template-areas:
+      "cover record"
+      "cover state";
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    align-items: start;
+  }
+}

@@ -662,6 +662,20 @@ public class ApiExceptionHandler {
                 "Choose a saved game.");
     }
 
+    @ExceptionHandler(
+            com.videogameplatform.catalogue.application.wishlist.GameNotReleasedException.class)
+    ResponseEntity<Problem> gameNotReleased(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.GAME_NOT_RELEASED,
+                "Game not released",
+                "Only Deseado can be chosen until the game has a release that has occurred.",
+                ErrorCategory.BUSINESS_RULE,
+                "/state",
+                "Choose Deseado, or wait until a release has occurred.");
+    }
+
     @ExceptionHandler(GameNotFoundException.class)
     ResponseEntity<Problem> gameNotFound(HttpServletResponse response) {
         return problem(

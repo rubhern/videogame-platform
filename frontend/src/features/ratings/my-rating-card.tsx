@@ -14,6 +14,8 @@ import { useRatingCommand } from "./use-personal-rating";
 import type { RatingCommandError } from "./personal-rating-api";
 import { contributionSource, formatPersonalScore, scoredPlatforms } from "./personal-score";
 import { gameDetailsQueryOptions } from "../game-details/game-details-api";
+import { GameStateSelect } from "../library/game-state-select";
+import type { LibraryState } from "../library/library-api";
 import { PlatformRatingDialog } from "./platform-rating-dialog";
 import { RatingKeypad } from "./rating-keypad";
 import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
@@ -54,8 +56,10 @@ const formatDate = (value: string) => new Intl.DateTimeFormat("es-ES", {
  * and a general one keeps its platforms. **Puntuar por plataforma** opens the game page's own
  * platform sheet; it reads the game's public details only then, for their release platforms.
  */
-export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
+export function MyRatingCard({ item, csrfToken, libraryState, readAt, onChanged }: {
   item: MyRatingItem; csrfToken: string; readAt: number; onChanged: (message: string) => void;
+  /** Undefined while unknown; null when the game is not in the player's library. */
+  libraryState?: LibraryState | null | undefined;
 }) {
   const id = useId();
   const editorId = useId();
@@ -290,5 +294,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
         : <><span>Actualizado el <time dateTime={personalRating.updatedAt}>{updatedDate}</time></span>
           <span><span className="my-rating-dates-separator"> · </span>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span></>}
     </span></p>
+    {/* Rating a game never changes its state: the player chooses it here, after the score. */}
+    <GameStateSelect csrfToken={csrfToken} gameId={game.gameId} state={libraryState} title={game.canonicalTitle} />
   </article>;
 }

@@ -90,7 +90,7 @@ public final class WishlistService implements Wishlist {
         store.export(UUID.fromString(userId), consume);
     }
 
-    private static UUID gameUuid(String value) {
+    static UUID gameUuid(String value) {
         if (value.length() != 36) return null;
         try {
             UUID id = UUID.fromString(value);

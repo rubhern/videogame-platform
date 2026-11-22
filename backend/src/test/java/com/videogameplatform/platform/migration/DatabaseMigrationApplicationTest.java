@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(47);
+                    .isEqualTo(48);
             assertThat(
                             singleString(
                                     statement,
@@ -228,7 +228,7 @@ class DatabaseMigrationApplicationTest {
                     ('00000000-0000-4000-8000-000000000100', '00000000-0000-4000-8000-000000000002', now(), 7);
                 """);
         }
-        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(2);
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
                 var statement = connection.createStatement()) {
             assertThat(
@@ -239,6 +239,15 @@ class DatabaseMigrationApplicationTest {
                 FROM catalogue.game_library_entry
                 """))
                     .isEqualTo("2,1");
+            // #591: existing entries are wishes whose state changed when they were saved.
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    """
+                SELECT count(*) FROM catalogue.game_library_entry
+                WHERE state = 'wished' AND state_changed_at = wished_at
+                """))
+                    .isEqualTo(2);
         }
     }
 
@@ -275,7 +284,7 @@ class DatabaseMigrationApplicationTest {
         }
 
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(15);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(16);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
@@ -321,7 +330,7 @@ class DatabaseMigrationApplicationTest {
                     """);
         }
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(12);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(13);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.adminConnection(database);

@@ -107,10 +107,11 @@ export interface paths {
          * @description One UTF-8 JSON attachment with format `gameometro-personal-data-export`, version 1,
          *     exportedAt, account (available session-validated name/email), ratings (gameId, title,
          *     direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
-         *     preferredPlatforms (configured, savedAt when configured, platforms), and wishlist
-         *     (gameId, title, addedAt, and one-based position). No credentials,
+         *     preferredPlatforms (configured, savedAt when configured, platforms), wishlist
+         *     (gameId, title, addedAt, and one-based position of each Deseado game), and library
+         *     (gameId, title, state and stateChangedAt of every library entry). No credentials,
          *     tokens, provider payloads or other users' data. Reads one consistent local snapshot.
-         *     Preparation is bounded to 10000 ratings, 10000 wishes, 16 MiB and 30 seconds; budget or source failure
+         *     Preparation is bounded to 10000 ratings, 10000 library entries, 16 MiB and 30 seconds; budget or source failure
          *     returns an error before any successful download, never a truncated successful export.
          *     Empty collections are valid. No query parameters are accepted.
          */
@@ -660,7 +661,7 @@ export interface paths {
         };
         /**
          * Return the saved subset of a bounded set of game IDs
-         * @description Unknown games and games absent from the current principal's wishlist are omitted.
+         * @description Unknown games and games absent from the current principal's wishlist, including games in another library state, are omitted.
          */
         get: operations["getMyWishlistedGames"];
         put?: never;
@@ -687,13 +688,15 @@ export interface paths {
         get?: never;
         /**
          * Save a local catalogue game
-         * @description Idempotent. An existing wish keeps its original added time. No body is accepted.
+         * @description Idempotent. An existing wish keeps its original added time. A game in another library
+         *     state becomes Deseado and joins the end of the list. No body is accepted.
          */
         put: operations["addMyWish"];
         post?: never;
         /**
          * Remove a saved game
-         * @description Idempotent. An absent wish returns the same success as a removed wish. No body is accepted.
+         * @description Idempotent. An absent wish returns the same success as a removed wish. A game in another
+         *     library state keeps its entry unchanged. No body is accepted.
          */
         delete: operations["removeMyWish"];
         options?: never;
@@ -760,6 +763,83 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page through my games and count them by state (Mis juegos)
+         * @description UC-026. Only the current BFF principal's library entries, optionally one state, most
+         *     recently changed first with game ID as the final tie-breaker. Counts cover every state
+         *     regardless of the filter. A game no longer in the current publication keeps its entry.
+         */
+        get: operations["listMyLibrary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/library/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return my state for a bounded set of game IDs
+         * @description Unknown games and games absent from the current principal's library are omitted.
+         */
+        get: operations["getMyGameStates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/library/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the personal state of a game
+         * @description Idempotent and game-level. Repeating the current state changes nothing, including its
+         *     change time. Entering Deseado joins the end of the wishlist; leaving it drops the
+         *     game's wishlist position. Never changes ratings, scores, rankings or attention. Deseado
+         *     needs a game in the current publication for a new entry, as the wishlist does; every
+         *     other state needs a game in the current publication with a release that has already
+         *     occurred by the trusted Europe/Madrid evaluation date, otherwise GAME_NOT_RELEASED.
+         */
+        put: operations["setMyGameState"];
+        post?: never;
+        /**
+         * Remove a game from my library whatever its state
+         * @description Idempotent. An absent entry returns the same success as a removed one. No body is accepted.
+         */
+        delete: operations["removeMyGameFromLibrary"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1975,6 +2055,57 @@ export interface components {
         WishlistStatus: {
             gameIds: components["schemas"]["GameId"][];
         };
+        /**
+         * @description One exclusive personal state per game: wished (Deseado), backlog (Pendiente),
+         *     playing (Jugando), completed (Completado) or abandoned (Abandonado).
+         * @enum {string}
+         */
+        LibraryState: "wished" | "backlog" | "playing" | "completed" | "abandoned";
+        LibraryStateChange: {
+            state: components["schemas"]["LibraryState"];
+        };
+        /** @description A game no longer in the current publication has no slug or title. */
+        LibraryGame: {
+            gameId: components["schemas"]["GameId"];
+            slug?: string;
+            canonicalTitle?: string;
+            primaryCover: components["schemas"]["Cover"];
+            state: components["schemas"]["LibraryState"];
+            /** Format: date-time */
+            stateChangedAt: string;
+            /**
+             * @description The game is in the current publication with a release that has occurred by the
+             *     trusted evaluation date, so states other than Deseado can be chosen.
+             */
+            released: boolean;
+        };
+        /** @description Entries per state for the whole library, independent of the state filter. */
+        LibraryStateCounts: {
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            wished: number;
+            /** Format: int64 */
+            backlog: number;
+            /** Format: int64 */
+            playing: number;
+            /** Format: int64 */
+            completed: number;
+            /** Format: int64 */
+            abandoned: number;
+        };
+        LibraryPage: {
+            items: components["schemas"]["LibraryGame"][];
+            counts: components["schemas"]["LibraryStateCounts"];
+            page: components["schemas"]["PageMetadata"];
+        };
+        LibraryEntryState: {
+            gameId: components["schemas"]["GameId"];
+            state: components["schemas"]["LibraryState"];
+        };
+        LibraryStates: {
+            entries: components["schemas"]["LibraryEntryState"][];
+        };
         ReleasePage: {
             /**
              * Format: date
@@ -2975,7 +3106,7 @@ export interface components {
             value?: number;
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "WISHLIST_GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "WISHLIST_GAME_NOT_FOUND" | "GAME_NOT_RELEASED" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -3002,6 +3133,41 @@ export interface components {
         };
     };
     responses: {
+        /** @description The game is in the requested library state. */
+        LibraryUpdated: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description An invalid state filter, pagination or unknown query parameter. */
+        LibraryValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description GAME_NOT_RELEASED, when a state other than Deseado is chosen for a game without a
+         *     release that has occurred; or REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN.
+         *     Nothing changes.
+         */
+        LibraryStateRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The wish is in the requested state. */
         WishlistUpdated: {
             headers: {
@@ -5224,6 +5390,144 @@ export interface operations {
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    listMyLibrary: {
+        parameters: {
+            query?: {
+                /** @description Only entries in this state. Absent returns every state. */
+                state?: components["schemas"]["LibraryState"];
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private page, per-state counts and total, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryPage"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["LibraryValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getMyGameStates: {
+        parameters: {
+            query: {
+                gameIds: components["schemas"]["GameId"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Library entries in ascending game ID order. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryStates"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["LibraryValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    setMyGameState: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryStateChange"];
+            };
+        };
+        responses: {
+            204: components["responses"]["LibraryUpdated"];
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            404: components["responses"]["GameNotFound"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["LibraryStateRejected"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    removeMyGameFromLibrary: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description Opaque, provider-independent product game identifier.
+                 * @example game_example
+                 */
+                gameId: components["parameters"]["GameIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["LibraryUpdated"];
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            422: components["responses"]["LibraryValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
         };
     };
     getMyRatingInsights: {

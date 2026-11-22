@@ -248,10 +248,17 @@ describe("home page (#382)", () => {
     const personal = await screen.findByRole("region", { name: "Tu criterio. Tu historia." });
     const links = await within(personal).findByRole("list", { name: "Tu espacio en Gameómetro" });
     expect(within(links).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/mis-juegos",
+      "/mis-deseados",
       "/mis-puntuaciones",
       "/mis-puntuaciones/estadisticas",
       "/mis-plataformas",
+      "/mi-perfil",
     ]);
+    // Each tile is named by its destination and what it holds, never by its glyph.
+    expect(within(links).getByRole("link", { name: /^Mis juegos/ })).toHaveAccessibleName(
+      "Mis juegos Lo que juegas, lo pendiente y lo terminado.",
+    );
     expect(within(personal).queryByRole("link", { name: "Crear cuenta" })).not.toBeInTheDocument();
     // Preferences shape the discovery previews; the personal collection is never read here.
     expect(requestedPaths(fetchMock).filter((path) => path.startsWith("/api/v1/me/"))).toEqual([

@@ -1,6 +1,7 @@
 import { BrandMark } from "../brand/brand-logo";
 import { PlatformLogo } from "../catalogue/platform-logo";
 import { isPlatformLogoName, type PlatformLogoName } from "../catalogue/platform-logo-assets";
+import { PlatformGlyphShapes } from "./platform-glyph";
 
 export type SelectIconName =
   | PlatformLogoName
@@ -56,10 +57,7 @@ export function SelectIcon({ name }: { name: SelectIconName }) {
   return (
     <svg aria-hidden="true" className="app-select-icon" fill="none" viewBox="0 0 20 20">
       {name === "platform" ? (
-        <>
-          <path d="M5.5 6.5h9a3 3 0 0 1 2.9 2.2l1 4.1a2 2 0 0 1-3.2 2l-2.1-1.6H6.9l-2.1 1.6a2 2 0 0 1-3.2-2l1-4.1a3 3 0 0 1 2.9-2.2Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
-          <path d="M6 8.5v3M4.5 10h3M13.5 9.5h.01M15.5 11h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-        </>
+        <PlatformGlyphShapes />
       ) : name === "region" || name === "worldwide" ? (
         <>
           <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />

@@ -62,6 +62,8 @@ class ScriptedCollection {
     await this.page.route("**/api/v1/session", (route) =>
       route.fulfill({ json: { authenticated: true, csrfToken: "browser-csrf" } }),
     );
+    // The rows' private game states (#591): none yet.
+    await this.page.route("**/api/v1/me/library/states?*", (route) => route.fulfill({ json: { entries: [] } }));
     await this.page.route(/\/api\/v1\/me\/ratings(\?.*)?$/, (route) => {
       const url = new URL(route.request().url());
       this.listReads.push(url);
@@ -119,7 +121,10 @@ class ScriptedCollection {
 const card = (page: Page, title: string) => page.getByRole("article", { name: title });
 const score = (row: Locator) => row.getByRole("button", { name: /^Tu puntuación/ });
 
-/** Where the row's fixed parts sit: the editor must leave all of them untouched. */
+/**
+ * Where the row's fixed parts sit in the document: the editor must leave all of them untouched,
+ * even when focusing its keypad scrolls the page to show it.
+ */
 async function geometry(page: Page) {
   const first = card(page, titles[0] ?? "");
   const boxes = await Promise.all([
@@ -129,7 +134,8 @@ async function geometry(page: Page) {
     score(first).boundingBox(),
     card(page, titles[1] ?? "").boundingBox(),
   ]);
-  return boxes.map((box) => box && [box.x, box.y, box.width, box.height].map(Math.round));
+  const scrollY = await page.evaluate(() => window.scrollY);
+  return boxes.map((box) => box && [box.x, box.y + scrollY, box.width, box.height].map(Math.round));
 }
 
 test.describe("Mis puntuaciones", () => {

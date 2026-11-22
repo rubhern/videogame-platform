@@ -270,4 +270,14 @@ class CatalogueModuleConfiguration {
         return new com.videogameplatform.catalogue.application.wishlist.internal.WishlistService(
                 store, coverPolicy, clock);
     }
+
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.GameLibrary gameLibrary(
+            com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore store,
+            com.videogameplatform.catalogue.application.wishlist.Wishlist wishlist,
+            CatalogueCoverPolicy coverPolicy,
+            Clock clock) {
+        return new com.videogameplatform.catalogue.application.wishlist.internal.GameLibraryService(
+                store, wishlist, coverPolicy, clock);
+    }
 }

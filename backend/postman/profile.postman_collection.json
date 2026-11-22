@@ -102,6 +102,7 @@
               "pm.expect(body.ratings).to.be.an(\"array\");",
               "pm.expect(body.preferredPlatforms.platforms).to.be.an(\"array\");",
               "pm.expect(body.wishlist).to.be.an(\"array\");",
+              "pm.expect(body.library).to.be.an(\"array\");",
               "pm.expect(pm.response.text()).not.to.include(\"csrfToken\");",
               "pm.expect(pm.response.headers.get(\"Content-Disposition\")).to.include(\"gameometro-datos.json\");",
               "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));"
