@@ -37,7 +37,20 @@ wishlist fields present exactly while the state is Deseado. Every change for one
 serializes on the same transaction-scoped lock the wishlist order already uses.
 
 States are private. They never change ratings, community scores, rankings or attention,
-and a rating never changes a state. The interface may offer rating a game after it
+and a rating never changes a state on its own.
+
+The owner decided on 2026-11-22 that Mis juegos offers to mark the rated games without a
+state Completado in one confirmed action, never automatically. To count and mark them in
+PostgreSQL without reading Ratings tables, Catalogue keeps a projection of which games each
+player has rated, `catalogue.library_rated_game`, following
+[ADR-0029](0029-project-community-scores-for-the-release-order.md). Ratings maintains it
+through the Catalogue contract `RecordRatedGamesUseCase`, inside the transaction that
+creates or deletes a rating, and records earlier ratings in a startup backfill of keyset
+batches; Ratings therefore also depends on the `catalogue::wishlist` interface. The action
+marks one bounded batch of at most 1000 games under the player's lock, only games without
+an entry, in the current publication and with a release that has occurred, so a Deseado
+or any other state is never overwritten. The projection is personal data erased with the
+library. The interface may offer rating a game after it
 becomes Completado or Abandonado, but never rates it. Public exposure belongs to
 [#593](https://github.com/rubhern/videogame-platform/issues/593).
 

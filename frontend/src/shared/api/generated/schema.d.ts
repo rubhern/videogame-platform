@@ -810,6 +810,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/library/rated-games/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark my rated games without a state as Completado
+         * @description UC-026. Marks Completado, in one bounded batch of at most 1000 games in game ID order,
+         *     the principal's rated games that hold no state, are in the current publication and have
+         *     a release that has occurred. A game with any state, Deseado included, is never changed;
+         *     a rating never changes. Repeating the call marks the next batch or nothing. No body is
+         *     accepted.
+         */
+        post: operations["completeMyRatedGames"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/library/games/{gameId}": {
         parameters: {
             query?: never;
@@ -2098,6 +2122,17 @@ export interface components {
             items: components["schemas"]["LibraryGame"][];
             counts: components["schemas"]["LibraryStateCounts"];
             page: components["schemas"]["PageMetadata"];
+            /**
+             * Format: int64
+             * @description Games the principal has rated that hold no state and could take one (in the current
+             *     publication, with a release that has occurred): what completeMyRatedGames would mark,
+             *     across as many calls as its batch needs.
+             */
+            ratedWithoutState: number;
+        };
+        LibraryCompletion: {
+            /** @description Games this call marked Completado. */
+            completed: number;
         };
         LibraryEntryState: {
             gameId: components["schemas"]["GameId"];
@@ -5455,6 +5490,42 @@ export interface operations {
             };
             400: components["responses"]["MalformedRequest"];
             401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["LibraryValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    completeMyRatedGames: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many games this call marked. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryCompletion"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["LibraryValidationFailed"];
             429: components["responses"]["RateLimited"];

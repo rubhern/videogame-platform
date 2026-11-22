@@ -55,7 +55,8 @@ public final class GameLibraryService implements GameLibrary {
                                                 row.released()))
                         .toList(),
                 result.counts(),
-                result.totalItems());
+                result.totalItems(),
+                result.ratedWithoutState());
     }
 
     @Override
@@ -98,6 +99,13 @@ public final class GameLibraryService implements GameLibrary {
     public void remove(String userId, String gameId) {
         UUID game = WishlistService.gameUuid(gameId);
         if (game != null) store.remove(UUID.fromString(userId), game);
+    }
+
+    @Override
+    public int completeRated(String userId) {
+        var now = clock.instant();
+        return store.completeRated(
+                UUID.fromString(userId), now, evaluatedOn(now), COMPLETION_BATCH);
     }
 
     @Override

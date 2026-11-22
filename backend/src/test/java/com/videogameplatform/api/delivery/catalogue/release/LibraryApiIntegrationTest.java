@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.ratings.adapter.persistence.RatedGameBackfill;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +53,7 @@ class LibraryApiIntegrationTest {
     private static final String UNDATED = "30000000-0000-4000-8000-000000000008";
 
     @Autowired MockMvc mvc;
+    @Autowired RatedGameBackfill ratedGameBackfill;
     private JdbcTemplate admin;
 
     @DynamicPropertySource
@@ -67,6 +70,8 @@ class LibraryApiIntegrationTest {
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword()));
         admin.update("DELETE FROM catalogue.game_library_entry");
+        admin.update("DELETE FROM ratings.rating");
+        admin.update("DELETE FROM catalogue.library_rated_game");
     }
 
     @Test
@@ -341,11 +346,117 @@ class LibraryApiIntegrationTest {
         assertThat(outcomes).contains(true, false);
     }
 
+    @Test
+    void completesRatedGamesWithoutAStateInBoundedBatchesAndNothingElse() throws Exception {
+        for (String game : List.of(ONE, TWO, THREE, RELEASED)) rate(ALICE, game);
+        rate(BOB, ONE);
+        // A projected rating of a game that has not come out is never completed. Rows hold the
+        // product UserId, so Alice's is read from the game only she rated.
+        admin.update(
+                "INSERT INTO catalogue.library_rated_game (user_id, game_id)"
+                        + " SELECT user_id, ?::uuid FROM ratings.rating WHERE game_id = ?::uuid",
+                UNDATED,
+                THREE);
+        setState(ALICE, TWO, "playing");
+        wish(ALICE, RELEASED);
+
+        var page =
+                mvc.perform(get(PATH).with(login(ALICE)))
+                        .andExpect(jsonPath("$.ratedWithoutState").value(2))
+                        .andReturn();
+        OpenApiResponseContract.load("/me/library")
+                .assertJsonResponse(page.getResponse(), 200, "LibraryPage");
+
+        mvc.perform(post(PATH + "/rated-games/completion").with(login(ALICE)))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        post(PATH + "/rated-games/completion")
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .contentType("application/json")
+                                .content("{}"))
+                .andExpect(status().isBadRequest());
+        var completed =
+                mvc.perform(
+                                post(PATH + "/rated-games/completion")
+                                        .with(login(ALICE))
+                                        .with(csrf().asHeader()))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.completed").value(2))
+                        .andReturn();
+        OpenApiResponseContract.load("/me/library/rated-games/completion", "post")
+                .assertJsonResponse(completed.getResponse(), 200, "LibraryCompletion");
+        mvc.perform(
+                        post(PATH + "/rated-games/completion")
+                                .with(login(ALICE))
+                                .with(csrf().asHeader()))
+                .andExpect(jsonPath("$.completed").value(0));
+
+        assertThat(state(ONE)).isEqualTo("completed");
+        assertThat(state(THREE)).isEqualTo("completed");
+        assertThat(state(TWO)).isEqualTo("playing");
+        assertThat(state(RELEASED)).isEqualTo("wished");
+        assertThat(state(UNDATED)).isNull();
+        mvc.perform(get(PATH).with(login(ALICE)))
+                .andExpect(jsonPath("$.ratedWithoutState").value(0))
+                .andExpect(jsonPath("$.counts.completed").value(2));
+        mvc.perform(get(PATH).with(login(BOB)))
+                .andExpect(jsonPath("$.ratedWithoutState").value(1))
+                .andExpect(jsonPath("$.counts.total").value(0));
+    }
+
+    @Test
+    void ratingWritesAndTheStartupBackfillKeepTheRatedGamesProjection() throws Exception {
+        String tag = rate(ALICE, ONE);
+        rate(ALICE, TWO);
+        assertThat(rated()).containsExactly(ONE, TWO);
+
+        mvc.perform(
+                        delete("/api/v1/me/ratings/" + ONE)
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .header("If-Match", tag))
+                .andExpect(status().is2xxSuccessful());
+        assertThat(rated()).containsExactly(TWO);
+
+        // Ratings written before the projection existed are recorded at startup, idempotently.
+        admin.update("DELETE FROM catalogue.library_rated_game");
+        ratedGameBackfill.run(null);
+        ratedGameBackfill.run(null);
+        assertThat(rated()).containsExactly(TWO);
+    }
+
+    private String rate(String subject, String gameId) throws Exception {
+        return mvc.perform(
+                        put("/api/v1/me/ratings/" + gameId)
+                                .with(login(subject))
+                                .with(csrf().asHeader())
+                                .header("If-None-Match", "*")
+                                .contentType("application/json")
+                                .content("{\"value\":7}"))
+                .andExpect(status().is2xxSuccessful())
+                .andReturn()
+                .getResponse()
+                .getHeader("ETag");
+    }
+
+    private List<String> rated() {
+        return admin.queryForList(
+                "SELECT game_id::text FROM catalogue.library_rated_game ORDER BY game_id",
+                String.class);
+    }
+
+    // Only Alice keeps library entries; Bob's library is checked through the API.
     private String state(String gameId) {
-        return admin.queryForObject(
-                "SELECT state FROM catalogue.game_library_entry WHERE game_id = ?::uuid",
-                String.class,
-                gameId);
+        return admin
+                .queryForList(
+                        "SELECT state FROM catalogue.game_library_entry WHERE game_id = ?::uuid",
+                        String.class,
+                        gameId)
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private void setState(String subject, String gameId, String value) throws Exception {

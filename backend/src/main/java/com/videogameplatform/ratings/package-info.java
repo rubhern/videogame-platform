@@ -5,6 +5,7 @@
             "catalogue::application",
             "catalogue::details",
             "catalogue::cover",
-            "catalogue::releases"
+            "catalogue::releases",
+            "catalogue::wishlist"
         })
 package com.videogameplatform.ratings;

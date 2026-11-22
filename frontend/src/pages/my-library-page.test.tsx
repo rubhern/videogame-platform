@@ -32,7 +32,7 @@ describe("Mis juegos", () => {
     const fetchMock = stub((url) => Response.json({
       items: url.searchParams.get("state") === "playing" ? playing : [],
       counts,
-      page: { number: Number(url.searchParams.get("page") ?? 1), size: 20, totalItems: 2, totalPages: 2 },
+      page: { number: Number(url.searchParams.get("page") ?? 1), size: 20, totalItems: 2, totalPages: 2 }, ratedWithoutState: 0,
     }));
     renderApp("/mis-juegos?estado=jugando");
 
@@ -68,7 +68,7 @@ describe("Mis juegos", () => {
       const items = state === "playing" ? [playing[0]] : [];
       return Response.json({
         items, counts: { ...counts, playing: items.length, completed: state === "completed" ? 1 : 0 },
-        page: { number: 1, size: 20, totalItems: items.length, totalPages: items.length },
+        page: { number: 1, size: 20, totalItems: items.length, totalPages: items.length }, ratedWithoutState: 0,
       });
     });
     renderApp("/mis-juegos?estado=jugando");
@@ -86,7 +86,7 @@ describe("Mis juegos", () => {
     stub(() => Response.json({
       items: [{ ...playing[0], state: "wished", released: false }],
       counts: { ...counts, playing: 0, wished: 1, total: 1 },
-      page: { number: 1, size: 20, totalItems: 1, totalPages: 1 },
+      page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }, ratedWithoutState: 0,
     }));
     renderApp("/mis-juegos");
     const user = userEvent.setup();
@@ -99,11 +99,46 @@ describe("Mis juegos", () => {
   it("distinguishes an empty library from a filtered empty view", async () => {
     stub(() => Response.json({
       items: [], counts: { total: 0, wished: 0, backlog: 0, playing: 0, completed: 0, abandoned: 0 },
-      page: { number: 1, size: 20, totalItems: 0, totalPages: 0 },
+      page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }, ratedWithoutState: 0,
     }));
     renderApp("/mis-juegos");
     expect(await screen.findByRole("heading", { name: "Aún no tienes juegos con estado" })).toBeVisible();
     expect(screen.queryByRole("list", { name: "Tus juegos" })).toBeNull();
+  });
+
+  it("brings rated games without a state in after the player confirms", async () => {
+    let remaining = 3;
+    const fetchMock = stub(async (url, request) => {
+      if (url.pathname === "/api/v1/me/library/rated-games/completion") {
+        expect(request.method).toBe("POST");
+        expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+        const completed = remaining;
+        remaining = 0;
+        return Response.json({ completed });
+      }
+      const done = remaining === 0;
+      return Response.json({
+        items: done ? [{ ...playing[0], state: "completed" }] : [],
+        counts: { total: done ? 3 : 0, wished: 0, backlog: 0, playing: 0, completed: done ? 3 : 0, abandoned: 0 },
+        page: { number: 1, size: 20, totalItems: done ? 1 : 0, totalPages: done ? 1 : 0 }, ratedWithoutState: remaining,
+      });
+    });
+    renderApp("/mis-juegos");
+    const offer = await screen.findByRole("region", { name: "Tus juegos puntuados" });
+    expect(within(offer).getByRole("heading", { name: "Tienes 3 juegos puntuados sin estado" })).toBeVisible();
+
+    const user = userEvent.setup();
+    await user.click(within(offer).getByRole("button", { name: "Marcar como Completado" }));
+    // Nothing is marked until the player confirms the number.
+    expect(fetchMock.mock.calls.some(([request]) => (request as Request).method === "POST")).toBe(false);
+    const confirm = within(offer).getByRole("button", { name: "Marcar 3 juegos como Completado" });
+    expect(confirm).toHaveFocus();
+    await user.click(confirm);
+
+    const message = await screen.findByText(/3 juegos marcados como Completado\./);
+    await waitFor(() => expect(message).toHaveFocus());
+    expect(screen.queryByRole("heading", { name: /puntuados sin estado/ })).toBeNull();
+    expect(await screen.findByRole("link", { name: /^Completado:?\s*3$/ })).toBeVisible();
   });
 
   it("asks a visitor to sign in and return to the same view", async () => {

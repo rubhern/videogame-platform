@@ -2242,6 +2242,37 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/library/rated-games/completion:
+    post:
+      tags: [Library]
+      operationId: completeMyRatedGames
+      summary: Mark my rated games without a state as Completado
+      description: |
+        UC-026. Marks Completado, in one bounded batch of at most 1000 games in game ID order,
+        the principal's rated games that hold no state, are in the current publication and have
+        a release that has occurred. A game with any state, Deseado included, is never changed;
+        a rating never changes. Repeating the call marks the next batch or nothing. No body is
+        accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: How many games this call marked.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryCompletion' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/LibraryValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/library/games/{gameId}:
     parameters:
       - $ref: '#/components/parameters/GameIdPath'
@@ -4824,7 +4855,7 @@ components:
         abandoned: { type: integer, format: int64, minimum: 0 }
     LibraryPage:
       type: object
-      required: [items, counts, page]
+      required: [items, counts, page, ratedWithoutState]
       properties:
         items:
           type: array
@@ -4832,6 +4863,23 @@ components:
           items: { $ref: '#/components/schemas/LibraryGame' }
         counts: { $ref: '#/components/schemas/LibraryStateCounts' }
         page: { $ref: '#/components/schemas/PageMetadata' }
+        ratedWithoutState:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Games the principal has rated that hold no state and could take one (in the current
+            publication, with a release that has occurred): what completeMyRatedGames would mark,
+            across as many calls as its batch needs.
+    LibraryCompletion:
+      type: object
+      required: [completed]
+      properties:
+        completed:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          description: Games this call marked Completado.
     LibraryEntryState:
       type: object
       required: [gameId, state]

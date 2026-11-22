@@ -791,7 +791,15 @@ never changes a state.
 last change descending with the game ID as the final tie-breaker, with the count of every
 state independent of the filter; each row says whether its game has come out, by the
 same rule, so the page offers only Deseado otherwise. A batch read returns the state of at most 100 games for
-the selectors shown beside games. PostgreSQL filters, counts, orders and pages. The
+the selectors shown beside games. PostgreSQL filters, counts, orders and pages.
+
+The page also counts the player's rated games that hold no state and could take one, and
+offers to mark them Completado. Only the player's confirmation runs it, one batch of at
+most 1000 games in game ID order per command, under the player's lock; a game with any
+state, Deseado included, is never changed, and no rating changes. The count and the batch
+come from Catalogue's projection of rated games, which Ratings keeps in the same
+transaction as each rating
+([ADR-0051](../../decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md)). The
 export lists every entry's game, state and change time, and verified deletion removes
 them with the wishlist ([UC-021](#private-account-lifecycle-uc-021-post-mvp-272)).
 

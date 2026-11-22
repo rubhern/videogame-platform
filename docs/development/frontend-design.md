@@ -1886,7 +1886,12 @@ the current one with `aria-current`; it may scroll sideways on phones. The state
 in the URL (`?estado=jugando`). The total precedes a ledger of covers, titles,
 `Desde el …` and the row's state chip. Twenty games fill a page, with the shared
 previous and next links. A game that leaves the filtered view hands focus to the total.
-An empty library, an empty state filter and an exhausted page are distinct notices. The
+An empty library, an empty state filter and an exhausted page are distinct notices.
+While the player has rated games without a state, a night plate with an ice edge opens the
+page, before the filters: **Tienes N juegos puntuados sin estado**, one line on changing
+them afterwards, and **Marcar como Completado**. Pressing it asks again with the number,
+**Marcar N juegos como Completado** (focused) beside **Cancelar**; the confirmed result
+replaces the plate as a focused status. Below 620px the action spans the plate. The
 [use case](../architecture/application/mvp-use-cases.md#personal-game-states-uc-026-post-mvp-591)
 owns states, ordering and ownership.
 

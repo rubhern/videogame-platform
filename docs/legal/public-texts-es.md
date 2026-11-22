@@ -314,8 +314,9 @@ de forma opcional, asignar una puntuación de 1 a 10 a cada una. Tu puntuación
 personal y los resultados agregados se presentan por separado. Las puntuaciones
 externas de IGDB se identifican como tales y no se mezclan con las de Gameómetro.
 Puedes guardar y quitar juegos de «Mis deseados» y elegir el estado de cada juego en
-«Mis juegos». Ni los deseados ni los estados influyen en las puntuaciones ni en las
-clasificaciones.
+«Mis juegos». Allí también puedes marcar como Completado, de una vez y solo si lo
+confirmas, los juegos que has puntuado y aún no tienen estado. Ni los deseados ni los
+estados influyen en las puntuaciones ni en las clasificaciones.
 No intentes acceder a cuentas ajenas, eludir protecciones ni perjudicar la
 disponibilidad del servicio.
 

@@ -7,6 +7,7 @@ import {
   LIBRARY_KEY, LIBRARY_PAGE_SIZE, LIBRARY_STATES, LibraryError, libraryStateFromSlug, libraryStateLabels,
   libraryStateSlugs, listLibrary, type LibraryState,
 } from "../features/library/library-api";
+import { RatedCompletion } from "../features/library/rated-completion";
 import { toCover } from "../features/releases/releases-view-model";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
@@ -91,6 +92,7 @@ export function MyLibraryPage() {
           </div>
         ) : (
           <>
+            {csrfToken ? <RatedCompletion count={data.ratedWithoutState} csrfToken={csrfToken} /> : null}
             <nav aria-label="Filtrar por estado" className="library-filters">
               <ul>
                 {[undefined, ...LIBRARY_STATES].map((value) => {

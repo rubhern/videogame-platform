@@ -231,6 +231,12 @@ class CatalogueModuleConfigurationTest {
         }
 
         @Bean
+        com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore ratedGameStore() {
+            return org.mockito.Mockito.mock(
+                    com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore.class);
+        }
+
+        @Bean
         com.videogameplatform.catalogue.application.attention.port.EditorialAttentionStore
                 editorialAttentionStore() {
             return org.mockito.Mockito.mock(

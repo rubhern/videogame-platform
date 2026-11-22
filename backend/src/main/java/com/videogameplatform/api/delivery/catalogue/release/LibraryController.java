@@ -2,6 +2,7 @@ package com.videogameplatform.api.delivery.catalogue.release;
 
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
 import com.videogameplatform.api.generated.LibraryApi;
+import com.videogameplatform.api.generated.model.LibraryCompletion;
 import com.videogameplatform.api.generated.model.LibraryEntryState;
 import com.videogameplatform.api.generated.model.LibraryGame;
 import com.videogameplatform.api.generated.model.LibraryPage;
@@ -73,7 +74,14 @@ public class LibraryController implements LibraryApi {
                                 page,
                                 pageSize,
                                 result.totalItems(),
-                                Math.ceilDiv(result.totalItems(), pageSize))));
+                                Math.ceilDiv(result.totalItems(), pageSize)),
+                        result.ratedWithoutState()));
+    }
+
+    @Override
+    public ResponseEntity<LibraryCompletion> completeMyRatedGames(String csrfToken) {
+        int completed = user.changeAsCurrentUser(library::completeRated);
+        return privateResponse(new LibraryCompletion(completed));
     }
 
     @Override

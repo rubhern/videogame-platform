@@ -23,6 +23,17 @@ public interface GameLibrary {
 
     void remove(String userId, String gameId);
 
+    /** The most rated games one {@link #completeRated} call marks. */
+    int COMPLETION_BATCH = 1_000;
+
+    /**
+     * Marks Completado, in one bounded batch, the rated games that hold no state and could take
+     * one (published, with a release that has occurred).
+     *
+     * @return how many games were marked
+     */
+    int completeRated(String userId);
+
     void export(String userId, Consumer<ExportedEntry> consume);
 
     enum State {
@@ -33,7 +44,10 @@ public interface GameLibrary {
         ABANDONED
     }
 
-    record Page(List<Game> items, Counts counts, long totalItems) {}
+    /**
+     * @param ratedWithoutState rated games with no state that {@link #completeRated} would mark
+     */
+    record Page(List<Game> items, Counts counts, long totalItems, long ratedWithoutState) {}
 
     record Counts(long wished, long backlog, long playing, long completed, long abandoned) {
         public long total() {

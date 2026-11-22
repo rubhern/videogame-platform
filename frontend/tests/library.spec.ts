@@ -36,7 +36,7 @@ test("sets a game's state on its page, offers rating and lists it in Mis juegos"
     const counts = { total: state === null ? 0 : 1, wished: 0, backlog: 0, playing: 0, completed: 0, abandoned: 0 };
     if (state !== null) counts[state as keyof typeof counts] = 1;
     return route.fulfill({
-      json: { items, counts, page: { number: 1, size: 20, totalItems: items.length, totalPages: items.length } },
+      json: { items, counts, page: { number: 1, size: 20, totalItems: items.length, totalPages: items.length }, ratedWithoutState: 0 },
     });
   });
 
@@ -131,4 +131,48 @@ test("offers only Deseado on the page of a game that has not come out", async ({
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`state-unreleased-dialog-${width}.png`) });
   }
+});
+
+test("offers to mark rated games without a state as Completado, after confirming", async ({ page }) => {
+  let remaining = 37;
+  await page.route("**/api/v1/session", (route) => route.fulfill({
+    json: { authenticated: true, csrfToken: "browser-proof" },
+  }));
+  await page.route("**/api/v1/me/library/rated-games/completion", async (route) => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().headers()["x-csrf-token"]).toBe("browser-proof");
+    const completed = remaining;
+    remaining = 0;
+    await route.fulfill({ json: { completed } });
+  });
+  await page.route("**/api/v1/me/library?*", (route) => {
+    const done = remaining === 0;
+    return route.fulfill({ json: {
+      items: done ? [{ ...game, state: "completed", stateChangedAt: "2026-08-13T10:05:00Z", released: true }] : [],
+      counts: { total: done ? 37 : 0, wished: 0, backlog: 0, playing: 0, completed: done ? 37 : 0, abandoned: 0 },
+      page: { number: 1, size: 20, totalItems: done ? 1 : 0, totalPages: done ? 1 : 0 },
+      ratedWithoutState: remaining,
+    } });
+  });
+  await page.route("**/api/v1/me/library/states?*", (route) => route.fulfill({ json: { entries: [] } }));
+
+  await page.goto("/mis-juegos");
+  const offer = page.getByRole("region", { name: "Tus juegos puntuados" });
+  await expect(offer.getByRole("heading", { name: "Tienes 37 juegos puntuados sin estado" })).toBeVisible();
+  for (const width of [1320, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath(`rated-offer-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await offer.getByRole("button", { name: "Marcar como Completado" }).click();
+  const confirm = offer.getByRole("button", { name: "Marcar 37 juegos como Completado" });
+  await expect(confirm).toBeFocused();
+  await page.screenshot({ path: test.info().outputPath("rated-confirm-1320.png") });
+  await confirm.click();
+  await expect(page.getByText("37 juegos marcados como Completado.")).toBeFocused();
+  await expect(page.getByRole("link", { name: game.canonicalTitle, exact: true })).toBeVisible();
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath("rated-done-1320.png") });
 });

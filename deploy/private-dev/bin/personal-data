@@ -258,11 +258,22 @@ class Runtime:
         # Older releases' restored databases have no library to erase.
         return self.sql("SELECT to_regclass('catalogue.game_library_entry') IS NOT NULL;\n", user_id) == "t"
 
+    def has_rated_games(self, user_id: str) -> bool:
+        # Releases before the rated-games projection (#591) have none to erase.
+        return self.sql("SELECT to_regclass('catalogue.library_rated_game') IS NOT NULL;\n", user_id) == "t"
+
     def wish_count(self, user_id: str) -> int:
         if not self.has_wishlist(user_id):
             return 0
-        return int(self.sql(
+        entries = int(self.sql(
             "SELECT count(*) FROM catalogue.game_library_entry WHERE user_id = :'user_id';\n",
+            user_id,
+        ))
+        if not self.has_rated_games(user_id):
+            return entries
+        # The rated-games projection is derived personal data erased with the library.
+        return entries + int(self.sql(
+            "SELECT count(*) FROM catalogue.library_rated_game WHERE user_id = :'user_id';\n",
             user_id,
         ))
 
@@ -336,15 +347,30 @@ class Runtime:
             )
             SELECT count(*) FROM deleted;
             """
+        statements = [statement]
+        if self.has_rated_games(user_id):
+            statements.append("""
+            WITH batch AS (
+                SELECT game_id FROM catalogue.library_rated_game
+                WHERE user_id = :'user_id' ORDER BY game_id LIMIT 100
+            ), deleted AS (
+                DELETE FROM catalogue.library_rated_game r USING batch
+                WHERE r.user_id = :'user_id' AND r.game_id = batch.game_id RETURNING 1
+            )
+            SELECT count(*) FROM deleted;
+            """)
         total, deadline = 0, time.monotonic() + 120
-        for _ in range(100):
-            if time.monotonic() >= deadline:
-                raise ProvisioningError("Wishlist erasure batch budget reached; retry the same ledger entry")
-            deleted = int(self.sql(statement, user_id))
-            total += deleted
-            if deleted < 100:
-                return total
-        raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
+        for current in statements:
+            for _ in range(100):
+                if time.monotonic() >= deadline:
+                    raise ProvisioningError("Wishlist erasure batch budget reached; retry the same ledger entry")
+                deleted = int(self.sql(current, user_id))
+                total += deleted
+                if deleted < 100:
+                    break
+            else:
+                raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
+        return total
 
     # BFF sessions ----------------------------------------------------------------------------
 

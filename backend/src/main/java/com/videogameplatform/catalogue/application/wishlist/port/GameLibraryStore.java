@@ -35,9 +35,12 @@ public interface GameLibraryStore {
 
     void remove(UUID userId, UUID gameId);
 
+    /** Marks up to {@code limit} rated games without state Completado, in game ID order. */
+    int completeRated(UUID userId, Instant now, LocalDate evaluatedOn, int limit);
+
     void export(UUID userId, Consumer<ExportedEntry> consume);
 
-    record Page(List<Row> items, Counts counts, long totalItems) {}
+    record Page(List<Row> items, Counts counts, long totalItems, long ratedWithoutState) {}
 
     record Row(
             String id,

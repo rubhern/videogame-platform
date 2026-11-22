@@ -184,7 +184,9 @@ count for each. The owner decided that:
 - marking a game **Completado** or **Abandonado** may offer rating it, and neither
   action ever changes the other;
 - only the time of the last change is kept; start and finish dates are deferred;
-- a game with no release that has come out yet can only be **Deseado**.
+- a game with no release that has come out yet can only be **Deseado**;
+- **Mis juegos** offers to mark every rated game without a state **Completado** in one
+  confirmed action, never automatically, and each game can be changed afterwards.
 
 States are private, included in export and deletion, and never affect community scores,
 rankings or attention. Public profiles ([#593](https://github.com/rubhern/videogame-platform/issues/593))

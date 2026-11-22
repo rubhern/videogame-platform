@@ -277,7 +277,8 @@
               "pm.test(\"Only the completed game\", () => pm.expect(body.items.map(game => game.gameId)).to.eql([pm.collectionVariables.get(\"libraryGameId\")]));",
               "pm.test(\"Counts cover every state\", () => { pm.expect(body.counts.completed).to.eql(1); pm.expect(body.counts.playing).to.eql(0); pm.expect(body.counts.total).to.eql(1); });",
               "pm.test(\"Change time is present\", () => pm.expect(body.items[0].stateChangedAt).to.be.a(\"string\"));",
-              "pm.test(\"The game has come out\", () => pm.expect(body.items[0].released).to.eql(true));"
+              "pm.test(\"The game has come out\", () => pm.expect(body.items[0].released).to.eql(true));",
+              "pm.test(\"Rated games without a state are counted\", () => pm.expect(body.ratedWithoutState).to.be.a(\"number\").and.at.least(0));"
             ]
           }
         }
@@ -299,6 +300,32 @@
               "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
               "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
               "pm.test(\"Stable filter problem\", () => pm.expect(pm.response.json().code).to.eql(\"FILTER_INVALID\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mark my rated games without a state as Completado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/library/rated-games/completion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Private response is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.test(\"One bounded batch\", () => pm.expect(pm.response.json().completed).to.be.within(0, 1000));"
             ]
           }
         }

@@ -72,3 +72,12 @@ export async function changeGameState({ gameId, csrfToken, state }: LibraryComma
     : await productApiClient.PUT("/me/library/games/{gameId}", { params, body: { state }, cache: "no-store" });
   if (result.response.status !== 204) throw requestFailure(result.response, result.error);
 }
+
+/** Marks one bounded batch of rated games without a state Completado; returns how many. */
+export async function completeRatedGames(csrfToken: string) {
+  const { data, error, response } = await productApiClient.POST("/me/library/rated-games/completion", {
+    params: { header: { "X-CSRF-Token": csrfToken } }, cache: "no-store",
+  });
+  if (data !== undefined) return data.completed;
+  throw requestFailure(response, error);
+}

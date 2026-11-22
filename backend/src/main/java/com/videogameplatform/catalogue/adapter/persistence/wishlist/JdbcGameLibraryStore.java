@@ -43,6 +43,19 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                         AND rs.period_end < CAST(:evaluatedOn AS date))
                     OR (rs.date_precision = 'unknown' AND rs.release_status = 'released')))
             """;
+    // Rated games (Ratings' projection) without an entry that could take a state: published, with
+    // a release that has occurred. The count and the completion share it.
+    private static final String RATED_WITHOUT_STATE =
+            """
+            FROM catalogue.library_rated_game r
+            JOIN catalogue.game_snapshot gs
+              ON gs.publication_id = %s AND gs.game_id = r.game_id
+            WHERE r.user_id = :owner
+              AND NOT EXISTS (
+                  SELECT 1 FROM catalogue.game_library_entry e
+                  WHERE e.user_id = r.user_id AND e.game_id = r.game_id)
+              AND %s
+            """;
     private static final String COUNTS =
             """
             SELECT state, count(*) FROM catalogue.game_library_entry
@@ -80,6 +93,18 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
             """
                     .formatted(
                             CURRENT_PUBLICATION, RELEASED.formatted(CURRENT_PUBLICATION, ":game"));
+    private static final String RATED_SCOPE =
+            RATED_WITHOUT_STATE.formatted(
+                    CURRENT_PUBLICATION, RELEASED.formatted("gs.publication_id", "r.game_id"));
+    private static final String COUNT_RATED = "SELECT count(*) " + RATED_SCOPE;
+    private static final String COMPLETE_RATED =
+            """
+            INSERT INTO catalogue.game_library_entry (user_id, game_id, state, state_changed_at)
+            SELECT :owner, chosen.game_id, 'completed', :now
+            FROM (SELECT r.game_id %s ORDER BY r.game_id LIMIT :limit) chosen
+            ON CONFLICT (user_id, game_id) DO NOTHING
+            """
+                    .formatted(RATED_SCOPE);
     private static final String CHANGE =
             """
             UPDATE catalogue.game_library_entry
@@ -145,7 +170,14 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                                     perState.getOrDefault(State.COMPLETED, 0L),
                                     perState.getOrDefault(State.ABANDONED, 0L));
                     long total = state == null ? counts.total() : perState.getOrDefault(state, 0L);
-                    if (offset >= total) return new Page(List.of(), counts, total);
+                    Long rated =
+                            jdbc.queryForObject(
+                                    COUNT_RATED,
+                                    Map.of("owner", userId, "evaluatedOn", evaluatedOn),
+                                    Long.class);
+                    long ratedWithoutState = rated == null ? 0 : rated;
+                    if (offset >= total)
+                        return new Page(List.of(), counts, total, ratedWithoutState);
                     var parameters = new HashMap<String, Object>();
                     parameters.put("owner", userId);
                     if (state != null) parameters.put("state", value(state));
@@ -172,7 +204,7 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                                                         .toInstant(),
                                                 rs.getBoolean("released"));
                                     });
-                    return new Page(rows, counts, total);
+                    return new Page(rows, counts, total, ratedWithoutState);
                 });
     }
 
@@ -236,6 +268,27 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                             "DELETE FROM catalogue.game_library_entry WHERE user_id = :owner AND game_id = :game",
                             Map.of("owner", userId, "game", gameId));
                 });
+    }
+
+    @Override
+    public int completeRated(UUID userId, Instant now, LocalDate evaluatedOn, int limit) {
+        Integer marked =
+                writes.execute(
+                        transaction -> {
+                            JdbcWishlistStore.lockLibrary(jdbc, userId);
+                            return jdbc.update(
+                                    COMPLETE_RATED,
+                                    Map.of(
+                                            "owner",
+                                            userId,
+                                            "now",
+                                            now.atOffset(ZoneOffset.UTC),
+                                            "evaluatedOn",
+                                            evaluatedOn,
+                                            "limit",
+                                            limit));
+                        });
+        return marked == null ? 0 : marked;
     }
 
     @Override

@@ -105,6 +105,12 @@ def wishes_of(user_id: str) -> int:
                    f"SELECT count(*) FROM catalogue.game_library_entry WHERE user_id = '{user_id}'"))
 
 
+def rated_games_of(user_id: str) -> int:
+    # Catalogue's rated-games projection (#591) is erased with the library.
+    return int(sql("videogame_platform",
+                   f"SELECT count(*) FROM catalogue.library_rated_game WHERE user_id = '{user_id}'"))
+
+
 class Admin:
     def __init__(self) -> None:
         self.token = ""
@@ -351,6 +357,7 @@ assert admin.account(target_id) is None and ratings_of(target_user) == 0
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert wishes_of(target_user) == 0 and wishes_of(other_user) == 1
+assert rated_games_of(target_user) == 0
 ledger_text = ledger.read_text()
 assert accounts["target"]["email"] not in ledger_text and accounts["target"]["username"] not in ledger_text
 
@@ -365,6 +372,7 @@ wait_for("Restored Keycloak", keycloak_ready)
 assert admin.account(target_id) is not None and ratings_of(target_user) == 1, "the backup predates the erasure"
 assert preferences_of(target_user) == 1, "the backup predates the erasure"
 assert wishes_of(target_user) == 2, "the backup predates the erasure"
+assert rated_games_of(target_user) == 1, "the rating written through the product projects its game"
 
 # The replay refuses an open service, then reapplies and verifies every entry before reopening.
 receipts = owner
@@ -384,6 +392,7 @@ assert receipt["entries"] == receipt["verified"] == 1 and receipt["outcome"] == 
 assert admin.account(target_id) is None and ratings_of(target_user) == 0
 assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert wishes_of(target_user) == 0 and wishes_of(other_user) == 1
+assert rated_games_of(target_user) == 0
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 
 # The freed address registers again as a new subject, which a later replay leaves alone.
