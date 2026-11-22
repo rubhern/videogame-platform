@@ -80,11 +80,10 @@ public final class GameLibraryService implements GameLibrary {
         UUID game = WishlistService.gameUuid(gameId);
         if (game == null) throw new GameNotFoundException();
         var now = clock.instant();
-        switch (store.setState(UUID.fromString(userId), game, state, now, evaluatedOn(now))) {
-            case APPLIED -> {}
-            case GAME_NOT_FOUND -> throw new GameNotFoundException();
-            case GAME_NOT_RELEASED -> throw new GameNotReleasedException();
-        }
+        var change = store.setState(UUID.fromString(userId), game, state, now, evaluatedOn(now));
+        if (change == GameLibraryStore.Change.GAME_NOT_FOUND) throw new GameNotFoundException();
+        if (change == GameLibraryStore.Change.GAME_NOT_RELEASED)
+            throw new GameNotReleasedException();
     }
 
     private LocalDate evaluatedOn() {

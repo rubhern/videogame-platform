@@ -8,7 +8,6 @@ import com.videogameplatform.catalogue.application.wishlist.GameLibrary.Entry;
 import com.videogameplatform.catalogue.application.wishlist.GameLibrary.ExportedEntry;
 import com.videogameplatform.catalogue.application.wishlist.GameLibrary.State;
 import com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore;
-import com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore.Change;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -18,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
@@ -26,6 +26,11 @@ import org.springframework.transaction.support.TransactionOperations;
 /** PostgreSQL library states on the same entry the wishlist uses (ADR-0050, #591). */
 public final class JdbcGameLibraryStore implements GameLibraryStore {
     private static final int EXPORT_LIMIT = 10_000;
+    // Named SQL parameters shared by the statements below.
+    private static final String OWNER = "owner";
+    private static final String STATE = "state";
+    private static final String LIMIT = "limit";
+    private static final String EVALUATED_ON = "evaluatedOn";
     private static final String CURRENT_PUBLICATION =
             "(SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current)";
     // A release of the game in the current publication that has occurred by the evaluation date,
@@ -158,7 +163,7 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                     var perState = new EnumMap<State, Long>(State.class);
                     jdbc.query(
                             COUNTS,
-                            Map.of("owner", userId),
+                            Map.of(OWNER, userId),
                             rs -> {
                                 perState.put(state(rs.getString(1)), rs.getLong(2));
                             });
@@ -173,17 +178,17 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                     Long rated =
                             jdbc.queryForObject(
                                     COUNT_RATED,
-                                    Map.of("owner", userId, "evaluatedOn", evaluatedOn),
+                                    Map.of(OWNER, userId, EVALUATED_ON, evaluatedOn),
                                     Long.class);
                     long ratedWithoutState = rated == null ? 0 : rated;
                     if (offset >= total)
                         return new Page(List.of(), counts, total, ratedWithoutState);
                     var parameters = new HashMap<String, Object>();
-                    parameters.put("owner", userId);
-                    if (state != null) parameters.put("state", value(state));
+                    parameters.put(OWNER, userId);
+                    if (state != null) parameters.put(STATE, value(state));
                     parameters.put("offset", offset);
-                    parameters.put("limit", limit);
-                    parameters.put("evaluatedOn", evaluatedOn);
+                    parameters.put(LIMIT, limit);
+                    parameters.put(EVALUATED_ON, evaluatedOn);
                     var rows =
                             jdbc.query(
                                     state == null ? LIST_ALL : LIST_STATE,
@@ -215,7 +220,7 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                 SELECT game_id::text, state FROM catalogue.game_library_entry
                 WHERE user_id = :owner AND game_id IN (:ids) ORDER BY game_id
                 """,
-                Map.of("owner", userId, "ids", gameIds),
+                Map.of(OWNER, userId, "ids", gameIds),
                 (rs, index) -> new Entry(rs.getString(1), state(rs.getString(2))));
     }
 
@@ -229,15 +234,15 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                     JdbcWishlistStore.lockLibrary(jdbc, userId);
                     var parameters =
                             Map.<String, Object>of(
-                                    "owner",
+                                    OWNER,
                                     userId,
                                     "game",
                                     gameId,
-                                    "state",
+                                    STATE,
                                     value(state),
                                     "now",
                                     now.atOffset(ZoneOffset.UTC),
-                                    "evaluatedOn",
+                                    EVALUATED_ON,
                                     evaluatedOn);
                     // Read under the owner's lock, in the same transaction as the write.
                     Change check =
@@ -266,36 +271,37 @@ public final class JdbcGameLibraryStore implements GameLibraryStore {
                     JdbcWishlistStore.lockLibrary(jdbc, userId);
                     jdbc.update(
                             "DELETE FROM catalogue.game_library_entry WHERE user_id = :owner AND game_id = :game",
-                            Map.of("owner", userId, "game", gameId));
+                            Map.of(OWNER, userId, "game", gameId));
                 });
     }
 
     @Override
     public int completeRated(UUID userId, Instant now, LocalDate evaluatedOn, int limit) {
-        Integer marked =
-                writes.execute(
-                        transaction -> {
-                            JdbcWishlistStore.lockLibrary(jdbc, userId);
-                            return jdbc.update(
-                                    COMPLETE_RATED,
-                                    Map.of(
-                                            "owner",
-                                            userId,
-                                            "now",
-                                            now.atOffset(ZoneOffset.UTC),
-                                            "evaluatedOn",
-                                            evaluatedOn,
-                                            "limit",
-                                            limit));
-                        });
-        return marked == null ? 0 : marked;
+        return Optional.ofNullable(
+                        writes.execute(
+                                transaction -> {
+                                    JdbcWishlistStore.lockLibrary(jdbc, userId);
+                                    return jdbc.update(
+                                            COMPLETE_RATED,
+                                            Map.of(
+                                                    OWNER,
+                                                    userId,
+                                                    "now",
+                                                    now.atOffset(ZoneOffset.UTC),
+                                                    EVALUATED_ON,
+                                                    evaluatedOn,
+                                                    LIMIT,
+                                                    limit));
+                                }))
+                // The update count is never null; the transaction template only declares it so.
+                .orElse(0);
     }
 
     @Override
     public void export(UUID userId, Consumer<ExportedEntry> consume) {
         jdbc.query(
                 EXPORT,
-                Map.of("owner", userId, "limit", EXPORT_LIMIT + 1),
+                Map.of(OWNER, userId, LIMIT, EXPORT_LIMIT + 1),
                 rs -> {
                     int count = 0;
                     while (rs.next()) {

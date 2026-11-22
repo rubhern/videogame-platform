@@ -44,6 +44,9 @@ import tools.jackson.databind.ObjectMapper;
 @RequestMapping("/api/v1")
 public class ProfileController implements ProfileApi {
     private static final String RECEIPT = "gameometro_deletion";
+    // Export property names shared by the ratings, wishlist and library sections.
+    private static final String GAME_ID = "gameId";
+    private static final String TITLE = "title";
     private static final SecureRandom RECEIPT_RANDOM = new SecureRandom();
     private final CurrentUser user;
     private final AccountDeletionStore deletions;
@@ -112,8 +115,8 @@ public class ProfileController implements ProfileApi {
                         owner,
                         item -> {
                             generator.writeStartObject();
-                            generator.writeStringProperty("gameId", item.gameId());
-                            generator.writePOJOProperty("title", item.title());
+                            generator.writeStringProperty(GAME_ID, item.gameId());
+                            generator.writePOJOProperty(TITLE, item.title());
                             var rating = item.rating();
                             generator.writePOJOProperty("value", rating.value());
                             generator.writePOJOProperty("platforms", rating.platforms());
@@ -136,8 +139,8 @@ public class ProfileController implements ProfileApi {
                         owner,
                         item -> {
                             generator.writeStartObject();
-                            generator.writeStringProperty("gameId", item.gameId());
-                            generator.writePOJOProperty("title", item.title());
+                            generator.writeStringProperty(GAME_ID, item.gameId());
+                            generator.writePOJOProperty(TITLE, item.title());
                             generator.writeStringProperty("addedAt", item.addedAt().toString());
                             generator.writeNumberProperty("position", item.position());
                             generator.writeEndObject();
@@ -148,8 +151,8 @@ public class ProfileController implements ProfileApi {
                         owner,
                         item -> {
                             generator.writeStartObject();
-                            generator.writeStringProperty("gameId", item.gameId());
-                            generator.writePOJOProperty("title", item.title());
+                            generator.writeStringProperty(GAME_ID, item.gameId());
+                            generator.writePOJOProperty(TITLE, item.title());
                             generator.writeStringProperty(
                                     "state", item.state().name().toLowerCase(Locale.ROOT));
                             generator.writeStringProperty(
