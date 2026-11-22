@@ -1738,7 +1738,7 @@ games, prompt version and model. **Ver juegos** expands the scores and rationale
 **Eliminar** opens an inline confirmation whose safe **Conservar lista** comes first and takes
 focus.
 
-Post-MVP (#450, implemented; awaiting owner review), **Ajustes** is the last tab (`UC-024`). It
+Post-MVP (#450, implemented; awaiting owner review), **Ajustes** follows **Interés editorial** (`UC-024`). It
 holds one form: a section per group (**Destacados**, **Próximos destacados**, **Fórmula de
 interés**, **TOPómetros**, **Calendario**, **Sincronización programada**), each with a lead saying
 what its values change, then one labelled text field per setting, two columns from 620px and one
@@ -1754,6 +1754,47 @@ status region: success says public pages use the values from their next read; a 
 an invalid combination, a lost CSRF proof or a lost role is a `warning` saying nothing changed, and
 any other failure a `danger` notice with its support reference. **Cambios recientes** follows as
 hairline cards, newest first: the setting, the time and the previous and new values.
+
+Post-MVP (#589, implemented; awaiting owner review), **Redes sociales** is the last tab. Its
+**Carrusel semanal** turns the week's Destacados selection into a carousel for Gameómetro's social
+profiles, which the operator publishes by hand. A lead says where the data comes from, then
+**Semana anterior**, **Semana actual** and **Semana siguiente** follow the API's own navigation. The
+selected week lives in the URL (`week`); without one, it is the API's current week. The slides
+are 1080×1350 PNG images, previewed scaled down in a wrapping grid. Each slide is the exported
+canvas itself, named in words for assistive technology, with its position and **Descargar**
+beneath. **Descargar todas** and, where the browser can share files, **Compartir imágenes**
+come first. They stay disabled until every slide has painted. The ready-to-paste caption follows
+in a read-only monospace field with **Copiar texto**. One status line reports every outcome. A week
+without featured games shows the empty notice **No hay lanzamientos destacados esta semana** and
+produces no images.
+
+The slides follow the owner's reference captures (2026-11-22). They are a marketing surface
+outside the product screens, so two owner exceptions apply only here: a lit fire word in a title,
+and tracked monospace readouts. Every slide has a night stage with ice light at the top right and
+fire's warmth at the bottom left, the canonical lockup at the top left, and an `n/total` counter at
+the top right in IBM Plex Mono.
+
+- **Cover:** **Lanzamientos de la semana** in heavy Mona Sans, with **semana** in the fire
+  gradient. Beneath it, the week's compact range (`16–22 nov 2026`) in ink-to-ice. Below, every
+  featured game's cover in rows of three, centred, with the middle column slightly raised. There is
+  no week number.
+- **Game slides:** the first is the week's most important release. It carries
+  **★ LANZAMIENTO DE LA SEMANA** in tracked mono fire above its date. Each game's IGDB landscape
+  art fills the top of its slide and dissolves into night. Without art, its cover stands whole
+  over its own blurred light, and without a cover the product fallback is used. The plate under
+  the counter keeps it legible over art. The date is a seal: the day in heavy ink-to-ice beside
+  the weekday and `NOV 2026` in tracked mono. A date known only to a month, quarter or year is
+  written in words instead, and no day is invented. Then the title, which shrinks to fit two
+  lines, the platform marks in ink with an unknown platform written by name, and up to two
+  genres in ice-light.
+- **Scores:** no slide carries a score.
+- **Closing:** the mark centred, **¿Cuál vas a jugar?** with **jugar** in fire, **Todos los
+  lanzamientos de la semana, filtrados por tus plataformas**, a fire rule before
+  **gameometro.com**, **ENLACE EN EL PERFIL** in tracked mono fire and **Datos e imágenes: IGDB**
+  as the credit at the foot.
+
+Provider images follow the [ADR-0001](../decisions/0001-reference-igdb-cover-images.md#amendment-2026-11-22)
+amendment for this export.
 
 **Traducciones** uses the same tablist. **Cobertura de traducción** shows a dated
 breakdown for **Resúmenes**, **Géneros** and **Modos de juego** in reading order.

@@ -105,3 +105,20 @@ Reopen before a public or commercial release, monetization, binary copying or
 proxying, use of another host, or a material provider-terms change. The approved
 release mode and provider evidence are recorded in the
 [provider spike](../research/game-data-providers-spike.md).
+
+## Amendment 2026-11-22
+
+Owner decision ([#589](https://github.com/rubhern/videogame-platform/issues/589)): the
+operator-only weekly social carousel may draw IGDB covers and artwork into the PNG slides an
+operator exports and posts on Gameómetro's own social profiles. This is a deliberate exception to
+reference mode, limited to that export. The browser loads the images from the allowlisted CDN with
+a cross-origin request and paints them into an in-memory canvas. Gameómetro still stores no image
+binary, and its server makes no provider call. The exported file re-encodes the images, and the
+operator posts it to a third party. The owner accepts the rights uncertainty this
+redistribution adds to the one already accepted for the site. The closing slide credits **Datos e
+imágenes: IGDB**. The slides keep the provider's images whole or cropped, never altered or
+presented as product-owned.
+
+Reopen the exception, and return the carousel to product-owned imagery, on a rights complaint,
+on an IGDB or Twitch terms change that covers redistribution, or when publishing becomes
+automated.
