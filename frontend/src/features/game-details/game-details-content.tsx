@@ -1,3 +1,5 @@
+import { GameStateButton } from "../library/game-state-button";
+import { useGameStates } from "../library/use-game-states";
 import { WishlistActions, WishlistButton } from "../wishlist/wishlist-controls";
 import { toWordmark } from "../../shared/catalogue/title-wordmark";
 import {
@@ -149,6 +151,40 @@ function ExternalScore({ score, title }: { score: ExternalPlayerScore; title: st
   );
 }
 
+const PERSONAL_RATING_ID = "tu-puntuacion";
+
+/** The player's private state for this game; finishing it offers the rating, never sets it. */
+function GameDetailState({ game }: { game: GameDetails }) {
+  const library = useGameStates([game.gameId]);
+  const offer = game.ratingEligibility.eligible ? (
+    <button className="text-link" type="button" onClick={() => {
+      const target = document.getElementById(PERSONAL_RATING_ID);
+      target?.scrollIntoView({ block: "center" });
+      target?.focus({ preventScroll: true });
+    }}>
+      ¿Qué te ha parecido? Puntúalo
+    </button>
+  ) : undefined;
+  return (
+    <div className="game-detail-state">
+      <GameStateButton
+        csrfToken={library.csrfToken}
+        gameId={game.gameId}
+        ratingOffer={offer}
+        released={game.releases.some((release) => release.status === "released")}
+        state={library.states === null ? undefined : library.states.get(game.gameId) ?? null}
+        title={game.canonicalTitle}
+      />
+      {library.failed ? (
+        <p className="library-state-error" role="status">
+          No se pudo comprobar su estado.{" "}
+          <button className="text-link" type="button" onClick={library.retry}>Reintentar</button>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The game's page as a stage lit by its own cover. The canonical title is set as Gameómetro's
  * wordmark, the cover stands beside it, and the readings follow, the community's leading; the
@@ -205,6 +241,7 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
 
       <div className="game-artwork">
         <CatalogueCover cover={coverForPresentation(game)} />
+        <GameDetailState game={game} />
       </div>
 
       {/* The ratings belong to the whole game. The community's is the product's own reading and
@@ -220,7 +257,9 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
           {externalScore === null ? null : (
             <ExternalScore score={externalScore} title={game.canonicalTitle} />
           )}
-          <GameRatingPanel game={game} />
+          <div className="game-personal-rating" id={PERSONAL_RATING_ID} tabIndex={-1}>
+            <GameRatingPanel game={game} />
+          </div>
         </div>
       </div>
 

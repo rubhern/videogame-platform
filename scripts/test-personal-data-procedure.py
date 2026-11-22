@@ -95,9 +95,20 @@ def save_game(user_id: str, game_id: str) -> None:
         f"INSERT INTO catalogue.game_library_entry (user_id, game_id, wished_at, position_key) VALUES ('{user_id}', '{game_id}', now(), 7);")
 
 
+def play_game(user_id: str, game_id: str) -> None:
+    sql("videogame_platform",
+        f"INSERT INTO catalogue.game_library_entry (user_id, game_id, state, state_changed_at) VALUES ('{user_id}', '{game_id}', 'playing', now());")
+
+
 def wishes_of(user_id: str) -> int:
     return int(sql("videogame_platform",
                    f"SELECT count(*) FROM catalogue.game_library_entry WHERE user_id = '{user_id}'"))
+
+
+def rated_games_of(user_id: str) -> int:
+    # Catalogue's rated-games projection (#591) is erased with the library.
+    return int(sql("videogame_platform",
+                   f"SELECT count(*) FROM catalogue.library_rated_game WHERE user_id = '{user_id}'"))
 
 
 class Admin:
@@ -226,6 +237,7 @@ prefer_ps5(target_user)
 prefer_ps5(other_user)
 save_game(target_user, "30000000-0000-4000-8000-000000000005")
 save_game(other_user, "30000000-0000-4000-8000-000000000001")
+play_game(target_user, "30000000-0000-4000-8000-00000000000c")
 
 snapshot = json.loads(run(shlex.split(host_command) + ["archive-snapshot", "--keycloak-user-id", target_id]).stdout)
 assert snapshot["ratingCount"] == 1 and snapshot["userId"] == target_user
@@ -269,6 +281,9 @@ assert document["preferredPlatforms"] == {"configured": True, "platforms": [{"pl
 assert [wish["gameId"] for wish in document["wishlist"]] == ["30000000-0000-4000-8000-000000000005"]
 assert document["wishlist"][0]["title"] and document["wishlist"][0]["addedAt"]
 assert document["wishlist"][0]["position"] == 1
+assert [(entry["gameId"], entry["state"]) for entry in document["library"]] == [
+    ("30000000-0000-4000-8000-000000000005", "wished"), ("30000000-0000-4000-8000-00000000000c", "playing")]
+assert all(entry["title"] and entry["stateChangedAt"] for entry in document["library"])
 assert len(document["identitySessions"]) == 2 and all(session["ipAddress"] for session in document["identitySessions"])
 assert document["linkedSignIn"] == [], "a password-only account has no linked provider"
 assert accounts["other"]["email"] not in export_path.read_text()
@@ -342,6 +357,7 @@ assert admin.account(target_id) is None and ratings_of(target_user) == 0
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert wishes_of(target_user) == 0 and wishes_of(other_user) == 1
+assert rated_games_of(target_user) == 0
 ledger_text = ledger.read_text()
 assert accounts["target"]["email"] not in ledger_text and accounts["target"]["username"] not in ledger_text
 
@@ -355,7 +371,8 @@ run(["docker", "start", keycloak])
 wait_for("Restored Keycloak", keycloak_ready)
 assert admin.account(target_id) is not None and ratings_of(target_user) == 1, "the backup predates the erasure"
 assert preferences_of(target_user) == 1, "the backup predates the erasure"
-assert wishes_of(target_user) == 1, "the backup predates the erasure"
+assert wishes_of(target_user) == 2, "the backup predates the erasure"
+assert rated_games_of(target_user) == 1, "the rating written through the product projects its game"
 
 # The replay refuses an open service, then reapplies and verifies every entry before reopening.
 receipts = owner
@@ -375,6 +392,7 @@ assert receipt["entries"] == receipt["verified"] == 1 and receipt["outcome"] == 
 assert admin.account(target_id) is None and ratings_of(target_user) == 0
 assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert wishes_of(target_user) == 0 and wishes_of(other_user) == 1
+assert rated_games_of(target_user) == 0
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 
 # The freed address registers again as a new subject, which a later replay leaves alone.

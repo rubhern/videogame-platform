@@ -83,6 +83,13 @@ class CatalogueModuleConfiguration {
                 .CommunityScoreService(store);
     }
 
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.RecordRatedGamesUseCase recordRatedGames(
+            com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore store) {
+        return new com.videogameplatform.catalogue.application.wishlist.internal.RatedGameService(
+                store);
+    }
+
     /**
      * The operator's product settings (UC-024): one service answers the public snapshot and the
      * administration contract. The synchronization windows default to the configured policies.
@@ -269,5 +276,15 @@ class CatalogueModuleConfiguration {
             Clock clock) {
         return new com.videogameplatform.catalogue.application.wishlist.internal.WishlistService(
                 store, coverPolicy, clock);
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.GameLibrary gameLibrary(
+            com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore store,
+            com.videogameplatform.catalogue.application.wishlist.Wishlist wishlist,
+            CatalogueCoverPolicy coverPolicy,
+            Clock clock) {
+        return new com.videogameplatform.catalogue.application.wishlist.internal.GameLibraryService(
+                store, wishlist, coverPolicy, clock);
     }
 }

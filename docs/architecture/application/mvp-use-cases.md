@@ -23,6 +23,7 @@
 | `UC-023` | Load an editorial anticipation list | Catalogue operator | Post-MVP (#458): read the versioned prompt for a language model, preview its answer against the catalogue (IGDB slug, else an exact title one game carries), assign or exclude entries, and load the list of one range of at most 92 days, replacing the same range and refusing an overlap; the list scores up to 50 games from 1 to 100 for release attention (`ATT-004`) |
 | `UC-025` | Read weekly home rankings and record opted-in detail visits | Visitor | Post-MVP (#584): read up to ten games per ranking in a rolling 168-hour window, ordered by activity and game ID. Ratings counts active player–game ratings by creation, unaffected by edits. Gameómetro counts successful game-detail arrivals after separate consent, deduplicates event retries and purges visit records after eight days. Public reads do not use session state or providers. |
 | `UC-024` | Manage product settings | Catalogue operator | Post-MVP (#450): read every registered product setting with its effective value, default, range and origin, how the presentation windows compare with the configured acquisition horizon and the recent audited changes; apply a set of changes prepared from the current settings revision all or nothing, refusing unknown keys, values outside their range or kind, broken cross-setting rules and a superseded revision; effective from the next public read, never a provider call; only a session holding the operator authority |
+| `UC-026` | Record a game's personal state (Mis juegos) | Signed-in player | Post-MVP (#591): set, change or clear one exclusive state per owned game (Deseado, Pendiente, Jugando, Completado, Abandonado); read the states of a bounded set of games and a page of the library, optionally one state, most recently changed first by game ID, with counts per state computed in PostgreSQL; see [the rules](#personal-game-states-uc-026-post-mvp-591) |
 | `UC-022` | Send feedback | Visitor | Post-MVP (#383): send one categorized message and optional reply address to the configured receiving channel |
 | `UC-017` | Orchestrate historical catalogue synchronization | Catalogue operator | Post-MVP (#246): explicitly start, stop, resume and inspect one durable target through sequential calendar-month UC-009 runs; preserve completed months, separate data-quality completion from operational failures and yield to scheduled updates; see [historical guarantees](#historical-catalogue-synchronization-uc-017-post-mvp-246) |
 
@@ -759,6 +760,48 @@ The explorer and calendar can scope their contextual filters and results to the
 same list. The calendar's daily count and matching game page use the same scope.
 PostgreSQL applies the owner scope, counts and orders before returning any page.
 Self-service export and verified deletion follow [UC-021](#private-account-lifecycle-uc-021-post-mvp-272).
+
+The wishlist is the set of library entries in the Deseado state
+([UC-026](#personal-game-states-uc-026-post-mvp-591)). Saving a game in another state
+makes it a wish at the end of the list, and removing a wish leaves a game in another
+state unchanged.
+
+### Personal game states (UC-026, post-MVP #591)
+
+The signed-in player gives a game one of five exclusive states: Deseado, Pendiente,
+Jugando, Completado or Abandonado. Only the BFF principal supplies ownership, and one
+database constraint keeps one entry per player and game. Repeating the current state
+changes nothing, including its change time; concurrent changes for one player are
+serialized. Deseado follows the wishlist: a new wish needs a game in the current
+publication. Every other state needs a game in the current publication with a release
+whose effective status is released on the trusted Europe/Madrid date: an exact day
+reached, a month, quarter or year ended, or an unknown date with released evidence,
+never a cancelled or delayed one. Otherwise the command is refused with
+`GAME_NOT_RELEASED` and nothing changes. The check runs under the player's lock, in the
+same transaction as the write. A state already held stays if the release is later
+delayed. An entry can always be removed, even after its game leaves the publication, and
+clearing the state removes it whatever the state was.
+
+Leaving Deseado drops the game's wishlist position and save time; returning to it joins
+the end of the list ([ADR-0051](../../decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md)).
+A state never changes a rating, community score, ranking or attention, and a rating
+never changes a state.
+
+**Mis juegos** reads a bounded page of the library, optionally one state, ordered by the
+last change descending with the game ID as the final tie-breaker, with the count of every
+state independent of the filter; each row says whether its game has come out, by the
+same rule, so the page offers only Deseado otherwise. A batch read returns the state of at most 100 games for
+the selectors shown beside games. PostgreSQL filters, counts, orders and pages.
+
+The page also counts the player's rated games that hold no state and could take one, and
+offers to mark them Completado. Only the player's confirmation runs it, one batch of at
+most 1000 games in game ID order per command, under the player's lock; a game with any
+state, Deseado included, is never changed, and no rating changes. The count and the batch
+come from Catalogue's projection of rated games, which Ratings keeps in the same
+transaction as each rating
+([ADR-0051](../../decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md)). The
+export lists every entry's game, state and change time, and verified deletion removes
+them with the wishlist ([UC-021](#private-account-lifecycle-uc-021-post-mvp-272)).
 
 ### Editorial anticipation lists (UC-023, post-MVP #458)
 

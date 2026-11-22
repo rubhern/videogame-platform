@@ -258,11 +258,22 @@ class Runtime:
         # Older releases' restored databases have no library to erase.
         return self.sql("SELECT to_regclass('catalogue.game_library_entry') IS NOT NULL;\n", user_id) == "t"
 
+    def has_rated_games(self, user_id: str) -> bool:
+        # Releases before the rated-games projection (#591) have none to erase.
+        return self.sql("SELECT to_regclass('catalogue.library_rated_game') IS NOT NULL;\n", user_id) == "t"
+
     def wish_count(self, user_id: str) -> int:
         if not self.has_wishlist(user_id):
             return 0
-        return int(self.sql(
+        entries = int(self.sql(
             "SELECT count(*) FROM catalogue.game_library_entry WHERE user_id = :'user_id';\n",
+            user_id,
+        ))
+        if not self.has_rated_games(user_id):
+            return entries
+        # The rated-games projection is derived personal data erased with the library.
+        return entries + int(self.sql(
+            "SELECT count(*) FROM catalogue.library_rated_game WHERE user_id = :'user_id';\n",
             user_id,
         ))
 
@@ -275,7 +286,8 @@ class Runtime:
                 SELECT w.game_id, w.wished_at, (to_jsonb(w)->>'position_key')::numeric AS sort_key,
                        (to_jsonb(w)->>'priority')::bigint AS legacy_weight
                 FROM catalogue.game_library_entry w
-                WHERE w.user_id = :'user_id' ORDER BY w.game_id LIMIT 10001
+                WHERE w.user_id = :'user_id' AND coalesce(to_jsonb(w)->>'state', 'wished') = 'wished'
+                ORDER BY w.game_id LIMIT 10001
             ), ordered AS (
                 SELECT bounded.*, row_number() OVER (
                     ORDER BY sort_key NULLS LAST, legacy_weight DESC NULLS LAST, wished_at, game_id
@@ -296,6 +308,32 @@ class Runtime:
             raise ProvisioningError("Wishlist export row budget exceeded")
         return wishes
 
+    def library(self, user_id: str) -> list[dict[str, object]]:
+        # Releases before #591 store wishes only; their entries export as wished.
+        if not self.has_wishlist(user_id):
+            return []
+        entries = json.loads(self.sql(
+            """
+            WITH bounded AS (
+                SELECT w.game_id, coalesce(to_jsonb(w)->>'state', 'wished') AS state,
+                       coalesce((to_jsonb(w)->>'state_changed_at')::timestamptz, w.wished_at) AS changed_at
+                FROM catalogue.game_library_entry w
+                WHERE w.user_id = :'user_id' ORDER BY w.game_id LIMIT 10001
+            )
+            SELECT coalesce(jsonb_agg(
+                     jsonb_build_object('gameId', w.game_id, 'title', g.canonical_title,
+                                        'state', w.state, 'stateChangedAt', w.changed_at)
+                     ORDER BY w.game_id), '[]'::jsonb)
+            FROM bounded w
+            LEFT JOIN catalogue.game_snapshot g ON g.game_id = w.game_id
+              AND g.publication_id = (SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current);
+            """,
+            user_id,
+        ))
+        if len(entries) > 10000:
+            raise ProvisioningError("Library export row budget exceeded")
+        return entries
+
     def delete_wishes(self, user_id: str) -> int:
         if not self.has_wishlist(user_id):
             return 0
@@ -309,15 +347,30 @@ class Runtime:
             )
             SELECT count(*) FROM deleted;
             """
+        statements = [statement]
+        if self.has_rated_games(user_id):
+            statements.append("""
+            WITH batch AS (
+                SELECT game_id FROM catalogue.library_rated_game
+                WHERE user_id = :'user_id' ORDER BY game_id LIMIT 100
+            ), deleted AS (
+                DELETE FROM catalogue.library_rated_game r USING batch
+                WHERE r.user_id = :'user_id' AND r.game_id = batch.game_id RETURNING 1
+            )
+            SELECT count(*) FROM deleted;
+            """)
         total, deadline = 0, time.monotonic() + 120
-        for _ in range(100):
-            if time.monotonic() >= deadline:
-                raise ProvisioningError("Wishlist erasure batch budget reached; retry the same ledger entry")
-            deleted = int(self.sql(statement, user_id))
-            total += deleted
-            if deleted < 100:
-                return total
-        raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
+        for current in statements:
+            for _ in range(100):
+                if time.monotonic() >= deadline:
+                    raise ProvisioningError("Wishlist erasure batch budget reached; retry the same ledger entry")
+                deleted = int(self.sql(current, user_id))
+                total += deleted
+                if deleted < 100:
+                    break
+            else:
+                raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
+        return total
 
     # BFF sessions ----------------------------------------------------------------------------
 
@@ -495,6 +548,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "ratings": runtime.ratings(user_id),
         "preferredPlatforms": runtime.preferred_platforms(user_id),
         "wishlist": runtime.wishlist(user_id),
+        "library": runtime.library(user_id),
     }
 
 

@@ -161,7 +161,7 @@ owns the selected statistics and calculation guarantees; the accepted MVP cut is
 games they want, then use **Mis deseados** to see what is coming up and narrow
 release discovery to those games. Players can put the games they most want first.
 The first version is private and game-level.
-Playing states, platform-specific wishes, alerts and sharing remain separate decisions.
+Platform-specific wishes, alerts and sharing remain separate decisions.
 See [the game library decision](../decisions/0050-store-private-game-wishes-in-the-catalogue.md)
 and [the wishlist use case](../architecture/application/mvp-use-cases.md#private-wishlist-uc-025-post-mvp-590).
 
@@ -169,6 +169,34 @@ Several people the owner introduced to Gameómetro after the 2026-11-08 public o
 asked unprompted for a wishlist. This is an early qualitative signal. The hypothesis is
 that keeping wanted games in release order gives the priority player a reason to return.
 The accepted MVP cut is unchanged.
+
+## Personal game states
+
+**Post-MVP, owner-approved on 2026-11-22 (#591).** A signed-in player records where each
+game stands for them — **Deseado**, **Pendiente**, **Jugando**, **Completado** or
+**Abandonado** — and sees the whole record in **Mis juegos**, filtered by state with a
+count for each. The owner decided that:
+
+- the five states are exclusive: a game is in at most one, and **Deseado** is the
+  wishlist, so moving a game to another state takes it off **Mis deseados**;
+- the state belongs to the game, not to a platform; the platform played stays with
+  the per-platform rating;
+- marking a game **Completado** or **Abandonado** may offer rating it, and neither
+  action ever changes the other;
+- only the time of the last change is kept; start and finish dates are deferred;
+- a game with no release that has come out yet can only be **Deseado**;
+- **Mis juegos** offers to mark every rated game without a state **Completado** in one
+  confirmed action, never automatically, and each game can be changed afterwards.
+
+States are private, included in export and deletion, and never affect community scores,
+rankings or attention. Public profiles ([#593](https://github.com/rubhern/videogame-platform/issues/593))
+and statistics by state remain separate decisions. See
+[the state decision](../decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md)
+and [the use case](../architecture/application/mvp-use-cases.md#personal-game-states-uc-026-post-mvp-591).
+
+The same friends who asked for a wishlist asked for backlog-style tracking. This is an
+early qualitative signal, not validated demand. The hypothesis is that the priority
+player, who already keeps a backlog elsewhere, will keep it in Gameómetro.
 
 ## Personal discovery preferences
 

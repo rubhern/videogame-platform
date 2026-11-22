@@ -108,6 +108,16 @@ class CataloguePersistenceConfiguration {
                 .JdbcCommunityScoreStore(new NamedParameterJdbcTemplate(jdbcTemplate));
     }
 
+    /** Like the community scores, the rated-games projection joins the Ratings write. */
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore ratedGameStore(
+            DataSource dataSource, CatalogueJdbcProperties properties) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.setQueryTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.wishlist.JdbcRatedGameStore(
+                new NamedParameterJdbcTemplate(jdbcTemplate));
+    }
+
     @Bean
     ReleaseBrowseReadPort releaseBrowseReadPort(CatalogueReadExecution execution) {
         return new JdbcReleaseBrowseReadAdapter(
@@ -220,6 +230,18 @@ class CataloguePersistenceConfiguration {
         TransactionTemplate writes = new TransactionTemplate(transactionManager);
         writes.setTimeout(properties.readTimeoutSeconds());
         return new com.videogameplatform.catalogue.adapter.persistence.wishlist.JdbcWishlistStore(
+                execution.jdbcOperations(), execution.readTransaction(), writes);
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore gameLibraryStore(
+            CatalogueReadExecution execution,
+            PlatformTransactionManager transactionManager,
+            CatalogueJdbcProperties properties) {
+        TransactionTemplate writes = new TransactionTemplate(transactionManager);
+        writes.setTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.wishlist
+                .JdbcGameLibraryStore(
                 execution.jdbcOperations(), execution.readTransaction(), writes);
     }
 

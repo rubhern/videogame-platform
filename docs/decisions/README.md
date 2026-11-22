@@ -56,6 +56,7 @@ historical decision.
 
 ## Proposed
 
+- [ADR-0051 — Keep one exclusive personal state per library entry](0051-keep-one-exclusive-personal-state-per-library-entry.md) — #591; Deseado, Pendiente, Jugando, Completado or Abandonado on the same game-level entry; leaving Deseado leaves the wishlist. Owner decisions approved 2026-11-22; awaiting owner review of the record.
 - [ADR-0048: Project presented releases for the platform catalogue](0048-project-presented-releases-for-platform-catalogue.md) — #577; transactional per-platform release timelines and page-sort indexes for UC-019; awaiting owner review.
 
 - [ADR-0042: Manage approved product settings in PostgreSQL](0042-manage-approved-product-settings-in-postgresql.md) — #450; a closed, typed registry of operator-editable presentation, ranking and synchronization-window settings stored as audited PostgreSQL overrides behind a revision guard, read once per request without restart, with the classification of every other configuration as runtime, safety-gated or invariant; featured months forward no longer follow the acquisition horizon; awaiting owner review.

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useLocation } from "react-router-dom";
 import { initialMyRatingsQuery, myRatingsQueryOptions, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
+import { useGameStates } from "../features/library/use-game-states";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { recallMyRatingsQuery, rememberMyRatingsQuery } from "../features/ratings/my-ratings-memory";
 import { useSession } from "../features/session/use-session";
@@ -77,6 +78,7 @@ export function MyRatingsPage() {
     heading.current?.focus();
   }
   const data = query.data;
+  const library = useGameStates(data?.items.map(item => item.game.gameId) ?? []);
   // The opening is lit by the games on this page of the collection, never by a placeholder image.
   const lights = (data?.items ?? []).flatMap(({ game }) => "attribution" in game.primaryCover && game.primaryCover.attribution ? [game.primaryCover.url] : []);
   return <section className="hero-page my-ratings-page" aria-labelledby="my-ratings-title">
@@ -165,7 +167,12 @@ export function MyRatingsPage() {
                 }}>Limpiar búsqueda</button>
                   : <Link className="button button-primary" to="/search">Buscar juegos</Link>}
               </div> : <div className="my-ratings-list">
+                {library.failed ? <p className="library-state-error" role="status">
+                  No se pudo comprobar el estado de tus juegos.{" "}
+                  <button className="text-link" type="button" onClick={library.retry}>Reintentar</button>
+                </p> : null}
                 {data.items.map(item => <MyRatingCard key={item.game.gameId} item={item} csrfToken={csrfToken}
+                  libraryState={library.states === null ? undefined : library.states.get(item.game.gameId) ?? null}
                   readAt={query.dataUpdatedAt} onChanged={changed} />)}
               </div>}
               {data.page.number > 1 || data.page.number < data.page.totalPages ?

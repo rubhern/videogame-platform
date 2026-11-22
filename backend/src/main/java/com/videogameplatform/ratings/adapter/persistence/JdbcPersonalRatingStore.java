@@ -1,6 +1,7 @@
 package com.videogameplatform.ratings.adapter.persistence;
 
 import com.videogameplatform.catalogue.application.releases.RecordCommunityScoresUseCase;
+import com.videogameplatform.catalogue.application.wishlist.RecordRatedGamesUseCase;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics.Action;
 import com.videogameplatform.ratings.application.PersonalRating;
@@ -80,16 +81,19 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private final TransactionOperations transaction;
     private final RatingActivityMetrics activity;
     private final RecordCommunityScoresUseCase scores;
+    private final RecordRatedGamesUseCase ratedGames;
 
     public JdbcPersonalRatingStore(
             NamedParameterJdbcOperations jdbc,
             TransactionOperations transaction,
             RatingActivityMetrics activity,
-            RecordCommunityScoresUseCase scores) {
+            RecordCommunityScoresUseCase scores,
+            RecordRatedGamesUseCase ratedGames) {
         this.jdbc = jdbc;
         this.transaction = transaction;
         this.activity = activity;
         this.scores = scores;
+        this.ratedGames = ratedGames;
     }
 
     @Override
@@ -128,6 +132,8 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     if (inserted == 0) {
                         throw new RatingAlreadyExistsException();
                     }
+                    // Mis juegos learns the game is rated in the same transaction (ADR-0051).
+                    ratedGames.rated(userId, gameId);
                     recordPlatforms(userId, gameId, score);
                     return result(userId, gameId);
                 });
@@ -192,6 +198,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     if (deleted == 0) {
                         throw new RatingWriteConflictException();
                     }
+                    ratedGames.unrated(userId, gameId);
                     return project(gameId);
                 });
     }

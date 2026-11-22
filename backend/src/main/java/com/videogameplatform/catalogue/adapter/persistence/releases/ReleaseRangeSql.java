@@ -71,6 +71,7 @@ final class ReleaseRangeSql {
                     ) AND EXISTS (
                         SELECT 1 FROM catalogue.game_library_entry wish
                         WHERE wish.user_id = :wishlistOwner AND wish.game_id = rs.game_id
+                          AND wish.state = 'wished'
                     )
                     """,
                     bindings);

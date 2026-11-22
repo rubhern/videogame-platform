@@ -9,6 +9,9 @@ import {
   calendarSearchPath,
   readCalendarSearch,
 } from "../features/releases/release-calendar-search";
+import {
+  LibraryIcon, PlatformsIcon, ProfileIcon, RatingsIcon, StatisticsIcon,
+} from "../features/session/account-icons";
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import type { SessionCapability } from "../features/session/session-api";
@@ -120,24 +123,23 @@ export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountA
   return (
     <>
       <Link className="account-option" onClick={onNavigate} to="/mi-perfil">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-          <circle cx="10" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M4 17v-2a6 6 0 0 1 12 0v2H4Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
-        </svg>
+        <ProfileIcon />
         Mi perfil
       </Link>
       <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
         <span aria-hidden="true" className="wishlist-mark" />
         Mis deseados
       </Link>
+      <Link className="account-option" onClick={onNavigate} to="/mis-juegos">
+        <LibraryIcon />
+        Mis juegos
+      </Link>
       <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-          <path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
-        </svg>
+        <RatingsIcon />
         Mis puntuaciones
       </Link>
       <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones/estadisticas">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20"><path d="M3 16V10m7 6V4m7 12V7" stroke="currentColor" strokeWidth="2" /></svg>
+        <StatisticsIcon />
         Tus estadísticas
       </Link>
       {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
@@ -226,10 +228,7 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
           type="checkbox"
         />
       ) : (
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-          <path d="M5.5 6.5h9a3 3 0 0 1 2.9 2.2l1 4.1a2 2 0 0 1-3.2 2l-2.1-1.6H6.9l-2.1 1.6a2 2 0 0 1-3.2-2l1-4.1a3 3 0 0 1 2.9-2.2Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
-          <path d="M6 8.5v3M4.5 10h3M13.5 9.5h.01M15.5 11h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-        </svg>
+        <PlatformsIcon />
       )}
       <Link className="account-platforms-link" onClick={onNavigate} to="/mis-plataformas">
         Mis plataformas

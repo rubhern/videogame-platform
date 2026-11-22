@@ -207,9 +207,10 @@
     grid-template-areas:
       "cover body"
       "cover score"
-      "cover dates";
+      "cover dates"
+      "cover state";
     grid-template-columns: var(--ledger-cover) minmax(0, 1fr);
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     align-items: start;
     gap: 0 var(--ledger-gap);
     border-top: 1px solid var(--color-line);
@@ -722,8 +723,9 @@
       grid-template-areas:
         "cover body"
         "score score"
-        "dates dates";
-      grid-template-rows: auto auto auto;
+        "dates dates"
+        "state state";
+      grid-template-rows: auto auto auto auto;
     }
 
     .my-rating-editor {
@@ -771,9 +773,10 @@
         "cover . score"
         "cover body score"
         "cover dates score"
+        "cover state score"
         "cover . score";
       grid-template-columns: var(--ledger-cover) minmax(0, 1fr) 236px;
-      grid-template-rows: 1fr auto auto 1fr;
+      grid-template-rows: 1fr auto auto auto 1fr;
     }
 
     .my-rating-score,

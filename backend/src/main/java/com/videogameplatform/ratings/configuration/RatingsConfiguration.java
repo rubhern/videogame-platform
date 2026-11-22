@@ -2,11 +2,13 @@ package com.videogameplatform.ratings.configuration;
 
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
 import com.videogameplatform.catalogue.application.releases.RecordCommunityScoresUseCase;
+import com.videogameplatform.catalogue.application.wishlist.RecordRatedGamesUseCase;
 import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
 import com.videogameplatform.ratings.adapter.persistence.CommunityScoreBackfill;
 import com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingStore;
 import com.videogameplatform.ratings.adapter.persistence.JdbcRatingStatisticsReadAdapter;
 import com.videogameplatform.ratings.adapter.persistence.JdbcRecentRatingCounts;
+import com.videogameplatform.ratings.adapter.persistence.RatedGameBackfill;
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
 import com.videogameplatform.ratings.application.RecentRatingCounts;
 import com.videogameplatform.ratings.application.internal.PersonalRatingService;
@@ -115,12 +117,20 @@ class RatingsConfiguration {
     PersonalRatingStore personalRatingStore(
             RatingJdbcExecution execution,
             MeterRegistry registry,
-            RecordCommunityScoresUseCase communityScores) {
+            RecordCommunityScoresUseCase communityScores,
+            RecordRatedGamesUseCase ratedGames) {
         return new JdbcPersonalRatingStore(
                 execution.jdbc(),
                 execution.transaction(),
                 new RatingActivityMetrics(registry),
-                communityScores);
+                communityScores,
+                ratedGames);
+    }
+
+    @Bean
+    RatedGameBackfill ratedGameBackfill(
+            RatingJdbcExecution execution, RecordRatedGamesUseCase ratedGames) {
+        return new RatedGameBackfill(execution.jdbc(), execution.transaction(), ratedGames);
     }
 
     @Bean

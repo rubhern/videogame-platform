@@ -63,6 +63,10 @@ class CatalogueModuleConfigurationTest {
                 context -> {
                     assertThat(context).hasSingleBean(BrowseReleasesUseCase.class);
                     assertThat(context).hasSingleBean(Wishlist.class);
+                    assertThat(context)
+                            .hasSingleBean(
+                                    com.videogameplatform.catalogue.application.wishlist.GameLibrary
+                                            .class);
                     assertThat(
                                     context.getBean(
                                             com.videogameplatform.catalogue.application
@@ -216,6 +220,20 @@ class CatalogueModuleConfigurationTest {
         @Bean
         WishlistStore wishlistStore() {
             return org.mockito.Mockito.mock(WishlistStore.class);
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore
+                gameLibraryStore() {
+            return org.mockito.Mockito.mock(
+                    com.videogameplatform.catalogue.application.wishlist.port.GameLibraryStore
+                            .class);
+        }
+
+        @Bean
+        com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore ratedGameStore() {
+            return org.mockito.Mockito.mock(
+                    com.videogameplatform.catalogue.application.wishlist.port.RatedGameStore.class);
         }
 
         @Bean

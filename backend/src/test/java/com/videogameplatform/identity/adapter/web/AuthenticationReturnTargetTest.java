@@ -27,6 +27,7 @@ class AuthenticationReturnTargetTest {
                 "/topometro?source=gameometro",
                 "/plataformas/ps5/topometro?source=gameometro",
                 "/mis-deseados?page=2",
+                "/mis-juegos?estado=jugando&page=2",
                 "/lanzamientos",
                 "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&includeApproximateDates=true&platformIds=pc&regionIds=europe&page=2&pageSize=12",
                 "/lanzamientos/calendario?month=2026-11&day=2026-11-13&platformIds=pc&regionIds=europe",
@@ -75,6 +76,7 @@ class AuthenticationReturnTargetTest {
                 "/lanzamientos/../auth/start",
                 "/topometro?redirect=https://attacker.example",
                 "/mis-deseados?userId=bob",
+                "/mis-juegos?userId=bob",
                 "/administracion/catalogo/../../auth/start",
                 "javascript:alert(1)"
             })

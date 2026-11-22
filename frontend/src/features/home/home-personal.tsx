@@ -1,6 +1,10 @@
+import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { thermalBand } from "../../shared/score/thermal-band";
+import {
+  LibraryIcon, PlatformsIcon, ProfileIcon, RatingsIcon, StatisticsIcon, WishlistIcon,
+} from "../session/account-icons";
 import { authenticationStartUrl } from "../session/auth-entry";
 import { useSession } from "../session/use-session";
 
@@ -13,17 +17,22 @@ const FEATURES = [
     title: "Puntúa tus juegos",
     text: "Del 1 al 10 desde la ficha de cada juego, y por plataforma si quieres.",
   },
+  { title: "Mis juegos", text: "Pendiente, Jugando, Completado o Abandonado: dónde está cada juego." },
+  { title: "Mis deseados", text: "Los juegos que esperas, en el orden que tú decidas." },
   { title: "Mis puntuaciones", text: "Tu colección, para buscar, ordenar y editar cuando quieras." },
   { title: "Tus estadísticas", text: "Cómo puntúas, tus géneros y dónde has jugado." },
   { title: "Mis plataformas", text: "Destacados, Explorar y el calendario, centrados en lo tuyo." },
 ] as const;
 
-/** The player's own destinations; each page checks the session itself. */
-const DESTINATIONS = [
-  { to: "/mis-puntuaciones", title: "Mis puntuaciones", text: "Busca, ordena y edita lo que has puntuado." },
-  { to: "/mis-puntuaciones/estadisticas", title: "Tus estadísticas", text: "Cómo puntúas y dónde has jugado." },
-  { to: "/mis-plataformas", title: "Mis plataformas", text: "Elige qué plataformas salen primero." },
-] as const;
+/** The player's own destinations, as the account menu lists them; each page checks the session. */
+const DESTINATIONS: readonly { to: string; title: string; text: string; icon: ReactNode }[] = [
+  { to: "/mis-juegos", title: "Mis juegos", text: "Lo que juegas, lo pendiente y lo terminado.", icon: <LibraryIcon /> },
+  { to: "/mis-deseados", title: "Mis deseados", text: "Los juegos que esperas, en tu orden.", icon: <WishlistIcon /> },
+  { to: "/mis-puntuaciones", title: "Mis puntuaciones", text: "Busca, ordena y edita lo que has puntuado.", icon: <RatingsIcon /> },
+  { to: "/mis-puntuaciones/estadisticas", title: "Tus estadísticas", text: "Cómo puntúas y dónde has jugado.", icon: <StatisticsIcon /> },
+  { to: "/mis-plataformas", title: "Mis plataformas", text: "Elige qué plataformas salen primero.", icon: <PlatformsIcon /> },
+  { to: "/mi-perfil", title: "Mi perfil", text: "Tu cuenta, tus datos y tu privacidad.", icon: <ProfileIcon /> },
+];
 
 /** The keypad's key, ice to fire: decorative, the sentence beside it names the scale. */
 function ThermalKey() {
@@ -46,7 +55,8 @@ function Destinations() {
       {DESTINATIONS.map((destination) => (
         <li key={destination.to}>
           <Link className="home-personal-link" to={destination.to}>
-            <span className="home-personal-link-title">{destination.title}</span>
+            <span aria-hidden="true" className="home-personal-link-icon">{destination.icon}</span>
+            <span className="home-personal-link-title">{destination.title}</span>{" "}
             <span className="home-personal-link-text">{destination.text}</span>
             <span aria-hidden="true" className="home-chevron" />
           </Link>
@@ -102,8 +112,8 @@ export function HomePersonal() {
         ) : (
           <p className="home-personal-lead">
             {authenticated
-              ? "Tus puntuaciones, tus estadísticas y tus plataformas, a un paso."
-              : "Tus puntuaciones, tus estadísticas y tus plataformas siguen en su sitio."}
+              ? "Tus juegos, tus deseados, tus puntuaciones y tus plataformas, a un paso."
+              : "Tus juegos, tus deseados, tus puntuaciones y tus plataformas siguen en su sitio."}
           </p>
         )}
       </div>

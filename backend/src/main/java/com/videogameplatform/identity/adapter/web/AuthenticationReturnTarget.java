@@ -69,6 +69,8 @@ public final class AuthenticationReturnTarget {
                 allowed = Set.of("source");
             } else if ("/mis-deseados".equals(path)) {
                 allowed = Set.of("page");
+            } else if ("/mis-juegos".equals(path)) {
+                allowed = Set.of("estado", "page");
             } else if ("/search".equals(path)) {
                 allowed = SEARCH_QUERY;
             } else if ("/mis-puntuaciones".equals(path)

@@ -3,6 +3,7 @@ import { useContext, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 
 import { trackEvent } from "../analytics/events";
+import { LIBRARY_KEY } from "../library/library-api";
 import { authenticationStartUrl } from "../session/auth-entry";
 import type { SessionState } from "../session/session-api";
 import { SESSION_QUERY_KEY, useSession } from "../session/use-session";
@@ -102,6 +103,8 @@ function AvailableWishlistButton({
       }
       trackEvent("wishlist_changed", { action: input.saved ? "add" : "remove" });
       if (remove) onRemoved?.();
+      // A wish is the Deseado library state, so the player's states may have changed too.
+      void client.invalidateQueries({ queryKey: LIBRARY_KEY });
       return client.invalidateQueries({
         queryKey: WISHLIST_KEY,
         predicate: (query) => query.queryKey[2] !== "status",

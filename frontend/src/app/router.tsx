@@ -1,3 +1,4 @@
+import { MyLibraryPage } from "../pages/my-library-page";
 import { MyWishlistPage } from "../pages/my-wishlist-page";
 import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
@@ -49,6 +50,7 @@ export const appRoutes: RouteObject[] = [
       { path: PLATFORM_UPCOMING_ROUTE, element: <PlatformUpcomingPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-deseados", element: <MyWishlistPage /> },
+      { path: "mis-juegos", element: <MyLibraryPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
       { path: "mi-perfil", element: <MyProfilePage /> },

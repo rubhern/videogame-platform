@@ -501,4 +501,14 @@ test("a signed-in player gets their own pages and no sign-in invitation", async 
   expect(personalReads.map((url) => url.pathname)).toEqual(["/api/v1/me/wishlist/status"]);
   expect(personalReads[0]?.searchParams.getAll("gameIds")).toEqual(featured.items.map((item) => item.gameId));
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  // Every account-menu destination is a tile: two columns from tablet width, one on phones.
+  const tiles = personal.getByRole("list", { name: "Tu espacio en Gameómetro" }).getByRole("link");
+  await expect(tiles).toHaveCount(6);
+  for (const [width, columns] of [[1320, 2], [834, 2], [390, 1], [320, 1]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    const lefts = new Set(await tiles.evaluateAll((links) => links.map((link) => Math.round(link.getBoundingClientRect().left))));
+    expect(lefts.size).toBe(columns);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    await personal.screenshot({ path: test.info().outputPath(`home-personal-${width}.png`) });
+  }
 });

@@ -12,6 +12,7 @@ export function safeReturnTo(candidate: string | null): string {
     : path === "/lanzamientos/calendario" ? ["month", "day", "platformIds", "regionIds", "page", "wishedOnly"]
     : path === "/topometro" || /^\/plataformas\/[a-z0-9-]{1,100}\/topometro$/u.test(path ?? "") ? ["source"]
     : path === "/mis-deseados" ? ["page"]
+    : path === "/mis-juegos" ? ["estado", "page"]
     : path === "/search" ? ["q", "page", "pageSize"]
       : path === "/mi-perfil" || path === "/mis-puntuaciones" || path === "/mis-plataformas" || path === "/mis-puntuaciones/estadisticas" ? []
         : path === "/administracion/catalogo" ? ["tab", "year", "month"]

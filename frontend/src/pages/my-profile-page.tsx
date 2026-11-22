@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { deleteAccount, exportData, getProfile, ProfileError, saveExport } from "../features/profile/profile-api";
+import { PlatformsIcon, RatingsIcon } from "../features/session/account-icons";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { SESSION_QUERY_KEY, useSession } from "../features/session/use-session";
 import { HeroTitle } from "../shared/ui/hero-title";
@@ -142,13 +143,13 @@ export function MyProfilePage() {
               </div>
               <nav aria-label="Tus datos y seguridad" className="profile-links">
                 <Destination
-                  icon={<svg fill="none" viewBox="0 0 20 20"><path d="M10 2.5 12.3 7l5 .7-3.6 3.5.8 5-4.5-2.3-4.5 2.3.8-5L2.7 7l5-.7L10 2.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" /></svg>}
+                  icon={<RatingsIcon />}
                   to="/mis-puntuaciones"
                 >
                   Mis puntuaciones
                 </Destination>
                 <Destination
-                  icon={<svg fill="none" viewBox="0 0 20 20"><rect height="6" rx="1.2" stroke="currentColor" strokeWidth="1.5" width="6" x="2.75" y="2.75" /><rect height="6" rx="1.2" stroke="currentColor" strokeWidth="1.5" width="6" x="11.25" y="2.75" /><rect height="6" rx="1.2" stroke="currentColor" strokeWidth="1.5" width="6" x="2.75" y="11.25" /><rect height="6" rx="1.2" stroke="currentColor" strokeWidth="1.5" width="6" x="11.25" y="11.25" /></svg>}
+                  icon={<PlatformsIcon />}
                   to="/mis-plataformas"
                 >
                   Mis plataformas

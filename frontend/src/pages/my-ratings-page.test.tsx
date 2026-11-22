@@ -28,6 +28,8 @@ function stub(handler: (request: Request) => Response | Promise<Response>, authe
     const request = input instanceof Request ? input : new Request(input);
     if (new URL(request.url).pathname === "/api/v1/session")
       return Response.json(authenticated ? { authenticated: true, csrfToken: "csrf" } : { authenticated: false });
+    if (new URL(request.url).pathname === "/api/v1/me/library/states")
+      return Response.json({ entries: [{ gameId: "game-1", state: "completed" }] });
     return handler(request);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -163,13 +165,18 @@ describe("Mis puntuaciones", () => {
     expect(within(fourth).getAllByRole("listitem")).toHaveLength(1);
     expect(within(fourth).queryByRole("link")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([request]) => new URL((request as Request).url).pathname).filter(path => path.startsWith("/api/v1/games"))).toEqual([]);
-    // Keyboard order follows the row: title, the IGDB attribution, then the personal reading.
+    // The private game state is chosen on the row; rating never sets it.
+    await waitFor(() => expect(within(card).getByLabelText("Estado de Élite Dangerous")).toHaveValue("completed"));
+    // Keyboard order follows the row: title, the IGDB attribution, the personal reading, then the state.
     const link = within(card).getByRole("link", { name: "Élite Dangerous" });
     link.focus();
     await userEvent.tab();
     expect(within(scores).getByRole("link")).toHaveFocus();
     await userEvent.tab();
     expect(within(card).getByRole("button", { name: /^Tu puntuación/ })).toHaveFocus();
+    await userEvent.tab();
+    expect(within(card).getByLabelText("Estado de Élite Dangerous")).toHaveFocus();
+    within(card).getByRole("button", { name: /^Tu puntuación/ }).focus();
     await userEvent.keyboard("{Enter}");
     expect(within(card).getByRole("dialog")).toBeVisible();
     expect(listReads(fetchMock)).toHaveLength(1);
@@ -218,7 +225,7 @@ describe("Mis puntuaciones", () => {
     // One selector names the field and the direction together, so every combination stays reachable.
     const order = screen.getByRole("combobox", { name: "Orden Más recientes" });
     await userEvent.click(order);
-    const orders = screen.getAllByRole("option");
+    const orders = within(screen.getByRole("listbox")).getAllByRole("option");
     expect(orders).toHaveLength(6);
     ["Más recientes", "Más antiguas", "Título A–Z", "Título Z–A", "Puntuación más alta", "Puntuación más baja"]
       .forEach((name, index) => expect(orders[index]).toHaveAccessibleName(name));
@@ -252,7 +259,7 @@ describe("Mis puntuaciones", () => {
     expect(screen.queryByRole("button", { name: "Editar puntuación" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Eliminar puntuación" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("combobox", { name: /^Por página/ }));
-    const sizes = screen.getAllByRole("option");
+    const sizes = within(screen.getByRole("listbox")).getAllByRole("option");
     expect(sizes).toHaveLength(3);
     ["10", "20", "50"].forEach((size, index) => expect(sizes[index]).toHaveAccessibleName(size));
     expect(sizes[0]).toHaveAttribute("aria-selected", "true");
