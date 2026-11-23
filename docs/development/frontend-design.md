@@ -740,8 +740,13 @@ with the identity a little below their titles, and beneath the identity on narro
 closing lines stand on a deeper night floor instead of behind a divider, with a faint ice glint
 along its top edge: `© <current year> Gameómetro` beside **Datos de videojuegos: IGDB**, whose
 underlined link opens IGDB, and then the signature *Ideado, desarrollado y mantenido por Rubén
-Hernández* as the last line. Those are the footer's only fire and its only ornament. The **Gameómetro** column links to **Sobre Gameómetro** and **Contacto y
-sugerencias**. The **Legal** column links to the
+Hernández* as the last line. The **Gameómetro** column links to **Sobre Gameómetro** and
+**Contacto y sugerencias**, followed by a row of official white social icons from the
+[Instagram brand resources](https://www.meta.com/es-es/brand/resources/instagram/instagram-brand/)
+and the [X brand toolkit](https://about.x.com/es/who-we-are/brand-toolkit).
+Each official profile opens in a new tab, which the link announces in its accessible name.
+The icons have visible keyboard focus and a 44px touch target. The home page uses the same profiles
+in its structured data. The **Legal** column links to the
 [approved legal pages](data-protection.md#publication-and-product-integration).
 
 ## About and contact

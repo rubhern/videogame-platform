@@ -8,6 +8,7 @@ import { HomeIntro, PreviewBoundary } from "../features/home/home-section";
 import { HomeTopometroPreview } from "../features/home/home-topometro-preview";
 import { HomeWeeklyRankings } from "../features/home/home-weekly-rankings";
 import { HomeReleaseDiscovery } from "../features/home/home-release-discovery";
+import { SiteStructuredData } from "../features/home/site-structured-data";
 
 export function HomePage() {
   const location = useLocation();
@@ -27,6 +28,7 @@ export function HomePage() {
 
   return (
     <div className="home-page">
+      <SiteStructuredData />
       <div className="home-stage">
         <div className="page-container">
           <HomeIntro />

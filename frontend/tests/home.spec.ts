@@ -209,6 +209,11 @@ for (const width of [320, 390, 834, 1320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await stubHome(page);
+    const socialRequests: string[] = [];
+    const socialHosts = /(^|\.)(instagram\.com|x\.com|twitter\.com)$/;
+    page.on("request", (request) => {
+      if (socialHosts.test(new URL(request.url()).hostname)) socialRequests.push(request.url());
+    });
     await page.goto("/");
 
     await expect(page.getByRole("heading", { level: 1, name: "Descubre tu próximo juego" })).toBeVisible();
@@ -247,7 +252,51 @@ for (const width of [320, 390, 834, 1320]) {
     }
     expect(await pageFits(page)).toBe(true);
     expect(await clipped(page)).toEqual([]);
+    const product = page.getByRole("contentinfo").getByRole("navigation", { name: "Gameómetro" });
+    const social = product.getByRole("group", { name: "Redes sociales de Gameómetro" });
+    const instagram = social.getByRole("link", { name: "Gameómetro en Instagram (se abre en otra pestaña)" });
+    const x = social.getByRole("link", { name: "Gameómetro en X (se abre en otra pestaña)" });
+    await expect(social.getByRole("link")).toHaveCount(2);
+    await expect(instagram).toHaveAttribute("href", "https://www.instagram.com/gameometro/");
+    await expect(x).toHaveAttribute("href", "https://x.com/gameometro");
+    await social.scrollIntoViewIfNeeded();
+    await expect(instagram).toBeInViewport({ ratio: 1 });
+    await expect(x).toBeInViewport({ ratio: 1 });
+    for (const link of [instagram, x]) {
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", "noopener");
+      await expect(link).toHaveText("");
+      await expect(link).toHaveCSS("width", "44px");
+      await expect(link).toHaveCSS("height", "44px");
+      await expect.poll(() => link.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth))
+        .toBeGreaterThan(0);
+    }
+    await product.getByRole("link", { name: "Contacto y sugerencias" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(instagram).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(x).toBeFocused();
+    await expect(x).toHaveCSS("outline-style", "solid");
+
+    const siteData = await page.locator('script[type="application/ld+json"]').evaluate(
+      (script) => JSON.parse(script.textContent ?? ""),
+    );
+    expect(siteData).toMatchObject({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          name: "Gameómetro",
+          url: "https://gameometro.com/",
+          logo: "https://gameometro.com/apple-touch-icon.png",
+          sameAs: await social.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href"))),
+        },
+        { "@type": "WebSite", name: "Gameómetro", url: "https://gameometro.com/" },
+      ],
+    });
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    expect(socialRequests).toEqual([]);
+    expect((await page.context().cookies()).filter(({ domain }) => socialHosts.test(domain))).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`), fullPage: true });
   });
 }

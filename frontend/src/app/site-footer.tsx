@@ -1,5 +1,6 @@
 import { CookieSettingsButton } from "../features/analytics/cookie-settings-button";
 import { BrandLogo } from "../shared/brand/brand-logo";
+import { officialSocialProfiles } from "../shared/brand/social-profiles";
 import { LegalLinks } from "../shared/legal/legal-links";
 
 /** The shared footer (#283): identity and slogan, link columns, then copyright, data source and signature. */
@@ -18,7 +19,26 @@ export function SiteFooter() {
             <span className="site-footer-slogan-accent">Nosotros te ayudamos a elegir.</span>
           </p>
         </div>
-        <LegalLinks legalActions={<CookieSettingsButton />} />
+        <LegalLinks
+          productActions={
+            <li>
+              <div className="site-footer-social" role="group" aria-label="Redes sociales de Gameómetro">
+                {officialSocialProfiles.map(({ name, url, icon }) => (
+                  <a
+                    key={name}
+                    href={url}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={`Gameómetro en ${name} (se abre en otra pestaña)`}
+                  >
+                    <img src={icon} alt="" width={20} height={20} />
+                  </a>
+                ))}
+              </div>
+            </li>
+          }
+          legalActions={<CookieSettingsButton />}
+        />
       </div>
       <div className="page-container">
         <details className="platform-credits">
@@ -36,6 +56,9 @@ export function SiteFooter() {
           </p>
           <p>
             Windows es una marca del grupo de empresas Microsoft. SteamVR es una marca de Valve Corporation.
+          </p>
+          <p>
+            Instagram es una marca de Meta Platforms, Inc. X es una marca de X Corp.
             {" "}Las demás marcas pertenecen a sus respectivos titulares. No implican afiliación ni patrocinio.
           </p>
         </details>
