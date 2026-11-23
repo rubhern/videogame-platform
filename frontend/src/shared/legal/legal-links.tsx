@@ -9,16 +9,22 @@ const documents: ReadonlyArray<readonly [DocumentKey, string]> = [
 ];
 
 /**
- * Shared footer destinations, available in every application build. `legalActions` closes the
- * Legal column with list items the shell owns, such as the cookie settings (#507).
+ * Shared footer destinations, with optional list items supplied by the shell.
  */
-export function LegalLinks({ legalActions }: { legalActions?: ReactNode }) {
+export function LegalLinks({
+  productActions,
+  legalActions,
+}: {
+  productActions?: ReactNode;
+  legalActions?: ReactNode;
+}) {
   return <div className="site-footer-links">
     <nav className="site-footer-column" aria-labelledby="site-footer-product">
       <p className="site-footer-heading" id="site-footer-product">Gameómetro</p>
       <ul>
         <li><Link to="/sobre-gameometro">Sobre Gameómetro</Link></li>
         <li><Link to="/contacto">Contacto y sugerencias</Link></li>
+        {productActions}
       </ul>
     </nav>
     <nav className="site-footer-column" aria-labelledby="site-footer-legal">

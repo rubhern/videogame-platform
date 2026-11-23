@@ -1515,6 +1515,40 @@
     text-underline-offset: 3px;
   }
 
+  .site-footer-social {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .site-footer-column .site-footer-social a {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border-radius: 4px;
+  }
+
+  .site-footer-social a:hover {
+    background: var(--color-surface);
+  }
+
+  .site-footer-social a:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: -2px;
+  }
+
+  .site-footer-social img {
+    object-fit: contain;
+  }
+
+  @media (forced-colors: active) and (prefers-color-scheme: light) {
+    .site-footer-social img {
+      filter: invert(1);
+    }
+  }
+
   /* The closing lines stand on a deeper night floor instead of behind a divider; a faint ice
      glint along its top edge, strongest at the centre, marks where the floor begins. */
   .site-footer-base {
