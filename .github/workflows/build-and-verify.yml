@@ -199,7 +199,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Set up Java 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 25
@@ -687,7 +687,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 25
@@ -726,7 +726,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 25
@@ -760,7 +760,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 25
@@ -805,7 +805,7 @@ jobs:
 
       - name: Set up Java 25
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: 25
