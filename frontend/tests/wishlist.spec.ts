@@ -157,6 +157,8 @@ test("drags wishlist games, reorders by keyboard and keeps the first three highl
   await expect(top).toHaveText("Keeper of the Night");
 
   const keyboard = page.getByRole("button", { name: "Mover Hollow Knight: Silksong" });
+  // The drop's save and refetch keep the handles unavailable; a key pressed earlier is ignored.
+  await expect(keyboard).not.toHaveAttribute("aria-disabled", "true");
   await keyboard.focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("ArrowUp");
