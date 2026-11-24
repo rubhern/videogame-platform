@@ -991,6 +991,7 @@ issue or chat.
 | Releases page shows `CATALOGUE_NOT_READY` | Expected after a clean deploy without a sync | Not an incident; run a synchronization when catalogue data is wanted. | `GET /api/v1/releases` response |
 | Synchronization reports failure or partial success | Not yet on `vgpdev` | Local reads keep serving the previous publication. Read the last run, fix credentials or wait out the provider, rerun the same interval (idempotent). | Last-run report, `catalogue.synchronization.*` meters, application log outcome code |
 | Login loops locally after a fresh `.env` | Yes, locally | Documented in [local setup](local-setup.md#disposable-reset). | `local-dependencies.sh verify` output |
+| Production regression found after a release was reported successful | Not yet | Assess a [release rollback](#production-release-rollback); roll back only on `ALLOW` and an owner decision, otherwise fix forward. | Assessment JSON, rollback journal, both SHAs and digests, time of first symptom |
 | Host unreachable or storage lost | Not yet | [Private-dev recovery](#private-dev-recovery): rebuild and redeploy; data is not recovered. | Host and disk state, last-good digest |
 
 Record: for a deployment, the JSON evidence file; for a recovery or acceptance, an
@@ -1697,6 +1698,48 @@ Otherwise publish a fix on `main`, then plan, `--stage` and `--apply` the newer 
 `--forward-fix-of "$FAILED_SHA"`, or request a paired restore on an empty target. No older image returns.
 A forward-fix target carries the same realm-delta limit, so a fix built on a commit with another realm
 change also needs the tool extended first.
+
+### Production release rollback
+
+The [rollback contract](../../deploy/public-production/README.md#release-rollback-488) owns
+eligibility, verdicts and limits; this is the owner sequence for a regression found after a release
+was reported successful. It has been rehearsed on disposable real services, **never on the VPS**. Every step that
+changes the host needs the owner's explicit authorization for this incident.
+
+1. **Diagnose and contain.** Confirm the regression and note when it started; the
+   [incident table](#incident-handling) lists what to collect. Close public ingress first for an
+   unresolved security or data-integrity failure. Do not start, stop or recreate services by hand.
+2. **Assess, read-only.** Use the operator export of the active release, and the full SHA of
+   `previous.revision` in `upgrades/ACTIVE.json` as the target. Record `assessmentSha256`.
+
+   ```bash
+   tool=/srv/gameometro/operations/ACTIVE_SHA/scripts
+   rollback() { python3 "$tool/production_rollback.py" --target-revision "$LAST_KNOWN_GOOD_SHA" --operational-revision ACTIVE_SHA --adapter-fingerprint "$ADAPTER_SHA256" "$@"; }
+   rollback | python3 -m json.tool
+   ```
+
+   - `ALLOW`: review both identities, `changedServices`, `flyway`, `expectedImpact` and the source
+     range, including whether it contains a security fix, before deciding.
+   - `REFUSE`: correct the named precondition (for example wait for a synchronization or a backup)
+     and assess again.
+   - `FORWARD_FIX_OR_RECOVER`: stop here and go to step 5.
+3. **Apply, only on the owner's decision.**
+
+   ```bash
+   rollback --apply --assessment-sha256 "$REVIEWED_ASSESSMENT_SHA256" --owner-reference "$OWNER_DECISION_REFERENCE"
+   ```
+
+   A refusal before the claim changes nothing. A failure after it restores the release that was
+   running (`undone`). If the controller dies, run `rollback --inspect`, then `rollback --abandon`.
+   If only the backup units failed, run `rollback --reconcile-services`.
+4. **Validate.** Run the upgrader's `--verify` with `--target-revision "$LAST_KNOWN_GOOD_SHA"`.
+   Then from the owner device: catalogue read, sign-in with and without Remember Me, a rating read
+   and write, the profile, sign-out, and the Grafana health panels. Post the sanitized result on the
+   incident issue: both SHAs, digests, Flyway endpoint, journal name and timings.
+5. **Escalate when a rollback is unavailable.** Publish a fix on `main` and release it normally
+   (Actions deployment, or `--forward-fix-of` for an interrupted upgrade). Request the separately
+   authorized [paired restore on an empty target](../../deploy/public-production/README.md#restoration-and-deletion-gate)
+   only for damaged data. It loses writes made after the pair, so it needs its own decision.
 
 ## Documentation portal
 

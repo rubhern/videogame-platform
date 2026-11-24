@@ -1922,8 +1922,9 @@ owns the authorized sequence; this section owns the contract.
 | `--forward-fix-of <failed-sha>` | With plan, `--stage` and `--apply`: replaces a failed target with a newer published one, under the original recovery point |
 | `--verify`, `--inspect` | Read-only comparison with the activation; journal and fence diagnostics with the recovery boundary |
 
-There is no force or skip mode, and only a handover rolls back, because it changes nothing the
-previous image cannot serve. Target selection is the full source SHA alone: the
+There is no force or skip mode. Only a handover rolls back by itself, because it changes nothing the
+previous image cannot serve; a completed compatible release returns to its predecessor only through
+the owner-authorized [release rollback](#release-rollback-488). Target selection is the full source SHA alone: the
 digests come from that commit's retained publication records, checked against its
 successful build and security runs and strict ancestry over the active source.
 
@@ -2142,7 +2143,7 @@ no fence: only target containers remain, and starting a service from a supersede
 remaining mistake, which [root is always able to make](#paired-backup-and-recovery-candidate).
 
 Forward-only limits: migrations are never reversed and no older image is started after they
-ran. Returning to the pair means a separately authorized
+ran; the [release rollback](#release-rollback-488) refuses such a release. Returning to the pair means a separately authorized
 [paired restore on an empty target](#restoration-and-deletion-gate) with the pair's image set,
 never over live volumes, and it loses any writes made after reopening. Previous digests and
 configuration stay in the journal and the old bundle is kept; no image or bundle is deleted.
@@ -2198,6 +2199,140 @@ supplied and the localizer is only exercised as a failing optional service; a re
 (simulated receipt); operational publication, which needs a merged revision; or the installer's input
 contract against real protected paths, which has a contract test only. The rehearsal also accepts
 Docker Desktop's spelling of directory binds and skips the Docker data-root disk check.
+
+#### Release rollback (#488)
+
+**Implemented and rehearsed on real disposable services; not yet run on the VPS.**
+[`production_rollback.py`](../../scripts/production_rollback.py) returns a completed release to its
+last-known-good predecessor when the two are compatible
+([ADR-0052](../../docs/decisions/0052-roll-back-compatible-production-releases-by-owner-triggered-reverse-handover.md)).
+The [runbook](../../docs/development/operations-runbook.md#production-release-rollback) owns the
+owner sequence; this section owns the contract.
+
+**Last-known-good** is the `previous` release in `upgrades/ACTIVE.json`, never a tag or a parent
+commit. All of the following must hold:
+
+- its upgrade journal is `complete`;
+- its retained bundle's `compose.target.json` has the SHA-256 that journal, the pointer and the
+  active release's plan recorded;
+- its `upgrade-plan.json` matches the journal's plan hash, which binds the source SHA, the version
+  and the Flyway inventory;
+- its pinned images are still local, and the application image is labelled with that SHA;
+- the bundle still verifies as staged.
+
+The predecessor's configuration may also be the derived target of a completed rollback to that same
+release, when an upgrade followed the rollback.
+
+**Rebuilt dependencies.** Every trusted-main build republishes the Keycloak, edge and localizer
+images with new layers. An image whose sources (its Dockerfile, every `COPY` source and
+`validate-dependency-image.sh`, listed in `DEPENDENCY_SOURCES`) are unchanged in the range is a
+rebuild. It keeps running: the target is the last-known-good configuration with the active
+definition of every rebuilt dependency. That derived target is written and hashed in the rollback
+journal, with a matching private twin for a public edge, and is what `ACTIVE.json` then names. A
+dependency whose sources changed, or that differs in anything but its image, refuses.
+
+| Mode | Effect |
+|---|---|
+| None (assess) | Read-only. Prints the verdict, reasons, operator action, both release identities, changed services, Flyway endpoint, realm comparison, persisted-contract paths in the source range, expected impact and runtime admission. Exit 0 only for `ALLOW` |
+| `--apply` | For the reviewed `assessmentSha256` and an owner reference: the reverse handover below |
+| `--abandon` | Contains an interrupted rollback: restores the release that was running, or completes one whose pointer already moved |
+| `--reconcile-services` | Repoints the backup, cleanup, deletion and telemetry units at the last-known-good bundle after a rollback whose last step failed |
+| `--inspect` | Sanitized state of the latest rollback journals with advice |
+
+**Verdicts.** The assessment hashes only static evidence. Runtime admission (fence, work, memory,
+running candidate, unfinished operations) is rechecked under the locks at apply time.
+
+| Verdict | When | Operator action |
+|---|---|---|
+| `ALLOW` | Every check below passes | Owner authorizes `--apply` with this hash |
+| `REFUSE` | No recorded predecessor, a target other than it, an unverified current or last-known-good release, a missing or relabelled image, a changed bundle, a schema behind the predecessor, an unreadable Git range, an edge without the candidate route, a closed fence or identity maintenance, drifted services, a running candidate, recorded synchronization or translation work, insufficient memory, or an unfinished upgrade or rollback | Nothing changed. Correct the cause, assess again |
+| `FORWARD_FIX_OR_RECOVER` | Another service (other than a rebuilt dependency), setting, configuration field, secret, service inventory or runtime section differs. Or the live Flyway history is ahead of, differs from or failed against the predecessor's inventory. Or the realm import, the planned realm change or the live realm policy differs. Or the range changes `db/migration`, `deploy/public-production/keycloak`, `docker/keycloak` or `docker/postgres` | No rollback. Forward fix, or the separately authorized [paired restore](#restoration-and-deletion-gate) |
+
+**Recovery decision matrix.**
+
+| Situation | Decision |
+|---|---|
+| Failure before activation (plan, stage, capture, preflight) | Nothing activated; the previous release still serves. Fix and release again; no rollback involved |
+| Handover fails during activation | The handover itself restores the previous application (`rolled-back`) |
+| Fenced upgrade interrupted | Not a rollback: the [interruption table](#application-handover-adr-0043) applies (`--resume`, `--abandon` before schema or identity advanced, `--forward-fix-of`) |
+| Regression found after a release completed, application-only, same schema and identity | `ALLOW`: owner-authorized rollback |
+| Release added a migration, even an additive one | `FORWARD_FIX_OR_RECOVER`: an applied migration is never reverted, and the older image is not started against it |
+| Release changed Keycloak, the realm, a provider or theme | `FORWARD_FIX_OR_RECOVER` |
+| Evidence missing, corrupt or ambiguous | `REFUSE`; never bypassed |
+
+**Sequence.** Under the backup-cycle lock (the scheduled backup, its reconciler and the #467
+deployment hold it) and the recovery lease, the assessment is recomputed and must have the reviewed
+hash and `ALLOW`. The tool writes `upgrades/rollback-<time>-<from12>-<run8>/upgrade.json`, the
+sanitized `assessment.json` and the derived target `compose.rollback.json` (plus
+`compose.rollback.private.json` for a public edge), which must have the reviewed hash. Then it runs
+the [handover](#application-handover-adr-0043) steps with that target. Optional services already
+stopped stay stopped and are not smoked: candidate, drain, replacement, retirement, then the same smoke
+plus unchanged Keycloak configuration digests. Then:
+
+1. `ACTIVE.json` names the derived target, with the last-known-good release's own predecessor as
+   `previous` and `rolledBackFrom` naming the reverted release. The ingress record names the derived
+   public target and its twin.
+2. The reverted release's journal becomes `reverted`: its receipt stays, and its SHA cannot be
+   claimed again. A new release needs a new commit.
+3. The backup units are repointed at the last-known-good bundle. A failure there leaves the
+   rollback complete and reports `--reconcile-services`.
+
+Any failure or cancellation before step 1 starts the release that was running and stops the
+candidate; the journal records `undone`. A failed restoration stays `failed` with
+`containment: inconclusive`. A `running` or `failed` rollback journal blocks the upgrader, the
+backup cycle, account erasure and another rollback until `--abandon` resolves it.
+
+**What is never changed:** PostgreSQL contents and Flyway history, Keycloak and its realm, volumes,
+other journals and bundles. New ratings, accounts, identity changes and erasures therefore survive.
+The [handover limits](#application-handover-adr-0043) apply unchanged: signed-in BFF sessions end and
+remembered Keycloak sessions sign back in, a write in flight may fail once, and no revocation or
+account erasure should run meanwhile. Rolling back reverts every code change in the source range,
+security fixes included.
+
+**Operator identity.** An operator whose revision and fingerprint equal those the active release's
+journal claims is verified offline, so a GitHub outage does not block an incident rollback. Any other
+operator must prove its trusted-main publication first.
+
+**Evidence.** `scripts/test-production-rollback.py` exercises the following on a fake host with
+real files, hashes and the upgrader's own handover, smoke and finish code:
+
+- the decision matrix;
+- every lineage and evidence refusal;
+- hash and verdict recheck under the locks, and concurrent backup, recovery and identity
+  maintenance;
+- a fault in every handover phase;
+- a Keycloak change and a rating loss during the rollback;
+- controller loss before and after the pointer moved, and backup-unit failure and retry;
+- a repeated rollback after a redeployment, and offline and online operator checks;
+- rebuilt dependencies kept, a changed dependency source refused, and a public edge with its twin;
+- stopped optional services, and a Dockerfile `COPY` source outside the reviewed table.
+
+`scripts/rehearse-production-rollback.py` runs the rollback on real disposable PostgreSQL, Keycloak,
+BFF, edge and monitoring, with synthetic accounts and three trusted-main publications passed by SHA.
+It installs the signed candidate, then fenced-upgrades it with real pairs and isolated restores to the
+last-known-good and the current release. It then writes a new account, a rating and a Keycloak
+session, and proves:
+
+- the `ALLOW` assessment and a held-lock refusal;
+- an undone smoke fault, and a real `SIGKILL` with the candidate serving followed by `--abandon`;
+- the authorized rollback while an edge poller measures availability, then the preservation checks
+  (data, accounts, sessions, Keycloak configuration, Flyway, volumes and kept containers);
+- an upgrade from the rolled-back runtime to a release with a migration, whose rollback is then
+  `FORWARD_FIX_OR_RECOVER`.
+
+It does not cover BFF browser sessions or CSRF (in-memory sessions end by design), the backup-cycle
+lock and unit repointing (stand-ins), operator publication or a public edge. It also runs unprivileged
+and proves upgrade ancestry with local Git instead of GitHub's bounded compare.
+
+**Rehearsed, not proven on the VPS.** On 2026-11-20 the rehearsal passed with `54fa093` as
+last-known-good, `9242103` as current and `642df6b` as incompatible:
+
+- the assessment allowed the rollback and kept Keycloak, the edge and the localizer;
+- the authorized rollback took 52 s, and 212 edge requests during it all answered `200`;
+- ratings, accounts, Keycloak sessions and configuration, Flyway and volumes were unchanged;
+- the later release with a migration was refused as `FORWARD_FIX_OR_RECOVER`.
+
+A VPS rollback has not run; its duration on the production host is unmeasured.
 
 #### Reviewed runtime additions
 
