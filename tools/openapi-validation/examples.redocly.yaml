@@ -1,7 +1,6 @@
 extends: []
 
 rules:
-  no-example-value-and-externalValue: error
   no-invalid-media-type-examples:
     severity: error
     allowAdditionalProperties: false

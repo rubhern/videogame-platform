@@ -10,7 +10,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "build:openapi-docs": "redocly build-docs docs/architecture/api/openapi.yaml --output docs/architecture/api/reference/index.html --title \"VideoGame Platform API Reference\" --disableGoogleFont --lint-config error && node tools/openapi-validation/normalize-generated-html.mjs",
+    "build:openapi-docs": "redocly build-docs docs/architecture/api/openapi.yaml --output docs/architecture/api/reference/index.html --title \"VideoGame Platform API Reference\" --lint-config error && node tools/openapi-validation/normalize-generated-html.mjs",
     "frontend:build": "npm run build --workspace @videogame-platform/frontend",
     "frontend:dev": "npm run dev --workspace @videogame-platform/frontend",
     "frontend:generate-api": "npm run generate-api --workspace @videogame-platform/frontend",
@@ -25,7 +25,7 @@
     "validate:openapi:examples": "redocly lint docs/architecture/api/openapi.yaml --config tools/openapi-validation/examples.redocly.yaml"
   },
   "devDependencies": {
-    "@redocly/cli": "2.46.2",
+    "@redocly/cli": "2.82.0",
     "vite": "8.1.6"
   }
 }
