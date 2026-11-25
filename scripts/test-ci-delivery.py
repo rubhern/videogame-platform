@@ -177,7 +177,7 @@ python3() {
         # These checks stay unconditional whenever documentation is applicable.
         for command in ('bash scripts/validate-docs.sh',
                         'npm ci --prefix documentation --ignore-scripts',
-                        'node scripts/audit-build-dependencies.mjs --portal',
+                        'npm audit --prefix documentation --audit-level=high',
                         'npm test && npm run build',
                         'bash documentation/scripts/test-container.sh --browser'):
             step = next(step for step in docs.split('      - name: ') if command in step)

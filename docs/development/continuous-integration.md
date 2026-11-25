@@ -171,24 +171,3 @@ configuration; CI runs both policies against separate disposable topologies. Its
 port is published only on loopback in that disposable topology. No real private-dev or
 production configuration is changed. Temporary paired evidence tests the protocol, never
 physical storage independence; production qualification remains in the operations runbook.
-
-### Temporary build dependency exception
-
-Owner-approved on 2026-11-17 for seven days, ending 2026-11-24 at 18:07:32 UTC.
-The portal and frontend tooling audits temporarily accept only [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
-and findings inherited exclusively from it. The advisory affects picomatch through
-4.0.7 and had no published fix when assessed. The owner, Ruben Hernandez, accepts
-the remaining build-time denial-of-service risk during this window.
-
-Compensating controls are repository-controlled build inputs, time-bounded CI,
-loopback-only development serving, and a static runtime that copies only built
-files. The deployed portal serves static files. The application frontend contains compiled browser assets.
-A separate production-dependency audit must pass without the exception before
-the frontend build-tooling audit runs. The owner extended the same acceptance
-to frontend tooling on 2026-11-17 with the original deadline retained. Every other high
-or critical finding continues to block the audit. Missing audit evidence and
-expiry also block it. The audit helper owns the executable scope and deadline.
-
-Remove this exception and restore direct npm audit when a patched version becomes
-available and the lockfile has been updated. If the advisory disappears from the
-audit, the helper reports that removal is due. Any renewal needs a new owner decision.
