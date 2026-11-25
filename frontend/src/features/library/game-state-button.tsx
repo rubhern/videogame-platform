@@ -143,7 +143,12 @@ export function GameStateButton({
           ref={dialog}
           onClose={() => {
             setOpen(false);
-            requestAnimationFrame(() => main.current?.focus());
+            // Return focus only if nothing has claimed it since: a completed change may already
+            // have moved it elsewhere (for example to the count when the row leaves the view).
+            requestAnimationFrame(() => {
+              const active = document.activeElement;
+              if (active === null || active === document.body || active === main.current) main.current?.focus();
+            });
           }}
         >
           <div className="library-state-sheet">
