@@ -55,16 +55,25 @@ EDGE_MODULE_VERSION = "v0.1.1-0.20260612195517-5625512f24f6"
 # release that moves the module fails the policy, so the override is reviewed and removed.
 EDGE_OVERRIDES = {"golang.org/x/net": ("v0.59.0", "v0.62.0"),
                   "golang.org/x/crypto": ("v0.57.0", "v0.58.1-0.20261009181718-2f1f834330b2"),
-                  "github.com/klauspost/compress": ("v1.20.1", "v1.20.2")}
+                  "github.com/klauspost/compress": ("v1.20.1", "v1.20.2"),
+                  "go.opentelemetry.io/otel": ("v1.46.0", "v1.47.0"),
+                  "go.opentelemetry.io/otel/sdk": ("v1.46.0", "v1.47.0"),
+                  "go.opentelemetry.io/otel/trace": ("v1.46.0", "v1.47.0"),
+                  "go.opentelemetry.io/otel/sdk/log": ("v0.22.0", "v1.47.0")}
 # What the module graph selects before each replacement applies.
 EDGE_OVERRIDE_SELECTED = {"golang.org/x/net": "v0.60.0", "golang.org/x/crypto": "v0.58.0",
-                          "github.com/klauspost/compress": "v1.20.1"}
-# Exact transitive upgrades required by x/net v0.62.0's module graph.
+                          "github.com/klauspost/compress": "v1.20.1",
+                          "go.opentelemetry.io/otel": "v1.47.0", "go.opentelemetry.io/otel/sdk": "v1.47.0",
+                          "go.opentelemetry.io/otel/trace": "v1.47.0", "go.opentelemetry.io/otel/sdk/log": "v0.22.0"}
+# Exact transitive upgrades required by the x/net v0.62.0 and OpenTelemetry v1.47.0 module graphs.
 EDGE_TRANSITIVE_UPGRADES = {
     "golang.org/x/sync": ("v0.23.0", "v0.24.0"),
     "golang.org/x/sys": ("v0.48.0", "v0.49.0"),
     "golang.org/x/term": ("v0.46.0", "v0.47.0"),
     "golang.org/x/text": ("v0.42.0", "v0.43.0"),
+    "go.opentelemetry.io/otel/log": ("v0.22.0", "v1.47.0"),
+    "go.opentelemetry.io/otel/metric": ("v1.46.0", "v1.47.0"),
+    "go.opentelemetry.io/otel/sdk/metric": ("v1.46.0", "v1.47.0"),
 }
 
 

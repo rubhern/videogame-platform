@@ -16,6 +16,12 @@ ARG CADDY_RATELIMIT_MODULE=github.com/mholt/caddy-ratelimit@5625512f24f6f59d6f64
 ARG CADDY_NET_OVERRIDE=golang.org/x/net=golang.org/x/net@v0.62.0
 # GO-2026-6865: panic on two-block frames. Stock Caddy's compression stack uses this module.
 ARG CADDY_COMPRESS_OVERRIDE=github.com/klauspost/compress=github.com/klauspost/compress@v1.20.2
+# GO-2026-6974 and GO-2026-6975: attribute-limit bypass and baggage-parsing amplification in
+# OpenTelemetry Go, which stock Caddy's tracing uses. Fixed in v1.47.0 of the core modules.
+ARG CADDY_OTEL_OVERRIDE=go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.47.0
+ARG CADDY_OTEL_SDK_OVERRIDE=go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.47.0
+ARG CADDY_OTEL_TRACE_OVERRIDE=go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.47.0
+ARG CADDY_OTEL_SDK_LOG_OVERRIDE=go.opentelemetry.io/otel/sdk/log=go.opentelemetry.io/otel/sdk/log@v1.47.0
 # GO-2026-5932: the unmaintained x/crypto/openpgp package. The fix has no tagged release yet.
 ARG CADDY_CRYPTO_OVERRIDE=golang.org/x/crypto=golang.org/x/crypto@v0.58.1-0.20261009181718-2f1f834330b2
 # GO-2026-6859: net/http MaxBytesReader header race, fixed in go1.27.4. The pinned builder ships
@@ -30,6 +36,8 @@ ENV CGO_ENABLED=0 \
     GOSUMDB=sum.golang.org
 RUN xcaddy build "$CADDY_VERSION" --output /out/caddy --with "$CADDY_RATELIMIT_MODULE" \
         --replace "$CADDY_NET_OVERRIDE" --replace "$CADDY_COMPRESS_OVERRIDE" --replace "$CADDY_CRYPTO_OVERRIDE" \
+        --replace "$CADDY_OTEL_OVERRIDE" --replace "$CADDY_OTEL_SDK_OVERRIDE" --replace "$CADDY_OTEL_TRACE_OVERRIDE" \
+        --replace "$CADDY_OTEL_SDK_LOG_OVERRIDE" \
     && /out/caddy list-modules | grep -qx 'http.handlers.rate_limit'
 
 FROM ${CADDY_IMAGE}
