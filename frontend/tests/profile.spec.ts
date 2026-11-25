@@ -9,6 +9,9 @@ for (const width of [1320, 834, 390, 320]) {
     let deletionAvailable = false;
     await page.route("**/api/v1/session", route => route.fulfill({ json: { authenticated, csrfToken: "browser-proof" } }));
     await page.route("**/api/v1/me/profile", route => route.fulfill({ json: { email: "private@example.test", deletionAvailable } }));
+    await page.route("**/api/v1/me/public-profile", route => route.fulfill({
+      json: { published: false, shareRatings: false, shareWishlist: false },
+    }));
     await page.route("**/api/v1/me/data-export", route => route.fulfill({ contentType: "application/json", headers: { "Content-Disposition": 'attachment; filename="gameometro-datos.json"' }, body: JSON.stringify({ format: "gameometro-personal-data-export", version: 1, ratings: [] }) }));
     await page.route("**/api/v1/me/account-deletion", async route => {
       commands++;
@@ -22,8 +25,9 @@ for (const width of [1320, 834, 390, 320]) {
     await expect(page.getByRole("heading", { name: "Mi perfil", exact: true })).toBeVisible();
     await expect(page.getByText("private@example.test")).toBeVisible();
     await expect(page.getByText("Nombre", { exact: true })).toHaveCount(0);
-    // The console reads as three zones, and the retired backup/legal sentence stays out (#476).
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText(["Tu cuenta", "Tus datos, contigo", "Eliminar mi cuenta"]);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+      "Tu cuenta", "Perfil público", "Tus datos, contigo", "Eliminar mi cuenta",
+    ]);
     await expect(page.getByText(/copias de seguridad/)).toHaveCount(0);
     const unavailable = page.getByRole("button", { name: "Eliminar mi cuenta", exact: true });
     await expect(unavailable).toBeVisible();

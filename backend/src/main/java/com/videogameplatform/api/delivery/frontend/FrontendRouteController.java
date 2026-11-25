@@ -3,6 +3,7 @@ package com.videogameplatform.api.delivery.frontend;
 import com.videogameplatform.api.delivery.frontend.PageMetadataResolver.PlatformPage;
 import com.videogameplatform.api.delivery.frontend.PageMetadataResolver.PublicPage;
 import com.videogameplatform.catalogue.application.sharing.GetSharePreviewUseCase;
+import com.videogameplatform.identity.application.PlayerProfiles;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -38,8 +39,8 @@ class FrontendRouteController {
     private final PageMetadataResolver pages;
 
     @Autowired
-    FrontendRouteController(GetSharePreviewUseCase previews) {
-        this(packagedDocument(), new PageMetadataResolver(previews));
+    FrontendRouteController(GetSharePreviewUseCase previews, PlayerProfiles profiles) {
+        this(packagedDocument(), new PageMetadataResolver(previews, profiles));
     }
 
     FrontendRouteController(FrontendDocument document, PageMetadataResolver pages) {
@@ -132,6 +133,15 @@ class FrontendRouteController {
         Objects.requireNonNull(gameId, "gameId");
         Objects.requireNonNull(slug, "slug");
         return serve(pages.game(gameId), request);
+    }
+
+    @GetMapping("/u/{alias}")
+    ResponseEntity<String> playerProfile(@PathVariable String alias, HttpServletRequest request) {
+        var page = pages.playerProfile(alias);
+        return ResponseEntity.status(page.missing() ? HttpStatus.NOT_FOUND : HttpStatus.OK)
+                .contentType(HTML)
+                .cacheControl(CacheControl.noStore())
+                .body(document.render(page, origin(request)));
     }
 
     /**

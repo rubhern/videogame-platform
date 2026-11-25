@@ -4,7 +4,7 @@
 - **Owner:** Rubén Hernández López; publication of the legal name and all five public text sections authorized.
 - **Scope:** Approved wording for a public, free, non-commercial service. This document is not evidence that production has been deployed or that supplier/operational claims have been independently validated.
 
-These Spanish texts are the canonical source for public legal pages. The feedback, wishlist and game-state (#591) additions require wording approval before public activation.
+These Spanish texts are the canonical source for public legal pages. The feedback, wishlist, game-state (#591) and public-profile (#593) additions require wording approval before public activation.
 Publish only the corresponding public sections through product routes; do not expose
 this combined source document or the editorial checklist at the end. The
 [publication checklist and integration plan](../development/data-protection.md#publication-and-product-integration)
@@ -70,11 +70,23 @@ modificación. Si guardas un juego en «Mis deseados», conservamos el juego y l
 que lo guardaste para mostrarte tu lista y filtrar tus lanzamientos. Guardamos también
 el orden de tu lista. Si eliges el estado de un juego en «Mis juegos» (Deseado,
 Pendiente, Jugando, Completado o Abandonado), conservamos el juego, su estado y la fecha
-del último cambio. Tu lista de deseados, los estados de tus juegos
-y tus puntuaciones individuales son privados. Cada puntuación contribuye a la media,
-el número de votos y la distribución pública del juego, sin mostrar tu identidad.
-No prometemos anonimato absoluto: las estadísticas de grupos pequeños pueden permitir
-inferencias. No hay perfiles públicos, publicidad ni venta de datos personales.
+del último cambio. Tu lista de deseados y tus puntuaciones individuales son privadas
+por defecto. Los estados de juego distintos de Deseado son privados. Cada puntuación
+contribuye a la media, el número de votos y la distribución pública del juego, sin
+mostrar tu identidad. Las estadísticas de grupos pequeños pueden permitir
+inferencias. Gameómetro funciona sin publicidad ni venta de datos personales.
+
+Si eliges un alias en «Mi perfil», guardamos el alias, cuándo lo elegiste y tus
+ajustes de visibilidad. Para publicar el perfil, elige si compartes la puntuación
+general de cada juego, tus deseados o ambas secciones. Una vez publicado,
+cualquiera puede abrirlo mediante el enlace. El perfil incluye un resumen de las
+secciones que compartes, como el número de juegos deseados o la media y la
+distribución de tus puntuaciones. El correo, los identificadores de cuenta y
+las fechas de tus juegos se mantienen en tu cuenta. La publicación se basa en tu
+consentimiento, que puedes retirar en cualquier momento. Desde «Mi perfil» puedes
+retirar una sección y conservar la otra, o hacer privado todo el perfil. Pedimos a los buscadores que no
+indexen el perfil. Las personas que ya lo vieron y los servicios que mostraron
+una vista previa pueden conservar sus propias copias.
 
 La gestión de la cuenta, verificación, recuperación, puntuaciones, juegos deseados y estados de tus juegos se basa en la
 prestación del servicio que solicitas al aceptar las condiciones (artículo 6.1.b
@@ -200,7 +212,7 @@ solicites su supresión, salvo una obligación legal aplicable. La inactividad n
 el borrado de una cuenta verificada. Puedes borrar cada puntuación desde
 el producto, quitar juegos de «Mis deseados» y quitar el estado de un juego. Desde «Mi cuenta → Mi perfil» puedes
 solicitar la eliminación de la cuenta, sus puntuaciones (también las de cada
-plataforma), tus plataformas preferidas, tus juegos deseados y los estados de tus juegos.
+plataforma), tus plataformas preferidas, tus juegos deseados, los estados de tus juegos y tu perfil público.
 La solicitud requiere confirmación expresa, autenticación reciente y protección de
 la sesión. Al aceptar la solicitud se cierra tu sesión de Gameómetro y vuelves al inicio;
 el borrado continúa automáticamente. El acceso queda bloqueado mientras se completa; recibir la solicitud no
@@ -266,7 +278,8 @@ Puedes consultar y modificar tus puntuaciones en «Mis puntuaciones». En «Mi p
 puedes descargar un JSON versionado con los datos de cuenta disponibles para el
 producto, tus puntuaciones y las de cada plataforma, sus juegos y fechas, y tus
 plataformas preferidas, los juegos que guardaste en «Mis deseados» con sus fechas y
-el estado de cada juego en «Mis juegos» con la fecha de su último cambio.
+el estado de cada juego en «Mis juegos» con la fecha de su último cambio. Incluye
+también el alias y los ajustes del perfil público si los has guardado.
 La descarga es privada y no se almacena en cachés; si no puede
 prepararse completa, se informa del error. No incluye contraseñas, tokens ni secretos
 de autenticación. Puedes pedir por email la información adicional de acceso, incluida
@@ -317,6 +330,14 @@ Puedes guardar y quitar juegos de «Mis deseados» y elegir el estado de cada ju
 «Mis juegos». Allí también puedes marcar como Completado, de una vez y solo si lo
 confirmas, los juegos que has puntuado y aún no tienen estado. Ni los deseados ni los
 estados influyen en las puntuaciones ni en las clasificaciones.
+Puedes compartir un perfil con alias si lo activas. Usa un alias que respete a
+otras personas y evita incluir datos personales. Están prohibidos los alias
+ofensivos, el acoso y la suplantación. Usa «Denunciar perfil» para informar de
+un abuso. El titular puede retirar un alias tras revisar el caso. Puedes solicitar
+una revisión por correo. Cuando un alias que fue público se retira por cambio,
+moderación o borrado, conservamos solo el alias sin asociarlo a tu cuenta para
+impedir que otra persona ocupe ese enlace. La reserva no tiene un vencimiento fijo.
+
 No intentes acceder a cuentas ajenas, eludir protecciones ni perjudicar la
 disponibilidad del servicio.
 

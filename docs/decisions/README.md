@@ -56,6 +56,7 @@ historical decision.
 
 ## Proposed
 
+- [ADR-0053 — Publish revocable player profiles by alias](0053-publish-revocable-player-profiles-by-alias.md) — #593; Identity owns aliases and publication settings. Public collection reads expose opted-in fields and erasure retires published aliases. Awaiting owner review.
 - [ADR-0051 — Keep one exclusive personal state per library entry](0051-keep-one-exclusive-personal-state-per-library-entry.md) — #591; Deseado, Pendiente, Jugando, Completado or Abandonado on the same game-level entry; leaving Deseado leaves the wishlist. Owner decisions approved 2026-11-22; awaiting owner review of the record.
 - [ADR-0048: Project presented releases for the platform catalogue](0048-project-presented-releases-for-platform-catalogue.md) — #577; transactional per-platform release timelines and page-sort indexes for UC-019; awaiting owner review.
 

@@ -15,6 +15,10 @@ public interface WishlistStore {
 
     Page list(UUID userId, LocalDate today, long offset, int limit);
 
+    SharedPage listForSharing(UUID userId, long offset, int limit);
+
+    long countForSharing(UUID userId);
+
     List<String> savedGameIds(UUID userId, List<UUID> gameIds);
 
     boolean add(UUID userId, UUID gameId, Instant now);
@@ -26,6 +30,10 @@ public interface WishlistStore {
     void export(UUID userId, Consumer<ExportedWish> consume);
 
     record Page(List<Row> items, long totalItems) {}
+
+    record SharedPage(List<SharedRow> items, long totalItems) {}
+
+    record SharedRow(String id, String slug, String title, CatalogueCoverReference cover) {}
 
     record Row(
             String id,

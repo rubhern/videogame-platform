@@ -161,7 +161,8 @@ owns the selected statistics and calculation guarantees; the accepted MVP cut is
 games they want, then use **Mis deseados** to see what is coming up and narrow
 release discovery to those games. Players can put the games they most want first.
 The first version is private and game-level.
-Platform-specific wishes, alerts and sharing remain separate decisions.
+Platform-specific wishes and alerts remain separate decisions. The opt-in public
+profile is the only way a player can share their wishlist.
 See [the game library decision](../decisions/0050-store-private-game-wishes-in-the-catalogue.md)
 and [the wishlist use case](../architecture/application/mvp-use-cases.md#private-wishlist-uc-025-post-mvp-590).
 
@@ -188,15 +189,39 @@ count for each. The owner decided that:
 - **Mis juegos** offers to mark every rated game without a state **Completado** in one
   confirmed action, never automatically, and each game can be changed afterwards.
 
-States are private, included in export and deletion, and never affect community scores,
-rankings or attention. Public profiles ([#593](https://github.com/rubhern/videogame-platform/issues/593))
-and statistics by state remain separate decisions. See
+Playing states other than Deseado are private. All states are included in export and
+deletion and never affect community scores, rankings or attention. Statistics by
+state remain a separate decision. See
 [the state decision](../decisions/0051-keep-one-exclusive-personal-state-per-library-entry.md)
 and [the use case](../architecture/application/mvp-use-cases.md#personal-game-states-uc-026-post-mvp-591).
 
 The same friends who asked for a wishlist asked for backlog-style tracking. This is an
 early qualitative signal, not validated demand. The hypothesis is that the priority
 player, who already keeps a backlog elsewhere, will keep it in Gameómetro.
+
+## Opt-in public player profiles
+
+**Post-MVP, owner direction confirmed on 2026-11-24 (#593).** A player can choose
+a unique alias in **Mi perfil** and publish it at `/u/{alias}` with at least one of
+two sections: the player's game-level scores and **Deseados**. All switches start
+off. The player can open the published page from **Mi perfil**. Making the profile
+private withdraws it and clears both section choices. The first release is unlisted by search
+engines and uses the Gameómetro share image. Account identity, month of joining,
+playing states other than Deseado, avatars, reviews, following and activity feeds
+are outside this release. Written reviews can reuse the alias under a separate decision.
+
+An alias has 3–24 ASCII letters or digits, with single interior hyphens allowed.
+It is unique without regard to case. The player can change it 30 days after the
+previous choice. Reserved names, impersonation and abusive aliases are prohibited.
+Gameómetro can remove aliases on report. Aliases that were public are retired
+without a linked account so old links cannot name another player.
+
+Friends who tried the public release asked about seeing what other people play
+and sharing lists. That is an early qualitative signal. The hypothesis is that
+an explicitly shared profile gives players something worth sending to friends.
+See the [use case](../architecture/application/mvp-use-cases.md#public-player-profile-uc-027-post-mvp-593)
+and [ADR-0053](../decisions/0053-publish-revocable-player-profiles-by-alias.md).
+Public activation awaits owner acceptance.
 
 ## Personal discovery preferences
 

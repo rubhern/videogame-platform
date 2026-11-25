@@ -2,6 +2,7 @@ package com.videogameplatform.ratings.adapter.persistence;
 
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
+import com.videogameplatform.ratings.application.ListShareableRatings;
 import com.videogameplatform.ratings.application.PersonalRating;
 import com.videogameplatform.ratings.application.PersonalRatingsPage;
 import com.videogameplatform.ratings.application.PersonalRatingsReadException;
@@ -26,7 +27,8 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /** One database snapshot for the user-scoped count and bounded page. */
-public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsReadPort {
+public final class JdbcPersonalRatingsReadAdapter
+        implements PersonalRatingsReadPort, ListShareableRatings {
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
 
@@ -40,6 +42,66 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
     public PersonalRatingsPage read(String userId, Criteria criteria) {
         try {
             return Objects.requireNonNull(transaction.execute(status -> query(userId, criteria)));
+        } catch (DataAccessException | TransactionException | IllegalArgumentException failure) {
+            throw new PersonalRatingsReadException(failure);
+        }
+    }
+
+    @Override
+    public ListShareableRatings.Page listForSharing(
+            String userId, ListShareableRatings.Order order, int page, int pageSize) {
+        var criteria = new Criteria(List.of(), Sort.UPDATED, true, page, pageSize);
+        try {
+            return Objects.requireNonNull(
+                    transaction.execute(
+                            status -> {
+                                var parameters = PersonalRatingsSql.parameters(userId, criteria);
+                                long total =
+                                        jdbc.queryForObject(
+                                                PersonalRatingsSql.count(criteria),
+                                                parameters,
+                                                Long.class);
+                                if (criteria.offset() >= total)
+                                    return new ListShareableRatings.Page(List.of(), total);
+                                var items =
+                                        jdbc.query(
+                                                PersonalRatingsSql.shareablePage(criteria, order),
+                                                parameters,
+                                                (rs, row) ->
+                                                        new ListShareableRatings.Item(
+                                                                rs.getString("game_id"),
+                                                                rs.getString("slug"),
+                                                                rs.getString("canonical_title"),
+                                                                cover(rs),
+                                                                rs.getBigDecimal("shared_score")));
+                                return new ListShareableRatings.Page(items, total);
+                            }));
+        } catch (DataAccessException | TransactionException | IllegalArgumentException failure) {
+            throw new PersonalRatingsReadException(failure);
+        }
+    }
+
+    @Override
+    public ListShareableRatings.Statistics statisticsForSharing(String userId) {
+        var criteria = new Criteria(List.of(), Sort.UPDATED, true, 1, 1);
+        try {
+            return Objects.requireNonNull(
+                    transaction.execute(
+                            status ->
+                                    jdbc.queryForObject(
+                                            PersonalRatingsSql.shareableStatistics(criteria),
+                                            PersonalRatingsSql.parameters(userId, criteria),
+                                            (rs, row) ->
+                                                    new ListShareableRatings.Statistics(
+                                                            rs.getLong("total"),
+                                                            rs.getBigDecimal("mean"),
+                                                            rs.getBigDecimal("lowest"),
+                                                            rs.getBigDecimal("highest"),
+                                                            List.of(
+                                                                    (Long[])
+                                                                            rs.getArray(
+                                                                                            "distribution")
+                                                                                    .getArray())))));
         } catch (DataAccessException | TransactionException | IllegalArgumentException failure) {
             throw new PersonalRatingsReadException(failure);
         }

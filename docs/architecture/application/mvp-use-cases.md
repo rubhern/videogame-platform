@@ -870,3 +870,30 @@ an explicit retry, which may duplicate a message already accepted by the relay.
 
 See the [HTTP contract](../api/openapi.yaml) and
 [feedback processing record](../../development/data-protection.md#record-of-processing-activities).
+
+### Public player profile (UC-027, post-MVP #593)
+
+The current BFF principal can choose an alias and save visibility settings from
+**Mi perfil**. A missing assignment means private with every section off. Settings
+writes need a valid session, same-origin CSRF and the current revision if an
+assignment exists. An unavailable, reserved, malformed or too-recent alias change
+fails without updating the profile. A stale revision requires a fresh read.
+Publishing requires at least one shared section. Saving as private clears both
+sections. The published page is available from **Mi perfil**.
+
+A visitor opening `/u/{alias}` receives the public alias and the sections explicitly
+enabled. Ratings show one game score, including the contribution when it comes from
+scored platforms. Deseados shows saved games in the player's order. Both sections
+page in PostgreSQL and the game ID breaks ties. Ratings can be ordered by last
+rating update, score ascending, first known commercial release date descending,
+or the catalogue's stored IGDB Visits share descending. Missing dates and visit
+signals sort last. The public statistics read aggregates only the currently
+shared sections: ratings contribute their count, mean, extremes and distribution,
+and wishes contribute their count. Hiding a section makes it unavailable
+from the next read. Making the profile private withdraws the page and every section.
+An unknown, private or retired alias and an unavailable section return 404. Export
+and erasure cover the assignment and settings described in the
+[data-protection record](../../development/data-protection.md#record-of-processing-activities).
+
+See the [HTTP contract](../api/openapi.yaml) and
+[ADR-0053](../../decisions/0053-publish-revocable-player-profiles-by-alias.md).

@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.application.details;
 
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
+import java.time.LocalDate;
 import java.util.List;
 
 /** Provider-independent current catalogue context for bounded downstream read models. */
@@ -11,7 +12,9 @@ public record GameListing(
         String normalizedTitle,
         List<String> normalizedAliases,
         CatalogueCover cover,
-        List<GameDetailsResult.Term> genres) {
+        List<GameDetailsResult.Term> genres,
+        LocalDate firstReleaseOn,
+        Double catalogueVisits) {
     public GameListing {
         normalizedAliases = List.copyOf(normalizedAliases);
         genres = List.copyOf(genres);

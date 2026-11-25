@@ -19,6 +19,29 @@ automatic_id=admin.create(accounts["automatic"]["username"],accounts["automatic"
 automatic_user=str(uuid.UUID(bytes=hashlib.md5(f"{issuer}\n{automatic_id}".encode()).digest(),version=3))
 sessions_helper("login","automatic:AUTOMATIC_USERNAME:AUTOMATIC_PASSWORD:9")
 prefer_ps5(automatic_user)
+automatic_alias = "automatic-fixture-593"
+sql("videogame_platform", f"""
+    INSERT INTO identity.player_alias
+        (alias,user_id,chosen_at,revision,ever_published,published,share_ratings,share_wishlist)
+    VALUES ('{automatic_alias}','{automatic_user}',now(),gen_random_uuid(),true,true,true,true)
+    """)
+
+def automatic_alias_reserved():
+    return sql("videogame_platform", f"""
+        SELECT count(*) FROM identity.player_alias
+        WHERE alias = '{automatic_alias}' AND user_id IS NULL AND chosen_at IS NULL
+          AND revision IS NULL AND NOT published AND NOT share_ratings AND NOT share_wishlist
+        """) == "1"
+
+def read_public_alias(expected_status):
+    page = run(["docker", "exec", application, "wget", "-S", "-O", "-",
+                f"http://127.0.0.1:8080/u/{automatic_alias}"], check=False)
+    assert f"HTTP/1.1 {expected_status} ".encode() in page.stderr
+    if expected_status == 200:
+        assert b'name="robots" content="noindex"' in page.stdout
+        assert b'@' + automatic_alias.encode() in page.stdout
+
+read_public_alias(200)
 if not private_mode:
     automatic_dumps={database:run(["docker","exec",postgres,"pg_dump","-U","postgres","--format=custom",database]).stdout
         for database in ("videogame_platform","videogame_keycloak")}
@@ -47,6 +70,8 @@ try:
     wait_for("Automatic partial failure",lambda:ratings_of(automatic_user)==0 and sql("videogame_platform","SELECT count(*) FROM identity.account_deletion WHERE state='pending' AND claim IS NULL")=="1")
     assert admin.account(automatic_id)["enabled"] is False
     assert preferences_of(automatic_user)==0 and preferences_of(other_user)==1
+    assert automatic_alias_reserved()
+    read_public_alias(404)
     assert json.loads(sessions_helper("deletion-status","automatic"))["state"]=="pending"
     runner.terminate();runner.wait(timeout=30)
     # Re-start the automatic process; only disposable retry eligibility is advanced.
@@ -70,10 +95,13 @@ else:
         run(["docker","exec","-i",postgres,"pg_restore","-U","postgres","--clean","--if-exists",f"--dbname={database}"],stdin=dump)
     run(["docker","start",keycloak]);wait_for("Automatic replay identity",keycloak_ready)
     assert admin.account(automatic_id) is not None and ratings_of(automatic_user)==1
+    assert not automatic_alias_reserved()
     run([sys.executable,"-I",str(ledger_driver),"--ledger",config["ledger"],"--ledger-copy",config["ledger_copy"],"--host-command",host_command,
         "replay","--receipt",str(auto/"replay.json")])
     assert admin.account(automatic_id) is None and ratings_of(automatic_user)==0 and preferences_of(automatic_user)==0
+    assert automatic_alias_reserved()
     assert admin.account(other_id)["enabled"] is True and ratings_of(other_user)==1
     run(["docker","start",application]);wait_for("Automatic replay application",application_ready)
+    read_public_alias(404)
     run(["gpgconf","--homedir",str(keys),"--kill","gpg-agent"])
     print("Automatic self-service proven with real Keycloak/BFF/PostgreSQL: authenticated confirmation, automatic ledger execution, cross-system failure, process restart, verified status, other-account isolation and restored-backup replay.")

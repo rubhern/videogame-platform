@@ -1584,6 +1584,23 @@ succeeds; a failed read keeps the existing **Reintentar carga** recovery. Announ
 and move focus to the results after maintenance or pagination. Empty ratings, no search
 matches, an exhausted page and load failure remain distinct.
 
+## Public player profile
+
+On `/u/{alias}`, the alias anchors the opening, with **Denunciar perfil** beside
+it. The named share icon lives in **Mi perfil → Perfil público** and includes a
+short message with the link. Only shared lists have their own tabs. Keyboard
+arrows move between available tabs. Enter or Space opens the focused tab, and only
+the selected section loads its games.
+
+**Puntuaciones** uses the visual language of the personal ratings ledger: linked
+covers and titles, a thermal edge per row, and the G-meter with the score and its
+temperature in words. The score is a static reading. The active page's displayed
+covers light the opening through the shared stage. **Deseados** shows its games in
+cover cards in their saved order. The shared AppSelect orders **Puntuaciones** and
+returns to the first page on a change. Pagination returns focus to the section
+heading. **Estadísticas** groups the available counts and score extremes, then
+shows the mean on the G-meter and the ten score buckets with the shared histogram.
+
 ## Preferred platforms
 
 Post-MVP (#295, implemented; awaiting owner review). A signed-in player's preferred platforms

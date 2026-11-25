@@ -1,5 +1,6 @@
 package com.videogameplatform.ratings.adapter.persistence;
 
+import com.videogameplatform.ratings.application.ListShareableRatings.Order;
 import com.videogameplatform.ratings.application.port.PersonalRatingsReadPort.Criteria;
 import java.util.Map;
 import java.util.UUID;
@@ -8,6 +9,17 @@ import java.util.stream.Collectors;
 /** The production statements are also the source for reproducible query-plan evidence. */
 final class PersonalRatingsSql {
     private PersonalRatingsSql() {}
+
+    private static final String SHARED_BUCKETS =
+            java.util.stream.IntStream.rangeClosed(1, 10)
+                    .mapToObj(
+                            value ->
+                                    "count(*) FILTER (WHERE "
+                                            + ContributionMean.bucket("r.contribution")
+                                            + " = "
+                                            + value
+                                            + ")")
+                    .collect(Collectors.joining(", "));
 
     static final String GENRES =
             """
@@ -36,6 +48,39 @@ final class PersonalRatingsSql {
     }
 
     static String page(Criteria criteria) {
+        return page(criteria, "r.*");
+    }
+
+    static String shareablePage(Criteria criteria, Order order) {
+        String ordering =
+                switch (order) {
+                    case RATING_DATE -> "r.updated_at DESC";
+                    case SCORE -> "r.contribution ASC";
+                    case RELEASE_DATE -> "g.first_release_on DESC NULLS LAST";
+                    case INTEREST -> "g.catalogue_visits DESC NULLS LAST";
+                };
+        return """
+                SELECT r.game_id, round(r.contribution, 1) AS shared_score,
+                       g.slug, g.canonical_title, g.cover_kind, g.cover_reference,
+                       g.cover_alternative_text, g.cover_attribution, g.cover_source_url
+                """
+                + scope(criteria)
+                + " ORDER BY "
+                + ordering
+                + ", r.game_id ASC LIMIT :limit OFFSET :offset";
+    }
+
+    static String shareableStatistics(Criteria criteria) {
+        return "SELECT count(*) AS total, "
+                + ContributionMean.exposed("r.contribution")
+                + " AS mean, round(min(r.contribution), 1) AS lowest,"
+                + " round(max(r.contribution), 1) AS highest, ARRAY["
+                + SHARED_BUCKETS
+                + "] AS distribution "
+                + scope(criteria);
+    }
+
+    private static String page(Criteria criteria, String projection) {
         String key =
                 switch (criteria.sort()) {
                     case UPDATED -> "r.updated_at";
@@ -43,7 +88,9 @@ final class PersonalRatingsSql {
                     // A rating's value for ordering is its one unrounded contribution.
                     case VALUE -> "r.contribution";
                 };
-        return "SELECT r.*, g.slug, g.canonical_title, g.cover_kind, g.cover_reference, "
+        return "SELECT "
+                + projection
+                + ", g.slug, g.canonical_title, g.cover_kind, g.cover_reference, "
                 + "g.cover_alternative_text, g.cover_attribution, g.cover_source_url "
                 + scope(criteria)
                 + " ORDER BY "

@@ -10,6 +10,10 @@ public interface Wishlist {
 
     Page list(String userId, int page, int pageSize);
 
+    SharedPage listForSharing(String userId, int page, int pageSize);
+
+    long countForSharing(String userId);
+
     List<String> savedGameIds(String userId, List<String> gameIds);
 
     void add(String userId, String gameId);
@@ -21,6 +25,10 @@ public interface Wishlist {
     void export(String userId, Consumer<ExportedWish> consume);
 
     record Page(List<Game> items, long totalItems) {}
+
+    record SharedPage(List<SharedGame> items, long totalItems) {}
+
+    record SharedGame(String id, String slug, String title, CatalogueCover cover) {}
 
     record Game(
             String id,

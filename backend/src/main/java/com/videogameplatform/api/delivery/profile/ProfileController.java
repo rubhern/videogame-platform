@@ -11,6 +11,7 @@ import com.videogameplatform.identity.application.AccountOperationException;
 import com.videogameplatform.identity.application.CurrentUser;
 import com.videogameplatform.identity.application.CurrentUserUnavailableException;
 import com.videogameplatform.identity.application.DeletionExecutorAvailability;
+import com.videogameplatform.identity.application.PlayerProfiles;
 import com.videogameplatform.ratings.application.ExportPersonalRatings;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
@@ -51,6 +52,7 @@ public class ProfileController implements ProfileApi {
     private final CurrentUser user;
     private final AccountDeletionStore deletions;
     private final DeletionExecutorAvailability erasure;
+    private final PlayerProfiles playerProfiles;
     private final ExportPersonalRatings ratings;
     private final ExportPlatformPreferences preferences;
     private final Wishlist wishlist;
@@ -64,6 +66,7 @@ public class ProfileController implements ProfileApi {
             CurrentUser user,
             AccountDeletionStore deletions,
             DeletionExecutorAvailability erasure,
+            PlayerProfiles playerProfiles,
             ExportPersonalRatings ratings,
             ExportPlatformPreferences preferences,
             Wishlist wishlist,
@@ -75,6 +78,7 @@ public class ProfileController implements ProfileApi {
         this.user = user;
         this.deletions = deletions;
         this.erasure = erasure;
+        this.playerProfiles = playerProfiles;
         this.ratings = ratings;
         this.preferences = preferences;
         this.wishlist = wishlist;
@@ -110,6 +114,16 @@ public class ProfileController implements ProfileApi {
                 if (account.getEmail() != null)
                     generator.writeStringProperty("email", account.getEmail());
                 generator.writeEndObject();
+                var sharing = playerProfiles.settings(owner).orElse(null);
+                if (sharing != null) {
+                    generator.writeObjectPropertyStart("publicProfile");
+                    generator.writeStringProperty("alias", sharing.alias());
+                    generator.writeStringProperty("aliasChosenAt", sharing.chosenAt().toString());
+                    generator.writeBooleanProperty("published", sharing.published());
+                    generator.writeBooleanProperty("shareRatings", sharing.shareRatings());
+                    generator.writeBooleanProperty("shareWishlist", sharing.shareWishlist());
+                    generator.writeEndObject();
+                }
                 generator.writeArrayPropertyStart("ratings");
                 ratings.read(
                         owner,

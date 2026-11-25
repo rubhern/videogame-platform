@@ -12,6 +12,7 @@ function bff({ authenticated = true, profile = {}, deletion = 202, deletionState
     const request = input as Request;
     const path = new URL(request.url).pathname;
     if (path.endsWith("/session")) return Response.json(authenticated ? { authenticated: true, csrfToken: "proof" } : { authenticated: false });
+    if (path.endsWith("/me/public-profile")) return Response.json({ published: false, shareRatings: false, shareWishlist: false });
     if (path.endsWith("/me/profile")) return Response.json({ deletionAvailable: true, ...profile });
     if (path.endsWith("/me/account-deletion")) {
       commands.push(request.clone());
@@ -52,10 +53,10 @@ describe("Mi perfil", () => {
     expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toHaveAttribute("href", "/mis-puntuaciones");
     expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
   });
-  it("reads as three zones and states no backup or legal retention rule (#476)", async () => {
+  it("keeps account, sharing, export and erasure as separate sections", async () => {
     bff(); renderApp("/mi-perfil");
     const zones = await screen.findAllByRole("heading", { level: 2 });
-    expect(zones.map(zone => zone.textContent)).toEqual(["Tu cuenta", "Tus datos, contigo", "Eliminar mi cuenta"]);
+    expect(zones.map(zone => zone.textContent)).toEqual(["Tu cuenta", "Perfil público", "Tus datos, contigo", "Eliminar mi cuenta"]);
     expect(screen.queryByText(/copias de seguridad/)).not.toBeInTheDocument();
     expect(screen.queryByText(/obligaciones legales/)).not.toBeInTheDocument();
   });

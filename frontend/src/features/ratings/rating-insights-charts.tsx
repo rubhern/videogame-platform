@@ -11,20 +11,22 @@ const size = (property: string, value: number): CSSProperties => ({ [property]: 
  * band's count, and a fire needle marks the exact mean between the rounded columns. Every value
  * remains readable without colour, a pointer or SVG support.
  */
-export function RatingDistribution({ distribution, total, mean }: Pick<RatingInsights, "distribution" | "total" | "mean">) {
+export function RatingDistribution({ distribution, total, mean, audience = "owner" }:
+  Pick<RatingInsights, "distribution" | "total" | "mean"> & { audience?: "owner" | "visitor" }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const isOwner = audience === "owner";
   const max = Math.max(...distribution, 1);
   const count = selected === null ? 0 : distribution[selected - 1] ?? 0;
   return <section className="insights-distribution" aria-labelledby="distribution-title">
     <div className="insights-section-head">
-      <div><p className="insights-caption">De Congelado a Ardiendo</p><h2 id="distribution-title">Así puntúas</h2></div>
+      <div><p className="insights-caption">De Congelado a Ardiendo</p><h2 id="distribution-title">{isOwner ? "Así puntúas" : "Distribución de las notas"}</h2></div>
       <p>Cada juego, en su temperatura.<br />Toca una puntuación para acercarte.</p>
     </div>
     <div className="insights-scale">
       {mean === null ? null : <div className="insights-mean-needle" aria-hidden="true" style={{ ...size("--at", (mean - 0.5) / 10 * 100), ["--shift" as string]: mean < 1.8 ? "-12%" : mean > 9.2 ? "-88%" : "-50%" }}>
         <span className="insights-mean-label">Media {decimal(mean)}</span>
       </div>}
-      <div className="insights-histogram" role="group" aria-label="Distribución de tus puntuaciones">
+      <div className="insights-histogram" role="group" aria-label={isOwner ? "Distribución de tus puntuaciones" : "Distribución de las puntuaciones compartidas"}>
         {distribution.map((bucket, index) => {
           const value = index + 1;
           return <button type="button" key={value} data-thermal={thermalBand(value) ?? undefined}
@@ -38,7 +40,7 @@ export function RatingDistribution({ distribution, total, mean }: Pick<RatingIns
           </button>;
         })}
       </div>
-      <ul className="insights-bands" aria-label="Tus cinco temperaturas">
+      <ul className="insights-bands" aria-label={isOwner ? "Tus cinco temperaturas" : "Las cinco temperaturas del perfil"}>
         {THERMAL_BANDS.map((band, index) => {
           const bandCount = (distribution[index * 2] ?? 0) + (distribution[index * 2 + 1] ?? 0);
           return <li key={band} data-thermal={band}>
@@ -49,8 +51,8 @@ export function RatingDistribution({ distribution, total, mean }: Pick<RatingIns
       </ul>
     </div>
     <p className="insights-chart-readout" role="status">{selected === null
-      ? mean === null ? "" : `La aguja marca tu media exacta, ${decimal(mean)}. Cada columna reúne los juegos cuya puntuación se redondea a ese número.`
-      : `${selected} de 10 · ${thermalLabels[thermalBand(selected) ?? "warm"]} · ${games(count)} · ${percent(count, total)} de tu colección`}</p>
+      ? mean === null ? "" : `La aguja marca ${isOwner ? "tu media exacta" : "la media del perfil"}, ${decimal(mean)}. Cada columna reúne los juegos cuya puntuación se redondea a ese número.`
+      : `${selected} de 10 · ${thermalLabels[thermalBand(selected) ?? "warm"]} · ${games(count)} · ${percent(count, total)} de ${isOwner ? "tu colección" : "las puntuaciones compartidas"}`}</p>
   </section>;
 }
 
