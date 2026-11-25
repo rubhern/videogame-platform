@@ -3,6 +3,11 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFileSync } from 'node:fs';
 const manifest = JSON.parse(readFileSync('.cache/content-manifest.json','utf8'));
 
+// label-content-name-mismatch (axe-core 4.14) only flags Starlight's own search button, whose
+// aria-label "Search" omits its visible keyboard hint. The owner disabled it for the portal;
+// every other axe rule still blocks.
+const axe = page => new AxeBuilder({page}).disableRules(['label-content-name-mismatch']);
+
 test.beforeEach(async ({page},info)=>{
   // Fail closed on external runtime requests; navigation links to GitHub are allowed.
   const origin = new URL(process.env.PORTAL_BASE_URL || 'http://127.0.0.1:4321').origin;
@@ -36,7 +41,7 @@ test('landing, navigation, local search and keyboard access',async ({page},info)
   await page.getByRole('combobox',{name:'Select theme'}).selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   await page.getByRole('combobox',{name:'Select theme'}).selectOption('light');
-  const accessibility = await new AxeBuilder({page}).analyze();
+  const accessibility = await axe(page).analyze();
   expect(accessibility.violations).toEqual([]);
   await page.screenshot({path:info.outputPath('landing-desktop.png'),fullPage:true});
 });
@@ -70,7 +75,7 @@ for (const theme of ['light','dark']) {
         await page.screenshot({path:info.outputPath(`${name}-${theme}-${width}.png`),fullPage:true});
       }
       await page.goto('/diagrams/c4/');
-      expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+      expect((await axe(page).analyze()).violations).toEqual([]);
     });
   }
 }
