@@ -10,6 +10,7 @@ import { FeaturedReleasesPage } from "../pages/featured-releases-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { HomePage } from "../pages/home-page";
 import { NotFoundPage } from "../pages/not-found-page";
+import { PublicProfilePage } from "../pages/public-profile-page";
 import { PlatformCataloguePage } from "../pages/platform-catalogue-page";
 import { PlatformTopometroPage } from "../pages/platform-topometro-page";
 import { PlatformsPage } from "../pages/platforms-page";
@@ -54,6 +55,7 @@ export const appRoutes: RouteObject[] = [
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "mis-puntuaciones/estadisticas", element: <RatingInsightsPage /> },
       { path: "mi-perfil", element: <MyProfilePage /> },
+      { path: "u/:alias", element: <PublicProfilePage /> },
       { path: "mi-perfil/borrado", element: <AccountDeletionPage /> },
       { path: "mis-plataformas", element: <MyPlatformsPage /> },
       { path: "bienvenida", element: <WelcomePage /> },

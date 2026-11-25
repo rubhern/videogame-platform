@@ -95,6 +95,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/public-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read my alias and sharing settings
+         * @description The alias is absent and all switches are off for a new profile. No query parameters are accepted.
+         */
+        get: operations["getMyPublicProfileSettings"];
+        /**
+         * Save my alias and sharing settings
+         * @description Owner comes from the session. ASCII letters, digits and interior single hyphens,
+         *     3 to 24 characters; saved in lowercase. Reserved names are rejected. The alias can
+         *     change once every 30 days. A previously published alias is never reassigned.
+         *     Send the last settings revision, or omit it when claiming an initial alias.
+         *     Publishing requires at least one enabled section. Saving as private clears both
+         *     section switches regardless of their input values. Visibility and section changes
+         *     take effect together. No query parameters are accepted.
+         */
+        put: operations["updateMyPublicProfileSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{alias}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a published player profile
+         * @description An alias is case-insensitively looked up. A private, retired or missing profile returns
+         *     404. This representation is the same for every visitor. No query parameters are accepted.
+         */
+        get: operations["getPublicPlayerProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{alias}/sections/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page through an enabled section of a published profile
+         * @description The profile and section must both be available publicly on every read or the response
+         *     is 404. Ratings show the player's score out of 10. The optional rating sort
+         *     chooses the last rating update (newest first, the default), the player's score
+         *     (lowest first), the first known commercial release period (newest first), or
+         *     local catalogue interest (highest share of IGDB Visits first). Missing dates
+         *     and interest sort last. Wishlist uses the player's saved order and rejects
+         *     a rating sort. Every order uses game ID as its final tie-breaker.
+         */
+        get: operations["listPublicProfileSection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{alias}/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize the sections a player has publicly shared
+         * @description Returns only aggregates derived from the currently shared sections. Ratings have ten
+         *     buckets (1 to 10, half-up per game's score), a count and, when nonempty, mean, low and
+         *     high scores. Deseados contributes its count when shared. A private or retired profile
+         *     returns 404, as does a sharing change while preparing the response. No query parameters
+         *     are accepted.
+         */
+        get: operations["getPublicProfileStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/data-export": {
         parameters: {
             query?: never;
@@ -109,7 +210,8 @@ export interface paths {
          *     direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
          *     preferredPlatforms (configured, savedAt when configured, platforms), wishlist
          *     (gameId, title, addedAt, and one-based position of each Deseado game), and library
-         *     (gameId, title, state and stateChangedAt of every library entry). No credentials,
+         *     (gameId, title, state and stateChangedAt of every library entry), and publicProfile
+         *     (alias, current publication and section settings, and when the alias was chosen), when present. No credentials,
          *     tokens, provider payloads or other users' data. Reads one consistent local snapshot.
          *     Preparation is bounded to 10000 ratings, 10000 library entries, 16 MiB and 30 seconds; budget or source failure
          *     returns an error before any successful download, never a truncated successful export.
@@ -1511,6 +1613,57 @@ export interface components {
              * @description Optional single ASCII email address with a dot-atom local part and a fully qualified DNS domain. Omit when absent.
              */
             email?: string;
+        };
+        PublicProfileAliasValue: string;
+        /** @enum {string} */
+        PublicProfileRatingSort: "ratingDate" | "score" | "releaseDate" | "interest";
+        PublicProfileStatistics: {
+            ratings?: components["schemas"]["PublicProfileRatingStatistics"];
+            /** Format: int64 */
+            wishlistCount?: number;
+        };
+        PublicProfileRatingStatistics: {
+            /** Format: int64 */
+            total: number;
+            mean?: number;
+            lowest?: number;
+            highest?: number;
+            distribution: number[];
+        };
+        /** @enum {string} */
+        PublicProfileSection: "ratings" | "wishlist";
+        PublicProfileSettings: {
+            alias?: components["schemas"]["PublicProfileAliasValue"];
+            published: boolean;
+            shareRatings: boolean;
+            shareWishlist: boolean;
+            /** Format: uuid */
+            revision?: string;
+        };
+        PublicProfileSettingsCommand: {
+            alias: components["schemas"]["PublicProfileAliasValue"];
+            published: boolean;
+            shareRatings: boolean;
+            shareWishlist: boolean;
+            /** Format: uuid */
+            revision?: string;
+        };
+        PublicPlayerProfile: {
+            alias: components["schemas"]["PublicProfileAliasValue"];
+            sections: components["schemas"]["PublicProfileSection"][];
+        };
+        PublicProfileGamePage: {
+            items: components["schemas"]["PublicProfileGame"][];
+            page: components["schemas"]["PageMetadata"];
+        };
+        /** @description Slug and title are absent when a saved game is no longer available. */
+        PublicProfileGame: {
+            gameId: components["schemas"]["GameId"];
+            slug?: string;
+            canonicalTitle?: string;
+            primaryCover: components["schemas"]["Cover"];
+            /** @description The player's game score, present only in the ratings section. */
+            score?: number;
         };
         PrivateProfile: {
             name?: string;
@@ -3141,7 +3294,7 @@ export interface components {
             value?: number;
         };
         /** @enum {string} */
-        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "WISHLIST_GAME_NOT_FOUND" | "GAME_NOT_RELEASED" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
+        ProblemCode: "HISTORICAL_SYNCHRONIZATION_RANGE_INVALID" | "HISTORICAL_SYNCHRONIZATION_NOT_FOUND" | "TRANSLATION_EXECUTION_CONFLICT" | "HISTORICAL_SYNCHRONIZATION_CONFLICT" | "RECENT_AUTHENTICATION_REQUIRED" | "ACCOUNT_OPERATION_UNAVAILABLE" | "FEEDBACK_INVALID" | "FEEDBACK_UNAVAILABLE" | "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "SERVICE_MAINTENANCE" | "RATE_LIMITED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "PUBLIC_PROFILE_NOT_FOUND" | "PUBLIC_PROFILE_SECTION_REQUIRED" | "PUBLIC_ALIAS_UNAVAILABLE" | "PUBLIC_ALIAS_INVALID" | "PUBLIC_ALIAS_CHANGE_TOO_SOON" | "PUBLIC_PROFILE_REVISION_CONFLICT" | "GAME_NOT_FOUND" | "WISHLIST_GAME_NOT_FOUND" | "GAME_NOT_RELEASED" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_PLATFORMS_INVALID" | "RATING_SCORE_SOURCE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE" | "EDITORIAL_ATTENTION_FILE_INVALID" | "EDITORIAL_ATTENTION_RANGE_CONFLICT" | "EDITORIAL_ATTENTION_LIST_NOT_FOUND" | "PRODUCT_SETTING_INVALID" | "PRODUCT_SETTINGS_REVISION_CONFLICT";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -3225,6 +3378,39 @@ export interface components {
         };
         /** @description An invalid or unknown query parameter. */
         WishlistValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The profile or requested section is unavailable. */
+        PublicProfileNotFound: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The alias is unavailable, the change is too soon, or the revision is stale. */
+        PublicProfileConflict: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Invalid or unknown input, or publishing without at least one shared section. */
+        PublicProfileValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -3868,7 +4054,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Current-user ratings cannot be read consistently; no partial or cross-scope data is returned. */
+        /** @description The requested ratings cannot be read consistently; no partial or cross-scope data is returned. */
         PersonalRatingsReadFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -4053,6 +4239,21 @@ export interface components {
          * @example 1
          */
         Page: number;
+        /**
+         * @description Alias from the public URL. Unknown or malformed aliases are treated as absent.
+         * @example luna-8
+         */
+        PublicProfileAlias: string;
+        /**
+         * @description Optional order for the ratings section. Omit for newest rating first or when reading wishlist.
+         * @example score
+         */
+        PublicProfileRatingSortParameter: components["schemas"]["PublicProfileRatingSort"];
+        /**
+         * @description The section to read.
+         * @example ratings
+         */
+        PublicProfileSectionParameter: components["schemas"]["PublicProfileSection"];
         /** @example 20 */
         PageSize: number;
         /**
@@ -4351,6 +4552,231 @@ export interface operations {
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getMyPublicProfileSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current private sharing settings. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProfileSettings"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PublicProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    updateMyPublicProfileSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "alias": "luna-8",
+                 *       "published": true,
+                 *       "shareRatings": true,
+                 *       "shareWishlist": false
+                 *     }
+                 */
+                "application/json": components["schemas"]["PublicProfileSettingsCommand"];
+            };
+        };
+        responses: {
+            /** @description Saved private sharing settings. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProfileSettings"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["CsrfValidationFailed"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["PublicProfileConflict"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["PublicProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getPublicPlayerProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Alias from the public URL. Unknown or malformed aliases are treated as absent.
+                 * @example luna-8
+                 */
+                alias: components["parameters"]["PublicProfileAlias"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published alias and explicitly enabled sections. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPlayerProfile"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            404: components["responses"]["PublicProfileNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PublicProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    listPublicProfileSection: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Optional order for the ratings section. Omit for newest rating first or when reading wishlist.
+                 * @example score
+                 */
+                sort?: components["parameters"]["PublicProfileRatingSortParameter"];
+                /**
+                 * @description One-based page; a page beyond the last returns an empty page.
+                 * @example 1
+                 */
+                page?: components["parameters"]["Page"];
+                /** @example 20 */
+                pageSize?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                /**
+                 * @description Alias from the public URL. Unknown or malformed aliases are treated as absent.
+                 * @example luna-8
+                 */
+                alias: components["parameters"]["PublicProfileAlias"];
+                /**
+                 * @description The section to read.
+                 * @example ratings
+                 */
+                section: components["parameters"]["PublicProfileSectionParameter"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A deterministic page containing only the requested shared section. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProfileGamePage"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            404: components["responses"]["PublicProfileNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PublicProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["PersonalRatingsReadFailed"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getPublicProfileStatistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Alias from the public URL. Unknown or malformed aliases are treated as absent.
+                 * @example luna-8
+                 */
+                alias: components["parameters"]["PublicProfileAlias"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fixed-size aggregates of the published sections. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ratings": {
+                     *         "total": 3,
+                     *         "mean": 7.7,
+                     *         "lowest": 6,
+                     *         "highest": 9,
+                     *         "distribution": [
+                     *           0,
+                     *           0,
+                     *           0,
+                     *           0,
+                     *           0,
+                     *           1,
+                     *           0,
+                     *           1,
+                     *           1,
+                     *           0
+                     *         ]
+                     *       },
+                     *       "wishlistCount": 4
+                     *     }
+                     */
+                    "application/json": components["schemas"]["PublicProfileStatistics"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            404: components["responses"]["PublicProfileNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["PublicProfileValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["PersonalRatingsReadFailed"];
+            503: components["responses"]["CatalogueUnavailable"];
         };
     };
     exportMyData: {

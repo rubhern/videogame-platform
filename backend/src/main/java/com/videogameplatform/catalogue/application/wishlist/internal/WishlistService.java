@@ -50,6 +50,28 @@ public final class WishlistService implements Wishlist {
     }
 
     @Override
+    public SharedPage listForSharing(String userId, int page, int pageSize) {
+        var result =
+                store.listForSharing(UUID.fromString(userId), (page - 1L) * pageSize, pageSize);
+        return new SharedPage(
+                result.items().stream()
+                        .map(
+                                row ->
+                                        new SharedGame(
+                                                row.id(),
+                                                row.slug(),
+                                                row.title(),
+                                                covers.resolve(row.cover())))
+                        .toList(),
+                result.totalItems());
+    }
+
+    @Override
+    public long countForSharing(String userId) {
+        return store.countForSharing(UUID.fromString(userId));
+    }
+
+    @Override
     public List<String> savedGameIds(String userId, List<String> gameIds) {
         var ids =
                 gameIds.stream()

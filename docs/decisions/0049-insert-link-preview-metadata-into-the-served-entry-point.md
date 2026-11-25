@@ -127,3 +127,9 @@ there is no user-agent detection.
   JavaScript. #537 keeps its JSON-LD in the rendered game page, which needs no extra read here.
 - A preview client is shown to require something this document cannot carry.
 - The ADR-0001 image policy changes.
+
+## Public player profile extension (#593)
+
+[ADR-0053](0053-publish-revocable-player-profiles-by-alias.md) extends this insertion
+mechanism to explicitly published aliases. Its privacy policy owns metadata,
+indexing, freshness and status for those routes.

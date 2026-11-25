@@ -2,6 +2,7 @@ package com.videogameplatform.ratings.adapter.persistence;
 
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.details.GameListingChanged;
+import com.videogameplatform.catalogue.application.details.GameVisitsChanged;
 import com.videogameplatform.catalogue.application.details.GenreLabelChanged;
 import com.videogameplatform.catalogue.application.details.GetGameListingUseCase;
 import com.videogameplatform.ratings.application.port.GameListingProjection;
@@ -49,7 +50,9 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                                     .addValue("reference", null)
                                     .addValue("alternative", null)
                                     .addValue("attribution", null)
-                                    .addValue("source", null);
+                                    .addValue("source", null)
+                                    .addValue("firstRelease", game.firstReleaseOn())
+                                    .addValue("visits", game.catalogueVisits());
                     switch (game.cover()) {
                         case CatalogueCover.Provider cover ->
                                 params.addValue("kind", "provider")
@@ -68,13 +71,17 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                     jdbc.update(
                             """
                     INSERT INTO ratings.game_listing(game_id, slug, canonical_title, normalized_title,
-                        cover_kind, cover_reference, cover_alternative_text, cover_attribution, cover_source_url)
-                    VALUES (:game, :slug, :title, :normalized, :kind, :reference, :alternative, :attribution, :source)
+                        cover_kind, cover_reference, cover_alternative_text, cover_attribution, cover_source_url,
+                        first_release_on, catalogue_visits, profile_order_projected)
+                    VALUES (:game, :slug, :title, :normalized, :kind, :reference, :alternative, :attribution, :source,
+                        :firstRelease, :visits, true)
                     ON CONFLICT (game_id) DO UPDATE SET slug=EXCLUDED.slug,
                         canonical_title=EXCLUDED.canonical_title, normalized_title=EXCLUDED.normalized_title,
                         cover_kind=EXCLUDED.cover_kind, cover_reference=EXCLUDED.cover_reference,
                         cover_alternative_text=EXCLUDED.cover_alternative_text,
-                        cover_attribution=EXCLUDED.cover_attribution, cover_source_url=EXCLUDED.cover_source_url
+                        cover_attribution=EXCLUDED.cover_attribution, cover_source_url=EXCLUDED.cover_source_url,
+                        first_release_on=EXCLUDED.first_release_on, catalogue_visits=EXCLUDED.catalogue_visits,
+                        profile_order_projected=true
                     """,
                             params);
                     jdbc.update(
@@ -119,6 +126,32 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
         refresh(event.gameId());
     }
 
+    @EventListener
+    public void on(GameVisitsChanged event) {
+        // Use the same lock as a new rating's listing refresh, including games without a listing
+        // yet.
+        var games = event.samples().stream().map(GameVisitsChanged.Sample::gameId).toList();
+        jdbc.queryForList(
+                """
+                SELECT pg_advisory_xact_lock(hashtextextended(game_id::text, 32))
+                FROM (SELECT game_id FROM unnest(CAST(:games AS uuid[])) game_id ORDER BY game_id) keys
+                """,
+                Map.of(
+                        "games",
+                        "{" + String.join(",", games.stream().map(UUID::toString).toList()) + "}"));
+        jdbc.batchUpdate(
+                "UPDATE ratings.game_listing SET catalogue_visits = :visits WHERE game_id = :game",
+                event.samples().stream()
+                        .map(
+                                sample ->
+                                        new MapSqlParameterSource("game", sample.gameId())
+                                                .addValue(
+                                                        "visits",
+                                                        sample.share(),
+                                                        java.sql.Types.DOUBLE))
+                        .toArray(MapSqlParameterSource[]::new));
+    }
+
     /** Startup rebuild uses keyset batches of existing rated games, never all users' ratings in Java. */
     @Override
     public void run(ApplicationArguments arguments) {
@@ -128,7 +161,7 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                     jdbc.query(
                             """
                             SELECT r.game_id FROM ratings.rating r WHERE r.game_id > :after
-                              AND NOT EXISTS (SELECT 1 FROM ratings.game_listing g WHERE g.game_id=r.game_id AND g.genres_projected)
+                              AND NOT EXISTS (SELECT 1 FROM ratings.game_listing g WHERE g.game_id=r.game_id AND g.genres_projected AND g.profile_order_projected)
                             GROUP BY r.game_id ORDER BY r.game_id LIMIT 100
                     """,
                             Map.of("after", after),

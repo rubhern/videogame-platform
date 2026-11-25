@@ -25,6 +25,8 @@ public final class GameListingService implements GetGameListingUseCase {
                 item.normalizedTitle(),
                 item.normalizedAliases(),
                 covers.resolve(item.cover()),
-                item.genres());
+                item.genres(),
+                item.firstReleaseOn(),
+                item.catalogueVisits());
     }
 }

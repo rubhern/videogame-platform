@@ -3080,3 +3080,35 @@ Every deployment then holds the unit to its reviewed `ExecStart`, repoints it an
 onto the new release without waiting; the runner first finishes its current erasure. To refuse
 new requests, stop the unit: within 60 seconds the profile reports deletion unavailable, and
 pending requests stay blocked and resume when it starts again.
+
+## Moderate a public player profile
+
+A profile's **Denunciar perfil** action opens the existing contact form with its
+alias. Review the report in the protected owner mailbox. Verify the reported
+alias and grounds before taking action. Record the decision and communicate it
+through the existing support procedure when a reply is possible. Follow the
+[data-protection record](../../docs/development/data-protection.md#record-of-processing-activities)
+for any correspondence retained.
+
+To reset a reviewed alias, use the production PostgreSQL container from the active
+deployment on the protected host. Pass the confirmed lowercase spelling as a psql
+variable, and use the same checked container selection as for other production
+database operations:
+
+```bash
+docker exec -i "$production_postgres_container" gosu postgres psql -XAt \
+  --set=ON_ERROR_STOP=1 --set=alias="$confirmed_public_alias" --dbname=videogame_platform <<'SQL'
+SELECT identity.retire_player_alias(NULL, :'alias');
+SQL
+```
+
+`t` means the assignment was reset. `f` means no current assignment matched.
+Verify that HTML and JSON now return 404. The account can choose a different alias
+and must opt in again. A retired public alias cannot be claimed by another account.
+
+When recovering a candidate that can predate visibility changes, keep public
+ingress fenced until replay and profile review are complete. If current opt-ins
+cannot be established, withdraw the candidate's published settings before reopening.
+Clear both section switches in the same write and let players explicitly republish. A reviewed restoration source must include
+the alias reservations it is expected to preserve. Reserving a spelling absent
+from every recoverable snapshot requires separate evidence of that spelling.

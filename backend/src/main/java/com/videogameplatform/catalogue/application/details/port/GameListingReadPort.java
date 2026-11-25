@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.application.details.port;
 
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,5 +16,7 @@ public interface GameListingReadPort {
             String normalizedTitle,
             List<String> normalizedAliases,
             CatalogueCoverReference cover,
-            List<GameDetailsResult.Term> genres) {}
+            List<GameDetailsResult.Term> genres,
+            LocalDate firstReleaseOn,
+            Double catalogueVisits) {}
 }

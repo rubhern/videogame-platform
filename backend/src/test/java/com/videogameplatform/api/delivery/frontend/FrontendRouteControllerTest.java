@@ -1,6 +1,8 @@
 package com.videogameplatform.api.delivery.frontend;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -9,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.sharing.GetSharePreviewUseCase;
+import com.videogameplatform.identity.application.PlayerProfiles;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +42,7 @@ class FrontendRouteControllerTest {
     private static final String PS5 = "10000000-0000-4000-8000-000000000001";
 
     private final FakePreviews previews = new FakePreviews();
+    private final PlayerProfiles profiles = mock(PlayerProfiles.class);
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -47,8 +51,37 @@ class FrontendRouteControllerTest {
                 MockMvcBuilders.standaloneSetup(
                                 new FrontendRouteController(
                                         new FrontendDocument(TEMPLATE),
-                                        new PageMetadataResolver(previews)))
+                                        new PageMetadataResolver(previews, profiles)))
                         .build();
+    }
+
+    @Test
+    void publicAliasHasUnstoredNoindexPreviewAndRevocationKeepsAReal404() throws Exception {
+        when(profiles.published("LUNA"))
+                .thenReturn(
+                        Optional.of(
+                                new PlayerProfiles.Published(
+                                        "private-owner-id", "luna", true, false)));
+        var visible =
+                mockMvc.perform(get("/u/LUNA"))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(header().doesNotExist("ETag"))
+                        .andReturn();
+        assertThat(visible.getResponse().getContentAsString())
+                .contains("<meta name=\"robots\" content=\"noindex\" />")
+                .contains("<meta property=\"og:title\" content=\"@luna · Gameómetro\" />")
+                .contains("http://localhost/u/luna")
+                .doesNotContain("private-owner-id");
+
+        when(profiles.published("LUNA")).thenReturn(Optional.empty());
+        var hidden =
+                mockMvc.perform(get("/u/LUNA").header("If-None-Match", "*"))
+                        .andExpect(status().isNotFound())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn();
+        assertThat(hidden.getResponse().getContentAsString())
+                .doesNotContain("@luna", "http://localhost/u/luna");
     }
 
     @Test

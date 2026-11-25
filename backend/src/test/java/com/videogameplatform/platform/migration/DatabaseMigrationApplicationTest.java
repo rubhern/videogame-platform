@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(49);
+                    .isEqualTo(52);
             assertThat(
                             singleString(
                                     statement,
@@ -64,6 +64,62 @@ class DatabaseMigrationApplicationTest {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(databaseName);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game")).isZero();
+        }
+    }
+
+    @Test
+    void profileSectionUpgradeWithdrawsAliasOnlyProfilesAndClearsPrivateSwitches()
+            throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("profile_sections_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        var configuration =
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(database),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration");
+        configuration.target("20261124.140000").load().migrate();
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    """
+                    INSERT INTO identity.player_alias
+                        (alias, user_id, chosen_at, revision, ever_published, published,
+                         share_ratings, share_wishlist)
+                    VALUES ('alias-only', gen_random_uuid(), now(), gen_random_uuid(), true, true, false, false),
+                        ('private-switch', gen_random_uuid(), now(), gen_random_uuid(), false, false, true, false),
+                        ('shared-profile', gen_random_uuid(), now(), gen_random_uuid(), true, true, false, true)
+                    """);
+        }
+        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(2);
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    """
+                    SELECT count(*) FROM identity.player_alias
+                    WHERE alias IN ('alias-only','private-switch')
+                      AND NOT published AND NOT share_ratings AND NOT share_wishlist
+                    """))
+                    .isEqualTo(2);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    """
+                    SELECT count(*) FROM identity.player_alias
+                    WHERE alias = 'alias-only' AND ever_published
+                    """))
+                    .isEqualTo(1);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    """
+                    SELECT count(*) FROM identity.player_alias
+                    WHERE alias = 'shared-profile' AND published AND share_wishlist
+                    """))
+                    .isEqualTo(1);
         }
     }
 
@@ -228,7 +284,7 @@ class DatabaseMigrationApplicationTest {
                     ('00000000-0000-4000-8000-000000000100', '00000000-0000-4000-8000-000000000002', now(), 7);
                 """);
         }
-        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(configuration.target("latest").load().migrate().migrationsExecuted).isEqualTo(6);
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
                 var statement = connection.createStatement()) {
             assertThat(
@@ -284,7 +340,7 @@ class DatabaseMigrationApplicationTest {
         }
 
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(17);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(20);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
@@ -330,7 +386,7 @@ class DatabaseMigrationApplicationTest {
                     """);
         }
         var flyway = configuration.target("latest").load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(14);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(17);
         flyway.validate();
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         try (var connection = PostgreSqlTestDatabase.adminConnection(database);

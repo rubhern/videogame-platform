@@ -7,11 +7,13 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.catalogue.application.details.GameVisitsChanged;
 import com.videogameplatform.identity.application.AccountDeletionStore;
 import com.videogameplatform.identity.application.DeletionExecutorAvailability;
 import com.videogameplatform.identity.domain.UserId;
@@ -20,7 +22,10 @@ import jakarta.servlet.http.Cookie;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -39,6 +45,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /** Real Flyway/PostgreSQL, BFF authorization and generated HTTP contracts, no live identity service. */
@@ -51,10 +59,14 @@ class ProfileApiIntegrationTest {
     static final String ALICE = "00000000-0000-4000-8000-0000000000a1";
     static final String BOB = "00000000-0000-4000-8000-0000000000b1";
     static final String PROFILE = "/api/v1/me/profile";
+    static final String SHARING = "/api/v1/me/public-profile";
+    static final String PUBLIC = "/api/v1/profiles/";
     static final String DELETE = "/api/v1/me/account-deletion";
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired AccountDeletionStore store;
+    @Autowired ApplicationEventPublisher events;
+    @Autowired PlatformTransactionManager transactions;
     @MockitoBean DeletionExecutorAvailability erasure;
 
     JdbcTemplate admin;
@@ -73,6 +85,8 @@ class ProfileApiIntegrationTest {
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword()));
         admin.update("DELETE FROM identity.account_deletion");
+        admin.update("DELETE FROM identity.player_alias");
+        admin.update("DELETE FROM catalogue.game_library_entry");
         admin.update("DELETE FROM ratings.rating");
         admin.update("DELETE FROM catalogue.platform_preference_choice");
         when(erasure.available()).thenReturn(true);
@@ -90,6 +104,358 @@ class ProfileApiIntegrationTest {
 
     static String owner(String subject) {
         return UserId.fromIssuerAndSubject(ISSUER, subject).value();
+    }
+
+    @Test
+    void optedInSectionsShareOnlyPublicFieldsAndRevocationAppliesToTheNextRead() throws Exception {
+        var games =
+                admin.queryForList(
+                        "SELECT game_id::text FROM catalogue.game ORDER BY game_id LIMIT 2",
+                        String.class);
+        admin.update(
+                """
+                INSERT INTO ratings.game_listing (game_id, slug, canonical_title, normalized_title, cover_kind)
+                SELECT s.game_id, s.slug, s.canonical_title, lower(s.canonical_title), 'unavailable'
+                FROM catalogue.game_snapshot s
+                JOIN catalogue.catalogue_publication p ON p.publication_id = s.publication_id AND p.is_current
+                WHERE s.game_id IN (?::uuid, ?::uuid) ON CONFLICT (game_id) DO NOTHING
+                """,
+                games.getFirst(),
+                games.getLast());
+        assertThat(games).hasSize(2);
+        var first = games.getFirst();
+        var second = games.getLast();
+        rating(ALICE, first, 8);
+        rating(ALICE, second, 7);
+        rating(BOB, first, 1);
+        admin.update(
+                "UPDATE ratings.rating SET updated_at = '2026-11-20T12:00:00Z', "
+                        + "created_at = '2026-11-20T12:00:00Z'");
+        for (String game : List.of(second, first)) {
+            mvc.perform(
+                            put("/api/v1/me/wishlist/games/" + game)
+                                    .with(login(ALICE))
+                                    .with(csrf().asHeader()))
+                    .andExpect(status().isNoContent());
+        }
+        mvc.perform(get(SHARING)).andExpect(status().isUnauthorized());
+        mvc.perform(get(SHARING).with(login(ALICE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.published").value(false))
+                .andExpect(jsonPath("$.alias").doesNotExist());
+        mvc.perform(get(PUBLIC + "luna")).andExpect(status().isNotFound());
+
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody("luna", null, true, false, false)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("PUBLIC_PROFILE_SECTION_REQUIRED"));
+        mvc.perform(get(SHARING).with(login(ALICE))).andExpect(jsonPath("$.alias").doesNotExist());
+        var revision = saveSharing(ALICE, "LuNa", null, false, true, true);
+        mvc.perform(get(SHARING).with(login(ALICE)))
+                .andExpect(jsonPath("$.shareRatings").value(false))
+                .andExpect(jsonPath("$.shareWishlist").value(false));
+        mvc.perform(get(PUBLIC + "luna").with(login(ALICE))).andExpect(status().isNotFound());
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(ALICE))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody("luna", revision, true, true, true)))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(BOB))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .queryParam("userId", owner(ALICE))
+                                .content(sharingBody("luna", revision, true, true, true)))
+                .andExpect(status().isUnprocessableContent());
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(BOB))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody("luna", revision, true, true, true)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PUBLIC_PROFILE_REVISION_CONFLICT"));
+
+        revision = saveSharing(ALICE, "luna", revision, true, true, true);
+        var header =
+                mvc.perform(get(PUBLIC + "LUNA"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.alias").value("luna"))
+                        .andExpect(jsonPath("$.sections.length()").value(2))
+                        .andExpect(jsonPath("$.sections[0]").value("ratings"))
+                        .andExpect(jsonPath("$.sections[1]").value("wishlist"))
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn()
+                        .getResponse();
+        OpenApiResponseContract.load("/profiles/{alias}")
+                .assertJsonResponse(header, 200, "PublicPlayerProfile");
+        admin.update(
+                "UPDATE ratings.game_listing SET first_release_on = DATE '2021-01-01' WHERE game_id = ?::uuid",
+                first);
+        admin.update(
+                "UPDATE ratings.game_listing SET first_release_on = DATE '2025-01-01' WHERE game_id = ?::uuid",
+                second);
+        new TransactionTemplate(transactions)
+                .executeWithoutResult(
+                        status ->
+                                events.publishEvent(
+                                        new GameVisitsChanged(
+                                                List.of(
+                                                        new GameVisitsChanged.Sample(
+                                                                UUID.fromString(first), 0.1),
+                                                        new GameVisitsChanged.Sample(
+                                                                UUID.fromString(second), 0.4)))));
+        for (String sort : List.of("score", "releaseDate", "interest")) {
+            mvc.perform(
+                            get(PUBLIC + "luna/sections/ratings")
+                                    .param("sort", sort)
+                                    .param("pageSize", "1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.items[0].gameId").value(second));
+        }
+        mvc.perform(
+                        get(PUBLIC + "luna/sections/ratings")
+                                .param("sort", "ratingDate")
+                                .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].gameId").value(first));
+        mvc.perform(get(PUBLIC + "luna/sections/wishlist").param("sort", "interest"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("SORT_INVALID"));
+
+        new TransactionTemplate(transactions)
+                .executeWithoutResult(
+                        status ->
+                                events.publishEvent(
+                                        new GameVisitsChanged(
+                                                List.of(
+                                                        new GameVisitsChanged.Sample(
+                                                                UUID.fromString(second), null)))));
+        mvc.perform(
+                        get(PUBLIC + "luna/sections/ratings")
+                                .param("sort", "interest")
+                                .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].gameId").value(first));
+
+        var statistics =
+                mvc.perform(get(PUBLIC + "luna/statistics"))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.ratings.total").value(2))
+                        .andExpect(jsonPath("$.ratings.mean").value(7.5))
+                        .andExpect(jsonPath("$.ratings.lowest").value(7))
+                        .andExpect(jsonPath("$.ratings.highest").value(8))
+                        .andExpect(jsonPath("$.ratings.distribution.length()").value(10))
+                        .andExpect(jsonPath("$.ratings.distribution[6]").value(1))
+                        .andExpect(jsonPath("$.ratings.distribution[7]").value(1))
+                        .andExpect(jsonPath("$.wishlistCount").value(2))
+                        .andReturn()
+                        .getResponse();
+        OpenApiResponseContract.load("/profiles/{alias}/statistics")
+                .assertJsonResponse(statistics, 200, "PublicProfileStatistics");
+        var ratingPage =
+                mvc.perform(
+                                get(PUBLIC + "luna/sections/ratings")
+                                        .with(login(BOB))
+                                        .param("pageSize", "1"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.page.totalItems").value(2))
+                        .andExpect(jsonPath("$.items.length()").value(1))
+                        .andExpect(jsonPath("$.items[0].gameId").value(first))
+                        .andExpect(jsonPath("$.items[0].score").value(8))
+                        .andReturn()
+                        .getResponse();
+        OpenApiResponseContract.load("/profiles/{alias}/sections/{section}")
+                .assertJsonResponse(ratingPage, 200, "PublicProfileGamePage");
+        assertThat(ratingPage.getContentAsString())
+                .doesNotContain(
+                        "private@example.test",
+                        owner(ALICE),
+                        owner(BOB),
+                        ALICE,
+                        "email",
+                        "userId",
+                        "subject",
+                        "versionToken",
+                        "revision",
+                        "updatedAt",
+                        "platforms");
+        mvc.perform(get(PUBLIC + "luna/sections/ratings").param("page", "2").param("pageSize", "1"))
+                .andExpect(jsonPath("$.items[0].gameId").value(second));
+        mvc.perform(get(PUBLIC + "luna/sections/wishlist").param("pageSize", "1"))
+                .andExpect(jsonPath("$.items[0].gameId").value(second))
+                .andExpect(jsonPath("$.items[0].score").doesNotExist());
+
+        mvc.perform(get("/api/v1/me/data-export").with(login(ALICE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicProfile.alias").value("luna"))
+                .andExpect(jsonPath("$.publicProfile.shareRatings").value(true));
+        mvc.perform(get("/api/v1/me/data-export").with(login(BOB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicProfile").doesNotExist());
+
+        revision = saveSharing(ALICE, "luna", revision, true, false, true);
+        mvc.perform(get(PUBLIC + "luna/sections/ratings").header("If-None-Match", "*"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PUBLIC_PROFILE_NOT_FOUND"));
+        mvc.perform(get(PUBLIC + "luna/sections/wishlist")).andExpect(status().isOk());
+        mvc.perform(get(PUBLIC + "luna/statistics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ratings").doesNotExist())
+                .andExpect(jsonPath("$.wishlistCount").value(2));
+        saveSharing(ALICE, "luna", revision, false, false, true);
+        mvc.perform(get(SHARING).with(login(ALICE)))
+                .andExpect(jsonPath("$.published").value(false))
+                .andExpect(jsonPath("$.shareRatings").value(false))
+                .andExpect(jsonPath("$.shareWishlist").value(false));
+        mvc.perform(get(PUBLIC + "luna")).andExpect(status().isNotFound());
+        mvc.perform(get(PUBLIC + "luna/sections/wishlist")).andExpect(status().isNotFound());
+        mvc.perform(get(PUBLIC + "luna/statistics")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void caseInsensitiveClaimRenameResetAndErasurePreserveAliasOwnership() throws Exception {
+        for (String alias : List.of("Gameometro", "a--b", "niño", "ab", "23-")) {
+            mvc.perform(
+                            put(SHARING)
+                                    .with(login(ALICE))
+                                    .with(csrf().asHeader())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(sharingBody(alias, null, false, false, false)))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("PUBLIC_ALIAS_INVALID"));
+        }
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var claims =
+                    executor.invokeAll(
+                            List.<Callable<Integer>>of(
+                                    () -> claimStatus(ALICE, "Noche"),
+                                    () -> claimStatus(BOB, "noche")));
+            assertThat(List.of(claims.getFirst().get(), claims.getLast().get()))
+                    .containsExactlyInAnyOrder(200, 409);
+        }
+        String moderatorFixture = "00000000-0000-4000-8000-0000000000c1";
+        var revision = saveSharing(moderatorFixture, "estrella", null, true, true, false);
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(moderatorFixture))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody("nueva", revision, true, true, false)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PUBLIC_ALIAS_CHANGE_TOO_SOON"));
+        admin.update(
+                "UPDATE identity.player_alias SET chosen_at = now() - interval '31 days' WHERE alias = 'estrella'");
+        saveSharing(moderatorFixture, "nueva", revision, true, true, false);
+        mvc.perform(get(PUBLIC + "estrella")).andExpect(status().isNotFound());
+        assertThat(claimStatus(UUID.randomUUID().toString(), "Estrella")).isEqualTo(409);
+
+        assertThat(
+                        store.admit(
+                                owner(moderatorFixture),
+                                moderatorFixture,
+                                UUID.randomUUID().toString(),
+                                "a".repeat(64),
+                                Instant.now()))
+                .isTrue();
+        mvc.perform(get(PUBLIC + "nueva")).andExpect(status().isNotFound());
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT identity.retire_player_alias(?::uuid, NULL)",
+                                Boolean.class,
+                                owner(moderatorFixture)))
+                .isTrue();
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT identity.retire_player_alias(?::uuid, NULL)",
+                                Boolean.class,
+                                owner(moderatorFixture)))
+                .isFalse();
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT count(*) FROM identity.player_alias WHERE alias IN ('estrella','nueva') "
+                                        + "AND user_id IS NULL AND chosen_at IS NULL AND revision IS NULL",
+                                Long.class))
+                .isEqualTo(2L);
+        assertThat(claimStatus(UUID.randomUUID().toString(), "NUEVA")).isEqualTo(409);
+    }
+
+    @Test
+    void operatorResetWithdrawsTheAliasAndInvalidatesOlderSettings() throws Exception {
+        var revision = saveSharing(ALICE, "reportado", null, true, true, true);
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT identity.retire_player_alias(NULL, ?)",
+                                Boolean.class,
+                                "reportado"))
+                .isTrue();
+        mvc.perform(get(PUBLIC + "reportado")).andExpect(status().isNotFound());
+        mvc.perform(
+                        put(SHARING)
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody("reportado", revision, true, true, true)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PUBLIC_PROFILE_REVISION_CONFLICT"));
+        assertThat(claimStatus(BOB, "REPORTADO")).isEqualTo(409);
+        saveSharing(ALICE, "nuevo-alias", null, false, false, false);
+        mvc.perform(get(PUBLIC + "nuevo-alias")).andExpect(status().isNotFound());
+    }
+
+    private int claimStatus(String subject, String alias) throws Exception {
+        return mvc.perform(
+                        put(SHARING)
+                                .with(login(subject))
+                                .with(csrf().asHeader())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(sharingBody(alias, null, false, false, false)))
+                .andReturn()
+                .getResponse()
+                .getStatus();
+    }
+
+    private String saveSharing(
+            String subject,
+            String alias,
+            String revision,
+            boolean published,
+            boolean ratings,
+            boolean wishlist)
+            throws Exception {
+        var response =
+                mvc.perform(
+                                put(SHARING)
+                                        .with(login(subject))
+                                        .with(csrf().asHeader())
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                sharingBody(
+                                                        alias, revision, published, ratings,
+                                                        wishlist)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse();
+        return json.readTree(response.getContentAsString()).path("revision").asText();
+    }
+
+    private String sharingBody(
+            String alias, String revision, boolean published, boolean ratings, boolean wishlist) {
+        var command =
+                json.createObjectNode()
+                        .put("alias", alias)
+                        .put("published", published)
+                        .put("shareRatings", ratings)
+                        .put("shareWishlist", wishlist);
+        if (revision != null) command.put("revision", revision);
+        return command.toString();
     }
 
     @Test

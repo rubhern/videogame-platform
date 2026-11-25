@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { FeedbackError, submitFeedback, type FeedbackCategory } from "../features/feedback/feedback-api";
+import { isPlayerAlias } from "../features/profile/public-profile-api";
 import { HeroTitle } from "../shared/ui/hero-title";
 
 const title = "Contacto y sugerencias";
@@ -30,10 +31,12 @@ function fieldFor(error: FeedbackError): Field | null {
 
 export function ContactPage() {
   const [params] = useSearchParams();
+  const alias = params.get("perfil") ?? "";
+  const reportedAlias = isPlayerAlias(alias) ? alias : null;
   const [category, setCategory] = useState<FeedbackCategory | "">(
-    params.get("motivo") === "datos" ? "incorrect_game_information" : "",
+    reportedAlias ? "other" : params.get("motivo") === "datos" ? "incorrect_game_information" : "",
   );
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(reportedAlias ? `Quiero denunciar el perfil @${reportedAlias}. Motivo: ` : "");
   const [email, setEmail] = useState("");
   const [invalid, setInvalid] = useState<Field | null>(null);
   const [status, setStatus] = useState<"idle" | "sent" | "unconfirmed" | "busy" | "throttled" | "rejected">("idle");

@@ -372,6 +372,31 @@ class Runtime:
                 raise ProvisioningError("Wishlist erasure row budget reached; retry the same ledger entry")
         return total
 
+    def has_public_profiles(self, user_id: str) -> bool:
+        # Restore candidates can predate #593.
+        return self.sql("SELECT to_regclass('identity.player_alias') IS NOT NULL;\n", user_id) == "t"
+
+    def public_profile(self, user_id: str) -> dict[str, object] | None:
+        if not self.has_public_profiles(user_id):
+            return None
+        row = self.sql("""
+            SELECT json_build_object(
+                'alias', alias, 'published', published, 'shareRatings', share_ratings,
+                'shareWishlist', share_wishlist,
+                'aliasChosenAt', to_char(chosen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+            FROM identity.player_alias WHERE user_id = :'user_id';
+            """, user_id)
+        return json.loads(row) if row else None
+
+    def has_player_alias(self, user_id: str) -> bool:
+        return self.has_public_profiles(user_id) and self.sql(
+            "SELECT EXISTS (SELECT 1 FROM identity.player_alias WHERE user_id = :'user_id');\n",
+            user_id) == "t"
+
+    def erase_player_alias(self, user_id: str) -> bool:
+        return self.has_public_profiles(user_id) and self.sql(
+            "SELECT identity.retire_player_alias(:'user_id'::uuid, NULL);\n", user_id) == "t"
+
     # BFF sessions ----------------------------------------------------------------------------
 
     def application_running(self) -> bool:
@@ -537,6 +562,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         ({"provider": link.get("identityProvider"), "providerUserId": link.get("userId"),
           "providerUsername": link.get("userName")} for link in runtime.linked_providers(keycloak_user_id)),
         key=lambda link: str(link["provider"]))
+    public_profile = runtime.public_profile(user_id)
     return {
         "format": EXPORT_FORMAT,
         "version": 1,
@@ -549,6 +575,7 @@ def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "preferredPlatforms": runtime.preferred_platforms(user_id),
         "wishlist": runtime.wishlist(user_id),
         "library": runtime.library(user_id),
+        **({"publicProfile": public_profile} if public_profile is not None else {}),
     }
 
 
@@ -587,10 +614,11 @@ def delete_ratings(runtime: Runtime, keycloak_user_id: str, user_id: str, must_b
     if account is not None and account.get("enabled"):
         raise ProvisioningError("The account is enabled; revoke it before deleting its ratings")
     # The step keeps its recorded name; it removes every product-owned personal row, the
-    # preferred platforms and the wishlist included, so existing ledger entries replay unchanged.
+    # preferred platforms, library and public profile included. Existing ledger entries still replay.
     return {"step": "delete-ratings", "deletedRatings": runtime.delete_ratings(user_id),
             "deletedPreferredPlatformChoices": runtime.delete_preferences(user_id),
-            "deletedWishes": runtime.delete_wishes(user_id)}
+            "deletedWishes": runtime.delete_wishes(user_id),
+            "removedPlayerAlias": runtime.erase_player_alias(user_id)}
 
 
 def delete_identity(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
@@ -599,6 +627,8 @@ def delete_identity(runtime: Runtime, keycloak_user_id: str, user_id: str, must_
         raise ProvisioningError("The account still has ratings; delete them before the identity")
     if runtime.wish_count(user_id):
         raise ProvisioningError("The account still has saved games; erase them before deleting its identity")
+    if runtime.has_player_alias(user_id):
+        raise ProvisioningError("The account still has a player alias; erase it before deleting its identity")
     if runtime.account(keycloak_user_id) is None:
         return {"step": "delete-identity", "identity": "already-absent"}
     runtime.keycloak("DELETE", f"/users/{keycloak_user_id}", missing_ok=True)
@@ -618,6 +648,8 @@ def verify(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stoppe
         failures.append("preferred platforms remain")
     if runtime.wish_count(user_id):
         failures.append("saved games remain")
+    if runtime.has_player_alias(user_id):
+        failures.append("a player alias is still linked to the account")
     if running and runtime.revoke_bff_sessions(user_id):
         failures.append("BFF sessions remained")
     if failures:

@@ -22,10 +22,10 @@ identity, and provider-independent local catalogue data.
 
 These constraints are current and binding:
 
-- Operation is non-commercial and best effort. Public production has run since
-  2026-11-08 by owner go; its acceptance record is
-  `docs/research/public-production-release-acceptance.md`. The Product Brief owns the
-  public-release direction and bounded budget. A business model and distributed
+- Operation is non-commercial and best effort. Public production has served
+  `gameometro.com` with open registration since 2026-11-08, by
+  [owner acceptance](docs/research/public-production-release-acceptance.md).
+  The Product Brief owns the public-release direction and bounded budget. A business model and distributed
   architecture are not approved. See [public release](docs/product/product-brief.md#public-release-and-sustainability).
 - No services may be contracted or paid alternatives provisioned silently. Public
   production requires the separate purchase and exposure gates in the

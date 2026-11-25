@@ -26,7 +26,7 @@ public final class JdbcWishlistStore implements WishlistStore {
             "(SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current)";
     private static final String OWNER =
             "FROM catalogue.game_library_entry w WHERE w.user_id = :owner AND w.state = 'wished'";
-    private static final String LIST =
+    private static final String SAVED_PAGE =
             """
             WITH page AS MATERIALIZED (
                 SELECT game_id, position_key FROM catalogue.game_library_entry
@@ -34,6 +34,10 @@ public final class JdbcWishlistStore implements WishlistStore {
                 ORDER BY position_key, game_id
                 LIMIT :limit OFFSET :offset
             )
+            """;
+    private static final String LIST =
+            SAVED_PAGE
+                    + """
             SELECT w.game_id::text, gs.slug, gs.canonical_title, gs.cover_alternative_text,
                    gs.cover_usage_mode, gs.cover_reference, gs.cover_source, gs.cover_source_url,
                    chosen.timing,
@@ -55,7 +59,18 @@ public final class JdbcWishlistStore implements WishlistStore {
             ) chosen ON true
             ORDER BY w.position_key, w.game_id
             """
-                    .formatted(CURRENT_PUBLICATION);
+                            .formatted(CURRENT_PUBLICATION);
+    private static final String SHARED_LIST =
+            SAVED_PAGE
+                    + """
+            SELECT w.game_id::text, gs.slug, gs.canonical_title, gs.cover_alternative_text,
+                   gs.cover_usage_mode, gs.cover_reference, gs.cover_source, gs.cover_source_url
+            FROM page w
+            LEFT JOIN catalogue.game_snapshot gs
+                ON gs.publication_id = %s AND gs.game_id = w.game_id
+            ORDER BY w.position_key, w.game_id
+            """
+                            .formatted(CURRENT_PUBLICATION);
     private static final String ADD =
             """
             WITH target AS (
@@ -119,11 +134,7 @@ public final class JdbcWishlistStore implements WishlistStore {
         return CatalogueReadTransaction.execute(
                 reads,
                 status -> {
-                    long total =
-                            jdbc.queryForObject(
-                                    "SELECT count(*) " + OWNER,
-                                    Map.of("owner", userId),
-                                    Long.class);
+                    long total = count(userId);
                     if (offset >= total) return new Page(List.of(), total);
                     var rows =
                             jdbc.query(
@@ -150,6 +161,40 @@ public final class JdbcWishlistStore implements WishlistStore {
                                     });
                     return new Page(rows, total);
                 });
+    }
+
+    @Override
+    public SharedPage listForSharing(UUID userId, long offset, int limit) {
+        return CatalogueReadTransaction.execute(
+                reads,
+                status -> {
+                    long total = count(userId);
+                    if (offset >= total) return new SharedPage(List.of(), total);
+                    var rows =
+                            jdbc.query(
+                                    SHARED_LIST,
+                                    Map.of("owner", userId, "offset", offset, "limit", limit),
+                                    (rs, index) -> {
+                                        String slug = rs.getString("slug");
+                                        return new SharedRow(
+                                                rs.getString(1),
+                                                slug,
+                                                rs.getString("canonical_title"),
+                                                slug == null
+                                                        ? new CatalogueCoverReference.Unavailable()
+                                                        : CatalogueCoverReferenceRowMapper.map(rs));
+                                    });
+                    return new SharedPage(rows, total);
+                });
+    }
+
+    @Override
+    public long countForSharing(UUID userId) {
+        return CatalogueReadTransaction.execute(reads, status -> count(userId));
+    }
+
+    private long count(UUID owner) {
+        return jdbc.queryForObject("SELECT count(*) " + OWNER, Map.of("owner", owner), Long.class);
     }
 
     @Override

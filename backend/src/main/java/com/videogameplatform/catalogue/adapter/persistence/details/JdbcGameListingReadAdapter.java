@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.adapter.persistence.details;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.details.port.GameListingReadPort;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,8 +24,19 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
         var games =
                 jdbc.query(
                         """
-                SELECT gs.* FROM catalogue.game_snapshot gs
+                SELECT gs.*, coalesce(fe.first_release_date, launch.period_start) AS first_release_on,
+                       attention.visits AS catalogue_visits
+                FROM catalogue.game_snapshot gs
                 JOIN catalogue.catalogue_publication cp USING (publication_id)
+                LEFT JOIN catalogue.game_featured_evidence fe ON fe.game_id = gs.game_id
+                LEFT JOIN catalogue.game_attention_evidence attention ON attention.game_id = gs.game_id
+                LEFT JOIN LATERAL (
+                    SELECT r.period_start FROM catalogue.release_snapshot r
+                    WHERE r.publication_id = gs.publication_id AND r.game_id = gs.game_id
+                      AND r.period_start IS NOT NULL AND r.release_stage IN ('full_release', 'unknown')
+                      AND r.release_status NOT IN ('cancelled', 'delayed')
+                    ORDER BY r.period_start, r.release_id LIMIT 1
+                ) launch ON fe.first_release_date IS NULL
                 WHERE cp.is_current AND gs.game_id = :game
                 """,
                         parameters,
@@ -36,7 +48,9 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
                                         rs.getString("normalized_title"),
                                         List.of(),
                                         CatalogueCoverReferenceRowMapper.map(rs),
-                                        List.of()));
+                                        List.of(),
+                                        rs.getObject("first_release_on", LocalDate.class),
+                                        rs.getObject("catalogue_visits", Double.class)));
         if (games.isEmpty()) return Optional.empty();
         var aliases =
                 jdbc.query(
@@ -71,6 +85,8 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
                         game.normalizedTitle(),
                         aliases,
                         game.cover(),
-                        genres));
+                        genres,
+                        game.firstReleaseOn(),
+                        game.catalogueVisits()));
     }
 }

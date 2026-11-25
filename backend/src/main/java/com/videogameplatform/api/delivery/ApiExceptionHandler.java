@@ -8,6 +8,7 @@ import com.videogameplatform.api.generated.model.FeedbackSubmission;
 import com.videogameplatform.api.generated.model.PlatformPreferencesWrite;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
+import com.videogameplatform.api.generated.model.PublicProfileSettingsCommand;
 import com.videogameplatform.api.generated.model.ReleaseSort;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
@@ -18,6 +19,7 @@ import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfR
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import com.videogameplatform.identity.application.CurrentUserUnavailableException;
+import com.videogameplatform.identity.application.PlayerProfiles.Rejected;
 import com.videogameplatform.ratings.application.PersonalRatingReadException;
 import com.videogameplatform.ratings.application.PersonalRatingsReadException;
 import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
@@ -101,6 +103,76 @@ public class ApiExceptionHandler {
                 recent ? ErrorCategory.AUTHENTICATION : ErrorCategory.TECHNICAL,
                 "/",
                 "Account operation was not completed.");
+    }
+
+    @ExceptionHandler(Rejected.class)
+    ResponseEntity<Problem> publicProfileRejected(
+            Rejected rejection, HttpServletResponse response) {
+        return switch (rejection.reason()) {
+            case INVALID_ALIAS -> invalidAlias(response);
+            case SECTION_REQUIRED ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            ProblemCode.PUBLIC_PROFILE_SECTION_REQUIRED,
+                            "Public profile requires a section",
+                            "Choose ratings or wishlist before publishing.",
+                            ErrorCategory.VALIDATION,
+                            "/body/published",
+                            "Enable at least one section.");
+            case ALIAS_UNAVAILABLE ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            ProblemCode.PUBLIC_ALIAS_UNAVAILABLE,
+                            "Alias is unavailable",
+                            "Choose another alias.",
+                            ErrorCategory.CONFLICT,
+                            "/body/alias",
+                            "This alias is unavailable.");
+            case CHANGE_TOO_SOON ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            ProblemCode.PUBLIC_ALIAS_CHANGE_TOO_SOON,
+                            "Alias change is too soon",
+                            "Wait 30 days from choosing or changing the alias.",
+                            ErrorCategory.CONFLICT,
+                            "/body/alias",
+                            "Keep the current alias until the wait ends.");
+            case STALE_REVISION ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            ProblemCode.PUBLIC_PROFILE_REVISION_CONFLICT,
+                            "Profile revision has changed",
+                            "Read the latest settings before trying again.",
+                            ErrorCategory.CONFLICT,
+                            "/body/revision",
+                            "The current revision is required.");
+            case NOT_FOUND ->
+                    problem(
+                            response,
+                            HttpStatus.NOT_FOUND,
+                            ProblemCode.PUBLIC_PROFILE_NOT_FOUND,
+                            "Public profile was not found",
+                            "The requested profile or section is unavailable.",
+                            ErrorCategory.NOT_FOUND,
+                            "/path/alias",
+                            "Check the address.");
+        };
+    }
+
+    private static ResponseEntity<Problem> invalidAlias(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.PUBLIC_ALIAS_INVALID,
+                "Alias is invalid",
+                "Choose a valid alias that is not reserved.",
+                ErrorCategory.VALIDATION,
+                "/body/alias",
+                "Use 3 to 24 letters, digits and interior hyphens.");
     }
 
     @ExceptionHandler(ApiRequestException.class)
@@ -777,6 +849,10 @@ public class ApiExceptionHandler {
     ResponseEntity<Problem> requestBodyInvalid(
             MethodArgumentNotValidException exception, HttpServletResponse response) {
         var fields = exception.getBindingResult().getFieldErrors();
+        if (exception.getParameter().getParameterType() == PublicProfileSettingsCommand.class
+                && exception.getBindingResult().hasFieldErrors("alias")) {
+            return invalidAlias(response);
+        }
         if (exception.getParameter().getParameterType() == FeedbackSubmission.class
                 && !fields.isEmpty()) {
             return requestInvalid(
@@ -903,6 +979,16 @@ public class ApiExceptionHandler {
         }
         if ("ifNoneMatch".equals(parameter)) {
             return preconditionHeaderMalformed(response, "/headers/If-None-Match");
+        }
+        if (exception.getParameterValidationResults().stream()
+                .filter(ParameterErrors.class::isInstance)
+                .map(ParameterErrors.class::cast)
+                .anyMatch(
+                        errors ->
+                                errors.getMethodParameter().getParameterType()
+                                                == PublicProfileSettingsCommand.class
+                                        && errors.hasFieldErrors("alias"))) {
+            return invalidAlias(response);
         }
         if ("ratingWrite".equals(parameter)) {
             return ratingWriteInvalid(

@@ -51,14 +51,30 @@ class RatingsConfiguration {
             RatingJdbcExecution execution,
             PlatformTransactionManager manager,
             RatingJdbcProperties properties) {
+        return new com.videogameplatform.ratings.application.internal.PersonalRatingsService(
+                personalRatingsRead(execution, manager, properties));
+    }
+
+    @Bean
+    com.videogameplatform.ratings.application.ListShareableRatings listShareableRatings(
+            RatingJdbcExecution execution,
+            PlatformTransactionManager manager,
+            RatingJdbcProperties properties) {
+        return personalRatingsRead(execution, manager, properties);
+    }
+
+    private static com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingsReadAdapter
+            personalRatingsRead(
+                    RatingJdbcExecution execution,
+                    PlatformTransactionManager manager,
+                    RatingJdbcProperties properties) {
         var read = new TransactionTemplate(manager);
         read.setReadOnly(true);
         read.setIsolationLevel(
                 org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
         read.setTimeout(properties.operationTimeoutSeconds());
-        return new com.videogameplatform.ratings.application.internal.PersonalRatingsService(
-                new com.videogameplatform.ratings.adapter.persistence
-                        .JdbcPersonalRatingsReadAdapter(execution.jdbc(), read));
+        return new com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingsReadAdapter(
+                execution.jdbc(), read);
     }
 
     @Bean

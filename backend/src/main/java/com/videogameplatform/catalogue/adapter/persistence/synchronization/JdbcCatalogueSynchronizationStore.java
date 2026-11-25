@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.acquisition.SynchronizationCo
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatus;
 import com.videogameplatform.catalogue.application.administration.AbandonmentOutcome;
 import com.videogameplatform.catalogue.application.administration.StopRequestOutcome;
+import com.videogameplatform.catalogue.application.details.GameVisitsChanged;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -63,6 +64,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     private final java.util.function.Consumer<
                     com.videogameplatform.catalogue.application.details.GameDetailsResult.Term>
             genreLabelChanged;
+    private final java.util.function.Consumer<GameVisitsChanged> visitsChanged;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public JdbcCatalogueSynchronizationStore(
@@ -82,6 +84,20 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             com.videogameplatform.catalogue.application.details.GameDetailsResult
                                     .Term>
                     genreLabelChanged) {
+        this(jdbc, transaction, provider, listingChanged, genreLabelChanged, ignored -> {});
+    }
+
+    public JdbcCatalogueSynchronizationStore(
+            NamedParameterJdbcOperations jdbc,
+            TransactionOperations transaction,
+            String provider,
+            java.util.function.Consumer<String> listingChanged,
+            java.util.function.Consumer<
+                            com.videogameplatform.catalogue.application.details.GameDetailsResult
+                                    .Term>
+                    genreLabelChanged,
+            java.util.function.Consumer<GameVisitsChanged> visitsChanged) {
+        this.visitsChanged = visitsChanged;
         this.genreLabelChanged = genreLabelChanged;
         this.jdbc = jdbc;
         this.transaction = transaction;
@@ -487,6 +503,21 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                     WHERE game_id = :game AND observed_at <= :observedAt
                     """,
                     deletes.toArray(MapSqlParameterSource[]::new));
+        }
+        if (!games.isEmpty()) {
+            var visits =
+                    jdbc.query(
+                            """
+                    SELECT g.game_id, evidence.visits FROM catalogue.game g
+                    LEFT JOIN catalogue.game_attention_evidence evidence USING (game_id)
+                    WHERE g.game_id IN (:games) ORDER BY g.game_id
+                    """,
+                            Map.of("games", List.copyOf(games.values())),
+                            (rs, row) ->
+                                    new GameVisitsChanged.Sample(
+                                            rs.getObject("game_id", UUID.class),
+                                            rs.getObject("visits", Double.class)));
+            visitsChanged.accept(new GameVisitsChanged(visits));
         }
     }
 

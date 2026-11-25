@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { deleteAccount, exportData, getProfile, ProfileError, saveExport } from "../features/profile/profile-api";
+import { PublicProfileSettingsPanel } from "../features/profile/public-profile-settings";
 import { PlatformsIcon, RatingsIcon } from "../features/session/account-icons";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { SESSION_QUERY_KEY, useSession } from "../features/session/use-session";
@@ -162,10 +163,11 @@ export function MyProfilePage() {
                 </Destination>
               </nav>
             </section>
+            {session.data?.authenticated ? <PublicProfileSettingsPanel csrfToken={session.data.csrfToken} /> : null}
             <section aria-labelledby="profile-export" className="profile-panel profile-data">
               <ZoneIndex value="02" />
               <h2 id="profile-export">Tus datos, contigo</h2>
-              <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, tus puntuaciones, las de cada plataforma, tus plataformas preferidas y tus juegos deseados.</p>
+              <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, tus puntuaciones, las de cada plataforma, tus plataformas preferidas, tus juegos guardados y los ajustes del perfil público.</p>
               <div className="profile-panel-actions">
                 <button className="button button-primary" disabled={download.isPending || remove.isPending} onClick={() => download.mutate()}>{download.isPending ? "Preparando archivo…" : "Exportar mis datos"}</button>
               </div>
@@ -175,7 +177,7 @@ export function MyProfilePage() {
             <section aria-labelledby="profile-delete" className="profile-panel profile-danger">
               <ZoneIndex value="03" />
               <h2 id="profile-delete">Eliminar mi cuenta</h2>
-              <p>Se eliminarán tu identidad, tus puntuaciones, tus plataformas preferidas y tus juegos deseados. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
+              <p>Se eliminarán tu identidad, tus puntuaciones, tus plataformas preferidas, tus juegos guardados y tu perfil público. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
               {!profile.data.deletionAvailable ? <p className="profile-feedback" id="profile-delete-unavailable" role="status">El borrado automático no está disponible ahora. Inténtalo más tarde. Si necesitas ayuda, contacta con <a className="text-link" href="mailto:hola@gameometro.com">hola@gameometro.com</a>.</p> : null}
               {!confirming ? (
                 <div className="profile-panel-actions">

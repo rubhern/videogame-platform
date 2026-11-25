@@ -5,6 +5,7 @@ import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.LibraryApi;
 import com.videogameplatform.api.generated.PlatformPreferencesApi;
+import com.videogameplatform.api.generated.PublicProfilesApi;
 import com.videogameplatform.api.generated.RankingsApi;
 import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.ReleaseCalendarApi;
@@ -47,7 +48,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 WishlistApi.class.isAssignableFrom(method.getBeanType())
                         || LibraryApi.class.isAssignableFrom(method.getBeanType());
         boolean get = HttpMethod.GET.matches(request.getMethod());
-        if (!wishlist && (!get || !isClosedQueryOperation(method))) return true;
+        boolean publicProfiles = PublicProfilesApi.class.isAssignableFrom(method.getBeanType());
+        if (!wishlist && !publicProfiles && (!get || !isClosedQueryOperation(method))) return true;
         if (wishlist
                 && !get
                 && !Set.of("moveMyWish", "setMyGameState").contains(method.getMethod().getName())

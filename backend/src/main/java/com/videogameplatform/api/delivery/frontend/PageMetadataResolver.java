@@ -4,6 +4,7 @@ import com.videogameplatform.catalogue.application.CatalogueDataInvalidException
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.sharing.GetSharePreviewUseCase;
+import com.videogameplatform.identity.application.PlayerProfiles;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -13,7 +14,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The single owner of per-route page metadata (ADR-0049): which routes describe themselves, with
  * what text, and their canonical paths, and which are indexable (#537). Every private route gets
- * {@link PageMetadata#unlisted()}: no user data ever reaches a page's head.
+ * {@link PageMetadata#unlisted()}: private account data stays out of the rendered head.
  */
 final class PageMetadataResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(PageMetadataResolver.class);
@@ -32,8 +33,25 @@ final class PageMetadataResolver {
 
     private final GetSharePreviewUseCase previews;
 
-    PageMetadataResolver(GetSharePreviewUseCase previews) {
+    private final PlayerProfiles profiles;
+
+    PageMetadataResolver(GetSharePreviewUseCase previews, PlayerProfiles profiles) {
         this.previews = Objects.requireNonNull(previews, "previews");
+        this.profiles = Objects.requireNonNull(profiles, "profiles");
+    }
+
+    PageMetadata playerProfile(String alias) {
+        return profiles.published(alias)
+                .map(
+                        profile ->
+                                new PageMetadata(
+                                        "@" + profile.alias() + " · Gameómetro",
+                                        "Perfil de jugador en Gameómetro.",
+                                        "/u/" + profile.alias(),
+                                        PageMetadata.DEFAULT_IMAGE,
+                                        false,
+                                        false))
+                .orElseGet(PageMetadata::notFound);
     }
 
     /** The fixed public pages; their canonical path is the route itself. */

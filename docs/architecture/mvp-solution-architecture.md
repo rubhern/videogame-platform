@@ -339,3 +339,11 @@ The [use case](application/mvp-use-cases.md#private-account-lifecycle-uc-021-pos
 [prepared revocation amendment](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md#prepared-amendment-self-service-deletion-272)
 and [runbook](../development/operations-runbook.md#self-service-account-deletion) own
 behavior, decision review and operational qualification. Production remains gated.
+
+## Public player profiles (#593)
+
+Identity owns the alias and publication settings independently of the login
+identifier. The API and SPA metadata delivery use the same visibility read.
+API delivery requests bounded pages through existing Ratings and Catalogue
+application interfaces. Account-deletion admission and protected replay cover
+alias assignments. See [ADR-0053](../decisions/0053-publish-revocable-player-profiles-by-alias.md).

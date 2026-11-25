@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.21.0
+  version: 5.22.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -31,6 +31,8 @@ tags:
     description: Private saved games and release discovery scoped to the current wishlist.
   - name: Library
     description: Private personal state of each game in the current principal's library.
+  - name: Public profiles
+    description: Opt-in player aliases and revocable public profile sections.
   - name: Profile
     description: Private principal-derived account profile and lifecycle.
   - name: Historical synchronization
@@ -243,6 +245,166 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /me/public-profile:
+    get:
+      tags: [Public profiles]
+      operationId: getMyPublicProfileSettings
+      summary: Read my alias and sharing settings
+      description: The alias is absent and all switches are off for a new profile. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Current private sharing settings.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicProfileSettings' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '422': { $ref: '#/components/responses/PublicProfileValidationFailed' }
+    put:
+      tags: [Public profiles]
+      operationId: updateMyPublicProfileSettings
+      summary: Save my alias and sharing settings
+      description: |
+        Owner comes from the session. ASCII letters, digits and interior single hyphens,
+        3 to 24 characters; saved in lowercase. Reserved names are rejected. The alias can
+        change once every 30 days. A previously published alias is never reassigned.
+        Send the last settings revision, or omit it when claiming an initial alias.
+        Publishing requires at least one enabled section. Saving as private clears both
+        section switches regardless of their input values. Visibility and section changes
+        take effect together. No query parameters are accepted.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublicProfileSettingsCommand' }
+            example: { alias: luna-8, published: true, shareRatings: true, shareWishlist: false }
+      responses:
+        '200':
+          description: Saved private sharing settings.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicProfileSettings' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '409': { $ref: '#/components/responses/PublicProfileConflict' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/PublicProfileValidationFailed' }
+  /profiles/{alias}:
+    get:
+      tags: [Public profiles]
+      operationId: getPublicPlayerProfile
+      summary: Read a published player profile
+      description: |
+        An alias is case-insensitively looked up. A private, retired or missing profile returns
+        404. This representation is the same for every visitor. No query parameters are accepted.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicProfileAlias'
+      responses:
+        '200':
+          description: Published alias and explicitly enabled sections.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicPlayerProfile' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+        '404': { $ref: '#/components/responses/PublicProfileNotFound' }
+        '422': { $ref: '#/components/responses/PublicProfileValidationFailed' }
+  /profiles/{alias}/sections/{section}:
+    get:
+      tags: [Public profiles]
+      operationId: listPublicProfileSection
+      summary: Page through an enabled section of a published profile
+      description: |
+        The profile and section must both be available publicly on every read or the response
+        is 404. Ratings show the player's score out of 10. The optional rating sort
+        chooses the last rating update (newest first, the default), the player's score
+        (lowest first), the first known commercial release period (newest first), or
+        local catalogue interest (highest share of IGDB Visits first). Missing dates
+        and interest sort last. Wishlist uses the player's saved order and rejects
+        a rating sort. Every order uses game ID as its final tie-breaker.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicProfileAlias'
+        - $ref: '#/components/parameters/PublicProfileSectionParameter'
+        - $ref: '#/components/parameters/PublicProfileRatingSortParameter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: A deterministic page containing only the requested shared section.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicProfileGamePage' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+        '404': { $ref: '#/components/responses/PublicProfileNotFound' }
+        '422': { $ref: '#/components/responses/PublicProfileValidationFailed' }
+
+  /profiles/{alias}/statistics:
+    get:
+      tags: [Public profiles]
+      operationId: getPublicProfileStatistics
+      summary: Summarize the sections a player has publicly shared
+      description: |
+        Returns only aggregates derived from the currently shared sections. Ratings have ten
+        buckets (1 to 10, half-up per game's score), a count and, when nonempty, mean, low and
+        high scores. Deseados contributes its count when shared. A private or retired profile
+        returns 404, as does a sharing change while preparing the response. No query parameters
+        are accepted.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicProfileAlias'
+      responses:
+        '200':
+          description: Fixed-size aggregates of the published sections.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicProfileStatistics' }
+              example:
+                ratings: { total: 3, mean: 7.7, lowest: 6, highest: 9, distribution: [0, 0, 0, 0, 0, 1, 0, 1, 1, 0] }
+                wishlistCount: 4
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '404': { $ref: '#/components/responses/PublicProfileNotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/PublicProfileValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
   /me/data-export:
     get:
       tags: [Profile]
@@ -254,7 +416,8 @@ paths:
         direct value, played platforms with platformId/name/optional value, createdAt/updatedAt),
         preferredPlatforms (configured, savedAt when configured, platforms), wishlist
         (gameId, title, addedAt, and one-based position of each Deseado game), and library
-        (gameId, title, state and stateChangedAt of every library entry). No credentials,
+        (gameId, title, state and stateChangedAt of every library entry), and publicProfile
+        (alias, current publication and section settings, and when the alias was chosen), when present. No credentials,
         tokens, provider payloads or other users' data. Reads one consistent local snapshot.
         Preparation is bounded to 10000 ratings, 10000 library entries, 16 MiB and 30 seconds; budget or source failure
         returns an error before any successful download, never a truncated successful export.
@@ -3847,6 +4010,26 @@ components:
       description: One-based page; a page beyond the last returns an empty page.
       schema: { type: integer, minimum: 1, default: 1 }
       example: 1
+    PublicProfileAlias:
+      name: alias
+      in: path
+      required: true
+      description: Alias from the public URL. Unknown or malformed aliases are treated as absent.
+      schema: { type: string }
+      example: luna-8
+    PublicProfileRatingSortParameter:
+      name: sort
+      in: query
+      description: Optional order for the ratings section. Omit for newest rating first or when reading wishlist.
+      schema: { $ref: '#/components/schemas/PublicProfileRatingSort' }
+      example: score
+    PublicProfileSectionParameter:
+      name: section
+      in: path
+      required: true
+      description: The section to read.
+      schema: { $ref: '#/components/schemas/PublicProfileSection' }
+      example: ratings
     PageSize:
       name: pageSize
       in: query
@@ -4050,6 +4233,96 @@ components:
           format: email
           maxLength: 254
           description: Optional single ASCII email address with a dot-atom local part and a fully qualified DNS domain. Omit when absent.
+    PublicProfileAliasValue:
+      type: string
+      minLength: 3
+      maxLength: 24
+      pattern: '^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$'
+    PublicProfileRatingSort:
+      type: string
+      enum: [ratingDate, score, releaseDate, interest]
+      x-enum-varnames: [ratingDate, score, releaseDate, interest]
+    PublicProfileStatistics:
+      type: object
+      additionalProperties: false
+      properties:
+        ratings: { $ref: '#/components/schemas/PublicProfileRatingStatistics' }
+        wishlistCount: { type: integer, format: int64, minimum: 0 }
+    PublicProfileRatingStatistics:
+      type: object
+      additionalProperties: false
+      required: [total, distribution]
+      properties:
+        total: { type: integer, format: int64, minimum: 0 }
+        mean: { type: number, minimum: 1, maximum: 10 }
+        lowest: { type: number, minimum: 1, maximum: 10 }
+        highest: { type: number, minimum: 1, maximum: 10 }
+        distribution:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: integer, format: int64, minimum: 0 }
+    PublicProfileSection:
+      type: string
+      enum: [ratings, wishlist]
+      x-enum-varnames: [ratings, wishlist]
+    PublicProfileSettings:
+      type: object
+      additionalProperties: false
+      required: [published, shareRatings, shareWishlist]
+      properties:
+        alias: { $ref: '#/components/schemas/PublicProfileAliasValue' }
+        published: { type: boolean }
+        shareRatings: { type: boolean }
+        shareWishlist: { type: boolean }
+        revision: { type: string, format: uuid }
+    PublicProfileSettingsCommand:
+      type: object
+      additionalProperties: false
+      required: [alias, published, shareRatings, shareWishlist]
+      properties:
+        alias: { $ref: '#/components/schemas/PublicProfileAliasValue' }
+        published: { type: boolean }
+        shareRatings: { type: boolean }
+        shareWishlist: { type: boolean }
+        revision: { type: string, format: uuid }
+    PublicPlayerProfile:
+      type: object
+      additionalProperties: false
+      required: [alias, sections]
+      properties:
+        alias: { $ref: '#/components/schemas/PublicProfileAliasValue' }
+        sections:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/PublicProfileSection' }
+    PublicProfileGamePage:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PublicProfileGame' }
+        page: { $ref: '#/components/schemas/PageMetadata' }
+    PublicProfileGame:
+      type: object
+      additionalProperties: false
+      required: [gameId, primaryCover]
+      description: Slug and title are absent when a saved game is no longer available.
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string }
+        canonicalTitle: { type: string }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        score:
+          type: number
+          minimum: 1
+          maximum: 10
+          description: The player's game score, present only in the ratings section.
     PrivateProfile:
       type: object
       additionalProperties: false
@@ -6285,6 +6558,12 @@ components:
         - METHOD_NOT_ALLOWED
         - INTERNAL_ERROR
         - AUTHENTICATION_REQUIRED
+        - PUBLIC_PROFILE_NOT_FOUND
+        - PUBLIC_PROFILE_SECTION_REQUIRED
+        - PUBLIC_ALIAS_UNAVAILABLE
+        - PUBLIC_ALIAS_INVALID
+        - PUBLIC_ALIAS_CHANGE_TOO_SOON
+        - PUBLIC_PROFILE_REVISION_CONFLICT
         - GAME_NOT_FOUND
         - WISHLIST_GAME_NOT_FOUND
         - GAME_NOT_RELEASED
@@ -6409,6 +6688,43 @@ components:
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
             filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+    PublicProfileNotFound:
+      description: The profile or requested section is unavailable.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            publicProfileNotFound: { $ref: '#/components/examples/PublicProfileNotFound' }
+    PublicProfileConflict:
+      description: The alias is unavailable, the change is too soon, or the revision is stale.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            publicAliasUnavailable: { $ref: '#/components/examples/PublicAliasUnavailable' }
+            publicAliasChangeTooSoon: { $ref: '#/components/examples/PublicAliasChangeTooSoon' }
+            publicProfileRevisionConflict: { $ref: '#/components/examples/PublicProfileRevisionConflict' }
+    PublicProfileValidationFailed:
+      description: Invalid or unknown input, or publishing without at least one shared section.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            requestParameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
+            sortInvalid: { $ref: '#/components/examples/SortInvalid' }
+            publicAliasInvalid: { $ref: '#/components/examples/PublicAliasInvalid' }
+            publicProfileSectionRequired: { $ref: '#/components/examples/PublicProfileSectionRequired' }
     ProfileValidationFailed:
       description: REQUEST_PARAMETER_UNKNOWN or REQUEST_PROPERTY_UNKNOWN; no owner selection or unknown command property is permitted.
       headers:
@@ -7006,7 +7322,7 @@ components:
             ratingStatisticsReadFailed: { $ref: '#/components/examples/RatingStatisticsReadFailed' }
             internalError: { $ref: '#/components/examples/InternalError' }
     PersonalRatingsReadFailed:
-      description: Current-user ratings cannot be read consistently; no partial or cross-scope data is returned.
+      description: The requested ratings cannot be read consistently; no partial or cross-scope data is returned.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -7300,6 +7616,66 @@ components:
         instance: urn:videogame-platform:problem-instance:opaque
         code: GAME_NOT_FOUND
         category: not_found
+        correlationId: correlation-opaque
+    PublicProfileNotFound:
+      value:
+        type: urn:videogame-platform:problem:public-profile-not-found
+        title: Public profile was not found
+        status: 404
+        detail: The requested profile or section is unavailable.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_PROFILE_NOT_FOUND
+        category: not_found
+        correlationId: correlation-opaque
+    PublicProfileSectionRequired:
+      value:
+        type: urn:videogame-platform:problem:public-profile-section-required
+        title: Public profile requires a section
+        status: 422
+        detail: Choose ratings or wishlist before publishing.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_PROFILE_SECTION_REQUIRED
+        category: validation
+        correlationId: correlation-opaque
+    PublicAliasInvalid:
+      value:
+        type: urn:videogame-platform:problem:public-alias-invalid
+        title: Alias is invalid
+        status: 422
+        detail: Choose a valid alias that is not reserved.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_ALIAS_INVALID
+        category: validation
+        correlationId: correlation-opaque
+    PublicAliasUnavailable:
+      value:
+        type: urn:videogame-platform:problem:public-alias-unavailable
+        title: Alias is unavailable
+        status: 409
+        detail: Choose another alias.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_ALIAS_UNAVAILABLE
+        category: conflict
+        correlationId: correlation-opaque
+    PublicAliasChangeTooSoon:
+      value:
+        type: urn:videogame-platform:problem:public-alias-change-too-soon
+        title: Alias change is too soon
+        status: 409
+        detail: Wait 30 days from choosing or changing the alias.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_ALIAS_CHANGE_TOO_SOON
+        category: conflict
+        correlationId: correlation-opaque
+    PublicProfileRevisionConflict:
+      value:
+        type: urn:videogame-platform:problem:public-profile-revision-conflict
+        title: Profile revision has changed
+        status: 409
+        detail: Read the latest settings before trying again.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: PUBLIC_PROFILE_REVISION_CONFLICT
+        category: conflict
         correlationId: correlation-opaque
     RatingNotFound:
       value:

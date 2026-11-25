@@ -2,6 +2,7 @@ package com.videogameplatform.ratings.adapter.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.videogameplatform.ratings.application.ListShareableRatings.Order;
 import com.videogameplatform.ratings.application.port.PersonalRatingsReadPort;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.nio.file.Files;
@@ -71,6 +72,14 @@ class PersonalRatingsScalabilityIT {
         jdbc.execute("ANALYZE ratings.game_listing_genre");
         jdbc.execute("ANALYZE ratings.genre_label");
         jdbc.execute("ANALYZE ratings.rating");
+        jdbc.execute(
+                """
+                UPDATE ratings.game_listing g SET
+                    first_release_on = DATE '2020-01-01' + (games.n % 730),
+                    catalogue_visits = (games.n % 999 + 1) / 1000000.0
+                FROM generate_series(1, 20000) games(n)
+                WHERE g.game_id = md5('plan-game-' || games.n)::uuid AND games.n % 4 <> 0
+                """);
         jdbc.execute("ANALYZE ratings.game_listing");
         jdbc.execute("ANALYZE ratings.game_listing_alias");
         var named = new NamedParameterJdbcTemplate(jdbc);
@@ -147,6 +156,32 @@ class PersonalRatingsScalabilityIT {
                                     line.contains("Seq Scan on rating ")
                                             || line.contains("Seq Scan on game_listing ")
                                             || line.contains("Seq Scan on game_listing_genre "));
+        }
+        var sharedCriteria =
+                new PersonalRatingsReadPort.Criteria(
+                        List.of(), PersonalRatingsReadPort.Sort.UPDATED, true, 2, 20);
+        for (Order order : Order.values()) {
+            var shared =
+                    adapter.listForSharing(
+                            owner, order, sharedCriteria.page(), sharedCriteria.pageSize());
+            assertThat(shared.items()).hasSize(20);
+            assertThat(shared.totalItems()).isEqualTo(1000);
+            var plan =
+                    named.queryForList(
+                            "EXPLAIN (ANALYZE, BUFFERS) "
+                                    + PersonalRatingsSql.shareablePage(sharedCriteria, order),
+                            PersonalRatingsSql.parameters(owner, sharedCriteria),
+                            String.class);
+            if (order == Order.RATING_DATE) {
+                assertThat(plan).anyMatch(line -> line.contains("ix_rating_user_updated"));
+            }
+            assertThat(plan)
+                    .noneMatch(
+                            line ->
+                                    line.contains("Seq Scan on rating ")
+                                            || line.contains("Seq Scan on game_listing "));
+            evidence.append("\nPublished player ratings: ").append(order).append("\n");
+            plan.forEach(line -> evidence.append(line).append("\n"));
         }
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/personal-ratings-query-plans.txt"), evidence);

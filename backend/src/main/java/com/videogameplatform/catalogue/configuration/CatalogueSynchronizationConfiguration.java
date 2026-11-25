@@ -222,7 +222,8 @@ class CatalogueSynchronizationConfiguration {
                 term ->
                         events.publishEvent(
                                 new com.videogameplatform.catalogue.application.details
-                                        .GenreLabelChanged(term)));
+                                        .GenreLabelChanged(term)),
+                events::publishEvent);
     }
 
     @Bean

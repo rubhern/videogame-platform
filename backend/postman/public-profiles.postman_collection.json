@@ -1,0 +1,569 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Public Player Profiles",
+    "description": "Run only with a synthetic BFF account in a disposable environment. The sequence publishes the fixture profile, asserts its public shape, and ends by making it private. Set a fresh profileAlias if the fixture account has none yet.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "profileAlias",
+      "value": "luna-fixture-593"
+    },
+    {
+      "key": "revisionProperty",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Read session",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/session"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.json().authenticated).to.eql(true);",
+              "pm.collectionVariables.set(\"csrfToken\", pm.response.json().csrfToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read my alias and visibility",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const current = pm.response.json();",
+              "if (current.alias) pm.collectionVariables.set(\"profileAlias\", current.alias);",
+              "pm.collectionVariables.set(\"revisionProperty\", current.revision ? ', \"revision\": \"' + current.revision + '\"' : \"\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Claim alias privately",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alias\":\"{{profileAlias}}\",\"published\":false,\"shareRatings\":false,\"shareWishlist\":false{{revisionProperty}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.json().published).to.eql(false);",
+              "pm.collectionVariables.set(\"revisionProperty\", ', \"revision\": \"' + pm.response.json().revision + '\"');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Private alias is indistinguishable from an unknown alias",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(404);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.json().code).to.eql(\"PUBLIC_PROFILE_NOT_FOUND\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Publishing requires at least one section",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alias\":\"{{profileAlias}}\",\"published\":true,\"shareRatings\":false,\"shareWishlist\":false{{revisionProperty}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(422);",
+              "pm.expect(pm.response.json().code).to.eql(\"PUBLIC_PROFILE_SECTION_REQUIRED\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Publish alias and opt into ratings and wishlist",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alias\":\"{{profileAlias}}\",\"published\":true,\"shareRatings\":true,\"shareWishlist\":true{{revisionProperty}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.collectionVariables.set(\"revisionProperty\", ', \"revision\": \"' + pm.response.json().revision + '\"');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read published profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const profile = pm.response.json();",
+              "pm.expect(profile).to.have.all.keys(\"alias\", \"sections\");",
+              "pm.expect(profile.sections).to.have.members([\"ratings\", \"wishlist\"]);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read a bounded page of ratings",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/sections/ratings?page=1&pageSize=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const page = pm.response.json();",
+              "pm.expect(page.page.size).to.eql(1);",
+              "pm.expect(page.items.length).to.be.at.most(1);",
+              "pm.expect(pm.response.text()).not.to.match(/\"(email|userId|subject|revision|entityTag|updatedAt|platforms)\"\\s*:/);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read public ratings ordered by score",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/sections/ratings?page=1&pageSize=1&sort=score"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const page = pm.response.json();",
+              "pm.expect(page.page.size).to.eql(1);",
+              "pm.expect(page.items.length).to.be.at.most(1);",
+              "pm.expect(pm.response.text()).not.to.match(/\"(email|userId|subject|revision|entityTag|updatedAt|platforms)\"\\s*:/);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read only the shared statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/statistics"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const stats = pm.response.json();",
+              "pm.expect(stats).to.have.all.keys(\"ratings\", \"wishlistCount\");",
+              "pm.expect(stats.ratings.distribution).to.have.lengthOf(10);",
+              "pm.expect(stats.ratings.distribution.reduce((sum, count) => sum + count, 0)).to.eql(stats.ratings.total);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read a bounded page of wishlist",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/sections/wishlist?page=1&pageSize=1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const page = pm.response.json();",
+              "pm.expect(page.page.size).to.eql(1);",
+              "pm.expect(page.items.length).to.be.at.most(1);",
+              "pm.expect(pm.response.text()).not.to.match(/\"(email|userId|subject|revision|entityTag|updatedAt|platforms)\"\\s*:/);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public HTML contains a non-indexable share preview",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/html"
+          }
+        ],
+        "url": "{{baseUrl}}/u/{{profileAlias}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.text()).to.include('name=\"robots\" content=\"noindex\"');",
+              "pm.expect(pm.response.text()).to.include('property=\"og:title\"');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Withdraw ratings only",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alias\":\"{{profileAlias}}\",\"published\":true,\"shareRatings\":false,\"shareWishlist\":true{{revisionProperty}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.collectionVariables.set(\"revisionProperty\", ', \"revision\": \"' + pm.response.json().revision + '\"');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Withdrawn section returns 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/sections/ratings"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(404);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.json().code).to.eql(\"PUBLIC_PROFILE_NOT_FOUND\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Withdrawn ratings are absent from public statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/statistics"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.json()).to.have.all.keys(\"wishlistCount\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Make the entire profile private",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/public-profile",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alias\":\"{{profileAlias}}\",\"published\":false,\"shareRatings\":false,\"shareWishlist\":false{{revisionProperty}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.collectionVariables.set(\"revisionProperty\", ', \"revision\": \"' + pm.response.json().revision + '\"');",
+              "pm.expect(pm.response.json()).to.include({ published: false, shareRatings: false, shareWishlist: false });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Private HTML has a true 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/html"
+          }
+        ],
+        "url": "{{baseUrl}}/u/{{profileAlias}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(404);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "pm.expect(pm.response.text()).to.include('name=\"robots\" content=\"noindex\"');",
+              "pm.expect(pm.response.text()).not.to.include(\"@\" + pm.variables.get(\"profileAlias\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
