@@ -117,7 +117,7 @@ jobs:
         run: npm ci --prefix documentation --ignore-scripts
 
       - name: Audit portal dependency security
-        run: node scripts/audit-build-dependencies.mjs --portal
+        run: npm audit --prefix documentation --audit-level=high
 
       - name: Install portal browser
         working-directory: documentation
@@ -408,6 +408,7 @@ jobs:
             python3 scripts/test-private-production-acceptance.py
             python3 scripts/test-production-deploy.py
             python3 scripts/test-private-production-upgrade.py
+            python3 scripts/test-production-rollback.py
             python3 scripts/test-private-production-upgrade-compatibility.py
             python3 scripts/test-private-production-admin.py
             python3 scripts/test-public-production-deployment.py

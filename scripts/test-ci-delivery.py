@@ -117,7 +117,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn('BASELINE: ${{ github.event.pull_request.base.sha || github.event.before }}', runtime)
         self.assertIn('PRODUCTION_UPGRADE_BASELINES: ${{ steps.upgrade-baseline.outputs.revision }}', runtime)
         proofs = {
-            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
+            'operations': ['test-private-production-preparation.py', 'test-private-production-installation.py', 'test-private-production-control.py', 'test-private-production-acceptance.py', 'test-private-production-upgrade.py', 'test-production-rollback.py', 'test-private-production-upgrade-compatibility.py', 'test-production-deploy.py', 'test-private-production-admin.py',
                            'test-public-production-deployment.py', 'test-public-production-integration.py',
                            'test-production-recovery.py', 'test-production-recovery-s3.py', 'test-personal-data-cloud.py', 'test-production-public-ingress.py', 'test-production-backup-cycle.py', 'test-production-recovery-lock.py',
                            'test-production-identity-maintenance.py', 'test-production-cleanup.py', 'test-production-unverified-cleanup.py', 'test-production-account-deletion.py', 'test-production-social-sign-in.py'],
@@ -177,7 +177,7 @@ python3() {
         # These checks stay unconditional whenever documentation is applicable.
         for command in ('bash scripts/validate-docs.sh',
                         'npm ci --prefix documentation --ignore-scripts',
-                        'node scripts/audit-build-dependencies.mjs --portal',
+                        'npm audit --prefix documentation --audit-level=high',
                         'npm test && npm run build',
                         'bash documentation/scripts/test-container.sh --browser'):
             step = next(step for step in docs.split('      - name: ') if command in step)

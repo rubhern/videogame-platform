@@ -919,7 +919,10 @@ owner inspection chooses resume, forward fix or isolated recovery, without blind
 Retain the previous digest and recovery point. Failed migration prevents activation;
 failed readiness/smoke is recorded as failure. An application rollback requires
 schema compatibility; otherwise use a forward fix or assessed restore. Never revert
-an applied migration. One replica means no HA promise. A compatible application-only release
+an applied migration. A completed release returns to its recorded predecessor only through the
+owner-authorized [release rollback](../../../deploy/public-production/README.md#release-rollback-488)
+([ADR-0052](../../decisions/0052-roll-back-compatible-production-releases-by-owner-triggered-reverse-handover.md)),
+and only when the assessment proves both are application-only compatible. One replica means no HA promise. A compatible application-only release
 hands over through a temporary candidate behind the edge, so public reads continue; BFF sessions
 stay in each instance's memory (ADR-0027) and end when it stops. Every other release interrupts the
 product behind the edge's maintenance response for its fenced capture, migrations and restart.
