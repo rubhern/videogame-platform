@@ -17,7 +17,7 @@ const firstGame = {
 };
 const secondGame = { ...firstGame, gameId: "30000000-0000-4000-8000-000000000002", canonicalTitle: "Otro juego" };
 
-test("requires a section to publish, reports alias errors and withdraws sharing", async ({ page, context }) => {
+test("requires a section to publish, reports alias errors and withdraws sharing", async ({ page }) => {
   let settings: Settings = { published: false, shareRatings: false, shareWishlist: false };
   const writes: Command[] = [];
   const publicReads: string[] = [];
@@ -54,7 +54,16 @@ test("requires a section to publish, reports alias errors and withdraws sharing"
     }
     return route.fulfill({ json: { alias, sections: ["ratings"] } });
   });
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const sharedMessages: string[] = [];
+  await page.exposeFunction("captureProfileShare", (message: string) => {
+    sharedMessages.push(message);
+  });
+  // The packaged test runs over HTTP on a Docker hostname, which disables the clipboard API.
+  await page.addInitScript(() => {
+    const browser = window as Window & { captureProfileShare: (message: string) => Promise<void> };
+    Object.defineProperty(navigator, "share", { value: undefined });
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: browser.captureProfileShare } });
+  });
 
   await page.goto("/mi-perfil");
   const sharing = page.getByRole("region", { name: "Perfil público" });
@@ -107,9 +116,9 @@ test("requires a section to publish, reports alias errors and withdraws sharing"
 
   await sharing.getByRole("button", { name: "Compartir perfil" }).click();
   await expect(sharing.getByText("Mensaje y enlace copiados.")).toBeVisible();
-  const sharedMessage = await page.evaluate(() => navigator.clipboard.readText());
-  expect(sharedMessage).toContain("¡Mira mi perfil en Gameómetro!");
-  expect(sharedMessage).toMatch(new RegExp(`/u/${alias}$`));
+  expect(sharedMessages).toEqual([
+    `¡Mira mi perfil en Gameómetro!\n${new URL(`/u/${alias}`, page.url()).href}`,
+  ]);
 
   await aliasInput.fill("otro-alias");
   await save.click();

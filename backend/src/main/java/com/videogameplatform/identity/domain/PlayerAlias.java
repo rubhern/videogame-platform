@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 /** The canonical URL spelling and the product's reserved names. */
 public final class PlayerAlias {
-    private static final Pattern FORM = Pattern.compile("[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*");
+    private static final Pattern FORM = Pattern.compile("[A-Za-z0-9][A-Za-z0-9-]{1,22}[A-Za-z0-9]");
     private static final Set<String> RESERVED =
             Set.of(
                     "admin",
@@ -40,10 +40,7 @@ public final class PlayerAlias {
     private PlayerAlias() {}
 
     public static Optional<String> canonical(String candidate) {
-        if (candidate == null
-                || candidate.length() < 3
-                || candidate.length() > 24
-                || !FORM.matcher(candidate).matches()) {
+        if (candidate == null || !FORM.matcher(candidate).matches() || candidate.contains("--")) {
             return Optional.empty();
         }
         return Optional.of(candidate.toLowerCase(Locale.ROOT));
