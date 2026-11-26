@@ -124,6 +124,7 @@ public class PublicProfilesController implements PublicProfilesApi {
             case null -> ListShareableRatings.Order.RATING_DATE;
             case ratingDate -> ListShareableRatings.Order.RATING_DATE;
             case score -> ListShareableRatings.Order.SCORE;
+            case scoreDesc -> ListShareableRatings.Order.SCORE_DESC;
             case releaseDate -> ListShareableRatings.Order.RELEASE_DATE;
             case interest -> ListShareableRatings.Order.INTEREST;
         };

@@ -170,6 +170,7 @@ test("separates both shared sections into keyboard tabs and only loads the activ
     json: { alias, sections: ["ratings", "wishlist"] },
   }));
   const sorts: Array<string | null> = [];
+  const lowScoreTitle = "Un título muy largo para comprobar cómo refluye una puntuación en el móvil";
   await page.route(`**/api/v1/profiles/${alias}/statistics`, route => {
     reads.push("statistics");
     return route.fulfill({ json: {
@@ -181,16 +182,19 @@ test("separates both shared sections into keyboard tabs and only loads the activ
     const url = new URL(route.request().url());
     const section = url.pathname.endsWith("/wishlist") ? "wishlist" : "ratings";
     reads.push(section);
-    if (section === "ratings") sorts.push(url.searchParams.get("sort"));
+    const sort = url.searchParams.get("sort");
+    if (section === "ratings") sorts.push(sort);
     const withoutScore = {
       gameId: secondGame.gameId, slug: secondGame.slug, canonicalTitle: "Juego deseado",
       primaryCover: secondGame.primaryCover,
     };
     const rated = [
       firstGame,
-      { ...secondGame, canonicalTitle: "Un título muy largo para comprobar cómo refluye una puntuación en el móvil", score: 4 },
+      { ...secondGame, canonicalTitle: lowScoreTitle, score: 4 },
       { ...firstGame, gameId: "30000000-0000-4000-8000-000000000003", canonicalTitle: "Tercer juego", score: 7 },
     ];
+    if (sort === "score") rated.sort((left, right) => left.score - right.score);
+    if (sort === "scoreDesc") rated.sort((left, right) => right.score - left.score);
     const items = section === "ratings" ? rated : [withoutScore];
     return route.fulfill({ json: {
       items,
@@ -246,6 +250,11 @@ test("separates both shared sections into keyboard tabs and only loads the activ
   await order.click();
   await page.getByRole("option", { name: "Nota más baja", exact: true }).click();
   await expect.poll(() => sorts.at(-1)).toBe("score");
+  await expect(ratings.getByRole("heading", { level: 3 }).first()).toHaveText(lowScoreTitle);
+  await order.click();
+  await page.getByRole("option", { name: "Nota más alta", exact: true }).click();
+  await expect.poll(() => sorts.at(-1)).toBe("scoreDesc");
+  await expect(ratings.getByRole("heading", { level: 3 }).first()).toHaveText(firstGame.canonicalTitle);
   await order.click();
   await page.getByRole("option", { name: "Lanzamientos recientes", exact: true }).click();
   await expect.poll(() => sorts.at(-1)).toBe("releaseDate");

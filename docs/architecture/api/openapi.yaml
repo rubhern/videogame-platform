@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 5.22.0
+  version: 5.23.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, a month's release
@@ -344,7 +344,8 @@ paths:
         The profile and section must both be available publicly on every read or the response
         is 404. Ratings show the player's score out of 10. The optional rating sort
         chooses the last rating update (newest first, the default), the player's score
-        (lowest first), the first known commercial release period (newest first), or
+        (lowest first with score, highest first with scoreDesc), the first known commercial
+        release period (newest first), or
         local catalogue interest (highest share of IGDB Visits first). Missing dates
         and interest sort last. Wishlist uses the player's saved order and rejects
         a rating sort. Every order uses game ID as its final tie-breaker.
@@ -4240,8 +4241,8 @@ components:
       pattern: '^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$'
     PublicProfileRatingSort:
       type: string
-      enum: [ratingDate, score, releaseDate, interest]
-      x-enum-varnames: [ratingDate, score, releaseDate, interest]
+      enum: [ratingDate, score, scoreDesc, releaseDate, interest]
+      x-enum-varnames: [ratingDate, score, scoreDesc, releaseDate, interest]
     PublicProfileStatistics:
       type: object
       additionalProperties: false

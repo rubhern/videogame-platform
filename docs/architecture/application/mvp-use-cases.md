@@ -885,8 +885,8 @@ A visitor opening `/u/{alias}` receives the public alias and the sections explic
 enabled. Ratings show one game score, including the contribution when it comes from
 scored platforms. Deseados shows saved games in the player's order. Both sections
 page in PostgreSQL and the game ID breaks ties. Ratings can be ordered by last
-rating update, score ascending, first known commercial release date descending,
-or the catalogue's stored IGDB Visits share descending. Missing dates and visit
+rating update, score in either direction, first known commercial release date
+descending, or the catalogue's stored IGDB Visits share descending. Missing dates and visit
 signals sort last. The public statistics read aggregates only the currently
 shared sections: ratings contribute their count, mean, extremes and distribution,
 and wishes contribute their count. Hiding a section makes it unavailable

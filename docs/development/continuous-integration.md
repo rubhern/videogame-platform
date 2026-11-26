@@ -23,7 +23,8 @@ download request while the same build invocation continues. Compilation, tests
 and Sonar qualification retain their normal failure semantics.
 Packaging, fresh migrations, Java CodeQL, and Sonar use a
 [resolution retry](../../scripts/maven-with-resolution-retry.sh) when Maven Central
-reports that a parent POM or build plugin is missing.
+reports a missing parent POM or build plugin, or their resolution still fails
+with HTTP 429 after Maven's transport retries.
 
 ### Environment admission
 
