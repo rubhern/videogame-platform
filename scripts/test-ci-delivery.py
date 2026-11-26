@@ -22,19 +22,31 @@ spec.loader.exec_module(oci)
 
 class DeliveryTests(unittest.TestCase):
     def test_maven_retries_only_central_model_and_plugin_resolution(self):
+        retry = ['--update-snapshots', '-Daether.transport.http.retryHandler.count=1']
+        central = 'central (https://repo.maven.apache.org/maven2)'
+        parent = '[FATAL] Non-resolvable parent POM: Could not transfer artifact example:parent:pom:1 from/to '
         cases = [
-            ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
-             '(https://repo.maven.apache.org/maven2)', True, [[], ['--update-snapshots']], 0),
+            ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in ' + central,
+             True, [[], retry], 0),
             ('[ERROR] Plugin example:scanner:5 or one of its dependencies could not be resolved:\n'
-             '[ERROR] Could not find artifact example:scanner:jar:5 in central (https://repo.maven.apache.org/maven2)',
-             True, [[], ['--update-snapshots']], 0),
+             '[ERROR] Could not find artifact example:scanner:jar:5 in ' + central, True, [[], retry], 0),
+            (f"{parent}{central}: HTTP Status: 429 and 'parent.relativePath' points at no local POM",
+             True, [[], retry], 0),
+            ('[ERROR] Plugin example:scanner:5 or one of its dependencies could not be resolved:\n'
+             f'[ERROR] Could not transfer artifact example:scanner:jar:5 from/to {central}: status code: 429',
+             True, [[], retry], 0),
+            (f'{parent}{central}: HTTP Status: 429', False, [[], retry, retry, retry], 1),
+            (f'{parent}{central}: HTTP Status: 403', True, [[]], 1),
+            (parent + 'internal (https://invalid.example/maven2): HTTP Status: 429', True, [[]], 1),
+            (f'[WARNING] GET request to {central} failed due to status 429\n'
+             '[ERROR] There are test failures.', True, [[]], 1),
             ('[ERROR] Plugin example:scanner:5 or one of its dependencies could not be resolved:\n'
              '[ERROR] Could not find artifact example:scanner:jar:5 in internal (https://invalid.example/maven2)',
              True, [[]], 1),
             ('[ERROR] Compilation failure', True, [[]], 1),
             ('[ERROR] QUALITY GATE STATUS: FAILED', True, [[]], 1),
             ('[FATAL] Non-resolvable parent POM: Could not find artifact example:parent:pom:1 in central '
-             '(https://repo.maven.apache.org/maven2)', False, [[], *([['--update-snapshots']] * 3)], 1),
+             '(https://repo.maven.apache.org/maven2)', False, [[], retry, retry, retry], 1),
         ]
         for message, recover, expected_attempts, expected_status in cases:
             with self.subTest(message=message, recover=recover), tempfile.TemporaryDirectory() as directory:
