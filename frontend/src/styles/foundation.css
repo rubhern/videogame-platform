@@ -274,23 +274,18 @@
     transform: translateX(-50%);
   }
 
-  /* TOPómetro is named by its lockup at the label's cap height: dimmed like a muted label, lit
-     when hovered or current. */
+  /* In Lo mejor, TOPómetro is named by its lockup at the rows' cap height. */
   .nav-topometro-logo {
     display: block;
-    opacity: 0.78;
   }
 
-  .nav-topometro-logo svg {
+  /* Scoped past the rows' icon size and tint, which would shrink and recolour the lockup. */
+  .account-option .nav-topometro-logo svg {
     display: block;
     width: auto;
     height: 15px;
     overflow: visible;
-  }
-
-  .nav-topometro:hover .nav-topometro-logo,
-  .nav-topometro[aria-current] .nav-topometro-logo {
-    opacity: 1;
+    color: inherit;
   }
 
   .releases-navigation {
@@ -321,13 +316,22 @@
   .releases-panel {
     right: auto;
     left: 0;
-    min-width: 190px;
   }
 
+  /* The current page keeps the navigation's fire rule at its row's edge, as in the compact Menú. */
   .releases-panel .account-option[aria-current="page"] {
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
     font-weight: 700;
-    box-shadow: inset 2px 0 var(--color-fire);
+  }
+
+  .releases-panel .account-option[aria-current="page"]::before {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--color-fire-light), var(--color-fire));
+    content: "";
   }
 
   .header-search {
@@ -574,6 +578,9 @@
     transform: rotate(45deg);
   }
 
+  /* The visible header's dropdowns (Lanzamientos, Lo mejor, Plataformas, Mi cuenta) speak the compact
+     sheets' language at desktop scale: an opaque night panel with an ice top edge, uniform rows,
+     condensed group labels and hairlines. */
   .account-panel {
     position: absolute;
     z-index: 5;
@@ -582,9 +589,14 @@
     min-width: 220px;
     padding: 6px;
     border: 1px solid var(--color-line);
+    border-top: 2px solid var(--color-ice);
     border-radius: 10px;
-    background: var(--color-surface);
-    box-shadow: var(--elevation-lift);
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .account-control .account-panel {
+    min-width: 256px;
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -594,18 +606,19 @@
   }
 
   .account-option {
+    position: relative;
     display: flex;
     width: 100%;
     min-height: 44px;
     align-items: center;
-    gap: 11px;
+    gap: 12px;
     border: 0;
-    border-radius: 6px;
-    padding: 9px 12px;
+    border-radius: 8px;
+    padding: 0 12px;
     color: var(--color-ink);
     background: transparent;
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font-size: 0.875rem;
+    font-weight: 560;
     text-align: left;
     text-decoration: none;
     white-space: nowrap;
@@ -613,7 +626,11 @@
 
   .account-option:hover,
   .account-option:focus-visible {
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .account-option:focus-visible {
+    outline-offset: -2px;
   }
 
   .account-option:disabled {
@@ -628,6 +645,35 @@
     color: var(--color-accent);
   }
 
+  /* The sheets' trailing chevron marks a destination; with a pointer it shows on the row in hand,
+     so the panel stays quiet until a row is chosen. Logout is an action, so it has none. */
+  .account-panel a.account-option:not(.platform-shortcut, .platform-shortcuts-all)::after,
+  .account-panel .account-platforms-link::after {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    margin: 0 4px 0 auto;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    color: var(--color-subtle);
+    content: "";
+    opacity: 0;
+    transform: rotate(45deg);
+  }
+
+  .account-panel a.account-option:is(:hover, :focus-visible)::after,
+  .account-panel .account-option-platforms:hover .account-platforms-link::after,
+  .account-panel .account-platforms-link:focus-visible::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .account-panel a.account-option::after,
+    .account-panel .account-platforms-link::after {
+      transition: opacity var(--duration-fast) var(--ease-out);
+    }
+  }
+
   /* Mi perfil stands alone on top; Tu actividad and Ajustes follow as labelled groups, parted by
      hairlines, then logout. */
   .account-group {
@@ -635,15 +681,15 @@
   }
 
   .account-group + .account-group {
-    margin-top: 4px;
+    margin-top: 6px;
     border-top: 1px solid var(--color-line);
-    padding-top: 4px;
+    padding-top: 6px;
   }
 
   .account-group-label {
     margin: 6px 12px 2px;
     color: var(--color-subtle);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-stretch: 75%;
     font-weight: 700;
     line-height: 1.4;
@@ -651,8 +697,57 @@
     text-transform: uppercase;
   }
 
+  /* Mi perfil leads on its own, on every width: a round ice avatar and a heavier name. The
+     visible trigger wears the same round avatar, so `Mi cuenta` and the profile read as one. */
   .account-profile {
-    font-weight: 650;
+    min-height: 56px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+  }
+
+  .account-trigger .account-avatar {
+    border-radius: 50%;
+    background: linear-gradient(160deg, #fff, var(--color-ice) 90%);
+  }
+
+  .account-profile .account-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(160deg, #fff, var(--color-ice) 90%);
+  }
+
+  .account-profile .account-avatar::before {
+    top: 8px;
+    width: 9px;
+    height: 9px;
+  }
+
+  .account-profile .account-avatar::after {
+    top: 19px;
+    width: 17px;
+    height: 11px;
+  }
+
+  .account-logout,
+  .account-logout svg {
+    color: var(--color-danger);
+  }
+
+  .account-panel .account-logout:hover,
+  .account-panel .account-logout:focus-visible {
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
+
+  /* Plataformas is a checkbox beside its link; the link fills the row so the whole row opens it. */
+  .account-platforms-link {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    align-self: stretch;
+    color: inherit;
+    text-decoration: none;
   }
 
   /* The platforms checkbox takes an icon's box, so Plataformas lines up with its group. */
@@ -904,7 +999,7 @@
     font-size: 0.8125rem;
   }
 
-  /* Mi perfil leads the sheet on its own: a larger avatar and a heavier name. */
+  /* Mi perfil leads the sheet at its larger row scale. */
   .account-sheet .account-profile {
     min-height: 64px;
     font-size: 1.125rem;
@@ -914,8 +1009,6 @@
   .account-sheet .account-profile .account-avatar {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(160deg, #fff, var(--color-ice) 90%);
   }
 
   .account-sheet .account-profile .account-avatar::before {
@@ -942,16 +1035,6 @@
     color: var(--color-subtle);
     content: "";
     transform: rotate(45deg);
-  }
-
-  .account-sheet .account-platforms-link {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    align-items: center;
-    align-self: stretch;
-    color: inherit;
-    text-decoration: none;
   }
 
   .account-sheet .account-logout,

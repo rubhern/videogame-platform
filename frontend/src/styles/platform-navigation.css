@@ -68,18 +68,23 @@
   }
 
   .platforms-panel {
-    min-width: 300px;
+    width: 420px;
+    padding: 8px;
   }
 
   .platform-shortcuts-heading {
-    margin: 10px 12px;
+    margin: 6px 6px 10px;
     color: var(--color-muted);
     font-size: 0.8125rem;
     line-height: 1.5;
   }
 
+  /* The four shortcuts are logo tiles in two columns, in the visible Plataformas panel and in the
+     compact Menú sheet alike; the index link follows as a row. */
   .platform-shortcuts-list {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -87,9 +92,20 @@
 
   .platform-shortcut {
     display: flex;
+    min-height: 52px;
     align-items: center;
-    gap: 12px;
-    min-height: 48px;
+    gap: 10px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--color-surface);
+    line-height: 1.3;
+    white-space: normal;
+  }
+
+  .platform-shortcut:hover,
+  .platform-shortcut:focus-visible {
+    border-color: color-mix(in srgb, var(--color-accent) 58%, transparent);
   }
 
   .platform-shortcut .app-select-icon {
@@ -102,42 +118,31 @@
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    border-top: 1px solid var(--color-line);
-    margin-top: 6px;
+    margin-top: 8px;
     min-height: 44px;
   }
 
   /* In the compact Menú sheet the Plataformas heading names the group, so the lead goes; the
-     four shortcuts become logo tiles and the index link a row like any other destination. */
+     tiles take the sheet's larger type. */
   .navigation-menu .platform-shortcuts-heading {
     display: none;
   }
 
   .navigation-menu .platform-shortcuts-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-block: 6px 4px;
   }
 
   .navigation-menu .platform-shortcut {
     min-height: 56px;
-    border: 1px solid var(--color-line);
+    gap: 12px;
     border-radius: 10px;
-    padding: 8px 10px;
-    background: var(--color-surface);
     font-size: 0.875rem;
-    line-height: 1.3;
-    white-space: normal;
-  }
-
-  .navigation-menu .platform-shortcut:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 58%, transparent);
   }
 
   .navigation-menu .platform-shortcuts-all {
     justify-content: flex-start;
     margin-top: 4px;
-    border-top: 0;
   }
 
   .navigation-menu .platform-shortcuts-all > span {

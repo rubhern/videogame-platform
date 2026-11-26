@@ -71,7 +71,7 @@ for (const width of [320, 360, 390]) {
     await page.keyboard.press("Enter");
     await expect(menu).toHaveAttribute("aria-expanded", "true");
     const nav = page.getByRole("navigation", { name: "Principal" });
-    await expect(nav.getByRole("heading")).toHaveText(["Lanzamientos", "Rankings", "Plataformas"]);
+    await expect(nav.getByRole("heading")).toHaveText(["Lanzamientos", "Lo mejor", "Plataformas"]);
     await expect(nav.getByRole("link")).toHaveText(["Destacados", "Explorar", "Calendario", "TOPómetro", "Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC", "Ver todas las plataformas →"]);
     await expect(nav.getByRole("link", { name: "Explorar", exact: true })).toHaveAttribute("aria-current", "page");
     // Menú holds the navigation only; the account keeps its own sheet.
@@ -221,6 +221,7 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
 
       const nav = page.getByRole("navigation", { name: "Principal" });
       const releases = nav.getByRole("button", { name: "Lanzamientos", exact: true });
+      const best = nav.getByRole("button", { name: "Lo mejor" });
       const platforms = nav.getByRole("button", { name: "Plataformas" });
       const account = authenticated
         ? page.getByRole("button", { name: "Mi cuenta" })
@@ -232,17 +233,41 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
       // Tablet sets the sections and search on a second row; desktop keeps one row.
       if (width < 1024) {
         expect(await rowCentre(releases)).toBeGreaterThan(await rowCentre(account) + 20);
-        await expectSameRow(releases, [platforms, searchField]);
+        await expectSameRow(releases, [best, platforms, searchField]);
       } else {
-        await expectSameRow(brand(page), [releases, platforms, searchField]);
+        await expectSameRow(brand(page), [releases, best, platforms, searchField]);
       }
       // Search gives way first, never below its minimum.
       expect((await searchField.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(width < 1024 ? 240 : 200);
-      for (const section of [releases, platforms]) {
+      for (const section of [releases, best, platforms]) {
         expect(Number.parseFloat(await section.evaluate(element => getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
       }
       await expectNoPageOverflow(page);
       await page.screenshot({ path: testInfo.outputPath(`header-${authenticated ? "authenticated" : "anonymous"}-${width}.png`) });
+
+      // The Plataformas panel sets its four tiles two by two and stays within the viewport.
+      await platforms.click();
+      const tiles = nav.getByRole("listitem").getByRole("link");
+      await expect(tiles).toHaveText(["Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC"]);
+      await expectSameRow(tiles.nth(0), [tiles.nth(1)]);
+      await expectSameRow(tiles.nth(2), [tiles.nth(3)]);
+      expect(await rowCentre(tiles.nth(2))).toBeGreaterThan(await rowCentre(tiles.nth(0)) + 20);
+      for (const tile of await tiles.all()) {
+        expect(Math.round((await tile.boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(44);
+      }
+      const platformsPanel = await page.locator(".platforms-panel").boundingBox();
+      expect(platformsPanel?.x ?? -1).toBeGreaterThanOrEqual(0);
+      expect((platformsPanel?.x ?? 0) + (platformsPanel?.width ?? width + 1)).toBeLessThanOrEqual(width);
+      await page.keyboard.press("Escape");
+      await expect(platforms).toHaveAttribute("aria-expanded", "false");
+
+      // Lo mejor holds TOPómetro, named by its lockup at the rows' cap height, never an icon's.
+      await best.click();
+      const topometro = nav.getByRole("link", { name: "TOPómetro" });
+      await expect(topometro).toHaveAttribute("href", "/topometro");
+      expect(Math.round((await topometro.locator("svg").first().boundingBox())?.width ?? 0)).toBeGreaterThan(60);
+      await page.keyboard.press("Escape");
+      await expect(best).toHaveAttribute("aria-expanded", "false");
 
       if (authenticated) {
         await account.focus();

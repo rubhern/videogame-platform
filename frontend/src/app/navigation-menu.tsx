@@ -13,13 +13,13 @@ const step = (index: number) => ({ "--menu-step": index }) as CSSProperties;
 /**
  * The compact header's navigation (#358): one **Menú** button, after the account's own, opening
  * the primary sections only. Each section is a small heading over uniform rows: **Lanzamientos**
- * with its three destinations, **Rankings** with TOPómetro, and **Plataformas** with its four
+ * with its three destinations, **Lo mejor** with TOPómetro, and **Plataformas** with its four
  * catalogue shortcuts and the index.
  */
 export function NavigationMenu() {
   const { releases, current } = usePrimaryDestinations();
   const releasesId = useId();
-  const rankingsId = useId();
+  const bestId = useId();
   const platformsId = useId();
 
   return (
@@ -39,8 +39,8 @@ export function NavigationMenu() {
           </ul>
         </div>
         <div className="header-sheet-group" style={step(1)}>
-          <h2 className="header-sheet-label" id={rankingsId}>Rankings</h2>
-          <ul className="header-sheet-rows" aria-labelledby={rankingsId}>
+          <h2 className="header-sheet-label" id={bestId}>Lo mejor</h2>
+          <ul className="header-sheet-rows" aria-labelledby={bestId}>
             <li>
               <Link className="header-sheet-row navigation-menu-topometro" to={TOPOMETRO_PATH}
                 aria-current={current(TOPOMETRO_PATH)}>

@@ -50,7 +50,7 @@ describe("compact navigation menu", () => {
     const nav = screen.getByRole("navigation", { name: "Principal" });
     expect(panel).toContainElement(nav);
     expect(within(nav).getAllByRole("heading", { level: 2 }).map(heading => heading.textContent))
-      .toEqual(["Lanzamientos", "Rankings", "Plataformas"]);
+      .toEqual(["Lanzamientos", "Lo mejor", "Plataformas"]);
     const links = within(nav).getAllByRole("link");
     expect(links.map(link => link.textContent)).toEqual([
       "Destacados", "Explorar", "Calendario", "TOPómetro", "Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC", "Ver todas las plataformas →",
@@ -59,7 +59,7 @@ describe("compact navigation menu", () => {
       "/lanzamientos/destacados", "/lanzamientos", "/lanzamientos/calendario", "/topometro", "/plataformas/nintendo-switch-2/catalogo", "/plataformas/playstation-5/catalogo", "/plataformas/xbox-series-x-s/catalogo", "/plataformas/windows-pc/catalogo", "/plataformas",
     ]);
     expect(within(nav).getByRole("list", { name: "Lanzamientos" })).toBeInTheDocument();
-    expect(within(within(nav).getByRole("list", { name: "Rankings" })).getByRole("link")).toHaveTextContent("TOPómetro");
+    expect(within(within(nav).getByRole("list", { name: "Lo mejor" })).getByRole("link")).toHaveTextContent("TOPómetro");
     expect(within(nav).getByRole("link", { name: "Calendario" })).toHaveAttribute("aria-current", "page");
     expect(links.filter(link => link.hasAttribute("aria-current"))).toHaveLength(1);
 

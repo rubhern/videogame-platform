@@ -134,7 +134,12 @@ describe("TOPómetro page", () => {
     expect(
       fetchMock.mock.calls.some((call) => new URL((call[0] as Request).url).pathname === "/api/v1/me/platform-preferences"),
     ).toBe(false);
-    expect(screen.getByRole("link", { name: "TOPómetro" })).toHaveAttribute("aria-current", "page");
+    // Lo mejor is the current section; TOPómetro inside it is the current page.
+    const primary = screen.getByRole("navigation", { name: "Principal" });
+    const best = within(primary).getByRole("button", { name: "Lo mejor" });
+    expect(best).toHaveAttribute("aria-current", "true");
+    await userEvent.setup().click(best);
+    expect(within(primary).getByRole("link", { name: "TOPómetro" })).toHaveAttribute("aria-current", "page");
   });
 
   it("loads the next page on request, keeps one place per game and focuses the first new game", async () => {

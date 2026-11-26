@@ -4,8 +4,11 @@ import { platformCataloguePath } from "../features/platform-catalogue/platform-c
 import { featuredPlatforms, PLATFORMS_PATH } from "../features/platforms/platform-context";
 import { SelectIcon } from "../shared/ui/select-icon";
 
-/** The same four direct catalogue entries in the desktop disclosure and the mobile sheet. */
-export function PlatformShortcuts({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * The same four direct catalogue entries in the desktop disclosure and the mobile sheet; each
+ * surface closes itself when one of its links is followed.
+ */
+export function PlatformShortcuts() {
   const location = useLocation();
   return (
     <div className="platform-shortcuts">
@@ -13,14 +16,14 @@ export function PlatformShortcuts({ onNavigate }: { onNavigate?: () => void }) {
       <ul className="platform-shortcuts-list">
         {featuredPlatforms.map(platform => (
           <li key={platform.key}>
-            <Link className="account-option platform-shortcut" to={platformCataloguePath(platform.key)} onClick={onNavigate}>
+            <Link className="account-option platform-shortcut" to={platformCataloguePath(platform.key)}>
               <SelectIcon name={platform.logo} />
               <span>{platform.name}</span>
             </Link>
           </li>
         ))}
       </ul>
-      <Link className="account-option platform-shortcuts-all" to={PLATFORMS_PATH} onClick={onNavigate} aria-current={location.pathname === PLATFORMS_PATH ? "page" : undefined}>
+      <Link className="account-option platform-shortcuts-all" to={PLATFORMS_PATH} aria-current={location.pathname === PLATFORMS_PATH ? "page" : undefined}>
         Ver todas las plataformas <span aria-hidden="true">→</span>
       </Link>
     </div>
