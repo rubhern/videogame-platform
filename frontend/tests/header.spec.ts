@@ -17,6 +17,13 @@ async function expectSameRow(reference: Locator, controls: Locator[]) {
   }
 }
 
+/** Waits for a dropdown to finish opening: its pop-in moves and scales it, so earlier measurements drift. */
+async function settled(panel: Locator) {
+  await panel.evaluate(async element => {
+    await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished));
+  });
+}
+
 async function expectNoPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 }
@@ -249,6 +256,7 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
       await platforms.click();
       const tiles = nav.getByRole("listitem").getByRole("link");
       await expect(tiles).toHaveText(["Nintendo Switch 2", "PlayStation 5", "Xbox Series X|S", "Windows PC"]);
+      await settled(page.locator(".platforms-panel"));
       await expectSameRow(tiles.nth(0), [tiles.nth(1)]);
       await expectSameRow(tiles.nth(2), [tiles.nth(3)]);
       expect(await rowCentre(tiles.nth(2))).toBeGreaterThan(await rowCentre(tiles.nth(0)) + 20);
@@ -265,6 +273,7 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
       await best.click();
       const topometro = nav.getByRole("link", { name: "TOPómetro" });
       await expect(topometro).toHaveAttribute("href", "/topometro");
+      await settled(nav.locator(".releases-panel").filter({ has: page.getByRole("link", { name: "TOPómetro" }) }));
       expect(Math.round((await topometro.locator("svg").first().boundingBox())?.width ?? 0)).toBeGreaterThan(60);
       await page.keyboard.press("Escape");
       await expect(best).toHaveAttribute("aria-expanded", "false");
