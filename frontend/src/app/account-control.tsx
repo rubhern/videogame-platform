@@ -158,38 +158,43 @@ type AccountActionsProps = {
 
 /**
  * The authenticated account actions, shared by the header's Mi cuenta panel and the compact
- * account sheet. They mount only with the surface that shows them. The groups (profile, the
- * player's own lists, settings and logout) are only separated on the compact sheet.
+ * account sheet. They mount only with the surface that shows them. **Mi perfil** stands alone
+ * and highlighted on top; then **Tu actividad** and **Ajustes**, each a labelled group whose
+ * entries drop the possessive the group already states (owner decision, 2026-11-26); logout last.
  */
 export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountActionsProps) {
   const logout = useLogout();
+  const activityId = useId();
+  const settingsId = useId();
   return (
     <>
       <div className="account-group">
-        <Link className="account-option" onClick={onNavigate} to="/mi-perfil">
-          <ProfileIcon />
+        <Link className="account-option account-profile" onClick={onNavigate} to="/mi-perfil">
+          <span className="account-avatar" aria-hidden="true" />
           Mi perfil
         </Link>
       </div>
-      <div className="account-group">
-        <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
-          <span aria-hidden="true" className="wishlist-mark" />
-          Mis deseados
-        </Link>
+      <div className="account-group" role="group" aria-labelledby={activityId}>
+        <p className="account-group-label" id={activityId}>Tu actividad</p>
         <Link className="account-option" onClick={onNavigate} to="/mis-juegos">
           <LibraryIcon />
-          Mis juegos
+          Juegos
+        </Link>
+        <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
+          <span aria-hidden="true" className="wishlist-mark" />
+          Deseados
         </Link>
         <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
           <RatingsIcon />
-          Mis puntuaciones
+          Puntuaciones
         </Link>
         <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones/estadisticas">
           <StatisticsIcon />
-          Tus estadísticas
+          Estadísticas
         </Link>
       </div>
-      <div className="account-group">
+      <div className="account-group" role="group" aria-labelledby={settingsId}>
+        <p className="account-group-label" id={settingsId}>Ajustes</p>
         {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
         <PlatformsMenuRow onNavigate={onNavigate} />
         {/* Navigation only: the server authorizes every administration read itself. */}
@@ -224,10 +229,11 @@ export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountA
 }
 
 /**
- * **Mis plataformas** in Mi cuenta (#295): a native checkbox that applies or sets aside the
- * preferred platforms on Destacados, Explorar lanzamientos and the release calendar for the whole document, never in the
- * saved choice, beside the link that manages them. It mounts only with the open panel, so the
- * preferences are read when they are needed. Without preferences only the link remains.
+ * The preferred platforms in Mi cuenta (#295), read as **Plataformas** under **Ajustes**: a native
+ * checkbox that applies or sets aside the preferred platforms on Destacados, Explorar lanzamientos
+ * and the release calendar for the whole document, never in the saved choice, beside the link to
+ * **Mis plataformas** that manages them. It mounts only with the open panel, so the preferences
+ * are read when they are needed. Without preferences only the link remains.
  */
 function PlatformsMenuRow({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const location = useLocation();
@@ -282,7 +288,7 @@ function PlatformsMenuRow({ onNavigate }: { onNavigate?: (() => void) | undefine
         <PlatformsIcon />
       )}
       <Link className="account-platforms-link" onClick={onNavigate} to="/mis-plataformas">
-        Mis plataformas
+        Plataformas
       </Link>
       {interests.status === "ready" ? (
         <span className="sr-only" id={platformsHintId}>

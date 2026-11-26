@@ -158,13 +158,21 @@ describe("compact account sheet", () => {
 
     const account = screen.getByRole("group", { name: "Mi cuenta" });
     expect(within(account).getAllByRole("link").map(link => link.textContent)).toEqual([
-      "Mi perfil", "Mis deseados", "Mis juegos",
-      "Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador",
+      "Mi perfil", "Juegos", "Deseados",
+      "Puntuaciones", "Estadísticas", "Plataformas", "Panel de administrador",
     ]);
+    // Mi perfil stands alone on top; the rest sit in labelled groups that state the possessive.
+    expect(within(account).getAllByRole("link")[0]).toHaveAttribute("href", "/mi-perfil");
+    const activity = within(account).getByRole("group", { name: "Tu actividad" });
+    expect(within(activity).getAllByRole("link").map(link => link.textContent))
+      .toEqual(["Juegos", "Deseados", "Puntuaciones", "Estadísticas"]);
+    const settings = within(account).getByRole("group", { name: "Ajustes" });
+    expect(within(settings).getAllByRole("link").map(link => link.textContent))
+      .toEqual(["Plataformas", "Panel de administrador"]);
     expect(within(account).queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();
 
     // The page already shown: the sheet closes and focus returns to its button.
-    await user.click(within(account).getByRole("link", { name: "Mis puntuaciones" }));
+    await user.click(within(account).getByRole("link", { name: "Puntuaciones" }));
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 

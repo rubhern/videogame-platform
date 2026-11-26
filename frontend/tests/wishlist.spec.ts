@@ -43,9 +43,9 @@ test("saves from a game, opens the private list and removes by keyboard", async 
   await page.keyboard.press("Space");
   await expect(wish).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Mi cuenta" }).click();
-  const menuWishlist = page.getByRole("link", { name: "Mis deseados", exact: true });
-  const profileIcon = page.getByRole("link", { name: "Mi perfil", exact: true }).locator("svg");
-  const accountColor = await profileIcon.evaluate((icon) => getComputedStyle(icon).color);
+  const menuWishlist = page.getByRole("group", { name: "Tu actividad" }).getByRole("link", { name: "Deseados", exact: true });
+  const libraryIcon = page.getByRole("group", { name: "Tu actividad" }).getByRole("link", { name: "Juegos", exact: true }).locator("svg");
+  const accountColor = await libraryIcon.evaluate((icon) => getComputedStyle(icon).color);
   await expect(menuWishlist.locator(".wishlist-mark")).toHaveCSS("color", accountColor);
   await menuWishlist.click();
   await expect(page).toHaveURL(/\/mis-deseados$/);

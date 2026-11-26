@@ -75,7 +75,7 @@ test("sets a game's state on its page, offers rating and lists it in Mis juegos"
   await page.setViewportSize({ width: 1320, height: 900 });
 
   await page.getByRole("button", { name: "Mi cuenta" }).click();
-  await page.getByRole("link", { name: "Mis juegos", exact: true }).click();
+  await page.getByRole("group", { name: "Tu actividad" }).getByRole("link", { name: "Juegos", exact: true }).click();
   await expect(page).toHaveURL(/\/mis-juegos$/);
   const filters = page.getByRole("navigation", { name: "Filtrar por estado" });
   await filters.getByRole("link", { name: /^Completado/ }).click();

@@ -129,7 +129,7 @@ test("account entry returns to the game without inventing a rating and logout si
   const pending = await page.request.get("/auth/rating-intent");
   expect(pending.status()).toBe(404);
   await page.getByRole("button", { name: "Mi cuenta" }).click();
-  await expect(page.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Tu actividad" }).getByRole("link", { name: "Puntuaciones", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   // Keycloak returns only to the realm's exact post-logout URI, the landing page.
   await expect(page).toHaveURL(`${applicationOrigin}/`);

@@ -628,9 +628,39 @@
     color: var(--color-accent);
   }
 
-  /* The actions' groups only part on the compact account sheet; the panel lists them as one. */
+  /* Mi perfil stands alone on top; Tu actividad and Ajustes follow as labelled groups, parted by
+     hairlines, then logout. */
   .account-group {
-    display: contents;
+    display: grid;
+  }
+
+  .account-group + .account-group {
+    margin-top: 4px;
+    border-top: 1px solid var(--color-line);
+    padding-top: 4px;
+  }
+
+  .account-group-label {
+    margin: 6px 12px 2px;
+    color: var(--color-subtle);
+    font-size: 0.6875rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .account-profile {
+    font-weight: 650;
+  }
+
+  /* The platforms checkbox takes an icon's box, so Plataformas lines up with its group. */
+  .account-platforms-check {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    margin: 0;
   }
 
   /* ---------------------------------------------------------------- Header sheets */
@@ -862,29 +892,77 @@
   }
 
   .account-sheet .account-group {
-    display: grid;
-    padding-block: 6px;
+    padding-block: 8px;
   }
 
   .account-sheet .account-group + .account-group {
-    border-top: 1px solid var(--color-line);
+    margin-top: 0;
+  }
+
+  .account-sheet .account-group-label {
+    margin: 4px 0 2px;
+    font-size: 0.8125rem;
+  }
+
+  /* Mi perfil leads the sheet on its own: a larger avatar and a heavier name. */
+  .account-sheet .account-profile {
+    min-height: 64px;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+
+  .account-sheet .account-profile .account-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(160deg, #fff, var(--color-ice) 90%);
+  }
+
+  .account-sheet .account-profile .account-avatar::before {
+    top: 9px;
+    width: 10px;
+    height: 10px;
+  }
+
+  .account-sheet .account-profile .account-avatar::after {
+    top: 22px;
+    width: 20px;
+    height: 13px;
+  }
+
+  /* Every destination row closes with the menu's chevron; logout is an action, so it has none. */
+  .account-sheet a.account-option::after,
+  .account-sheet .account-platforms-link::after {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    margin: 0 4px 0 auto;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    color: var(--color-subtle);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .account-sheet .account-platforms-link {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    align-self: stretch;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .account-sheet .account-logout,
+  .account-sheet .account-logout svg {
+    color: var(--color-danger);
   }
 
   .account-sheet .account-option svg,
-  .account-sheet .account-option .wishlist-mark,
   .account-sheet .account-platforms-check {
     width: 20px;
     height: 20px;
-  }
-
-  /* The platforms checkbox takes an icon's place, so its label lines up with the others. */
-  .account-sheet .account-platforms-check {
-    flex: none;
-    margin: 0;
-  }
-
-  .account-sheet .account-option .wishlist-mark {
-    flex: none;
   }
 
   .account-sheet .account-logout-error {

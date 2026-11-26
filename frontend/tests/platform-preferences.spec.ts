@@ -137,7 +137,7 @@ test.describe("Mis plataformas in Mi cuenta", () => {
       await page.getByRole("button", { name: "Mi cuenta" }).click();
       const check = page.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
       await expect(check).toBeChecked();
-      await expect(page.getByRole("link", { name: "Mis plataformas", exact: true })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Ajustes" }).getByRole("link", { name: "Plataformas", exact: true })).toBeVisible();
       await expectNoPageOverflow(page);
       expect((await analyzeAccessibility(page)).violations).toEqual([]);
       expect(account.discoveryReads.at(-1)?.searchParams.getAll("platformIds")).toEqual([PS5.platformId]);
@@ -169,7 +169,7 @@ test.describe("Mis plataformas in Mi cuenta", () => {
 
     await landOnFeatured(page);
     await page.getByRole("button", { name: "Mi cuenta" }).click();
-    await page.getByRole("link", { name: "Mis plataformas", exact: true }).click();
+    await page.getByRole("group", { name: "Ajustes" }).getByRole("link", { name: "Plataformas", exact: true }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "Mis plataformas" })).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "PlayStation 5" })).toBeChecked();

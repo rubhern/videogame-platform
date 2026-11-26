@@ -76,6 +76,15 @@
   content: "♡";
 }
 
+/* In the account menu the mark takes an icon's box, so Deseados lines up with its group. */
+.account-option .wishlist-mark {
+  inline-size: 18px;
+}
+
+.account-sheet .account-option .wishlist-mark {
+  inline-size: 20px;
+}
+
 .wishlist-button[data-saved="true"] .wishlist-mark::before {
   content: "♥";
 }

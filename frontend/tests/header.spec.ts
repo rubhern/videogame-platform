@@ -104,10 +104,16 @@ for (const width of [320, 360, 390]) {
     await expect(menu).toHaveAttribute("aria-expanded", "false");
     await expect(account).toHaveAttribute("aria-expanded", "true");
     const actions = page.getByRole("group", { name: "Mi cuenta" });
-    await expect(actions.getByRole("link")).toHaveText(["Mi perfil", "Mis deseados", "Mis juegos", "Mis puntuaciones", "Tus estadísticas", "Mis plataformas", "Panel de administrador"]);
+    await expect(actions.getByRole("link")).toHaveText(["Mi perfil", "Juegos", "Deseados", "Puntuaciones", "Estadísticas", "Plataformas", "Panel de administrador"]);
+    await expect(actions.getByRole("group")).toHaveText([/^Tu actividad/, /^Ajustes/]);
     await expect(page.getByRole("navigation", { name: "Principal" })).toHaveCount(0);
-    // Logout is the last action and is reached without scrolling the sheet.
+    // Logout is the last action. While the consent notice is open the sheet scrolls to it; once the
+    // notice is closed it shows without scrolling, down to 320×760.
     const logout = actions.getByRole("button", { name: "Cerrar sesión" });
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Rechazar todo" }).click();
+    await account.click();
+    await expect(account).toHaveAttribute("aria-expanded", "true");
     const logoutBox = await logout.boundingBox();
     expect((logoutBox?.y ?? 760) + (logoutBox?.height ?? 0)).toBeLessThanOrEqual(760);
     await expectNoPageOverflow(page);
@@ -245,15 +251,17 @@ for (const width of [720, 834, 1024, 1180, 1320]) {
         await page.keyboard.press("Tab");
         await expect(page.getByRole("link", { name: "Mi perfil", exact: true })).toBeFocused();
         await expect(page.getByRole("link", { name: "Mi perfil", exact: true })).toHaveAttribute("href", "/mi-perfil");
+        // Tu actividad follows the profile, its entries without the possessive the group states.
+        const activity = page.getByRole("group", { name: "Tu actividad" });
         await page.keyboard.press("Tab");
-        const wishlist = page.getByRole("link", { name: "Mis deseados", exact: true });
+        await expect(activity.getByRole("link", { name: "Juegos", exact: true })).toHaveAttribute("href", "/mis-juegos");
+        await expect(activity.getByRole("link", { name: "Juegos", exact: true })).toBeFocused();
+        await page.keyboard.press("Tab");
+        const wishlist = activity.getByRole("link", { name: "Deseados", exact: true });
         await expect(wishlist).toBeFocused();
         await expect(wishlist).toHaveAttribute("href", "/mis-deseados");
         await page.keyboard.press("Tab");
-        await expect(page.getByRole("link", { name: "Mis juegos", exact: true })).toHaveAttribute("href", "/mis-juegos");
-        await expect(page.getByRole("link", { name: "Mis juegos", exact: true })).toBeFocused();
-        await page.keyboard.press("Tab");
-        await expect(page.getByRole("link", { name: "Mis puntuaciones" })).toBeFocused();
+        await expect(activity.getByRole("link", { name: "Puntuaciones", exact: true })).toBeFocused();
         expect((await analyzeAccessibility(page)).violations).toEqual([]);
         await page.keyboard.press("Escape");
         await expect(account).toBeFocused();

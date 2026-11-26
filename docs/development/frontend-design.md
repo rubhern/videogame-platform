@@ -281,10 +281,15 @@ A section whose page is shown carries the fire rule and `aria-current="page"`; *
 carries the rule, as `aria-current="true"`, on a platform's destination such as
 [Explorar catálogo](#explorar-catálogo).
 
-**Account.** For an authenticated session the account control provides `Mi cuenta`,
-`Mis puntuaciones`, **Tus estadísticas**, **Mis deseados**, **Mis plataformas**
-([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout, and
-**Panel de administrador** only when the session names that capability (#247). Post-MVP (#162),
+**Account.** For an authenticated session the account control, `Mi cuenta`, opens the same
+actions on every width (owner decision, 2026-11-26): **Mi perfil** alone and highlighted on top,
+with the account avatar; then **Tu actividad**, with **Juegos**, **Deseados**, **Puntuaciones**
+and **Estadísticas**; then **Ajustes**, with **Plataformas**
+([preferred platforms](#preferred-platforms), #295) and **Panel de administrador** only when the
+session names that capability (#247); and CSRF-protected logout last. Each group is a labelled
+group in the instrument's condensed uppercase voice, parted by hairlines, and its entries drop
+the possessive the group already states; the pages they open keep their own titles (**Mis
+juegos**, **Tus estadísticas**, …). Post-MVP (#162),
 anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
 BFF/OIDC navigation directly to the hosted Gameómetro identity screens; discovery stays anonymous
 and the inline rating authentication boundary remains available.
@@ -313,10 +318,10 @@ only one shows at a time.
 - The **account trigger** shows the session: with one it is the avatar, named `Mi cuenta`;
   without one it reads `Entrar` (a person icon below 380px). Its sheet holds the account only:
   **Tu cuenta** with one line on what an account keeps and `Iniciar sesión` and `Crear cuenta`
-  side by side, or the **Account** actions above in the panel's order, grouped
-  by hairlines (Mi perfil; the player's own lists and statistics; **Mis plataformas** and, with
-  its capability, **Panel de administrador**; logout last). With a session, logout is reached
-  without scrolling from 390×844 and at 320×760 with the consent notice open.
+  side by side, or the **Account** actions above at row height: Mi perfil with a 40px round
+  avatar, every destination with the menu's trailing chevron, and logout in the danger tone.
+  With a session, logout is reached without scrolling down to 320×760; while the consent notice
+  is open the sheet scrolls to it.
 - **Menú** follows it. Its glyph is three bars that cross into a close mark while open. Its sheet
   holds the `Principal` navigation only: **Lanzamientos**, **Rankings** and **Plataformas**, each
   a small heading (`h2`) in the instrument's condensed uppercase voice over uniform rows of at
@@ -845,7 +850,8 @@ platform without games adds **Aún sin juegos en Gameómetro** from the public d
 failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
 
 **Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
-A signed-in player gets every destination of the account menu (**Mis juegos**, **Mis deseados**,
+A signed-in player gets every destination of the account menu, by the names of the pages they
+open rather than the menu's shorter entries (**Mis juegos**, **Mis deseados**,
 **Mis puntuaciones**, **Tus estadísticas**, **Mis plataformas** and **Mi perfil**, in that order) as
 tiles: the menu's own glyph in a round ice chip, the name, one line on what it holds and a chevron,
 two columns from 720px and one below. An anonymous visitor gets one invitation, the keypad's
@@ -1618,8 +1624,9 @@ shows the mean on the G-meter and the ten score buckets with the shared histogra
 ## Preferred platforms
 
 Post-MVP (#295, implemented; awaiting owner review). A signed-in player's preferred platforms
-narrow release discovery. Both operations live in **Mi cuenta**: the **Mis plataformas** link
-manages the saved choice, and the checkbox beside it applies or sets it aside.
+narrow release discovery. Both operations live in **Mi cuenta**, under **Ajustes**: the
+**Plataformas** link opens **Mis plataformas** to manage the saved choice, and the checkbox beside
+it applies or sets it aside.
 
 **The choice.** The first-run welcome (`/bienvenida`) and **Mis plataformas** share one
 composition on the plain night canvas, without a stage, G or score instrument: the page
@@ -1646,7 +1653,7 @@ player who has never chosen is sent to it once per document on the way into the 
 Destacados, the explorer or the calendar, carrying the destination, which it restores after saving
 or skipping; the home is its default destination. A rating return or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
-**Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
+**Applying them.** The authenticated account panel holds one **Plataformas** row: a native
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
@@ -1842,7 +1849,7 @@ See the [operator procedure](operations-runbook.md#translation-administration-ac
 ## Personal statistics
 
 Post-MVP (#254, refined with personal platforms by #363; implemented, awaiting owner review),
-**Tus estadísticas** opens from `Mis puntuaciones` and `Mi cuenta` at
+**Tus estadísticas** opens from `Mis puntuaciones` and from **Estadísticas** in `Mi cuenta` at
 `/mis-puntuaciones/estadisticas`. It is a personal score atlas on night, composed for phones
 first. Light comes only from the two games presented as extremes; it never repeats the
 temporal G. The [use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)

@@ -32,10 +32,10 @@ describe("header account control", () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: true, csrfToken: "csrf" })));
     const player = renderControl();
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
-    expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Tus estadísticas" })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
+    expect(screen.getByRole("link", { name: "Puntuaciones" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Estadísticas" })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
     // Managing preferred platforms is a persistent account action, apart from the discovery toggle.
-    expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
+    expect(screen.getByRole("link", { name: "Plataformas" })).toHaveAttribute("href", "/mis-plataformas");
     expect(screen.queryByRole("link", { name: "Panel de administrador" })).not.toBeInTheDocument();
     player.unmount();
 
@@ -97,11 +97,11 @@ describe("header account control", () => {
     const user = userEvent.setup();
     const trigger = await screen.findByRole("button", { name: "Mi cuenta" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("link", { name: "Mis puntuaciones" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Puntuaciones" })).not.toBeInTheDocument();
 
     await user.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Puntuaciones" })).toBeVisible();
     await user.keyboard("{Escape}");
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -151,7 +151,7 @@ describe("header account control", () => {
     renderControl();
 
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
-    await user.click(screen.getByRole("link", { name: "Mis puntuaciones" }));
+    await user.click(screen.getByRole("link", { name: "Puntuaciones" }));
 
     expect(screen.getByRole("heading", { name: "Mis puntuaciones" })).toBeVisible();
   });
