@@ -4,6 +4,7 @@ import { FEATURED_PATH } from "../features/releases/featured-search";
 import { CALENDAR_PATH } from "../features/releases/release-calendar-search";
 import { readReleasesSearch, RELEASES_PATH, releasesSearchPath } from "../features/releases/releases-search";
 import { PLATFORMS_PATH } from "../features/platforms/platform-context";
+import { TOPOMETRO_PATH } from "../features/rankings/ranking-search";
 
 /** The Plataformas index (#287); a selected platform stays on the same path. */
 export { PLATFORMS_PATH };
@@ -13,7 +14,7 @@ export type ReleaseDestination = { label: string; path: string; to: string };
 /**
  * The primary sections, shared by the header's visible navigation and the compact menu so both
  * name, order and mark the same destinations: **Lanzamientos** (Destacados, Explorar,
- * Calendario), TOPómetro and Plataformas.
+ * Calendario), **Lo mejor** (TOPómetro) and **Plataformas**.
  */
 export function usePrimaryDestinations() {
   const location = useLocation();
@@ -38,6 +39,7 @@ export function usePrimaryDestinations() {
   return {
     releases,
     releasesActive: releases.some(destination => destination.path === location.pathname),
+    bestActive: location.pathname === TOPOMETRO_PATH,
     current,
   };
 }

@@ -246,7 +246,11 @@ work never brings them back.
 ## Header and navigation
 
 - **Status:** Post-MVP (#358, owner-requested; implemented, awaiting owner review). These
-  responsive rules supersede the earlier phone and tablet header layouts.
+  responsive rules supersede the earlier phone and tablet header layouts. The compact header's
+  separate account sheet and grouped Menú follow an owner decision of 2026-11-26, as does the
+  **Lo mejor** section that holds TOPómetro on every width. The visible header's dropdowns carry
+  the sheets' language from tablet width at the owner's request of the same day; their desktop
+  treatment was delegated and awaits owner review.
 
 **Surface.** The header floats over the page's stage on a soft scrim rather than a solid bar, in
 the [brand identity](#brand-identity): the current section carries a short fire rule, and search
@@ -263,13 +267,16 @@ in the [product glossary](../product/glossary.md#user-facing-terms):
    section keeps the short fire rule and is announced as current; its active destination is
    highlighted and announced as the current page. Preserve the account panel's surface, spacing
    and focus language.
-2. **TOPómetro** (#386), a native link of its own outside the disclosure, so leaving the
-   disclosure for it closes the disclosure. It is named by the TOPómetro lockup at the labels'
-   cap height, dimmed like a muted label and lit when hovered or current.
+2. **Lo mejor**, a disclosure in the same interaction and surface language as Lanzamientos,
+   for what Gameómetro presents as the best games; each destination names whose judgement it
+   shows and never mixes sources. Today it holds only **TOPómetro** (#386), named by its lockup
+   at the rows' cap height. The owner accepted the extra click this costs while TOPómetro is
+   alone, so the section is in place for the rankings that follow (2026-11-26). Lo mejor is
+   current, as `aria-current="true"`, while TOPómetro is shown.
 3. **Plataformas**, a disclosure in the same interaction and surface language as Lanzamientos.
-   **Descubre juegos para tu plataforma** introduces four compact logo/name links, in the featured
-   order, directly to their catalogues, followed by **Ver todas las plataformas** to the index.
-   The dropdown offers one destination per platform; switching experiences belongs to the
+   **Descubre juegos para tu plataforma** introduces four logo/name tiles in two columns, in the
+   featured order, directly to their catalogues, followed by **Ver todas las plataformas** to the
+   index. The dropdown offers one destination per platform; switching experiences belongs to the
    [shared platform navigation](#shared-platform-navigation). Escape restores trigger focus;
    blur, outside press and navigation close it.
 
@@ -277,11 +284,15 @@ A section whose page is shown carries the fire rule and `aria-current="page"`; *
 carries the rule, as `aria-current="true"`, on a platform's destination such as
 [Explorar catálogo](#explorar-catálogo).
 
-**Account.** For an authenticated session the account control provides `Mi cuenta`,
-`Mis puntuaciones`, **Tus estadísticas**, **Mis deseados**, **Mis plataformas**
-([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout, and
-**Panel de administrador** only when the session names that capability (#247). Post-MVP (#162),
-anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
+**Account.** For an authenticated session the account control, `Mi cuenta`, opens the same
+actions on every width (owner decision, 2026-11-26): **Mi perfil** alone and highlighted on top,
+with the account avatar; then **Tu actividad**, with **Juegos**, **Deseados**, **Puntuaciones**
+and **Estadísticas**; then **Ajustes**, with **Plataformas**
+([preferred platforms](#preferred-platforms), #295) and **Panel de administrador** only when the
+session names that capability (#247); and CSRF-protected logout last, in the danger tone. Each
+group is a labelled group in the instrument's condensed uppercase voice, parted by hairlines, and
+its entries drop the possessive the group already states; the pages they open keep their own
+titles (**Mis juegos**, **Tus estadísticas**, …). Post-MVP (#162), anonymous browsing exposes primary `Iniciar sesión` and secondary `Crear cuenta` links that start
 BFF/OIDC navigation directly to the hosted Gameómetro identity screens; discovery stays anonymous
 and the inline rating authentication boundary remains available.
 
@@ -292,37 +303,56 @@ replaces the lockup until 1180px so the row keeps that minimum.
 **Tablet, 720–1023px.** Two rows: the lockup and the account control above, the sections and
 search below, where search takes the remaining width. The anonymous entry links stay visible.
 
-**Compact, below 720px.** One row: the lockup, never the lone mark, then search and the **Menú**
-button. Below 620px search is an icon that opens the existing catalogue search in a
-keyboard-accessible dialog; from 620px it is the field itself. The visible sections and the
-account control are absent: the menu carries both.
+**The dropdowns, from 720px.** Lanzamientos, Lo mejor, Plataformas and `Mi cuenta` open panels anchored
+under their buttons, without a scrim, in the language of the compact sheets below at desktop
+scale: an opaque night panel with an ice top edge, uniform rows of at least 44px, the
+condensed group labels and hairlines, and the current page's fire rule at its row's edge. With a
+pointer a destination shows the sheets' trailing chevron only while it is hovered or focused, so
+the panel stays quiet until a row is chosen; logout carries none. **Mi perfil** leads the account
+panel with the round ice avatar that the `Mi cuenta` trigger also wears. Plataformas keeps its
+lead above the tiles and **Ver todas las plataformas →** beneath them, and its panel stays within
+the viewport from 720px.
 
-**The menu.** A disclosure, not a modal: a native button named **Menú** with its expanded state
-and controlled sheet. Its glyph is a long and a short tick of a scale that cross into a close
-mark while it is open; a small ice point on it shows a signed-in session. It opens an opaque night
-sheet under the header row, with an ice top edge, over a scrim that dims the page and takes the
-tap that closes it, so nothing beneath acts; the header row stays usable above the scrim. The
-sheet holds, in reading order:
+**Compact, below 720px.** One row: the lockup, never the lone mark, then search, the account
+trigger and the **Menú** button, each at least 44px. Below 620px search is an icon that opens the
+existing catalogue search in a keyboard-accessible dialog; from 620px it is the field itself. The
+visible sections and the account control are absent: navigation and the account each open a
+sheet of their own and never share one. Below 380px the anonymous trigger keeps to its icon, and
+below 360px the row's gap and the lockup tighten slightly so four controls fit from 320px; the
+type never shrinks.
 
-- the `Principal` navigation: **Lanzamientos** in the page titles' wide voice with its three
-  destinations beneath in Destacados's **Semana | Mes** voice, then **TOPómetro**, by its lockup,
-  and **Plataformas** with its four logo/name catalogue links in a compact two-column grid and
-  **Ver todas las plataformas** beneath. All shortcuts are visible in the sheet without nested menus;
-- the account, apart from discovery in a dock on its own surface: **Tu cuenta** with
-  `Iniciar sesión` and `Crear cuenta` side by side, or **Mi cuenta** with its avatar and the
-  account actions, logout last after a hairline.
+**The sheets.** Two disclosures, not modals: native buttons with their expanded state and
+controlled sheet. Each opens an opaque night sheet under the header row, with an ice top edge,
+over a scrim that dims the page and takes the tap that closes it, so nothing beneath acts; the
+header row stays usable above the scrim, and pressing the other trigger closes the open sheet, so
+only one shows at a time.
 
-Focus stays on the button when the sheet opens, and the sheet follows it in the tab order.
+- The **account trigger** shows the session: with one it is the avatar, named `Mi cuenta`;
+  without one it reads `Entrar` (a person icon below 380px). Its sheet holds the account only:
+  **Tu cuenta** with one line on what an account keeps and `Iniciar sesión` and `Crear cuenta`
+  side by side, or the **Account** actions above at row height: Mi perfil with a 40px round
+  avatar and every destination with the menu's trailing chevron. With a session, logout is reached without scrolling down to 320×760; while the consent notice
+  is open the sheet scrolls to it.
+- **Menú** follows it. Its glyph is three bars that cross into a close mark while open. Its sheet
+  holds the `Principal` navigation only: **Lanzamientos**, **Lo mejor** and **Plataformas**, each
+  a small heading (`h2`) in the instrument's condensed uppercase voice over uniform rows of at
+  least 48px, one trailing chevron each. Lanzamientos lists its three destinations, Lo mejor
+  lists **TOPómetro** by its lockup at row height, and Plataformas keeps its four logo/name
+  catalogue tiles in a two-column grid, without the lead, then **Ver todas las plataformas** as a
+  row. The current page carries the fire rule at its row's edge. All destinations are visible
+  without nested menus.
+
+Focus stays on the button when a sheet opens, and the sheet follows it in the tab order.
 Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
 or showing another page closes it, and a link to the page already shown returns focus to the
 button. A query change on the same page, such as the **Mis plataformas** checkbox on the
-explorer, keeps it open. The sheet scrolls within the space below the header, including when the
+explorer, keeps it open. A sheet scrolls within the space below the header, including when the
 consent notice is open. A strip of the dimmed page remains tappable below it.
 
-**Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
-reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);
-nothing moves under reduced motion. Forced colours outline the current page in `Highlight` and
-return every header surface to system colours.
+**Motion and forced colours.** A sheet unrolls from the header row, its groups follow in reading
+order and Menú's bars cross, all under the [motion rules](#depth-and-motion); nothing moves under
+reduced motion. Forced colours outline the current page in `Highlight` and return every header
+surface to system colours.
 
 ## Visual language and tokens
 
@@ -831,7 +861,8 @@ platform without games adds **Aún sin juegos en Gameómetro** from the public d
 failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
 
 **Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
-A signed-in player gets every destination of the account menu (**Mis juegos**, **Mis deseados**,
+A signed-in player gets every destination of the account menu, by the names of the pages they
+open rather than the menu's shorter entries (**Mis juegos**, **Mis deseados**,
 **Mis puntuaciones**, **Tus estadísticas**, **Mis plataformas** and **Mi perfil**, in that order) as
 tiles: the menu's own glyph in a round ice chip, the name, one line on what it holds and a chevron,
 two columns from 720px and one below. An anonymous visitor gets one invitation, the keypad's
@@ -1604,8 +1635,9 @@ shows the mean on the G-meter and the ten score buckets with the shared histogra
 ## Preferred platforms
 
 Post-MVP (#295, implemented; awaiting owner review). A signed-in player's preferred platforms
-narrow release discovery. Both operations live in **Mi cuenta**: the **Mis plataformas** link
-manages the saved choice, and the checkbox beside it applies or sets it aside.
+narrow release discovery. Both operations live in **Mi cuenta**, under **Ajustes**: the
+**Plataformas** link opens **Mis plataformas** to manage the saved choice, and the checkbox beside
+it applies or sets it aside.
 
 **The choice.** The first-run welcome (`/bienvenida`) and **Mis plataformas** share one
 composition on the plain night canvas, without a stage, G or score instrument: the page
@@ -1632,7 +1664,7 @@ player who has never chosen is sent to it once per document on the way into the 
 Destacados, the explorer or the calendar, carrying the destination, which it restores after saving
 or skipping; the home is its default destination. A rating return or any other page never redirects. Skipping records an empty choice and never blocks discovery.
 
-**Applying them.** The authenticated account panel holds one **Mis plataformas** row: a native
+**Applying them.** The authenticated account panel holds one **Plataformas** row: a native
 checkbox, named *Filtrar por mis plataformas* and described by the platforms it applies, then
 the link that opens the management page. Without preferences the row is the link alone. The
 checkbox is one document-wide switch, on in every new document and kept only in its memory,
@@ -1828,7 +1860,7 @@ See the [operator procedure](operations-runbook.md#translation-administration-ac
 ## Personal statistics
 
 Post-MVP (#254, refined with personal platforms by #363; implemented, awaiting owner review),
-**Tus estadísticas** opens from `Mis puntuaciones` and `Mi cuenta` at
+**Tus estadísticas** opens from `Mis puntuaciones` and from **Estadísticas** in `Mi cuenta` at
 `/mis-puntuaciones/estadisticas`. It is a personal score atlas on night, composed for phones
 first. Light comes only from the two games presented as extremes; it never repeats the
 temporal G. The [use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)

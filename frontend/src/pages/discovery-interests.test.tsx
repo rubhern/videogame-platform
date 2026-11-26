@@ -154,7 +154,7 @@ describe("Mis plataformas on Destacados", () => {
     expect(check).toHaveAccessibleDescription(
       "En Destacados, Explorar lanzamientos y el calendario: Nintendo Switch 2, PlayStation 5",
     );
-    expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
+    expect(screen.getByRole("link", { name: "Plataformas" })).toHaveAttribute("href", "/mis-plataformas");
   });
 
   it("shows every platform in both screens while unchecked, without changing the saved choice", async () => {
@@ -214,7 +214,7 @@ describe("Mis plataformas on Destacados", () => {
     renderApp("/lanzamientos/destacados");
 
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
-    expect(await screen.findByRole("link", { name: "Mis plataformas" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Plataformas" })).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Filtrar por mis plataformas" })).not.toBeInTheDocument();
   });
 });

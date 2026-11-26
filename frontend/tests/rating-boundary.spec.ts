@@ -176,7 +176,7 @@ test.describe("real Keycloak rating journey", () => {
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
     await page.getByRole("button", { name: "Mi cuenta" }).click();
-    await page.getByRole("link", { name: "Mis puntuaciones", exact: true }).click();
+    await page.getByRole("group", { name: "Tu actividad" }).getByRole("link", { name: "Puntuaciones", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Mis puntuaciones", exact: true })).toBeVisible();
     await expect(page.getByText("8/10", { exact: true })).toBeVisible();
 

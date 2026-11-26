@@ -133,11 +133,11 @@ test.describe("Mis plataformas in Mi cuenta", () => {
       await account.install();
 
       await landOnFeatured(page, "?granularity=month");
-      // Phones carry the account in the Menú sheet (#358).
-      await page.getByRole("button", { name: width < 720 ? "Menú" : "Mi cuenta" }).click();
+      // Phones open the same account entry as a sheet of its own (#358).
+      await page.getByRole("button", { name: "Mi cuenta" }).click();
       const check = page.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
       await expect(check).toBeChecked();
-      await expect(page.getByRole("link", { name: "Mis plataformas", exact: true })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Ajustes" }).getByRole("link", { name: "Plataformas", exact: true })).toBeVisible();
       await expectNoPageOverflow(page);
       expect((await analyzeAccessibility(page)).violations).toEqual([]);
       expect(account.discoveryReads.at(-1)?.searchParams.getAll("platformIds")).toEqual([PS5.platformId]);
@@ -169,7 +169,7 @@ test.describe("Mis plataformas in Mi cuenta", () => {
 
     await landOnFeatured(page);
     await page.getByRole("button", { name: "Mi cuenta" }).click();
-    await page.getByRole("link", { name: "Mis plataformas", exact: true }).click();
+    await page.getByRole("group", { name: "Ajustes" }).getByRole("link", { name: "Plataformas", exact: true }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "Mis plataformas" })).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "PlayStation 5" })).toBeChecked();
