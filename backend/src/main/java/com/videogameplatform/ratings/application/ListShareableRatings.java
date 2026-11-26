@@ -13,6 +13,7 @@ public interface ListShareableRatings {
     enum Order {
         RATING_DATE,
         SCORE,
+        SCORE_DESC,
         RELEASE_DATE,
         INTEREST
     }

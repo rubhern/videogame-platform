@@ -158,7 +158,8 @@ export interface paths {
          * @description The profile and section must both be available publicly on every read or the response
          *     is 404. Ratings show the player's score out of 10. The optional rating sort
          *     chooses the last rating update (newest first, the default), the player's score
-         *     (lowest first), the first known commercial release period (newest first), or
+         *     (lowest first with score, highest first with scoreDesc), the first known commercial
+         *     release period (newest first), or
          *     local catalogue interest (highest share of IGDB Visits first). Missing dates
          *     and interest sort last. Wishlist uses the player's saved order and rejects
          *     a rating sort. Every order uses game ID as its final tie-breaker.
@@ -1616,7 +1617,7 @@ export interface components {
         };
         PublicProfileAliasValue: string;
         /** @enum {string} */
-        PublicProfileRatingSort: "ratingDate" | "score" | "releaseDate" | "interest";
+        PublicProfileRatingSort: "ratingDate" | "score" | "scoreDesc" | "releaseDate" | "interest";
         PublicProfileStatistics: {
             ratings?: components["schemas"]["PublicProfileRatingStatistics"];
             /** Format: int64 */

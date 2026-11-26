@@ -56,6 +56,7 @@ final class PersonalRatingsSql {
                 switch (order) {
                     case RATING_DATE -> "r.updated_at DESC";
                     case SCORE -> "r.contribution ASC";
+                    case SCORE_DESC -> "r.contribution DESC";
                     case RELEASE_DATE -> "g.first_release_on DESC NULLS LAST";
                     case INTEREST -> "g.catalogue_visits DESC NULLS LAST";
                 };

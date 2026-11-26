@@ -28,6 +28,7 @@ const sectionLabels: Record<ProfileTab, string> = {
 
 const ratingOrders = [
   { value: "ratingDate", label: "Notas recientes", icon: "clock" },
+  { value: "scoreDesc", label: "Nota más alta", icon: "descending" },
   { value: "score", label: "Nota más baja", icon: "ascending" },
   { value: "releaseDate", label: "Lanzamientos recientes", icon: "descending" },
   { value: "interest", label: "Mayor interés", icon: "rating" },

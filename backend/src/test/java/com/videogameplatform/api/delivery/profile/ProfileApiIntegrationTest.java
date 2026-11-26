@@ -301,6 +301,26 @@ class ProfileApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.publicProfile").doesNotExist());
 
+        var updateScore =
+                "UPDATE ratings.rating SET value=? WHERE user_id=?::uuid AND game_id=?::uuid";
+        admin.update(updateScore, 9, owner(ALICE), second);
+        mvc.perform(get(PUBLIC + "luna/sections/ratings").param("sort", "scoreDesc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].gameId").value(second))
+                .andExpect(jsonPath("$.items[1].gameId").value(first))
+                .andExpect(jsonPath("$.items[0].score").value(9));
+        admin.update(updateScore, 8, owner(ALICE), second);
+        for (int page = 1; page <= games.size(); page++) {
+            mvc.perform(
+                            get(PUBLIC + "luna/sections/ratings")
+                                    .param("sort", "scoreDesc")
+                                    .param("page", Integer.toString(page))
+                                    .param("pageSize", "1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.items[0].gameId").value(games.get(page - 1)));
+        }
+
         revision = saveSharing(ALICE, "luna", revision, true, false, true);
         mvc.perform(get(PUBLIC + "luna/sections/ratings").header("If-None-Match", "*"))
                 .andExpect(status().isNotFound())

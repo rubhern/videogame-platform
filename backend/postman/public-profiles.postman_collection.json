@@ -287,7 +287,7 @@
       ]
     },
     {
-      "name": "Read public ratings ordered by score",
+      "name": "Read public ratings ordered from lowest score",
       "request": {
         "method": "GET",
         "header": [
@@ -309,6 +309,37 @@
               "const page = pm.response.json();",
               "pm.expect(page.page.size).to.eql(1);",
               "pm.expect(page.items.length).to.be.at.most(1);",
+              "pm.expect(pm.response.text()).not.to.match(/\"(email|userId|subject|revision|entityTag|updatedAt|platforms)\"\\s*:/);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read public ratings ordered from highest score",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profiles/{{profileAlias}}/sections/ratings?page=1&pageSize=20&sort=scoreDesc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "const page = pm.response.json();",
+              "pm.expect(page.page.size).to.eql(20);",
+              "pm.expect(page.items.length).to.be.at.most(20);",
+              "const scores = page.items.map(item => item.score);",
+              "pm.expect(scores).to.deep.eql([...scores].sort((left, right) => right - left));",
               "pm.expect(pm.response.text()).not.to.match(/\"(email|userId|subject|revision|entityTag|updatedAt|platforms)\"\\s*:/);"
             ]
           }
