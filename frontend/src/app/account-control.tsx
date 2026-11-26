@@ -15,10 +15,11 @@ import {
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import type { SessionCapability } from "../features/session/session-api";
+import { HeaderSheet } from "./header-sheet";
 
 /**
- * The session-derived header account entry from tablet width; the compact navigation menu carries
- * the same entry below it. Session and logout remain owned by the BFF hooks.
+ * The session-derived header account entry from tablet width; below it the compact header's
+ * {@link AccountSheet} carries the same entry. Session and logout remain owned by the BFF hooks.
  */
 export function AccountControl() {
   const session = useSession();
@@ -95,6 +96,44 @@ export function AccountControl() {
   );
 }
 
+/**
+ * The compact header's account (#358): its own disclosure beside **Menú**, so navigation and the
+ * account never share a sheet. With a session the trigger is the avatar, named `Mi cuenta`, and
+ * the sheet holds the account actions; without one it reads `Entrar` (an icon on the narrowest
+ * phones) and the sheet offers `Iniciar sesión` and `Crear cuenta`.
+ */
+export function AccountSheet() {
+  const session = useSession();
+  const titleId = useId();
+  if (!session.data) return null;
+
+  if (session.data.authenticated !== true) {
+    return (
+      <HeaderSheet className="account-sheet" label="Entrar" triggerClassName="account-sheet-entry"
+        trigger={<>
+          <span className="account-sheet-entry-text" aria-hidden="true">Entrar</span>
+          <ProfileIcon />
+        </>}>
+        <div className="header-sheet-group" role="group" aria-labelledby={titleId}>
+          <h2 className="header-sheet-label" id={titleId}>Tu cuenta</h2>
+          <p className="account-sheet-lead">Guarda tus deseados, puntúa juegos y elige tus plataformas.</p>
+          <AccountEntryLinks />
+        </div>
+      </HeaderSheet>
+    );
+  }
+
+  return (
+    <HeaderSheet className="account-sheet" label="Mi cuenta" triggerClassName="account-sheet-avatar"
+      trigger={<span className="account-avatar" aria-hidden="true"><span /></span>}>
+      <div className="account-sheet-actions" role="group" aria-labelledby={titleId}>
+        <h2 className="sr-only" id={titleId}>Mi cuenta</h2>
+        <AccountActions capabilities={session.data.capabilities} csrfToken={session.data.csrfToken} />
+      </div>
+    </HeaderSheet>
+  );
+}
+
 /** The anonymous entry: BFF/OIDC navigation that returns to the current page. */
 export function AccountEntryLinks() {
   const location = useLocation();
@@ -110,64 +149,76 @@ export function AccountEntryLinks() {
 type AccountActionsProps = {
   capabilities: readonly SessionCapability[];
   csrfToken: string;
-  /** Dismisses the surface that holds the actions when one of them navigates. */
-  onNavigate: () => void;
+  /**
+   * Dismisses the surface that holds the actions when one of them navigates; a header sheet
+   * closes itself on any link.
+   */
+  onNavigate?: () => void;
 };
 
 /**
  * The authenticated account actions, shared by the header's Mi cuenta panel and the compact
- * navigation menu. They mount only with the surface that shows them.
+ * account sheet. They mount only with the surface that shows them. The groups (profile, the
+ * player's own lists, settings and logout) are only separated on the compact sheet.
  */
 export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountActionsProps) {
   const logout = useLogout();
   return (
     <>
-      <Link className="account-option" onClick={onNavigate} to="/mi-perfil">
-        <ProfileIcon />
-        Mi perfil
-      </Link>
-      <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
-        <span aria-hidden="true" className="wishlist-mark" />
-        Mis deseados
-      </Link>
-      <Link className="account-option" onClick={onNavigate} to="/mis-juegos">
-        <LibraryIcon />
-        Mis juegos
-      </Link>
-      <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
-        <RatingsIcon />
-        Mis puntuaciones
-      </Link>
-      <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones/estadisticas">
-        <StatisticsIcon />
-        Tus estadísticas
-      </Link>
-      {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
-      <PlatformsMenuRow onNavigate={onNavigate} />
-      {/* Navigation only: the server authorizes every administration read itself. */}
-      {capabilities.includes("catalogue_administration") ? (
-        <Link className="account-option" onClick={onNavigate} to="/administracion/catalogo">
-          <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-            <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-            <circle cx="7" cy="5" r="1.6" fill="currentColor" />
-            <circle cx="13" cy="10" r="1.6" fill="currentColor" />
-            <circle cx="9" cy="15" r="1.6" fill="currentColor" />
-          </svg>
-          Panel de administrador
+      <div className="account-group">
+        <Link className="account-option" onClick={onNavigate} to="/mi-perfil">
+          <ProfileIcon />
+          Mi perfil
         </Link>
-      ) : null}
-      <button
-        className="account-option account-logout"
-        disabled={logout.isPending}
-        onClick={() => logout.mutate(csrfToken)}
-        type="button"
-      >
-        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-          <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4m-7-4h11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-        </svg>
-        {logout.isPending ? "Cerrando…" : "Cerrar sesión"}
-      </button>
-      {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
+      </div>
+      <div className="account-group">
+        <Link className="account-option" onClick={onNavigate} to="/mis-deseados">
+          <span aria-hidden="true" className="wishlist-mark" />
+          Mis deseados
+        </Link>
+        <Link className="account-option" onClick={onNavigate} to="/mis-juegos">
+          <LibraryIcon />
+          Mis juegos
+        </Link>
+        <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones">
+          <RatingsIcon />
+          Mis puntuaciones
+        </Link>
+        <Link className="account-option" onClick={onNavigate} to="/mis-puntuaciones/estadisticas">
+          <StatisticsIcon />
+          Tus estadísticas
+        </Link>
+      </div>
+      <div className="account-group">
+        {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
+        <PlatformsMenuRow onNavigate={onNavigate} />
+        {/* Navigation only: the server authorizes every administration read itself. */}
+        {capabilities.includes("catalogue_administration") ? (
+          <Link className="account-option" onClick={onNavigate} to="/administracion/catalogo">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+              <circle cx="7" cy="5" r="1.6" fill="currentColor" />
+              <circle cx="13" cy="10" r="1.6" fill="currentColor" />
+              <circle cx="9" cy="15" r="1.6" fill="currentColor" />
+            </svg>
+            Panel de administrador
+          </Link>
+        ) : null}
+      </div>
+      <div className="account-group">
+        <button
+          className="account-option account-logout"
+          disabled={logout.isPending}
+          onClick={() => logout.mutate(csrfToken)}
+          type="button"
+        >
+          <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+            <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M11 6l4 4-4 4m-7-4h11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+          </svg>
+          {logout.isPending ? "Cerrando…" : "Cerrar sesión"}
+        </button>
+        {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
+      </div>
     </>
   );
 }
@@ -178,7 +229,7 @@ export function AccountActions({ capabilities, csrfToken, onNavigate }: AccountA
  * saved choice, beside the link that manages them. It mounts only with the open panel, so the
  * preferences are read when they are needed. Without preferences only the link remains.
  */
-function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
+function PlatformsMenuRow({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const location = useLocation();
   const platformsHintId = useId();
   const navigate = useNavigate();

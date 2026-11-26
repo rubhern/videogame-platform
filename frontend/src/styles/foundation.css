@@ -628,16 +628,21 @@
     color: var(--color-accent);
   }
 
-  /* ---------------------------------------------------------------- Navigation menu */
+  /* The actions' groups only part on the compact account sheet; the panel lists them as one. */
+  .account-group {
+    display: contents;
+  }
 
-  /* Below tablet width (#358) one Menú button opens a night sheet under the header row: the
-     primary sections set large in the title voice, then the account in a dock of its own. The
-     two bars are a long and a short tick of a scale that cross into a close mark while open. */
-  .navigation-menu {
+  /* ---------------------------------------------------------------- Header sheets */
+
+  /* Below tablet width (#358) the header row ends in two disclosures, the account and Menú. Each
+     opens an opaque night sheet under the row, over a scrim; pressing the other trigger is an
+     outside press, so only one sheet shows at a time and the row stays usable above the scrim. */
+  .header-sheet {
     flex: none;
   }
 
-  .navigation-menu-trigger {
+  .header-sheet-trigger {
     position: relative;
     z-index: 3;
     display: inline-flex;
@@ -652,17 +657,18 @@
     background: var(--control);
   }
 
-  .navigation-menu-trigger:hover,
-  .navigation-menu-trigger[aria-expanded="true"] {
+  .header-sheet-trigger:hover,
+  .header-sheet-trigger[aria-expanded="true"] {
     border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
     background: var(--control-hover);
   }
 
+  /* Menú: three bars that cross into a close mark while the sheet is open. */
   .navigation-menu-glyph {
     position: relative;
     display: block;
     width: 18px;
-    height: 10px;
+    height: 14px;
   }
 
   .navigation-menu-glyph > span {
@@ -674,37 +680,39 @@
     background: currentColor;
   }
 
-  .navigation-menu-glyph > span:first-child {
-    top: 0;
+  .navigation-menu-glyph > span:nth-child(1) { top: 0; }
+  .navigation-menu-glyph > span:nth-child(2) { top: 6px; }
+  .navigation-menu-glyph > span:nth-child(3) { top: 12px; }
+
+  .header-sheet-trigger[aria-expanded="true"] .navigation-menu-glyph > span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
   }
 
-  /* The short tick keeps to the right, as a scale's minor division under its major one. */
-  .navigation-menu-glyph > span:last-child {
-    top: 8px;
-    transform: translateX(3.6px) scaleX(0.6);
+  .header-sheet-trigger[aria-expanded="true"] .navigation-menu-glyph > span:nth-child(2) {
+    opacity: 0;
   }
 
-  .navigation-menu-trigger[aria-expanded="true"] .navigation-menu-glyph > span:first-child {
-    transform: translateY(4px) rotate(45deg);
+  .header-sheet-trigger[aria-expanded="true"] .navigation-menu-glyph > span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
   }
 
-  .navigation-menu-trigger[aria-expanded="true"] .navigation-menu-glyph > span:last-child {
-    transform: translateY(-4px) rotate(-45deg);
+  /* The account trigger shows the session: the avatar with one, `Entrar` without one. */
+  .account-sheet-entry {
+    width: auto;
+    gap: 8px;
+    border-color: color-mix(in srgb, var(--color-ice) 58%, transparent);
+    padding-inline: 10px;
+    font-size: 0.9375rem;
+    font-weight: 650;
   }
 
-  /* A signed-in session lights a small ice point on the button; the menu names the account. */
-  .navigation-menu-session {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-ice-light);
-    box-shadow: 0 0 0 2px var(--control);
+  .account-sheet-entry svg {
+    display: none;
+    width: 20px;
+    height: 20px;
   }
 
-  .navigation-menu-scrim {
+  .header-sheet-scrim {
     position: fixed;
     z-index: 1;
     inset: 0;
@@ -712,12 +720,12 @@
     touch-action: none;
   }
 
-  .navigation-menu-panel {
+  .header-sheet-panel {
     position: absolute;
     z-index: 2;
     top: 100%;
     inset-inline: 0;
-    max-height: var(--navigation-menu-available-height, calc(100dvh - 60px));
+    max-height: var(--header-sheet-available-height, calc(100dvh - 60px));
     overflow-y: auto;
     overscroll-behavior: contain;
     border-top: 2px solid var(--color-ice);
@@ -726,241 +734,198 @@
     box-shadow: var(--shadow-overlay);
   }
 
-  .navigation-menu-sheet {
-    padding-block: 4px 20px;
+  .header-sheet-body {
+    padding-block: 2px 14px;
   }
 
-  .navigation-menu-sections,
-  .navigation-menu-releases {
+  /* Every group reads the same way: a small heading in the instrument's condensed voice over
+     uniform rows, so a section is a label, never a larger link than its destinations. */
+  .header-sheet-group {
+    padding-block: 14px 8px;
+  }
+
+  .header-sheet-group + .header-sheet-group {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .header-sheet-label {
+    margin: 0 0 4px;
+    color: var(--color-subtle);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .header-sheet-rows {
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .navigation-menu-section {
-    border-bottom: 1px solid var(--color-line);
-  }
-
-  /* Sections read in the page titles' wide voice: a section is a place, not a label. */
-  .navigation-menu-heading,
-  .navigation-menu-link {
-    color: var(--color-ink);
-    font-family: var(--font-display);
-    font-size: 1.375rem;
-    font-stretch: 112%;
-    font-weight: 800;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-  }
-
-  .navigation-menu-heading {
-    display: block;
-    padding-top: 18px;
-  }
-
-  /* Lanzamientos keeps its three destinations in Destacados's Semana | Mes voice. */
-  .navigation-menu-releases {
-    display: flex;
-    flex-wrap: wrap;
-    padding-block: 4px 6px;
-  }
-
-  .navigation-menu-releases li + li {
-    display: flex;
-    align-items: center;
-  }
-
-  .navigation-menu-releases li + li::before {
-    width: 1px;
-    height: 16px;
-    background: var(--color-line);
-    content: "";
-  }
-
-  .navigation-menu-release {
-    position: relative;
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    border-radius: 6px;
-    padding-inline: 14px;
-    color: var(--color-muted);
-    font-size: 1rem;
-    font-stretch: 75%;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  /* The first destination's text aligns with the heading; its focus ring keeps some room. */
-  .navigation-menu-releases li:first-child .navigation-menu-release {
-    margin-inline-start: -8px;
-    padding-inline-start: 8px;
-  }
-
-  .navigation-menu-release:hover,
-  .navigation-menu-release[aria-current] {
-    color: var(--color-ink);
-  }
-
-  .navigation-menu-release:focus-visible {
-    outline-offset: 0;
-  }
-
-  .navigation-menu-link {
+  .header-sheet-row,
+  .navigation-menu .platform-shortcuts-all,
+  .account-sheet .account-option {
     position: relative;
     display: flex;
-    min-height: 64px;
+    width: calc(100% + 20px);
+    min-height: 48px;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
+    margin-inline: -10px;
+    border: 0;
+    border-radius: 8px;
+    padding: 0 12px 0 10px;
+    color: var(--color-ink);
+    background: transparent;
+    font-size: 1.0625rem;
+    font-weight: 560;
     text-decoration: none;
   }
 
-  .navigation-menu-link:focus-visible {
+  .header-sheet-row:hover,
+  .navigation-menu .platform-shortcuts-all:hover,
+  .account-sheet .account-option:hover {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .header-sheet-row:focus-visible,
+  .navigation-menu .platform-shortcuts-all:focus-visible,
+  .account-sheet .account-option:focus-visible {
     outline-offset: -2px;
   }
 
-  /* TOPómetro is named by its lockup, at the sections' cap height. */
-  .navigation-menu-topometro svg {
-    display: block;
-    width: auto;
-    height: 21px;
-    overflow: visible;
-  }
-
-  .navigation-menu-arrow {
-    width: 9px;
-    height: 9px;
+  /* One trailing chevron marks every destination row the same way. */
+  .header-sheet-row::after,
+  .navigation-menu .platform-shortcuts-all::after {
+    width: 8px;
+    height: 8px;
     flex: none;
-    margin-right: 5px;
+    margin: 0 4px 0 auto;
     border-top: 2px solid currentColor;
     border-right: 2px solid currentColor;
     color: var(--color-subtle);
+    content: "";
     transform: rotate(45deg);
   }
 
-  .navigation-menu-link:hover .navigation-menu-arrow {
-    color: var(--color-ink);
-  }
-
-  /* The current page carries the navigation's short fire rule, under its own name. */
-  .navigation-menu-release[aria-current]::after,
-  .navigation-menu-link[aria-current]::after {
+  /* The current page keeps the navigation's fire rule, standing at the row's edge. */
+  .header-sheet-row[aria-current]::before,
+  .navigation-menu .platform-shortcuts-all[aria-current]::before {
     position: absolute;
-    bottom: 6px;
-    left: 50%;
-    width: 22px;
-    height: 2px;
-    border-radius: 1px;
-    background: linear-gradient(90deg, var(--color-fire), var(--color-fire-light));
-    content: "";
-    transform: translateX(-50%);
-  }
-
-  .navigation-menu-releases li:first-child .navigation-menu-release[aria-current]::after {
-    left: calc(50% - 3px);
-  }
-
-  .navigation-menu-link[aria-current]::after {
-    bottom: 12px;
+    top: 14px;
+    bottom: 14px;
     left: 0;
-    transform: none;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--color-fire-light), var(--color-fire));
+    content: "";
   }
 
-  /* The account is a dock apart from discovery: its own surface, label and actions. */
-  .navigation-menu-account {
-    margin-top: 20px;
-    border: 1px solid var(--color-line);
-    border-radius: 10px;
-    padding: 14px 14px 16px;
-    background: var(--color-surface);
-  }
-
-  .navigation-menu-account-title {
-    display: flex;
-    min-height: 28px;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 12px;
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    font-stretch: 75%;
+  .header-sheet-row[aria-current] {
     font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
-  .navigation-menu-account .account-entry-links {
+  /* TOPómetro is named by its lockup at the rows' cap height. */
+  .navigation-menu-topometro-logo svg {
+    display: block;
+    width: auto;
+    height: 18px;
+    overflow: visible;
+  }
+
+  /* The account sheet keeps the panel's actions in groups split by hairlines. */
+  .account-sheet-lead {
+    margin: 0 0 14px;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+  }
+
+  .account-sheet .account-entry-links {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+    padding-bottom: 6px;
   }
 
-  .navigation-menu-account .account-entry-links a {
+  .account-sheet .account-entry-links a {
     min-height: 48px;
     padding-inline: 10px;
     font-size: 0.9375rem;
   }
 
-  .navigation-menu-account .account-register {
+  .account-sheet .account-register {
     border-color: var(--color-line);
     color: var(--color-ink);
   }
 
-  .navigation-menu-account-actions {
+  .account-sheet .account-group {
     display: grid;
-    gap: 2px;
-    margin-inline: -8px;
+    padding-block: 6px;
   }
 
-  .navigation-menu-account .account-option {
-    min-height: 46px;
-    padding-inline: 8px;
-    font-size: 0.9375rem;
+  .account-sheet .account-group + .account-group {
+    border-top: 1px solid var(--color-line);
   }
 
-  .navigation-menu-account .account-logout {
-    margin-top: 9px;
-    box-shadow: 0 -5px 0 -4px var(--color-line);
+  .account-sheet .account-option svg,
+  .account-sheet .account-option .wishlist-mark,
+  .account-sheet .account-platforms-check {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* The platforms checkbox takes an icon's place, so its label lines up with the others. */
+  .account-sheet .account-platforms-check {
+    flex: none;
+    margin: 0;
+  }
+
+  .account-sheet .account-option .wishlist-mark {
+    flex: none;
+  }
+
+  .account-sheet .account-logout-error {
+    max-width: none;
+    padding-inline: 0;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .navigation-menu-trigger {
+    .header-sheet-trigger {
       transition:
         border-color var(--duration-fast) var(--ease-out),
         background-color var(--duration-fast) var(--ease-out);
     }
 
     .navigation-menu-glyph > span {
-      transition: transform var(--duration-normal) var(--ease-out);
+      transition:
+        transform var(--duration-normal) var(--ease-out),
+        opacity var(--duration-fast) var(--ease-out);
     }
 
-    .navigation-menu-scrim {
+    .header-sheet-scrim {
       animation: fade-in var(--duration-normal) var(--ease-out) both;
     }
 
-    /* The sheet unrolls from the header row; its sections follow in reading order. */
-    .navigation-menu-panel {
+    /* The sheet unrolls from the header row; its groups follow in reading order. */
+    .header-sheet-panel {
       animation: menu-unroll var(--duration-normal) var(--ease-out) both;
     }
 
-    .navigation-menu-sections > li,
-    .navigation-menu-account {
+    .header-sheet-group {
       animation: menu-item-in var(--duration-normal) var(--ease-out) both;
       animation-delay: calc(70ms + var(--menu-step, 0) * 45ms);
     }
 
-    .navigation-menu-release,
-    .navigation-menu-arrow {
-      transition:
-        color var(--duration-fast) var(--ease-out),
-        transform var(--duration-fast) var(--ease-out);
+    .header-sheet-row::after,
+    .navigation-menu .platform-shortcuts-all::after {
+      transition: transform var(--duration-fast) var(--ease-out);
     }
 
-    .navigation-menu-link:hover .navigation-menu-arrow {
+    .header-sheet-row:hover::after,
+    .navigation-menu .platform-shortcuts-all:hover::after {
       transform: translateX(3px) rotate(45deg);
     }
   }
@@ -1660,8 +1625,8 @@
   }
 
   /* The compact header (#358): the lockup leads, search follows as an icon on phones and as a
-     field from 620px, and the Menú button closes the row. The navigation and the account live
-     in the menu, so nothing shrinks to fit. */
+     field from 620px, then the account and the Menú button close the row. The navigation and
+     the account live in their sheets, so nothing shrinks to fit. */
   @media (max-width: 719px) {
     .brand,
     .catalogue-search-control {
@@ -1678,6 +1643,23 @@
     .catalogue-search-control .header-search-desktop {
       flex: 1 1 auto;
     }
+  }
+
+  /* Without a session the account trigger keeps to its icon where `Entrar` no longer fits. */
+  @media (max-width: 379px) {
+    .account-sheet-entry {
+      width: 44px;
+      padding: 0;
+    }
+
+    .account-sheet-entry-text { display: none; }
+    .account-sheet-entry svg { display: block; }
+  }
+
+  /* The narrowest phones tighten the row and the lockup, never the type, so four controls fit. */
+  @media (max-width: 359px) {
+    .header-layout { gap: 6px; }
+    .brand-logo svg { height: 27px; }
   }
 
   /* Tablet: identity and account on the first row; the sections and search, discovery's two
@@ -1827,8 +1809,8 @@
     .account-entry-links a { background: Canvas; color: CanvasText; border-color: ButtonText; box-shadow: none; }
     .nav-link[aria-current],
     .releases-panel .account-option[aria-current="page"],
-    .navigation-menu-release[aria-current],
-    .navigation-menu-link[aria-current] {
+    .header-sheet-row[aria-current],
+    .navigation-menu .platform-shortcuts-all[aria-current] {
       outline: 2px solid Highlight;
       outline-offset: -2px;
     }
@@ -1842,9 +1824,8 @@
     .mobile-search-close,
     .account-trigger,
     .account-panel,
-    .navigation-menu-trigger,
-    .navigation-menu-panel,
-    .navigation-menu-account {
+    .header-sheet-trigger,
+    .header-sheet-panel {
       border-color: ButtonText;
     }
 
@@ -1872,9 +1853,8 @@
     .mobile-search-trigger,
     .mobile-search-dialog,
     .mobile-search-close,
-    .navigation-menu-trigger,
-    .navigation-menu-panel,
-    .navigation-menu-account {
+    .header-sheet-trigger,
+    .header-sheet-panel {
       color: ButtonText;
       background: Canvas;
       box-shadow: none;
@@ -1896,12 +1876,11 @@
     }
 
     .mobile-search-dialog::backdrop,
-    .navigation-menu-scrim {
+    .header-sheet-scrim {
       background: Canvas;
     }
 
-    .navigation-menu-glyph > span,
-    .navigation-menu-session {
+    .navigation-menu-glyph > span {
       background: ButtonText;
     }
   }

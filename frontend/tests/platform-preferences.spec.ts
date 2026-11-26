@@ -133,8 +133,8 @@ test.describe("Mis plataformas in Mi cuenta", () => {
       await account.install();
 
       await landOnFeatured(page, "?granularity=month");
-      // Phones carry the account in the Menú sheet (#358).
-      await page.getByRole("button", { name: width < 720 ? "Menú" : "Mi cuenta" }).click();
+      // Phones open the same account entry as a sheet of its own (#358).
+      await page.getByRole("button", { name: "Mi cuenta" }).click();
       const check = page.getByRole("checkbox", { name: "Filtrar por mis plataformas" });
       await expect(check).toBeChecked();
       await expect(page.getByRole("link", { name: "Mis plataformas", exact: true })).toBeVisible();

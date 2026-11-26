@@ -246,7 +246,9 @@ work never brings them back.
 ## Header and navigation
 
 - **Status:** Post-MVP (#358, owner-requested; implemented, awaiting owner review). These
-  responsive rules supersede the earlier phone and tablet header layouts.
+  responsive rules supersede the earlier phone and tablet header layouts. The compact header's
+  separate account sheet and grouped Menú follow an owner decision of 2026-11-26; its `Rankings`
+  section name was chosen under the owner's delegation and awaits owner review.
 
 **Surface.** The header floats over the page's stage on a soft scrim rather than a solid bar, in
 the [brand identity](#brand-identity): the current section carries a short fire rule, and search
@@ -265,7 +267,9 @@ in the [product glossary](../product/glossary.md#user-facing-terms):
    and focus language.
 2. **TOPómetro** (#386), a native link of its own outside the disclosure, so leaving the
    disclosure for it closes the disclosure. It is named by the TOPómetro lockup at the labels'
-   cap height, dimmed like a muted label and lit when hovered or current.
+   cap height, dimmed like a muted label and lit when hovered or current. In the compact Menú it
+   is the first destination of a **Rankings** group, the home of future player-score rankings;
+   the visible navigation keeps it a direct link while it is the only one.
 3. **Plataformas**, a disclosure in the same interaction and surface language as Lanzamientos.
    **Descubre juegos para tu plataforma** introduces four compact logo/name links, in the featured
    order, directly to their catalogues, followed by **Ver todas las plataformas** to the index.
@@ -292,37 +296,47 @@ replaces the lockup until 1180px so the row keeps that minimum.
 **Tablet, 720–1023px.** Two rows: the lockup and the account control above, the sections and
 search below, where search takes the remaining width. The anonymous entry links stay visible.
 
-**Compact, below 720px.** One row: the lockup, never the lone mark, then search and the **Menú**
-button. Below 620px search is an icon that opens the existing catalogue search in a
-keyboard-accessible dialog; from 620px it is the field itself. The visible sections and the
-account control are absent: the menu carries both.
+**Compact, below 720px.** One row: the lockup, never the lone mark, then search, the account
+trigger and the **Menú** button, each at least 44px. Below 620px search is an icon that opens the
+existing catalogue search in a keyboard-accessible dialog; from 620px it is the field itself. The
+visible sections and the account control are absent: navigation and the account each open a
+sheet of their own and never share one. Below 380px the anonymous trigger keeps to its icon, and
+below 360px the row's gap and the lockup tighten slightly so four controls fit from 320px; the
+type never shrinks.
 
-**The menu.** A disclosure, not a modal: a native button named **Menú** with its expanded state
-and controlled sheet. Its glyph is a long and a short tick of a scale that cross into a close
-mark while it is open; a small ice point on it shows a signed-in session. It opens an opaque night
-sheet under the header row, with an ice top edge, over a scrim that dims the page and takes the
-tap that closes it, so nothing beneath acts; the header row stays usable above the scrim. The
-sheet holds, in reading order:
+**The sheets.** Two disclosures, not modals: native buttons with their expanded state and
+controlled sheet. Each opens an opaque night sheet under the header row, with an ice top edge,
+over a scrim that dims the page and takes the tap that closes it, so nothing beneath acts; the
+header row stays usable above the scrim, and pressing the other trigger closes the open sheet, so
+only one shows at a time.
 
-- the `Principal` navigation: **Lanzamientos** in the page titles' wide voice with its three
-  destinations beneath in Destacados's **Semana | Mes** voice, then **TOPómetro**, by its lockup,
-  and **Plataformas** with its four logo/name catalogue links in a compact two-column grid and
-  **Ver todas las plataformas** beneath. All shortcuts are visible in the sheet without nested menus;
-- the account, apart from discovery in a dock on its own surface: **Tu cuenta** with
-  `Iniciar sesión` and `Crear cuenta` side by side, or **Mi cuenta** with its avatar and the
-  account actions, logout last after a hairline.
+- The **account trigger** shows the session: with one it is the avatar, named `Mi cuenta`;
+  without one it reads `Entrar` (a person icon below 380px). Its sheet holds the account only:
+  **Tu cuenta** with one line on what an account keeps and `Iniciar sesión` and `Crear cuenta`
+  side by side, or the **Account** actions above in the panel's order, grouped
+  by hairlines (Mi perfil; the player's own lists and statistics; **Mis plataformas** and, with
+  its capability, **Panel de administrador**; logout last). With a session, logout is reached
+  without scrolling from 390×844 and at 320×760 with the consent notice open.
+- **Menú** follows it. Its glyph is three bars that cross into a close mark while open. Its sheet
+  holds the `Principal` navigation only: **Lanzamientos**, **Rankings** and **Plataformas**, each
+  a small heading (`h2`) in the instrument's condensed uppercase voice over uniform rows of at
+  least 48px, one trailing chevron each. Lanzamientos lists its three destinations, Rankings
+  lists **TOPómetro** by its lockup at row height, and Plataformas keeps its four logo/name
+  catalogue tiles in a two-column grid, without the lead, then **Ver todas las plataformas** as a
+  row. The current page carries the fire rule at its row's edge. All destinations are visible
+  without nested menus.
 
-Focus stays on the button when the sheet opens, and the sheet follows it in the tab order.
+Focus stays on the button when a sheet opens, and the sheet follows it in the tab order.
 Escape closes it and returns focus to the button; leaving it, pressing outside, following a link
 or showing another page closes it, and a link to the page already shown returns focus to the
 button. A query change on the same page, such as the **Mis plataformas** checkbox on the
-explorer, keeps it open. The sheet scrolls within the space below the header, including when the
+explorer, keeps it open. A sheet scrolls within the space below the header, including when the
 consent notice is open. A strip of the dimmed page remains tappable below it.
 
-**Motion and forced colours.** The sheet unrolls from the header row, its sections follow in
-reading order and the glyph's ticks cross, all under the [motion rules](#depth-and-motion);
-nothing moves under reduced motion. Forced colours outline the current page in `Highlight` and
-return every header surface to system colours.
+**Motion and forced colours.** A sheet unrolls from the header row, its groups follow in reading
+order and Menú's bars cross, all under the [motion rules](#depth-and-motion); nothing moves under
+reduced motion. Forced colours outline the current page in `Highlight` and return every header
+surface to system colours.
 
 ## Visual language and tokens
 

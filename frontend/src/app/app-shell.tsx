@@ -5,7 +5,7 @@ import { AnalyticsBoundary } from "../features/analytics/analytics-boundary";
 import { ReleasesNavigation } from "./releases-navigation";
 import { BrandLogo, BrandMark } from "../shared/brand/brand-logo";
 import { useMediaQuery } from "../shared/browser/use-media-query";
-import { AccountControl } from "./account-control";
+import { AccountControl, AccountSheet } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
 import { NavigationMenu } from "./navigation-menu";
 import { NavigationLoading } from "./navigation-loading";
@@ -17,7 +17,7 @@ export function AppShell() {
   const navigation = useNavigation();
   const pageIdentity = location.pathname;
   const previousPage = useRef(pageIdentity);
-  // Below tablet width the sections and the account share one menu instead of shrinking links.
+  // Below tablet width the sections and the account each open a sheet instead of shrinking links.
   const compactHeader = useMediaQuery("(max-width: 719px)");
 
   useEffect(() => {
@@ -59,7 +59,14 @@ export function AppShell() {
 
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 
-          {compactHeader ? <NavigationMenu /> : <AccountControl />}
+          {compactHeader ? (
+            <>
+              <AccountSheet />
+              <NavigationMenu />
+            </>
+          ) : (
+            <AccountControl />
+          )}
         </div>
       </header>
 
