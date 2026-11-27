@@ -2,7 +2,9 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { homeCalendar, homeFeatured, homeRanking, requestedPaths, stubHomeApi } from "../test/home-api";
+import {
+  homeCalendar, homeFeatured, homeLibrary, homeRanking, homeRatings, homeWishlist, requestedPaths, stubHomeApi, wishedGame,
+} from "../test/home-api";
 import { renderApp } from "../test/render-app";
 
 afterEach(() => {
@@ -234,36 +236,117 @@ describe("home page (#382)", () => {
       "/auth/start?returnTo=%2F&intent=register",
     );
     expect(within(account).getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/auth/start?returnTo=%2F");
-    expect(within(personal).getByRole("list", { name: "Lo que añade tu cuenta" })).toHaveTextContent("Tus estadísticas");
+    const features = within(personal).getByRole("list", { name: "Lo que añade tu cuenta" });
+    expect(within(features).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      "Puntúa en un toque",
+      "Sigue lo que esperas",
+      "Lleva tu colección",
+      "Comparte tu perfil",
+    ]);
     expect(within(personal).queryByRole("link", { name: /Mis puntuaciones/ })).not.toBeInTheDocument();
     expect(requestedPaths(fetchMock).some((path) => path.startsWith("/api/v1/me/"))).toBe(false);
   });
 
-  it("gives a signed-in player their own pages, scoped to the session, and still reads nothing personal", async () => {
+  it("shows a signed-in player their own activity from the first page of each collection", async () => {
     const fetchMock = stubHomeApi({
       session: () => Response.json({ authenticated: true, csrfToken: "csrf", capabilities: [] }),
+      library: () => Response.json(homeLibrary(
+        [{ id: "hades-ii", title: "Hades II", since: "2026-11-12T10:00:00Z" }],
+        { completed: 30, wished: 5 },
+      )),
+      wishlist: () => Response.json(homeWishlist([
+        wishedGame("gta-vi", "Grand Theft Auto VI", "upcoming", "2027-05-26"),
+        wishedGame("silksong", "Hollow Knight: Silksong", "released", "2025-09-04"),
+        wishedGame("unannounced", "Juego sin fecha", "undated"),
+      ], 5)),
+      ratings: () => Response.json(homeRatings(1)),
     });
     renderApp();
 
     const personal = await screen.findByRole("region", { name: "Tu criterio. Tu historia." });
-    const links = await within(personal).findByRole("list", { name: "Tu espacio en Gameómetro" });
+    const tally = await within(personal).findByRole("list", { name: "Tu actividad en cifras" });
+    expect(within(tally).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["1 Puntuado", "/mis-puntuaciones"],
+      ["1 Jugando", "/mis-juegos?estado=jugando"],
+      ["30 Completados", "/mis-juegos?estado=completado"],
+      ["5 Deseados", "/mis-deseados"],
+    ]);
+    expect(within(personal).getByRole("link", { name: /Ver tus estadísticas/ })).toHaveAttribute(
+      "href",
+      "/mis-puntuaciones/estadisticas",
+    );
+
+    const playing = within(personal).getByRole("region", { name: "Jugando ahora" });
+    expect(within(playing).getByRole("link", { name: "Hades II" })).toHaveAttribute("href", "/games/hades-ii/hades-ii");
+    expect(within(playing).getByText("Desde el 12 de noviembre de 2026")).toBeVisible();
+    expect(within(playing).getByRole("link", { name: /Mis juegos/ })).toHaveAttribute("href", "/mis-juegos?estado=jugando");
+
+    // The wishlist keeps the player's own order, each date at its real precision.
+    const awaited = within(personal).getByRole("region", { name: "Lo que más esperas" });
+    const wishes = within(awaited).getAllByRole("listitem");
+    expect(within(wishes[0] as HTMLElement).getByRole("link", { name: /^Puesto 1\.\s*Grand Theft Auto VI$/ })).toBeVisible();
+    expect(wishes[0]).toHaveTextContent("26 may 2027");
+    expect(wishes[1]).toHaveTextContent("Ya lanzado · 4 sep 2025");
+    expect(wishes[2]).toHaveTextContent("Fecha por confirmar");
+    expect(within(personal).queryByRole("link", { name: "Crear cuenta" })).not.toBeInTheDocument();
+
+    // Each collection is read once, as one bounded first page; the hearts and the preferences
+    // that shape discovery read their own state.
+    const collections = /^\/api\/v1\/me\/(library|wishlist|ratings)\?/;
+    expect(requestedPaths(fetchMock).filter((path) => collections.test(path)).sort()).toEqual([
+      "/api/v1/me/library?state=playing&page=1&pageSize=3",
+      "/api/v1/me/ratings?page=1&pageSize=1",
+      "/api/v1/me/wishlist?page=1&pageSize=3",
+    ]);
+  });
+
+  it("tells a new player how each shelf fills instead of showing empty lists", async () => {
+    stubHomeApi({ session: () => Response.json({ authenticated: true, csrfToken: "csrf", capabilities: [] }) });
+    renderApp();
+
+    const personal = await screen.findByRole("region", { name: "Tu criterio. Tu historia." });
+    const tally = await within(personal).findByRole("list", { name: "Tu actividad en cifras" });
+    expect(within(tally).getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "0 Puntuados",
+      "0 Jugando",
+      "0 Completados",
+      "0 Deseados",
+    ]);
+    expect(within(personal).getByRole("region", { name: "Jugando ahora" })).toHaveTextContent(
+      "Ningún juego en Jugando. Márcalo desde su ficha y lo verás aquí.",
+    );
+    expect(within(personal).getByRole("region", { name: "Lo que más esperas" })).toHaveTextContent(
+      "Aún no has guardado juegos. Marca «La quiero» en uno y lo verás aquí.",
+    );
+  });
+
+  it("keeps the way into every personal page when the activity cannot be read, and retries it", async () => {
+    const user = userEvent.setup();
+    let libraryFails = true;
+    stubHomeApi({
+      session: () => Response.json({ authenticated: true, csrfToken: "csrf", capabilities: [] }),
+      library: () => (libraryFails ? new Response(null, { status: 500 }) : Response.json(homeLibrary())),
+    });
+    renderApp();
+
+    const personal = await screen.findByRole("region", { name: "Tu criterio. Tu historia." });
+    expect(await within(personal).findByRole("alert")).toHaveTextContent("No se pudo cargar tu actividad");
+    const links = within(personal).getByRole("list", { name: "Tu espacio en Gameómetro" });
     expect(within(links).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/mis-juegos",
       "/mis-deseados",
       "/mis-puntuaciones",
       "/mis-puntuaciones/estadisticas",
-      "/mis-plataformas",
-      "/mi-perfil",
     ]);
     // Each tile is named by its destination and what it holds, never by its glyph.
     expect(within(links).getByRole("link", { name: /^Mis juegos/ })).toHaveAccessibleName(
       "Mis juegos Lo que juegas, lo pendiente y lo terminado.",
     );
-    expect(within(personal).queryByRole("link", { name: "Crear cuenta" })).not.toBeInTheDocument();
-    // Preferences shape the discovery previews; the personal collection is never read here.
-    expect(requestedPaths(fetchMock).filter((path) => path.startsWith("/api/v1/me/"))).toEqual([
-      "/api/v1/me/platform-preferences",
-    ]);
+
+    libraryFails = false;
+    await user.click(within(personal).getByRole("button", { name: "Reintentar" }));
+    expect(await within(personal).findByRole("list", { name: "Tu actividad en cifras" })).toBeVisible();
+    expect(within(personal).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("keeps every other preview usable when one read fails or the catalogue is not ready", async () => {
