@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
+import { MoreInfo } from "../features/profile/more-info";
 import { deleteAccount, exportData, getProfile, ProfileError, saveExport } from "../features/profile/profile-api";
 import { PublicProfileSettingsPanel } from "../features/profile/public-profile-settings";
 import { PlatformsIcon, RatingsIcon } from "../features/session/account-icons";
@@ -63,6 +64,8 @@ export function MyProfilePage() {
   } });
   const [confirming, setConfirming] = useState(false);
   const [confirmation, setConfirmation] = useState("");
+  // The deletion's consequences open with its confirmation, so they are read before confirming.
+  const [deletionInfo, setDeletionInfo] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -167,7 +170,9 @@ export function MyProfilePage() {
             <section aria-labelledby="profile-export" className="profile-panel profile-data">
               <ZoneIndex value="02" />
               <h2 id="profile-export">Tus datos, contigo</h2>
-              <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, tus puntuaciones, las de cada plataforma, tus plataformas preferidas, tus juegos guardados y los ajustes del perfil público.</p>
+              <MoreInfo about="sobre la exportación">
+                <p>Descarga un archivo JSON con los datos disponibles de tu cuenta, tus puntuaciones, las de cada plataforma, tus plataformas preferidas, tus juegos guardados y los ajustes del perfil público.</p>
+              </MoreInfo>
               <div className="profile-panel-actions">
                 <button className="button button-primary" disabled={download.isPending || remove.isPending} onClick={() => download.mutate()}>{download.isPending ? "Preparando archivo…" : "Exportar mis datos"}</button>
               </div>
@@ -177,11 +182,13 @@ export function MyProfilePage() {
             <section aria-labelledby="profile-delete" className="profile-panel profile-danger">
               <ZoneIndex value="03" />
               <h2 id="profile-delete">Eliminar mi cuenta</h2>
-              <p>Se eliminarán tu identidad, tus puntuaciones, tus plataformas preferidas, tus juegos guardados y tu perfil público. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
+              <MoreInfo about="sobre el borrado" onToggle={setDeletionInfo} open={deletionInfo}>
+                <p>Se eliminarán tu identidad, tus puntuaciones, tus plataformas preferidas, tus juegos guardados y tu perfil público. Tus votos dejarán de contribuir a las medias públicas. Puedes exportar tus datos antes.</p>
+              </MoreInfo>
               {!profile.data.deletionAvailable ? <p className="profile-feedback" id="profile-delete-unavailable" role="status">El borrado automático no está disponible ahora. Inténtalo más tarde. Si necesitas ayuda, contacta con <a className="text-link" href="mailto:hola@gameometro.com">hola@gameometro.com</a>.</p> : null}
               {!confirming ? (
                 <div className="profile-panel-actions">
-                  <button aria-describedby={!profile.data.deletionAvailable ? "profile-delete-unavailable" : undefined} className="button button-danger" disabled={!profile.data.deletionAvailable} onClick={() => setConfirming(true)} ref={triggerRef}>Eliminar mi cuenta</button>
+                  <button aria-describedby={!profile.data.deletionAvailable ? "profile-delete-unavailable" : undefined} className="button button-danger" disabled={!profile.data.deletionAvailable} onClick={() => { setDeletionInfo(true); setConfirming(true); }} ref={triggerRef}>Eliminar mi cuenta</button>
                 </div>
               ) : (
                 <div aria-labelledby="profile-confirm" className="profile-confirm" onKeyDown={event => { if (event.key === "Escape" && !remove.isPending) cancel(); }} role="group">

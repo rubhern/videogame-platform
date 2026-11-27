@@ -1,6 +1,25 @@
 import logoSource from "../../shared/brand/gameometro-logo.svg?raw";
 import markSource from "../../shared/brand/gameometro-mark.svg?raw";
 import { platformLogoAssets, type PlatformLogoName } from "../../shared/catalogue/platform-logo-assets";
+import {
+  canvasToBlob,
+  drawCover,
+  drawLogo,
+  fireFill as kitFireFill,
+  fit,
+  font,
+  glow,
+  iceFill as kitIceFill,
+  loadArt,
+  loadFaces,
+  loadImage,
+  loadSvgFile,
+  MONO,
+  readColor,
+  roundedPath,
+  SANS,
+  sizedSvg,
+} from "../../shared/share-image/canvas-kit";
 
 import {
   SLIDE_HEIGHT,
@@ -13,10 +32,8 @@ import {
 } from "./weekly-carousel-model";
 
 /**
- * Paints a carousel slide on a 2D canvas, so the preview the operator reviews is the exact PNG that
- * is exported. Colours come from the global semantic tokens at paint time. Provider images are
- * requested with CORS (the IGDB CDN allows any origin), so the canvas stays exportable; an image
- * that cannot load that way is left out rather than tainting the export.
+ * Paints a carousel slide on a 2D canvas with the shared drawing kit, so the preview the operator
+ * reviews is the exact PNG that is exported.
  */
 
 type Palette = {
@@ -28,55 +45,16 @@ type Palette = {
 export type SlidePosition = { index: number; total: number };
 
 const PAD = 72;
-const SANS = '"Mona Sans", ui-sans-serif, system-ui, sans-serif';
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
 
 function readPalette(): Palette {
-  const styles = getComputedStyle(document.documentElement);
-  const read = (name: string) => styles.getPropertyValue(`--color-${name}`).trim() || "#808080";
   return {
-    night: read("night"), raised: read("raised"), ink: read("ink"), subtle: read("subtle"),
-    ice: read("ice"), iceLight: read("ice-light"), fire: read("fire"), fireLight: read("fire-light"),
+    night: readColor("night"), raised: readColor("raised"), ink: readColor("ink"), subtle: readColor("subtle"),
+    ice: readColor("ice"), iceLight: readColor("ice-light"), fire: readColor("fire"), fireLight: readColor("fire-light"),
   };
 }
 
-const images = new Map<string, Promise<HTMLImageElement | null>>();
-
-function loadImage(source: string, crossOrigin: boolean): Promise<HTMLImageElement | null> {
-  const cached = images.get(source);
-  if (cached) return cached;
-  const loading = new Promise<HTMLImageElement | null>((resolve) => {
-    const image = new Image();
-    if (crossOrigin) image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
-    image.src = source;
-  });
-  images.set(source, loading);
-  return loading;
-}
-
-/** A product SVG with only a viewBox gets an intrinsic size, which every browser can draw. */
-function sizedSvg(source: string, width: number): string {
-  const box = /viewBox="([\d.\s-]+)"/.exec(source)?.[1]?.trim().split(/\s+/).map(Number) ?? [0, 0, 1, 1];
-  const height = Math.round((width * (box[3] ?? 1)) / (box[2] ?? 1));
-  const sized = source.trim().replace("<svg ", `<svg width="${width}" height="${height}" `);
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(sized)}`;
-}
-
-async function loadSvgFile(path: string): Promise<HTMLImageElement | null> {
-  try {
-    const response = await fetch(path);
-    return response.ok ? await loadImage(sizedSvg(await response.text(), 512), false) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Provider images load cross-origin; product assets are same-origin. */
 function loadSlideImage(image: SlideImage): Promise<HTMLImageElement | null> {
-  if (/^https?:/.test(image.url)) return loadImage(image.url, true);
-  return image.url.endsWith(".svg") ? loadSvgFile(image.url) : loadImage(image.url, false);
+  return loadArt(image.url);
 }
 
 function loadPlatformLogo(name: PlatformLogoName): Promise<HTMLImageElement | null> {
@@ -90,13 +68,7 @@ export type SlideAssets = { palette: Palette; logo: HTMLImageElement | null; mar
 
 /** Waits for the faces and brand art every slide shares, so a paint never falls back. */
 export async function loadSlideAssets(): Promise<SlideAssets> {
-  if ("fonts" in document) {
-    await Promise.allSettled([
-      document.fonts.load(`800 96px ${SANS}`, "Lanzamientos"),
-      document.fonts.load(`500 40px ${SANS}`, "Lanzamientos"),
-      document.fonts.load(`400 30px ${MONO}`, "LANZAMIENTO 2/8"),
-    ]);
-  }
+  await loadFaces([`800 96px ${SANS}`, `500 40px ${SANS}`, `400 30px ${MONO}`]);
   const [logo, mark] = await Promise.all([
     loadImage(sizedSvg(logoSource, 1140), false),
     loadImage(sizedSvg(markSource, 512), false),
@@ -106,63 +78,14 @@ export async function loadSlideAssets(): Promise<SlideAssets> {
 
 // ---------------------------------------------------------------- Drawing primitives
 
-function font(context: CanvasRenderingContext2D, weight: number, size: number, family = SANS, tracking = 0) {
-  context.font = `${weight} ${size}px ${family}`;
-  if ("letterSpacing" in context) context.letterSpacing = `${tracking}px`;
-}
-
-function wrap(context: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const candidate = line === "" ? word : `${line} ${word}`;
-    if (line !== "" && context.measureText(candidate).width > maxWidth) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = candidate;
-    }
-  }
-  if (line !== "") lines.push(line);
-  return lines;
-}
-
-/** The largest heavy size, down to `min`, at which the text fits in `maxLines` lines. */
-function fit(context: CanvasRenderingContext2D, text: string, max: number, min: number, maxWidth: number, maxLines: number) {
-  for (let size = max; size >= min; size -= 4) {
-    font(context, 800, size, SANS, -size * 0.02);
-    const lines = wrap(context, text, maxWidth);
-    if (lines.length <= maxLines && lines.every((line) => context.measureText(line).width <= maxWidth)) return { size, lines };
-  }
-  font(context, 800, min, SANS, -min * 0.02);
-  return { size: min, lines: wrap(context, text, maxWidth) };
-}
-
 /** Fire to its light, left to right across the text: the slide's warm accent. */
 function fireFill(context: CanvasRenderingContext2D, palette: Palette, x: number, width: number) {
-  const gradient = context.createLinearGradient(x, 0, x + Math.max(width, 1), 0);
-  gradient.addColorStop(0, palette.fire);
-  gradient.addColorStop(1, palette.fireLight);
-  return gradient;
+  return kitFireFill(context, palette.fire, palette.fireLight, x, width);
 }
 
 /** Ink to ice, top to bottom, as the mark's G is lit. */
 function iceFill(context: CanvasRenderingContext2D, palette: Palette, top: number, bottom: number) {
-  const gradient = context.createLinearGradient(0, top, 0, bottom);
-  gradient.addColorStop(0, palette.ink);
-  gradient.addColorStop(1, palette.ice);
-  return gradient;
-}
-
-function glow(context: CanvasRenderingContext2D, colour: string, x: number, y: number, radius: number, alpha: number) {
-  const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
-  gradient.addColorStop(0, colour);
-  gradient.addColorStop(1, "transparent");
-  context.save();
-  context.globalAlpha = alpha;
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT);
-  context.restore();
+  return kitIceFill(context, palette.ink, palette.ice, top, bottom);
 }
 
 /** Night, with ice light gathering at the top right and fire's last warmth at the bottom left. */
@@ -171,30 +94,6 @@ function paintStage(context: CanvasRenderingContext2D, palette: Palette) {
   context.fillRect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT);
   glow(context, palette.ice, SLIDE_WIDTH, 0, 620, 0.16);
   glow(context, palette.fire, 0, SLIDE_HEIGHT, 520, 0.12);
-}
-
-function roundedPath(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
-  context.beginPath();
-  context.roundRect(x, y, width, height, radius);
-}
-
-/** Crops an image to cover the box, weighted to its upper part as the site's frames are. */
-function drawCover(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number, focusY = 0.3) {
-  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
-  const sourceWidth = width / scale;
-  const sourceHeight = height / scale;
-  const sourceX = (image.naturalWidth - sourceWidth) / 2;
-  const sourceY = (image.naturalHeight - sourceHeight) * focusY;
-  context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
-}
-
-function drawLogo(context: CanvasRenderingContext2D, logo: HTMLImageElement | null, x: number, y: number, width: number) {
-  if (logo === null) return;
-  context.save();
-  context.shadowColor = "rgba(0, 0, 0, 0.55)";
-  context.shadowBlur = 18;
-  context.drawImage(logo, x, y, width, (width * logo.naturalHeight) / logo.naturalWidth);
-  context.restore();
 }
 
 /** `2/8` in the monospaced readout; over art it sits on a small night plate. */
@@ -477,11 +376,5 @@ export async function paintSlide(
 }
 
 export function slideToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => {
-    try {
-      canvas.toBlob(resolve, "image/png");
-    } catch {
-      resolve(null);
-    }
-  });
+  return canvasToBlob(canvas);
 }

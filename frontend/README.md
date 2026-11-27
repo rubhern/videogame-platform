@@ -96,6 +96,7 @@ score, game or account identifier, email or free text to an event.
 | `src/shared/brand/` | Canonical Gameómetro standalone mark and shared lockup SVGs and their inline components |
 | `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
 | `src/shared/score/` | Score temperature bands and the G-meter shared by the game page and personal ratings; the external player score check shared by discovery and the game page; the compact score readings shared by release discovery, search results and personal ratings |
+| `src/shared/share-image/` | Canvas drawing kit for exported PNG images, shared by the weekly social carousel and the public profile image |
 | `src/shared/ui/` | UI patterns with demonstrated cross-feature reuse |
 | `src/styles/` | Global Tailwind entry and shared visual foundations |
 | `src/test/` | Shared component-test setup |

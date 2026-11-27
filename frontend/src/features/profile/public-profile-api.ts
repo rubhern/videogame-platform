@@ -51,9 +51,10 @@ export async function getPublicProfile(alias: string, signal: AbortSignal) {
 
 export async function getPublicProfileSection(
   alias: string, section: PublicProfileSection, page: number, signal: AbortSignal, sort?: PublicProfileRatingSort,
+  pageSize = 12,
 ) {
   const { data, error, response } = await productApiClient.GET("/profiles/{alias}/sections/{section}", {
-    params: { path: { alias, section }, query: { page, pageSize: 12, ...(sort ? { sort } : {}) } },
+    params: { path: { alias, section }, query: { page, pageSize, ...(sort ? { sort } : {}) } },
     signal,
     cache: "no-store",
   });

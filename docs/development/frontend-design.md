@@ -1632,6 +1632,44 @@ returns to the first page on a change. Pagination returns focus to the section
 heading. **Estadísticas** groups the available counts and score extremes, then
 shows the mean on the G-meter and the ten score buckets with the shared histogram.
 
+**Profile image.** Post-MVP (#619, implemented; awaiting owner review). Beneath the
+share icon, a published profile offers **Crear imagen para compartir**, a native
+disclosure that reads nothing until it opens. It holds **Tu perfil en una imagen**:
+the preview, which is the exact PNG painted on a canvas, beside its choices from
+760px and above them on phones. The canvas is an image whose accessible name states
+its whole content in words. **Qué aparece** offers three checkboxes, each described
+by what it adds or by why it cannot: **Juegos puntuados**, with **Qué juegos**
+(**Notas más altas** or **Notas recientes**), **Así puntúo** and **Mis deseados**.
+**Formato** offers **Publicación** (1080×1350, 4:5) or **Historia** (1080×1920,
+9:16), whose copy keeps clear of the apps' own top and bottom bars. Its **Más info**
+says the image is made in the browser from the public profile, that Gameómetro keeps
+no copy, and that recipients can keep and forward it. Where the browser can
+share files, **Compartir imagen** leads and **Descargar imagen** follows; elsewhere
+**Descargar imagen** leads and **Copiar enlace** copies the message and link.
+
+The image follows the [brand identity](#brand-identity) on night. The lockup and a
+**PERFIL DE JUGADOR** readout open it, then `@alias` in the wide heavy cut with its
+`@` in ice over one short fire rule. Each block has a condensed ice label, an ice
+hairline and its count. Up to three games stand on thermal steps: the highest score
+in the middle on a larger frame, with equal scores sharing a rank, or the latest
+three in order, unranked. Each step names the temperature and rank, so the cover
+stays whole, and the score and title follow beneath it. **Así puntúo** pairs the
+G-meter and the mean, with its temperature in words, with the ten thermal columns.
+The fire needle marks the exact mean behind them. **Mis deseados** shows up to six
+covers in saved order, the last one a `+N` tile when more remain. Without rated games
+these covers become the image's wall. Blocks scale together to fill the format. The
+first cover shown lights the stage behind its block, and a product fallback never
+does. A failed cover keeps its game's title on the fallback. The footer prints the
+profile address and, beside any provider cover, **Datos e imágenes: IGDB**
+([ADR-0001](../decisions/0001-reference-igdb-cover-images.md)). An image with no
+block chosen keeps the alias and an invitation to the link.
+
+Before any file leaves the page, the public profile is read again. A withdrawn
+profile replaces the studio with an informational notice and produces no image. A
+chosen section that is no longer shared refreshes the preview and asks the player to
+review it. A cancelled share stays silent, and a failed share or export is an alert
+that keeps the download available.
+
 ## Preferred platforms
 
 Post-MVP (#295, implemented; awaiting owner review). A signed-in player's preferred platforms
@@ -2054,6 +2092,13 @@ and Keycloak security actions are the plate's destinations, each one link with a
 arrow; export is one primary button with preparation, completion and failure states. Never
 render cached personal details without a current session; loading keeps one live status over
 placeholders shaped like the zones they replace.
+
+Each zone's explanation — what the export contains, what deletion removes and, in the
+profile image, what recipients can keep — waits behind a quiet native **Más info**
+disclosure, closed by default (owner request, 2026-11-27). Its summary is an ice text control
+with a turning chevron and a 44px target, and its accessible name adds the subject
+(`Más info sobre el borrado`). Starting the deletion confirmation opens the deletion's, so its
+consequences are in view before confirming.
 
 Deletion is a restrained danger outline, with its consequences in words. It states no backup or
 legal-retention limitation (owner decision, 2026-11-13): [the published legal texts](../legal/public-texts-es.md)

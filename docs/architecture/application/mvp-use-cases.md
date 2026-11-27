@@ -895,5 +895,12 @@ An unknown, private or retired alias and an unavailable section return 404. Expo
 and erasure cover the assignment and settings described in the
 [data-protection record](../../development/data-protection.md#record-of-processing-activities).
 
+Post-MVP (#619), the player can turn the published profile into an image from
+**Mi perfil**. The browser builds it only from the public reads above, and only
+with the blocks the player chooses among the sections currently shared. Before a
+file is produced, the browser reads the public profile again. A private profile, or
+one that stopped sharing a chosen section, produces no image. Gameómetro neither
+receives nor stores the image, and no new HTTP operation exists for it.
+
 See the [HTTP contract](../api/openapi.yaml) and
 [ADR-0053](../../decisions/0053-publish-revocable-player-profiles-by-alias.md).
