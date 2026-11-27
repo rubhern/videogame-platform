@@ -219,6 +219,11 @@ without a linked account so old links cannot name another player.
 Friends who tried the public release asked about seeing what other people play
 and sharing lists. That is an early qualitative signal. The hypothesis is that
 an explicitly shared profile gives players something worth sending to friends.
+Post-MVP (#619), the player can also share the published profile as a branded
+image for social networks or messaging, with the profile link. The image includes
+only content the profile already shows. The player chooses the games with the
+highest or latest scores, how they score, and **Deseados**. Whether images bring
+visitors to profiles is a hypothesis to observe.
 See the [use case](../architecture/application/mvp-use-cases.md#public-player-profile-uc-027-post-mvp-593)
 and [ADR-0053](../decisions/0053-publish-revocable-player-profiles-by-alias.md).
 Public activation awaits owner acceptance.

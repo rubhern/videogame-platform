@@ -48,7 +48,11 @@ for (const width of [1320, 834, 390, 320]) {
     await page.getByRole("button", { name: "Exportar mis datos" }).click();
     expect((await download).suggestedFilename()).toBe("gameometro-datos.json");
     const trigger = page.getByRole("button", { name: "Eliminar mi cuenta", exact: true });
+    const consequences = page.getByText(/^Se eliminarán tu identidad/);
+    await expect(consequences).toBeHidden();
+    await expect(page.getByText(/^Descarga un archivo JSON/)).toBeHidden();
     await trigger.click();
+    await expect(consequences).toBeVisible();
     await expect(page.getByRole("button", { name: "Conservar mi cuenta" })).toBeFocused();
     await page.keyboard.press("Escape"); await expect(trigger).toBeFocused(); expect(commands).toBe(0);
     await trigger.click();

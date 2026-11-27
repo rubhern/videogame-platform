@@ -110,6 +110,63 @@
     text-wrap: pretty;
   }
 
+  /* A zone's explanation waits behind a quiet «Más info» disclosure, closed by default. */
+  .profile-more {
+    max-width: 62ch;
+    margin-block: -8px;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+
+  .profile-more summary {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-ice-light);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+    list-style: none;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 45%, transparent);
+    text-underline-offset: 4px;
+  }
+
+  .profile-more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .profile-more summary::after {
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    content: "";
+  }
+
+  .profile-more[open] summary::after {
+    transform: translateY(2px) rotate(225deg);
+  }
+
+  .profile-more summary:hover {
+    color: #fff;
+    text-decoration-color: currentColor;
+  }
+
+  .profile-more summary:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 4px;
+  }
+
+  .profile-more-body p {
+    margin: 0 0 8px;
+    text-wrap: pretty;
+  }
+
   /* The zone's index in the instrument's readout voice; the channel carries it on wide screens. */
   .profile-index {
     color: var(--color-ice);
@@ -209,7 +266,9 @@
     }
 
     .profile-data > p,
-    .profile-danger > p {
+    .profile-danger > p,
+    .profile-data > .profile-more,
+    .profile-danger > .profile-more {
       grid-column: 1;
     }
 
@@ -378,6 +437,10 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
+    .profile-more summary::after {
+      transition: transform var(--duration-fast) var(--ease-out);
+    }
+
     .profile-destination {
       transition:
         border-color var(--duration-fast) var(--ease-out),

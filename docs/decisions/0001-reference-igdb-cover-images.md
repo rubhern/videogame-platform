@@ -122,3 +122,19 @@ presented as product-owned.
 Reopen the exception, and return the carousel to product-owned imagery, on a rights complaint,
 on an IGDB or Twitch terms change that covers redistribution, or when publishing becomes
 automated.
+
+## Amendment 2026-11-27
+
+Owner decision ([#619](https://github.com/rubhern/videogame-platform/issues/619)): a player's
+public profile image may draw the IGDB covers of the games that profile already shows publicly.
+This extends the 2026-11-22 exception from the operator's carousel to an export each player makes
+deliberately from **Mi perfil**, and to nothing else. The player's browser loads the covers from
+the allowlisted CDN with a cross-origin request, paints them whole or cropped into an in-memory
+canvas, and re-encodes the PNG the player downloads or hands to another app. Gameómetro's server
+neither stores the image nor makes a provider call for it. The image credits **Datos e imágenes:
+IGDB**, and a cover that fails to load becomes the product fallback with the game's title. The
+owner accepts the added rights uncertainty of redistribution by players.
+
+Reopen this extension together with the carousel's, and return the profile image to product-owned
+imagery, on a rights complaint, on an IGDB or Twitch terms change that covers redistribution, or
+when an image is published or stored by Gameómetro rather than exported by the player.

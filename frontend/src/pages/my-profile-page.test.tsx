@@ -53,6 +53,24 @@ describe("Mi perfil", () => {
     expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toHaveAttribute("href", "/mis-puntuaciones");
     expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
   });
+  it("keeps each zone's explanation behind Más info and opens the deletion's with its confirmation", async () => {
+    bff(); renderApp("/mi-perfil");
+    const user = userEvent.setup();
+    const exportInfo = await screen.findByText(/^Descarga un archivo JSON/);
+    const deletionInfo = screen.getByText(/^Se eliminarán tu identidad/);
+    expect(exportInfo).not.toBeVisible();
+    expect(deletionInfo).not.toBeVisible();
+
+    // Each summary reads «Más info» and names its subject for assistive technology.
+    const moreInfo = (about: string) => screen.getByText((_, element) =>
+      element?.tagName === "SUMMARY" && element.textContent === `Más info ${about}`);
+    await user.click(moreInfo("sobre la exportación"));
+    expect(exportInfo).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Eliminar mi cuenta" }));
+    expect(deletionInfo).toBeVisible();
+    expect(moreInfo("sobre el borrado").closest("details")).toHaveAttribute("open");
+  });
   it("keeps account, sharing, export and erasure as separate sections", async () => {
     bff(); renderApp("/mi-perfil");
     const zones = await screen.findAllByRole("heading", { level: 2 });

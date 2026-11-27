@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ProfileError } from "./profile-api";
+import { ProfileShareImage } from "./profile-share-image";
 import {
   ALIAS_PATTERN,
   getMyPublicProfileSettings,
@@ -143,6 +144,7 @@ export function PublicProfileSettingsPanel({ csrfToken }: { csrfToken: string })
               <ShareProfileButton key={initial.alias} alias={initial.alias} />
             </div>
           ) : null}
+          {initial.published ? <ProfileShareImage key={initial.alias} alias={initial.alias} /> : null}
         </>
       ) : null}
     </section>

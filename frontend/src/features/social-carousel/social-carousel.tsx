@@ -9,6 +9,7 @@ import {
 } from "../releases/featured-releases-view-model";
 import type { ReleasesApiError } from "../releases/releases-api";
 import { featuredReleasesQueryOptions } from "../releases/use-featured-releases-query";
+import { canShareImages, saveBlob } from "../../shared/share-image/canvas-kit";
 import { loadSlideAssets, paintSlide, slideToBlob, type SlideAssets } from "./slide-painter";
 import {
   describeSlide,
@@ -25,25 +26,6 @@ const WEEK_PARAM = "week";
 
 function fileName(stem: string, index: number): string {
   return `${stem}-${String(index + 1).padStart(2, "0")}.png`;
-}
-
-function saveBlob(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-/** Whether the browser can hand PNG files to another app, as a phone's share sheet does. */
-function canShareImages(): boolean {
-  try {
-    return typeof navigator.canShare === "function" &&
-      navigator.canShare({ files: [new File([""], "slide.png", { type: "image/png" })] });
-  } catch {
-    return false;
-  }
 }
 
 function SlideCanvas({ slide, index, total, assets, register, onPainted }: {
