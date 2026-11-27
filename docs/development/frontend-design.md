@@ -861,15 +861,28 @@ platform without games adds **Aún sin juegos en Gameómetro** from the public d
 failure only leaves that line out. The section never varies on the session or `Mis plataformas`.
 
 **Tu criterio. Tu historia.** One opaque night plate with an ice top edge, scoped to the session.
-A signed-in player gets every destination of the account menu, by the names of the pages they
-open rather than the menu's shorter entries (**Mis juegos**, **Mis deseados**,
-**Mis puntuaciones**, **Tus estadísticas**, **Mis plataformas** and **Mi perfil**, in that order) as
-tiles: the menu's own glyph in a round ice chip, the name, one line on what it holds and a chevron,
-two columns from 720px and one below. An anonymous visitor gets one invitation, the keypad's
-ice-to-fire key, **Crear cuenta** (primary) and **Iniciar sesión** through the BFF, both returning
-to the home, and six short lines on what an account adds, each an implemented feature. The home never reads personal data:
-while the session is unknown the plate waits, and an unavailable session read offers the personal
-links without claiming the visitor is signed out.
+A signed-in player gets their own activity, not a copy of the account menu (#629, owner decision,
+2026-11-27). Under the claim, four figures in the instrument's ruled voice, each a link to its
+page: **Puntuados**, **Jugando**, **Completados** and **Deseados** (singular for one), four in a
+row and two by two below 480px, then **Ver tus estadísticas**. Beside them from 1024px and below
+them otherwise, two shelves side by side from 720px: **Jugando ahora**, the first three games in
+Jugando, most recently changed first, with **Desde el …**; and **Lo que más esperas**, the first
+three games of the wishlist in the player's own order, with ice place numerals and the compact
+date at its real precision (**Ya lanzado · …** once out, **Fecha por confirmar** without one).
+Each shelf names its page (**Mis juegos**, **Mis deseados**) and an empty shelf says in one line
+how it fills. These are the first pages of the existing private reads, never a larger page, and
+nothing personal is kept once the home unmounts; a rating, a state or a wish changed anywhere
+refreshes them. While they load, the figures and shelves wait as placeholders under one status;
+if any read fails, a danger notice with **Reintentar** replaces the figures and the four pages of
+the menu's **Tu actividad** stay as tiles by the names of the pages they open (**Mis juegos**,
+**Mis deseados**, **Mis puntuaciones**, **Tus estadísticas**): the menu's own glyph in a round ice
+chip, the name, one line on what it holds and a chevron, two columns from 720px and one below.
+An anonymous visitor gets one invitation, the keypad's ice-to-fire key, **Crear cuenta**
+(primary) and **Iniciar sesión** through the BFF, both returning to the home, and four short
+benefits of an account, each an implemented feature: **Puntúa en un toque**, **Sigue lo que
+esperas**, **Lleva tu colección** and **Comparte tu perfil**. Nothing personal is read for an
+anonymous visitor. While the session is unknown the plate waits, and an unavailable session read
+offers the same four tiles without claiming the visitor is signed out.
 
 **Pulso de la semana** (#584, implemented, awaiting owner review) closes the home before the site footer.
 It shows the number of community votes and measured visits for the last seven days in two lists. The first place

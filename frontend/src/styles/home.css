@@ -1268,6 +1268,187 @@
     border-color: var(--color-ice);
   }
 
+  /* A signed-in player's figures: each count a way into its page, ruled like an instrument's
+     scale; four in a row, two by two on the narrowest phones. */
+  .home-personal-tally {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px 0;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-personal-tally a {
+    display: grid;
+    min-height: 44px;
+    align-content: start;
+    gap: 6px;
+    border-inline-start: 1px solid var(--color-line);
+    padding: 2px 8px 2px 12px;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .home-personal-tally strong {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    font-stretch: 112%;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .home-personal-tally span {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .home-personal-tally a:hover strong {
+    color: var(--color-ice-light);
+  }
+
+  .home-personal-tally a:hover {
+    border-inline-start-color: var(--color-ice);
+  }
+
+  .home-personal-more {
+    display: inline-block;
+    margin-top: 22px;
+    font-size: 0.875rem;
+  }
+
+  .home-personal-intro .home-notice {
+    margin-top: 20px;
+  }
+
+  .home-personal-tally-skeleton {
+    display: block;
+    width: min(100%, 400px);
+    height: 58px;
+    margin-top: 24px;
+  }
+
+  /* What the player is playing and awaits most: two short shelves of the first games of each
+     page, side by side from tablet width. */
+  .home-personal-shelves {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .home-personal-shelf {
+    min-width: 0;
+    border-top: 1px solid var(--color-line);
+    padding-top: 14px;
+  }
+
+  .home-personal-shelf > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin-bottom: 4px;
+  }
+
+  .home-personal-shelf h3 {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-stretch: 104%;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .home-personal-shelf .view-action {
+    font-size: 0.8125rem;
+  }
+
+  .home-personal-shelf-empty {
+    max-width: 38ch;
+    margin: 10px 0 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .home-personal-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-personal-row {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-line) 60%, transparent);
+    padding-block: 8px;
+  }
+
+  .home-personal-row:last-child {
+    border-bottom: 0;
+  }
+
+  /* The wishlist keeps the player's order: its first places carry the ice numerals of Mis deseados. */
+  .home-personal-row[data-position] {
+    grid-template-columns: 0.875rem 2.25rem minmax(0, 1fr);
+  }
+
+  .home-personal-place {
+    color: var(--color-ice-light);
+    font-size: 1.0625rem;
+    font-stretch: 75%;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .home-personal-row .catalogue-cover {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+  }
+
+  .home-personal-record > a,
+  .home-personal-record > span {
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+  }
+
+  .home-personal-record > a:hover {
+    color: var(--color-ice-light);
+    text-decoration: underline;
+  }
+
+  .home-personal-record p {
+    margin: 3px 0 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+  }
+
+  .home-personal-shelf-skeleton {
+    display: block;
+    height: 220px;
+  }
+
   /* ---------------------------------------------------------------- Loading */
 
   .home-feature-pending {
@@ -1289,6 +1470,25 @@
     .home-personal {
       grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
       align-items: center;
+    }
+
+    /* The shelves need the room the figures do not. */
+    .home-personal[data-session="authenticated"] {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+      align-items: start;
+    }
+  }
+
+  @media (min-width: 720px) {
+    .home-personal-shelves {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px 28px;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .home-personal-tally {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 

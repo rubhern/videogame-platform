@@ -8,6 +8,9 @@ type ReleaseCalendar = components["schemas"]["ReleaseCalendar"];
 type GameRankingPage = components["schemas"]["GameRankingPage"];
 type RankingItem = GameRankingPage["items"][number];
 type ReleasePage = components["schemas"]["ReleasePage"];
+type LibraryPage = components["schemas"]["LibraryPage"];
+type WishlistPage = components["schemas"]["WishlistPage"];
+type PersonalRatingPage = components["schemas"]["PersonalRatingPage"];
 
 const PS5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" };
 const WORLD = { regionId: "20000000-0000-4000-8000-000000000001", name: "Mundial" };
@@ -154,10 +157,57 @@ export function homeRanking(
   };
 }
 
+/** A player's library read for the home: what they are playing now and the counts of every state. */
+export function homeLibrary(
+  playing: readonly { id: string; title: string; since: string }[] = [],
+  counts: Partial<LibraryPage["counts"]> = {},
+): LibraryPage {
+  const all = { wished: 0, backlog: 0, playing: playing.length, completed: 0, abandoned: 0, ...counts };
+  return {
+    items: playing.map(({ id, title, since }) => ({
+      gameId: id,
+      slug: id,
+      canonicalTitle: title,
+      primaryCover: fallbackCover,
+      state: "playing",
+      stateChangedAt: since,
+      released: true,
+    })),
+    counts: { ...all, total: all.wished + all.backlog + all.playing + all.completed + all.abandoned },
+    page: { number: 1, size: 3, totalItems: all.playing, totalPages: all.playing === 0 ? 0 : 1 },
+    ratedWithoutState: 0,
+  };
+}
+
+/** The first games of a player's wishlist, in their own order. */
+export function homeWishlist(items: WishlistPage["items"] = [], totalItems = items.length): WishlistPage {
+  return { items, page: { number: 1, size: 3, totalItems, totalPages: totalItems === 0 ? 0 : 1 } };
+}
+
+export function wishedGame(id: string, title: string, timing: "upcoming" | "released" | "undated", day?: string) {
+  return {
+    gameId: id,
+    slug: id,
+    canonicalTitle: title,
+    primaryCover: fallbackCover,
+    timing,
+    releaseDate: day === undefined ? { precision: "unknown", value: null } : { precision: "day", value: day },
+  } as const;
+}
+
+/** Only the total of a player's ratings is read on the home. */
+export function homeRatings(totalItems = 0): PersonalRatingPage {
+  return { items: [], page: { number: 1, size: 1, totalItems, totalPages: totalItems } };
+}
+
 type Handler = (url: URL) => Response | Promise<Response>;
 
 export type HomeApi = Partial<
-  Record<"session" | "preferences" | "featured" | "calendar" | "releases" | "rankings" | "platforms" | "votes" | "visits", Handler>
+  Record<
+    | "session" | "preferences" | "featured" | "calendar" | "releases" | "rankings" | "platforms" | "votes" | "visits"
+    | "library" | "wishlist" | "ratings",
+    Handler
+  >
 >;
 
 const defaults: Required<HomeApi> = {
@@ -172,6 +222,9 @@ const defaults: Required<HomeApi> = {
   votes: () => Response.json({ items: [] }),
   visits: () => Response.json({ items: [] }),
   platforms: () => Response.json({ items: [PS5, { platformId: "ps4", name: "PlayStation 4" }] }),
+  library: () => Response.json(homeLibrary()),
+  wishlist: () => Response.json(homeWishlist()),
+  ratings: () => Response.json(homeRatings()),
 };
 
 const routes: [string, keyof HomeApi][] = [
@@ -184,9 +237,12 @@ const routes: [string, keyof HomeApi][] = [
   ["/api/v1/home-rankings/votes", "votes"],
   ["/api/v1/home-rankings/visits", "visits"],
   ["/api/v1/platforms", "platforms"],
+  ["/api/v1/me/library", "library"],
+  ["/api/v1/me/wishlist", "wishlist"],
+  ["/api/v1/me/ratings", "ratings"],
 ];
 
-/** Stubs the bounded public reads the home composes; any one can be replaced to fail or empty. */
+/** Stubs the bounded reads the home composes, public and personal; any one can be replaced to fail or empty. */
 export function stubHomeApi(api: HomeApi = {}) {
   const handlers = { ...defaults, ...api };
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {

@@ -116,6 +116,34 @@ function ranking(source: string) {
 const directory = [PS5, PC, XBOX, { platformId: "10000000-0000-4000-8000-000000000002", name: "Nintendo Switch 2" },
   { platformId: "ps4-id", name: "PlayStation 4" }, { platformId: "android-id", name: "Android" }];
 
+const playing = (gameId: string, canonicalTitle: string, stateChangedAt: string) =>
+  ({ gameId, slug: gameId, canonicalTitle, primaryCover: fallbackCover, state: "playing", stateChangedAt, released: true });
+
+/** The first page of each private read the signed-in corner composes: Jugando with every state's count. */
+const library = {
+  items: [playing("hades-ii", "Hades II", "2026-11-12T10:00:00Z"), playing("balatro", "Balatro", "2026-09-02T10:00:00Z")],
+  counts: { wished: 17, backlog: 22, playing: 2, completed: 128, abandoned: 1, total: 170 },
+  page: { number: 1, size: 3, totalItems: 2, totalPages: 1 },
+  ratedWithoutState: 0,
+};
+
+const wished = (gameId: string, canonicalTitle: string, timing: string, releaseDate: { precision: string; value: string | null }) =>
+  ({ gameId, slug: gameId, canonicalTitle, primaryCover: fallbackCover, timing, releaseDate });
+
+const wishlist = {
+  items: [
+    wished("gta-vi", "Grand Theft Auto VI", "upcoming", { precision: "day", value: "2027-05-26" }),
+    wished("silksong", "Hollow Knight: Silksong", "released", { precision: "day", value: "2025-09-04" }),
+    wished("witcher-4", "The Witcher IV", "undated", { precision: "unknown", value: null }),
+  ],
+  page: { number: 1, size: 3, totalItems: 17, totalPages: 6 },
+};
+
+const ratings = { items: [], page: { number: 1, size: 1, totalItems: 312, totalPages: 312 } };
+
+/** Exact paths, so the wishlist read never answers the hearts' status read beside it. */
+const apiPath = (path: string) => (url: URL) => url.pathname === path;
+
 /** Every read the home composes, from fixtures; one can be replaced to fail. */
 async function stubHome(page: Page, options: { session?: object; failFeatured?: boolean } = {}) {
   const requests: string[] = [];
@@ -128,6 +156,9 @@ async function stubHome(page: Page, options: { session?: object; failFeatured?: 
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: options.session ?? { authenticated: false } }));
   await page.route("**/api/v1/me/platform-preferences", (route) => route.fulfill({ json: { configured: true, platforms: [] } }));
   await page.route("**/api/v1/me/wishlist/status?*", (route) => route.fulfill({ json: { gameIds: [] } }));
+  await page.route(apiPath("/api/v1/me/library"), (route) => route.fulfill({ json: library }));
+  await page.route(apiPath("/api/v1/me/wishlist"), (route) => route.fulfill({ json: wishlist }));
+  await page.route(apiPath("/api/v1/me/ratings"), (route) => route.fulfill({ json: ratings }));
   await page.route("**/api/v1/featured-releases*", (route) =>
     options.failFeatured
       ? route.fulfill({ status: 500, json: { code: "INTERNAL_ERROR", correlationId: "home-featured" } })
@@ -532,32 +563,81 @@ test("one failed preview leaves the rest of the home usable, also in forced colo
   expect(await clipped(page)).toEqual([]);
 });
 
-test("a signed-in player gets their own pages and no sign-in invitation", async ({ page }) => {
+/** How many distinct columns a set of elements occupies, by their rounded left edges. */
+const columns = (locator: ReturnType<Page["locator"]>) =>
+  locator.evaluateAll((elements) => new Set(elements.map((element) => Math.round(element.getBoundingClientRect().left))).size);
+
+test("a signed-in player gets their own activity and no sign-in invitation", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const requests = await stubHome(page, { session: { authenticated: true, csrfToken: "csrf", capabilities: [] } });
   await page.goto("/");
 
   const personal = page.getByRole("region", { name: "Tu criterio. Tu historia." });
-  await expect(personal.getByRole("link", { name: /Mis puntuaciones/ })).toHaveAttribute("href", "/mis-puntuaciones");
-  await expect(personal.getByRole("link", { name: /Tus estadísticas/ })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
+  const tally = personal.getByRole("list", { name: "Tu actividad en cifras" }).getByRole("link");
+  await expect(tally).toHaveText(["312 Puntuados", "2 Jugando", "128 Completados", "17 Deseados"]);
+  await expect(personal.getByRole("link", { name: /^Ver tus estadísticas/ })).toHaveAttribute("href", "/mis-puntuaciones/estadisticas");
+  const shelves = personal.getByRole("region");
+  await expect(shelves).toHaveCount(2);
+  const playingNow = personal.getByRole("region", { name: "Jugando ahora" });
+  await expect(playingNow.getByRole("link", { name: "Hades II", exact: true })).toHaveAttribute("href", "/games/hades-ii/hades-ii");
+  await expect(playingNow).toContainText("Desde el 12 de noviembre de 2026");
+  const awaited = personal.getByRole("region", { name: "Lo que más esperas" });
+  await expect(awaited.getByRole("listitem")).toHaveCount(3);
+  await expect(awaited.getByRole("link", { name: /^Puesto 1\.\s*Grand Theft Auto VI$/ })).toBeVisible();
+  await expect(awaited).toContainText("Fecha por confirmar");
   await expect(personal.getByRole("link", { name: "Crear cuenta" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: `La quiero: ${LEAD}` }))
     .toHaveAttribute("aria-pressed", "false");
+
+  // Three bounded first pages beside the hearts' status read, and nothing else personal.
   const personalReads = requests
     .map((path) => new URL(path, "https://gameometro.test"))
     .filter((url) => url.pathname.startsWith("/api/v1/me/") && url.pathname !== "/api/v1/me/platform-preferences");
-  expect(personalReads.map((url) => url.pathname)).toEqual(["/api/v1/me/wishlist/status"]);
-  expect(personalReads[0]?.searchParams.getAll("gameIds")).toEqual(featured.items.map((item) => item.gameId));
+  expect(personalReads.map((url) => url.pathname + url.search).filter((read) => !read.startsWith("/api/v1/me/wishlist/status")).sort())
+    .toEqual([
+      "/api/v1/me/library?state=playing&page=1&pageSize=3",
+      "/api/v1/me/ratings?page=1&pageSize=1",
+      "/api/v1/me/wishlist?page=1&pageSize=3",
+    ]);
+  const status = personalReads.find((url) => url.pathname === "/api/v1/me/wishlist/status");
+  expect(status?.searchParams.getAll("gameIds")).toEqual(featured.items.map((item) => item.gameId));
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
-  // Every account-menu destination is a tile: two columns from tablet width, one on phones.
-  const tiles = personal.getByRole("list", { name: "Tu espacio en Gameómetro" }).getByRole("link");
-  await expect(tiles).toHaveCount(6);
-  for (const [width, columns] of [[1320, 2], [834, 2], [390, 1], [320, 1]] as const) {
+
+  // Figures four in a row and two by two on phones; shelves side by side from tablet width.
+  for (const [width, figures, shelfColumns] of [[1320, 4, 2], [834, 4, 2], [390, 2, 1], [320, 2, 1]] as const) {
     await page.setViewportSize({ width, height: 900 });
-    const lefts = new Set(await tiles.evaluateAll((links) => links.map((link) => Math.round(link.getBoundingClientRect().left))));
-    expect(lefts.size).toBe(columns);
+    expect(await columns(tally)).toBe(figures);
+    expect(await columns(shelves)).toBe(shelfColumns);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
     await personal.screenshot({ path: test.info().outputPath(`home-personal-${width}.png`) });
   }
+});
+
+test("a signed-in player whose activity cannot be read keeps every personal page and can retry", async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await stubHome(page, { session: { authenticated: true, csrfToken: "csrf", capabilities: [] } });
+  let available = false;
+  await page.route(apiPath("/api/v1/me/library"), (route) =>
+    available
+      ? route.fulfill({ json: library })
+      : route.fulfill({ status: 500, json: { code: "INTERNAL_ERROR", correlationId: "home-library" } }));
+  await page.goto("/");
+
+  const personal = page.getByRole("region", { name: "Tu criterio. Tu historia." });
+  await expect(personal.getByRole("alert")).toContainText("No se pudo cargar tu actividad");
+  // The four pages of the account menu's Tu actividad: two columns from tablet width, one on phones.
+  const tiles = personal.getByRole("list", { name: "Tu espacio en Gameómetro" }).getByRole("link");
+  await expect(tiles).toHaveCount(4);
+  expect(await columns(tiles)).toBe(2);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect(await columns(tiles)).toBe(1);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+
+  available = true;
+  await personal.getByRole("button", { name: "Reintentar" }).click();
+  await expect(personal.getByRole("list", { name: "Tu actividad en cifras" })).toBeVisible();
+  await expect(tiles).toHaveCount(0);
 });
